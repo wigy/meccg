@@ -80,8 +80,13 @@ export interface OrderEffectsAction {
  * Each match records the keying method and the specific value that matched.
  */
 export interface CreatureKeyingMatch {
-  /** How the creature was keyed: by region type, region name, site type, or specific site name. */
-  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name';
+  /**
+   * How the creature was keyed. `keying-bypass` is a special method used
+   * when an active constraint (e.g. Dragon's Desolation Mode B) permits
+   * the creature play without satisfying any path-based keying — the
+   * `value` records the race that was whitelisted.
+   */
+  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'keying-bypass';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain"). */
   readonly value: string;
 }
@@ -239,6 +244,24 @@ export interface HalveStrikesAction {
   /** Action discriminant. */
   readonly type: 'halve-strikes';
   /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The short event card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Discard a short event card from hand to modify the current attack's
+ * strike prowess and/or creature body. Played by the attacker or
+ * defender per the card's `modify-attack-from-hand` effect. Only legal
+ * during assign-strikes before any strikes have been assigned.
+ *
+ * Used by Dragon's Desolation (tw-29) Mode A — hazard player plays to
+ * give +2 prowess to a Dragon attack.
+ */
+export interface ModifyAttackFromHandAction {
+  /** Action discriminant. */
+  readonly type: 'modify-attack-from-hand';
+  /** The player playing the card from hand. */
   readonly player: PlayerId;
   /** The short event card being played from hand. */
   readonly cardInstanceId: CardInstanceId;

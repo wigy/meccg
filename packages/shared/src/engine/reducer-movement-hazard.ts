@@ -9,7 +9,7 @@
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import type { CardInstanceId } from '../types/common.js';
+import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
@@ -238,8 +238,13 @@ function handlePlayHazardCard(
 
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
-    const keyError = checkCreatureKeying(def, mhState);
-    if (keyError) return { state, error: keyError };
+    const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
+    if (!viaKeyingBypass) {
+      const keyError = checkCreatureKeying(def, mhState);
+      if (keyError) return { state, error: keyError };
+    } else {
+      logDetail(`Creature "${def.name}" played via keying-bypass constraint (race "${def.race}")`);
+    }
 
     const raceExempt = isCreatureRaceExempt(state, action, def);
     const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
@@ -257,6 +262,12 @@ function handlePlayHazardCard(
         resourcePlayerPassed: false,
       },
     };
+
+    // Consume one charge of any matching creature-keying-bypass constraint
+    // on the target company when the creature was keyed via bypass.
+    if (viaKeyingBypass) {
+      newState = consumeCreatureKeyingBypass(newState, action.targetCompanyId, def.race);
+    }
 
     // Initiate chain — when creature entry resolves, combat will start (TODO)
     newState = initiateChain(newState, action.player, handCard, { type: 'creature' });
@@ -287,21 +298,39 @@ function handlePlayHazardCard(
       },
     };
 
-    // creature-race-choice: add constraint for the chosen race
+    // creature-race-choice: add constraint for the chosen race. The kind
+    // of constraint depends on the effect's `apply.constraint` name —
+    // `creature-type-no-hazard-limit` (Two or Three Tribes Present) or
+    // `creature-keying-bypass` (Dragon's Desolation Mode B).
     if (action.type === 'play-hazard' && action.chosenCreatureRace && def.effects) {
+      const raceChoice = def.effects.find(
+        e => e.type === 'creature-race-choice',
+      );
       const activePlayerId = newState.activePlayer;
-      if (activePlayerId) {
+      if (raceChoice && activePlayerId) {
         const activeIndex = newState.players[0].id === activePlayerId ? 0 : 1;
         const targetCompany = newState.players[activeIndex].companies[mhState.activeCompanyIndex];
         if (targetCompany) {
-          logDetail(`Short-event "${def.name}": adding creature-type-no-hazard-limit constraint for race "${action.chosenCreatureRace}" on company ${targetCompany.id as string}`);
-          newState = addConstraint(newState, {
-            source: handCard.instanceId,
-            sourceDefinitionId: handCard.definitionId,
-            scope: { kind: 'company-mh-phase', companyId: targetCompany.id },
-            target: { kind: 'company', companyId: targetCompany.id },
-            kind: { type: 'creature-type-no-hazard-limit', exemptRace: action.chosenCreatureRace },
-          });
+          const constraintName = raceChoice.apply.constraint;
+          if (constraintName === 'creature-keying-bypass') {
+            logDetail(`Short-event "${def.name}": adding creature-keying-bypass constraint for race "${action.chosenCreatureRace}" on company ${targetCompany.id as string}`);
+            newState = addConstraint(newState, {
+              source: handCard.instanceId,
+              sourceDefinitionId: handCard.definitionId,
+              scope: { kind: 'company-mh-phase', companyId: targetCompany.id },
+              target: { kind: 'company', companyId: targetCompany.id },
+              kind: { type: 'creature-keying-bypass', race: action.chosenCreatureRace, remainingPlays: 1 },
+            });
+          } else {
+            logDetail(`Short-event "${def.name}": adding creature-type-no-hazard-limit constraint for race "${action.chosenCreatureRace}" on company ${targetCompany.id as string}`);
+            newState = addConstraint(newState, {
+              source: handCard.instanceId,
+              sourceDefinitionId: handCard.definitionId,
+              scope: { kind: 'company-mh-phase', companyId: targetCompany.id },
+              target: { kind: 'company', companyId: targetCompany.id },
+              kind: { type: 'creature-type-no-hazard-limit', exemptRace: action.chosenCreatureRace },
+            });
+          }
         }
       }
     }
@@ -1795,6 +1824,39 @@ function isCreatureRaceExempt(state: GameState, action: GameAction, def: Creatur
       && c.kind.type === 'creature-type-no-hazard-limit'
       && c.kind.exemptRace === def.race,
   );
+}
+
+/**
+ * Consume one charge of a matching `creature-keying-bypass` constraint
+ * on the target company. Decrements `remainingPlays`; removes the
+ * constraint entirely when the count reaches zero. Called immediately
+ * after a creature is played via the `keying-bypass` keyedBy method.
+ */
+function consumeCreatureKeyingBypass(
+  state: GameState,
+  companyId: CompanyId,
+  race: string,
+): GameState {
+  const idx = state.activeConstraints.findIndex(
+    c => c.target.kind === 'company'
+      && c.target.companyId === companyId
+      && c.kind.type === 'creature-keying-bypass'
+      && c.kind.race === race
+      && c.kind.remainingPlays > 0,
+  );
+  if (idx < 0) return state;
+  const existing = state.activeConstraints[idx];
+  if (existing.kind.type !== 'creature-keying-bypass') return state;
+  const next = existing.kind.remainingPlays - 1;
+  const updated = [...state.activeConstraints];
+  if (next <= 0) {
+    logDetail(`Creature-keying-bypass constraint consumed and removed (race "${race}", company ${companyId as string})`);
+    updated.splice(idx, 1);
+  } else {
+    logDetail(`Creature-keying-bypass constraint consumed (race "${race}", company ${companyId as string}, remainingPlays ${existing.kind.remainingPlays} → ${next})`);
+    updated[idx] = { ...existing, kind: { ...existing.kind, remainingPlays: next } };
+  }
+  return { ...state, activeConstraints: updated };
 }
 
 /**

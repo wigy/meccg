@@ -60,6 +60,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleHalveStrikes(state, action, combat);
     case 'modify-attack':
       return handleModifyAttack(state, action, combat);
+    case 'modify-attack-from-hand':
+      return handleModifyAttackFromHand(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
     default:
@@ -1304,6 +1306,68 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
     state: {
       ...state,
       players: newPlayers,
+      combat: {
+        ...combat,
+        strikeProwess: newStrikeProwess,
+        creatureBody: newCreatureBody,
+      },
+    },
+  };
+}
+
+/**
+ * Discard a short event card from hand to modify the current attack's
+ * strike prowess and/or creature body. Applies the modifiers uniformly:
+ * prowess to every strike (via `combat.strikeProwess`) and body to the
+ * creature body check (via `combat.creatureBody`). Either the attacker
+ * or the defender may play such an event, per the card's effect
+ * declaration.
+ *
+ * Used by Dragon's Desolation (tw-29) Mode A — hazard-side short event
+ * that boosts one Dragon attack by +2 prowess.
+ */
+function handleModifyAttackFromHand(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'modify-attack-from-hand') return wrongActionType(state, action, 'modify-attack-from-hand');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only modify attack before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to modify attack' };
+
+  const playerIndex = state.players.findIndex(p => p.id === action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIndex];
+
+  const cardIndex = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+
+  const handCard = player.hand[cardIndex];
+  const cardDef = state.cardPool[handCard.definitionId as string];
+  if (!cardDef || !('effects' in cardDef) || !cardDef.effects) return { state, error: 'Card has no effects' };
+  const effect = cardDef.effects.find(
+    (e): e is import('../types/effects.js').ModifyAttackFromHandEffect => e.type === 'modify-attack-from-hand',
+  );
+  if (!effect) return { state, error: 'Card has no modify-attack-from-hand effect' };
+
+  const expectedPlayerId = effect.player === 'attacker'
+    ? combat.attackingPlayerId
+    : combat.defendingPlayerId;
+  if (action.player !== expectedPlayerId) {
+    return { state, error: `Only ${effect.player === 'attacker' ? 'attacking' : 'defending'} player can play this card` };
+  }
+
+  const prowessModifier = effect.prowessModifier ?? 0;
+  const bodyModifier = effect.bodyModifier ?? 0;
+
+  const newHand = [...player.hand];
+  const [discardedCard] = newHand.splice(cardIndex, 1);
+  const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+
+  const newStrikeProwess = combat.strikeProwess + prowessModifier;
+  const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
+  const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
+  logDetail(`Modify-attack-from-hand: ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+
+  return {
+    state: {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: {
         ...combat,
         strikeProwess: newStrikeProwess,
