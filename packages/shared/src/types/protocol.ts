@@ -200,6 +200,20 @@ export interface StateMessage {
    * notification describing what the opponent just did.
    */
   readonly lastAction?: GameAction;
+  /**
+   * Card definition IDs for every CardInstanceId referenced in
+   * {@link lastAction}, resolved against the post-action authoritative
+   * state. Present iff `lastAction` is present.
+   *
+   * Card plays are public, but the played card may land in a pile whose
+   * contents the opponent cannot peruse (e.g. a short-event that moves
+   * straight from the player's hand to their face-down discard pile).
+   * With only the projected `view`, the client cannot map the action's
+   * instance IDs back to card names. This field lets `describeAction`
+   * name the played card in the opponent's toast and log without
+   * widening the general projection.
+   */
+  readonly lastActionCardDefs?: Readonly<Record<string, CardDefinitionId>>;
 }
 
 /**
