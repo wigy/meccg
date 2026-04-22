@@ -109,10 +109,28 @@
     "body": 7,
     "killMarshallingPoints": 4,
     "race": "dragon",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "siteNames": ["Isle of the Ulond"]
+      },
+      {
+        "regionNames": [
+          "Andrast Coast",
+          "Bay of Belfalas",
+          "Eriadoran Coast",
+          "Andrast"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Unique. May be played at Isle of the Ulond. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Andrast Coast, Bay of Belfalas, Eriadoran Coast, and Andrast; and may also be played at sites in these regions.",
-    "manifestId": "td-20"
+    "manifestId": "td-20",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
