@@ -20,6 +20,29 @@ import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+
+/**
+ * Returns true if the site carries a `deny-character` site-rule that matches
+ * this character. The rule's `filter` is evaluated against the character's
+ * card definition (dot paths reference fields like `race`, `name`, etc.).
+ * When the rule declares `exceptHomesite: true`, a character whose `homesite`
+ * equals the site's name is never denied.
+ *
+ * Example — Carn Dûm (le-359): non-Orc, non-Troll characters are denied
+ * unless the site is the character's home site.
+ */
+function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard): boolean {
+  if (!siteDef.effects) return false;
+  for (const eff of siteDef.effects) {
+    if (eff.type !== 'site-rule' || eff.rule !== 'deny-character') continue;
+    if (eff.exceptHomesite && charDef.homesite === siteDef.name) continue;
+    if (matchesCondition(eff.filter, charDef as unknown as Record<string, unknown>)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Returns true if the character declares the `home-site-only` play-flag.
@@ -94,6 +117,10 @@ function findPlayableSites(
     const isHomesite = siteDef.name === charDef.homesite;
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+      if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
+        logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
+        continue;
+      }
       results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
@@ -116,6 +143,10 @@ function findPlayableSites(
     const isHomesite = siteDef.name === charDef.homesite;
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+      if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
+        logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
+        continue;
+      }
       results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }

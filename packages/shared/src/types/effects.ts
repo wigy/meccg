@@ -713,6 +713,7 @@ export interface ItemPlaySiteEffect extends EffectBase {
 export type SiteRuleEffect =
   | HealingAffectsAllSiteRule
   | DenyItemSiteRule
+  | DenyCharacterSiteRule
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
   | AttacksNotDetainmentSiteRule
@@ -742,6 +743,33 @@ export interface DenyItemSiteRule extends EffectBase {
   readonly rule: 'deny-item';
   /** DSL condition evaluated against each item's card definition. */
   readonly when: Condition;
+}
+
+/**
+ * Denies playing (from hand) any character whose card definition matches
+ * the `filter` condition at this site. The filter is evaluated against
+ * the character card definition using the standard DSL matcher. When
+ * `exceptHomesite` is true, the rule does NOT deny a character whose
+ * `homesite` equals this site's name.
+ *
+ * Example — Carn Dûm (le-359): "Unless this site is a character's home
+ * site, a non-Orc, non-Troll character may not be brought into play at
+ * this site." Encoded as a filter that matches characters whose race is
+ * not Orc and not Troll, with `exceptHomesite: true`:
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deny-character",
+ *   "filter": { "$not": { "race": { "$in": ["orc", "troll"] } } },
+ *   "exceptHomesite": true }
+ * ```
+ */
+export interface DenyCharacterSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'deny-character';
+  /** DSL condition evaluated against the character card definition. */
+  readonly filter: Condition;
+  /** If true, the rule is waived for a character whose homesite is this site. */
+  readonly exceptHomesite?: boolean;
 }
 
 /**

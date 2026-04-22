@@ -337,7 +337,7 @@
     "havenPaths": {
       "Dol Guldur": [
         "dark",
-        "shadow",
+        "border",
         "dark",
         "shadow"
       ],
@@ -355,9 +355,13 @@
     "hazardDraws": 2,
     "text": "Unless this site is a character's home site, a non-Orc, non-Troll character may not be brought into play at this site. Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
+      { "type": "site-rule", "rule": "deny-character",
+        "filter": { "$not": { "race": { "$in": ["orc", "troll"] } } },
+        "exceptHomesite": true },
       { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
       { "type": "site-rule", "rule": "cancel-attacks" }
-    ]
+    ],
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-site",

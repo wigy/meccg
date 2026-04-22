@@ -686,6 +686,23 @@ Rules:
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
   ```
 
+- `deny-character` — during the organization phase, characters whose card
+  definition matches the `filter` cannot be brought into play at this site.
+  When `exceptHomesite: true`, the rule is waived for a character whose
+  `homesite` equals this site's name. Consumed by
+  `legal-actions/organization-characters.ts` — the matching sites are
+  simply excluded from the character's playable sites (and thus from
+  `play-character` legal actions, covering both general-influence and
+  direct-influence follower plays). Used by Carn Dûm (le-359): "Unless
+  this site is a character's home site, a non-Orc, non-Troll character
+  may not be brought into play at this site."
+
+  ```json
+  { "type": "site-rule", "rule": "deny-character",
+    "filter": { "$not": { "race": { "$in": ["orc", "troll"] } } },
+    "exceptHomesite": true }
+  ```
+
 - `never-taps` — the site's status never transitions to `Tapped`. The two
   normal tap-sites — a resource (item/ally) being played on a character at
   this site, and an influence attempt resolving at this site — both skip
