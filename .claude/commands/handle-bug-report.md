@@ -19,14 +19,19 @@ The message ID argument is: $ARGUMENTS
 
 Follow these steps:
 
-1. **Log in as ai (read-only):** Get a session cookie for the ai account so you can fetch the message:
+1. **Log in as ai (read-only):** First resolve the lobby URL and master key from the environment, so this works both for local co-located runs and for remote workers talking to a hosted lobby:
    ```
-   SESSION=$(curl -s -c - -X POST http://localhost:8080/api/login -H 'Content-Type: application/json' -d "{\"name\":\"ai\",\"password\":\"$(jq -r .masterKey ~/.meccg/secrets.json)\"}" | grep meccg-session | awk '{print $NF}')
+   BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"; BASE_URL="${BASE_URL%/}"
+   MASTER_KEY="${MECCG_MASTER_KEY:-$(jq -r .masterKey ~/.meccg/secrets.json)}"
+   ```
+   Then get a session cookie for the ai account:
+   ```
+   SESSION=$(curl -s -c - -X POST "$BASE_URL/api/login" -H 'Content-Type: application/json' -d "{\"name\":\"ai\",\"password\":\"$MASTER_KEY\"}" | grep meccg-session | awk '{print $NF}')
    ```
 
 2. **Fetch the message:** Read the full message from the ai inbox:
    ```
-   curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
+   curl -s "$BASE_URL/api/mail/inbox/<msg-id>" -b "meccg-session=$SESSION"
    ```
    If not found, stop and emit a `success: false` result block. Extract the `body` (bug description), `from` (who reported it), `subject`, and `keywords`.
 
@@ -40,9 +45,8 @@ Follow these steps:
 
    a. **Load card data:** Fetch the instance-to-definition mapping and card definitions used in this game from the lobby server:
       ```
-      MASTER_KEY=$(jq -r .masterKey ~/.meccg/secrets.json)
       curl -s -H "Authorization: Bearer $MASTER_KEY" \
-        "http://localhost:8080/api/system/games/<gameId>/cards" -o /tmp/<gameId>-cards.json
+        "$BASE_URL/api/system/games/<gameId>/cards" -o /tmp/<gameId>-cards.json
       ```
       Then Read `/tmp/<gameId>-cards.json`. If the request returns 404, the game log does not exist on the server — stop and emit `success: false`.
 
@@ -51,7 +55,7 @@ Follow these steps:
    c. **Load the game log:** Fetch the JSONL state log from the lobby server:
       ```
       curl -s -H "Authorization: Bearer $MASTER_KEY" \
-        "http://localhost:8080/api/system/games/<gameId>/log" -o /tmp/<gameId>.jsonl
+        "$BASE_URL/api/system/games/<gameId>/log" -o /tmp/<gameId>.jsonl
       ```
       Then Read `/tmp/<gameId>.jsonl`. Each line is a state snapshot:
       ```

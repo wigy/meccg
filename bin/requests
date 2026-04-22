@@ -9,6 +9,13 @@
 # Feature-requests go to the admin inbox; everything else (certification,
 # card, planning, implementation, bug-report) goes to the ai inbox. Both
 # are scanned so all requests appear in one place.
+#
+# Remote mode: if MECCG_LOBBY_URL is set, list mode queries the lobby API
+# (/api/system/ai-requests, with ?all=true for --all) instead of the local
+# filesystem, so remote workers can inspect a hosted lobby's queue. Master
+# key is taken from MECCG_MASTER_KEY or ~/.meccg/secrets.json. `del` is
+# local-only — the API surface does not expose cross-inbox deletion — and
+# will refuse to run against a remote lobby.
 set -euo pipefail
 
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
@@ -17,15 +24,37 @@ Usage:
   bin/requests              List unhandled requests (status=new)
   bin/requests --all        List all requests, including handled and old ones
   bin/requests del <id>     Delete every copy of the given mail id across
-                            all player mailboxes
+                            all player mailboxes (local-only)
   bin/requests -h | --help  Show this help message
 
 Feature-requests go to the admin inbox; everything else (certification,
 card, planning, implementation, bug-report) goes to the ai inbox. Both are
 scanned so all requests appear in one place.
+
+Environment:
+  MECCG_LOBBY_URL   Lobby base URL. When set, list mode queries the lobby
+                    API instead of the local filesystem.
+  MECCG_MASTER_KEY  Lobby master key. Falls back to ~/.meccg/secrets.json
+                    when unset.
 EOF
   exit 0
 fi
+
+BASE_URL="${MECCG_LOBBY_URL:-}"
+BASE_URL="${BASE_URL%/}"
+
+master_key() {
+  if [ -n "${MECCG_MASTER_KEY:-}" ]; then
+    echo "$MECCG_MASTER_KEY"
+    return 0
+  fi
+  if [ -f "$HOME/.meccg/secrets.json" ]; then
+    jq -r .masterKey "$HOME/.meccg/secrets.json"
+    return 0
+  fi
+  echo "ERROR: no master key (set MECCG_MASTER_KEY or provide ~/.meccg/secrets.json)" >&2
+  return 1
+}
 
 INBOX_DIRS=(
   "$HOME/.meccg/players/ai/mail/inbox"
@@ -36,6 +65,12 @@ INBOX_DIRS=(
 # del <id>: delete every copy of the given mail id across all player mail dirs
 # ---------------------------------------------------------------------------
 if [ $# -ge 1 ] && [ "$1" = "del" ]; then
+  if [ -n "$BASE_URL" ]; then
+    echo "ERROR: 'del' is not supported in remote mode (MECCG_LOBBY_URL is set)." >&2
+    echo "Unset MECCG_LOBBY_URL to delete local copies, or use the lobby's" >&2
+    echo "administrative tooling to remove messages from a hosted inbox." >&2
+    exit 2
+  fi
   if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
     echo "Usage: $(basename "$0") del <id>" >&2
     exit 1
@@ -69,6 +104,44 @@ if [ $# -ge 1 ]; then
   esac
 fi
 
+# ---------------------------------------------------------------------------
+# Remote mode: query the lobby API instead of the local filesystem.
+# ---------------------------------------------------------------------------
+if [ -n "$BASE_URL" ]; then
+  KEY=$(master_key)
+  if [ "$SHOW_ALL" -eq 1 ]; then
+    endpoint="/api/system/ai-requests?all=true"
+  else
+    endpoint="/api/system/ai-requests"
+  fi
+  resp=$(curl -sf -X GET "$BASE_URL$endpoint" \
+    -H "Authorization: Bearer $KEY" 2>/dev/null || true)
+  if [ -z "$resp" ]; then
+    echo "ERROR: failed to fetch $endpoint from $BASE_URL" >&2
+    exit 1
+  fi
+  count=$(echo "$resp" | jq -r '.requests | length')
+  if [ "$count" -eq 0 ]; then
+    if [ "$SHOW_ALL" -eq 1 ]; then echo "No requests."; else echo "No unhandled requests."; fi
+    exit 0
+  fi
+  echo "$resp" | jq -r --argjson all "$SHOW_ALL" '
+    .requests[]
+    | [ .timestamp,
+        .id,
+        (if .topic == "feature-request" then "feature-request [REVIEW]" else .topic end),
+        (if $all == 1 then "[" + .status + "] " + .subject else .subject end)
+      ] | @tsv
+  ' | sort |
+    while IFS=$'\t' read -r ts id topic subject; do
+      printf "%-20s  %-18s  %-25s  %s\n" "$ts" "$id" "$topic" "$subject"
+    done
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Local mode: scan ~/.meccg/players/*/mail/inbox
+# ---------------------------------------------------------------------------
 shopt -s nullglob
 files=()
 for dir in "${INBOX_DIRS[@]}"; do

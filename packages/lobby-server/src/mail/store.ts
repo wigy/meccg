@@ -231,16 +231,23 @@ export interface UnhandledRequest {
 }
 
 /**
- * Collect every unhandled request across the given inboxes. A request is
- * any message with status 'new' whose topic ends in '-request' or is
- * exactly 'bug-report'. Results are ordered oldest-first so the caller
- * (typically `bin/run-ai`) processes requests in FIFO order.
+ * Collect request messages across the given inboxes. A request is any
+ * message whose topic ends in '-request' or is exactly 'bug-report'. By
+ * default only status='new' (unhandled) requests are returned so that
+ * `bin/run-ai` processes the FIFO queue of work still to do. Pass
+ * `{ includeAll: true }` to include handled/waiting/processing ones as
+ * well — used by administrative listings (`bin/requests --all`). Results
+ * are ordered oldest-first.
  */
-export function listUnhandledRequests(inboxes: readonly string[]): UnhandledRequest[] {
+export function listUnhandledRequests(
+  inboxes: readonly string[],
+  options: { includeAll?: boolean } = {},
+): UnhandledRequest[] {
+  const includeAll = options.includeAll === true;
   const out: UnhandledRequest[] = [];
   for (const inbox of inboxes) {
     for (const msg of listInbox(inbox)) {
-      if (msg.status !== 'new') continue;
+      if (!includeAll && msg.status !== 'new') continue;
       if (!(msg.topic.endsWith('-request') || msg.topic === 'bug-report')) continue;
       out.push({
         id: msg.id,

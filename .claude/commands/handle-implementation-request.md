@@ -19,14 +19,19 @@ The message ID argument is: $ARGUMENTS
 
 Follow these steps:
 
-1. **Log in as ai (read-only):** Get a session cookie for the ai account so you can fetch the message:
+1. **Log in as ai (read-only):** First resolve the lobby URL and master key from the environment, so this works both for local co-located runs and for remote workers talking to a hosted lobby:
    ```
-   SESSION=$(curl -s -c - -X POST http://localhost:8080/api/login -H 'Content-Type: application/json' -d "{\"name\":\"ai\",\"password\":\"$(jq -r .masterKey ~/.meccg/secrets.json)\"}" | grep meccg-session | awk '{print $NF}')
+   BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"; BASE_URL="${BASE_URL%/}"
+   MASTER_KEY="${MECCG_MASTER_KEY:-$(jq -r .masterKey ~/.meccg/secrets.json)}"
+   ```
+   Then get a session cookie for the ai account:
+   ```
+   SESSION=$(curl -s -c - -X POST "$BASE_URL/api/login" -H 'Content-Type: application/json' -d "{\"name\":\"ai\",\"password\":\"$MASTER_KEY\"}" | grep meccg-session | awk '{print $NF}')
    ```
 
 2. **Fetch the message:** Read the full message from the ai inbox:
    ```
-   curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
+   curl -s "$BASE_URL/api/mail/inbox/<msg-id>" -b "meccg-session=$SESSION"
    ```
    If not found, stop and emit a `success: false` result block. Extract the `body` (implementation plan), `from` (who requested it — typically a reviewer such as `admin`), `replyTo` (planning reply message ID), `subject`, and `keywords` (especially `originalMessageId`, `planningReplyId`, and `originalRequestor`). The `originalRequestor` keyword identifies the user who filed the original feature request — that user must be billed for the implementation work, just as they were billed for the planning work. It is forwarded by the lobby server from the planning reply that triggered this implementation request.
 

@@ -16,7 +16,7 @@
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
- * - GET /api/system/ai-requests — list unhandled AI requests (master key)
+ * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
  * - GET /api/system/players/:name/credits — read credit balance (master key)
  * - POST /api/system/players/:name/credits — add/set credits with audit entry (master key)
  * - POST /api/system/notify — broadcast notification (master key)
@@ -835,7 +835,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
     if (urlPath === '/api/system/ai-requests' && method === 'GET') {
       try {
-        const requests = listUnhandledRequests(['ai', 'admin']);
+        const includeAll = url.searchParams.get('all') === 'true';
+        const requests = listUnhandledRequests(['ai', 'admin'], { includeAll });
         sendJson(res, 200, { requests });
       } catch (err) {
         lobbyLog.log('error', { context: 'system-ai-requests', error: String(err) });
