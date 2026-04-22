@@ -963,7 +963,8 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   const creatureInstanceId =
     combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
       : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : null;
+        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+          : null;
   if (creatureInstanceId) {
     const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
     if (creatureInPlay) {
@@ -1039,7 +1040,8 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
     const creatureInstanceId =
       combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
         : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-          : null;
+          : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+            : null;
     if (creatureInstanceId) {
       const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
       if (creatureInPlay) {
@@ -1218,10 +1220,18 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // attacker's cardsInPlay during combat. After combat it moves to:
   // - defender's kill pile (all strikes defeated) for marshalling points
   // - attacker's discard pile (any strike not defeated)
+  //
+  // Played-auto-attacks (site `dynamic-auto-attack` effect, e.g. Framsburg
+  // td-175) are a special case: the creature is "treated in all ways as
+  // the site's automatic-attack", which means it is discarded after
+  // combat regardless of outcome — the resource player does NOT gain
+  // kill-MP, mirroring standard auto-attacks.
   const creatureInstanceId =
     combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
       : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : null;
+        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+          : null;
+  const isPlayedAutoAttack = combat.attackSource.type === 'played-auto-attack';
 
   if (creatureInstanceId) {
     const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
@@ -1237,7 +1247,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
     };
 
-    if (allDefeated && creatureCard && combat.detainment) {
+    if (isPlayedAutoAttack && creatureCard) {
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
+      };
+      logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
+    } else if (allDefeated && creatureCard && combat.detainment) {
       // CoE rule 3.II.3 — defeated detainment creature is discarded instead
       // of going to the attacked player's MP pile (0 kill-MP awarded).
       newPlayers[atkIdx] = {
@@ -1337,7 +1353,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const creatureSource =
           combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
             : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-              : null;
+              : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+                : null;
         if (creatureSource) {
           const creatureDefId = resolveInstanceId(state, creatureSource);
           const creatureName = creatureDefId
@@ -1469,7 +1486,7 @@ function getAttackSourceCard(
     const siteDef = state.cardPool[siteDefId as string];
     return siteDef && isSiteCard(siteDef) ? siteDef : undefined;
   }
-  if (combat.attackSource.type === 'creature') {
+  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'played-auto-attack') {
     const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
     if (!creatureDefId) return undefined;
     return state.cardPool[creatureDefId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;

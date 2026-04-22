@@ -31,6 +31,7 @@ export type AttackSource =
   | { readonly type: 'creature'; readonly instanceId: CardInstanceId }
   | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number }
   | { readonly type: 'on-guard-creature'; readonly cardInstanceId: CardInstanceId }
+  | { readonly type: 'played-auto-attack'; readonly instanceId: CardInstanceId; readonly siteInstanceId: CardInstanceId }
   | { readonly type: 'agent'; readonly instanceId: CardInstanceId }
   | { readonly type: 'company-attack'; readonly attackingCompanyId: CompanyId }
   | { readonly type: 'ahunt'; readonly longEventInstanceId: CardInstanceId };

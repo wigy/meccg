@@ -323,6 +323,8 @@ export function describeAction(
       const target = action.targetCharacterId ? ` on ${instName(action.targetCharacterId)}` : '';
       return `Reveal on-guard card ${instName(action.cardInstanceId)}${target}`;
     }
+    case 'play-site-auto-attack':
+      return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'declare-agent-attack':
       return `Declare agent attack ${instName(action.agentInstanceId)}`;
     case 'pass-chain-priority':

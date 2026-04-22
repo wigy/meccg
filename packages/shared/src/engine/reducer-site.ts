@@ -46,6 +46,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'select-company': handleSiteSelectCompany,
   'enter-or-skip': handleSiteEnterOrSkip,
   'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
+  'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'declare-agent-attack': (state, action, siteState) =>
     handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true),
@@ -185,6 +186,9 @@ function handleSiteEnterOrSkip(
     logDetail(`Site: automatic-attacks skipped by skip-automatic-attacks constraint`);
   }
 
+  const hasDynamicAutoAttack = !skipAutoAttacks && siteDef && isSiteCard(siteDef)
+    && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
+
   if (autoAttackCount > 0 && !skipAutoAttacks) {
     logDetail(`Site: company ${company.id} enters site with ${autoAttackCount} automatic-attack(s) → advancing to reveal-on-guard-attacks`);
     return {
@@ -193,6 +197,19 @@ function handleSiteEnterOrSkip(
         phaseState: {
           ...siteState,
           step: 'reveal-on-guard-attacks' as const,
+        },
+      },
+    };
+  }
+
+  if (hasDynamicAutoAttack) {
+    logDetail(`Site: company ${company.id} enters site with dynamic auto-attack effect → advancing to play-site-auto-attack`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          step: 'play-site-auto-attack' as const,
         },
       },
     };
@@ -233,13 +250,24 @@ function handleRevealOnGuardAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Pass: advance to automatic-attacks
+  // Pass: advance to play-site-auto-attack (if the site has the dynamic
+  // auto-attack effect) or automatic-attacks otherwise.
   if (action.type === 'pass') {
-    logDetail(`Site: reveal-on-guard-attacks → advancing to automatic-attacks`);
+    const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+    const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+    const siteDef = company?.currentSite
+      ? state.cardPool[company.currentSite.definitionId as string]
+      : undefined;
+    const hasDynamicAutoAttack = siteDef && isSiteCard(siteDef)
+      && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
+    const nextStep: SitePhaseState['step'] = hasDynamicAutoAttack
+      ? 'play-site-auto-attack'
+      : 'automatic-attacks';
+    logDetail(`Site: reveal-on-guard-attacks → advancing to ${nextStep}`);
     return {
       state: {
         ...state,
-        phaseState: { ...siteState, step: 'automatic-attacks' as const },
+        phaseState: { ...siteState, step: nextStep },
       },
     };
   }
@@ -451,6 +479,112 @@ function handleSiteAutomaticAttacks(
       ...boostedState,
       combat,
       phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+    },
+  };
+}
+
+/**
+ * Handle the `play-site-auto-attack` step: hazard player may play one
+ * creature from hand as the site's automatic-attack (Framsburg td-175 and
+ * any future site with a `site-rule: dynamic-auto-attack` effect). On a
+ * play, the creature initiates combat using its own stats; on pass, the
+ * window closes without combat. Either way, the step advances to
+ * `automatic-attacks` (which passes through for sites without static
+ * auto-attacks).
+ */
+function handleSitePlaySiteAutoAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+
+  if (action.type === 'pass') {
+    logDetail(`Site: play-site-auto-attack → advancing to automatic-attacks (pass)`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'automatic-attacks' as const },
+      },
+    };
+  }
+
+  if (action.type !== 'play-site-auto-attack') {
+    return { state, error: `Expected 'play-site-auto-attack' or 'pass' during play-site-auto-attack step, got '${action.type}'` };
+  }
+
+  const hazardPlayerId = action.player;
+  const hazardIndex = getPlayerIndex(state, hazardPlayerId);
+  const hazardPlayer = state.players[hazardIndex];
+  const creatureIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (creatureIdx === -1) {
+    return { state, error: `Card ${action.cardInstanceId} not in hazard player's hand` };
+  }
+  const creatureCard = hazardPlayer.hand[creatureIdx];
+  const creatureDef = state.cardPool[creatureCard.definitionId as string];
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
+    return { state, error: `Card ${action.cardInstanceId} is not a hazard creature` };
+  }
+
+  // Remove creature from hand, move to hazard player's cardsInPlay for
+  // the duration of combat (finalizeCombat routes it to discard).
+  const newHand = hazardPlayer.hand.filter((_, i) => i !== creatureIdx);
+  const newPlayers = clonePlayers(state);
+  newPlayers[hazardIndex] = {
+    ...newPlayers[hazardIndex],
+    hand: newHand,
+    cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+      instanceId: creatureCard.instanceId,
+      definitionId: creatureCard.definitionId,
+      status: CardStatus.Untapped,
+    }],
+  };
+
+  const inPlayNames = buildInPlayNames(state);
+  const creatureRace = creatureDef.race;
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
+
+  logDetail(`Site: hazard plays "${creatureDef.name}" as dynamic auto-attack (${effectiveStrikes} strikes, ${effectiveProwess} prowess) vs company ${company.id as string}`);
+
+  const combat: CombatState = {
+    attackSource: {
+      type: 'played-auto-attack',
+      instanceId: creatureCard.instanceId,
+      siteInstanceId: company.currentSite!.instanceId,
+    },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayerId,
+    strikesTotal: effectiveStrikes,
+    strikeProwess: effectiveProwess,
+    creatureBody: creatureDef.body,
+    creatureRace,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: isDetainmentAttack({
+      attackEffects: creatureDef.effects,
+      attackRace: creatureRace as Race | null,
+      attackKeyedTo: creatureDef.keyedTo,
+      inPlayNames,
+      defendingAlignment: state.players[activePlayerIndex].alignment,
+      defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
+    }),
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat,
+      phaseState: { ...siteState, step: 'automatic-attacks' as const },
     },
   };
 }

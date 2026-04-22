@@ -150,8 +150,14 @@ function renderPhaseBanner(
 
   // Resolve attacker race from card definition or auto-attack creature type
   let attackerRace = '';
-  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
-    const instId = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : combat.attackSource.cardInstanceId;
+  if (
+    combat.attackSource.type === 'creature'
+    || combat.attackSource.type === 'on-guard-creature'
+    || combat.attackSource.type === 'played-auto-attack'
+  ) {
+    const instId = combat.attackSource.type === 'on-guard-creature'
+      ? combat.attackSource.cardInstanceId
+      : combat.attackSource.instanceId;
     const defId = cachedInstanceLookup(instId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def && def.cardType === 'hazard-creature' && def.race) {
@@ -237,8 +243,14 @@ function renderAttackerRow(
   const container = document.createElement('div');
   container.className = 'combat-attacker';
 
-  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
-    const instId = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : combat.attackSource.cardInstanceId;
+  if (
+    combat.attackSource.type === 'creature'
+    || combat.attackSource.type === 'on-guard-creature'
+    || combat.attackSource.type === 'played-auto-attack'
+  ) {
+    const instId = combat.attackSource.type === 'on-guard-creature'
+      ? combat.attackSource.cardInstanceId
+      : combat.attackSource.instanceId;
     const defId = cachedInstanceLookup(instId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def) {

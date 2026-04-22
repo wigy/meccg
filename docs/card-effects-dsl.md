@@ -726,6 +726,25 @@ Rules:
   { "type": "site-rule", "rule": "heal-during-untap" }
   ```
 
+- `dynamic-auto-attack` — when a company enters this site, the opponent
+  may play one hazard creature from hand as the site's automatic-attack.
+  The `keying` filter lists the site-types and region-types that satisfy
+  the creature's keying; a creature is eligible iff at least one of its
+  `keyedTo` entries names a matching siteType or regionType. The played
+  creature attacks with its own prowess/strikes/body and is discarded
+  after combat regardless of outcome (no kill-MP, matching standard
+  auto-attack semantics). Consumed by `engine/reducer-site.ts` and
+  `engine/legal-actions/site.ts` through the new `play-site-auto-attack`
+  site-phase step. Used by *Framsburg* (td-175).
+
+  ```json
+  { "type": "site-rule", "rule": "dynamic-auto-attack",
+    "keying": {
+      "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+      "regionTypes": ["wilderness", "shadow"]
+    } }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
