@@ -468,7 +468,27 @@
       "corruption",
       "dark-enchantment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      }
+    ],
     "text": "Corruption. Dark enchantment. Playable on a non-Wizard character facing a strike from a Dragon hazard creature attack. The strike's prowess is modified by -1. The character receives 2 corruption points. The target character makes a corruption check at the end of his untap phase. Cannot be duplicated on a given character. During his organization phase, a sage in the target character's company may tap to attempt to remove this card. Make a roll: if this result is greater than 6, discard this card."
   }
 ]
