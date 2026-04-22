@@ -456,5 +456,19 @@
     "text": "Playable on a company using region movement to move through (not stopping at a site therein) or leave one of the following regions: High Pass, Redhorn Gate, Angmar, Gundabad, Grey Mountain Narrows, or Imlad Morgul. Each character in target company must face one strike (not an attack) of 8 prowess which cannot be canceled. Any resulting body check is modified by +1.",
     "unique": false,
     "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-16",
+    "name": "Dragon's Curse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DragonsCurse.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [
+      "corruption",
+      "dark-enchantment"
+    ],
+    "effects": [],
+    "text": "Corruption. Dark enchantment. Playable on a non-Wizard character facing a strike from a Dragon hazard creature attack. The strike's prowess is modified by -1. The character receives 2 corruption points. The target character makes a corruption check at the end of his untap phase. Cannot be duplicated on a given character. During his organization phase, a sage in the target character's company may tap to attempt to remove this card. Make a roll: if this result is greater than 6, discard this card."
   }
 ]

@@ -64,14 +64,9 @@
         "qty": 1
       },
       {
-        "name": "Rain-drake",
-        "card": "td-57",
-        "qty": 1
-      },
-      {
-        "name": "Sand-drake",
-        "card": "td-59",
-        "qty": 1
+        "name": "Cave-drake",
+        "card": "tw-020",
+        "qty": 3
       },
       {
         "name": "Doors of Night",
@@ -86,6 +81,11 @@
       {
         "name": "Smaug",
         "card": "tw-90",
+        "qty": 1
+      },
+      {
+        "name": "Dragon's Curse",
+        "card": "td-16",
         "qty": 1
       }
     ],
@@ -189,6 +189,21 @@
       "name": "Twilight",
       "card": "tw-106",
       "qty": 3
+    },
+    {
+      "name": "Call of Home",
+      "card": "tw-18",
+      "qty": 1
+    },
+    {
+      "name": "Muster Disperses",
+      "card": "tw-67",
+      "qty": 1
+    },
+    {
+      "name": "Marvels Told",
+      "card": "td-134",
+      "qty": 2
     }
   ]
 }
