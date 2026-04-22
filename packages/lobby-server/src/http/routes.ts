@@ -22,6 +22,8 @@
  * - POST /api/system/notify — broadcast notification (master key)
  * - POST /api/system/reboot — announce, kill games, shut down (master key)
  * - POST /api/system/reload-clients — force all clients to reload (master key)
+ * - GET /api/system/games/:gameId/log — stream the game's JSONL state log (master key)
+ * - GET /api/system/games/:gameId/cards — stream the game's instance→definition cards file (master key)
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from public/
  *
@@ -48,6 +50,7 @@ import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/
 
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
+const GAME_LOG_DIR = path.join(os.homedir(), '.meccg', 'logs', 'games');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 
@@ -910,6 +913,32 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         lobbyLog.log('error', { context: 'force-reload', error: String(err) });
         sendJson(res, 500, { error: 'Failed to broadcast reload' });
       }
+      return;
+    }
+
+    const gameLogMatch = urlPath.match(/^\/api\/system\/games\/([a-z0-9-]+)\/(log|cards)$/);
+    if (gameLogMatch && method === 'GET') {
+      const [, gameId, kind] = gameLogMatch;
+      const fileName = kind === 'log' ? `${gameId}.jsonl` : `${gameId}-cards.json`;
+      const filePath = path.join(GAME_LOG_DIR, fileName);
+      // Defence in depth against path-traversal — the regex already forbids `.` and `/`.
+      if (!filePath.startsWith(GAME_LOG_DIR + path.sep)) {
+        sendJson(res, 400, { error: 'Invalid game ID' });
+        return;
+      }
+      if (!fs.existsSync(filePath)) {
+        sendJson(res, 404, { error: `No ${kind} file for game ${gameId}` });
+        return;
+      }
+      const contentType = kind === 'log' ? 'application/x-ndjson' : 'application/json';
+      res.writeHead(200, { 'Content-Type': contentType });
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+      stream.on('error', (err) => {
+        lobbyLog.log('error', { context: 'system-game-log', gameId, kind, error: String(err) });
+        if (!res.headersSent) sendJson(res, 500, { error: 'Failed to read file' });
+        else res.end();
+      });
       return;
     }
 
