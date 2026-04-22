@@ -29,7 +29,7 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH,
   buildTestState, resetMint,
   setupCombatWithCaveDrake, assignBothStrikesTo,
-  handCardId, dispatch, dispatchResult, expectCharStatus, expectInDiscardPile,
+  handCardId, dispatchResult, expectCharStatus, expectInDiscardPile,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
