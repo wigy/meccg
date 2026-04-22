@@ -24,15 +24,17 @@ import {
   PLAYER_1, PLAYER_2,
   ELROND, LEGOLAS,
   MARVELS_TOLD, FOOLISH_WORDS,
+  SUN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   handCardId, dispatch,
   addCardInPlay,
   runSimpleDraft,
+  eotState,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardInstanceId, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
@@ -195,6 +197,48 @@ describe('add-character-to-deck — opponent must not learn the shuffled charact
     const audienceDesc = describeAction(action, pool, audienceLookup);
     expect(audienceDesc).toContain('a card');
     const realName = pool[charInstance.definitionId as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
+describe('discard-card — opponent must not learn the discarded card', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug f5dfb6071aa0e22e (game moab9vqb-68zlad, seq ~116):
+   * during the reset-hand / end-of-turn discard steps, the opponent's
+   * toast read the actual card name of the card the active player
+   * discarded from hand (e.g. "Discard The Sun"). Hand → discardPile is
+   * a private-to-private transition under the engine's visibility model
+   * (projection.ts redacts the opponent's discardPile), so the instance
+   * must never enter `state.revealedInstances` and `extractActionCardDefs`
+   * must omit it — the opponent sees "a card" instead.
+   */
+  test('extractActionCardDefs omits the discarded card (hand → discardPile is private→private)', () => {
+    const state = eotState({ p1Hand: [SUN] });
+    const discardedId = handCardId(state, RESOURCE_PLAYER);
+
+    const action: DiscardCardAction = {
+      type: 'discard-card',
+      player: PLAYER_1,
+      cardInstanceId: discardedId,
+    };
+    const after = dispatch(state, action);
+
+    // Precondition: the card moved from hand to the owner's private
+    // discard pile, and was never in a public location.
+    expect(after.players[0].discardPile.map(c => c.instanceId)).toContain(discardedId);
+    expect(after.revealedInstances[discardedId as string]).toBeUndefined();
+
+    // The action map broadcast to the opponent omits the card's identity.
+    const defs = extractActionCardDefs(after, action);
+    expect(defs[discardedId as string]).toBeUndefined();
+
+    // describeAction with only the opponent's map renders "a card".
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[SUN as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });
