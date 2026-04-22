@@ -101,11 +101,37 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
-    case 'resolve-strike':
+    case 'resolve-strike': {
+      // CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
+      // While the attacker has any playable combat hazards and has not yet
+      // passed on this strike sequence, they hold an exclusive priority
+      // window: the defender may not resolve the strike until the attacker
+      // passes. Without this gate the defender could resolve immediately,
+      // burning the attacker's chance to play cards like Dragon's Curse.
+      const hazardPlays = combatHazardPermanentPlays(state, playerId, combat);
+      if (!combat.attackerStep1Done) {
+        const attackerHazardCount = combatHazardPermanentPlays(
+          state,
+          combat.attackingPlayerId,
+          combat,
+        ).length;
+        if (attackerHazardCount > 0) {
+          if (playerId === combat.attackingPlayerId) {
+            logDetail(`Strike sequence Step 1: attacker has ${attackerHazardCount} hazard(s) to declare — defender waits`);
+            return [
+              ...hazardPlays,
+              { action: { type: 'pass' as const, player: playerId }, viable: true },
+            ];
+          }
+          logDetail('Strike sequence Step 1: defender waits for attacker to pass');
+          return [];
+        }
+      }
       return [
         ...resolveStrikeActions(state, playerId, combat),
-        ...combatHazardPermanentPlays(state, playerId, combat),
+        ...hazardPlays,
       ];
+    }
     case 'body-check':
       return bodyCheckActions(state, playerId, combat);
     case 'item-salvage':

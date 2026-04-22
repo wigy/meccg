@@ -93,7 +93,8 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
   if (unresolvedIndices.length === 0) return null;
   if (unresolvedIndices.length === 1) {
     logDetail(`One unresolved strike remaining (index ${unresolvedIndices[0]}) — auto-selecting`);
-    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null };
+    // Reset the attacker's Step 1 window for the new strike sequence.
+    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null, attackerStep1Done: false };
   }
   logDetail(`${unresolvedIndices.length} unresolved strikes — defender chooses order`);
   return { phase: 'choose-strike-order', bodyCheckTarget: null };
@@ -107,8 +108,9 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 
   const idx = action.strikeIndex;
   logDetail(`Defender chose to resolve strike ${idx} (character ${combat.strikeAssignments[idx].characterId as string})`);
+  // Entering a new strike sequence — reset the attacker's Step 1 window.
   return {
-    state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx } },
+    state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx, attackerStep1Done: false } },
   };
 }
 
@@ -182,6 +184,15 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
+
+  // CoE rule 3.iv.1 — attacker ends their Step 1 priority window, allowing
+  // the defender to proceed with strike resolution (Steps 2-7).
+  if (combat.phase === 'resolve-strike' && action.player === combat.attackingPlayerId && !combat.attackerStep1Done) {
+    logDetail('Attacker passed Step 1 (hazard play window) — defender may resolve the strike');
+    return {
+      state: { ...state, combat: { ...combat, attackerStep1Done: true } },
+    };
+  }
 
   // Pass during item-salvage: player declines further transfers, discard remaining items
   if (combat.phase === 'item-salvage') {

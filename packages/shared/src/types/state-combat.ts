@@ -198,6 +198,15 @@ export interface CombatState {
    * Shrinks as items are transferred (one item per recipient).
    */
   readonly salvageRecipients?: readonly CardInstanceId[];
+  /**
+   * CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
+   * While the attacker has any playable combat hazards (e.g. Dragon's Curse)
+   * this flag is false, giving the attacker an exclusive priority window to
+   * declare them before the defender may resolve the strike. Flipped to true
+   * when the attacker passes. Reset to false on entry to each new strike
+   * sequence (nextStrikePhase / choose-strike-order → resolve-strike).
+   */
+  readonly attackerStep1Done?: boolean;
 }
 
 // ---- Chain of Effects sub-state ----
