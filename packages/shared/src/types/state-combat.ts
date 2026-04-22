@@ -91,6 +91,12 @@ export interface StrikeAssignment {
    * when the character is wounded by this strike.
    */
   readonly strikeBodyPenalty?: number;
+  /**
+   * Whether a resource that requires a skill (e.g. a warrior-only
+   * Risky Blow) has already been played during this strike's Step 5.
+   * CoE rule 3.iv.5: only one such resource may be played per strike.
+   */
+  readonly requiredSkillEventPlayed?: boolean;
 }
 
 /**

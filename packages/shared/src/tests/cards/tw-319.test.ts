@@ -140,6 +140,36 @@ describe('Risky Blow (tw-319)', () => {
     expect(actionAs<BodyCheckRollAction>(bcAction.action).need).toBe(9);
   });
 
+  test('a second Risky Blow cannot be played against the same strike (CoE 3.iv.5)', () => {
+    const s0 = setupCombatWithCaveDrake({
+      heroChars: [ARAGORN, LEGOLAS],
+      creatureDefId: CAVE_DRAKE,
+      heroHand: [RISKY_BLOW, RISKY_BLOW],
+    });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
+
+    // Both Risky Blows are initially available.
+    expect(
+      computeLegalActions(s1, PLAYER_1).filter(
+        a => a.viable && a.action.type === 'play-strike-event',
+      ).length,
+    ).toBe(2);
+
+    const firstPlay = computeLegalActions(s1, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
+    const s2 = dispatch(s1, firstPlay.action);
+
+    // After playing the first, the second must not be offered.
+    const remaining = computeLegalActions(s2, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-strike-event',
+    );
+    expect(remaining.length).toBe(0);
+
+    // The other Risky Blow is still in hand (not consumed).
+    expect(s2.players[0].hand.length).toBe(1);
+    expect(s2.combat!.strikeAssignments[s2.combat!.currentStrikeIndex].requiredSkillEventPlayed).toBe(true);
+  });
+
   test('play-strike-event not available for a non-warrior defender', () => {
     const s0 = setupCombatWithCaveDrake({
       heroChars: [BILBO, LEGOLAS],
