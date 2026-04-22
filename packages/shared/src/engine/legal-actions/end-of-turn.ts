@@ -17,6 +17,7 @@ import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
+import { heroResourceShortEventActions } from './long-event.js';
 
 /**
  * Compute legal actions for a player during the end-of-turn phase.
@@ -25,19 +26,37 @@ import { deckExhaustExchangeActions } from './movement-hazard.js';
  * or pass. During 'reset-hand', players with too many cards must discard
  * and players with too few draw. During 'signal-end', only the active
  * player may pass (ending the turn) or call the Free Council.
+ *
+ * Rule 2.1.1: the active (resource) player may also play resource
+ * short-events during the voluntary `discard` and `signal-end` steps.
+ * They are not offered during `reset-hand`, which is a mandatory
+ * draw/discard step enforced sequentially by the reducer.
  */
-export function endOfTurnActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const eotState = state.phaseState as EndOfTurnPhaseState;
   const step = eotState.step;
   logHeading(`End-of-Turn legal actions: step '${step}' for player ${playerId as string}`);
 
+  const viable = (actions: GameAction[]): EvaluatedAction[] =>
+    actions.map(action => ({ action, viable: true }));
+
   switch (step) {
-    case 'discard':
-      return discardStepActions(state, playerId);
+    case 'discard': {
+      const base = viable(discardStepActions(state, playerId));
+      if (state.activePlayer === playerId) {
+        base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
+      }
+      return base;
+    }
     case 'reset-hand':
-      return resetHandStepActions(state, playerId);
-    case 'signal-end':
-      return signalEndStepActions(state, playerId);
+      return viable(resetHandStepActions(state, playerId));
+    case 'signal-end': {
+      const base = viable(signalEndStepActions(state, playerId));
+      if (state.activePlayer === playerId) {
+        base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
+      }
+      return base;
+    }
     default:
       return [];
   }

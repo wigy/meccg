@@ -16,6 +16,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifie
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_ONLY, playResourceShortEventActions } from './organization.js';
+import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -69,11 +70,23 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   // before this function is reached.
 
   if (siteState.step === 'select-company') {
-    return viable(selectCompanyActions(state, playerId, siteState));
+    const base = viable(selectCompanyActions(state, playerId, siteState));
+    // Rule 2.1.1: resource player may play resource short-events during
+    // any phase of their turn, including before selecting a company.
+    if (isActive) {
+      base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+    }
+    return base;
   }
 
   if (siteState.step === 'enter-or-skip') {
-    return viable(enterOrSkipActions(state, playerId, siteState));
+    const base = viable(enterOrSkipActions(state, playerId, siteState));
+    // Rule 2.1.1: resource player may play resource short-events before
+    // committing to enter or skip the current company's site.
+    if (isActive) {
+      base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+    }
+    return base;
   }
 
   if (siteState.step === 'reveal-on-guard-attacks') {
