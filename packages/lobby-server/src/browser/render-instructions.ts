@@ -476,16 +476,22 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     }
   }
 
-  // During enter-or-skip, add an "Enter" button for the enter-site action
+  // During enter-or-skip, promote "Enter" to the primary pass button slot
+  // (bottom-most, triggered by the Enter key) and demote "Skip" to the
+  // secondary slot above it. Entering the site is the usual choice, so it
+  // should be the default that Enter fires.
   if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'enter-or-skip') {
     const enterEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'enter-site');
     if (enterEval) {
-      const enterBtn = document.createElement('button');
-      enterBtn.id = 'enter-site-btn';
-      enterBtn.className = 'enter-site-btn';
-      enterBtn.textContent = 'Enter';
-      enterBtn.onclick = () => onAction(enterEval.action);
-      btn.parentElement?.insertBefore(enterBtn, btn);
+      btn.textContent = 'Enter';
+      btn.onclick = () => onAction(enterEval.action);
+
+      const skipBtn = document.createElement('button');
+      skipBtn.id = 'enter-site-btn';
+      skipBtn.className = 'enter-site-btn';
+      skipBtn.textContent = 'Skip';
+      skipBtn.onclick = () => onAction(passAction);
+      btn.parentElement?.insertBefore(skipBtn, btn);
     }
   }
 }
