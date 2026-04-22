@@ -397,4 +397,52 @@ describe('Black Arrow (tw-494)', () => {
     const afterSecond = dispatch(afterFirst, secondActions[0].action);
     expect(afterSecond.combat!.strikeProwess).toBe(4);
   });
+
+  // ─── Regression: site automatic attack in a multi-character company ──────
+
+  test('modify-attack IS available during a site automatic-attack even when the bearer is not the strike target', () => {
+    // Game moab9vqb-68zlad seq 85: Brand (warrior, Man) bore two Black Arrows
+    // in a 4-character company at a Dragon automatic-attack site. The strike
+    // was assigned to a different (non-bearer) character, but the modifier
+    // applies to "any one attack against bearer's company" — so the action
+    // must be offered during the pre-assignment window regardless of which
+    // character will take the strike.
+    let base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [GIMLI, THEODEN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [FRODO] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    // Black Arrow on Théoden (warrior, Man); Gimli (warrior, Dwarf) will be the strike target.
+    base = attachItemToChar(base, RESOURCE_PLAYER, THEODEN, BLACK_ARROW);
+
+    const combatState = makeCancelWindowCombat(base, {
+      creatureRace: 'dragon',
+      attackSourceType: 'automatic-attack',
+      strikesTotal: 1,
+      strikeProwess: 14,
+    });
+
+    const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack');
+    expect(modifyActions).toHaveLength(1);
+
+    const act = modifyActions[0].action as ModifyAttackAction;
+    const theodenId = findCharInstanceId(combatState, RESOURCE_PLAYER, THEODEN);
+    expect(act.characterInstanceId).toBe(theodenId);
+  });
 });

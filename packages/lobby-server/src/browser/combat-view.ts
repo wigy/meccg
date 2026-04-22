@@ -25,6 +25,7 @@ import type {
   CancelByTapAction,
   CancelStrikeAction,
   CancelAttackAction,
+  ModifyAttackAction,
   SalvageItemAction,
   EvaluatedAction,
 } from '@meccg/shared';
@@ -74,11 +75,12 @@ export function renderCombatView(
   const cancelByTapActions = viable.filter((a): a is CancelByTapAction => a.type === 'cancel-by-tap');
   const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
   const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
+  const modifyAttackActions = viable.filter((a): a is ModifyAttackAction => a.type === 'modify-attack');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -289,6 +291,7 @@ function renderDefenderRow(
   cancelByTapActions: CancelByTapAction[],
   cancelStrikeActions: CancelStrikeAction[],
   cancelAttackActions: CancelAttackAction[],
+  modifyAttackActions: ModifyAttackAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -334,6 +337,14 @@ function renderDefenderRow(
     if (sa) chooseOrderMap.set(sa.characterId as string, a);
   }
 
+  // Build a map of item-instance ID → modify-attack action (e.g. Black Arrow).
+  // Keyed by the item's instanceId so click handlers on the item image can
+  // fire the action directly in the pre-assignment window.
+  const modifyAttackMap = new Map<string, ModifyAttackAction>();
+  for (const a of modifyAttackActions) {
+    modifyAttackMap.set(a.cardInstanceId as string, a);
+  }
+
   // Build a map of character ID → strike assignment info
   const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -348,7 +359,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, chooseOrderMap, modifyAttackMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -377,6 +388,7 @@ function renderCombatCharacterColumn(
   cancelStrikeMap: Map<string, CancelStrikeAction>,
   cancelAttackScoutMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
+  modifyAttackMap: Map<string, ModifyAttackAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
@@ -557,8 +569,18 @@ function renderCombatCharacterColumn(
 
       const allyStrike = strikeMap.get(allyIdStr);
       const allyChooseOrder = chooseOrderMap.get(allyIdStr);
+      const modifyAction = modifyAttackMap.get(allyIdStr);
 
-      if (assignableIds.has(allyIdStr) && combat.phase === 'assign-strikes') {
+      if (modifyAction) {
+        // Item has a usable modify-attack ability (e.g. Black Arrow): click to tap
+        // and apply the modifier to the current attack.
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(modifyAction);
+        });
+      } else if (assignableIds.has(allyIdStr) && combat.phase === 'assign-strikes') {
         itemEl.classList.add('combat-card--assignable');
         itemEl.style.cursor = 'pointer';
         const assignAction = assignActions.find(a => a.characterId === item.instanceId);
