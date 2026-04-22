@@ -1013,6 +1013,25 @@ export interface DodgeStrikeEffect extends EffectBase {
 }
 
 /**
+ * Played from hand during strike resolution as a short event that
+ * modifies the character's prowess and/or body for the current strike
+ * only. Unlike `dodge-strike`, the character still taps normally
+ * (tap-to-fight / stay-untapped is unaffected).
+ *
+ * Example: Risky Blow — Warrior only against one strike, +3 prowess
+ * and -1 body.
+ */
+export interface ModifyStrikeEffect extends EffectBase {
+  readonly type: 'modify-strike';
+  /** Bonus added to the character's prowess for the strike roll (may be 0 or negative). */
+  readonly prowessBonus?: number;
+  /** Penalty applied to the character's body on the resulting body check (typically negative). */
+  readonly bodyPenalty?: number;
+  /** Optional skill the struck character must have (e.g. "warrior"). */
+  readonly requiredSkill?: string;
+}
+
+/**
  * Declares that an item can be stored at specific named sites during the
  * Organization phase. Storing moves the item from the character to the
  * player's stored-items pile, where it earns marshalling points safely.
@@ -1247,6 +1266,7 @@ export type CardEffect =
   | CancelAttackEffect
   | CancelInfluenceEffect
   | DodgeStrikeEffect
+  | ModifyStrikeEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect

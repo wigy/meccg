@@ -429,6 +429,33 @@ If wounded, a body penalty applies to the resulting body check.
 The `bodyPenalty` modifies the character's body for the body check only
 (negative values reduce body, making elimination more likely).
 
+### 10a. `modify-strike`
+
+Played from hand during strike resolution to modify the current strike's
+prowess and/or body for one strike only. Unlike `dodge-strike`, the
+character still taps normally (tap-to-fight / stay-untapped is
+unaffected). Optionally gated by a skill requirement on the struck
+character (e.g. "Warrior only").
+
+```json
+{ "type": "modify-strike",
+  "prowessBonus": 3,
+  "bodyPenalty": -1,
+  "requiredSkill": "warrior" }
+```
+
+- `prowessBonus` — added to the character's prowess for the strike roll
+  (may be negative). Omit for 0.
+- `bodyPenalty` — added to the character's body on the resulting body
+  check if wounded (typically negative). Omit for 0.
+- `requiredSkill` — the struck character must carry this skill. Omit to
+  allow any character.
+
+Implemented in `engine/legal-actions/combat.ts` (emits a
+`play-strike-event` action during resolve-strike) and
+`engine/reducer-combat.ts` (discards the card and accumulates the
+bonuses on the current {@link StrikeAssignment}).
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.

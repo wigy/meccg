@@ -79,6 +79,18 @@ export interface StrikeAssignment {
    * facing character's prowess for this strike resolution only.
    */
   readonly supportCount?: number;
+  /**
+   * Accumulated prowess bonus contributed by played `modify-strike`
+   * short events (e.g. Risky Blow's +3) targeting this strike. Applied
+   * in `resolveStrikeCore` alongside base prowess.
+   */
+  readonly strikeProwessBonus?: number;
+  /**
+   * Accumulated body penalty contributed by played `modify-strike`
+   * short events (e.g. Risky Blow's -1). Applied during the body check
+   * when the character is wounded by this strike.
+   */
+  readonly strikeBodyPenalty?: number;
 }
 
 /**
