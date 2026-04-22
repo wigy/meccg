@@ -897,11 +897,24 @@ function handleSitePlayHeroResource(
     currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
+  // Rule 2.V.5: when a resource that taps the site is successfully played,
+  // the resource player may attempt one additional minor item as the next
+  // action. A `never-taps` site never triggers the bonus. The bonus is
+  // consumed when the subsequent minor-item play arrives.
+  const openingBonus = !siteState.resourcePlayed && !neverTaps;
+  const consumingBonus = siteState.resourcePlayed && siteState.minorItemAvailable;
+  const nextMinorItemAvailable = openingBonus
+    ? true
+    : consumingBonus
+      ? false
+      : siteState.minorItemAvailable;
+
   let afterAttach: GameState = {
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
     phaseState: {
       ...siteState,
       resourcePlayed: true,
+      minorItemAvailable: nextMinorItemAvailable,
     },
   };
 
@@ -1102,12 +1115,20 @@ export function resolveInfluenceAttemptRoll(
     const newCardsInPlay = [...player.cardsInPlay, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped }];
     newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
 
+    // Rule 2.V.5: a successful resource that taps the site opens the
+    // additional-minor-item window.
+    const openMinorItemBonus = !siteState.resourcePlayed && !neverTaps;
+
     return {
       state: {
         ...state,
         players: newPlayers,
         rng, cheatRollTotal,
-        phaseState: { ...siteState, resourcePlayed: true },
+        phaseState: {
+          ...siteState,
+          resourcePlayed: true,
+          minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
+        },
       },
       effects: [rollEffect],
     };
