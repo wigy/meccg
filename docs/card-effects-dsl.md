@@ -1680,3 +1680,37 @@ targetting bearer." Implemented in `engine/effects/ward.ts` with call
 sites in `engine/reducer-site.ts` (`handleSitePlayHeroResource`),
 `engine/chain-reducer.ts` (`resolvePermanentEvent`), and
 `engine/legal-actions/movement-hazard.ts` (character-target emission).
+
+### 32. Combat-time permanent-event play
+
+A hazard permanent-event can declare `play-window` with `phase:
+"combat"` and `step: "resolve-strike"` to be offered during combat
+instead of the movement/hazard phase. The combat legal-action emitter
+in `engine/legal-actions/combat.ts` (`combatHazardPermanentPlays`)
+picks up matching cards in the attacker's hand and offers a
+`play-hazard` action against the defender currently facing the strike.
+
+`play-condition` with `requires: "combat-creature-race"` and a
+`race` field gates the play on the attacking creature's race (read
+from `combat.creatureRace`). A standard `play-target` with a
+character filter further refines which defenders the card may be
+played on.
+
+A companion `on-event` with trigger `"self-enters-play-combat"` and
+apply `{ type: "modify-current-strike-prowess", value: -1 }` adjusts
+the current strike's prowess at play time. The engine encodes a -1 to
+the attacker's strike as a +1 bonus on the defender's
+`StrikeAssignment.strikeProwessBonus`, so it integrates with the
+existing per-strike prowess machinery.
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-condition", "requires": "combat-creature-race", "race": "dragon" }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "modify-current-strike-prowess", "value": -1 } }
+```
+
+Used by Dragon's Curse (td-16). The movement/hazard legal-action
+emitter skips cards whose `play-window.phase` is not
+`"movement-hazard"`, so a combat-tagged hazard is not accidentally
+offered during the M/H phase.

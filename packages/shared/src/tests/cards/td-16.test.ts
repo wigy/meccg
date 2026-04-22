@@ -3,7 +3,6 @@
  *
  * Card test: Dragon's Curse (td-16)
  * Type: hazard-event (permanent)
- * Effects: 3 partial of 7 rules — see Engine Support table below.
  *
  * "Corruption. Dark enchantment. Playable on a non-Wizard character
  *  facing a strike from a Dragon hazard creature attack. The strike's
@@ -15,48 +14,99 @@
  *  greater than 6, discard this card."
  *
  * Engine Support:
- * | # | Rule                                       | Status          | Notes                                   |
- * |---|--------------------------------------------|-----------------|-----------------------------------------|
- * | 1 | Playable only during a Dragon creature     | NOT IMPLEMENTED | Combat-time play-restriction on a       |
- * |   | attack, on a character facing the strike   |                 | permanent event is not modelled         |
- * |   | (non-Wizard)                               |                 | (Rule 8.02 pre-assignment is todo).     |
- * | 2 | That strike's prowess is modified by -1    | NOT IMPLEMENTED | No strike modification from a           |
- * |   |                                            |                 | permanent event's play-time context.    |
- * | 3 | +2 corruption points while attached        | IMPLEMENTED     | stat-modifier corruption-points +2.     |
- * | 4 | Corruption check at end of untap phase     | IMPLEMENTED     | on-event untap-phase-end enqueues a     |
- * |   | (any site — no haven gate)                 |                 | corruption-check pending resolution.    |
- * | 5 | Cannot be duplicated on a given character  | ENGINE READY    | duplication-limit scope:character max:1 |
- * |   |                                            |                 | is honoured by play-hazard legal-action |
- * |   |                                            |                 | once rule 1 is implementable.           |
- * | 6 | During organization, a sage in the target  | IMPLEMENTED     | grant-action remove-self-on-roll with   |
- * |   | character's company may tap to attempt to  |                 | cost { tap: "sage-in-company" } and     |
- * |   | remove; roll > 6 discards                  |                 | threshold 7.                            |
- * | 7 | Keywords: corruption, dark-enchantment     | DATA            | Present in keywords[].                  |
+ * | # | Rule                                       | Status      | Notes                                   |
+ * |---|--------------------------------------------|-------------|-----------------------------------------|
+ * | 1 | Playable only during a Dragon creature     | IMPLEMENTED | play-window combat/resolve-strike +     |
+ * |   | attack, on a character facing the strike   |             | play-condition combat-creature-race +   |
+ * |   | (non-Wizard)                               |             | play-target character filter.           |
+ * | 2 | That strike's prowess is modified by -1    | IMPLEMENTED | on-event self-enters-play-combat with   |
+ * |   |                                            |             | modify-current-strike-prowess -1.       |
+ * | 3 | +2 corruption points while attached        | IMPLEMENTED | stat-modifier corruption-points +2.     |
+ * | 4 | Corruption check at end of untap phase     | IMPLEMENTED | on-event untap-phase-end enqueues a     |
+ * |   | (any site — no haven gate)                 |             | corruption-check pending resolution.    |
+ * | 5 | Cannot be duplicated on a given character  | IMPLEMENTED | duplication-limit scope:character max:1 |
+ * |   |                                            |             | gates legal-action emission.            |
+ * | 6 | During organization, a sage in the target  | IMPLEMENTED | grant-action remove-self-on-roll with   |
+ * |   | character's company may tap to attempt to  |             | cost { tap: "sage-in-company" } and     |
+ * |   | remove; roll > 6 discards                  |             | threshold 7.                            |
+ * | 7 | Keywords: corruption, dark-enchantment     | DATA        | Present in keywords[].                  |
  *
- * Playable: PARTIALLY — rules 1 and 2 (combat-time play + play-time
- * strike prowess modifier) are unimplemented; they require combat-phase
- * permanent-event play, which is a cross-cutting engine project and not
- * in scope of this card PR.
- *
- * NOT CERTIFIED pending combat-time permanent-event play.
+ * Playable: YES — every rule is implemented in the engine and exercised
+ * by assertions below.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  attachHazardToChar,
+  attachHazardToChar, attachItemToChar,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, ELROND,
+  ARAGORN, LEGOLAS, ELROND, GANDALF,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  charIdAt, findCharInstanceId, dispatch, viableFor, viableActions,
+  charIdAt, companyIdAt, findCharInstanceId, dispatch, viableFor, viableActions,
   grantedActionsFor, expectInDiscardPile, expectCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CorruptionCheckAction } from '../../index.js';
+import type { CardDefinitionId, CombatState, CorruptionCheckAction, GameState, PlayHazardAction } from '../../index.js';
 import { CardStatus } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const DRAGONS_CURSE = 'td-16' as CardDefinitionId;
+const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
+
+/**
+ * Build a resolve-strike combat state for a Dragon attack against the
+ * given defender character, with Dragon's Curse in the hazard player's
+ * hand. Minimal scaffolding — the attack source is a synthetic dragon
+ * creature whose instance doesn't need to appear in play for
+ * legal-action emission to succeed.
+ */
+function makeDragonResolveStrikeState(opts: {
+  defender: CardDefinitionId;
+  secondDefender?: CardDefinitionId;
+  creatureRace?: string;
+  strikeProwess?: number;
+  curseInHand?: boolean;
+  bearHelmet?: boolean;
+}): { state: GameState } {
+  const defenders: CardDefinitionId[] = opts.secondDefender
+    ? [opts.defender, opts.secondDefender]
+    : [opts.defender];
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: defenders }], hand: [], siteDeck: [MINAS_TIRITH] },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: opts.curseInHand === false ? [] : [DRAGONS_CURSE],
+        siteDeck: [RIVENDELL],
+      },
+    ],
+  });
+  const withHelmet = opts.bearHelmet
+    ? attachItemToChar(base, RESOURCE_PLAYER, opts.defender, ADAMANT_HELMET)
+    : base;
+  const defenderId = findCharInstanceId(withHelmet, RESOURCE_PLAYER, opts.defender);
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: 'synthetic-dragon' as import('../../index.js').CardInstanceId },
+    companyId: companyIdAt(withHelmet, RESOURCE_PLAYER),
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: 1,
+    strikeProwess: opts.strikeProwess ?? 8,
+    creatureBody: null,
+    creatureRace: opts.creatureRace ?? 'dragon',
+    strikeAssignments: [{ characterId: defenderId, excessStrikes: 0, resolved: false }],
+    currentStrikeIndex: 0,
+    phase: 'resolve-strike',
+    assignmentPhase: 'done',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+  return { state: { ...withHelmet, combat } };
+}
 
 describe("Dragon's Curse (td-16)", () => {
   beforeEach(() => resetMint());
@@ -249,5 +299,94 @@ describe("Dragon's Curse (td-16)", () => {
     const hazards = next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards;
     expect(hazards).toHaveLength(1);
     expect(hazards[0].definitionId).toBe(DRAGONS_CURSE);
+  });
+
+  // ─── Rules 1 & 2: combat-time play + strike prowess -1 ─────────────────────
+
+  test('hazard player can play Dragon\'s Curse on the defender during a Dragon attack resolve-strike', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
+    expect(plays.filter(p => p.action.targetCharacterId === aragornId)).toHaveLength(1);
+  });
+
+  test('NOT offered when the attacking creature is not a Dragon', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, creatureRace: 'drake' });
+    const plays = viableActions(state, PLAYER_2, 'play-hazard');
+    expect(plays).toHaveLength(0);
+  });
+
+  test('NOT offered against a Wizard defender', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: GANDALF });
+    const plays = viableActions(state, PLAYER_2, 'play-hazard');
+    expect(plays).toHaveLength(0);
+  });
+
+  test('NOT offered if a copy is already on the defender (duplication-limit)', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN });
+    const preloaded = attachHazardToChar(state, RESOURCE_PLAYER, ARAGORN, DRAGONS_CURSE);
+    const plays = viableActions(preloaded, PLAYER_2, 'play-hazard');
+    expect(plays).toHaveLength(0);
+  });
+
+  test('playing the curse attaches it to the defender and reduces the current strike\'s prowess by 1', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
+    expect(plays).toHaveLength(1);
+
+    const next = dispatch(state, plays[0].action);
+
+    // Curse attached to Aragorn's hazards.
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards.map(h => h.definitionId))
+      .toContain(DRAGONS_CURSE);
+
+    // The current strike's defender prowess bonus picks up +1 — the engine
+    // encodes "strike prowess -1" as "defender prowess +1" on the current
+    // StrikeAssignment.
+    const currentStrike = next.combat!.strikeAssignments[next.combat!.currentStrikeIndex];
+    expect(currentStrike.strikeProwessBonus).toBe(1);
+
+    // Effective need is eased by 1: strikeProwess 8 vs Aragorn prowess 6
+    // (base) is normally need 3 tapped; +1 strike bonus → need 2.
+    const resolveActions = viableActions(next, PLAYER_1, 'resolve-strike');
+    const tapAction = resolveActions.find(a => (a.action as { tapToFight?: boolean }).tapToFight === true);
+    expect(tapAction).toBeDefined();
+    expect((tapAction!.action as { need: number }).need).toBe(2);
+  });
+
+  test('a bearer warded by Adamant Helmet (dark-enchantment ward) discards the curse on attach', () => {
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, bearHelmet: true });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    // Legal-action emitter doesn't currently inspect wards for combat plays;
+    // offering is still present, but the reducer cancels the attachment on
+    // dispatch and routes the curse to the hazard player's discard pile.
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
+    expect(plays).toHaveLength(1);
+    const next = dispatch(state, plays[0].action);
+
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards).toHaveLength(0);
+    expectInDiscardPile(next, HAZARD_PLAYER, DRAGONS_CURSE);
+    // Strike prowess is untouched — the curse never attached.
+    expect(next.combat!.strikeAssignments[0].strikeProwessBonus ?? 0).toBe(0);
+  });
+
+  test('combat play-window pins the card out of the M/H phase hazard menu', () => {
+    // During movement-hazard phase, Dragon's Curse should not be offered
+    // even though it has a play-target: its play-window ties it to combat.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const plays = viableActions(base, PLAYER_2, 'play-hazard');
+    expect(plays).toHaveLength(0);
   });
 });

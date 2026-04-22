@@ -470,16 +470,34 @@
     ],
     "effects": [
       {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "resolve-strike"
+      },
+      {
+        "type": "play-condition",
+        "requires": "combat-creature-race",
+        "race": "dragon"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
-          "$not": { "race": { "$in": ["wizard", "ringwraith", "balrog"] } }
+          "$not": { "target.race": { "$in": ["wizard", "ringwraith", "balrog"] } }
         }
       },
       {
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": {
+          "type": "modify-current-strike-prowess",
+          "value": -1
+        }
       },
       {
         "type": "stat-modifier",
@@ -510,6 +528,7 @@
         }
       }
     ],
-    "text": "Corruption. Dark enchantment. Playable on a non-Wizard character facing a strike from a Dragon hazard creature attack. The strike's prowess is modified by -1. The character receives 2 corruption points. The target character makes a corruption check at the end of his untap phase. Cannot be duplicated on a given character. During his organization phase, a sage in the target character's company may tap to attempt to remove this card. Make a roll: if this result is greater than 6, discard this card."
+    "text": "Corruption. Dark enchantment. Playable on a non-Wizard character facing a strike from a Dragon hazard creature attack. The strike's prowess is modified by -1. The character receives 2 corruption points. The target character makes a corruption check at the end of his untap phase. Cannot be duplicated on a given character. During his organization phase, a sage in the target character's company may tap to attempt to remove this card. Make a roll: if this result is greater than 6, discard this card.",
+    "certified": "2026-04-22"
   }
 ]

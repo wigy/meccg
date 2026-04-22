@@ -1161,12 +1161,16 @@ export interface CompanyRuleEffect extends EffectBase {
  * - `site-path` — the company's resolved site path during M/H. The
  *   condition is evaluated against
  *   `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, freeCount, borderCount } }`.
+ * - `combat-creature-race` — the attacking creature's race in the
+ *   current combat (e.g. Dragon's Curse requires `race: "dragon"`).
+ *   Only offered when combat is active; otherwise the card is
+ *   non-playable.
  *
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1180,6 +1184,12 @@ export interface PlayConditionEffect extends EffectBase {
    * - `out-of-play-pile` — the player's out-of-play pile (stored items).
    */
   readonly sources?: readonly ('character-items' | 'out-of-play-pile')[];
+  /**
+   * For `requires: 'combat-creature-race'`: the required attacker race
+   * (lowercase, e.g. `"dragon"`). When the current combat's
+   * `creatureRace` does not match, the card is non-playable.
+   */
+  readonly race?: string;
 }
 
 /**
