@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -897,15 +897,22 @@ function handleSitePlayHeroResource(
     currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
-  return {
-    state: {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
-      phaseState: {
-        ...siteState,
-        resourcePlayed: true,
-      },
+  let afterAttach: GameState = {
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
+    phaseState: {
+      ...siteState,
+      resourcePlayed: true,
     },
   };
+
+  // Apply ward-bearer effects declared by the incoming card: any hazard
+  // on the bearer that matches the ward filter is immediately discarded
+  // (e.g. Adamant Helmet cancelling dark enchantments on its wearer).
+  if (isItem) {
+    afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
+  }
+
+  return { state: afterAttach };
 }
 
 /**

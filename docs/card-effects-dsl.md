@@ -1607,3 +1607,31 @@ play" clause).
 ```
 
 Implemented in `engine/manifestations.ts` (`getActiveAutoAttacks`).
+
+### 31. `ward-bearer`
+
+Attaches a "cancels hazard X" ward to the bearer of the card carrying
+this effect (an item on a character, typically). The `filter` is a
+standard DSL condition evaluated against each *hazard* card definition;
+any hazard whose definition matches the filter is:
+
+- **On-entry swept**: when the ward-bearing card attaches to a character,
+  every hazard already on that character whose definition matches is
+  discarded to the hazard owner's discard pile.
+- **Continuously cancelled**: while the ward-bearing card remains on the
+  character, any hazard permanent-event that would attach to the
+  character is routed to its owner's discard pile instead. The
+  movement/hazard legal-action computer also suppresses the character
+  as a play target for matching hazards, so the hazard player never
+  sees a pointless "attach" offer in the first place.
+
+```json
+{ "type": "ward-bearer",
+  "filter": { "keywords": { "$includes": "dark-enchantment" } } }
+```
+
+Used by Adamant Helmet (td-96) — "Cancels all dark enchantments
+targetting bearer." Implemented in `engine/effects/ward.ts` with call
+sites in `engine/reducer-site.ts` (`handleSitePlayHeroResource`),
+`engine/chain-reducer.ts` (`resolvePermanentEvent`), and
+`engine/legal-actions/movement-hazard.ts` (character-target emission).
