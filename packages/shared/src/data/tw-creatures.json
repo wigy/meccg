@@ -467,10 +467,28 @@
     "body": 8,
     "killMarshallingPoints": 5,
     "race": "dragon",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "siteNames": ["The Lonely Mountain"]
+      },
+      {
+        "regionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Unique. May be played at The Lonely Mountain. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
-    "manifestId": "tw-90"
+    "manifestId": "tw-90",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",

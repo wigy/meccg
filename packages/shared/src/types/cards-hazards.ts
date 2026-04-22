@@ -34,6 +34,13 @@ export interface CreatureKeyRestriction {
   /** Site types where this creature can attack (e.g. Ruins-and-Lairs). */
   readonly siteTypes?: readonly SiteType[];
   /**
+   * Specific site names where this creature can be played (e.g. Smaug at
+   * "The Lonely Mountain"). Matches against the company's destination site
+   * name. Used for unique creatures whose lair / canonical location is a
+   * single named site rather than a general region or site type.
+   */
+  readonly siteNames?: readonly string[];
+  /**
    * Optional DSL condition gating this keying entry. When present, the
    * entry is skipped unless the condition matches a context exposing
    * `inPlay` (names of all cards in play). Used by cards whose alternate

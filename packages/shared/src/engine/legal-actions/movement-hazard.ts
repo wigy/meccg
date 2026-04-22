@@ -1068,6 +1068,15 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Site name matches (e.g. Smaug at "The Lonely Mountain")
+    if (key.siteNames && key.siteNames.length > 0 && mhState.destinationSiteName) {
+      for (const sn of key.siteNames) {
+        if (sn === mhState.destinationSiteName) {
+          const k = `site-name:${sn}`;
+          if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-name', value: sn }); }
+        }
+      }
+    }
   }
 
   return matches;
@@ -1105,6 +1114,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.regionTypes?.length) parts.push(k.regionTypes.join('/'));
     if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
     if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
+    if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
     return parts.join(', ');
   }).join(' or ');
   return `Not keyable (requires ${keyDesc})`;
