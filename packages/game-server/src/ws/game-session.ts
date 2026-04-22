@@ -27,7 +27,7 @@ import type {
   StateMessage,
   ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -943,6 +943,13 @@ export class GameSession {
   private broadcastState(lastAction?: GameAction): void {
     if (!this.state) return;
 
+    // Computed once: identities of cards referenced in lastAction are public
+    // by virtue of the action itself, even when the card now sits in a
+    // projection-redacted pile (e.g. a short event played into the owner's
+    // face-down discard). The client merges this with its per-view lookup
+    // so opponent-action toasts can name the played card.
+    const lastActionCardDefs = lastAction ? extractActionCardDefs(this.state, lastAction) : undefined;
+
     this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
       const view = projectPlayerView(this.state, playerId);
@@ -952,14 +959,18 @@ export class GameSession {
         legalSet.set(ea.actionId, ea.action);
       }
       this.lastLegalActionsPerPlayer.set(playerId, legalSet);
-      const msg: StateMessage = lastAction ? { type: 'state', view, lastAction } : { type: 'state', view };
+      const msg: StateMessage = lastAction
+        ? { type: 'state', view, lastAction, lastActionCardDefs }
+        : { type: 'state', view };
       this.send(ws, msg);
     }
 
     if (this.spectators.size > 0) {
       const spectatorView = projectSpectatorView(this.state);
       for (const ws of this.spectators) {
-        const msg: StateMessage = lastAction ? { type: 'state', view: spectatorView, lastAction } : { type: 'state', view: spectatorView };
+        const msg: StateMessage = lastAction
+          ? { type: 'state', view: spectatorView, lastAction, lastActionCardDefs }
+          : { type: 'state', view: spectatorView };
         this.send(ws, msg);
       }
     }
