@@ -3152,6 +3152,7 @@ h2 {
   border-radius: 8px;
   padding: 0.5rem 0.7rem;
   box-sizing: border-box;
+  max-width: calc(18rem + 1.4rem + 2px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(8px);
 }
@@ -3174,7 +3175,8 @@ h2 {
 .card-preview-attr {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.5rem;
   padding: 0.1rem 0;
   font-size: 0.8rem;
   color: rgba(210, 200, 170, 0.9);
@@ -3182,7 +3184,7 @@ h2 {
 
 .attr-label {
   color: rgba(160, 145, 110, 0.9);
-  margin-right: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .attr-value {
@@ -3190,8 +3192,10 @@ h2 {
   text-align: right;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 #pass-btn {
