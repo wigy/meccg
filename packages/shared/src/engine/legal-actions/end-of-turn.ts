@@ -185,62 +185,104 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 }
 
 /**
- * Scans the resource player's characters for grant-action effects
- * that activate during the end-of-turn phase (e.g. Saruman's spell fetch).
+ * Keyword filter table for end-of-turn fetch grant-actions. Each supported
+ * action ID maps to the keyword set a discard-pile card must match. New
+ * entries are added alongside the matching card JSON (e.g. Wizard's Staff
+ * covers spell / ritual / light-enchantment).
+ */
+const EOT_FETCH_KEYWORDS: Record<string, readonly string[]> = {
+  'saruman-fetch-spell': ['spell'],
+  'wizards-staff-fetch': ['spell', 'ritual', 'light-enchantment'],
+};
+
+/**
+ * Scans the resource player's characters (and their attached items) for
+ * grant-action effects that activate during the end-of-turn phase —
+ * currently Saruman's spell fetch and Wizard's Staff's spell/ritual/
+ * light-enchantment fetch.
  *
- * Generates one action per eligible spell card in the discard pile.
+ * Generates one action per eligible card in the discard pile per source.
  */
 function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   const actions: EvaluatedAction[] = [];
 
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
-    const charDef = state.cardPool[char.definitionId as string];
-    if (!charDef || !('effects' in charDef)) continue;
-    const effects = (charDef as { effects?: readonly CardEffect[] }).effects;
-    if (!effects) continue;
+  /**
+   * Scan one "source" (a character's own definition, or an attached item)
+   * for end-of-turn fetch grant-actions. `sourceCardId` is the card-instance
+   * of the source; `charId` is the bearer-character instance that will pay
+   * the tap cost. For character-direct grants these are the same.
+   */
+  function scanSource(
+    charId: import('../../index.js').CardInstanceId,
+    char: import('../../index.js').CharacterInPlay,
+    sourceCardId: import('../../index.js').CardInstanceId,
+    sourceDefinitionId: import('../../index.js').CardDefinitionId,
+  ): void {
+    const sourceDef = state.cardPool[sourceDefinitionId as string];
+    if (!sourceDef || !('effects' in sourceDef)) return;
+    const effects = (sourceDef as { effects?: readonly CardEffect[] }).effects;
+    if (!effects) return;
 
     for (const effect of effects) {
       if (effect.type !== 'grant-action') continue;
+      const keywordFilter = EOT_FETCH_KEYWORDS[effect.action];
+      if (!keywordFilter) continue;
 
-      if (effect.action !== 'saruman-fetch-spell') continue;
-
-      if (effect.cost.tap === 'self' && char.status !== CardStatus.Untapped) {
-        logDetail(`Grant-action saruman-fetch-spell: ${charDef.name} is tapped, cannot activate`);
+      // Cost check. 'self' only makes sense when the source IS the bearer
+      // character (Saruman); for attached items the cost is 'bearer'.
+      const costTap = effect.cost.tap;
+      const sourceIsCharacter = sourceCardId === charId;
+      if (costTap === 'self' && sourceIsCharacter && char.status !== CardStatus.Untapped) {
+        logDetail(`Grant-action ${effect.action}: ${sourceDef.name} is tapped, cannot activate`);
+        continue;
+      }
+      if ((costTap === 'bearer' || (costTap === 'self' && !sourceIsCharacter)) && char.status !== CardStatus.Untapped) {
+        logDetail(`Grant-action ${effect.action}: bearer of ${sourceDef.name} is tapped, cannot activate`);
         continue;
       }
 
-      const spellCards = player.discardPile.filter(card => {
+      const eligibleCards = player.discardPile.filter(card => {
         const def = state.cardPool[card.definitionId as string];
-        return def && 'keywords' in def &&
-          Array.isArray((def as { keywords?: readonly string[] }).keywords) &&
-          (def as { keywords: readonly string[] }).keywords.includes('spell');
+        if (!def || !('keywords' in def)) return false;
+        const kws = (def as { keywords?: readonly string[] }).keywords;
+        if (!Array.isArray(kws)) return false;
+        return kws.some((k: string) => keywordFilter.includes(k));
       });
 
-      if (spellCards.length === 0) {
-        logDetail(`Grant-action saruman-fetch-spell: no spell cards in discard pile`);
+      if (eligibleCards.length === 0) {
+        logDetail(`Grant-action ${effect.action}: no matching cards in discard pile (keywords: ${keywordFilter.join(', ')})`);
         continue;
       }
 
-      const charId = charIdStr as unknown as import('../../index.js').CardInstanceId;
-      for (const spell of spellCards) {
-        const spellDef = state.cardPool[spell.definitionId as string];
-        logDetail(`Grant-action saruman-fetch-spell available: ${charDef.name} can fetch ${spellDef?.name ?? '?'} from discard`);
+      for (const target of eligibleCards) {
+        const targetDef = state.cardPool[target.definitionId as string];
+        logDetail(`Grant-action ${effect.action} available: ${sourceDef.name} can fetch ${targetDef?.name ?? '?'} from discard`);
         actions.push({
           action: {
             type: 'activate-granted-action',
             player: playerId,
             characterId: charId,
-            sourceCardId: char.instanceId,
-            sourceCardDefinitionId: char.definitionId,
-            actionId: 'saruman-fetch-spell',
+            sourceCardId,
+            sourceCardDefinitionId: sourceDefinitionId,
+            actionId: effect.action,
             rollThreshold: 0,
-            targetCardId: spell.instanceId,
+            targetCardId: target.instanceId,
           },
           viable: true,
         });
       }
+    }
+  }
+
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charId = charIdStr as unknown as import('../../index.js').CardInstanceId;
+    // Character's own grant-actions (e.g. Saruman).
+    scanSource(charId, char, charId, char.definitionId);
+    // Attached items' grant-actions (e.g. Wizard's Staff).
+    for (const item of char.items) {
+      scanSource(charId, char, item.instanceId, item.definitionId);
     }
   }
 

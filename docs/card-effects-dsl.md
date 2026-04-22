@@ -97,6 +97,23 @@ influence attempt by a character in his company against a Wolf
 faction" applies even when he is attached to a different host. Allies
 are not collected for combat or other check contexts.
 
+For corruption-check resolutions the engine also collects
+`check-modifier` effects from attached **items** on the character being
+checked (previously only the character's built-in `corruptionModifier`
+and hazard modifiers were considered). Item modifiers see the same
+context as hazard modifiers, plus `source.keywords` — the array of
+keywords on the pending resolution's source card — so items can gate
+their bonus on *what triggered the check*. Example (Wizard's Staff):
+
+```json
+{ "type": "check-modifier", "check": "corruption", "value": 2,
+  "when": { "source.keywords": { "$includes": "spell" } } }
+```
+
+This fires only for corruption checks whose `source` card (the one that
+enqueued the resolution) carries the `"spell"` keyword — e.g. the
+check a Wizard makes after playing *Wizard's Laughter*.
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an
@@ -226,6 +243,16 @@ Actions:
   the discard pile to hand. Only available to the resource player
   during the discard step (implemented in `legal-actions/end-of-turn.ts`,
   `reducer-end-of-turn.ts`)
+- `wizards-staff-fetch` — tap the bearer at the beginning of the
+  end-of-turn phase to take one card with keyword `"spell"`,
+  `"ritual"`, or `"light-enchantment"` from the discard pile to hand,
+  then enqueue a corruption check on the bearer. Used by *Wizard's
+  Staff*. Declared on an item with `"cost": { "tap": "bearer" }` and a
+  `sequence` apply pairing `move-target-from-discard-to-hand` with
+  `enqueue-corruption-check`. The end-of-turn scanner walks both
+  character-direct and attached-item grant-actions, consults the
+  action-ID → keyword-set table in `legal-actions/end-of-turn.ts`
+  (`EOT_FETCH_KEYWORDS`), and requires an untapped bearer
 - `cancel-return-and-site-tap` — tap bearer (ranger) during
   organization to add a turn-scoped constraint cancelling hazard
   effects that force return to site of origin or tap the company's
@@ -723,7 +750,11 @@ Supported targets:
 
 - `character` — each character in scope is a candidate. Resource-side
   plays implicitly scope to the active player's own characters; hazard
-  plays scope to the active company's characters.
+  plays scope to the active company's characters. Also applied on
+  **items** to gate which characters may bear them (e.g. Wizard's Staff
+  filters to `target.race: "wizard"`): the site-phase item legal-action
+  emitter evaluates the filter per-candidate bearer and only offers
+  `play-hero-resource` actions for matching characters.
 - `company` — the active company (e.g. Lost in Free-domains).
 - `site` — the company's destination/current site (e.g. River).
 

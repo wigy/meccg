@@ -454,7 +454,8 @@
     "unique": false,
     "subtype": "greater",
     "keywords": [
-      "hoard"
+      "hoard",
+      "weapon"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -472,6 +473,13 @@
         }
       },
       {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 2
@@ -482,12 +490,41 @@
         "value": 2
       },
       {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2,
+        "when": {
+          "source.keywords": {
+            "$includes": "spell"
+          }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "wizards-staff-fetch",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "move-target-from-discard-to-hand"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      },
+      {
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
       }
     ],
-    "text": "Hoard item. Weapon. Only a Wizard may bear this item. + 2 to direct influence and +2 to prowess. +2 to any corruption check required by a spell card. Tap bearer at the beginning of your end-of-turn phase to take one “spell,” “ritual,” or “light enchantment” from your discard pile into your hand. Bearer makes corruption check. Cannot be duplicated on a given Wizard."
+    "text": "Hoard item. Weapon. Only a Wizard may bear this item. + 2 to direct influence and +2 to prowess. +2 to any corruption check required by a spell card. Tap bearer at the beginning of your end-of-turn phase to take one “spell,” “ritual,” or “light enchantment” from your discard pile into your hand. Bearer makes corruption check. Cannot be duplicated on a given Wizard.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-resource-item",

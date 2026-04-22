@@ -59,6 +59,32 @@ function collectHazardCheckModifiers(
   return results;
 }
 
+/**
+ * Collect check-modifier effects from a character's attached items only.
+ * Items may carry effects that modify corruption / influence / etc. checks
+ * (e.g. Wizard's Staff's "+2 to any corruption check required by a spell
+ * card"). Effects are filtered by their `when` condition against the given
+ * context, which typically includes `source.keywords` so items can key off
+ * the triggering card's keywords.
+ */
+function collectItemCheckModifiers(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  for (const item of char.items) {
+    const iDef = resolveDef(state, item.instanceId);
+    if (!iDef || !('effects' in iDef) || !iDef.effects) continue;
+    for (const effect of iDef.effects) {
+      if (effect.type !== 'check-modifier') continue;
+      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) continue;
+      results.push({ effect, sourceDef: iDef, sourceInstance: item.instanceId });
+    }
+  }
+  return results;
+}
+
 /** Wrap plain GameActions as viable EvaluatedActions. */
 function viable(actions: import('../../index.js').GameAction[]): EvaluatedAction[] {
   return actions.map(action => ({ action, viable: true }));
@@ -544,9 +570,18 @@ function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from constraint ${constraint.id}`);
   }
 
+  // Build the source-card keyword list so item check-modifiers can gate
+  // on what produced the check (e.g. Wizard's Staff keys off source.keywords
+  // $includes 'spell'). The source is the PendingResolution's source card.
+  const sourceDef = top.source ? resolveDef(state, top.source) : undefined;
+  const sourceKeywords: readonly string[] = sourceDef && 'keywords' in sourceDef && Array.isArray((sourceDef as { keywords?: readonly string[] }).keywords)
+    ? (sourceDef as { keywords: readonly string[] }).keywords
+    : [];
+  const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords } };
+
   // DSL check-modifier effects from attached hazards only (not the
   // character's own definition — that's already in baseModifier).
-  const hazardEffects = collectHazardCheckModifiers(state, char, { reason: 'corruption-check' });
+  const hazardEffects = collectHazardCheckModifiers(state, char, checkContext);
   if (hazardEffects.length > 0) {
     const company = player.companies.find(c => c.characters.includes(characterId));
     const companyCharCount = company ? company.characters.length : 1;
@@ -554,6 +589,19 @@ function corruptionCheckActions(
     if (dslModifier !== 0) {
       totalModifier += dslModifier;
       logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} from attached hazards (company size: ${companyCharCount})`);
+    }
+  }
+
+  // DSL check-modifier effects from the character's items (e.g. Wizard's
+  // Staff's "+2 to any corruption check required by a spell card"). Items
+  // see the same context as hazards so they can key on the triggering
+  // card's keywords via `{ "source.keywords": { "$includes": "spell" } }`.
+  const itemEffects = collectItemCheckModifiers(state, char, checkContext);
+  if (itemEffects.length > 0) {
+    const dslModifier = resolveCheckModifier(itemEffects, 'corruption');
+    if (dslModifier !== 0) {
+      totalModifier += dslModifier;
+      logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} from attached items (source keywords: [${sourceKeywords.join(', ')}])`);
     }
   }
 

@@ -773,10 +773,37 @@ function playResourcesActions(
           e.type === 'duplication-limit' && e.scope === 'character',
       );
 
+      // Bearer filter (play-target with target: 'character'): restricts
+      // which characters may bear the item — e.g. Wizard's Staff's
+      // "Only a Wizard may bear this item" is expressed as
+      // `{ type: "play-target", target: "character", filter: { "target.race": "wizard" } }`.
+      const bearerPlayTarget = itemDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect =>
+          e.type === 'play-target' && e.target === 'character',
+      );
+
       // One action per untapped character that could carry the item
       for (const ch of untappedCharacters) {
         const charDef = state.cardPool[ch.definitionId as string];
         const charName = charDef?.name ?? ch.instanceId;
+
+        if (bearerPlayTarget?.filter) {
+          if (!charDef || !isCharacterCard(charDef)) {
+            continue;
+          }
+          const bearerCtx: Record<string, unknown> = {
+            target: {
+              race: charDef.race,
+              skills: charDef.skills,
+              status: ch.status,
+              name: charDef.name,
+            },
+          };
+          if (!matchesCondition(bearerPlayTarget.filter, bearerCtx)) {
+            logDetail(`Item ${itemDef.name}: ${charName} fails bearer filter`);
+            continue;
+          }
+        }
 
         // Check character-scoped duplication: count copies of this item already on the character
         if (charDupLimit) {
