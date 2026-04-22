@@ -249,9 +249,16 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 2,
+        "max": 10
       }
     ],
-    "text": "Hoard item. Armor. Bearer receives +2 body to a maximum of 10."
+    "text": "Hoard item. Armor. Bearer receives +2 body to a maximum of 10.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-resource-item",
