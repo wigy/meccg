@@ -167,10 +167,18 @@ Modifies the player's hand size.
 
 Modifies the number of cards drawn during the movement/hazard draw step
 for the bearer's company. The `draw` field selects which pool to modify
-(`hazard` or `resource`), and `min` sets a floor (default 0).
+(`hazard` or `resource`), and `min` sets a floor (default 0). The
+`value` may be a plain number or a {@link ValueExpr} string evaluated
+against a context exposing `sitePath` counts (`wildernessCount`,
+`shadowCount`, `darkCount`, `coastalCount`, `freeCount`,
+`borderCount`) derived from the moving company's resolved site path —
+used by Radagast for "+1 resource draw per Wilderness in the site
+path".
 
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
+{ "type": "draw-modifier", "draw": "resource",
+  "value": "sitePath.wildernessCount", "min": 0 }
 ```
 
 ### 7. `grant-action`

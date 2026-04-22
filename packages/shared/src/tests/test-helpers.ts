@@ -2437,6 +2437,8 @@ export function buildMHOrderEffectsDrawState(opts: {
   heroChars: readonly CardDefinitionId[];
   destinationSite: CardDefinitionId;
   heroSiteDeck?: readonly CardDefinitionId[];
+  pathTypes?: readonly RegionType[];
+  pathNames?: readonly string[];
 }): GameState {
   const state = buildTestState({
     phase: Phase.MovementHazard,
@@ -2469,7 +2471,11 @@ export function buildMHOrderEffectsDrawState(opts: {
     state.players[1],
   ];
 
-  const mhState = makeMHState({ step: 'order-effects' as MovementHazardPhaseState['step'] });
+  const mhState = makeMHState({
+    step: 'order-effects' as MovementHazardPhaseState['step'],
+    resolvedSitePath: opts.pathTypes ? [...opts.pathTypes] : [],
+    resolvedSitePathNames: opts.pathNames ? [...opts.pathNames] : [],
+  });
   return { ...state, players, phaseState: mhState } as GameState;
 }
 
