@@ -182,6 +182,11 @@
       "name": "Zarak Dûm",
       "card": "td-181",
       "qty": 1
+    },
+    {
+      "name": "Rhosgobel",
+      "card": "tw-420",
+      "qty": 1
     }
   ],
   "sideboard": [

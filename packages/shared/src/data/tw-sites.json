@@ -1133,7 +1133,7 @@
     "id": "tw-420",
     "name": "Rhosgobel",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhosgobel.jpg",
-    "text": "Nearest Haven: Lórien Playable: Items (minor) Special: Healing effects affect all characters at the site",
+    "text": "Nearest Haven: Lórien. Playable: Items (minor). Special: Healing effects affect all characters at the site.",
     "alignment": "wizard",
     "siteType": "free-hold",
     "sitePath": [
@@ -1148,7 +1148,14 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "healing-affects-all"
+      }
+    ],
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-site",

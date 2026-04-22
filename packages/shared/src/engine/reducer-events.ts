@@ -321,13 +321,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
     newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
 
-    // company-rule: healing-affects-all — if this was a heal (wounded → well),
-    // extend the healing to all other wounded characters in the same company
+    // healing-affects-all — if this was a heal (wounded → well), extend
+    // the healing to all other wounded characters in the same company.
+    // Triggers either from a character in the company carrying the
+    // `company-rule` variant (e.g. Ioreth) or from the company's current
+    // site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
     const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     if (isHeal) {
       const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
       if (company) {
-        const hasHealingRule = company.characters.some(charId => {
+        const hasCompanyRule = company.characters.some(charId => {
           const ch = newCharacters[charId as string];
           if (!ch) return false;
           const charDef = state.cardPool[ch.definitionId as string];
@@ -336,13 +339,22 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               e => e.type === 'company-rule' && e.rule === 'healing-affects-all',
             );
         });
-        if (hasHealingRule) {
+        let hasSiteRule = false;
+        if (company.currentSite) {
+          const siteDef = state.cardPool[company.currentSite.definitionId as string];
+          hasSiteRule = !!(siteDef && 'effects' in siteDef &&
+            (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
+              e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
+            ));
+        }
+        if (hasCompanyRule || hasSiteRule) {
+          const source = hasCompanyRule ? 'company-rule' : 'site-rule';
           for (const charId of company.characters) {
             const cid = charId as string;
             if (cid === targetId) continue;
             const ch = newCharacters[cid];
             if (ch && ch.status === CardStatus.Inverted) {
-              logDetail(`company-rule healing-affects-all: extending heal to ${cid}`);
+              logDetail(`${source} healing-affects-all: extending heal to ${cid}`);
               newCharacters = { ...newCharacters, [cid]: { ...ch, status: statusEnum } };
             }
           }
