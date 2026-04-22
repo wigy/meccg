@@ -404,6 +404,17 @@ function playHazardsActions(
         && hasPlayFlag(def, 'playable-as-hazard');
       if (!isCreature && !isEvent && !isShortEvent && !isCorruption && !isResourceAsHazard) continue;
 
+      // Skip hazards whose play-window pins them to a non-M/H window
+      // (e.g. Dragon's Curse: combat/resolve-strike). Those are offered
+      // by the combat legal-action emitter instead.
+      const hazardPlayWindow = 'effects' in def && def.effects
+        ? def.effects.find(e => e.type === 'play-window') as { phase?: string } | undefined
+        : undefined;
+      if (hazardPlayWindow && hazardPlayWindow.phase !== 'movement-hazard') {
+        logDetail(`Hazard "${def.name}" has play-window ${hazardPlayWindow.phase} — skipping in M/H phase`);
+        continue;
+      }
+
       const action: PlayHazardAction = {
         type: 'play-hazard',
         player: playerId,

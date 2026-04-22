@@ -17,7 +17,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
-import { resolveEnemyBody } from './effects/index.js';
+import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -64,6 +64,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleModifyAttackFromHand(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
+    case 'play-hazard':
+      return handleCombatPlayHazard(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -1788,3 +1790,94 @@ function getAttackSourceCard(
   return undefined;
 }
 
+/**
+ * Play a hazard permanent-event from the attacker's hand during a
+ * combat window (currently `resolve-strike`). Attaches the card to the
+ * defender identified by `targetCharacterId` and applies any
+ * `self-enters-play-combat` on-event effects it declares — notably
+ * `modify-current-strike-prowess`, which adjusts the current strike's
+ * prowess (Dragon's Curse: -1).
+ *
+ * The card's `play-window`, `play-condition` (combat-creature-race),
+ * and `play-target.filter` are evaluated by the legal-action emitter
+ * in `legal-actions/combat.ts`; the reducer trusts the action to be
+ * legal and focuses on state transitions.
+ */
+function handleCombatPlayHazard(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'play-hazard') return wrongActionType(state, action, 'play-hazard');
+  if (combat.phase !== 'resolve-strike') {
+    return { state, error: `play-hazard during combat is only valid in resolve-strike (current: ${combat.phase})` };
+  }
+  if (action.player !== combat.attackingPlayerId) {
+    return { state, error: 'only the attacking player may play hazards during combat' };
+  }
+
+  const hazardIndex = state.players.findIndex(p => p.id === action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'card not in hand' };
+  const handCard = hazardPlayer.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
+  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') {
+    return { state, error: 'only hazard permanent-events may be played during combat' };
+  }
+
+  const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defenderPlayer = state.players[defenderIndex];
+  const targetCharId = action.targetCharacterId;
+  if (!targetCharId) return { state, error: 'targetCharacterId required for combat hazard play' };
+  const targetChar = defenderPlayer.characters[targetCharId as string];
+  if (!targetChar) return { state, error: 'target character not in defending player' };
+
+  // Remove card from hand
+  const newHand = [...hazardPlayer.hand];
+  newHand.splice(cardIdx, 1);
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand }));
+
+  // Ward check: a matching ward on the target discards the curse to
+  // the hazard player's discard pile instead of attaching it.
+  if (isWardedAgainst(newState, defenderIndex, targetCharId, def)) {
+    logDetail(`Combat play-hazard: "${def.name}" cancelled by ward on target — routing to attacker's discard`);
+    newState = updatePlayer(newState, hazardIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+    }));
+    return { state: newState };
+  }
+
+  // Attach to target's hazards
+  logDetail(`Combat play-hazard: attaching "${def.name}" to ${targetCharId as string}`);
+  newState = updatePlayer(newState, defenderIndex, p => updateCharacter(p, targetCharId as string, c => ({
+    ...c,
+    hazards: [...c.hazards, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
+  })));
+
+  // Apply self-enters-play-combat on-event effects declared by the card.
+  // Currently supports `modify-current-strike-prowess` which adjusts
+  // the current strike's prowess via combat.strikeAssignments[i].strikeProwessBonus.
+  // The bonus is added to the defender's effective prowess (a -1 to
+  // the attacker's strike prowess is equivalent to +1 to the defender),
+  // so the data carries a negative `value` and the reducer flips sign.
+  if ('effects' in def && def.effects) {
+    for (const eff of def.effects) {
+      if (eff.type !== 'on-event' || eff.event !== 'self-enters-play-combat') continue;
+      if (eff.apply.type === 'modify-current-strike-prowess') {
+        const strikeDelta = eff.apply.value ?? 0;
+        const defenderProwessDelta = -strikeDelta;
+        logDetail(`Combat play-hazard: "${def.name}" modifies current strike's prowess by ${strikeDelta} (defender +${defenderProwessDelta})`);
+        const newAssignments = combat.strikeAssignments.map((a, i) =>
+          i === combat.currentStrikeIndex
+            ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + defenderProwessDelta }
+            : a,
+        );
+        newState = { ...newState, combat: { ...combat, strikeAssignments: newAssignments } };
+      }
+    }
+  }
+
+  return { state: newState };
+}

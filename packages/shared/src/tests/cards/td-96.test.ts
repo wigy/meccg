@@ -38,7 +38,6 @@ import {
   getCharacter,
   attachHazardToChar, attachItemToChar,
   findCharInstanceId,
-  makeMHState,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CharacterCard, PlayHeroResourceAction } from '../../index.js';
@@ -237,11 +236,12 @@ describe('Adamant Helmet (td-96)', () => {
 
   // ─── Rule 5: prevents new dark enchantments targeting bearer ─────────────
 
-  test('hazard player cannot target a warded bearer with a dark enchantment', () => {
-    // Build an M/H state where Aragorn already wears the Helmet and the
-    // hazard player holds Dragon's Curse. The Helmet's ward must remove
-    // Aragorn from the legal target list for Dragon's Curse.
-    let state = buildTestState({
+  test('warded bearer discards the dark enchantment played on them during combat', () => {
+    // Set up a Dragon attack resolving against Aragorn, who bears the
+    // Helmet. The hazard player plays Dragon's Curse on Aragorn — the
+    // ward must cancel the attachment and route the curse to the
+    // attacker's discard pile.
+    const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       recompute: true,
@@ -250,36 +250,33 @@ describe('Adamant Helmet (td-96)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [LORIEN] },
       ],
     });
-    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, ADAMANT_HELMET);
-    state = { ...state, phaseState: makeMHState() };
+    const withHelmet = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, ADAMANT_HELMET);
+    const aragornId = findCharInstanceId(withHelmet, RESOURCE_PLAYER, ARAGORN);
+    const combat: import('../../index.js').CombatState = {
+      attackSource: { type: 'creature', instanceId: 'synthetic-dragon' as import('../../index.js').CardInstanceId },
+      companyId: withHelmet.players[RESOURCE_PLAYER].companies[0].id,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 8,
+      creatureBody: null,
+      creatureRace: 'dragon',
+      strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+    const state = { ...withHelmet, combat };
 
-    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: { targetCharacterId?: string } }[];
-    // No viable Dragon's Curse play against Aragorn.
-    const targetingAragorn = plays.filter(p => p.action.targetCharacterId === aragornId);
-    expect(targetingAragorn).toHaveLength(0);
-  });
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: PlayHeroResourceAction }[];
+    expect(plays).toHaveLength(1);
 
-  test('ward is character-local: another non-warded character remains a legal target', () => {
-    // Aragorn wears the Helmet; Théoden does not. Dragon's Curse may still
-    // target Théoden.
-    let state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, THEODEN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [LORIEN] },
-      ],
-    });
-    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, ADAMANT_HELMET);
-    state = { ...state, phaseState: makeMHState() };
-
-    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const theodenId = findCharInstanceId(state, RESOURCE_PLAYER, THEODEN);
-    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: { targetCharacterId?: string } }[];
-
-    expect(plays.some(p => p.action.targetCharacterId === aragornId)).toBe(false);
-    expect(plays.some(p => p.action.targetCharacterId === theodenId)).toBe(true);
+    const next = dispatch(state, plays[0].action as import('../../index.js').GameAction);
+    // Ward cancels attachment: curse never lands on Aragorn.
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards).toHaveLength(0);
+    // Strike prowess bonus is untouched — the curse never entered play.
+    expect(next.combat!.strikeAssignments[0].strikeProwessBonus ?? 0).toBe(0);
   });
 });

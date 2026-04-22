@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -102,7 +102,10 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
-      return resolveStrikeActions(state, playerId, combat);
+      return [
+        ...resolveStrikeActions(state, playerId, combat),
+        ...combatHazardPermanentPlays(state, playerId, combat),
+      ];
     case 'body-check':
       return bodyCheckActions(state, playerId, combat);
     case 'item-salvage':
@@ -325,8 +328,9 @@ function resolveStrikeActions(
   // (CoE rule 3.iv.4) so the displayed "need" updates as the defender
   // taps supporters.
   const supportBonus = currentStrike.supportCount ?? 0;
-  const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus;
-  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus;
+  const strikeBonus = currentStrike.strikeProwessBonus ?? 0;
+  const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
@@ -1191,4 +1195,118 @@ function itemSalvageActions(
   });
 
   return actions;
+}
+
+/**
+ * Emit `play-hazard` actions for hazard permanent-events in the
+ * attacker's hand that declare `play-window { phase: 'combat', step:
+ * 'resolve-strike' }`. Each candidate is gated on its
+ * `play-condition` (currently only `requires: 'combat-creature-race'`
+ * is understood here — matched against `combat.creatureRace`) and its
+ * `play-target` filter (evaluated against the defender currently
+ * facing the strike). Used by Dragon's Curse (td-16).
+ */
+function combatHazardPermanentPlays(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'resolve-strike') return [];
+  if (playerId !== combat.attackingPlayerId) return [];
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  const attackerIndex = state.players.findIndex(p => p.id === playerId);
+  const attacker = state.players[attackerIndex];
+  if (!attacker) return [];
+
+  const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defender = state.players[defenderIndex];
+  const targetCharId = currentStrike.characterId;
+  const targetChar = defender.characters[targetCharId as string];
+  if (!targetChar) return [];
+  const targetDef = state.cardPool[targetChar.definitionId as string];
+  if (!targetDef || !isCharacterCard(targetDef)) return [];
+
+  const results: EvaluatedAction[] = [];
+  for (const handCard of attacker.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') continue;
+    if (!('effects' in def) || !def.effects) continue;
+
+    const playWindow = def.effects.find(
+      (e): e is PlayWindowEffect => e.type === 'play-window',
+    );
+    if (!playWindow || playWindow.phase !== 'combat' || playWindow.step !== 'resolve-strike') continue;
+
+    const playCondition = def.effects.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'combat-creature-race',
+    );
+    if (playCondition) {
+      if (!combat.creatureRace || combat.creatureRace !== playCondition.race) {
+        logDetail(`Combat play-hazard "${def.name}": creature race "${combat.creatureRace ?? 'none'}" does not match required "${playCondition.race ?? '?'}"`);
+        continue;
+      }
+    }
+
+    const playTarget = def.effects.find(
+      (e): e is PlayTargetEffect => e.type === 'play-target',
+    );
+    if (playTarget && playTarget.target === 'character' && playTarget.filter) {
+      const possessionNames = targetChar.items
+        .map(item => state.cardPool[item.definitionId as string]?.name)
+        .filter((n): n is string => n != null);
+      const itemKeywords = targetChar.items.flatMap(item => {
+        const iDef = state.cardPool[item.definitionId as string];
+        return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+      });
+      const ctx = {
+        target: {
+          race: targetDef.race,
+          skills: targetDef.skills,
+          name: targetDef.name,
+          mind: targetDef.mind,
+          possessions: possessionNames,
+          itemKeywords,
+        },
+      };
+      if (!matchesCondition(playTarget.filter, ctx)) {
+        logDetail(`Combat play-hazard "${def.name}" filter excludes ${targetDef.name}`);
+        continue;
+      }
+    }
+
+    // Per-character duplication limit: skip if a copy is already on the target.
+    const charDupLimit = def.effects.find(
+      (e): e is import('../../types/effects.js').DuplicationLimitEffect =>
+        e.type === 'duplication-limit' && e.scope === 'character',
+    );
+    if (charDupLimit) {
+      const copies = targetChar.hazards.filter(h => {
+        const hDef = state.cardPool[h.definitionId as string];
+        return hDef && hDef.name === def.name;
+      }).length;
+      if (copies >= charDupLimit.max) {
+        logDetail(`Combat play-hazard "${def.name}" already on ${targetDef.name} (${copies}/${charDupLimit.max})`);
+        continue;
+      }
+    }
+
+    const companyId = defender.companies.find(c => c.characters.includes(targetCharId))?.id;
+    if (!companyId) continue;
+
+    logDetail(`Combat play-hazard "${def.name}" playable on ${targetDef.name}`);
+    results.push({
+      action: {
+        type: 'play-hazard',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+        targetCompanyId: companyId,
+        targetCharacterId: targetCharId,
+      },
+      viable: true,
+    });
+  }
+  return results;
 }
