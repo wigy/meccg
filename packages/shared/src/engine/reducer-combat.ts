@@ -516,13 +516,43 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
   const cancellerChar = defPlayer.characters[action.cancellerInstanceId as string];
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
 
-  const cancellerDef = state.cardPool[cancellerChar.definitionId as string];
-  const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
-  logDetail(`${cancellerName} taps to cancel strike against ${currentStrike.characterId as string}`);
+  let nextState: GameState;
+  if (cancellerChar) {
+    const cancellerDef = state.cardPool[cancellerChar.definitionId as string];
+    const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
+    logDetail(`${cancellerName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
-  const nextState = updatePlayer(state, defPlayerIndex, p =>
-    updateCharacter(p, action.cancellerInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
-  );
+    nextState = updatePlayer(state, defPlayerIndex, p =>
+      updateCharacter(p, action.cancellerInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
+    );
+  } else {
+    // The canceller may be an item attached to the struck character (e.g.
+    // Enruned Shield taps to cancel a strike against its Warrior bearer).
+    let hostCharId: string | null = null;
+    let itemIndex = -1;
+    for (const [charKey, ch] of Object.entries(defPlayer.characters)) {
+      const idx = ch.items.findIndex(i => i.instanceId === action.cancellerInstanceId);
+      if (idx >= 0) {
+        hostCharId = charKey;
+        itemIndex = idx;
+        break;
+      }
+    }
+    if (hostCharId === null || itemIndex < 0) {
+      return { state, error: 'Canceller not found as character or item' };
+    }
+    const hostChar = defPlayer.characters[hostCharId];
+    const item = hostChar.items[itemIndex];
+    const itemDef = state.cardPool[item.definitionId as string];
+    const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+    logDetail(`${itemName} taps to cancel strike against ${currentStrike.characterId as string}`);
+
+    const newItems = [...hostChar.items];
+    newItems[itemIndex] = { ...item, status: CardStatus.Tapped };
+    nextState = updatePlayer(state, defPlayerIndex, p =>
+      updateCharacter(p, hostCharId, c => ({ ...c, items: newItems })),
+    );
+  }
 
   const newAssignments = [...combat.strikeAssignments];
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
