@@ -83,6 +83,7 @@ export function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
+  clearGameMessageLog();
   // Hide pseudo-AI panel
   const pseudoPanel = document.getElementById('pseudo-ai-panel');
   if (pseudoPanel) {
