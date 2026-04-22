@@ -1966,6 +1966,19 @@ h2 {
   gap: 0.5rem;
 }
 
+/* Dev buttons column — between the two score boards on the left. */
+#toolbar-left {
+  position: fixed;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: var(--z-hover);
+}
+
 #toolbar-dev {
   display: flex;
   flex-direction: column;
@@ -1975,10 +1988,14 @@ h2 {
 
 #toolbar-view {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
 }
 
-#toolbar button {
+#toolbar-view button {
+  width: 100%;
+}
+
+#toolbar button, #toolbar-left button {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
   background: transparent;
@@ -1990,18 +2007,18 @@ h2 {
   transition: opacity 0.2s, color 0.2s, border-color 0.2s;
 }
 
-#toolbar button:hover {
+#toolbar button:hover, #toolbar-left button:hover {
   opacity: 1;
   color: #e0e0e0;
   border-color: #c4a35a;
 }
 
-#toolbar button:active {
+#toolbar button:active, #toolbar-left button:active {
   background: rgba(196, 163, 90, 0.3);
   transform: scale(0.95);
 }
 
-#toolbar select {
+#toolbar select, #toolbar-left select {
   padding: 0.3rem 0.4rem;
   font-size: 0.8rem;
   background: #1e1e36;
@@ -2013,18 +2030,18 @@ h2 {
   transition: opacity 0.2s, color 0.2s, border-color 0.2s;
 }
 
-#toolbar select:hover {
+#toolbar select:hover, #toolbar-left select:hover {
   opacity: 1;
   color: #e0e0e0;
   border-color: #c4a35a;
 }
 
-#toolbar select option {
+#toolbar select option, #toolbar-left select option {
   background: #1e1e36;
   color: #e0e0e0;
 }
 
-#toolbar button.btn-flash {
+#toolbar button.btn-flash, #toolbar-left button.btn-flash {
   animation: btn-flash 0.4s ease-out;
 }
 
@@ -2138,6 +2155,7 @@ h2 {
 #debug-view {
   display: flex;
   gap: 1rem;
+  padding-left: 10rem;
 }
 
 #left-panel {
@@ -2987,17 +3005,37 @@ h2 {
   display: block;
 }
 
-#toast-container {
+#game-log-panel {
   position: fixed;
   top: 3.5rem;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0.5rem;
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.4rem;
   pointer-events: none;
+  max-width: 32rem;
+}
+
+#game-log-panel.game-log-panel--history {
+  pointer-events: auto;
+  background: rgba(15, 12, 8, 0.85);
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+#game-log-header {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.8rem;
+  color: rgba(196, 163, 90, 0.8);
+  align-self: flex-end;
+}
+
+#game-log-header.hidden {
+  display: none;
 }
 
 .toast {
@@ -3011,7 +3049,14 @@ h2 {
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   opacity: 0;
+  text-align: right;
   animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 9s forwards;
+}
+
+.toast--history {
+  opacity: 0.85;
+  animation: none;
+  white-space: normal;
 }
 
 .toast--opponent {

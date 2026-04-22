@@ -17,7 +17,11 @@
  *   window after Tab; any other key (or timeout / Escape) cancels.
  *   Letters were chosen over digits so the hand shortcuts 1..9,0 stay free.
  * - Shift (held): overlay the assigned key on every shortcut target.
+ * - PageUp / PageDown: browse the per-game message history in the top-right
+ *   panel. End jumps back to live tail.
  */
+
+import { pageHistoryUp, pageHistoryDown, returnToLiveTail } from './render.js';
 
 /** Digit keys in the order 1..9,0 — first 10 hand-card slots. */
 const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -695,6 +699,24 @@ export function installKeyboardShortcuts(): void {
         e.preventDefault();
         clickWithFlash(toggle);
       }
+      return;
+    }
+
+    if (e.key === 'PageUp') {
+      e.preventDefault();
+      pageHistoryUp();
+      return;
+    }
+
+    if (e.key === 'PageDown') {
+      e.preventDefault();
+      pageHistoryDown();
+      return;
+    }
+
+    if (e.key === 'End') {
+      e.preventDefault();
+      returnToLiveTail();
       return;
     }
 
