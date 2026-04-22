@@ -680,6 +680,24 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
  * the corresponding discard pile. Hazards are opponent-owned; items and
  * allies belong to the character's own player.
  */
+/**
+ * Scan every character belonging to `player` and return the instance id
+ * of the one bearing the given source card (item/ally/hazard), or
+ * undefined if none. Used by grant-action applies whose cost-payer and
+ * bearer differ (e.g. `cost.tap: sage-in-company`).
+ */
+function locateBearerOfSource(
+  player: import('../types/state.js').PlayerState,
+  sourceCardId: CardInstanceId,
+): CardInstanceId | undefined {
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    if (char.items.some(i => i.instanceId === sourceCardId)) return charIdStr as CardInstanceId;
+    if (char.allies.some(a => a.instanceId === sourceCardId)) return charIdStr as CardInstanceId;
+    if (char.hazards.some(h => h.instanceId === sourceCardId)) return charIdStr as CardInstanceId;
+  }
+  return undefined;
+}
+
 function locateSourceOnCharacter(
   char: CharacterInPlay,
   sourceCardId: CardInstanceId,
@@ -835,6 +853,24 @@ function runGrantApply(
   }
 
   if (apply.type === 'discard-self') {
+    // The source card is usually attached to the cost-paying character.
+    // For `cost.tap: sage-in-company` the source lives on a different
+    // character (the bearer); scan the player's characters to find it.
+    const bearerId = locateBearerOfSource(newPlayers[ctx.playerIndex], ctx.action.sourceCardId);
+    if (bearerId && bearerId !== ctx.action.characterId) {
+      const bearerChar = newPlayers[ctx.playerIndex].characters[bearerId as string];
+      const result = detachAndDiscardSource(bearerChar, ctx.action.sourceCardId, ctx.sourceCardDefinitionId, ctx.playerIndex, newPlayers);
+      if ('error' in result) return { error: result.error };
+      newPlayers[ctx.playerIndex] = {
+        ...newPlayers[ctx.playerIndex],
+        characters: {
+          ...newPlayers[ctx.playerIndex].characters,
+          [bearerId as string]: result.updatedChar,
+        },
+      };
+      logDetail(`Grant-action ${ctx.action.actionId}: discarded ${ctx.sourceName} from bearer`);
+      return { updatedChar: char, effects: [], stateOps: [] };
+    }
     const result = detachAndDiscardSource(char, ctx.action.sourceCardId, ctx.sourceCardDefinitionId, ctx.playerIndex, newPlayers);
     if ('error' in result) return { error: result.error };
     logDetail(`Grant-action ${ctx.action.actionId}: discarded ${ctx.sourceName}`);
@@ -1469,7 +1505,11 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
   } else if (noTap && (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character')) {
     logDetail(`Grant-action ${action.actionId}: ${charName} skips tap-cost (no-tap variant, source: ${sourceName})`);
-  } else if (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character') {
+  } else if (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character' || resolved.cost.tap === 'sage-in-company') {
+    // sage-in-company: `action.characterId` is the sage paying the tap
+    // (not the bearer of the source). The discard/detach in the apply
+    // branch is scoped against the actual bearer, which is found by
+    // scanning the player's characters for the source instance.
     updatedChar = { ...updatedChar, status: CardStatus.Tapped };
     logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);
   } else if (resolved.cost.tap === 'self') {

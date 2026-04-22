@@ -340,6 +340,47 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
           continue;
         }
 
+        // `sage-in-company` cost: a different character — an untapped
+        // sage in the bearer's company — pays the tap, not the bearer.
+        // One action per eligible sage (e.g. Dragon's Curse: "a sage in
+        // the target character's company may tap to attempt to remove
+        // this card"). Handled here and we skip the later tap=bearer
+        // branches for this effect.
+        if (effect.cost.tap === 'sage-in-company') {
+          const bearerCompany = player.companies.find(c => c.characters.includes(charId));
+          if (!bearerCompany) {
+            logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: bearer has no company`);
+            continue;
+          }
+          let emitted = 0;
+          for (const companionId of bearerCompany.characters) {
+            const companion = player.characters[companionId as string];
+            if (!companion) continue;
+            if (companion.status !== CardStatus.Untapped) continue;
+            const companionDef = state.cardPool[companion.definitionId as string];
+            if (!companionDef || !isCharacterCard(companionDef)) continue;
+            if (!(companionDef.skills as readonly string[] | undefined)?.includes('sage')) continue;
+            logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: companionId,
+                sourceCardId: hazard.instanceId,
+                sourceCardDefinitionId: hazard.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+              },
+              viable: true,
+            });
+            emitted++;
+          }
+          if (emitted === 0) {
+            logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: no eligible untapped sage in bearer's company`);
+          }
+          continue;
+        }
+
         // Check cost: if tap is "bearer", character must be untapped
         if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
           const charDef = state.cardPool[char.definitionId as string];
