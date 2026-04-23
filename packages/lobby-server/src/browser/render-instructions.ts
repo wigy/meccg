@@ -104,6 +104,11 @@ function getInstructionText(
           ? 'Combat — Tap a character to cancel an attack, or pass to continue.'
           : 'Combat — Opponent may tap characters to cancel attacks.';
       }
+      if (view.combat.assignmentPhase === 'cancel-window') {
+        return iAmDefender
+          ? 'Combat — Cancel or modify the attack, or pass to let opponent assign strikes.'
+          : 'Combat — Opponent may cancel or modify the attack before assigning strikes.';
+      }
       const isMyTurn = (view.combat.assignmentPhase === 'defender' && iAmDefender)
         || (view.combat.assignmentPhase === 'attacker' && !iAmDefender);
       return isMyTurn
