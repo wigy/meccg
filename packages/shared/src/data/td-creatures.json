@@ -13,13 +13,25 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "coastal",
           "wilderness",
-          "coastal-sea"
+          "wilderness",
+          "wilderness"
         ]
+      },
+      {
+        "siteTypes": ["ruins-and-lairs"],
+        "when": {
+          "$or": [
+            { "destinationSite.sitePath.wildernessCount": { "$gte": 2 } },
+            { "destinationSite.sitePath.coastalCount": { "$gte": 1 } }
+          ]
+        }
       }
     ],
     "effects": [],
-    "text": "Drake. One strike.May also be played at a Ruins & Lairs [{R}] that has two Wildernesses [{w}] or one Coastal Sea [{c}] in its site path."
+    "text": "Drake. One strike. May also be played at a Ruins & Lairs [{R}] that has two Wildernesses [{w}] or one Coastal Sea [{c}] in its site path.",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-creature",

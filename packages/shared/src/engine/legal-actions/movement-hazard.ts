@@ -1017,6 +1017,29 @@ function resetHandActions(
 }
 
 /**
+ * Count occurrences of each region type in a path. Returns a flat record
+ * keyed by `{type}Count` so DSL conditions can reference counts directly
+ * (e.g. `destinationSite.sitePath.wildernessCount >= 2`).
+ */
+function regionTypeCounts(path: readonly RegionType[]): Record<string, number> {
+  const counts: Record<string, number> = {
+    wildernessCount: 0, shadowCount: 0, darkCount: 0,
+    coastalCount: 0, freeCount: 0, borderCount: 0,
+  };
+  for (const rt of path) {
+    switch (rt) {
+      case RegionType.Wilderness: counts.wildernessCount++; break;
+      case RegionType.Shadow: counts.shadowCount++; break;
+      case RegionType.Dark: counts.darkCount++; break;
+      case RegionType.Coastal: counts.coastalCount++; break;
+      case RegionType.Free: counts.freeCount++; break;
+      case RegionType.Border: counts.borderCount++; break;
+    }
+  }
+  return counts;
+}
+
+/**
  * Check whether any of the creature's region types can be keyed to the
  * site path. Each distinct type is an independent option (OR). If the
  * same type appears N times, the path must have at least N of that type.
@@ -1081,7 +1104,13 @@ function findCreatureKeyingMatches(
   }
 
   const inPlayNames = buildInPlayNames(state);
-  const whenContext = { inPlay: inPlayNames };
+  const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+  const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
+  const destSitePathCounts = regionTypeCounts(destSitePath);
+  const whenContext: Record<string, unknown> = {
+    inPlay: inPlayNames,
+    destinationSite: { sitePath: destSitePathCounts },
+  };
   for (const key of def.keyedTo) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches
@@ -1256,21 +1285,7 @@ function checkSitePathCondition(
   effect: PlayConditionEffect,
   state?: GameState,
 ): boolean {
-  const counts: Record<string, number> = {
-    wildernessCount: 0, shadowCount: 0, darkCount: 0,
-    coastalCount: 0, freeCount: 0, borderCount: 0,
-  };
-  for (const rt of mhState.resolvedSitePath) {
-    switch (rt) {
-      case RegionType.Wilderness: counts.wildernessCount++; break;
-      case RegionType.Shadow: counts.shadowCount++; break;
-      case RegionType.Dark: counts.darkCount++; break;
-      case RegionType.Coastal: counts.coastalCount++; break;
-      case RegionType.Free: counts.freeCount++; break;
-      case RegionType.Border: counts.borderCount++; break;
-    }
-  }
-  const ctx: Record<string, unknown> = { sitePath: counts };
+  const ctx: Record<string, unknown> = { sitePath: regionTypeCounts(mhState.resolvedSitePath) };
   if (mhState.destinationSiteType) {
     ctx['destinationSiteType'] = mhState.destinationSiteType;
   }
