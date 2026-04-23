@@ -358,6 +358,7 @@ Events:
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. Used by *Alone and Unadvised*. Implemented in `reducer-movement-hazard.ts`.
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached items for this event and applies the `discard-self` action, moving the card to the owner's discard pile. Used by *Align Palantír*. Implemented in `reducer-movement-hazard.ts`.
+- `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. Scoped to characters in the defending player's *other* companies that are at a haven, so they can be offered a chance to jump into the attack. Scanned in `chain-reducer.ts` `collectHavenJumpOffers()`. The `when` condition is evaluated against `{ bearer: { atHaven: true, siteType: 'haven' }, attack: { attackedCompanyId, bearerCompanyId } }`. Currently consumed only by `offer-char-join-attack` — used by *Alatar* (tw-117).
 
 Apply types:
 
@@ -374,6 +375,28 @@ Apply types:
   Stinker's ring-discard grant-action to discard *The One Ring* —
   potentially belonging to the opposing player — when the ally is
   discarded. Implemented in `reducer-organization.ts` `runGrantApply()`.
+- `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
+  raises a pending "may join the attacked company" offer for the
+  bearer. The defender sees a `haven-join-attack` legal action during
+  the assign-strikes cancel-window; accepting moves the bearer into
+  the attacked company for this combat and (optionally) discards
+  attached allies, forces a strike onto the bearer, and schedules
+  post-attack side-effects. After combat finalizes the bearer is
+  restored to their origin company. Composable flags:
+  - `discardOwnedAllies` (boolean) -- discard allies attached to the
+    bearer when they join.
+  - `forceStrike` (boolean) -- at least one strike from the attacking
+    creature must be assigned to the bearer before any other
+    defender-side assignment is legal.
+  - `postAttack` (object) -- effects applied at combat finalization
+    regardless of outcome. Supports `tapIfUntapped` (boolean) and
+    `corruptionCheck` (object with optional `modifier`).
+
+  Implemented in `chain-reducer.ts`
+  (`collectHavenJumpOffers()`), `legal-actions/combat.ts`
+  (`havenJoinAttackActions()`), `reducer-combat.ts`
+  (`handleHavenJoinAttack`, `applyPostAttackEffects`,
+  `restoreHavenJumpOrigins`). Used by *Alatar* (tw-117).
 
 ### Pending resolutions
 
@@ -1246,6 +1269,23 @@ The resolver:
 6. Returns the final computed value
 
 ## Full Card Examples
+
+### Alatar
+
+```json
+"effects": [
+  { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 },
+  { "type": "on-event", "event": "creature-attack-begins",
+    "apply": {
+      "type": "offer-char-join-attack",
+      "discardOwnedAllies": true,
+      "forceStrike": true,
+      "postAttack": { "tapIfUntapped": true, "corruptionCheck": {} }
+    } }
+]
+```
+
+Reduces opponent draws from Alatar's company's movement by one (floored at zero). When a hazard creature attacks any of the controller's companies and Alatar is at a haven in a different company, the controller may accept the haven-join offer: Alatar joins the attacked company for this combat, his attached allies are discarded, the creature must strike him, and after combat he taps (if untapped) and makes a corruption check. He returns to the haven company at combat finalization.
 
 ### Aragorn II
 

@@ -407,6 +407,24 @@ export interface MusterRollAction {
 }
 
 /**
+ * Accept a pending haven-join-attack offer — move the character from their
+ * haven company into the attacked company before strikes are assigned.
+ *
+ * Created by `on-event: creature-attack-begins` + `apply: offer-char-join-attack`
+ * (e.g. Alatar). Available during the assign-strikes cancel-window. The
+ * character's allies are discarded (per the offer's configuration), a strike
+ * is forced onto them, and post-combat side-effects are scheduled.
+ */
+export interface HavenJoinAttackAction {
+  /** Action discriminant. */
+  readonly type: 'haven-join-attack';
+  /** The defending player (owner of both the haven company and the attacked company). */
+  readonly player: PlayerId;
+  /** The character instance being moved into the attacked company. */
+  readonly characterId: CardInstanceId;
+}
+
+/**
  * Execute the dice roll for a Call of Home check on a character.
  *
  * Created by the pending-resolution system after a hazard short event

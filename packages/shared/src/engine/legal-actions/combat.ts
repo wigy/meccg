@@ -87,7 +87,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // Cancel-window: defender's pre-assignment window to cancel the attack
       // before the attacker assigns strikes (attacker-chooses-defenders).
       // Only the defending player may act: cancel-attack, halve-strikes,
-      // modify-attack, or pass.
+      // modify-attack, haven-join (e.g. Alatar), or pass.
       if (combat.assignmentPhase === 'cancel-window') {
         if (playerId !== combat.defendingPlayerId) return [];
         return [
@@ -95,6 +95,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...halveActions,
           ...modifyActions,
           ...modifyFromHandActions,
+          ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
@@ -142,6 +143,38 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 }
 
 /**
+ * One `haven-join-attack` action per pending haven-jump offer.
+ *
+ * Offers are raised in `initiateCreatureCombat` when any character of the
+ * defending player sits at a haven and declares
+ * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`.
+ * The action is legal during the assign-strikes cancel-window for the
+ * defending player only (the owner of the offers).
+ */
+function havenJoinAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  const offers = combat.havenJumpOffers;
+  if (!offers || offers.length === 0) return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const offer of offers) {
+    if (offer.bearerPlayerId !== playerId) continue;
+    const playerIdx = state.players.findIndex(p => p.id === playerId);
+    const charInPlay = state.players[playerIdx]?.characters[offer.characterId as string];
+    if (!charInPlay) continue;
+    logDetail(`Defender may accept haven-join for ${offer.characterId as string}`);
+    actions.push({
+      action: { type: 'haven-join-attack', player: playerId, characterId: offer.characterId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Actions during the assign-strikes sub-phase.
  *
  * The defending player assigns strikes to untapped characters first.
@@ -167,16 +200,25 @@ function assignStrikeActions(
 
     if (strikesRemaining <= 0) return [];
 
+    // Forced-strike targets (e.g. Alatar haven-join): each listed character
+    // must receive a strike before any other assignment is legal. The filter
+    // collapses the defender's legal menu to only the unassigned forced
+    // targets while the list is non-empty.
+    const unassignedForced = (combat.forcedStrikeTargets ?? [])
+      .filter(id => !assignedCharIds.has(id as string));
+    const restrictToForced = unassignedForced.length > 0;
+
     // Offer untapped characters that don't already have a strike
     for (const charId of company.characters) {
       if (assignedCharIds.has(charId as string)) continue;
+      if (restrictToForced && !unassignedForced.includes(charId)) continue;
       const charData = player.characters[charId as string];
       if (!charData) continue;
       if (charData.status !== CardStatus.Untapped) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
-      logDetail(`Defender can assign strike to ${charId as string} (untapped)`);
+      logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
         viable: true,
@@ -185,25 +227,33 @@ function assignStrikeActions(
 
     // Per CoE rule 2.V.2.2: Allies are treated as characters for combat purposes
     // (facing strikes, tapping in support, etc.). Offer untapped allies as strike targets.
-    for (const { ally } of findCompanyAllies(player, company.characters)) {
-      if (assignedCharIds.has(ally.instanceId as string)) continue;
-      if (ally.status !== CardStatus.Untapped) {
-        logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
-        continue;
+    // Skip entirely while a forced-strike target is still unassigned — the
+    // forced target takes priority.
+    if (!restrictToForced) {
+      for (const { ally } of findCompanyAllies(player, company.characters)) {
+        if (assignedCharIds.has(ally.instanceId as string)) continue;
+        if (ally.status !== CardStatus.Untapped) {
+          logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
+          continue;
+        }
+        logDetail(`Defender can assign strike to ally ${ally.instanceId as string} (untapped)`);
+        actions.push({
+          action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
+          viable: true,
+        });
       }
-      logDetail(`Defender can assign strike to ally ${ally.instanceId as string} (untapped)`);
-      actions.push({
-        action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
-        viable: true,
-      });
     }
 
-    // Defender can always pass to let attacker assign remaining
-    logDetail(`Defender can pass (${strikesRemaining} strike(s) remaining)`);
-    actions.push({
-      action: { type: 'pass', player: playerId },
-      viable: true,
-    });
+    // Defender may pass only when no forced-strike target is still unassigned.
+    if (!restrictToForced) {
+      logDetail(`Defender can pass (${strikesRemaining} strike(s) remaining)`);
+      actions.push({
+        action: { type: 'pass', player: playerId },
+        viable: true,
+      });
+    } else {
+      logDetail(`Defender cannot pass: forced-strike target(s) still unassigned`);
+    }
 
     return actions;
   }

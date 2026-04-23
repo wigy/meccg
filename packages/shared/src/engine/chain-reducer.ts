@@ -13,7 +13,9 @@
  */
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
-import { getPlayerIndex, CardStatus, matchesCondition } from '../index.js';
+import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
+import type { OnEventEffect } from '../types/effects.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { discardCardsInPlay } from './reducer.js';
@@ -1022,6 +1024,69 @@ function resolveDefendingSiteEffects(
 }
 
 /**
+ * Scan the defending player's characters (across all their companies) for
+ * `on-event: creature-attack-begins` effects with `apply: offer-char-join-attack`.
+ * Each match whose bearer is at a haven and whose company differs from the
+ * attacked company becomes a {@link HavenJumpOffer} the player may accept
+ * during the cancel-window. Used by Alatar — generalizable to any card that
+ * lets a specific character jump from a haven into an attack.
+ */
+function collectHavenJumpOffers(
+  state: GameState,
+  defendingPlayer: PlayerState,
+  attackedCompanyId: import('../types/common.js').CompanyId,
+): HavenJumpOffer[] {
+  const offers: HavenJumpOffer[] = [];
+  for (const company of defendingPlayer.companies) {
+    if (company.id === attackedCompanyId) continue;
+    const siteDef = company.currentSite
+      ? state.cardPool[company.currentSite.definitionId as string]
+      : undefined;
+    const atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+    if (!atHaven) continue;
+    for (const charId of company.characters) {
+      const charInPlay = defendingPlayer.characters[charId as string];
+      if (!charInPlay) continue;
+      const charDef = state.cardPool[charInPlay.definitionId as string];
+      const effects = (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+      for (const effect of effects) {
+        if (effect.type !== 'on-event') continue;
+        const onEvent: OnEventEffect = effect;
+        if (onEvent.event !== 'creature-attack-begins') continue;
+        if (onEvent.apply.type !== 'offer-char-join-attack') continue;
+        if (onEvent.when) {
+          const ctx = {
+            bearer: { atHaven: true, siteType: SiteType.Haven },
+            attack: { attackedCompanyId: attackedCompanyId as string, bearerCompanyId: company.id as string },
+          };
+          if (!matchesCondition(onEvent.when, ctx)) continue;
+        }
+        const postAttackEffects: PostAttackEffect[] = [];
+        const post = onEvent.apply.postAttack;
+        if (post && (post.tapIfUntapped || post.corruptionCheck)) {
+          postAttackEffects.push({
+            targetCharacterId: charInPlay.instanceId,
+            tapIfUntapped: post.tapIfUntapped,
+            corruptionCheck: post.corruptionCheck,
+          });
+        }
+        offers.push({
+          characterId: charInPlay.instanceId,
+          bearerPlayerId: defendingPlayer.id,
+          originCompanyId: company.id,
+          targetCompanyId: attackedCompanyId,
+          discardOwnedAllies: !!onEvent.apply.discardOwnedAllies,
+          forceStrike: !!onEvent.apply.forceStrike,
+          postAttackEffects,
+        });
+        logDetail(`Haven-join offer: ${(charDef as { name?: string })?.name ?? charInPlay.definitionId as string} at haven may join attacked company`);
+      }
+    }
+  }
+  return offers;
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -1117,6 +1182,11 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackKeying = Array.from(new Set(
     creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
   ));
+  // Scan for on-event: creature-attack-begins → offer-char-join-attack
+  // (e.g. Alatar). If any pending offers match, force a cancel-window so
+  // the defender has an explicit opt-in before strike assignment begins.
+  const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
+
   const combat: CombatState = {
     attackSource,
     companyId: company.id,
@@ -1130,8 +1200,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
-    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
+    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0) ? 'cancel-window' : 'defender',
     bodyCheckTarget: null,
+    havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
+    attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace,

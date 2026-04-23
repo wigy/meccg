@@ -66,9 +66,97 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleSalvageItem(state, action, combat);
     case 'play-hazard':
       return handleCombatPlayHazard(state, action, combat);
+    case 'haven-join-attack':
+      return handleHavenJoinAttack(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
+}
+
+/**
+ * Accept a pending haven-join-attack offer.
+ *
+ * Removes the character from their haven company and inserts them into
+ * the attacked company, optionally discarding their allies, marking them
+ * as a forced strike target, and scheduling post-attack side-effects.
+ * The offer is consumed so it cannot be accepted twice.
+ *
+ * Implements the reusable side of `on-event: creature-attack-begins` +
+ * `apply: offer-char-join-attack` — composable for any card with this pattern
+ * (currently Alatar, tw-117).
+ */
+function handleHavenJoinAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'haven-join-attack') return wrongActionType(state, action, 'haven-join-attack');
+  const offers = combat.havenJumpOffers ?? [];
+  const offer = offers.find(o => o.characterId === action.characterId && o.bearerPlayerId === action.player);
+  if (!offer) return { state, error: 'No matching haven-join offer' };
+
+  const playerIdx = state.players.findIndex(p => p.id === action.player);
+  if (playerIdx < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIdx];
+
+  const originCompany = player.companies.find(c => c.id === offer.originCompanyId);
+  const targetCompany = player.companies.find(c => c.id === offer.targetCompanyId);
+  if (!originCompany || !targetCompany) return { state, error: 'Company not found' };
+
+  const charInPlay = player.characters[action.characterId as string];
+  if (!charInPlay) return { state, error: 'Character not in play' };
+
+  // Discard attached allies if configured
+  let updatedChar = charInPlay;
+  let discardedAllies: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
+  if (offer.discardOwnedAllies && charInPlay.allies.length > 0) {
+    discardedAllies = charInPlay.allies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId }));
+    updatedChar = { ...charInPlay, allies: [] };
+    logDetail(`Haven-join: discarding ${discardedAllies.length} ally card(s) attached to joiner`);
+  }
+
+  // Move character: remove from origin company, append to target company.
+  const newCompanies = player.companies.map(c => {
+    if (c.id === offer.originCompanyId) {
+      return { ...c, characters: c.characters.filter(id => id !== action.characterId) };
+    }
+    if (c.id === offer.targetCompanyId) {
+      return { ...c, characters: [...c.characters, action.characterId] };
+    }
+    return c;
+  });
+
+  const newCharacters = { ...player.characters, [action.characterId as string]: updatedChar };
+
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIdx] = {
+    ...player,
+    companies: newCompanies,
+    characters: newCharacters,
+    discardPile: [...player.discardPile, ...discardedAllies],
+  };
+
+  logDetail(`Haven-join: character ${action.characterId as string} moved from company ${offer.originCompanyId as string} to attacked company ${offer.targetCompanyId as string}`);
+
+  const newForcedTargets = offer.forceStrike
+    ? [...(combat.forcedStrikeTargets ?? []), action.characterId]
+    : combat.forcedStrikeTargets;
+  const newPostAttack = offer.postAttackEffects.length > 0
+    ? [...(combat.postAttackEffects ?? []), ...offer.postAttackEffects]
+    : combat.postAttackEffects;
+  const newOrigins = [...(combat.havenJumpOrigins ?? []), {
+    characterId: action.characterId,
+    originCompanyId: offer.originCompanyId,
+  }];
+
+  // Consume this offer
+  const remainingOffers = offers.filter(o => o !== offer);
+
+  const newCombat: CombatState = {
+    ...combat,
+    havenJumpOffers: remainingOffers.length > 0 ? remainingOffers : undefined,
+    forcedStrikeTargets: newForcedTargets && newForcedTargets.length > 0 ? newForcedTargets : undefined,
+    postAttackEffects: newPostAttack && newPostAttack.length > 0 ? newPostAttack : undefined,
+    havenJumpOrigins: newOrigins,
+  };
+
+  return { state: { ...state, players: newPlayers, combat: newCombat } };
 }
 
 /**
@@ -221,11 +309,16 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     };
   }
 
-  // Pass during cancel-window: defender declined to cancel — proceed to attacker assignment
+  // Pass during cancel-window: defender declined to cancel. If the window was
+  // entered due to attacker-chooses-defenders, the attacker assigns next; if
+  // it was entered solely for a haven-jump offer (no attacker-chooses), the
+  // defender is the normal next assigner. Pending haven-jump offers are
+  // consumed on pass — the player declined.
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-window') {
-    logDetail('Defender passed cancel window — attacker assigns strikes');
+    const next = combat.attackerChoosesDefenders ? 'attacker' : 'defender';
+    logDetail(`Defender passed cancel window — transitioning to ${next} assignment`);
     return {
-      state: { ...state, combat: { ...combat, assignmentPhase: 'attacker' } },
+      state: { ...state, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined } },
     };
   }
 
@@ -1695,10 +1788,125 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
+  // Apply post-attack effects scheduled by accepted haven-join offers
+  // (e.g. Alatar's "following the attack, tap + corruption check").
+  // Effects fire regardless of outcome. After effects, any haven-jumped
+  // character is restored to their original company.
+  stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
+  stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
+
   return {
     state: stateAfterCombat,
     effects,
   };
+}
+
+/**
+ * Apply each {@link PostAttackEffect} in order at combat finalization.
+ *
+ * For each targeted character, optionally tap them if they are still
+ * untapped, then enqueue a corruption check if configured. Enqueued via
+ * the unified pending-resolution system scoped to the company's current
+ * sub-phase (M/H or Site) so it auto-clears when the sub-phase ends.
+ *
+ * Reusable by any card that schedules post-attack side-effects via
+ * `on-event: creature-attack-begins` + `apply.postAttack`.
+ */
+function applyPostAttackEffects(
+  stateAfterCombat: GameState,
+  stateBeforeFinalize: GameState,
+  combat: CombatState,
+): GameState {
+  const effects = combat.postAttackEffects ?? [];
+  if (effects.length === 0) return stateAfterCombat;
+
+  let s = stateAfterCombat;
+  const defIdx = s.players.findIndex(p => p.id === combat.defendingPlayerId);
+  if (defIdx < 0) return s;
+
+  const phaseStateActive = stateBeforeFinalize.phaseState as { activeCompanyIndex?: number };
+  const activeCompanyIndex = phaseStateActive.activeCompanyIndex ?? -1;
+  // The scope-anchor company is the post-combat active company — i.e. the
+  // company the M/H or Site sub-phase is currently servicing. Haven-jumped
+  // characters are still attached there at this point (restore runs after).
+  const scopeCompany = activeCompanyIndex >= 0
+    ? s.players[defIdx].companies[activeCompanyIndex]
+    : undefined;
+  const scopeCompanyId = scopeCompany?.id;
+
+  for (const effect of effects) {
+    // Tap if untapped
+    if (effect.tapIfUntapped) {
+      const char = s.players[defIdx].characters[effect.targetCharacterId as string];
+      if (char && char.status === CardStatus.Untapped) {
+        const newPlayers: [PlayerState, PlayerState] = [s.players[0], s.players[1]];
+        newPlayers[defIdx] = {
+          ...s.players[defIdx],
+          characters: {
+            ...s.players[defIdx].characters,
+            [effect.targetCharacterId as string]: { ...char, status: CardStatus.Tapped },
+          },
+        };
+        s = { ...s, players: newPlayers };
+        logDetail(`Post-attack: tapped ${effect.targetCharacterId as string}`);
+      }
+    }
+    // Corruption check
+    if (effect.corruptionCheck && scopeCompanyId) {
+      const modifier = effect.corruptionCheck.modifier ?? 0;
+      const scope = stateBeforeFinalize.phaseState.phase === Phase.MovementHazard
+        ? ({ kind: 'company-mh-subphase' as const, companyId: scopeCompanyId })
+        : ({ kind: 'company-site-subphase' as const, companyId: scopeCompanyId });
+      s = enqueueCorruptionCheck(s, {
+        source: null,
+        actor: combat.defendingPlayerId,
+        scope,
+        characterId: effect.targetCharacterId,
+        modifier,
+        reason: 'post-attack corruption check',
+      });
+      logDetail(`Post-attack: corruption check queued on ${effect.targetCharacterId as string} (mod ${modifier})`);
+    }
+  }
+
+  return s;
+}
+
+/**
+ * After combat, return any haven-jumped characters to their original
+ * company. The character's CharacterInPlay stays unchanged; only the
+ * companies' `characters` membership lists are rewritten.
+ */
+function restoreHavenJumpOrigins(
+  stateAfterCombat: GameState,
+  combat: CombatState,
+): GameState {
+  const origins = combat.havenJumpOrigins ?? [];
+  if (origins.length === 0) return stateAfterCombat;
+
+  const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+  if (defIdx < 0) return stateAfterCombat;
+
+  const player = stateAfterCombat.players[defIdx];
+  const newCompanies = player.companies.map(c => {
+    let chars = c.characters;
+    for (const o of origins) {
+      if (chars.includes(o.characterId) && c.id !== o.originCompanyId) {
+        chars = chars.filter(id => id !== o.characterId);
+      }
+      if (c.id === o.originCompanyId && !chars.includes(o.characterId)) {
+        chars = [...chars, o.characterId];
+      }
+    }
+    return chars === c.characters ? c : { ...c, characters: chars };
+  });
+
+  const newPlayers: [PlayerState, PlayerState] = [stateAfterCombat.players[0], stateAfterCombat.players[1]];
+  newPlayers[defIdx] = { ...player, companies: newCompanies };
+  for (const o of origins) {
+    logDetail(`Haven-jump finalize: ${o.characterId as string} returned to company ${o.originCompanyId as string}`);
+  }
+  return { ...stateAfterCombat, players: newPlayers };
 }
 
 /**

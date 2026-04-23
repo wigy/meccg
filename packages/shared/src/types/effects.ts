@@ -468,6 +468,28 @@ export interface TriggeredAction {
    * The One Ring alongside the ally.
    */
   readonly cardName?: string;
+  /**
+   * For `offer-char-join-attack` type (fired under
+   * `on-event: creature-attack-begins`): when true, allies attached to
+   * the bearer are discarded when the bearer joins the attacked company.
+   * (Alatar — "discard allies he controls".)
+   */
+  readonly discardOwnedAllies?: boolean;
+  /**
+   * For `offer-char-join-attack` type: when true, accepting the offer
+   * forces the attacking creature to direct one strike at the bearer
+   * regardless of the defender's normal assignment priorities.
+   */
+  readonly forceStrike?: boolean;
+  /**
+   * For `offer-char-join-attack` type: effects applied to the bearer
+   * at combat finalization (win or lose). Composable — future cards
+   * can toggle tap, corruption check, or both without a new apply type.
+   */
+  readonly postAttack?: {
+    readonly tapIfUntapped?: boolean;
+    readonly corruptionCheck?: { readonly modifier?: number };
+  };
 }
 
 /**
