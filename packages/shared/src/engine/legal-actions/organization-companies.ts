@@ -330,8 +330,9 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
  * player's stored-items pile when the character's company is at a matching
  * site. After storage, the initial bearer must make a corruption check.
  *
- * Emits one action per valid (item, character) pair where the item's
- * storable-at sites include the company's current site name.
+ * A site matches if its name is in the effect's `sites` list, or its
+ * `siteType` is in the effect's `siteTypes` list (e.g. any Haven).
+ * Emits one action per valid (item, character) pair.
  */
 export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
@@ -343,6 +344,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
     const siteDef = resolveDef(state, company.currentSite.instanceId);
     if (!siteDef || !isSiteCard(siteDef)) continue;
     const siteName = siteDef.name;
+    const siteType = siteDef.siteType;
 
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId as string];
@@ -355,9 +357,14 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
         const itemDef = state.cardPool[item.definitionId as string];
         if (!itemDef || !('effects' in itemDef)) continue;
 
-        const effects = (itemDef as { effects?: readonly { type: string; sites?: readonly string[] }[] }).effects;
+        const effects = (itemDef as {
+          effects?: readonly { type: string; sites?: readonly string[]; siteTypes?: readonly string[] }[];
+        }).effects;
         const storableEffect = effects?.find(e => e.type === 'storable-at');
-        if (!storableEffect?.sites?.includes(siteName)) continue;
+        if (!storableEffect) continue;
+        const siteNameMatch = storableEffect.sites?.includes(siteName) ?? false;
+        const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
+        if (!siteNameMatch && !siteTypeMatch) continue;
 
         const itemName = itemDef.name ?? '?';
         logDetail(`  → viable: store ${itemName} from ${charName} at ${siteName}`);
