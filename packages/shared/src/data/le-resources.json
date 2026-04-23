@@ -726,7 +726,8 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": []
   },
   {
     "cardType": "minion-resource-event",
