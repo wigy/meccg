@@ -56,7 +56,10 @@
           "type": "roll-then-apply",
           "threshold": 7,
           "onSuccess": {
-            "type": "discard-self"
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
           }
         }
       },
@@ -64,7 +67,10 @@
         "type": "on-event",
         "event": "company-composition-changed",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
         },
         "when": {
           "company.characterCount": {

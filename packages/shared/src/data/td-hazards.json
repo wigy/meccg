@@ -87,7 +87,10 @@
           "type": "roll-then-apply",
           "threshold": 8,
           "onSuccess": {
-            "type": "discard-self"
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
           }
         }
       }
@@ -560,7 +563,10 @@
           "type": "roll-then-apply",
           "threshold": 7,
           "onSuccess": {
-            "type": "discard-self"
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
           }
         }
       }

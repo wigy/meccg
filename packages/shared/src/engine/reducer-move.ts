@@ -266,9 +266,11 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
       const hazIdx = char.hazards.findIndex(h => h.instanceId === sourceId);
       if (hazIdx >= 0) {
         const inst = char.hazards[hazIdx];
+        // Hazards are owned by the opposing (hazard) player — discards
+        // route to their discard pile, not the defending character's.
         return {
           instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
-          ownerIndex: pi,
+          ownerIndex: 1 - pi,
           zone: 'self-location',
           remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, sourceId),
         };
@@ -325,7 +327,9 @@ function locateInZone(
             remove: s => removeFromCardsInPlay(s, pi, instanceId),
           };
         }
-        // Character-attached hazards and items are also "in play"
+        // Character-attached hazards and items are also "in play".
+        // Hazards route to the opposing (hazard) player's discard; items
+        // stay with the character's controller.
         for (const charId of Object.keys(player.characters)) {
           const char = player.characters[charId];
           const hazIdx = char.hazards.findIndex(h => h.instanceId === instanceId);
@@ -333,7 +337,7 @@ function locateInZone(
             const inst = char.hazards[hazIdx];
             return {
               instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
-              ownerIndex: pi,
+              ownerIndex: 1 - pi,
               zone: 'in-play',
               remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, instanceId),
             };
@@ -412,7 +416,7 @@ function collectFromZone(
             const hazId = haz.instanceId;
             out.push({
               instance: inst,
-              ownerIndex: pi,
+              ownerIndex: 1 - pi,
               zone: 'in-play',
               remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, hazId),
             });

@@ -603,7 +603,10 @@
         "type": "on-event",
         "event": "bearer-company-moves",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
         }
       }
     ],
@@ -719,7 +722,10 @@
         "type": "on-event",
         "event": "company-arrives-at-site",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
         },
         "when": {
           "$not": {
