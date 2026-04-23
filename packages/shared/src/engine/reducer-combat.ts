@@ -11,7 +11,6 @@ import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../i
 import type { OnEventEffect, DodgeStrikeEffect, ModifyStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
-import type { HeroItemCard, MinionItemCard } from '../types/cards-resources.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -1747,8 +1746,14 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
             });
           }
         }
-      } else if (woundEvent.apply.type === 'discard-non-special-items') {
-        stateAfterCombat = discardNonSpecialItems(stateAfterCombat, combat, woundedCharIds, sourceName);
+      } else if (
+        woundEvent.apply.type === 'move'
+        && woundEvent.apply.select === 'filter-all'
+        && woundEvent.apply.from === 'items-on-wounded'
+        && woundEvent.apply.to === 'discard'
+      ) {
+        const filter = woundEvent.apply.filter;
+        stateAfterCombat = discardWoundedItems(stateAfterCombat, combat, woundedCharIds, sourceName, filter);
       }
     }
   }
@@ -1922,14 +1927,18 @@ function buildOnEventContext(state: GameState): Record<string, unknown> {
 }
 
 /**
- * Discard all non-special items from each wounded character.
- * Items are moved to the defending player's discard pile.
+ * Discard items on wounded characters matching the move filter to the
+ * defending player's discard pile. Implements the combat-specific
+ * `move { select: 'filter-all', from: 'items-on-wounded', to: 'discard',
+ * toOwner: 'defender', filter }` shape used by creatures like Balrog
+ * of Moria to strip non-special items from their victims.
  */
-function discardNonSpecialItems(
+function discardWoundedItems(
   state: GameState,
   combat: CombatState,
   woundedCharIds: readonly CardInstanceId[],
   sourceName: string,
+  filter: import('../types/effects.js').Condition | undefined,
 ): GameState {
   const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const cloned = clonePlayers(state);
@@ -1940,19 +1949,21 @@ function discardNonSpecialItems(
     const charData = newCharacters[charId as string];
     if (!charData) continue;
 
-    const nonSpecial = charData.items.filter(item => {
-      const def = state.cardPool[item.definitionId as string] as HeroItemCard | MinionItemCard | undefined;
-      return def && 'subtype' in def && def.subtype !== 'special';
+    const matching = charData.items.filter(item => {
+      const def = state.cardPool[item.definitionId as string];
+      if (!def) return false;
+      if (!filter) return true;
+      return matchesCondition(filter, def as unknown as Record<string, unknown>);
     });
 
-    if (nonSpecial.length === 0) continue;
+    if (matching.length === 0) continue;
 
-    const specialOnly = charData.items.filter(item => !nonSpecial.some(ns => ns.instanceId === item.instanceId));
-    newCharacters[charId as string] = { ...charData, items: specialOnly };
+    const remaining = charData.items.filter(item => !matching.some(m => m.instanceId === item.instanceId));
+    newCharacters[charId as string] = { ...charData, items: remaining };
 
-    for (const item of nonSpecial) {
+    for (const item of matching) {
       discarded.push({ instanceId: item.instanceId, definitionId: item.definitionId as string });
-      logDetail(`${sourceName}: discarding non-special item ${item.definitionId as string} from wounded character ${charId as string}`);
+      logDetail(`${sourceName}: discarding item ${item.definitionId as string} from wounded character ${charId as string}`);
     }
   }
 

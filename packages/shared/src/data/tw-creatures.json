@@ -121,7 +121,12 @@
         "type": "on-event",
         "event": "character-wounded-by-self",
         "apply": {
-          "type": "discard-non-special-items"
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-wounded",
+          "to": "discard",
+          "toOwner": "defender",
+          "filter": { "subtype": { "$ne": "special" } }
         },
         "target": "wounded-character",
         "when": {
@@ -299,7 +304,12 @@
         "type": "on-event",
         "event": "character-wounded-by-self",
         "apply": {
-          "type": "discard-non-special-items"
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-wounded",
+          "to": "discard",
+          "toOwner": "defender",
+          "filter": { "subtype": { "$ne": "special" } }
         },
         "target": "wounded-character",
         "when": {
@@ -350,7 +360,12 @@
         "type": "on-event",
         "event": "character-wounded-by-self",
         "apply": {
-          "type": "discard-non-special-items"
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-wounded",
+          "to": "discard",
+          "toOwner": "defender",
+          "filter": { "subtype": { "$ne": "special" } }
         },
         "target": "wounded-character",
         "when": {
