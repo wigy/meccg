@@ -17,9 +17,10 @@
  *   window after Tab; any other key (or timeout / Escape) cancels.
  *   Letters were chosen over digits so the hand shortcuts 1..9,0 stay free.
  * - Shift (held): overlay the assigned key on every shortcut target.
- * - PageUp / PageDown: browse the per-game message history in the top-right
- *   panel. End jumps back to live tail. Rolling the mouse wheel while the
- *   cursor is over the panel scrolls the history in finer steps.
+ * - PageUp / PageDown: step one line back / forward through the per-game
+ *   message log in the top-right panel. End jumps back to live tail.
+ *   Rolling the mouse wheel while the cursor is over the panel scrolls one
+ *   line per wheel tick.
  */
 
 import { pageHistoryUp, pageHistoryDown, scrollHistory, returnToLiveTail } from './render.js';
@@ -763,17 +764,15 @@ export function installKeyboardShortcuts(): void {
 
   window.addEventListener('blur', clearShortcutLabels);
 
-  // Wheel-over-panel scrolls the per-game message history. The panel has
-  // `pointer-events: none` in live-tail mode so wheel events bypass it
-  // entirely — we attach to `window` and hit-test against the panel's
-  // bounding rect instead. A single tick steps WHEEL_STEP messages, small
-  // enough to feel responsive but big enough that a handful of flicks
-  // traverse a full page.
+  // Wheel-over-panel scrolls the per-game message log one line per tick.
+  // The panel has `pointer-events: none` in live-tail mode so wheel events
+  // bypass it entirely — we attach to `window` and hit-test against the
+  // panel's bounding rect instead.
   window.addEventListener('wheel', handleGameLogWheel, { passive: false });
 }
 
 /** Messages advanced per wheel tick. */
-const WHEEL_STEP = 3;
+const WHEEL_STEP = 1;
 
 /**
  * Scroll the game-log panel's history when the wheel ticks over it.

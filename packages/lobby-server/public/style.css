@@ -1958,7 +1958,9 @@ h2 {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.3rem;
-  z-index: var(--z-hover);
+  /* Above the game-log panel (z-modal) so the dev-menu popup, which is a
+   * child of #toolbar and inherits its stacking context, stays clickable. */
+  z-index: var(--z-action-menu);
 }
 
 #toolbar-main {
@@ -3022,14 +3024,27 @@ h2 {
 #game-log-panel {
   position: fixed;
   top: 3.5rem;
+  /* Bottom stops above the company-nav arrows (top: 42%) and the
+   * one-/all-companies view toggle so they remain clickable. */
+  bottom: 60vh;
   right: 0.5rem;
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 0.25rem;
   pointer-events: none;
   max-width: 32rem;
+  overflow: hidden;
+}
+
+#game-log-system {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  max-width: 100%;
 }
 
 #game-log-entries {
@@ -3042,18 +3057,17 @@ h2 {
 
 #game-log-panel.game-log-panel--history {
   pointer-events: auto;
-  background: rgba(15, 12, 8, 0.85);
-  border: 1px solid rgba(196, 163, 90, 0.3);
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
 }
 
 #game-log-header {
+  position: absolute;
+  top: 0;
+  right: 0;
   font-family: 'MedievalSharp', cursive;
   font-size: 0.8rem;
   color: rgba(196, 163, 90, 0.8);
-  align-self: flex-end;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
 
 #game-log-header.hidden {
@@ -3064,41 +3078,24 @@ h2 {
   font-family: 'MedievalSharp', cursive;
   font-size: 0.8rem;
   color: rgba(196, 163, 90, 0.95);
-  background: rgba(15, 12, 8, 0.9);
-  border: 1px solid rgba(196, 163, 90, 0.4);
-  border-radius: 5px;
-  padding: 0.2rem 0.6rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  opacity: 0;
   text-align: right;
   width: fit-content;
   max-width: 100%;
   align-self: flex-end;
-  animation: toast-in 0.3s ease forwards, toast-out 1.5s ease 40s forwards;
-}
-
-.toast--history {
-  opacity: 0.85;
-  animation: none;
-  white-space: normal;
 }
 
 .toast--opponent {
   color: rgba(140, 180, 220, 0.95);
-  border-color: rgba(140, 180, 220, 0.4);
 }
 
 .toast--error {
-  color: #e06060;
-  border-color: rgba(224, 96, 96, 0.4);
+  color: #ff7070;
 }
 
 .toast--system {
-  color: rgba(220, 140, 130, 0.95);
-  background: rgba(40, 12, 10, 0.9);
-  border-color: rgba(220, 140, 130, 0.4);
-  animation: toast-in 0.3s ease forwards;
+  color: rgba(230, 160, 150, 0.95);
   pointer-events: auto;
   cursor: default;
 }
@@ -3111,16 +3108,6 @@ h2 {
 
 .toast--system .toast-close:hover {
   opacity: 1;
-}
-
-@keyframes toast-in {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes toast-out {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-10px); }
 }
 
 #card-preview {

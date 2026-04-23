@@ -1,15 +1,22 @@
 /**
  * @module render-log
  *
- * Renders log messages and the in-game message panel. The panel lives in the
- * top-right corner and has two modes:
+ * Renders the per-game text log in the top-right panel.
  *
- * - **live tail** — new messages fade in as toasts and auto-dismiss after the
- *   CSS animation. Matches the pre-redesign toast behaviour.
- * - **history** — when the user presses PgUp/PgDn (see `keyboard-shortcuts`),
- *   the panel switches to a static window of recent messages from the log.
- *   Pressing End, or a new message arriving after the 10-second browse
- *   window elapses, returns the panel to live tail.
+ * The panel shows a window of the most recent messages as plain text (no
+ * background box). CSS caps the panel height at half the screen and clips
+ * older messages that overflow above.
+ *
+ * The view is anchored:
+ * - `anchor === null` → live-tail: the panel always shows the newest
+ *   messages; new messages render at the bottom.
+ * - `anchor === N` → fixed: the window ends at absolute index N. New
+ *   messages arrive and are stored in the log but the visible window does
+ *   not shift (no autoscroll).
+ *
+ * PgUp/PgDn and the mouse wheel shift the anchor one line at a time. End
+ * returns to live tail. Paging down past the newest message also returns
+ * to live tail.
  *
  * The full message log is kept per-game in `gameMessageLog.messages` and
  * cleared via `clearGameMessageLog()` when a new game is assigned.
@@ -34,106 +41,94 @@ export interface GameMessage {
 export const gameMessageLog = {
   messages: [] as GameMessage[],
   nextId: 1,
-  /** 0 = viewing live tail; N = scrolled N messages back from the end. */
-  scrollOffset: 0,
-  /** If set, browsing mode is active until this timestamp (Date.now()). */
-  browseUntil: null as number | null,
+  /**
+   * When null, the panel follows the tail (newest always visible).
+   * When a number, the panel is anchored to show the window ending at
+   * that absolute index — incoming messages do not shift the view.
+   */
+  anchor: null as number | null,
 };
 
-/** Number of history entries visible in a single "page". */
-const HISTORY_PAGE_SIZE = 10;
-
-/** Browse window length after a PgUp/PgDn press. */
-const BROWSE_WINDOW_MS = 10_000;
+/** Max number of messages drawn at a time. CSS clips further based on height. */
+const VISIBLE_WINDOW = 50;
 
 /** Clear the game message log (called when a new game is assigned). */
 export function clearGameMessageLog(): void {
   gameMessageLog.messages = [];
   gameMessageLog.nextId = 1;
-  gameMessageLog.scrollOffset = 0;
-  gameMessageLog.browseUntil = null;
+  gameMessageLog.anchor = null;
   renderGameLogPanel();
 }
 
-/** True when the browse window is currently armed. */
-function isBrowsing(): boolean {
-  return gameMessageLog.browseUntil !== null && Date.now() < gameMessageLog.browseUntil;
-}
-
-/** Arm the browse window. Called by keyboard-shortcuts on PgUp/PgDn. */
-export function armBrowseWindow(): void {
-  gameMessageLog.browseUntil = Date.now() + BROWSE_WINDOW_MS;
-}
-
-/** Drop out of browsing mode and return to live tail. */
+/** Drop out of anchored mode and follow the tail again. */
 export function returnToLiveTail(): void {
-  gameMessageLog.scrollOffset = 0;
-  gameMessageLog.browseUntil = null;
+  gameMessageLog.anchor = null;
   renderGameLogPanel();
 }
 
 /**
- * Scroll the history view by `delta` messages (positive = older).
- * Clamps to valid range. Arms the browse window as a side effect.
- * Paging down past the newest message drops out of browsing mode.
+ * Shift the view by `delta` messages (positive = older, negative = newer).
+ * Paging newer past the tail drops back to live-tail mode.
  */
 export function scrollHistory(delta: number): void {
-  const max = Math.max(0, gameMessageLog.messages.length - HISTORY_PAGE_SIZE);
-  const next = Math.max(0, Math.min(max, gameMessageLog.scrollOffset + delta));
-  if (next === 0 && delta <= 0) {
+  const total = gameMessageLog.messages.length;
+  if (total === 0) return;
+  const current = gameMessageLog.anchor ?? total;
+  const next = current - delta;
+  if (next >= total) {
     returnToLiveTail();
     return;
   }
-  gameMessageLog.scrollOffset = next;
-  armBrowseWindow();
+  gameMessageLog.anchor = Math.max(1, next);
   renderGameLogPanel();
 }
 
-/** One page forward / back in history. */
+/** One line back in history. */
 export function pageHistoryUp(): void {
-  scrollHistory(HISTORY_PAGE_SIZE);
-}
-export function pageHistoryDown(): void {
-  scrollHistory(-HISTORY_PAGE_SIZE);
+  scrollHistory(1);
 }
 
-/** Render the game-log panel based on current mode. */
+/** One line forward toward the tail. */
+export function pageHistoryDown(): void {
+  scrollHistory(-1);
+}
+
+/** Render the game-log panel based on current anchor. */
 function renderGameLogPanel(): void {
   const panel = document.getElementById('game-log-panel');
   const header = document.getElementById('game-log-header');
   const entries = document.getElementById('game-log-entries');
   if (!panel || !header || !entries) return;
 
-  if (isBrowsing()) {
+  const total = gameMessageLog.messages.length;
+  const end = gameMessageLog.anchor ?? total;
+  const start = Math.max(0, end - VISIBLE_WINDOW);
+
+  if (gameMessageLog.anchor !== null) {
     panel.classList.add('game-log-panel--history');
-    const total = gameMessageLog.messages.length;
-    const end = total - gameMessageLog.scrollOffset;
-    const start = Math.max(0, end - HISTORY_PAGE_SIZE);
     header.classList.remove('hidden');
-    header.textContent = `◀ history (${start + 1}–${end} of ${total}) · End to exit`;
-    entries.replaceChildren();
-    for (let i = start; i < end; i++) {
-      const msg = gameMessageLog.messages[i];
-      entries.appendChild(buildEntryElement(msg, true));
-    }
+    header.textContent = `◀ log ${start + 1}–${end} of ${total} · End to return`;
   } else {
     panel.classList.remove('game-log-panel--history');
     header.classList.add('hidden');
     header.textContent = '';
-    // Live tail: don't clear existing fading entries — they animate and remove
-    // themselves. Only a scroll-back→live-tail transition clears them.
+  }
+
+  entries.replaceChildren();
+  for (let i = start; i < end; i++) {
+    entries.appendChild(buildEntryElement(gameMessageLog.messages[i]));
   }
 }
 
 /** Build a DOM entry for a stored message. */
-function buildEntryElement(msg: GameMessage, history: boolean): HTMLElement {
+function buildEntryElement(msg: GameMessage): HTMLElement {
   const entry = document.createElement('div');
   const kindClass =
     msg.kind === 'error' ? ' toast--error'
     : msg.kind === 'opponent' ? ' toast--opponent'
     : msg.kind === 'system' ? ' toast--system'
     : '';
-  entry.className = `toast${kindClass}${history ? ' toast--history' : ''}`;
+  entry.className = `toast${kindClass}`;
   entry.innerHTML = msg.html;
   return entry;
 }
@@ -162,13 +157,10 @@ export interface NotificationOptions {
 }
 
 /**
- * Append a message to the per-game log and, when in live-tail mode, show it
- * as a fading toast in the top-right panel.
+ * Append a message to the per-game log and render the panel.
  *
- * If the user is browsing history and the 10-second browse window has not
- * elapsed, the message is stored silently without disturbing the view. If
- * the browse window has expired, the first new message clears history mode
- * and renders as a fresh toast.
+ * If the view is anchored to a fixed position (user scrolled back), the
+ * message is stored silently and the visible window is not shifted.
  *
  * Legacy overload: pass `true` for error, or a card pool object directly.
  */
@@ -176,9 +168,6 @@ export function showNotification(
   message: string,
   opts?: boolean | Readonly<Record<string, CardDefinition>> | NotificationOptions,
 ): void {
-  const entries = document.getElementById('game-log-entries');
-  if (!entries) return;
-
   // Normalise legacy overloads into NotificationOptions.
   let options: NotificationOptions;
   if (opts === true) {
@@ -202,22 +191,11 @@ export function showNotification(
   if (options.cardPool) tagCardImages(tmp, options.cardPool);
   const html = tmp.innerHTML;
 
-  // Store in the per-game log.
   const msg: GameMessage = { id: gameMessageLog.nextId++, at: Date.now(), kind, html };
   gameMessageLog.messages.push(msg);
 
-  // Browsing and still inside the window → buffer silently.
-  if (isBrowsing()) return;
+  // Anchored: store silently, don't touch the view.
+  if (gameMessageLog.anchor !== null) return;
 
-  // Browse window expired: drop history mode, let the new message fade in.
-  if (gameMessageLog.browseUntil !== null) {
-    returnToLiveTail();
-  }
-
-  // Live tail: append a fading toast. It self-removes on animationend.
-  const toast = buildEntryElement(msg, false);
-  toast.addEventListener('animationend', (e) => {
-    if (e.animationName === 'toast-out') toast.remove();
-  });
-  entries.appendChild(toast);
+  renderGameLogPanel();
 }

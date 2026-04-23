@@ -325,12 +325,19 @@ function getHoverJson(): HTMLPreElement {
 document.addEventListener('mouseover', (e) => {
   const target = (e.target as HTMLElement).closest?.('[data-card-image]');
   if (!target) return;
+  // Suppress the hover overlay inside the text-log panel: the log lines
+  // reference cards but the giant card zoom and JSON dump are not wanted
+  // there — keep the log compact.
+  if ((target as HTMLElement).closest('#game-log-panel')) return;
   const img = getHoverImg();
   img.src = (target as HTMLElement).dataset.cardImage!;
   img.style.display = 'block';
 
   // Show JSON panel with card data — only when Developer Mode is on.
   if (!isDevModeOn()) return;
+  // Suppress during draft: the drafted rows and set-aside area are noisy
+  // with hover targets, and the JSON overlay gets in the way.
+  if ((target as HTMLElement).closest('#drafted-self, #drafted-opponent, #set-aside')) return;
   const cardId = (target as HTMLElement).dataset.cardId;
   const def = cardId && debugCardPool ? debugCardPool[cardId] : undefined;
   if (def) {
