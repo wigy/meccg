@@ -248,8 +248,56 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofNature.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } },
+            { "target.race": { "$ne": "orc" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-company-mh",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer",
+        "regionTypeFilter": ["wilderness"]
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 5,
+          "onSuccess": {
+            "type": "discard-self"
+          }
+        }
+      }
+    ],
+    "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-event",
