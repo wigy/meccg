@@ -94,8 +94,11 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. Two strikes. Attacker chooses defending characters."
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" }
+    ],
+    "text": "Men. Two strikes. Attacker chooses defending characters.",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-creature",
