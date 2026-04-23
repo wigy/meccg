@@ -6,19 +6,19 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 306 | 51 | 255 | 16.7% |
+| 307 | 53 | 254 | 17.3% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 2 | 2 | 100.0% |
+| 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 2 | 3.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 9 | 69.2% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 9 | 18.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 3 | 8.8% |
-| 06 | [Site Phase](06-site-phase/) | 21 | 4 | 19.0% |
+| 06 | [Site Phase](06-site-phase/) | 21 | 5 | 23.8% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 6 | 14.3% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 29 | 7 | 24.1% |
@@ -29,6 +29,7 @@
 | Rule | Section | Test | Status |
 |:-----|:--------|:-----|:------:|
 | — | Engine | [Active Constraints](00-engine/active-constraints.test.ts) | ☑ |
+| — | Engine | [Last Action Card Defs](00-engine/last-action-card-defs.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☐ |
 | 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
@@ -168,7 +169,7 @@
 | 5.13 | Movement/Hazard Phase | [Mh Step5 Draw Cards](05-movement-hazard-phase/rule-5.13-mh-step5-draw-cards.test.ts) | ☐ |
 | 5.14 | Movement/Hazard Phase | [Fw Draw Cards](05-movement-hazard-phase/rule-5.14-fw-draw-cards.test.ts) | ☐ |
 | 5.15 | Movement/Hazard Phase | [Mh Step6 Passive Conditions](05-movement-hazard-phase/rule-5.15-mh-step6-passive-conditions.test.ts) | ☐ |
-| 5.16 | Movement/Hazard Phase | [Mh Step7 Play Hazards](05-movement-hazard-phase/rule-5.16-mh-step7-play-hazards.test.ts) | ◐ |
+| 5.16 | Movement/Hazard Phase | [Mh Step7 Play Hazards](05-movement-hazard-phase/rule-5.16-mh-step7-play-hazards.test.ts) | ☐ |
 | 5.17 | Movement/Hazard Phase | [Playing Agent Hazard](05-movement-hazard-phase/rule-5.17-playing-agent-hazard.test.ts) | ☐ |
 | 5.18 | Movement/Hazard Phase | [Playing Creature](05-movement-hazard-phase/rule-5.18-playing-creature.test.ts) | ☐ |
 | 5.19 | Movement/Hazard Phase | [Creature Resolves Combat](05-movement-hazard-phase/rule-5.19-creature-resolves-combat.test.ts) | ☐ |
@@ -199,7 +200,7 @@
 | 6.10 | Site Phase | [Playing Ally](06-site-phase/rule-6.10-playing-ally.test.ts) | ☐ |
 | 6.11 | Site Phase | [Playing Faction](06-site-phase/rule-6.11-playing-faction.test.ts) | ☐ |
 | 6.12 | Site Phase | [Playing Item](06-site-phase/rule-6.12-playing-item.test.ts) | ☐ |
-| 6.13 | Site Phase | [Additional Minor Item](06-site-phase/rule-6.13-additional-minor-item.test.ts) | ☐ |
+| 6.13 | Site Phase | [Additional Minor Item](06-site-phase/rule-6.13-additional-minor-item.test.ts) | ☑ |
 | 6.14 | Site Phase | [On Guard Reveal At Resource](06-site-phase/rule-6.14-on-guard-reveal-at-resource.test.ts) | ☑ |
 | 6.15 | Site Phase | [On Guard Restrictions](06-site-phase/rule-6.15-on-guard-restrictions.test.ts) | ☐ |
 | 6.16 | Site Phase | [On Guard Chain Of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☑ |
@@ -243,7 +244,7 @@
 | 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☐ |
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
-| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
+| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ☐ |
 | 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☐ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☐ |

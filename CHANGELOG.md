@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.25.0 — 2026-04-23
+
+Dragons Sample Deck
+
+### Game Engine
+
+- **Strike sequence priority (rule 8.12):** Attacker now receives Step 1 priority during strike sequences, matching CoE timing.
+- **Skill-required resources (rule 3.iv.5):** Enforce one skill-required resource per strike.
+- **Additional minor item (rule 6.13):** Allow an additional minor item after a site-tapping resource.
+- **Combat-time permanent events:** Support playing permanent events during combat with a strike prowess modifier path.
+- **Visibility model:** Generic `revealedInstances` projection replaces per-case visibility flags; pinned by regression tests for place-on-guard and discard-card.
+- **Follower hazards:** Render hazards attached to follower characters.
+
+### DSL & Cards
+
+- **New DSL primitives:** `ward-bearer` (Adamant Helmet), `modify-attack` (Black Arrow), `modify-strike` (Risky Blow), site-name keying (Smaug), sage-tap grant-action variant (Dragon's Curse), attacker-chooses-defenders + DoN region keying (Bairanax), dynamic auto-attack (Framsburg), wilderness-driven resource draws (Radagast).
+- **Dragons & The Dragons set — certified this release (~30 cards):**
+  - Dragons / creatures — Smaug (tw-90), Scatha (td-60), Bairanax (td-3), True Cold-drake (td-77), Eärcaraxë (td-20), Dragon's Curse (td-16), Dragon's Desolation (tw-29).
+  - Dragon-ward items — Adamant Helmet (td-96), Enruned Shield (td-114), Habergeon of Silver (td-120), Valiant Sword (td-161), Black Arrow (tw-494), Magical Harp (td-130), Wizard's Staff (td-170).
+  - Hero characters / sites — Radagast (tw-178), Brand (td-90), Galdor (td-92), Thráin II (td-94), Rhosgobel (tw-420), Framsburg (td-175).
+  - Combat short events — Risky Blow (tw-319), Lucky Strike (tw-270).
+  - Minion characters — Asternak (le-1), Ciryaher (le-6), Luitprand (le-23), Ostisen (le-36), Eradan (le-10), Nevido Smôd (le-27), Orc Captain (le-31), Layos (le-19), Adûnaphel the Ringwraith (le-50).
+  - Minion resources / sites — Foul-smelling Paste (le-310), Blazon of the Eye (le-302), Carn Dûm (le-359), The Worthy Hills (le-415).
+- **Dragons sample deck:** Tuned with combat cards and Dragon's Curse; now 100% certified.
+
+### Web Client
+
+- **Game messages:** Moved to a top-right panel with per-game history; mouse-wheel scrolling; content-width boxes with ragged left edge; easier exit from browsing mode.
+- **Combat view:** Highlight items with modify-attack actions; show persistent hazards during combat rendering.
+- **Menus & toolbars:** Dev toolbar column replaced with an icon + dropdown menu; Enter/Skip buttons swapped so Enter is primary; card-preview attribute values wrap.
+- **Toasts & polish:** Slower toast fade (40s visible, 1.5s fade); opponent short-event plays named in toast and log; dev button column highlights on hover; card JSON hover gated on Developer Mode.
+- **Screen text:** "Initiative" renamed to "First Turn" / "Who Goes First"; Roll actions excluded from auto-pass.
+
+### AI & Tooling
+
+- **Heuristic AI:** Seeks healing opportunities and skips dead-end site entries.
+- **Remote bug reports:** Game log fetch API exposed for remote handling.
+- **AI mail:** `MECCG_LOBBY_URL` / `MECCG_MASTER_KEY` now honored in AI mail skills and `bin/requests`.
+- **Certification skill:** Requires CI pass before certifying a card.
+
+### Data Fixes
+
+- **Uniqueness:** Fixed flag on Hauberk of Bright Mail and Sapling of the White Tree.
+- **Black Arrow:** Dúnadan corrected to not be a Man for targeting.
+- **le-352 test:** Use minion character (Mionid) in untap tests.
+
 ## 0.24.0 — 2026-04-21
 
 Minion Sample Deck
