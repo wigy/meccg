@@ -793,7 +793,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       const combatWithElim = { ...combat, strikeAssignments: newAssignments };
 
       if (allyMatch) {
-        // Ally eliminated — remove from host character and discard
+        // Ally eliminated — remove from host character and send to eliminated
+        // pile. Per CoE 2.V.2.2 allies are treated as characters for combat,
+        // so a failed body check eliminates them (to outOfPlayPile) rather
+        // than discarding (which is what happens when the host leaves play
+        // per CoE 2.V.2.3).
         const hostChar = newPlayerData.characters[allyMatch.hostCharId as string];
         if (hostChar) {
           const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
@@ -802,7 +806,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             [allyMatch.hostCharId as string]: { ...hostChar, allies: newAllies },
           };
         }
-        newPlayerData.discardPile = [...newPlayerData.discardPile, {
+        newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, {
           instanceId: strike.characterId,
           definitionId: allyMatch.ally.definitionId,
         }];

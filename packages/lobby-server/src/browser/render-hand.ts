@@ -215,6 +215,20 @@ function findStrikeEventActions(
 }
 
 /**
+ * Find all play-reroll-strike actions for a given card instance
+ * (e.g. Lucky Strike: reroll the current strike, keep the better result).
+ */
+function findRerollStrikeActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-reroll-strike' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
  * When a `discard-in-play` target is a hazard attached to a character
  * (stored in `character.hazards`), return the bearer character's display
  * name. Used to disambiguate action labels when two identical-named
@@ -770,10 +784,12 @@ export function renderHand(
     const isDodge = dodgeActions.length > 0;
     const strikeEventActions = findStrikeEventActions(cardInstanceId, viable);
     const isStrikeEvent = strikeEventActions.length > 0;
+    const rerollStrikeActions = findRerollStrikeActions(cardInstanceId, viable);
+    const isRerollStrike = rerollStrikeActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !isRerollStrike && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1014,6 +1030,11 @@ export function renderHand(
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', () => onAction(strikeEventActions[0]));
+      }
+    } else if (isRerollStrike) {
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', () => onAction(rerollStrikeActions[0]));
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
