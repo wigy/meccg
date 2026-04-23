@@ -23,6 +23,7 @@ import type { GameState, PlayerId, CardInstanceId } from '../index.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
+import { resolveCancelAttackEntry } from './reducer-combat.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**
@@ -72,8 +73,14 @@ export function applyEffect(
     if ('error' in r) return { error: r.error };
     return { state: r.state };
   }
+  if (effect.type === 'cancel-attack') {
+    // Combat cancel fired from chain resolution (e.g. Concealment,
+    // Vanishment, Dark Quarrels, Many Turns and Doublings).
+    logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
+    return { state: resolveCancelAttackEntry(state) };
+  }
   // Other effect types are still handled by the bespoke branches in
-  // chain-reducer.ts / reducer-events.ts. Phases B–G migrate them
+  // chain-reducer.ts / reducer-events.ts. Phases C–G migrate them
   // onto this dispatcher one at a time.
   return { state };
 }

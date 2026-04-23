@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
 import { updatePlayer, wrongActionType } from './reducer-utils.js';
-import { resolveCancelAttackEntry } from './reducer-combat.js';
+import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 
 /**
@@ -1287,16 +1287,24 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   // Short events that cancel the current attack (e.g. Concealment, Dark
   // Quarrels, Many Turns and Doublings, Vanishment): when the chain entry
-  // resolves un-negated, apply the combat cancellation. The opponent had
-  // a chance to negate this entry during chain declaration (e.g. via a
-  // hazard that cancels attack cancels).
+  // resolves un-negated, fire each cancel-attack effect through the
+  // shared apply dispatcher. The opponent had a chance to negate this
+  // entry during chain declaration (e.g. via a hazard that cancels
+  // attack cancels).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = current.cardPool[entry.card.definitionId as string];
-    const hasCancelAttack = def && 'effects' in def
-      && def.effects?.some(e => e.type === 'cancel-attack');
-    if (hasCancelAttack) {
-      logDetail(`Chain resolves cancel-attack from "${def.name}"`);
-      current = resolveCancelAttackEntry(current);
+    if (def && 'effects' in def && def.effects) {
+      const ctx = buildChainApplyContext(current, entry);
+      for (const effect of def.effects) {
+        if (effect.type !== 'cancel-attack') continue;
+        logDetail(`Chain resolves cancel-attack from "${def.name}"`);
+        const r = applyEffect(current, effect, ctx);
+        if ('error' in r) {
+          logDetail(`applyEffect cancel-attack failed: ${r.error}`);
+          continue;
+        }
+        current = r.state;
+      }
     }
   }
 
