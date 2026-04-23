@@ -627,3 +627,28 @@ export function findMoveEffectByShape(
   }
   return null;
 }
+
+/**
+ * Translate a `move`-shape "fetch into deck" effect into the legacy
+ * {@link FetchToDeckEffect} shape used by the pending-effects queue.
+ * The move's `from` zones (`'sideboard' | 'discard'`) map to the
+ * legacy pile names (`'sideboard' | 'discard-pile'`).
+ *
+ * Returns null when `move` is not a fetch-to-deck shape.
+ */
+export function moveToFetchToDeckPayload(
+  move: MoveEffect,
+): import('../types/effects.js').FetchToDeckEffect | null {
+  if (move.select !== 'target' || move.to !== 'deck') return null;
+  const fromArr = Array.isArray(move.from) ? move.from : [move.from];
+  const source = fromArr.map(z =>
+    z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : null,
+  ).filter((s): s is 'sideboard' | 'discard-pile' => s !== null);
+  return {
+    type: 'fetch-to-deck',
+    source,
+    filter: move.filter ?? {},
+    count: move.count ?? 1,
+    shuffle: move.shuffleAfter ?? true,
+  };
+}

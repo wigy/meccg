@@ -16,7 +16,8 @@ import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck } from './pending.js';
-import { findMoveEffectByShape } from './reducer-move.js';
+import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 
 
@@ -376,13 +377,17 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // serialised as a separate action. Discard-in-play is resolved inline
   // below: the target is already chosen on the play action.
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
-    .filter(e => e.type === 'fetch-to-deck')
-    .map(effect => ({
-      type: 'card-effect' as const,
-      cardInstanceId: handCard.instanceId,
-      effect,
-      ...(action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
-    }));
+    .flatMap(effect => {
+      if (effect.type !== 'move') return [];
+      const payload = moveToFetchToDeckPayload(effect);
+      if (!payload) return [];
+      return [{
+        type: 'card-effect' as const,
+        cardInstanceId: handCard.instanceId,
+        effect: payload,
+        ...(action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
+      }];
+    });
 
   let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
@@ -466,11 +471,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
-  // Handle bounce-hazard-events: return all hazard permanent-events
-  // on characters in the target wizard's company to the opponent's hand,
-  // then enqueue a corruption check on the wizard.
-  const bounceEffect = def.effects?.find(e => e.type === 'bounce-hazard-events');
-  if (bounceEffect && bounceEffect.type === 'bounce-hazard-events' && action.targetCharacterId) {
+  // Handle bounce-to-opponent-hand move (e.g. Wizard Uncloaked):
+  // return all hazards matching filter on characters in the target
+  // wizard's company to the opponent's hand, then enqueue a corruption
+  // check on the wizard.
+  const bounceEffect = def.effects?.find(e =>
+    e.type === 'move'
+    && e.select === 'filter-all'
+    && e.from === 'attached-to-target-company'
+    && e.to === 'hand'
+    && e.toOwner === 'opponent',
+  );
+  if (bounceEffect && bounceEffect.type === 'move' && action.targetCharacterId) {
     const wizardId = action.targetCharacterId;
     const company = newState.players[playerIndex].companies.find(
       c => c.characters.includes(wizardId),
@@ -485,8 +497,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const remaining: import('../index.js').CardInPlay[] = [];
         for (const haz of char.hazards) {
           const hazDef = newState.cardPool[haz.definitionId as string];
-          if (hazDef && hazDef.cardType === 'hazard-event' && 'eventType' in hazDef && (hazDef as { eventType: string }).eventType === 'permanent') {
-            logDetail(`${def.name}: returning ${hazDef.name} from ${charId as string} to opponent's hand`);
+          const matches = hazDef && bounceEffect.filter
+            ? matchesCondition(bounceEffect.filter, hazDef as unknown as Record<string, unknown>)
+            : !!hazDef;
+          if (matches) {
+            logDetail(`${def.name}: returning ${hazDef?.name ?? '?'} from ${charId as string} to opponent's hand`);
             bouncedCards.push({ instanceId: haz.instanceId, definitionId: haz.definitionId });
           } else {
             remaining.push(haz);
@@ -508,14 +523,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       }
 
       // Enqueue corruption check on the wizard
-      newState = enqueueCorruptionCheck(newState, {
-        source: handCard.instanceId,
-        actor: action.player,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: wizardId,
-        modifier: bounceEffect.corruptionCheck.modifier,
-        reason: def.name,
-      });
+      if (bounceEffect.corruptionCheck) {
+        newState = enqueueCorruptionCheck(newState, {
+          source: handCard.instanceId,
+          actor: action.player,
+          scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+          characterId: wizardId,
+          modifier: bounceEffect.corruptionCheck.modifier,
+          reason: def.name,
+        });
+      }
     }
   }
 

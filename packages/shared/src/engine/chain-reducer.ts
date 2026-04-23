@@ -18,7 +18,7 @@ import type { OnEventEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { applyMove } from './reducer-move.js';
+import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -697,7 +697,9 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 
   const fetchEffects: PendingEffect[] = [];
   for (const effect of def.effects) {
-    if (effect.type !== 'fetch-to-deck') continue;
+    if (effect.type !== 'move') continue;
+    const payload = moveToFetchToDeckPayload(effect);
+    if (!payload) continue;
     if (effect.when && !matchesCondition(effect.when, ctx)) {
       logDetail(`${def.name}: fetch-to-deck skipped — condition not met`);
       continue;
@@ -705,7 +707,7 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
     fetchEffects.push({
       type: 'card-effect',
       cardInstanceId: card.instanceId,
-      effect,
+      effect: payload,
       actor: entry.declaredBy,
     });
   }
