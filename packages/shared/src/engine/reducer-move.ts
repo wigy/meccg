@@ -325,6 +325,30 @@ function locateInZone(
             remove: s => removeFromCardsInPlay(s, pi, instanceId),
           };
         }
+        // Character-attached hazards and items are also "in play"
+        for (const charId of Object.keys(player.characters)) {
+          const char = player.characters[charId];
+          const hazIdx = char.hazards.findIndex(h => h.instanceId === instanceId);
+          if (hazIdx >= 0) {
+            const inst = char.hazards[hazIdx];
+            return {
+              instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+              ownerIndex: pi,
+              zone: 'in-play',
+              remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, instanceId),
+            };
+          }
+          const itemIdx = char.items.findIndex(i => i.instanceId === instanceId);
+          if (itemIdx >= 0) {
+            const inst = char.items[itemIdx];
+            return {
+              instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+              ownerIndex: pi,
+              zone: 'in-play',
+              remove: s => removeFromCharacterItems(s, pi, charId as CardInstanceId, instanceId),
+            };
+          }
+        }
       }
       return null;
     }
@@ -379,6 +403,31 @@ function collectFromZone(
             zone: 'in-play',
             remove: s => removeFromCardsInPlay(s, pi, id),
           });
+        }
+        for (const charId of Object.keys(player.characters)) {
+          const char = player.characters[charId];
+          for (const haz of char.hazards) {
+            const inst: CardInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
+            if (!matches(inst)) continue;
+            const hazId = haz.instanceId;
+            out.push({
+              instance: inst,
+              ownerIndex: pi,
+              zone: 'in-play',
+              remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, hazId),
+            });
+          }
+          for (const item of char.items) {
+            const inst: CardInstance = { instanceId: item.instanceId, definitionId: item.definitionId };
+            if (!matches(inst)) continue;
+            const itemId = item.instanceId;
+            out.push({
+              instance: inst,
+              ownerIndex: pi,
+              zone: 'in-play',
+              remove: s => removeFromCharacterItems(s, pi, charId as CardInstanceId, itemId),
+            });
+          }
         }
       }
       return out;
@@ -550,3 +599,27 @@ function stringifyFrom(from: MoveZone | readonly MoveZone[]): string {
 }
 
 export type { LocatedInstance };
+
+/**
+ * Return a card's `move` effect matching the given shape, or null.
+ * Helper for legal-action emitters and reducers that used to detect
+ * specific per-move effect types (`discard-in-play`, `fetch-to-deck`,
+ * …) and now need to match the generalised `move` primitive.
+ */
+export function findMoveEffectByShape(
+  def: { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined,
+  select: MoveEffect['select'],
+  from: MoveZone,
+  to: MoveZone,
+): MoveEffect | null {
+  if (!def || !def.effects) return null;
+  for (const e of def.effects) {
+    if (e.type !== 'move') continue;
+    if (e.select !== select) continue;
+    const fromMatches = Array.isArray(e.from) ? e.from.includes(from) : e.from === from;
+    if (!fromMatches) continue;
+    if (e.to !== to) continue;
+    return e;
+  }
+  return null;
+}

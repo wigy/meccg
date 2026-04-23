@@ -19,7 +19,10 @@
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {
-          "type": "discard-cards-in-play",
+          "type": "move",
+          "select": "filter-all",
+          "from": "in-play",
+          "to": "discard",
           "filter": {
             "cardType": "hero-resource-event",
             "keywords": {

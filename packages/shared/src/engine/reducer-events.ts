@@ -16,6 +16,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck } from './pending.js';
+import { findMoveEffectByShape } from './reducer-move.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 
 
@@ -409,7 +410,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // general cards-in-play list (Eye of Sauron long-events, free-standing
   // permanent-events) or attached to one of their characters as a hazard
   // (Foolish Words, Lure of the Senses, etc.).
-  const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+  const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
   if (discardInPlay) {
     const targetId = action.discardTargetInstanceId!;
     let foundOwnerIndex = -1;

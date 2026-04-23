@@ -63,7 +63,10 @@
         }
       },
       {
-        "type": "discard-in-play",
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
         "filter": {
           "$and": [
             {

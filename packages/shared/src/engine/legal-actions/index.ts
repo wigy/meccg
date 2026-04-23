@@ -68,8 +68,9 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
 /** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
 /**
  * Cross-phase `reshuffle-card-from-hand` actions — one per hand card
- * whose definition carries a `reshuffle-self-from-hand` effect. Called
- * only from strategy steps where at least one other viable action
+ * whose definition carries a `move` effect with
+ * `{ select: 'self', from: 'hand', to: 'deck' }` (e.g. Sudden Call).
+ * Called only from strategy steps where at least one other viable action
  * exists; atomic resolution windows are skipped by the caller.
  */
 function reshuffleFromHandActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -80,7 +81,12 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
     const def = state.cardPool[handCard.definitionId as string];
     if (!def || !('effects' in def)) continue;
     const effects = (def as { effects?: readonly import('../../index.js').CardEffect[] }).effects;
-    const hasReshuffle = effects?.some(e => e.type === 'reshuffle-self-from-hand');
+    const hasReshuffle = effects?.some(e =>
+      e.type === 'move'
+      && e.select === 'self'
+      && e.from === 'hand'
+      && e.to === 'deck',
+    );
     if (!hasReshuffle) continue;
     results.push({
       action: { type: 'reshuffle-card-from-hand', player: playerId, cardInstanceId: handCard.instanceId },

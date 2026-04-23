@@ -22,6 +22,7 @@ import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.j
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
+import { findMoveEffectByShape } from '../reducer-move.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -231,9 +232,9 @@ export function heroResourceShortEventActions(
     // in-play card matching the filter — the player picks which target
     // at play time as part of the play-short-event action. If no valid
     // target exists, the card is not playable.
-    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardInPlay) {
+    if (discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
