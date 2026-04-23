@@ -45,6 +45,8 @@ export interface MailMessage {
   readonly body: string;
   /** ISO 8601 timestamp of when the message was created. */
   readonly timestamp: string;
+  /** ISO 8601 timestamp of the last status change. Equals `timestamp` on creation. */
+  readonly updatedAt: string;
   /** Human-readable subject line, may include card names or other specifics. */
   readonly subject: string;
   /** Named references relevant to this message (e.g. deckId, cardName). */

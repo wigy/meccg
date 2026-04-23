@@ -29,6 +29,7 @@ export interface InboxMessage {
   readonly topic: string;
   readonly body: string;
   readonly timestamp: string;
+  readonly updatedAt: string;
   readonly subject: string;
   readonly keywords: Record<string, string>;
   readonly replyTo?: string;
@@ -60,6 +61,9 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
     ...(full.recipients?.length ? [['Recipients', full.recipients.map(escapeHtml).join(', ')]] : []),
     ['Date', new Date(full.timestamp).toLocaleString()],
+    ...(full.updatedAt && full.updatedAt !== full.timestamp
+      ? [['Updated', new Date(full.updatedAt).toLocaleString()]]
+      : []),
     ['Status', `<span class="inbox-status inbox-status--${full.status}">${escapeHtml(full.status)}</span>`],
     ...(full.replyTo ? [['Reply To', `<span class="inbox-meta-id">${escapeHtml(full.replyTo)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.replyTo)}" title="Copy to clipboard">&#x2398;</span></span>`]] : []),
   ];

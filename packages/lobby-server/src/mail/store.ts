@@ -21,6 +21,15 @@ function inboxDir(playerName: string): string {
   return path.join(PLAYERS_DIR, toDirName(playerName), 'mail', 'inbox');
 }
 
+/**
+ * Read and parse a mail JSON file, normalizing `updatedAt` to `timestamp` if
+ * absent (older files written before `updatedAt` was introduced).
+ */
+function loadMail(filePath: string): MailMessage {
+  const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage & { updatedAt?: string };
+  return raw.updatedAt ? raw : { ...raw, updatedAt: raw.timestamp };
+}
+
 /** Path to a player's deleted mail directory. */
 function deletedDir(playerName: string): string {
   return path.join(PLAYERS_DIR, toDirName(playerName), 'mail', 'deleted');
@@ -70,6 +79,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
     topic: options.topic,
     body: options.body,
     timestamp,
+    updatedAt: timestamp,
     subject: options.subject,
     keywords: options.keywords,
     recipients: [...recipients],
@@ -105,9 +115,7 @@ export function listSent(playerName: string): MailMessage[] {
   const dir = sentDir(playerName);
   try {
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-    const messages = files.map(f =>
-      JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as MailMessage,
-    );
+    const messages = files.map(f => loadMail(path.join(dir, f)));
     return messages.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   } catch {
     return [];
@@ -119,9 +127,7 @@ export function listInbox(playerName: string): MailMessage[] {
   const dir = inboxDir(playerName);
   try {
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-    const messages = files.map(f =>
-      JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as MailMessage,
-    );
+    const messages = files.map(f => loadMail(path.join(dir, f)));
     return messages.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   } catch {
     return [];
@@ -137,11 +143,12 @@ export function listInbox(playerName: string): MailMessage[] {
 export function readMessage(playerName: string, msgId: string): MailMessage | null {
   const filePath = path.join(inboxDir(playerName), `${msgId}.json`);
   try {
-    const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
+    const message = loadMail(filePath);
     if (message.status === 'new' && message.topic !== 'review-request' && message.topic !== 'feature-request' && message.topic !== 'bug-report') {
-      const updated: MailMessage = { ...message, status: 'read' };
+      const updatedAt = new Date().toISOString();
+      const updated: MailMessage = { ...message, status: 'read', updatedAt };
       fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
-      updateSentCopies(msgId, 'read');
+      updateSentCopies(msgId, 'read', updatedAt);
       return updated;
     }
     return message;
@@ -158,10 +165,11 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
 export function updateMessageStatus(playerName: string, msgId: string, status: MailStatus, success?: boolean): MailMessage | null {
   const filePath = path.join(inboxDir(playerName), `${msgId}.json`);
   try {
-    const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
-    const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
+    const message = loadMail(filePath);
+    const updatedAt = new Date().toISOString();
+    const updated: MailMessage = { ...message, status, updatedAt, ...(success !== undefined ? { success } : {}) };
     fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
-    updateSentCopies(msgId, status, success);
+    updateSentCopies(msgId, status, updatedAt, success);
     notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
     return updated;
   } catch {
@@ -170,15 +178,15 @@ export function updateMessageStatus(playerName: string, msgId: string, status: M
 }
 
 /** Update all sent-folder copies of a message across all players. */
-function updateSentCopies(msgId: string, status: MailStatus, success?: boolean): void {
+function updateSentCopies(msgId: string, status: MailStatus, updatedAt: string, success?: boolean): void {
   try {
     const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const filePath = path.join(PLAYERS_DIR, entry.name, 'mail', 'sent', `${msgId}.json`);
       try {
-        const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
-        const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
+        const message = loadMail(filePath);
+        const updated: MailMessage = { ...message, status, updatedAt, ...(success !== undefined ? { success } : {}) };
         fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
       } catch { /* file doesn't exist for this player */ }
     }
@@ -194,10 +202,10 @@ function updateSentCopies(msgId: string, status: MailStatus, success?: boolean):
 export function deleteMessage(playerName: string, msgId: string): boolean {
   const srcPath = path.join(inboxDir(playerName), `${msgId}.json`);
   try {
-    const message = JSON.parse(fs.readFileSync(srcPath, 'utf-8')) as MailMessage;
+    const message = loadMail(srcPath);
     const destDir = deletedDir(playerName);
     fs.mkdirSync(destDir, { recursive: true });
-    const updated: MailMessage = { ...message, status: 'deleted' };
+    const updated: MailMessage = { ...message, status: 'deleted', updatedAt: new Date().toISOString() };
     fs.writeFileSync(path.join(destDir, `${msgId}.json`), JSON.stringify(updated, null, 2));
     fs.unlinkSync(srcPath);
     return true;
@@ -276,7 +284,7 @@ export function countUnread(playerName: string): number {
     let count = 0;
     for (const f of files) {
       try {
-        const msg = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as MailMessage;
+        const msg = loadMail(path.join(dir, f));
         if (msg.status === 'new') count++;
         else if (msg.topic === 'review-request' && msg.status === 'waiting') count++;
       } catch {
