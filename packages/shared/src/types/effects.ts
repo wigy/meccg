@@ -319,6 +319,15 @@ export interface OnEventEffect extends EffectBase {
   readonly apply: TriggeredAction;
   /** Who the triggered effect targets. Omit for effects that target implicitly (e.g. all opposing environments). */
   readonly target?: string;
+  /**
+   * For `end-of-company-mh` + `force-check` applies: restrict the
+   * per-region iteration to regions whose type appears in this array.
+   * When omitted the apply fires once per region in the resolved site
+   * path. Used by *Lure of Nature* ("for each Wilderness in his
+   * company's site path") to enqueue a corruption check only for
+   * wilderness regions.
+   */
+  readonly regionTypeFilter?: readonly RegionType[];
 }
 
 /** An action performed by a triggered effect. */

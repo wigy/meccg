@@ -485,13 +485,15 @@ function handlePlaceOnGuard(
  * Fires end-of-company-MH corruption checks for characters with attached
  * hazards carrying `on-event: end-of-company-mh`. Enqueues one corruption
  * check per region traversed in the site path for each matching character.
+ * When the effect declares a `regionTypeFilter`, only regions whose type
+ * appears in the filter count (e.g. *Lure of Nature* — wilderness only).
  */
 function fireEndOfCompanyMHCorruptionChecks(
   state: GameState,
   mhState: MovementHazardPhaseState,
 ): GameState {
-  const regionCount = mhState.resolvedSitePath.length;
-  if (regionCount === 0) return state;
+  const sitePath = mhState.resolvedSitePath;
+  if (sitePath.length === 0) return state;
 
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const resourcePlayer = state.players[activeIndex];
@@ -510,19 +512,30 @@ function fireEndOfCompanyMHCorruptionChecks(
         if (onEvent.event !== 'end-of-company-mh') continue;
         if (onEvent.apply.type !== 'force-check' || onEvent.apply.check !== 'corruption') continue;
 
-        logDetail(`end-of-company-mh: "${hDef.name}" triggers ${regionCount} corruption check(s) for character ${charId as string}`);
+        const regionIndices = onEvent.regionTypeFilter
+          ? sitePath
+              .map((rt, i) => (onEvent.regionTypeFilter!.includes(rt) ? i : -1))
+              .filter(i => i >= 0)
+          : sitePath.map((_, i) => i);
+        if (regionIndices.length === 0) {
+          logDetail(`end-of-company-mh: "${hDef.name}" skipped for character ${charId as string} — no regions matching filter ${JSON.stringify(onEvent.regionTypeFilter)}`);
+          continue;
+        }
+
+        logDetail(`end-of-company-mh: "${hDef.name}" triggers ${regionIndices.length} corruption check(s) for character ${charId as string}`);
         const possessions = [
           ...char.items.map(i => i.instanceId),
           ...char.allies.map(a => a.instanceId),
           ...char.hazards.map(h => h.instanceId),
         ];
-        for (let i = 0; i < regionCount; i++) {
+        const total = regionIndices.length;
+        for (let k = 0; k < total; k++) {
           newState = enqueueCorruptionCheck(newState, {
             source: hazard.instanceId,
             actor: state.activePlayer!,
             scope: { kind: 'phase', phase: Phase.MovementHazard },
             characterId: charId,
-            reason: `${hDef.name} (region ${i + 1}/${regionCount})`,
+            reason: `${hDef.name} (region ${k + 1}/${total})`,
             possessions,
           });
         }
