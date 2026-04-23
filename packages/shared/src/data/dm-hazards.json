@@ -8,11 +8,11 @@
     "eventType": "short",
     "effects": [
       {
-        "type": "fetch-to-deck",
-        "source": [
-          "sideboard",
-          "discard-pile"
-        ],
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
         "filter": {
           "cardType": {
             "$in": [
@@ -21,15 +21,14 @@
             ]
           }
         },
-        "count": 1,
-        "shuffle": true
+        "count": 1
       },
       {
-        "type": "fetch-to-deck",
-        "source": [
-          "sideboard",
-          "discard-pile"
-        ],
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
         "filter": {
           "cardType": {
             "$in": [
@@ -39,7 +38,6 @@
           }
         },
         "count": 1,
-        "shuffle": true,
         "when": {
           "inPlay": "Doors of Night"
         }

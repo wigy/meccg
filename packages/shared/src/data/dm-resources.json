@@ -11,11 +11,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
-        "type": "fetch-to-deck",
-        "source": [
-          "sideboard",
-          "discard-pile"
-        ],
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
         "filter": {
           "cardType": {
             "$in": [
@@ -27,8 +27,7 @@
             ]
           }
         },
-        "count": 1,
-        "shuffle": true
+        "count": 1
       }
     ],
     "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle.",

@@ -170,7 +170,17 @@
         }
       },
       {
-        "type": "bounce-hazard-events",
+        "type": "move",
+        "select": "filter-all",
+        "from": "attached-to-target-company",
+        "to": "hand",
+        "toOwner": "opponent",
+        "filter": {
+          "$and": [
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
+          ]
+        },
         "corruptionCheck": {
           "modifier": -2
         }

@@ -1359,20 +1359,6 @@ export interface ControlRestrictionEffect extends EffectBase {
   readonly rule: 'no-direct-influence';
 }
 
-/**
- * Returns all hazard permanent-event cards attached to characters in the
- * targeted wizard's company to the opponent's hand, then enqueues a
- * corruption check on the wizard.
- *
- * Used by Wizard Uncloaked (td-169).
- */
-export interface BounceHazardEventsEffect extends EffectBase {
-  readonly type: 'bounce-hazard-events';
-  /** Corruption check enqueued on the target wizard after resolution. */
-  readonly corruptionCheck: {
-    readonly modifier: number;
-  };
-}
 
 /**
  * Triggers the "call the council" endgame transition — the card-based
@@ -1534,7 +1520,6 @@ export type CardEffect =
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | ControlRestrictionEffect
-  | BounceHazardEventsEffect
   | CallCouncilEffect
   | WardBearerEffect
   | MoveEffect;
