@@ -131,7 +131,23 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Redhorn Gate",
+          "High Pass",
+          "Gap of Isen",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath",
+          "Númeriador",
+          "Iron Hills"
+        ]
+      }
+    ],
+    "effects": [],
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-creature",
