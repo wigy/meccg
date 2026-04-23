@@ -42,11 +42,21 @@ export interface CreatureKeyRestriction {
   readonly siteNames?: readonly string[];
   /**
    * Optional DSL condition gating this keying entry. When present, the
-   * entry is skipped unless the condition matches a context exposing
-   * `inPlay` (names of all cards in play). Used by cards whose alternate
-   * keying depends on the game environment — e.g. *Elf-lord Revealed in
-   * Wrath* ("If Doors of Night is not in play, may also be played keyed
-   * to Shadow-lands"). Evaluated in `findCreatureKeyingMatches` in
+   * entry is skipped unless the condition matches a context exposing:
+   *
+   * - `inPlay` — names of all cards currently in play (both sides).
+   *   Used by cards whose alternate keying depends on the game
+   *   environment, e.g. *Elf-lord Revealed in Wrath* ("If Doors of
+   *   Night is not in play, may also be played keyed to Shadow-lands").
+   * - `destinationSite.sitePath.*Count` — per-region-type counts of
+   *   the destination site card's own `sitePath` field
+   *   (`wildernessCount`, `shadowCount`, `darkCount`, `coastalCount`,
+   *   `freeCount`, `borderCount`). Used by cards whose alt-keying
+   *   inspects site structure rather than the company's movement path,
+   *   e.g. *Rain-drake* ("may also be played at a R&L that has two
+   *   Wildernesses or one Coastal Sea in its site path").
+   *
+   * Evaluated in `findCreatureKeyingMatches` in
    * `legal-actions/movement-hazard.ts`.
    */
   readonly when?: Condition;
