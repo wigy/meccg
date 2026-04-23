@@ -17,6 +17,7 @@ import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShort
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { applyMove as applyMoveLocal } from './reducer-move.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -1254,6 +1255,53 @@ function runGrantApply(
       discardPile: [...bearerPlayer.discardPile.slice(0, idx), ...bearerPlayer.discardPile.slice(idx + 1)],
     };
     return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
+  if (apply.type === 'move') {
+    // Generic card-movement primitive. Phase 1 lands the wiring; no
+    // card JSON uses `move` yet. Later phases migrate per-move effect
+    // types (discard-self, fetch-to-deck, bounce-hazard-events, …)
+    // onto this single branch. See
+    // `specs/2026-04-23-card-move-primitive-plan.md`.
+    if (!apply.select || !apply.from || !apply.to) {
+      return { error: `move apply missing select/from/to on ${ctx.sourceName}` };
+    }
+    const moveEffect: import('../types/effects.js').MoveEffect = {
+      type: 'move',
+      select: apply.select as 'self' | 'target' | 'filter-all' | 'named',
+      from: apply.from,
+      to: apply.to,
+      ...(apply.toOwner !== undefined ? { toOwner: apply.toOwner } : {}),
+      ...(apply.filter !== undefined ? { filter: apply.filter } : {}),
+      ...(apply.count !== undefined ? { count: apply.count } : {}),
+      ...(apply.shuffleAfter !== undefined ? { shuffleAfter: apply.shuffleAfter } : {}),
+      ...(apply.corruptionCheck !== undefined ? { corruptionCheck: apply.corruptionCheck } : {}),
+      ...(apply.cardName !== undefined ? { cardName: apply.cardName } : {}),
+    };
+    const moveCtx: import('./reducer-move.js').MoveContext = {
+      sourceCardId: ctx.action.sourceCardId,
+      sourcePlayerIndex: ctx.playerIndex,
+      ...(ctx.action.targetCardId ? { targetCardId: ctx.action.targetCardId } : {}),
+      ...(ctx.action.characterId ? { targetCharacterId: ctx.action.characterId } : {}),
+    };
+    const fromLabel = Array.isArray(moveEffect.from)
+      ? `[${moveEffect.from.join(',')}]`
+      : String(moveEffect.from);
+    logDetail(`Grant-action ${ctx.action.actionId}: move (select=${moveEffect.select}, from=${fromLabel}, to=${String(moveEffect.to)})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => {
+          const r = applyMoveLocal(s, moveEffect, moveCtx);
+          if ('error' in r) {
+            logDetail(`move apply failed: ${r.error}`);
+            return s;
+          }
+          return r.state;
+        },
+      ],
+    };
   }
 
   if (apply.type === 'enqueue-pending-fetch') {

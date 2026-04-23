@@ -1271,6 +1271,85 @@ Triggered by the `reshuffle-card-from-hand` action, not by short-event
 play resolution. Implemented in `reducer-end-of-turn.ts`
 (`reshuffleCardFromHand`).
 
+### 28. `move`
+
+Generic card-movement primitive. A `move` picks card instance(s) by
+selector, removes them from a source zone, and appends them to a
+destination zone. Implemented in `engine/reducer-move.ts`
+(`applyMove`).
+
+**Phase 1 status (2026-04-23):** the primitive has landed in the
+engine and is dispatched through the shared apply path. No card JSON
+uses `move` yet — the following per-move effect types remain live
+and are migrated to `move` one at a time in the phases defined by
+`specs/2026-04-23-card-move-primitive-plan.md`:
+
+- `discard-self` → `{ select: 'self', from: 'self-location', to: 'discard' }`
+- `discard-target-item` → `{ select: 'target', from: 'items-on-target', to: 'discard' }`
+- `discard-named-card-from-company` → `{ select: 'named', from: 'attached-to-target-company', to: 'discard', cardName }`
+- `move-target-from-discard-to-hand` → `{ select: 'target', from: 'discard', to: 'hand', filter }`
+- `discard-in-play` → `{ select: 'target', from: 'in-play', to: 'discard', filter }`
+- `discard-cards-in-play` → `{ select: 'filter-all', from: 'in-play', to: 'discard', filter }`
+- `discard-non-special-items` → `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender' }`
+- `reshuffle-self-from-hand` → `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }`
+- `fetch-to-deck` → `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }`
+- `bounce-hazard-events` → `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }`
+
+**Shape**
+
+```json
+{
+  "type": "move",
+  "select": "self | target | filter-all | named",
+  "from": "<MoveZone> | [<MoveZone>, …]",
+  "to": "<MoveZone>",
+  "toOwner": "source-owner | opponent | defender",
+  "filter": { "…": "…" },
+  "count": 1,
+  "shuffleAfter": false,
+  "corruptionCheck": { "modifier": 0 },
+  "cardName": "…"
+}
+```
+
+**Selectors**
+
+- `self` — the card carrying the effect; the engine locates it wherever
+  it currently lives (hand, discard, cardsInPlay, attached to a character).
+- `target` — the user-selected target carried on the triggering action
+  (`action.targetCardId`). Must be found in one of the declared `from`
+  zones.
+- `filter-all` — every instance in the declared `from` zones whose
+  definition matches `filter`. `count` optionally caps the result.
+- `named` — the first instance whose definition name equals `cardName`.
+
+**Zones (`MoveZone`)**
+
+Named piles: `hand`, `deck`, `discard`, `sideboard`, `out-of-play`,
+`kill-pile`. Contextual locators: `self-location` (wherever the source
+card lives), `in-play` (any player's `cardsInPlay`),
+`items-on-target` (items on the action's target character),
+`items-on-wounded` (items on the combat-wounded character),
+`attached-to-target-company` (items + hazards attached to any character
+in the target company).
+
+Contextual locators are introduced by the migration phase that first
+uses them — not all are available in Phase 1.
+
+**Destination owner**
+
+- `source-owner` (default) — push to the pile of whoever owned the
+  source instance.
+- `opponent` — push to the other player's pile (bounce).
+- `defender` — combat context; push to the defender's pile
+  (wound-triggered item loss).
+
+**Side effects**
+
+- `shuffleAfter: true` shuffles the destination pile after pushing.
+- `corruptionCheck: { modifier: n }` enqueues a corruption check on
+  the bearer after the move resolves.
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:
