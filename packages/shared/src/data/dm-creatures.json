@@ -53,7 +53,10 @@
     "killMarshallingPoints": 3,
     "race": "drake",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      { "type": "combat-multi-attack", "count": 3 },
+      { "type": "combat-cancel-attack-by-tap", "maxCancels": 1 }
+    ],
     "text": "Drake. 3 attacks of 2 strikes each. A character can tap to cancel one of these attacks. Playable at any Under-deeps site. If Doors of Night is in play, also playable at an adjacent site of any Under-deeps site or keyed to a Coastal Sea [{c}]."
   },
   {
