@@ -424,8 +424,37 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Only playable at Bag End. +2 to direct influence against a Hobbit character or faction. 1 marshalling point if stored at a Haven [{H}]."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Bag End"]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "hobbit"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "hobbit"
+        }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 1
+      }
+    ],
+    "text": "Unique. Only playable at Bag End. +2 to direct influence against a Hobbit character or faction. 1 marshalling point if stored at a Haven [{H}].",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hero-resource-item",

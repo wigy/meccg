@@ -1178,16 +1178,26 @@ export interface ModifyAttackFromHandEffect extends EffectBase {
 }
 
 /**
- * Declares that an item can be stored at specific named sites during the
- * Organization phase. Storing moves the item from the character to the
- * player's stored-items pile, where it earns marshalling points safely.
+ * Declares that an item can be stored during the Organization phase when
+ * the bearer's company is at a matching site. Storing moves the item from
+ * the character to the player's stored-items pile, where it earns
+ * marshalling points safely.
  *
- * Example: Sapling of the White Tree — storable at Minas Tirith for 2 MP.
+ * At least one of `sites` or `siteTypes` must be present. A site matches
+ * if its name is in `sites` OR its siteType is in `siteTypes`.
+ *
+ * Examples:
+ * - Sapling of the White Tree — storable at Minas Tirith for 2 MP
+ *   (`sites: ["Minas Tirith"]`).
+ * - Red Book of Westmarch — storable at any Haven for 1 MP
+ *   (`siteTypes: ["haven"]`).
  */
 export interface StorableAtEffect extends EffectBase {
   readonly type: 'storable-at';
   /** Site names where the item can be stored. */
-  readonly sites: readonly string[];
+  readonly sites?: readonly string[];
+  /** Site types where the item can be stored (e.g. any Haven). */
+  readonly siteTypes?: readonly SiteType[];
   /** Override marshalling points when stored (replaces the card's base MP). */
   readonly marshallingPoints?: number;
 }

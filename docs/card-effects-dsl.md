@@ -984,10 +984,16 @@ Implemented in `legal-actions/site.ts`.
 
 ### 21. `storable-at`
 
-Declares that an item can be stored at specific named sites during the
-Organization phase. Storing moves the item from the character to the
-player's stored-items pile, where it earns marshalling points safely.
-After storage the initial bearer makes a corruption check.
+Declares that an item can be stored during the Organization phase when
+the bearer's company is at a matching site. Storing moves the item from
+the character to the player's stored-items pile, where it earns
+marshalling points safely. After storage the initial bearer makes a
+corruption check.
+
+A site matches if its name is in `sites` OR its `siteType` is in
+`siteTypes`. At least one of the two lists must be present. `sites`
+targets specific sites (e.g. Minas Tirith); `siteTypes` targets a whole
+class (e.g. any Haven).
 
 When `marshallingPoints` is present, the stored item uses that value
 instead of the card's base MP. Implemented in
@@ -996,6 +1002,7 @@ instead of the card's base MP. Implemented in
 
 ```json
 { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+{ "type": "storable-at", "siteTypes": ["haven"], "marshallingPoints": 1 }
 ```
 
 ### 22. `company-rule`
