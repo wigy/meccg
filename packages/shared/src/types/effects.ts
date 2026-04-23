@@ -994,28 +994,6 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
 }
 
 /**
- * Forces the discard of an in-play card matching a filter. The player
- * chooses which eligible card to discard. Uses the pending-effects
- * sub-flow: the event stays in cardsInPlay while the player selects
- * a target, then both the target and the event are discarded.
- *
- * Example: Marvels Told — tap a sage to discard a hazard non-environment
- * permanent-event or long-event.
- */
-export interface DiscardInPlayEffect extends EffectBase {
-  readonly type: 'discard-in-play';
-  /** DSL condition evaluated against each card definition to decide eligibility. */
-  readonly filter: Condition;
-  /**
-   * Corruption check enqueued on the tapped character after resolution.
-   * The modifier is added to the standard corruption check roll.
-   */
-  readonly corruptionCheck?: {
-    readonly modifier: number;
-  };
-}
-
-/**
  * Fetches a card from one or more source piles into the play deck and shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
@@ -1416,23 +1394,6 @@ export interface CallCouncilEffect extends EffectBase {
 }
 
 /**
- * The card returns from the player's hand to their play deck, which is
- * then reshuffled. "Show opponent" — the action is public via the game
- * log, since the card is revealed as it moves.
- *
- * Used by Sudden Call (le-235), which is playable as either resource or
- * hazard but can alternatively be reshuffled into the deck at any time
- * it is in the player's hand — a safety valve to avoid being stuck with
- * an unusable card when the endgame conditions never materialize.
- *
- * This ability is triggered by the `reshuffle-card-from-hand` action
- * (see `types/actions.ts`), not as part of short-event play resolution.
- */
-export interface ReshuffleSelfFromHandEffect extends EffectBase {
-  readonly type: 'reshuffle-self-from-hand';
-}
-
-/**
  * Declares that the bearing card (an item on a character) cancels any
  * hazard matching `filter` that either is already on bearer or tries to
  * be played on bearer while the ward is in play.
@@ -1565,7 +1526,6 @@ export type CardEffect =
   | CreatureRaceChoiceEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
-  | DiscardInPlayEffect
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
@@ -1576,6 +1536,5 @@ export type CardEffect =
   | ControlRestrictionEffect
   | BounceHazardEventsEffect
   | CallCouncilEffect
-  | ReshuffleSelfFromHandEffect
   | WardBearerEffect
   | MoveEffect;

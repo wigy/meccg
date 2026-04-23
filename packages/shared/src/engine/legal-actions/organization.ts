@@ -30,6 +30,7 @@ import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { findPlayerAvatar } from '../reducer-utils.js';
+import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { isRegressive } from '../reverse-actions.js';
@@ -1258,11 +1259,11 @@ export function playResourceShortEventActions(
 
     // Collect eligible discard-in-play targets (e.g. Marvels Told forces
     // discard of a hazard non-environment permanent/long event). If the
-    // card has a discard-in-play effect but no valid targets exist, it
-    // cannot be played.
-    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    // card has a discard-in-play move effect but no valid targets exist,
+    // it cannot be played.
+    const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardInPlay) {
+    if (discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);

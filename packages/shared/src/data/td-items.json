@@ -509,7 +509,10 @@
           "type": "sequence",
           "apps": [
             {
-              "type": "move-target-from-discard-to-hand",
+              "type": "move",
+              "select": "target",
+              "from": "discard",
+              "to": "hand",
               "filter": {
                 "$or": [
                   { "keywords": { "$includes": "spell" } },

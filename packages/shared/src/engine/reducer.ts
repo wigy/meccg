@@ -56,9 +56,6 @@ import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js
 import { handleFreeCouncil } from './reducer-free-council.js';
 import { handleCombatAction } from './reducer-combat.js';
 
-// Re-export discardCardsInPlay for chain-reducer (preserves existing import path)
-export { discardCardsInPlay } from './reducer-utils.js';
-
 /**
  * Applies a single game action to the current state.
  *

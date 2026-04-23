@@ -18,7 +18,7 @@ import type { OnEventEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { discardCardsInPlay } from './reducer.js';
+import { applyMove } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -844,13 +844,23 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Execute self-enters-play effects (e.g. discard-cards-in-play, add-constraint)
+  // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)
   if (def && 'effects' in def && def.effects) {
     for (const effect of def.effects) {
       if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
-      if (effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
-        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
-        newState = discardCardsInPlay(newState, effect.apply.filter);
+      if (effect.apply.type === 'move') {
+        logDetail(`"${def.name}" entered play — running move apply`);
+        const moveEffect = effect.apply as unknown as import('../types/effects.js').MoveEffect;
+        const ctx: import('./reducer-move.js').MoveContext = {
+          sourceCardId: entry.card!.instanceId,
+          sourcePlayerIndex: playerIndex,
+        };
+        const r = applyMove(newState, moveEffect, ctx);
+        if ('error' in r) {
+          logDetail(`move apply failed on self-enters-play: ${r.error}`);
+        } else {
+          newState = r.state;
+        }
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
       }

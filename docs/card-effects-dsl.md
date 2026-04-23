@@ -861,18 +861,16 @@ Sources: `sideboard`, `discard-pile`.
 
 The `filter` is a standard DSL condition evaluated against each card definition.
 
-### 18. `discard-in-play`
+### 18. `discard-in-play` → `move`
 
+*Migrated to the `move` primitive in Phase 2 of the card-move plan.*
 Forces the compulsory discard of an in-play card matching a filter.
-The target is chosen at play time: the legal-action emitter produces
-one `play-short-event` action per eligible discard target (cross-product
-with any `play-target` tap target), and the reducer resolves the
-discard inline — there is no separate sub-flow. If no valid target
-exists, the card is not playable. Optionally enqueues a corruption
-check on the tapped character after resolution.
 
 ```json
-{ "type": "discard-in-play",
+{ "type": "move",
+  "select": "target",
+  "from": "in-play",
+  "to": "discard",
   "filter": {
     "$and": [
       { "cardType": "hazard-event" },
@@ -883,9 +881,10 @@ check on the tapped character after resolution.
   "corruptionCheck": { "modifier": -2 } }
 ```
 
-The `filter` is a standard DSL condition evaluated against each card
-definition in play (both players' `cardsInPlay`). The chosen target is
-carried on the action's `discardTargetInstanceId` field. The optional
+The target is chosen at play time: the legal-action emitter produces
+one `play-short-event` action per eligible discard target, and the
+reducer resolves the discard inline. The chosen target is carried on
+the action's `discardTargetInstanceId` field. The optional
 `corruptionCheck.modifier` is applied to the tapped character's
 corruption check after the discard resolves.
 
@@ -1256,20 +1255,22 @@ Both modes set `freeCouncilCalled` on the caller, advance the turn, and
 set `state.lastTurnFor` accordingly. Implemented in `reducer-end-of-turn.ts`
 (`triggerCouncilCall`).
 
-### 27. `reshuffle-self-from-hand`
+### 27. `reshuffle-self-from-hand` → `move`
 
+*Migrated to the `move` primitive in Phase 2 of the card-move plan.*
 The card returns from the player's hand to their play deck, which is
 then reshuffled. "Show opponent" — the action is public via the game log.
 Used by Sudden Call (le-235) as a safety valve for when the endgame
 conditions never materialize.
 
 ```json
-{ "type": "reshuffle-self-from-hand" }
+{ "type": "move", "select": "self", "from": "hand", "to": "deck", "shuffleAfter": true }
 ```
 
 Triggered by the `reshuffle-card-from-hand` action, not by short-event
-play resolution. Implemented in `reducer-end-of-turn.ts`
-(`reshuffleCardFromHand`).
+play resolution. The legal-action emitter detects this move shape on
+cards in hand and produces the action; the reducer
+(`reshuffleCardFromHand`) performs the actual move.
 
 ### 28. `move`
 

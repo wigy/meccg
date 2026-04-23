@@ -846,7 +846,10 @@
           "tap": "self"
         },
         "apply": {
-          "type": "move-target-from-discard-to-hand",
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
           "filter": {
             "keywords": { "$includes": "spell" }
           }
