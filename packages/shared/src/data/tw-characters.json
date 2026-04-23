@@ -33,6 +33,12 @@
         "cost": {
           "tap": "self"
         },
+        "targets": {
+          "scope": "company-items",
+          "filter": {
+            "subtype": "gold-ring"
+          }
+        },
         "apply": {
           "type": "sequence",
           "apps": [
@@ -840,7 +846,10 @@
           "tap": "self"
         },
         "apply": {
-          "type": "move-target-from-discard-to-hand"
+          "type": "move-target-from-discard-to-hand",
+          "filter": {
+            "keywords": { "$includes": "spell" }
+          }
         }
       }
     ],

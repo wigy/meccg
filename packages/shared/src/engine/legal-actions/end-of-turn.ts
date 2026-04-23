@@ -12,7 +12,8 @@
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
-import type { CardEffect } from '../../types/effects.js';
+import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -185,21 +186,29 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 }
 
 /**
- * Keyword filter table for end-of-turn fetch grant-actions. Each supported
- * action ID maps to the keyword set a discard-pile card must match. New
- * entries are added alongside the matching card JSON (e.g. Wizard's Staff
- * covers spell / ritual / light-enchantment).
+ * Finds the `move-target-from-discard-to-hand` apply nested inside a
+ * grant-action's `apply` field — either directly or as the first app of a
+ * `sequence`. Returns the apply (carrying the DSL `filter`) or `null` if
+ * this grant-action is not an end-of-turn fetch.
  */
-const EOT_FETCH_KEYWORDS: Record<string, readonly string[]> = {
-  'saruman-fetch-spell': ['spell'],
-  'wizards-staff-fetch': ['spell', 'ritual', 'light-enchantment'],
-};
+function findFetchApply(effect: CardEffect): TriggeredAction | null {
+  if (effect.type !== 'grant-action' || !effect.apply) return null;
+  const apply = effect.apply;
+  if (apply.type === 'move-target-from-discard-to-hand') return apply;
+  if (apply.type === 'sequence') {
+    const apps = (apply as TriggeredAction & { apps?: readonly TriggeredAction[] }).apps;
+    const first = apps?.[0];
+    if (first && first.type === 'move-target-from-discard-to-hand') return first;
+  }
+  return null;
+}
 
 /**
  * Scans the resource player's characters (and their attached items) for
  * grant-action effects that activate during the end-of-turn phase —
- * currently Saruman's spell fetch and Wizard's Staff's spell/ritual/
- * light-enchantment fetch.
+ * those whose `apply` (or first step of a `sequence` apply) is
+ * `move-target-from-discard-to-hand`. The keyword filter comes from the
+ * apply's DSL `filter` condition against the candidate card definition.
  *
  * Generates one action per eligible card in the discard pile per source.
  */
@@ -226,9 +235,9 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     if (!effects) return;
 
     for (const effect of effects) {
-      if (effect.type !== 'grant-action') continue;
-      const keywordFilter = EOT_FETCH_KEYWORDS[effect.action];
-      if (!keywordFilter) continue;
+      const fetchApply = findFetchApply(effect);
+      if (!fetchApply || effect.type !== 'grant-action') continue;
+      const filter: Condition | undefined = fetchApply.filter;
 
       // Cost check. 'self' only makes sense when the source IS the bearer
       // character (Saruman); for attached items the cost is 'bearer'.
@@ -245,14 +254,13 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
 
       const eligibleCards = player.discardPile.filter(card => {
         const def = state.cardPool[card.definitionId as string];
-        if (!def || !('keywords' in def)) return false;
-        const kws = (def as { keywords?: readonly string[] }).keywords;
-        if (!Array.isArray(kws)) return false;
-        return kws.some((k: string) => keywordFilter.includes(k));
+        if (!def) return false;
+        if (!filter) return true;
+        return matchesCondition(filter, def as unknown as Record<string, unknown>);
       });
 
       if (eligibleCards.length === 0) {
-        logDetail(`Grant-action ${effect.action}: no matching cards in discard pile (keywords: ${keywordFilter.join(', ')})`);
+        logDetail(`Grant-action ${effect.action}: no matching cards in discard pile`);
         continue;
       }
 

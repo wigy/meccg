@@ -220,8 +220,13 @@ Multiple flags may coexist on the same effect.
 
 Actions:
 
-- `test-gold-ring` — tap to test a gold ring; rolls 2d6, discards gold ring
-  (implemented in `reducer-organization.ts`)
+- `test-gold-ring` — tap Gandalf to test a gold ring in his company;
+  rolls 2d6, discards the gold ring. Declared with a generic `targets`
+  descriptor (`scope: "company-items"`, `filter: { "subtype":
+  "gold-ring" }`) so the legal-action generator emits one activation
+  per candidate ring. The apply is a generic `sequence` chaining
+  `roll-check` and `discard-target-item` (implemented in
+  `reducer-organization.ts`).
 - `remove-self-on-roll` — roll 2d6, discard this card on success
   (implemented in `reducer-organization.ts`). Supported cost variants:
   `{ "tap": "bearer" }` (bearer taps, e.g. Lure of the Senses) and
@@ -239,20 +244,23 @@ Actions:
   turn (implemented in `reducer-organization.ts`,
   `organization-companies.ts`, `reducer-movement-hazard.ts`)
 - `saruman-fetch-spell` — tap Saruman at the beginning of the
-  end-of-turn phase to take one spell card (keyword `"spell"`) from
-  the discard pile to hand. Only available to the resource player
-  during the discard step (implemented in `legal-actions/end-of-turn.ts`,
-  `reducer-end-of-turn.ts`)
+  end-of-turn phase to take one spell card from the discard pile to
+  hand. Only available to the resource player during the discard step.
+  The spell filter is carried on the apply itself as a DSL `filter`
+  condition against the candidate card definition (see
+  `move-target-from-discard-to-hand` below). Implemented in
+  `legal-actions/end-of-turn.ts`, `reducer-end-of-turn.ts`.
 - `wizards-staff-fetch` — tap the bearer at the beginning of the
   end-of-turn phase to take one card with keyword `"spell"`,
   `"ritual"`, or `"light-enchantment"` from the discard pile to hand,
   then enqueue a corruption check on the bearer. Used by *Wizard's
   Staff*. Declared on an item with `"cost": { "tap": "bearer" }` and a
-  `sequence` apply pairing `move-target-from-discard-to-hand` with
-  `enqueue-corruption-check`. The end-of-turn scanner walks both
-  character-direct and attached-item grant-actions, consults the
-  action-ID → keyword-set table in `legal-actions/end-of-turn.ts`
-  (`EOT_FETCH_KEYWORDS`), and requires an untapped bearer
+  `sequence` apply whose first step is `move-target-from-discard-to-hand`
+  carrying a DSL `filter` (an `$or` over the three keywords); the
+  second step is `enqueue-corruption-check`. The end-of-turn scanner
+  walks both character-direct and attached-item grant-actions, offers
+  one activation per discard-pile card matching the apply's filter,
+  and requires an untapped bearer.
 - `cancel-return-and-site-tap` — tap bearer (ranger) during
   organization to add a turn-scoped constraint cancelling hazard
   effects that force return to site of origin or tap the company's
@@ -289,6 +297,30 @@ TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`
 taps the character itself. Used by *The Mouth* to enqueue a
 `fetch-to-deck` sub-flow that moves one resource or character from the
 player's discard pile back to the play deck.
+
+**Per-target activations** (`targets` field). A grant-action may carry
+a `targets` descriptor that tells the legal-action generator to emit
+one activation per matching card, each carrying the candidate's
+`instanceId` as `targetCardId` on the resulting action. Fields:
+
+- `scope` — zone to enumerate relative to the bearer. Supported:
+  - `"company-items"` — items borne by any character in the bearer's
+    company.
+- `filter` — optional DSL `Condition` matched against each candidate's
+  card definition; candidates that fail the filter are skipped.
+
+Example (Gandalf's gold-ring test):
+
+```json
+{ "type": "grant-action", "action": "test-gold-ring",
+  "cost": { "tap": "self" },
+  "targets": { "scope": "company-items",
+               "filter": { "subtype": "gold-ring" } },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "roll-check", "check": "gold-ring-test" },
+    { "type": "discard-target-item" }
+  ] } }
+```
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
