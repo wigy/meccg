@@ -51,6 +51,7 @@
     "id": "le-95",
     "name": "True Fire-drake",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TrueFiredrake.jpg",
+    "certified": "2026-04-23",
     "unique": false,
     "strikes": 2,
     "prowess": 13,
@@ -59,9 +60,11 @@
     "race": "drake",
     "keyedTo": [
       {
-        "regionTypes": [
-          "wilderness"
-        ]
+        "regionTypes": ["wilderness", "wilderness", "wilderness"]
+      },
+      {
+        "regionTypes": ["wilderness", "wilderness"],
+        "when": { "inPlay": "Doors of Night" }
       }
     ],
     "effects": [],
