@@ -125,13 +125,17 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       if (def.body !== null) addAttr(el, 'Body', def.body);
       if (def.killMarshallingPoints !== 0) addAttr(el, 'Kill MP', def.killMarshallingPoints);
       if (def.keyedTo.length > 0) {
+        const entries: string[] = [];
         for (const key of def.keyedTo) {
           const parts: string[] = [];
           if (key.regionTypes && key.regionTypes.length > 0) parts.push(regionIconsHtml(key.regionTypes));
           if (key.regionNames && key.regionNames.length > 0) parts.push(key.regionNames.join(', '));
           if (key.siteTypes && key.siteTypes.length > 0) parts.push(siteIconsHtml(key.siteTypes));
-          addAttr(el, 'Keyed To', parts.join(' '));
+          if (key.siteNames && key.siteNames.length > 0) parts.push(key.siteNames.join(', '));
+          const entry = parts.join(' ');
+          if (entry.length > 0) entries.push(entry);
         }
+        if (entries.length > 0) addAttr(el, 'Keyed To', entries.join('; '));
       }
       break;
     }
