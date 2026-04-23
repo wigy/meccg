@@ -435,7 +435,10 @@
           ]
         },
         "apply": {
-          "type": "discard-named-card-from-company",
+          "type": "move",
+          "select": "named",
+          "from": "in-play",
+          "to": "discard",
           "cardName": "The One Ring"
         }
       },

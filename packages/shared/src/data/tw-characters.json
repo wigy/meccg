@@ -48,7 +48,10 @@
               "label": "Gold ring test"
             },
             {
-              "type": "discard-target-item"
+              "type": "move",
+              "select": "target",
+              "from": "in-play",
+              "to": "discard"
             }
           ]
         }
