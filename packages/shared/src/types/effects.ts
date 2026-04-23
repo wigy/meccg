@@ -469,7 +469,13 @@ export interface TriggeredAction {
    *    `source` matches the action's `sourceCardId` (i.e. the source
    *    card's constraints get swept). Used by River.
    */
-  readonly select?: 'most-recent-unresolved-hazard' | 'constraint-source';
+  readonly select?:
+    | 'most-recent-unresolved-hazard'
+    | 'constraint-source'
+    | 'self'
+    | 'target'
+    | 'filter-all'
+    | 'named';
   /**
    * For `add-constraint` with `constraint: 'granted-action'`: payload
    * describing the action to be granted by the constraint. Mirrors
@@ -521,6 +527,21 @@ export interface TriggeredAction {
     readonly tapIfUntapped?: boolean;
     readonly corruptionCheck?: { readonly modifier?: number };
   };
+  /** For `move` type: source zone(s) to locate instances in. */
+  readonly from?: MoveZone | readonly MoveZone[];
+  /** For `move` type: destination zone. */
+  readonly to?: MoveZone;
+  /** For `move` type: whose destination pile to push to. */
+  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
+  /** For `move` type: shuffle destination pile after pushing. */
+  readonly shuffleAfter?: boolean;
+  /**
+   * For `move` type: corruption check enqueued on the bearer after
+   * resolution (bounce-hazard-events migration).
+   */
+  readonly corruptionCheck?: { readonly modifier: number };
+  /** For `move` type with `count`: cap on how many instances to move. */
+  readonly count?: number;
 }
 
 /**
@@ -1437,6 +1458,77 @@ export interface WardBearerEffect extends EffectBase {
 }
 
 /**
+ * Zone reference for {@link MoveEffect}. Identifies where to locate
+ * source card instances and where to push them after the move.
+ *
+ * Named-pile zones (`hand`, `deck`, `discard`, `sideboard`,
+ * `out-of-play`, `kill-pile`) correspond directly to fields on
+ * {@link PlayerState}. Contextual zones resolve against runtime data
+ * in the move context:
+ *  - `self-location` — wherever the effect's source card currently lives
+ *    (owner's hand/discard/in-play/attached-to-character). Used by
+ *    `discard-self` and `reshuffle-self-from-hand`.
+ *  - `in-play` — any player's `cardsInPlay` or character attachments.
+ *  - `items-on-target` — items attached to `ctx.targetCardId`.
+ *  - `items-on-wounded` — items attached to the combat wounded character.
+ *  - `attached-to-target-company` — hazards/items attached to any
+ *    character in the target company.
+ */
+export type MoveZone =
+  | 'hand'
+  | 'deck'
+  | 'discard'
+  | 'sideboard'
+  | 'out-of-play'
+  | 'kill-pile'
+  | 'self-location'
+  | 'in-play'
+  | 'items-on-target'
+  | 'items-on-wounded'
+  | 'attached-to-target-company';
+
+/**
+ * Generic card-movement primitive. A move picks card instance(s) by
+ * selector, removes them from a source zone, and appends them to a
+ * destination zone. Later phases of the card-move primitive plan
+ * (`specs/2026-04-23-card-move-primitive-plan.md`) migrate the eleven
+ * per-move effect types (`discard-self`, `move-target-from-discard-to-hand`,
+ * `fetch-to-deck`, `bounce-hazard-events`, etc.) onto this primitive.
+ *
+ * Phase 1 lands the type alongside existing per-move effects; the
+ * engine dispatches `move` through the shared apply path
+ * ({@link applyMove}) but no card JSON uses it yet.
+ */
+export interface MoveEffect extends EffectBase {
+  readonly type: 'move';
+  /** How to choose which card instance(s) the primitive operates on. */
+  readonly select: 'self' | 'target' | 'filter-all' | 'named';
+  /** Scope(s) to locate source instances in. */
+  readonly from: MoveZone | readonly MoveZone[];
+  /** Destination zone. */
+  readonly to: MoveZone;
+  /**
+   * Whose copy of the destination zone to push to. Defaults to the
+   * source instance's owner. `opponent` and `defender` are used by
+   * bounce and combat-wound moves respectively.
+   */
+  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
+  /** DSL condition evaluated against candidate card definitions. */
+  readonly filter?: Condition;
+  /** Cap on how many instances to move; omitted = all matches. */
+  readonly count?: number;
+  /** Shuffle the destination pile after pushing. */
+  readonly shuffleAfter?: boolean;
+  /**
+   * Enqueue a corruption check on the bearer after resolution.
+   * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).
+   */
+  readonly corruptionCheck?: { readonly modifier: number };
+  /** For `select: 'named'`: the card name to match. */
+  readonly cardName?: string;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -1485,4 +1577,5 @@ export type CardEffect =
   | BounceHazardEventsEffect
   | CallCouncilEffect
   | ReshuffleSelfFromHandEffect
-  | WardBearerEffect;
+  | WardBearerEffect
+  | MoveEffect;
