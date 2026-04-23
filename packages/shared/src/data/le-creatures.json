@@ -43,8 +43,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" },
+      { "type": "combat-multi-attack", "count": 2 },
+      { "type": "combat-cancel-attack-by-tap", "maxCancels": 1 }
+    ],
+    "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character.",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-creature",
