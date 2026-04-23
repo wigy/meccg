@@ -15,6 +15,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
 import { Phase, getPlayerIndex, hasPlayFlag } from '../../index.js';
+import type { CardEffect, OnEventEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 
@@ -43,6 +44,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Short-event response actions (e.g. Twilight canceling an environment)
   if (chain.restriction === 'normal') {
     actions.push(...playShortEventChainActions(state, playerId));
+    actions.push(...playSkillCancelChainActions(state, playerId));
   }
 
   // On-guard reveal: hazard player may reveal on-guard events during
@@ -130,6 +132,67 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
           player: playerId,
           cardInstanceId,
           targetInstanceId: target.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * During chain declaring, the priority player may play a hazard short
+ * event whose `on-event: self-enters-play` apply is
+ * `cancel-chain-entry` with `select: 'target'` and a `requiredSkill`
+ * filter. Emits one `play-short-event` action per eligible target —
+ * an unresolved chain entry whose source card carries at least one
+ * effect with a matching `requiredSkill`. Used by Searching Eye to
+ * cancel scout-skill cards (Concealment, A Nice Place to Hide, Stealth)
+ * before they resolve.
+ */
+function playSkillCancelChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain;
+  if (!chain) return [];
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!def || def.cardType !== 'hazard-event') continue;
+    const hazDef = def;
+    if (hazDef.eventType !== 'short') continue;
+    const effects = (hazDef as { effects?: readonly CardEffect[] }).effects ?? [];
+
+    const cancelEffect = effects.find(
+      (e): e is OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'cancel-chain-entry'
+        && e.apply?.select === 'target'
+        && typeof e.apply?.requiredSkill === 'string',
+    );
+    if (!cancelEffect) continue;
+    const requiredSkill = cancelEffect.apply.requiredSkill!;
+
+    for (const entry of chain.entries) {
+      if (entry.resolved || entry.negated || !entry.card) continue;
+      if (entry.card.instanceId === handCard.instanceId) continue;
+      const targetDef = state.cardPool[entry.card.definitionId as string];
+      if (!targetDef || !('effects' in targetDef)) continue;
+      const targetEffects = (targetDef as { effects?: readonly CardEffect[] }).effects ?? [];
+      const hasSkill = targetEffects.some(
+        e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
+      );
+      if (!hasSkill) continue;
+
+      logDetail(`Chain response: ${hazDef.name} can cancel ${targetDef.name ?? entry.card.definitionId} (requires ${requiredSkill})`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetInstanceId: entry.card.instanceId,
         },
         viable: true,
       });

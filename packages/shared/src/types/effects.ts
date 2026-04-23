@@ -463,6 +463,10 @@ export interface TriggeredAction {
    *  - `most-recent-unresolved-hazard`: the latest unresolved hazard
    *    entry (hazard-creature or hazard-event) in the chain. Used by
    *    Great Ship.
+   *  - `target`: the chain entry whose card matches the enclosing
+   *    short-event's `targetInstanceId`. Used by Searching Eye — the
+   *    emitter filters valid targets to entries whose source card has
+   *    an effect matching {@link TriggeredAction.requiredSkill}.
    *
    * For `remove-constraint` type: which constraint(s) to remove.
    *  - `constraint-source`: remove every active constraint whose
@@ -476,6 +480,14 @@ export interface TriggeredAction {
     | 'target'
     | 'filter-all'
     | 'named';
+  /**
+   * For `cancel-chain-entry` with `select: 'target'`: restrict valid
+   * targets to chain entries whose source card has at least one effect
+   * carrying a matching `requiredSkill` (e.g. Searching Eye matches
+   * `"scout"` to cancel Concealment / A Nice Place to Hide / Stealth
+   * chain entries).
+   */
+  readonly requiredSkill?: string;
   /**
    * For `add-constraint` with `constraint: 'granted-action'`: payload
    * describing the action to be granted by the constraint. Mirrors
@@ -768,6 +780,15 @@ export interface PlayTargetEffect extends EffectBase {
    * character (e.g. Stealth: "Tap a scout to play …").
    */
   readonly cost?: ActionCost;
+  /**
+   * Declarative tag: the card's text requires a character with this skill
+   * to be played. Typically mirrors a `filter` clause like
+   * `{ "target.skills": { "$includes": "scout" } }` — the filter remains
+   * authoritative for target selection, but this tag lets other effects
+   * cross-reference the requirement without pattern-matching the filter
+   * tree (e.g. Searching Eye cancels any card that "requires scout skill").
+   */
+  readonly requiredSkill?: string;
 }
 
 /**

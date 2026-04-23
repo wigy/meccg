@@ -407,6 +407,30 @@ Apply types:
   Stinker's ring-discard grant-action to discard *The One Ring* —
   potentially belonging to the opposing player — when the ally is
   discarded. Implemented in `reducer-organization.ts` `runGrantApply()`.
+- `cancel-chain-entry` -- negate an unresolved chain entry or discard a
+  card in play / remove active constraints sourced from a given card.
+  Selectors:
+  - `most-recent-unresolved-hazard` -- negate the latest unresolved
+    hazard (creature or event) on the chain. Used by *Great Ship* via
+    a granted action.
+  - `target` -- negate the chain entry (or, if the target is no longer
+    on the chain, discard the in-play card or remove active constraints
+    whose `source` equals the target instance). The emitter filters
+    valid targets using a `requiredSkill` field on the apply: only
+    chain entries / active constraints whose source card has at least
+    one effect carrying a matching `requiredSkill` (either directly on
+    the effect — e.g. `cancel-attack.requiredSkill` on Concealment —
+    or as the `requiredSkill` metadata tag on a `play-target` effect —
+    e.g. Stealth) are offered. Used by *Searching Eye* with
+    `requiredSkill: "scout"`.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "requiredSkill": "scout" } }
+  ```
+
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
   raises a pending "may join the attacked company" offer for the
   bearer. The defender sees a `haven-join-attack` legal action during

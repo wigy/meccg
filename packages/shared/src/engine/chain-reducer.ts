@@ -409,6 +409,23 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
     }
   }
 
+  // Check active constraints: a card's "ongoing effect" is typically
+  // realised as an {@link ActiveConstraint} whose `source` is the played
+  // card's instance (the card itself may have moved to discard — e.g.
+  // Stealth leaves a `no-creature-hazards-on-company` constraint behind).
+  // Searching Eye (le-136) uses this path to discard the ongoing effect
+  // of a scout-skill resource.
+  const matchingConstraintIds = state.activeConstraints
+    .filter(c => c.source === targetInstanceId)
+    .map(c => c.id);
+  if (matchingConstraintIds.length > 0) {
+    logDetail(`Environment cancel: removing ${matchingConstraintIds.length} active constraint(s) sourced from ${targetName}`);
+    return {
+      ...state,
+      activeConstraints: state.activeConstraints.filter(c => c.source !== targetInstanceId),
+    };
+  }
+
   // Target already gone (fizzle) — e.g. another effect already canceled it
   logDetail(`Environment cancel: target ${targetName} already gone — fizzle`);
   return state;

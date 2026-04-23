@@ -565,6 +565,58 @@ function playHazardsActions(
           continue;
         }
 
+        // Skill-cancelers (e.g. Searching Eye): on-event self-enters-play →
+        // cancel-chain-entry with select:target + requiredSkill. During the
+        // normal M/H hazard play window (no chain active) the card's useful
+        // targets are active constraints whose source card has at least one
+        // effect carrying a matching `requiredSkill`. One action is emitted
+        // per eligible constraint source (the targetInstanceId is the
+        // constraint's `source` — the original card that left the ongoing
+        // effect behind, e.g. Stealth).
+        const skillCancelEffect = def.effects?.find(
+          (e): e is import('../../types/effects.js').OnEventEffect =>
+            e.type === 'on-event'
+            && e.event === 'self-enters-play'
+            && e.apply?.type === 'cancel-chain-entry'
+            && e.apply?.select === 'target'
+            && typeof e.apply?.requiredSkill === 'string',
+        );
+        if (skillCancelEffect) {
+          const requiredSkill = skillCancelEffect.apply.requiredSkill!;
+          const seenSources = new Set<string>();
+          const eligible: { source: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const c of state.activeConstraints) {
+            if (seenSources.has(c.source as string)) continue;
+            const srcDef = state.cardPool[c.sourceDefinitionId as string];
+            if (!srcDef || !('effects' in srcDef)) continue;
+            const srcEffects = (srcDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [];
+            const hasSkill = srcEffects.some(
+              e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
+            );
+            if (!hasSkill) continue;
+            seenSources.add(c.source as string);
+            eligible.push({ source: c.source, name: srcDef.name ?? (c.sourceDefinitionId as string) });
+          }
+          if (eligible.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": no active ${requiredSkill}-skill ongoing effect to cancel`);
+            actions.push({ action, viable: false, reason: `No ${requiredSkill}-skill ongoing effect in play` });
+            continue;
+          }
+          for (const target of eligible) {
+            logDetail(`Hazard short-event "${def.name}": can cancel ongoing effect of ${target.name}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: cardInstId,
+                targetInstanceId: target.source,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
         if (def.effects) {
           const playCondition = def.effects.find(
