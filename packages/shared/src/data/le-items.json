@@ -137,5 +137,21 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-339",
+    "name": "Red Book of Westmarch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RedBookofWestmarch.jpg",
+    "text": "Unique. Playable at Bag End. May be stored at Barad-dûr for 5 marshalling points.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "subtype": "special",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
   }
 ]

@@ -1137,5 +1137,24 @@
         "site": "Lossadan Cairn"
       }
     ]
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "id": "le-296",
+    "name": "Woses of the Eryn Vorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WosesoftheErynVorn.jpg",
+    "text": "Unique. Playable at The Worthy Hills if the influence check is greater than 11.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "wose",
+    "playableAt": [
+      {
+        "site": "The Worthy Hills"
+      }
+    ],
+    "effects": []
   }
 ]
