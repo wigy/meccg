@@ -843,51 +843,6 @@ Supported triggers:
 - `resource-play` — when the resource player plays any resource that
   taps the site (generic catch-all)
 
-### 17. `fetch-to-deck`
-
-Fetches a card from one or more source piles into the play deck and shuffles.
-Used by resource short events like Smoke Rings.
-
-```json
-{ "type": "fetch-to-deck",
-  "source": ["sideboard", "discard-pile"],
-  "filter": { "cardType": { "$in": ["hero-character", "hero-resource-item",
-    "hero-resource-ally", "hero-resource-faction", "hero-resource-event"] } },
-  "count": 1,
-  "shuffle": true }
-```
-
-Sources: `sideboard`, `discard-pile`.
-
-The `filter` is a standard DSL condition evaluated against each card definition.
-
-### 18. `discard-in-play` → `move`
-
-*Migrated to the `move` primitive in Phase 2 of the card-move plan.*
-Forces the compulsory discard of an in-play card matching a filter.
-
-```json
-{ "type": "move",
-  "select": "target",
-  "from": "in-play",
-  "to": "discard",
-  "filter": {
-    "$and": [
-      { "cardType": "hazard-event" },
-      { "eventType": { "$in": ["permanent", "long"] } },
-      { "$not": { "keywords": { "$includes": "environment" } } }
-    ]
-  },
-  "corruptionCheck": { "modifier": -2 } }
-```
-
-The target is chosen at play time: the legal-action emitter produces
-one `play-short-event` action per eligible discard target, and the
-reducer resolves the discard inline. The chosen target is carried on
-the action's `discardTargetInstanceId` field. The optional
-`corruptionCheck.modifier` is applied to the tapped character's
-corruption check after the discard resolves.
-
 ### 19. `site-rule`
 
 Declares a site-specific rule that modifies standard game mechanics
@@ -1255,46 +1210,30 @@ Both modes set `freeCouncilCalled` on the caller, advance the turn, and
 set `state.lastTurnFor` accordingly. Implemented in `reducer-end-of-turn.ts`
 (`triggerCouncilCall`).
 
-### 27. `reshuffle-self-from-hand` → `move`
-
-*Migrated to the `move` primitive in Phase 2 of the card-move plan.*
-The card returns from the player's hand to their play deck, which is
-then reshuffled. "Show opponent" — the action is public via the game log.
-Used by Sudden Call (le-235) as a safety valve for when the endgame
-conditions never materialize.
-
-```json
-{ "type": "move", "select": "self", "from": "hand", "to": "deck", "shuffleAfter": true }
-```
-
-Triggered by the `reshuffle-card-from-hand` action, not by short-event
-play resolution. The legal-action emitter detects this move shape on
-cards in hand and produces the action; the reducer
-(`reshuffleCardFromHand`) performs the actual move.
-
-### 28. `move`
+### 27. `move`
 
 Generic card-movement primitive. A `move` picks card instance(s) by
 selector, removes them from a source zone, and appends them to a
 destination zone. Implemented in `engine/reducer-move.ts`
 (`applyMove`).
 
-**Phase 1 status (2026-04-23):** the primitive has landed in the
-engine and is dispatched through the shared apply path. No card JSON
-uses `move` yet — the following per-move effect types remain live
-and are migrated to `move` one at a time in the phases defined by
-`specs/2026-04-23-card-move-primitive-plan.md`:
+Replaces the eleven per-move effect types that existed before the
+card-move plan (`specs/2026-04-23-card-move-primitive-plan.md`). The
+following table shows the old types and their current `move` shapes
+for reference:
 
-- `discard-self` → `{ select: 'self', from: 'self-location', to: 'discard' }`
-- `discard-target-item` → `{ select: 'target', from: 'items-on-target', to: 'discard' }`
-- `discard-named-card-from-company` → `{ select: 'named', from: 'attached-to-target-company', to: 'discard', cardName }`
-- `move-target-from-discard-to-hand` → `{ select: 'target', from: 'discard', to: 'hand', filter }`
-- `discard-in-play` → `{ select: 'target', from: 'in-play', to: 'discard', filter }`
-- `discard-cards-in-play` → `{ select: 'filter-all', from: 'in-play', to: 'discard', filter }`
-- `discard-non-special-items` → `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender' }`
-- `reshuffle-self-from-hand` → `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }`
-- `fetch-to-deck` → `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }`
-- `bounce-hazard-events` → `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }`
+| Old effect | New shape | Example card |
+|---|---|---|
+| `discard-self` | `{ select: 'self', from: 'self-location', to: 'discard' }` | Treebeard, Align Palantír |
+| `discard-target-item` | `{ select: 'target', from: 'in-play', to: 'discard' }` | Gandalf's test-gold-ring |
+| `discard-named-card-from-company` | `{ select: 'named', from: 'in-play', to: 'discard', cardName }` | Stinker / Gollum |
+| `move-target-from-discard-to-hand` | `{ select: 'target', from: 'discard', to: 'hand', filter }` | Saruman |
+| `discard-in-play` | `{ select: 'target', from: 'in-play', to: 'discard', filter }` | Marvels Told |
+| `discard-cards-in-play` | `{ select: 'filter-all', from: 'in-play', to: 'discard', filter }` | Doors of Night |
+| `discard-non-special-items` | `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender', filter }` | creature wound triggers |
+| `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
+| `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings |
+| `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
 
 **Shape**
 
@@ -1721,7 +1660,15 @@ Supported `apply` kinds today:
 "effects": [
   { "type": "play-target", "target": "character",
     "filter": { "target.race": "wizard" } },
-  { "type": "bounce-hazard-events",
+  { "type": "move",
+    "select": "filter-all",
+    "from": "attached-to-target-company",
+    "to": "hand",
+    "toOwner": "opponent",
+    "filter": { "$and": [
+      { "cardType": "hazard-event" },
+      { "eventType": "permanent" }
+    ] },
     "corruptionCheck": { "modifier": -2 } }
 ]
 ```
@@ -1805,20 +1752,6 @@ Rules:
 ```json
 { "type": "control-restriction", "rule": "no-direct-influence" }
 ```
-
-### 29. `bounce-hazard-events`
-
-Returns all hazard permanent-event cards attached to characters in the
-targeted wizard's company to the opponent's hand, then enqueues a
-corruption check on the wizard. The target wizard is determined by the
-`play-target` effect (filter `target.race: wizard`).
-
-```json
-{ "type": "bounce-hazard-events",
-  "corruptionCheck": { "modifier": -2 } }
-```
-
-Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent`).
 
 ### 30. `dragon-at-home`
 
