@@ -717,6 +717,9 @@ export function executeDeferredSiteAction(
   state: GameState,
   deferredAction: GameAction,
 ): ReducerResult {
+  if (deferredAction.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, deferredAction);
+  }
   if (deferredAction.type !== 'play-hero-resource') {
     return { state, error: `Unsupported deferred site action: ${deferredAction.type}` };
   }
@@ -766,6 +769,39 @@ function handleSitePlayResources(
   // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 they are
   // playable during any phase of the active player's turn. Delegate to
   // the shared resource short-event handler.
+  //
+  // On-guard intercept: when a scout-skill resource short (i.e. the card
+  // has a `requiredSkill` tag on any effect) is about to be played and
+  // on-guard cards exist on the company's site, pause for the hazard
+  // player to reveal. Mirrors the play-hero-resource intercept below.
+  // Used by Searching Eye (reveals from on-guard to cancel a scout-skill
+  // card during the opponent's site phase).
+  if (action.type === 'play-short-event' && company.onGuardCards.length > 0) {
+    const handCard = player.hand.find(c => c.instanceId === action.cardInstanceId);
+    const shortDef = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
+    const shortEffects = shortDef && 'effects' in shortDef
+      ? ((shortDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [])
+      : [];
+    const hasRequiredSkill = shortEffects.some(
+      e => typeof (e as { requiredSkill?: string }).requiredSkill === 'string',
+    );
+    if (hasRequiredSkill) {
+      logDetail(`Site: short-event "${shortDef?.name ?? handCard?.definitionId}" intercepted — enqueuing on-guard-window resolution`);
+      const hazardPlayer = state.players.find(p => p.id !== state.activePlayer)!;
+      return {
+        state: enqueueResolution(state, {
+          source: action.cardInstanceId,
+          actor: hazardPlayer.id,
+          scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
+          kind: {
+            type: 'on-guard-window',
+            stage: 'reveal-window',
+            deferredAction: action,
+          },
+        }),
+      };
+    }
+  }
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
   }
