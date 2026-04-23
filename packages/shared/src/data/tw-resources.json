@@ -929,7 +929,8 @@
         "maxCompanySize": 2,
         "cost": {
           "tap": "character"
-        }
+        },
+        "requiredSkill": "scout"
       },
       {
         "type": "on-event",
