@@ -207,6 +207,89 @@ export interface CombatState {
    * sequence (nextStrikePhase / choose-strike-order → resolve-strike).
    */
   readonly attackerStep1Done?: boolean;
+  /**
+   * Pending haven-join offers raised when the attack began (fired by
+   * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`,
+   * e.g. Alatar). Each offer lets a specific character in a haven company
+   * opt into the attacked company during the cancel-window. Consumed when
+   * the player accepts (producing a {@link HavenJumpOrigin} + post-attack
+   * effects) or when the attack transitions out of cancel-window.
+   */
+  readonly havenJumpOffers?: readonly HavenJumpOffer[];
+  /**
+   * Character instance IDs that MUST each receive a strike before any
+   * other defender/attacker assignment is legal. Populated when a
+   * haven-join-attack is accepted with `forceStrike: true`. The
+   * strike-assignment filter restricts defender assignment to these
+   * targets while the list is non-empty.
+   */
+  readonly forcedStrikeTargets?: readonly CardInstanceId[];
+  /**
+   * Side-effects to apply to a specific character when combat finalizes,
+   * regardless of outcome. Enqueued by accepted haven-join offers
+   * (e.g. Alatar's "must tap + corruption check following the attack").
+   */
+  readonly postAttackEffects?: readonly PostAttackEffect[];
+  /**
+   * Records where a haven-jumped character came from so they can be
+   * returned to their original company after combat finalizes. A
+   * character may only appear once.
+   */
+  readonly havenJumpOrigins?: readonly HavenJumpOrigin[];
+  /**
+   * True when the creature carries `combat-attacker-chooses-defenders`
+   * (e.g. Cave-drake). Determines the post-cancel-window transition:
+   * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`
+   * (used when cancel-window was opened solely for a haven-jump offer).
+   */
+  readonly attackerChoosesDefenders?: boolean;
+}
+
+/**
+ * One pending "may join the attacked company" offer raised by
+ * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`.
+ * The bearer's controller may accept via the `haven-join-attack` action
+ * during the cancel-window. Composable fields let future cards reuse
+ * this primitive without adding a new apply type per card.
+ */
+export interface HavenJumpOffer {
+  /** The character who may jump into the attacked company (the bearer). */
+  readonly characterId: CardInstanceId;
+  /** The player who controls the bearer (must also own the attacked company). */
+  readonly bearerPlayerId: PlayerId;
+  /** The bearer's origin company (the haven company). Used to restore them after combat. */
+  readonly originCompanyId: CompanyId;
+  /** The company under attack — the destination of the jump. */
+  readonly targetCompanyId: CompanyId;
+  /** When true, allies attached to the bearer are discarded on accept. */
+  readonly discardOwnedAllies: boolean;
+  /** When true, accepting forces the attacking creature to strike the bearer. */
+  readonly forceStrike: boolean;
+  /** Effects to apply to the bearer at combat finalization (regardless of outcome). */
+  readonly postAttackEffects: readonly PostAttackEffect[];
+}
+
+/**
+ * An effect scheduled to run at {@link CombatState} finalization,
+ * targeting a specific character regardless of the attack's outcome.
+ * Enqueued by accepted haven-join offers and similar "following the
+ * attack, do X" primitives.
+ */
+export interface PostAttackEffect {
+  /** The character instance the effect targets. */
+  readonly targetCharacterId: CardInstanceId;
+  /** When true, tap the character if they are still untapped after combat. */
+  readonly tapIfUntapped?: boolean;
+  /** When present, enqueue a corruption check on the character (optional modifier). */
+  readonly corruptionCheck?: { readonly modifier?: number };
+}
+
+/** Records where a haven-jumped character came from so they can be restored. */
+export interface HavenJumpOrigin {
+  /** The character who jumped. */
+  readonly characterId: CardInstanceId;
+  /** The company they were originally in (haven company). */
+  readonly originCompanyId: CompanyId;
 }
 
 // ---- Chain of Effects sub-state ----
