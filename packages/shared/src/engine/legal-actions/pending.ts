@@ -159,6 +159,27 @@ function onGuardWindowActions(
 
   const actions: EvaluatedAction[] = [];
 
+  // Identify the deferred action so trigger-specific on-guard cards can
+  // be filtered against it (e.g. Searching Eye only reveals against a
+  // play-short-event whose source card carries the matching requiredSkill).
+  const deferredAction = top.kind.type === 'on-guard-window' ? top.kind.deferredAction : undefined;
+  const deferredSource = (() => {
+    if (!deferredAction) return undefined;
+    if (deferredAction.type !== 'play-short-event' && deferredAction.type !== 'play-hero-resource') return undefined;
+    for (const p of state.players) {
+      const handCard = p.hand.find(c => c.instanceId === deferredAction.cardInstanceId);
+      if (handCard) return state.cardPool[handCard.definitionId as string];
+    }
+    return undefined;
+  })();
+  const deferredRequiredSkills = new Set<string>();
+  if (deferredSource && 'effects' in deferredSource) {
+    const effects = (deferredSource as { effects?: readonly { requiredSkill?: string }[] }).effects ?? [];
+    for (const e of effects) {
+      if (typeof e.requiredSkill === 'string') deferredRequiredSkills.add(e.requiredSkill);
+    }
+  }
+
   if (company) {
     for (const ogCard of company.onGuardCards) {
       if (ogCard.revealed) continue;
@@ -169,11 +190,27 @@ function onGuardWindowActions(
       // Per CoE rule 2.V.6, only hazard events that directly affect the
       // company may be revealed from on-guard when a resource is played.
       // Cards must declare an on-guard-reveal effect with a matching trigger.
-      const hasResourceTrigger = 'effects' in def && def.effects?.some(
-        (e: { type: string; trigger?: string }) =>
-          e.type === 'on-guard-reveal' && (e.trigger === 'resource-play' || e.trigger === 'influence-attempt'),
-      );
-      if (!hasResourceTrigger) continue;
+      // For `resource-short-event` triggers (Searching Eye), additionally
+      // check that the deferred short's source card carries a matching
+      // `requiredSkill` on its apply — no match ⇒ reveal is not legal.
+      const ogEffects = 'effects' in def
+        ? ((def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [])
+        : [];
+      const matchesDeferred = ogEffects.some(e => {
+        if (e.type !== 'on-guard-reveal') return false;
+        const trigger = (e as { trigger?: string }).trigger;
+        if (trigger === 'resource-play' || trigger === 'influence-attempt') return true;
+        if (trigger === 'resource-short-event') {
+          if (!deferredAction || deferredAction.type !== 'play-short-event') return false;
+          const apply = (e as { apply?: { requiredSkill?: string } }).apply;
+          if (apply && typeof apply.requiredSkill === 'string') {
+            return deferredRequiredSkills.has(apply.requiredSkill);
+          }
+          return true;
+        }
+        return false;
+      });
+      if (!matchesDeferred) continue;
 
       // play-target DSL: character-targeting events get one action per character
       const isCharTargeting = 'effects' in def && def.effects?.some(

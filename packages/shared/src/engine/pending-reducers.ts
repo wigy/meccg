@@ -281,6 +281,86 @@ function applyOrderEffectsResolution(
  *    legal action is `pass`, which dequeues the resolution and runs
  *    the deferred action.
  */
+/**
+ * Reveal-path helper — when the revealed on-guard card's on-guard-reveal
+ * effect declares a `cancel-chain-entry` apply targeting the deferred
+ * short-event by `requiredSkill`, discard both cards and return the
+ * updated state. Returns `null` when the reveal does not cancel the
+ * deferred action (fall through to the default nested-chain behavior).
+ */
+function tryCancelDeferredOnReveal(
+  state: GameState,
+  revealAction: GameAction,
+  deferredAction: GameAction,
+): GameState | null {
+  if (revealAction.type !== 'reveal-on-guard') return null;
+  if (deferredAction.type !== 'play-short-event') return null;
+  if (state.activePlayer === null) return null;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer);
+  const resourcePlayer = state.players[resourceIndex];
+  const siteState = state.phaseState as { activeCompanyIndex?: number };
+  const activeCompanyIndex = siteState.activeCompanyIndex ?? 0;
+  const company = resourcePlayer.companies[activeCompanyIndex];
+  if (!company) return null;
+
+  const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === revealAction.cardInstanceId);
+  if (ogIdx < 0) return null;
+  const ogCard = company.onGuardCards[ogIdx];
+  const ogDef = state.cardPool[ogCard.definitionId as string];
+  if (!ogDef || !('effects' in ogDef)) return null;
+  const ogEffects = (ogDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
+
+  const revealEffect = ogEffects.find(
+    (e): e is import('../types/effects.js').OnGuardRevealEffect =>
+      e.type === 'on-guard-reveal'
+      && (e as { apply?: { type?: string; select?: string; requiredSkill?: string } }).apply?.type === 'cancel-chain-entry'
+      && (e as { apply?: { type?: string; select?: string; requiredSkill?: string } }).apply?.select === 'target'
+      && typeof (e as { apply?: { type?: string; select?: string; requiredSkill?: string } }).apply?.requiredSkill === 'string',
+  );
+  if (!revealEffect?.apply) return null;
+  const requiredSkill = (revealEffect.apply as { requiredSkill?: string }).requiredSkill!;
+
+  const handIdx = resourcePlayer.hand.findIndex(c => c.instanceId === deferredAction.cardInstanceId);
+  if (handIdx < 0) return null;
+  const handCard = resourcePlayer.hand[handIdx];
+  const handDef = state.cardPool[handCard.definitionId as string];
+  if (!handDef || !('effects' in handDef)) return null;
+  const handEffects = (handDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
+  const hasSkill = handEffects.some(e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill);
+  if (!hasSkill) return null;
+
+  const hazardIndex = state.players.findIndex(p => p.id === revealAction.player);
+  if (hazardIndex < 0) return null;
+
+  logDetail(`On-guard reveal: "${ogDef.name}" cancels deferred short-event "${handDef.name}" (requires ${requiredSkill})`);
+
+  // Remove the on-guard card from the company, discard it to the hazard
+  // player's discard pile, remove the short-event card from the resource
+  // player's hand, and move it to their discard pile.
+  const newOnGuard = [...company.onGuardCards];
+  newOnGuard.splice(ogIdx, 1);
+  const updatedCompanies = [...resourcePlayer.companies];
+  updatedCompanies[activeCompanyIndex] = { ...company, onGuardCards: newOnGuard };
+  const newHand = [...resourcePlayer.hand];
+  newHand.splice(handIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[resourceIndex] = {
+    ...resourcePlayer,
+    companies: updatedCompanies,
+    hand: newHand,
+    discardPile: [...resourcePlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  };
+  const hazardPlayer = newPlayers[hazardIndex];
+  newPlayers[hazardIndex] = {
+    ...hazardPlayer,
+    discardPile: [...hazardPlayer.discardPile, { instanceId: ogCard.instanceId, definitionId: ogCard.definitionId }],
+  };
+
+  return { ...state, players: newPlayers };
+}
+
 function applyOnGuardWindowResolution(
   state: GameState,
   action: GameAction,
@@ -300,6 +380,21 @@ function applyOnGuardWindowResolution(
       return executeDeferredSiteAction(dequeued, deferredAction);
     }
     if (action.type === 'reveal-on-guard') {
+      // Reveal-path A — cancel the deferred action. When the revealed
+      // on-guard card declares an `on-guard-reveal` effect with an
+      // `apply: cancel-chain-entry select:target requiredSkill:X`, and
+      // the deferred action is a `play-short-event` whose source card
+      // carries a matching `requiredSkill`, the short event is cancelled
+      // outright: its card is discarded, the revealed card is discarded,
+      // and no nested chain or deferred execution runs. Used by
+      // Searching Eye to cancel a scout-skill short during the
+      // opponent's site phase.
+      const cancelledResult = tryCancelDeferredOnReveal(state, action, deferredAction);
+      if (cancelledResult) {
+        const next = dequeueResolution(cancelledResult, top.id);
+        return { state: next };
+      }
+
       logDetail('On-guard window: hazard player reveals — initiating chain, replacing resolution with awaiting-pass for active player');
       const revealResult = applyOnGuardRevealAtResource(state, action);
       if (revealResult.error) return revealResult;

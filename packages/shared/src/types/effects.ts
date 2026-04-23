@@ -794,11 +794,23 @@ export interface PlayTargetEffect extends EffectBase {
 /**
  * Declares when an on-guard card may be revealed during the site phase.
  * The trigger specifies the game event that opens the reveal window.
+ *
+ * When `apply` is present, the reveal also runs a triggered action instead
+ * of initiating a nested chain for the revealed card. Currently used by
+ * Searching Eye: reveal cancels the deferred resource play whose source
+ * card matches the enclosed `requiredSkill` (if any).
  */
 export interface OnGuardRevealEffect extends EffectBase {
   readonly type: 'on-guard-reveal';
   /** The game event that allows the on-guard card to be revealed. */
   readonly trigger: string;
+  /**
+   * Optional triggered action fired when the on-guard card is revealed.
+   * `cancel-chain-entry` with `select: 'target'` + `requiredSkill` cancels
+   * the deferred resource play (and discards its card) when the source
+   * card matches the skill filter.
+   */
+  readonly apply?: TriggeredAction;
 }
 
 /**
