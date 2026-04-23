@@ -17,11 +17,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, LEGOLAS, GIMLI,
+  ARAGORN, BILBO, LEGOLAS, GIMLI, GWAIHIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   buildTestState, resetMint, findCharInstanceId,
   makeShadowMHState, makeBodyCheckCombat, setCharStatus,
+  attachAllyToChar, getAlliesOn,
   dispatch, viableActions,
   Phase, companyIdAt, CardStatus, RESOURCE_PLAYER,
   expectCharNotInPlay,
@@ -344,5 +345,55 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Dagger should be in discard pile
     expect(nextState.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+  });
+
+  test('ally that fails a body check goes to eliminated pile, not discard pile', () => {
+    // Per CoE 2.V.2.2 allies are treated as characters for combat-specific
+    // actions including body checks. Per CoE 3.I a failed body check
+    // eliminates the entity (to the removed-from-play pile). Regression
+    // test for bug 8dcd739fbd69557d: Gwaihir went to the discard pile
+    // after failing a body check in game moab9vqb-68zlad.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const state = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+    const gwaihirId = getAlliesOn(state, RESOURCE_PLAYER, ARAGORN)[0].instanceId;
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    // Body check roll of 12 > Gwaihir's body (8) → ally is eliminated.
+    const readyState = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: gwaihirId }),
+      cheatRollTotal: 12,
+    };
+    const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    // Combat should have finalized (ally eliminations have no item-salvage)
+    expect(nextState.combat).toBeNull();
+
+    // Ally must be removed from the host character's allies list
+    expect(getAlliesOn(nextState, RESOURCE_PLAYER, ARAGORN).some(a => a.instanceId === gwaihirId)).toBe(false);
+
+    // Eliminated ally lands in the out-of-play (eliminated) pile, NOT discard
+    expect(nextState.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gwaihirId)).toBe(true);
+    expect(nextState.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gwaihirId)).toBe(false);
   });
 });
