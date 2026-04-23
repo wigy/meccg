@@ -687,7 +687,9 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
         const hasTrigger = itemDef && 'effects' in itemDef &&
           (itemDef as { effects?: readonly import('../index.js').CardEffect[] }).effects?.some(
             e => e.type === 'on-event' && e.event === 'bearer-company-moves' &&
-                 e.apply.type === 'discard-self',
+                 e.apply.type === 'move'
+                 && e.apply.select === 'self'
+                 && e.apply.to === 'discard',
           );
         if (hasTrigger) {
           logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
@@ -897,12 +899,14 @@ function fireAllyArrivalEffects(
         for (const effect of effects) {
           if (effect.type !== 'on-event') continue;
           if (effect.event !== 'company-arrives-at-site') continue;
-          if (effect.apply.type !== 'discard-self') continue;
+          if (effect.apply.type !== 'move') continue;
+          if (effect.apply.select !== 'self') continue;
+          if (effect.apply.to !== 'discard') continue;
 
           const context: Record<string, unknown> = { site: { region: siteRegion } };
           if (effect.when && !matchesCondition(effect.when, context)) continue;
 
-          logDetail(`company-arrives-at-site: ally "${def.name}" discard-self triggered (site region: ${siteRegion})`);
+          logDetail(`company-arrives-at-site: ally "${def.name}" move(self→discard) triggered (site region: ${siteRegion})`);
           const updatedAllies = char.allies.filter(a => a.instanceId !== ally.instanceId);
           newState = updatePlayer(newState, pIdx, p => ({
             ...updateCharacter(p, charInstId, c => ({ ...c, allies: updatedAllies })),

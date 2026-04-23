@@ -512,7 +512,12 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
           for (const effect of hDef.effects) {
             if (effect.type !== 'on-event') continue;
             if (effect.event !== 'company-composition-changed') continue;
-            if (effect.apply?.type !== 'discard-self') continue;
+            // Match a move effect that discards self (the hazard itself)
+            // to its owner's discard pile. Legacy `discard-self` was
+            // migrated to `{ select: 'self', from: 'self-location', to: 'discard' }`.
+            if (effect.apply?.type !== 'move') continue;
+            if (effect.apply.select !== 'self') continue;
+            if (effect.apply.to !== 'discard') continue;
             if (!effect.when) continue;
             const ctx = { company: { characterCount: companyCharCount } };
             if (matchesCondition(effect.when, ctx)) {
