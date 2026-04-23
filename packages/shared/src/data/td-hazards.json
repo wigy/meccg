@@ -118,8 +118,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ItangastAhunt.jpg",
     "unique": true,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Northern Rhovanion",
+          "Iron Hills",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 4,
+        "prowess": 16,
+        "body": 7,
+        "race": "dragon",
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Southern Rhovanion",
+            "Dorwinion",
+            "Heart of Mirkwood",
+            "Woodland Realm"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 16/7.If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm.",
+    "certified": "2026-04-23",
     "manifestId": "td-36"
   },
   {
