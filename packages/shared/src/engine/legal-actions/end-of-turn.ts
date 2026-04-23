@@ -186,21 +186,29 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 }
 
 /**
- * Finds the `move-target-from-discard-to-hand` apply nested inside a
- * grant-action's `apply` field — either directly or as the first app of a
- * `sequence`. Returns the apply (carrying the DSL `filter`) or `null` if
- * this grant-action is not an end-of-turn fetch.
+ * Finds the discard-to-hand fetch apply nested inside a grant-action's
+ * `apply` field — either directly or as the first app of a `sequence`.
+ * Matches the `move` shape with `select: 'target'`, `from: 'discard'`,
+ * `to: 'hand'`. Returns the apply (carrying the DSL `filter`) or `null`
+ * if this grant-action is not an end-of-turn fetch.
  */
 function findFetchApply(effect: CardEffect): TriggeredAction | null {
   if (effect.type !== 'grant-action' || !effect.apply) return null;
   const apply = effect.apply;
-  if (apply.type === 'move-target-from-discard-to-hand') return apply;
+  if (isDiscardToHandMove(apply)) return apply;
   if (apply.type === 'sequence') {
     const apps = (apply as TriggeredAction & { apps?: readonly TriggeredAction[] }).apps;
     const first = apps?.[0];
-    if (first && first.type === 'move-target-from-discard-to-hand') return first;
+    if (first && isDiscardToHandMove(first)) return first;
   }
   return null;
+}
+
+function isDiscardToHandMove(apply: TriggeredAction): boolean {
+  return apply.type === 'move'
+    && apply.select === 'target'
+    && apply.from === 'discard'
+    && apply.to === 'hand';
 }
 
 /**

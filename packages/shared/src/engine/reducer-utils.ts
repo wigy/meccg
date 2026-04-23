@@ -8,7 +8,6 @@
 
 import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
-import type { Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -574,56 +573,6 @@ export function nextCompanyId(player: PlayerState): CompanyId {
  * or Orc scout character only counting as half of a character (rounded up)."
  */
 
-
-/**
- * Discards all environment cards belonging to the opposing alignment.
- *
- * When an environment permanent-event enters play, it immediately discards
- * all environment cards of the opposing alignment (CoE environment rules):
- * - Resource environments (e.g. Gates of Morning) discard all hazard environments
- * - Hazard environments (e.g. Doors of Night) discard all resource environments
- *
- * Affected cards are moved from their owner's cardsInPlay to their discardPile.
- *
- * @param state - Current game state (after the card has been added to cardsInPlay).
- * @param filter - A DSL condition evaluated against each card definition in play.
- *                 Cards whose definitions match the filter are discarded.
- * @returns Updated game state with matching cards discarded.
- */
-export function discardCardsInPlay(state: GameState, filter: Condition): GameState {
-  const newPlayers = clonePlayers(state);
-  let discardedAny = false;
-
-  for (let pi = 0; pi < state.players.length; pi++) {
-    const player = state.players[pi];
-    const toDiscard: CardInstance[] = [];
-    const remaining = player.cardsInPlay.filter(card => {
-      const cardDef = state.cardPool[card.definitionId as string];
-      if (!cardDef) return true;
-      if (!matchesCondition(filter, cardDef as unknown as Record<string, unknown>)) return true;
-      // This card matches the filter — discard it
-      logDetail(`Discarding card in play: ${cardDef.name} (${card.instanceId as string}) from player ${pi}`);
-      toDiscard.push({ instanceId: card.instanceId, definitionId: card.definitionId });
-      return false;
-    });
-
-    if (toDiscard.length > 0) {
-      discardedAny = true;
-      newPlayers[pi] = {
-        ...player,
-        cardsInPlay: remaining,
-        discardPile: [...player.discardPile, ...toDiscard],
-      };
-    }
-  }
-
-  if (!discardedAny) {
-    logDetail('No matching cards in play to discard');
-    return state;
-  }
-
-  return { ...state, players: newPlayers };
-}
 
 /**
  * Handle playing a permanent-event resource card.
