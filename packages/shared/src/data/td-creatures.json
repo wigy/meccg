@@ -44,9 +44,22 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": [],
-    "effects": [],
-    "text": "Drake. Three strikes. Attacker chooses defending characters. May be played keyed to Khand and Harondor.If Doors of Night is in play, may also be played keyed to Ithilien, Nurn, and Horse Plains."
+    "keyedTo": [
+      {
+        "regionNames": ["Khand", "Harondor"]
+      },
+      {
+        "regionNames": ["Ithilien", "Nurn", "Horse Plains"],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "text": "Drake. Three strikes. Attacker chooses defending characters. May be played keyed to Khand and Harondor. If Doors of Night is in play, may also be played keyed to Ithilien, Nurn, and Horse Plains.",
+    "certified": "2026-04-23"
   },
   {
     "cardType": "hazard-creature",
