@@ -480,16 +480,17 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             continue;
           }
 
-          // For test-gold-ring: generate one action per gold ring in the company
-          if (effect.action === 'test-gold-ring') {
-            const goldRings = findGoldRingsInCompany(state, player, charId);
-            if (goldRings.length === 0) {
-              logDetail(`Grant-action test-gold-ring on ${charDef.name}: no gold ring items in company`);
+          // Per-target enumeration: emit one activation per candidate in
+          // the declared scope (e.g. Gandalf's gold-ring test).
+          if (effect.targets) {
+            const candidates = enumerateGrantActionTargets(state, player, charId, effect.targets);
+            if (candidates.length === 0) {
+              logDetail(`Grant-action ${effect.action} on ${charDef.name}: no targets in scope '${effect.targets.scope}'`);
               continue;
             }
-            for (const ring of goldRings) {
-              const ringDef = state.cardPool[ring.definitionId as string];
-              logDetail(`Grant-action test-gold-ring available: ${charDef.name} can tap to test ${ringDef?.name ?? '?'}`);
+            for (const target of candidates) {
+              const targetDef = state.cardPool[target.definitionId as string];
+              logDetail(`Grant-action ${effect.action} available: ${charDef.name} can tap to target ${targetDef?.name ?? '?'}`);
               actions.push({
                 action: {
                   type: 'activate-granted-action',
@@ -499,7 +500,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
                   sourceCardDefinitionId: char.definitionId,
                   actionId: effect.action,
                   rollThreshold: rollThresholdFor(effect),
-                  targetCardId: ring.instanceId,
+                  targetCardId: target.instanceId,
                 },
                 viable: true,
               });
@@ -748,35 +749,37 @@ function siteHasItemNamed(
 }
 
 /**
- * Finds all gold ring items held by any character in the same company
- * as the given character.
+ * Enumerates candidate target cards for a grant-action's `targets`
+ * descriptor. Walks the declared scope relative to the bearer character
+ * and applies the optional DSL filter to each candidate's card
+ * definition.
  *
- * Returns an array of `{ instanceId, definitionId }` for each gold ring found.
+ * Returns `{ instanceId, definitionId }` pairs — one per match.
  */
-function findGoldRingsInCompany(
+function enumerateGrantActionTargets(
   state: GameState,
   player: { readonly companies: readonly import('../../index.js').Company[]; readonly characters: { readonly [key: string]: import('../../index.js').CharacterInPlay } },
   charId: CardInstanceId,
+  targets: import('../../types/effects.js').GrantActionTargets,
 ): readonly { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] {
-  // Find the company containing this character
-  const company = player.companies.find(c => c.characters.includes(charId));
-  if (!company) return [];
+  const matches: { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] = [];
 
-  const goldRings: { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] = [];
-
-  // Scan all characters in the company for gold ring items
-  for (const compCharId of company.characters) {
-    const compChar = player.characters[compCharId as string];
-    if (!compChar) continue;
-    for (const item of compChar.items) {
-      const itemDef = state.cardPool[item.definitionId as string];
-      if (itemDef && 'subtype' in itemDef && (itemDef as { subtype: string }).subtype === 'gold-ring') {
-        goldRings.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+  if (targets.scope === 'company-items') {
+    const company = player.companies.find(c => c.characters.includes(charId));
+    if (!company) return [];
+    for (const compCharId of company.characters) {
+      const compChar = player.characters[compCharId as string];
+      if (!compChar) continue;
+      for (const item of compChar.items) {
+        const itemDef = state.cardPool[item.definitionId as string];
+        if (!itemDef) continue;
+        if (targets.filter && !matchesCondition(targets.filter, itemDef as unknown as Record<string, unknown>)) continue;
+        matches.push({ instanceId: item.instanceId, definitionId: item.definitionId });
       }
     }
   }
 
-  return goldRings;
+  return matches;
 }
 
 /**

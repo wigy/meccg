@@ -291,6 +291,28 @@ export interface GrantActionEffect extends EffectBase {
    * include `"bearer"` — the character holding the source card.
    */
   readonly apply?: TriggeredAction;
+  /**
+   * Optional target-enumeration descriptor. When present, the legal-action
+   * generator enumerates candidate cards in the given `scope` (optionally
+   * restricted by `filter`) and emits one activation per match, each
+   * carrying the candidate's `instanceId` as `targetCardId`. Used by
+   * per-target actions like Gandalf's gold-ring test.
+   */
+  readonly targets?: GrantActionTargets;
+}
+
+/**
+ * Descriptor for enumerating per-target activations of a grant-action.
+ *
+ * `scope` names a zone relative to the action's bearer. Supported values:
+ * - `"company-items"` — items borne by any character in the bearer's company.
+ *
+ * `filter` is a DSL condition matched against each candidate card's
+ * definition; candidates that fail the filter are skipped.
+ */
+export interface GrantActionTargets {
+  readonly scope: 'company-items';
+  readonly filter?: Condition;
 }
 
 /** The cost required to activate a granted action. */
