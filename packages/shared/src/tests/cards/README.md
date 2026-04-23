@@ -6,13 +6,13 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 195 | 183 | 12 | 93.8% |
+| 196 | 183 | 13 | 93.4% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| Other | 195 | 183 | 93.8% |
+| Other | 196 | 183 | 93.4% |
 
 ## Detailed Test Matrix
 
@@ -48,6 +48,7 @@
 | le-97 | Wandering Eldar | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 11 | ☑ |
 | le-132 | Rebel-talk | — | 10 | ☑ |
+| le-136 | Searching Eye | — | 0 | ☐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
