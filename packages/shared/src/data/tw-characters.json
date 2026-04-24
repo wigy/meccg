@@ -1605,8 +1605,13 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
-    "homesite": "Lórien"
+    "corruptionModifier": -1,
+    "homesite": "Lórien",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 },
+      { "type": "check-modifier", "check": "influence", "value": -1 }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-character",
