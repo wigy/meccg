@@ -24,144 +24,72 @@ import {
   TWO_OR_THREE_TRIBES_PRESENT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  handCardId, viableActions, resolveChain, phaseStateAs, HAZARD_PLAYER,
+  handCardId, companyIdAt, resolveChain, phaseStateAs,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
+  findHandCardId, viableActionsForHandCard,
 } from '../test-helpers.js';
+import type { PlayerSetup } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, Race, SiteType } from '../../index.js';
 import type { GameState, MovementHazardPhaseState } from '../../index.js';
+
+// Standard setup for every playability test: resource at Rivendell, hazard
+// at Lorien, Tribes alone in the hazard hand.
+const TRIBES_ONLY_PLAYERS: [PlayerSetup, PlayerSetup] = [
+  { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+  { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
+];
+
+type PathFixture = {
+  path: RegionType[];
+  destination: SiteType;
+};
 
 describe('Two or Three Tribes Present (dm-97)', () => {
   beforeEach(() => resetMint());
 
-  test('playable with two wildernesses in site path', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
-      destinationSiteType: SiteType.RuinsAndLairs,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+  test.each<[string, PathFixture]>([
+    ['two wildernesses', { path: [RegionType.Wilderness, RegionType.Wilderness], destination: SiteType.RuinsAndLairs }],
+    ['one shadow-land',  { path: [RegionType.Shadow],                             destination: SiteType.ShadowHold   }],
+    ['one dark-domain',  { path: [RegionType.Dark],                               destination: SiteType.DarkHold     }],
+  ])('playable when the site path has %s', (_label, { path, destination }) => {
+    const base = buildTestState({ activePlayer: PLAYER_1, phase: Phase.MovementHazard, players: TRIBES_ONLY_PLAYERS });
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({ resolvedSitePath: path, destinationSiteType: destination }),
+    };
 
-    const actions = viableActions(gameState, PLAYER_2, 'play-hazard');
-    const tribesActions = actions.filter(a =>
-      a.action.type === 'play-hazard' && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
+    const tribesActions = viableActionsForHandCard(
+      gameState, PLAYER_2, 'play-hazard', HAZARD_PLAYER, TWO_OR_THREE_TRIBES_PRESENT,
     );
     expect(tribesActions.length).toBeGreaterThan(0);
     expect(tribesActions.every(a => 'chosenCreatureRace' in a.action)).toBe(true);
   });
 
-  test('playable with one shadow-land in site path', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      destinationSiteType: SiteType.ShadowHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+  test.each<[string, PathFixture]>([
+    ['only one wilderness',      { path: [RegionType.Wilderness],               destination: SiteType.RuinsAndLairs }],
+    ['only free/border regions', { path: [RegionType.Free, RegionType.Border],  destination: SiteType.FreeHold      }],
+  ])('not playable when the site path has %s', (_label, { path, destination }) => {
+    const base = buildTestState({ activePlayer: PLAYER_1, phase: Phase.MovementHazard, players: TRIBES_ONLY_PLAYERS });
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({ resolvedSitePath: path, destinationSiteType: destination }),
+    };
 
-    const actions = viableActions(gameState, PLAYER_2, 'play-hazard');
-    const tribesActions = actions.filter(a =>
-      a.action.type === 'play-hazard' && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
-    );
-    expect(tribesActions.length).toBeGreaterThan(0);
-  });
-
-  test('playable with one dark-domain in site path', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Dark],
-      destinationSiteType: SiteType.DarkHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
-
-    const actions = viableActions(gameState, PLAYER_2, 'play-hazard');
-    const tribesActions = actions.filter(a =>
-      a.action.type === 'play-hazard' && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
-    );
-    expect(tribesActions.length).toBeGreaterThan(0);
-  });
-
-  test('not playable with only one wilderness in site path', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      destinationSiteType: SiteType.RuinsAndLairs,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
-
-    const actions = viableActions(gameState, PLAYER_2, 'play-hazard');
-    const tribesActions = actions.filter(a =>
-      a.action.type === 'play-hazard' && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
-    );
-    expect(tribesActions).toHaveLength(0);
-  });
-
-  test('not playable with only free and border regions', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Free, RegionType.Border],
-      destinationSiteType: SiteType.FreeHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
-
-    const actions = viableActions(gameState, PLAYER_2, 'play-hazard');
-    const tribesActions = actions.filter(a =>
-      a.action.type === 'play-hazard' && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
+    const tribesActions = viableActionsForHandCard(
+      gameState, PLAYER_2, 'play-hazard', HAZARD_PLAYER, TWO_OR_THREE_TRIBES_PRESENT,
     );
     expect(tribesActions).toHaveLength(0);
   });
 
   test('excluded races (nazgul, undead, dragon) are not available as choices', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      destinationSiteType: SiteType.ShadowHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+    const base = buildTestState({ activePlayer: PLAYER_1, phase: Phase.MovementHazard, players: TRIBES_ONLY_PLAYERS });
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({ resolvedSitePath: [RegionType.Shadow], destinationSiteType: SiteType.ShadowHold }),
+    };
 
-    const allActions = computeLegalActions(gameState, PLAYER_2);
-    const tribesActions = allActions.filter(a =>
-      a.viable && a.action.type === 'play-hazard'
-      && a.action.cardInstanceId === gameState.players[1].hand[0].instanceId,
+    const tribesActions = viableActionsForHandCard(
+      gameState, PLAYER_2, 'play-hazard', HAZARD_PLAYER, TWO_OR_THREE_TRIBES_PRESENT,
     );
     const chosenRaces = tribesActions.map(a =>
       a.action.type === 'play-hazard' ? a.action.chosenCreatureRace : undefined,
@@ -175,22 +103,14 @@ describe('Two or Three Tribes Present (dm-97)', () => {
   });
 
   test('playing the card adds creature-type-no-hazard-limit constraint', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      destinationSiteType: SiteType.ShadowHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+    const base = buildTestState({ activePlayer: PLAYER_1, phase: Phase.MovementHazard, players: TRIBES_ONLY_PLAYERS });
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({ resolvedSitePath: [RegionType.Shadow], destinationSiteType: SiteType.ShadowHold }),
+    };
 
     const cardId = handCardId(gameState, HAZARD_PLAYER);
-    const companyId = gameState.players[0].companies[0].id;
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -201,8 +121,8 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(result.error).toBeUndefined();
 
     const afterChain = resolveChain(result.state);
-    expect(afterChain.activeConstraints.length).toBe(1);
-    const constraint = afterChain.activeConstraints[0];
+    expect(afterChain.activeConstraints).toHaveLength(1);
+    const [constraint] = afterChain.activeConstraints;
     expect(constraint.kind.type).toBe('creature-type-no-hazard-limit');
     if (constraint.kind.type === 'creature-type-no-hazard-limit') {
       expect(constraint.kind.exemptRace).toBe(Race.Orc);
@@ -211,7 +131,9 @@ describe('Two or Three Tribes Present (dm-97)', () => {
   });
 
   test('creatures of the chosen race bypass the hazard limit', () => {
-    const state = buildTestState({
+    // Hazard limit 1, 0 played — tribes card takes the last slot. Orc-guard
+    // (orc) should remain viable because orcs are exempt.
+    const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
@@ -219,18 +141,18 @@ describe('Two or Three Tribes Present (dm-97)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT, ORC_GUARD], siteDeck: [RIVENDELL] },
       ],
     });
-    // Hazard limit 1, 0 played so far — tribes card uses the last slot
-    const mhState = makeMHState({
-      hazardsPlayedThisCompany: 0,
-      hazardLimitAtReveal: 1,
-      resolvedSitePath: [RegionType.Shadow],
-      destinationSiteType: SiteType.ShadowHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({
+        hazardsPlayedThisCompany: 0,
+        hazardLimitAtReveal: 1,
+        resolvedSitePath: [RegionType.Shadow],
+        destinationSiteType: SiteType.ShadowHold,
+      }),
+    };
 
-    // Play the tribes card choosing Orc — this uses the 1 hazard slot
-    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
-    const companyId = gameState.players[0].companies[0].id;
+    const tribesId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -241,11 +163,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(result.error).toBeUndefined();
     const afterTribes = resolveChain(result.state);
 
-    // Hazard limit reached (1/1) but Orc-guard (orc creature) should still
-    // be viable because orcs are exempt from the hazard limit.
-    const orcGuardId = afterTribes.players[1].hand.find(
-      c => c.definitionId === ORC_GUARD,
-    )!.instanceId;
+    const orcGuardId = findHandCardId(afterTribes, HAZARD_PLAYER, ORC_GUARD);
     const actions = computeLegalActions(afterTribes, PLAYER_2);
     const orcAction = actions.find(
       a => a.action.type === 'play-hazard' && a.action.cardInstanceId === orcGuardId,
@@ -255,7 +173,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
   });
 
   test('creatures of a different race still count against the hazard limit', () => {
-    const state = buildTestState({
+    const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
@@ -263,18 +181,18 @@ describe('Two or Three Tribes Present (dm-97)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT, CAVE_DRAKE], siteDeck: [RIVENDELL] },
       ],
     });
-    // Hazard limit 1, 0 played — tribes card will use the slot
-    const mhState = makeMHState({
-      hazardsPlayedThisCompany: 0,
-      hazardLimitAtReveal: 1,
-      resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
-      destinationSiteType: SiteType.RuinsAndLairs,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({
+        hazardsPlayedThisCompany: 0,
+        hazardLimitAtReveal: 1,
+        resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
+        destinationSiteType: SiteType.RuinsAndLairs,
+      }),
+    };
 
-    // Play tribes card choosing Orc (not drake)
-    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
-    const companyId = gameState.players[0].companies[0].id;
+    const tribesId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -285,10 +203,8 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(result.error).toBeUndefined();
     const afterTribes = resolveChain(result.state);
 
-    // Cave-drake (dragon race) should be blocked by hazard limit since only orcs are exempt
-    const drakeId = afterTribes.players[1].hand.find(
-      c => c.definitionId === CAVE_DRAKE,
-    )!.instanceId;
+    // Cave-drake (dragon race) should be blocked — only orcs are exempt.
+    const drakeId = findHandCardId(afterTribes, HAZARD_PLAYER, CAVE_DRAKE);
     const actions = computeLegalActions(afterTribes, PLAYER_2);
     const drakeAction = actions.find(
       a => a.action.type === 'play-hazard' && a.action.cardInstanceId === drakeId,
@@ -298,7 +214,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
   });
 
   test('exempt creature does not increment hazard count in reducer', () => {
-    const state = buildTestState({
+    const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
@@ -306,17 +222,18 @@ describe('Two or Three Tribes Present (dm-97)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWO_OR_THREE_TRIBES_PRESENT, ORC_GUARD], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      hazardsPlayedThisCompany: 0,
-      hazardLimitAtReveal: 2,
-      resolvedSitePath: [RegionType.Shadow],
-      destinationSiteType: SiteType.ShadowHold,
-    });
-    const gameState: GameState = { ...state, phaseState: mhState };
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({
+        hazardsPlayedThisCompany: 0,
+        hazardLimitAtReveal: 2,
+        resolvedSitePath: [RegionType.Shadow],
+        destinationSiteType: SiteType.ShadowHold,
+      }),
+    };
 
-    // Play tribes card choosing Orc
-    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
-    const companyId = gameState.players[0].companies[0].id;
+    const tribesId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const r1 = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -327,14 +244,12 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(r1.error).toBeUndefined();
     const afterTribes = resolveChain(r1.state);
 
-    // Tribes card itself counted: hazardsPlayedThisCompany should be 1
+    // Tribes card itself counted: hazardsPlayedThisCompany should be 1.
     const ps1 = phaseStateAs<MovementHazardPhaseState>(afterTribes);
     expect(ps1.hazardsPlayedThisCompany).toBe(1);
 
-    // Now play Orc-guard (orc creature, race exempt)
-    const orcGuardId = afterTribes.players[1].hand.find(
-      c => c.definitionId === ORC_GUARD,
-    )!.instanceId;
+    // Orc-guard (orc, exempt) must NOT increment the count.
+    const orcGuardId = findHandCardId(afterTribes, HAZARD_PLAYER, ORC_GUARD);
     const r2 = reduce(afterTribes, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -343,8 +258,6 @@ describe('Two or Three Tribes Present (dm-97)', () => {
       keyedBy: { method: 'region-type', value: RegionType.Shadow },
     });
     expect(r2.error).toBeUndefined();
-
-    // Orc-guard should NOT have incremented hazard count (still 1)
     const ps2 = phaseStateAs<MovementHazardPhaseState>(r2.state);
     expect(ps2.hazardsPlayedThisCompany).toBe(1);
   });
