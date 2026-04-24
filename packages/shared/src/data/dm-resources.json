@@ -83,6 +83,7 @@
     "alignment": "wizard",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["environment"],
     "marshallingPoints": 0,
     "marshallingCategory": "misc"
   },

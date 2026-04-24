@@ -137,7 +137,13 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "play-flag", "flag": "allow-store-eot" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-resource-faction",

@@ -996,7 +996,17 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": { "$ne": "inverted" } }
+      },
+      { "type": "cancel-attack" },
+      { "type": "wound-target-character" }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-resource-event",
@@ -1023,7 +1033,20 @@
     "mind": 2,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      { "site": "Old Forest" }
+    ],
+    "effects": [
+      {
+        "type": "combat-protection",
+        "protection": "no-attack"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "attack.keying": "wilderness" }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-ally",
@@ -1161,7 +1184,27 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.skills": { "$includes": "warrior" } }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": { "player.hasFactionInHand": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "valueExpr": "min(target.baseProwess, 5)"
+        }
+      }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-resource-event",

@@ -15,7 +15,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired } from './pending.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
 
 
 /**
@@ -115,6 +115,11 @@ function handleEndOfTurnDiscard(
     // end-of-turn discard step (see `legal-actions/end-of-turn.ts`).
     // Delegate to the shared apply dispatcher.
     return handleGrantActionApply(state, action);
+  }
+
+  if (action.type === 'store-item') {
+    // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
+    return handleStoreItem(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -297,6 +302,11 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   if (action.type === 'call-free-council') {
     logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent gets one last turn`);
     return { state: triggerCouncilCall(state, action.player, 'opponent') };
+  }
+
+  if (action.type === 'store-item') {
+    // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
+    return handleStoreItem(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };

@@ -536,7 +536,28 @@ when activated.
     { "attack.source": "creature" } ] } }
 ```
 
-### 9a. `cancel-influence`
+### 9a. `wound-target-character`
+
+Wounds the character targeted by a {@link PlayTargetEffect} on the same card
+without a body check. Applied after the attack is cancelled when the chain entry
+resolves. The targeted character's status is set to `inverted` (wounded). Used
+with `cancel-attack` + `play-target` on cards whose text reads "playable on an
+unwounded character facing an attack — the attack is cancelled and the character
+is wounded (no body check required)".
+
+The legal-action emitter generates one `cancel-attack` action per unwounded
+character in the defending company (characters with `status !== inverted`).
+The chosen character's instance ID is carried on the action as
+`targetCharacterId` and preserved in the chain entry payload.
+
+```json
+{ "type": "wound-target-character" }
+```
+
+Example: Escape (tw-229) — cancel an attack against an unwounded character;
+the character is wounded as the cost.
+
+### 9b. `cancel-influence`
 
 Automatically cancels an opponent's influence check against one of the
 player's characters, followers, factions, allies, or items. Played from
@@ -1887,3 +1908,22 @@ Used by Dragon's Curse (td-16). The movement/hazard legal-action
 emitter skips cards whose `play-window.phase` is not
 `"movement-hazard"`, so a combat-tagged hazard is not accidentally
 offered during the M/H phase.
+
+### 33. `combat-protection`
+
+Protects the bearing card (typically an ally) from being assigned
+strikes during combat. Only `protection: "no-attack"` is defined.
+
+When an ally carries this effect, it is excluded from the
+strike-assignment pool for both the defending player (defender's choice
+of who takes each strike) and the attacking player (who assigns
+remaining or excess strikes). The ally remains in the company and can
+still tap for other purposes (e.g. cancel-attack).
+
+```json
+{ "type": "combat-protection", "protection": "no-attack" }
+```
+
+Used by Goldberry (tw-245) — "May not be attacked." Implemented in
+`engine/legal-actions/combat.ts` (`allyHasCombatProtection()`),
+checked in both the defender-assigns and attacker-assigns loops.

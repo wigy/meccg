@@ -215,6 +215,13 @@ export interface CancelAttackAction {
   readonly cardInstanceId: CardInstanceId;
   /** The character being tapped to pay the cost. Absent for costless cancel-attacks. */
   readonly scoutInstanceId?: CardInstanceId;
+  /**
+   * The character to wound after the attack is cancelled. Set when the card
+   * carries a `wound-target-character` effect (e.g. Escape): one action is
+   * generated per unwounded character in the defending company, each carrying
+   * that character's instance ID here.
+   */
+  readonly targetCharacterId?: CardInstanceId;
 }
 
 /**

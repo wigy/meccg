@@ -24,7 +24,7 @@ import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './e
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
-import { updatePlayer, wrongActionType } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 
@@ -1321,6 +1321,30 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           continue;
         }
         current = r.state;
+      }
+    }
+  }
+
+  // wound-target-character (e.g. Escape): when the cancel-attack resolves,
+  // wound the targeted character without a body check. The targetCharacterId
+  // was captured on the chain entry at declaration time.
+  if (
+    entry.payload.type === 'short-event' &&
+    !entry.negated &&
+    entry.card &&
+    entry.payload.targetCharacterId
+  ) {
+    const def = current.cardPool[entry.card.definitionId as string];
+    if (def && 'effects' in def && def.effects?.some(e => e.type === 'wound-target-character')) {
+      const targetId = entry.payload.targetCharacterId;
+      for (let pi = 0; pi < current.players.length; pi++) {
+        if (current.players[pi].characters[targetId as string]) {
+          logDetail(`wound-target-character: wounding ${targetId as string} (no body check)`);
+          current = updatePlayer(current, pi, p =>
+            updateCharacter(p, targetId, c => ({ ...c, status: CardStatus.Inverted })),
+          );
+          break;
+        }
       }
     }
   }

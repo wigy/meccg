@@ -395,6 +395,16 @@ export interface TriggeredAction {
    */
   readonly value?: number;
   /**
+   * For `add-constraint` type with `constraint: "check-modifier"`: MathJS
+   * expression evaluated at play time against target character context to
+   * compute a dynamic numeric bonus. The context exposes
+   * `target.baseProwess` (the character's base prowess).
+   * Use when the bonus depends on character attributes
+   * (e.g. `"min(target.baseProwess, 5)"` for Muster). Mutually exclusive
+   * with `value`.
+   */
+  readonly valueExpr?: string;
+  /**
    * For `add-constraint` with `constraint: "company-stat-modifier"`:
    * which stat the bonus applies to (currently `prowess` or `body`).
    */
@@ -696,8 +706,13 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   the player's starting characters (e.g. Fram Framson). The character
  *   can still be shuffled into the play deck and brought into play
  *   normally.
+ * - `allow-store-eot` — while this permanent event is in the owner's
+ *   `cardsInPlay`, that player's characters may store eligible resources
+ *   (items with `storable-at` effects) during the end-of-turn phase as
+ *   though it were their organization phase (e.g. Safe from the Shadow,
+ *   Tokens to Show).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'allow-store-eot';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1065,6 +1080,16 @@ export interface CancelAttackEffect extends EffectBase {
   readonly requiredSkill?: string;
   /** The race required on the character who pays the cost (e.g. "wizard" for Vanishment). */
   readonly requiredRace?: string;
+}
+
+/**
+ * Wounds the character targeted by a {@link PlayTargetEffect} on the same
+ * card, without requiring a body check. Applied after the attack is
+ * cancelled. Used by Escape (tw-229): the targeted unwounded character is
+ * set to the `inverted` (wounded) state as the cost of cancelling the attack.
+ */
+export interface WoundTargetCharacterEffect extends EffectBase {
+  readonly type: 'wound-target-character';
 }
 
 /**
@@ -1472,6 +1497,20 @@ export interface WardBearerEffect extends EffectBase {
 }
 
 /**
+ * Protects the bearing card (typically an ally) from being targeted as a
+ * strike recipient during combat.
+ *
+ * `protection: "no-attack"` — the bearer may not be assigned strikes from
+ * any attack source (hazard creature, on-guard creature, automatic attack).
+ * The bearer is excluded from the strike-assignment pool for both the
+ * defending and attacking player. Used by Goldberry.
+ */
+export interface CombatProtectionEffect extends EffectBase {
+  readonly type: 'combat-protection';
+  readonly protection: 'no-attack';
+}
+
+/**
  * Zone reference for {@link MoveEffect}. Identifies where to locate
  * source card instances and where to push them after the move.
  *
@@ -1590,4 +1629,6 @@ export type CardEffect =
   | ControlRestrictionEffect
   | CallCouncilEffect
   | WardBearerEffect
-  | MoveEffect;
+  | CombatProtectionEffect
+  | MoveEffect
+  | WoundTargetCharacterEffect;
