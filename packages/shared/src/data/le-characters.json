@@ -343,7 +343,7 @@
     "name": "Eradan",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Eradan.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "scout",
       "ranger"
@@ -424,7 +424,7 @@
     "name": "Ciryaher",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ciryaher.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "scout",
       "sage"
@@ -494,7 +494,7 @@
     "text": "Unique. Can use sorcery.",
     "alignment": "ringwraith",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "sage"

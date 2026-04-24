@@ -1220,7 +1220,7 @@
     "text": "Unique. +2 direct influence against the Rangers of the North faction.",
     "alignment": "wizard",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "ranger"
@@ -1232,7 +1232,19 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Bree"
+    "homesite": "Bree",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Rangers of the North"
+        }
+      }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-character",
@@ -1263,7 +1275,7 @@
     "text": "Unique. +2 direct influence against the Men of Anórien faction. -1 to all of his corruption checks.",
     "alignment": "wizard",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior"
     ],
@@ -1370,7 +1382,7 @@
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
     "alignment": "wizard",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior"
     ],
@@ -1446,7 +1458,7 @@
     "text": "Unique. +2 direct influence against the Hillmen faction.",
     "alignment": "wizard",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "sage",
       "diplomat"
@@ -1489,7 +1501,7 @@
     "text": "Unique. +2 direct influence against the Knights of Dol Amroth faction.",
     "alignment": "wizard",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "diplomat"
