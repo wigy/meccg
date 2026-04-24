@@ -444,7 +444,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
  * Stored items continue to earn marshalling points (via the item's
  * `storable-at` effect); the initial bearer makes a corruption check.
  */
-function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
+export function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'store-item') return wrongActionType(state, action, 'store-item');
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -483,7 +483,7 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   const stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
-    scope: { kind: 'phase', phase: Phase.Organization },
+    scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
   });

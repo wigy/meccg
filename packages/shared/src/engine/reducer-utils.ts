@@ -8,6 +8,7 @@
 
 import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
+import type { CardEffect } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -290,6 +291,10 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
 /**
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
  * increment exhaustion count, and clear the pending flag.
+ *
+ * Fires `play-deck-exhausted` — discards any permanent event in either
+ * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with
+ * `apply: { type: "discard-self" }` (e.g. Safe from the Shadow, Tokens to Show).
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -309,7 +314,34 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     deckExhaustExchangeCount: 0,
   };
 
-  return { ...state, players: newPlayers, rng: newRng };
+  let result: GameState = { ...state, players: newPlayers, rng: newRng };
+
+  // Fire play-deck-exhausted: discard permanent events that auto-discard on deck exhaustion.
+  for (let pi = 0; pi < 2; pi++) {
+    const p = result.players[pi];
+    const toDiscard: typeof p.cardsInPlay[0][] = [];
+    for (const card of p.cardsInPlay) {
+      const def = result.cardPool[card.definitionId as string] as { readonly effects?: readonly CardEffect[] } | undefined;
+      if (!def?.effects) continue;
+      const hasTrigger = def.effects.some(
+        e => e.type === 'on-event' && (e).event === 'play-deck-exhausted'
+          && (e).apply?.type === 'discard-self',
+      );
+      if (hasTrigger) toDiscard.push(card);
+    }
+    if (toDiscard.length === 0) continue;
+    const discardIds = new Set(toDiscard.map(c => c.instanceId));
+    const updatedPlayers = result.players.map((pl, idx) => {
+      if (idx !== pi) return pl;
+      const remaining = pl.cardsInPlay.filter(c => !discardIds.has(c.instanceId));
+      const discarded = pl.discardPile.concat(toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId })));
+      logDetail(`play-deck-exhausted: discarding ${toDiscard.map(c => result.cardPool[c.definitionId as string]?.name ?? c.definitionId).join(', ')} from player ${pl.name} cardsInPlay`);
+      return { ...pl, cardsInPlay: remaining, discardPile: discarded };
+    });
+    result = { ...result, players: updatedPlayers as unknown as typeof result.players };
+  }
+
+  return result;
 }
 
 /**
