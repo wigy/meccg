@@ -20,6 +20,7 @@
  * | 4 | Constraint modifies influence-attempt need  | IMPLEMENTED | site.ts collects check-modifier constraints    |
  * | 5 | Constraint consumed after influence check   | IMPLEMENTED | reducer-site.ts consumes on resolution         |
  * | 6 | Not playable when no warrior present        | IMPLEMENTED | no eligible play-target → not-playable         |
+ * | 7 | Not playable when no faction in hand        | IMPLEMENTED | when: player.hasFactionInHand                  |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -46,11 +47,12 @@ const MUSTER = 'tw-288' as CardDefinitionId;
 describe('Muster (tw-288)', () => {
   beforeEach(() => resetMint());
 
-  test('offered as viable play-short-event when a warrior is in the company', () => {
+  test('offered as viable play-short-event when warrior and faction are in hand', () => {
+    // Muster requires both: a warrior target AND a faction to influence
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
-      hand: [MUSTER],
+      hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
     const actions = computeLegalActions(state, PLAYER_1)
@@ -61,12 +63,25 @@ describe('Muster (tw-288)', () => {
     expect(actions.some(a => a.optionId === 'influence-boost')).toBe(true);
   });
 
+  test('not offered when warrior is present but no faction in hand', () => {
+    // Muster boosts an influence check — if there is no faction to influence, it is unplayable
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [MUSTER],
+    });
+
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(playActions).toHaveLength(0);
+  });
+
   test('not offered when no warrior is in the company', () => {
     // Bilbo is a hobbit, not a warrior; Muster requires warrior
     const state = buildSitePhaseState({
       characters: [BILBO],
       site: PELARGIR,
-      hand: [MUSTER],
+      hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
     const playActions = computeLegalActions(state, PLAYER_1)
@@ -78,7 +93,7 @@ describe('Muster (tw-288)', () => {
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
-      hand: [MUSTER],
+      hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -108,8 +123,8 @@ describe('Muster (tw-288)', () => {
       expect(constraint.target.characterId).toBe(aragornId);
     }
 
-    // Card consumed from hand and discarded
-    expect(after.players[0].hand).toHaveLength(0);
+    // Muster consumed from hand and discarded; faction card remains
+    expect(after.players[0].hand).toHaveLength(1);
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain(musterInstance);
   });
 
@@ -117,7 +132,7 @@ describe('Muster (tw-288)', () => {
     const state = buildSitePhaseState({
       characters: [FARAMIR],
       site: PELARGIR,
-      hand: [MUSTER],
+      hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
     const faramirId = charIdAt(state, RESOURCE_PLAYER);
@@ -144,7 +159,7 @@ describe('Muster (tw-288)', () => {
     const state = buildSitePhaseState({
       characters: [BEREGOND],
       site: PELARGIR,
-      hand: [MUSTER],
+      hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
     const beregondId = charIdAt(state, RESOURCE_PLAYER);
