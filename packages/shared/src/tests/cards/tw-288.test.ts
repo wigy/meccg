@@ -24,10 +24,10 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
-  PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO, FARAMIR,
-  LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
+  resetMint,
+  PLAYER_1,
+  ARAGORN, BILBO, FARAMIR, BEREGOND,
+  PELARGIR,
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch, resolveChain,
   buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
@@ -75,18 +75,10 @@ describe('Muster (tw-288)', () => {
   });
 
   test('playing Muster on Aragorn (prowess 6) adds influence check-modifier constraint capped at 5', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Organization,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: PELARGIR, characters: [ARAGORN] }],
-          hand: [MUSTER],
-          siteDeck: [MORIA],
-        },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [MUSTER],
     });
 
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -121,19 +113,11 @@ describe('Muster (tw-288)', () => {
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain(musterInstance);
   });
 
-  test('playing Muster on Faramir (prowess 5) adds influence check-modifier of 5', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Organization,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: PELARGIR, characters: [FARAMIR] }],
-          hand: [MUSTER],
-          siteDeck: [MORIA],
-        },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
+  test('playing Muster on Faramir (prowess 5) adds influence check-modifier of 5 (at cap)', () => {
+    const state = buildSitePhaseState({
+      characters: [FARAMIR],
+      site: PELARGIR,
+      hand: [MUSTER],
     });
 
     const faramirId = charIdAt(state, RESOURCE_PLAYER);
@@ -153,6 +137,34 @@ describe('Muster (tw-288)', () => {
     expect(influenceConstraints).toHaveLength(1);
     if (influenceConstraints[0].kind.type === 'check-modifier') {
       expect(influenceConstraints[0].kind.value).toBe(5);
+    }
+  });
+
+  test('playing Muster on Beregond (prowess 4) adds influence check-modifier of 4 (below cap)', () => {
+    const state = buildSitePhaseState({
+      characters: [BEREGOND],
+      site: PELARGIR,
+      hand: [MUSTER],
+    });
+
+    const beregondId = charIdAt(state, RESOURCE_PLAYER);
+    const musterInstance = handCardId(state, RESOURCE_PLAYER);
+
+    const after = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: musterInstance,
+      targetCharacterId: beregondId,
+      optionId: 'influence-boost',
+    });
+
+    // Beregond prowess 4 → min(4,5) = 4; full prowess used, not capped
+    const influenceConstraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
+    );
+    expect(influenceConstraints).toHaveLength(1);
+    if (influenceConstraints[0].kind.type === 'check-modifier') {
+      expect(influenceConstraints[0].kind.value).toBe(4);
     }
   });
 
