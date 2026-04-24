@@ -1472,6 +1472,20 @@ export interface WardBearerEffect extends EffectBase {
 }
 
 /**
+ * Protects the bearing card (typically an ally) from being targeted as a
+ * strike recipient during combat.
+ *
+ * `protection: "no-attack"` — the bearer may not be assigned strikes from
+ * any attack source (hazard creature, on-guard creature, automatic attack).
+ * The bearer is excluded from the strike-assignment pool for both the
+ * defending and attacking player. Used by Goldberry.
+ */
+export interface CombatProtectionEffect extends EffectBase {
+  readonly type: 'combat-protection';
+  readonly protection: 'no-attack';
+}
+
+/**
  * Zone reference for {@link MoveEffect}. Identifies where to locate
  * source card instances and where to push them after the move.
  *
@@ -1590,4 +1604,5 @@ export type CardEffect =
   | ControlRestrictionEffect
   | CallCouncilEffect
   | WardBearerEffect
+  | CombatProtectionEffect
   | MoveEffect;
