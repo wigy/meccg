@@ -706,8 +706,13 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   the player's starting characters (e.g. Fram Framson). The character
  *   can still be shuffled into the play deck and brought into play
  *   normally.
+ * - `allow-store-eot` — while this permanent event is in the owner's
+ *   `cardsInPlay`, that player's characters may store eligible resources
+ *   (items with `storable-at` effects) during the end-of-turn phase as
+ *   though it were their organization phase (e.g. Safe from the Shadow,
+ *   Tokens to Show).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'allow-store-eot';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

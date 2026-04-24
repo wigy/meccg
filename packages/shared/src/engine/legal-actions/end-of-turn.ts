@@ -19,6 +19,8 @@ import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { storeItemActions } from './organization-companies.js';
 
 /**
  * Compute legal actions for a player during the end-of-turn phase.
@@ -90,6 +92,13 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
     const grantActions = endOfTurnGrantActions(state, playerId);
     for (const ea of grantActions) {
       actions.push(ea.action);
+    }
+    // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
+    if (allowStoreEot(state, playerIndex)) {
+      logDetail(`End-of-Turn discard: allow-store-eot in play for ${player.name} — adding store-item actions`);
+      for (const ea of storeItemActions(state, playerId)) {
+        actions.push(ea.action);
+      }
     }
   }
 
@@ -180,9 +189,28 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
     }
   }
 
+  // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
+  if (allowStoreEot(state, playerIndex)) {
+    logDetail(`End-of-Turn signal-end: allow-store-eot in play for ${player.name} — adding store-item actions`);
+    for (const ea of storeItemActions(state, playerId)) {
+      actions.push(ea.action);
+    }
+  }
+
   actions.push({ type: 'pass', player: playerId });
   logDetail(`End-of-Turn signal-end: resource player ${playerId as string} may pass to end turn`);
   return actions;
+}
+
+/**
+ * Returns true if the active player has a permanent event with the
+ * `allow-store-eot` play-flag in their `cardsInPlay`.
+ */
+function allowStoreEot(state: GameState, playerIndex: number): boolean {
+  return state.players[playerIndex].cardsInPlay.some(card => {
+    const def = state.cardPool[card.definitionId as string] as { readonly effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+    return hasPlayFlag(def, 'allow-store-eot');
+  });
 }
 
 /**
