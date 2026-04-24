@@ -614,7 +614,22 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": ["shield"],
+    "certified": "2026-04-24",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 8
+      },
+      {
+        "type": "item-tap-strike-bonus",
+        "cost": { "tap": "self" },
+        "prowessBonus": 1
+      }
+    ]
   },
   {
     "cardType": "hero-resource-item",

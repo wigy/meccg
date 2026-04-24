@@ -1185,6 +1185,30 @@ export interface ModifyAttackEffect extends EffectBase {
 }
 
 /**
+ * Activated ability carried by an in-play item that boosts the bearer's
+ * prowess for the one specific strike currently being resolved. Available
+ * to the defending player during the `resolve-strike` phase. The item
+ * must be untapped; tapping it adds `prowessBonus` to
+ * {@link StrikeAssignment.strikeProwessBonus} for the current strike only,
+ * benefiting only that one defender (unlike {@link ModifyAttackEffect},
+ * which modifies the whole attack and applies to all defenders).
+ *
+ * The `cost` must be `{ "tap": "self" }`. The optional `when` gate is
+ * evaluated against a context exposing `bearer.race`, `bearer.skills`,
+ * and `bearer.name`, and `enemy.race`.
+ *
+ * Example: Shield of Iron-bound Ash (tw-327) — tap to gain +1 prowess
+ * against one strike.
+ */
+export interface ItemTapStrikeBonusEffect extends EffectBase {
+  readonly type: 'item-tap-strike-bonus';
+  /** Cost to activate; must be `{ tap: "self" }`. */
+  readonly cost: ActionCost;
+  /** Amount added to the bearer's prowess for the current strike only. */
+  readonly prowessBonus: number;
+}
+
+/**
  * Played from hand as a short event during combat before strikes are
  * assigned; the card is discarded after use. Modifies the current
  * attack's strike prowess and/or creature body uniformly (same windows
@@ -1539,6 +1563,7 @@ export type CardEffect =
   | ModifyStrikeEffect
   | RerollStrikeEffect
   | ModifyAttackEffect
+  | ItemTapStrikeBonusEffect
   | ModifyAttackFromHandEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect

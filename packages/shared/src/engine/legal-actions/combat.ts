@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -681,6 +681,92 @@ function resolveStrikeActions(
         });
       }
     }
+  }
+
+  // Item-tap-strike-bonus: scan items on the current strike target for
+  // item-tap-strike-bonus effects. The bearer taps the item to add a
+  // prowess bonus to this specific strike (e.g. Shield of Iron-bound Ash).
+  actions.push(...tapItemForStrikeActions(state, playerId, combat, tapProwess, strikeProwess));
+
+  return actions;
+}
+
+/**
+ * Generate tap-item-for-strike actions for the defending player during
+ * the resolve-strike phase. Scans items on the current strike target
+ * character for an `item-tap-strike-bonus` effect whose `when` condition
+ * matches. One action is emitted per eligible untapped item.
+ *
+ * Used by Shield of Iron-bound Ash (tw-327).
+ */
+function tapItemForStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+  tapProwess: number,
+  strikeProwess: number,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'resolve-strike') return [];
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === playerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const charData = defPlayer.characters[currentStrike.characterId as string];
+  if (!charData) return [];
+
+  const charDef = state.cardPool[charData.definitionId as string];
+  if (!charDef || !isCharacterCard(charDef)) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const item of charData.items) {
+    if (item.status !== CardStatus.Untapped) continue;
+    const itemDef = state.cardPool[item.definitionId as string];
+    if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
+
+    const effect = itemDef.effects.find(
+      (e): e is ItemTapStrikeBonusEffect => e.type === 'item-tap-strike-bonus',
+    );
+    if (!effect) continue;
+    if (effect.cost?.tap !== 'self') continue;
+
+    if (effect.when) {
+      const ctx: Record<string, unknown> = {
+        bearer: {
+          race: charDef.race,
+          skills: charDef.skills,
+          name: charDef.name,
+        },
+      };
+      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      if (!matchesCondition(effect.when, ctx)) {
+        const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+        logDetail(`Item-tap-strike-bonus ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
+        continue;
+      }
+    }
+
+    const bonus = effect.prowessBonus;
+    const modifiedProwess = tapProwess + bonus;
+    const modifiedNeed = Math.max(2, strikeProwess - modifiedProwess + 1);
+    const bonusSign = bonus >= 0 ? '+' : '';
+    const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+    const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${bonusSign}${bonus})`;
+    logDetail(`Item-tap-strike-bonus available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
+    actions.push({
+      action: {
+        type: 'tap-item-for-strike',
+        player: playerId,
+        cardInstanceId: item.instanceId,
+        characterInstanceId: currentStrike.characterId,
+        need: modifiedNeed,
+        explanation,
+      },
+      viable: true,
+    });
   }
 
   return actions;

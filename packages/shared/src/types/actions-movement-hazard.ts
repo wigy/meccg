@@ -236,6 +236,31 @@ export interface ModifyAttackAction {
 }
 
 /**
+ * Tap an in-play item to boost the bearer's prowess for the single
+ * strike currently being resolved. Legal during `resolve-strike` when
+ * the item is untapped and belongs to the character currently assigned
+ * the strike. The prowess bonus is accumulated on the current
+ * {@link StrikeAssignment.strikeProwessBonus}.
+ *
+ * Used by Shield of Iron-bound Ash (tw-327) — tap to gain +1 prowess
+ * against one strike.
+ */
+export interface TapItemForStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'tap-item-for-strike';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play item being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item (must be the current strike target). */
+  readonly characterInstanceId: CardInstanceId;
+  /** The 2d6 value needed after applying this item's prowess bonus. */
+  readonly need: number;
+  /** Human-readable breakdown of the modified prowess vs creature prowess. */
+  readonly explanation: string;
+}
+
+/**
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only legal during the
  * assign-strikes phase before any strikes have been assigned.

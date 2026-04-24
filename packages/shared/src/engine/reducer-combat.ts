@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { OnEventEffect, DodgeStrikeEffect, ModifyStrikeEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, OnEventEffect, DodgeStrikeEffect, ModifyStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -57,6 +57,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelStrike(state, action, combat);
     case 'halve-strikes':
       return handleHalveStrikes(state, action, combat);
+    case 'tap-item-for-strike':
+      return handleTapItemForStrike(state, action, combat);
     case 'modify-attack':
       return handleModifyAttack(state, action, combat);
     case 'modify-attack-from-hand':
@@ -1360,6 +1362,73 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
     state: {
       ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: { ...combat, strikesTotal: newStrikes },
+    },
+  };
+}
+
+/**
+ * Tap an in-play item to boost the bearer's prowess for the one strike
+ * currently being resolved. The item must be untapped and belong to the
+ * character assigned the current strike. Tapping it accumulates
+ * `prowessBonus` onto `StrikeAssignment.strikeProwessBonus`, benefiting
+ * only that one defender for that one strike.
+ *
+ * Used by Shield of Iron-bound Ash (tw-327).
+ */
+function handleTapItemForStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'tap-item-for-strike') return wrongActionType(state, action, 'tap-item-for-strike');
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Can only tap item for strike during resolve-strike phase' };
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No active unresolved strike' };
+  if (currentStrike.characterId !== action.characterInstanceId) return { state, error: 'Item bearer is not the current strike target' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const charData = defPlayer.characters[action.characterInstanceId as string];
+  if (!charData) return { state, error: 'Character not found' };
+
+  const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
+  if (itemIndex < 0) return { state, error: 'Item not found on character' };
+  const item = charData.items[itemIndex];
+  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = state.cardPool[item.definitionId as string];
+  if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
+  const effect = itemDef.effects.find(
+    (e): e is ItemTapStrikeBonusEffect => e.type === 'item-tap-strike-bonus',
+  );
+  if (!effect) return { state, error: 'Item has no item-tap-strike-bonus effect' };
+
+  const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+  logDetail(`Item-tap-strike-bonus: tapping ${itemName} on ${action.characterInstanceId as string} (+${effect.prowessBonus} prowess for current strike)`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[defPlayerIndex] = {
+    ...newPlayers[defPlayerIndex],
+    characters: {
+      ...newPlayers[defPlayerIndex].characters,
+      [action.characterInstanceId as string]: {
+        ...charData,
+        items: charData.items.map((it, i) =>
+          i === itemIndex ? { ...it, status: CardStatus.Tapped } : it,
+        ),
+      },
+    },
+  };
+
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + effect.prowessBonus }
+      : a,
+  );
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat: { ...combat, strikeAssignments: newAssignments },
     },
   };
 }
