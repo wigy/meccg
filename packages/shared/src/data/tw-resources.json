@@ -1038,7 +1038,46 @@
     "mind": 4,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "certified": "2026-04-24",
+    "playableAt": [
+      { "site": "Goblin-gate" },
+      { "site": "Moria" }
+    ],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "stinker-discard-with-ring",
+        "cost": { "discard": "self" },
+        "when": {
+          "$and": [
+            { "bearer.atHaven": false },
+            { "site.hasOneRing": true }
+          ]
+        },
+        "apply": {
+          "type": "move",
+          "select": "named",
+          "from": "in-play",
+          "to": "discard",
+          "cardName": "The One Ring"
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.companySize": { "$lte": 2 } },
+            {
+              "$or": [
+                { "attack.keying": "wilderness" },
+                { "attack.keying": "shadow" }
+              ]
+            }
+          ]
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",
