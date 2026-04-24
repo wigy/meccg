@@ -996,7 +996,17 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": { "$ne": "inverted" } }
+      },
+      { "type": "cancel-attack" },
+      { "type": "wound-target-character" }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-resource-event",

@@ -987,6 +987,32 @@ function cancelAttackActions(
       }
     }
 
+    // Cards with wound-target-character (e.g. Escape): one action per
+    // unwounded character in the defending company — the player chooses
+    // which character to wound when they play the card.
+    const hasWound = cardWithEffects.effects.some(e => e.type === 'wound-target-character');
+    if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace && hasWound) {
+      for (const charId of company.characters) {
+        const charData = player.characters[charId as string];
+        if (!charData) continue;
+        if (charData.status === CardStatus.Inverted) {
+          logDetail(`Cancel-attack (wound) ${handCard.definitionId as string}: skip wounded character ${charId as string}`);
+          continue;
+        }
+        logDetail(`Cancel-attack (wound) ${handCard.definitionId as string}: targeting character ${charId as string}`);
+        actions.push({
+          action: {
+            type: 'cancel-attack',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
     // Costless cancel-attack: no skill/race requirement (e.g. Dark Quarrels)
     if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace) {
       logDetail(`Cancel-attack available (no cost): ${handCard.definitionId as string}`);

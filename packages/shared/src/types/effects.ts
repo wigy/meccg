@@ -1068,6 +1068,16 @@ export interface CancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Wounds the character targeted by a {@link PlayTargetEffect} on the same
+ * card, without requiring a body check. Applied after the attack is
+ * cancelled. Used by Escape (tw-229): the targeted unwounded character is
+ * set to the `inverted` (wounded) state as the cost of cancelling the attack.
+ */
+export interface WoundTargetCharacterEffect extends EffectBase {
+  readonly type: 'wound-target-character';
+}
+
+/**
  * Automatically cancels an opponent's influence check against one of the
  * player's characters, followers, factions, allies, or items. Played from
  * hand during the opponent's site phase while an
@@ -1605,4 +1615,5 @@ export type CardEffect =
   | CallCouncilEffect
   | WardBearerEffect
   | CombatProtectionEffect
-  | MoveEffect;
+  | MoveEffect
+  | WoundTargetCharacterEffect;
