@@ -697,7 +697,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   can still be shuffled into the play deck and brought into play
  *   normally.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
