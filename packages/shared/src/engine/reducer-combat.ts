@@ -1168,7 +1168,9 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   // Push/initiate chain entry — opponent gets priority to respond. On
   // resolution, the chain resolver applies the combat cancellation via
   // resolveCancelAttackEntry.
-  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+  const payload: import('../index.js').ChainEntryPayload = action.targetCharacterId
+    ? { type: 'short-event', targetCharacterId: action.targetCharacterId }
+    : { type: 'short-event' };
   if (resultState.chain === null) {
     resultState = initiateChain(resultState, action.player, handCard, payload);
   } else {
