@@ -658,7 +658,33 @@ the bearer is not a Man.
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`).
 
-### 10d. `modify-attack-from-hand`
+### 10d. `item-tap-strike-bonus`
+
+Activated ability on an in-play item that boosts the bearer's prowess for
+the single strike currently being resolved. Unlike `modify-attack` (which
+adjusts the creature's prowess for the whole attack, benefiting all
+defenders), this effect targets only the bearer's specific strike assignment
+and adds directly to `StrikeAssignment.strikeProwessBonus`. Available
+during `resolve-strike` when the item is untapped and the bearer is the
+current strike target.
+
+The `cost` must be `{ "tap": "self" }`. An optional `when` gate is
+evaluated against a context exposing `bearer.race`, `bearer.skills`,
+`bearer.name`, and `enemy.race`.
+
+```json
+{ "type": "item-tap-strike-bonus",
+  "cost": { "tap": "self" },
+  "prowessBonus": 1 }
+```
+
+Example: Shield of Iron-bound Ash (tw-327) — tap to gain +1 prowess
+against one strike.
+
+Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`)
+and `engine/reducer-combat.ts` (`handleTapItemForStrike`).
+
+### 10e. `modify-attack-from-hand`
 
 Played from hand as a short event during combat before strikes are
 assigned; the card is discarded after use. Modifies the current attack's
