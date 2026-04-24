@@ -395,6 +395,16 @@ export interface TriggeredAction {
    */
   readonly value?: number;
   /**
+   * For `add-constraint` type with `constraint: "check-modifier"`: MathJS
+   * expression evaluated at play time against target character context to
+   * compute a dynamic numeric bonus. The context exposes
+   * `target.baseProwess` (the character's base prowess).
+   * Use when the bonus depends on character attributes
+   * (e.g. `"min(target.baseProwess, 5)"` for Muster). Mutually exclusive
+   * with `value`.
+   */
+  readonly valueExpr?: string;
+  /**
    * For `add-constraint` with `constraint: "company-stat-modifier"`:
    * which stat the bonus applies to (currently `prowess` or `body`).
    */

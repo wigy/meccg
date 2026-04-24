@@ -19,6 +19,8 @@ import { addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
+import { isCharacterCard } from '../index.js';
+import { evaluateExpr } from './effects/expression-eval.js';
 
 
 /**
@@ -616,12 +618,25 @@ function applyPlayOptionAddConstraint(
   type Kind = import('../types/pending.js').ActiveConstraint['kind'];
   let kind: Kind;
   switch (constraintName) {
-    case 'check-modifier':
-      if (typeof apply.value !== 'number' || typeof apply.check !== 'string') {
-        return { error: `${def.name} option '${option.id}': check-modifier requires 'check' and numeric 'value'` };
+    case 'check-modifier': {
+      if (typeof apply.check !== 'string') {
+        return { error: `${def.name} option '${option.id}': check-modifier requires 'check'` };
       }
-      kind = { type: 'check-modifier', check: apply.check, value: apply.value };
+      let constraintValue: number;
+      if (typeof apply.valueExpr === 'string') {
+        const charPlayerIdx = state.players.findIndex(p => targetCharacterId as string in p.characters);
+        const charInPlay = charPlayerIdx >= 0 ? state.players[charPlayerIdx].characters[targetCharacterId as string] : undefined;
+        const charDef = charInPlay ? state.cardPool[charInPlay.definitionId as string] : undefined;
+        const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
+        constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess } }));
+      } else if (typeof apply.value === 'number') {
+        constraintValue = apply.value;
+      } else {
+        return { error: `${def.name} option '${option.id}': check-modifier requires 'value' (number) or 'valueExpr' (expression)` };
+      }
+      kind = { type: 'check-modifier', check: apply.check, value: constraintValue };
       break;
+    }
     case 'hazard-limit-modifier':
       if (typeof apply.value !== 'number') {
         return { error: `${def.name} option '${option.id}': hazard-limit-modifier requires numeric 'value'` };
