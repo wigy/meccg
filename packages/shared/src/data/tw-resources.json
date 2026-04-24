@@ -604,9 +604,9 @@
         "event": "bearer-company-moves",
         "apply": {
           "type": "move",
-            "select": "self",
-            "from": "self-location",
-            "to": "discard"
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       }
     ],
@@ -723,9 +723,9 @@
         "event": "company-arrives-at-site",
         "apply": {
           "type": "move",
-            "select": "self",
-            "from": "self-location",
-            "to": "discard"
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "$not": {
@@ -1063,18 +1063,28 @@
     "marshallingCategory": "ally",
     "certified": "2026-04-24",
     "playableAt": [
-      { "site": "Goblin-gate" },
-      { "site": "Moria" }
+      {
+        "site": "Goblin-gate"
+      },
+      {
+        "site": "Moria"
+      }
     ],
     "effects": [
       {
         "type": "grant-action",
         "action": "stinker-discard-with-ring",
-        "cost": { "discard": "self" },
+        "cost": {
+          "discard": "self"
+        },
         "when": {
           "$and": [
-            { "bearer.atHaven": false },
-            { "site.hasOneRing": true }
+            {
+              "bearer.atHaven": false
+            },
+            {
+              "site.hasOneRing": true
+            }
           ]
         },
         "apply": {
@@ -1087,14 +1097,24 @@
       },
       {
         "type": "cancel-attack",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "when": {
           "$and": [
-            { "bearer.companySize": { "$lte": 2 } },
+            {
+              "bearer.companySize": {
+                "$lte": 2
+              }
+            },
             {
               "$or": [
-                { "attack.keying": "wilderness" },
-                { "attack.keying": "shadow" }
+                {
+                  "attack.keying": "wilderness"
+                },
+                {
+                  "attack.keying": "shadow"
+                }
               ]
             }
           ]
@@ -1222,8 +1242,44 @@
     "alignment": "wizard",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 2,
-    "marshallingCategory": "misc"
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": [
+              "dark-hold",
+              "shadow-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven",
+          "border-hold",
+          "free-hold"
+        ],
+        "marshallingPoints": 2
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",
@@ -1333,7 +1389,11 @@
     "effects": [
       {
         "type": "reroll-strike",
-        "filter": { "target.skills": { "$includes": "warrior" } }
+        "filter": {
+          "target.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "text": "Warrior only. Make two rolls against a strike and choose one of the two results to use.",

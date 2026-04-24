@@ -712,7 +712,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   though it were their organization phase (e.g. Safe from the Shadow,
  *   Tokens to Show).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'allow-store-eot';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'allow-store-eot';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

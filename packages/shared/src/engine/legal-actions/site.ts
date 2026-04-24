@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -547,6 +547,17 @@ function playResourcesActions(
           }
         }
 
+        // play-flag: "tapped-site-only" — card may only be played at an already-tapped site
+        if (hasPlayFlag(eventDef, 'tapped-site-only') && !siteIsTapped) {
+          logDetail(`Permanent event ${eventDef.name}: requires already-tapped site, but site is untapped`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${eventDef.name}: site must be tapped`,
+          });
+          continue;
+        }
+
         // Check play-target site filter
         const sitePlayTarget = eventDef.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
@@ -563,10 +574,51 @@ function playResourcesActions(
           }
         }
 
-        // Check play-target character filter (e.g. "Sage only")
+        // duplication-limit: scope "site" — only one copy per site (across all companies at this site)
+        const siteDupLimit = eventDef.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
+          if (e.type !== 'duplication-limit') return false;
+          return e.scope === 'site';
+        });
+        if (siteDupLimit && siteDefId) {
+          const copiesAtSite = state.players.reduce((count, p) => {
+            for (const co of p.companies) {
+              const coSiteDefId = co.currentSite
+                ? resolveInstanceId(state, co.currentSite.instanceId)
+                : undefined;
+              if (coSiteDefId !== siteDefId) continue;
+              for (const cId of co.characters) {
+                const ch = p.characters[cId as string];
+                if (!ch) continue;
+                count += ch.items.filter(item => {
+                  const iDef = state.cardPool[item.definitionId as string];
+                  return iDef && iDef.name === eventDef.name;
+                }).length;
+              }
+            }
+            return count;
+          }, 0);
+          if (copiesAtSite >= siteDupLimit.max) {
+            logDetail(`Permanent event ${eventDef.name}: site duplication limit reached at ${siteName}`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name} cannot be duplicated at ${siteName}`,
+            });
+            continue;
+          }
+        }
+
+        // Check play-target character filter.
+        // When the card has no discard-named-card condition, this is an attachment
+        // target — emit one action per eligible character (with targetCharacterId).
+        // When a discard-named-card condition is also present, the character
+        // filter is a gate only; action generation is deferred to the discard block.
         const charPlayTarget = eventDef.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
+        const hasDiscardCondition = eventDef.effects?.some(
+          (e) => e.type === 'play-condition' && (e as import('../../index.js').PlayConditionEffect).requires === 'discard-named-card',
+        ) ?? false;
         if (charPlayTarget) {
           const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
           for (const charId of company.characters) {
@@ -595,6 +647,22 @@ function playResourcesActions(
             });
             continue;
           }
+          // No discard condition: emit one action per eligible character (attachment target)
+          if (!hasDiscardCondition) {
+            for (const charId of eligibleCharIds) {
+              logDetail(`Permanent event ${eventDef.name}: playable at ${siteName} (character target ${charId as string})`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  targetCharacterId: charId,
+                  ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+                },
+                viable: true,
+              });
+            }
+            continue;
+          }
+          // Discard condition present: fall through to discard-named-card block below
         }
 
         // Check play-condition: discard-named-card
