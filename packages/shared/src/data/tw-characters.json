@@ -1387,7 +1387,19 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Edoras"
+    "homesite": "Edoras",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
+      }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-character",
