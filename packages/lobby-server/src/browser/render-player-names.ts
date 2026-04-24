@@ -109,6 +109,15 @@ function sumDraftedMind(drafted: readonly CardDefinitionId[], cardPool: Readonly
   }, 0);
 }
 
+/** Return movement/hazard limit text once the snapshot has been computed. */
+function getHazardLimitLabel(view: PlayerView): string | null {
+  if (view.phaseState.phase !== Phase.MovementHazard) return null;
+  if (view.phaseState.step === 'set-hazard-limit' || view.phaseState.step === 'reveal-new-site' || view.phaseState.step === 'select-company') {
+    return null;
+  }
+  return String(view.phaseState.hazardLimitAtReveal);
+}
+
 /** Render player names and scores in the visual view. */
 export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const isGameOver = view.phaseState.phase === Phase.GameOver;
@@ -152,13 +161,30 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
 
   const selfScoreEl = document.getElementById('self-score');
   if (selfScoreEl) {
-    selfScoreEl.innerHTML = `<span class="score">${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`
-      + `<span class="score">${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span></span>`;
+    selfScoreEl.innerHTML = `<span class="score metric-box"><span class="metric-label">MP</span>${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`
+      + `<span class="score metric-box"><span class="metric-label">GI</span>${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span></span>`;
   }
   const oppScoreEl = document.getElementById('opponent-score');
+  const oppHazardLimitEl = document.getElementById('opponent-hazard-limit');
+  const hazardLimit = getHazardLimitLabel(view);
   if (oppScoreEl) {
-    oppScoreEl.innerHTML = `<span class="score">${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`
-      + `<span class="score">${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span></span>`;
+    oppScoreEl.innerHTML = `<span class="score metric-box"><span class="metric-label">MP</span>${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`
+      + `<span class="score metric-box"><span class="metric-label">GI</span>${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span></span>`;
+  }
+  if (oppHazardLimitEl) {
+    if (hazardLimit) {
+      oppHazardLimitEl.innerHTML = `<span class="metric-label">HL</span>${hazardLimit}`;
+      oppHazardLimitEl.classList.remove('hidden');
+      const oppScoreRect = oppScoreEl?.getBoundingClientRect();
+      const oppDeckRect = document.getElementById('opponent-deck-box')?.getBoundingClientRect();
+      if (oppScoreRect && oppDeckRect) {
+        oppHazardLimitEl.style.top = `${Math.round(oppScoreRect.top - 48)}px`;
+        oppHazardLimitEl.style.left = `${Math.round(oppDeckRect.right + 8)}px`;
+      }
+    } else {
+      oppHazardLimitEl.innerHTML = '';
+      oppHazardLimitEl.classList.add('hidden');
+    }
   }
 
   // Seed the dice animation system from game state and restore floating dice
