@@ -17,7 +17,7 @@ import {
   manifestIdOf,
 } from '../../../engine/manifestations.js';
 import {
-  addToOutOfPlayPile,
+  addToPile,
   buildSimpleTwoPlayerState,
   mint, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
@@ -58,7 +58,7 @@ describe('METD §4 — isManifestationDefeated', () => {
 
   test('returns true once any chain card lands in either eliminated pile', () => {
     const ahuntInst: CardInstance = { instanceId: mint(), definitionId: SMAUG_AHUNT };
-    const state = addToOutOfPlayPile(buildSimpleTwoPlayerState(), HAZARD_PLAYER, ahuntInst);
+    const state = addToPile(buildSimpleTwoPlayerState(), HAZARD_PLAYER, 'outOfPlayPile', ahuntInst);
     expect(isManifestationDefeated(state, SMAUG)).toBe(true);
     // Other chains unaffected.
     expect(isManifestationDefeated(state, EARCARAXE)).toBe(false);
@@ -76,14 +76,14 @@ describe('METD §4 — Lair auto-attack suppression', () => {
 
   test('lair loses its Dragon auto-attack once the Dragon is defeated', () => {
     const basicInst: CardInstance = { instanceId: mint(), definitionId: SMAUG };
-    const state = addToOutOfPlayPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, basicInst);
+    const state = addToPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, 'outOfPlayPile', basicInst);
     const lonely = state.cardPool[LONELY_MOUNTAIN] as SiteCard;
     expect(getActiveAutoAttacks(state, lonely)).toHaveLength(0);
   });
 
   test('non-lair sites are unaffected by manifestation state', () => {
     const basicInst: CardInstance = { instanceId: mint(), definitionId: SMAUG };
-    const state = addToOutOfPlayPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, basicInst);
+    const state = addToPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, 'outOfPlayPile', basicInst);
     const rivendell = state.cardPool[RIVENDELL] as SiteCard;
     expect(getActiveAutoAttacks(state, rivendell)).toBe(rivendell.automaticAttacks);
   });

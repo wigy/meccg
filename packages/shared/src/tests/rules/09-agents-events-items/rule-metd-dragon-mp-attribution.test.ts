@@ -11,7 +11,7 @@
 import { describe, expect, test } from 'vitest';
 import type { CardDefinitionId, CardInstance, CardInstanceId } from '../../../index.js';
 import { recomputeDerived } from '../../../engine/recompute-derived.js';
-import { addToKillPile, buildSimpleTwoPlayerState, RESOURCE_PLAYER, HAZARD_PLAYER,
+import { addToPile, buildSimpleTwoPlayerState, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 
 const SMAUG = 'tw-90' as CardDefinitionId;
@@ -21,7 +21,7 @@ describe('METD §4.1 — Dragon manifestation MP attribution', () => {
   test('opponent who defeats your Smaug earns the kill MPs', () => {
     // P1 played Smaug → instance prefix is p1; P2 defeats it → P2's killPile.
     const card: CardInstance = { instanceId: 'p1-7' as CardInstanceId, definitionId: SMAUG };
-    const state = recomputeDerived(addToKillPile(buildSimpleTwoPlayerState(), HAZARD_PLAYER, card));
+    const state = recomputeDerived(addToPile(buildSimpleTwoPlayerState(), HAZARD_PLAYER, 'killPile', card));
     // Smaug killMP = 5.
     expect(state.players[1].marshallingPoints.kill).toBe(5);
     expect(state.players[0].marshallingPoints.kill).toBe(0);
@@ -29,7 +29,7 @@ describe('METD §4.1 — Dragon manifestation MP attribution', () => {
 
   test('defeating your own Smaug earns no MPs', () => {
     const card: CardInstance = { instanceId: 'p1-7' as CardInstanceId, definitionId: SMAUG };
-    const state = recomputeDerived(addToKillPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, card));
+    const state = recomputeDerived(addToPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, 'killPile', card));
     expect(state.players[0].marshallingPoints.kill).toBe(0);
     expect(state.players[1].marshallingPoints.kill).toBe(0);
   });
@@ -39,7 +39,7 @@ describe('METD §4.1 — Dragon manifestation MP attribution', () => {
     // friendly fire via some effect) — P1 still scores it normally,
     // because the §4.1 carve-out only applies to manifestations.
     const card: CardInstance = { instanceId: 'p1-7' as CardInstanceId, definitionId: CAVE_DRAKE };
-    const state = recomputeDerived(addToKillPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, card));
+    const state = recomputeDerived(addToPile(buildSimpleTwoPlayerState(), RESOURCE_PLAYER, 'killPile', card));
     // Cave-drake killMP = 1.
     expect(state.players[0].marshallingPoints.kill).toBe(1);
   });

@@ -1072,16 +1072,18 @@ export function buildSimpleTwoPlayerState(activePlayer: PlayerId = PLAYER_1): Ga
   });
 }
 
-/** Push a card instance onto a player's killPile. */
-export function addToKillPile(state: GameState, playerIdx: 0 | 1, card: CardInstance): GameState {
-  const updated = { ...state.players[playerIdx], killPile: [...state.players[playerIdx].killPile, card] };
-  const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
-  return { ...state, players: players as unknown as typeof state.players };
-}
-
-/** Push a card instance onto a player's outOfPlayPile (the eliminated pile). */
-export function addToOutOfPlayPile(state: GameState, playerIdx: 0 | 1, card: CardInstance): GameState {
-  const updated = { ...state.players[playerIdx], outOfPlayPile: [...state.players[playerIdx].outOfPlayPile, card] };
+/**
+ * Push a {@link CardInstance} onto one of the player's list-valued piles.
+ * Accepts `killPile` or `outOfPlayPile` — the two piles that store raw
+ * instance records outside the normal play flow (kills + METD eliminated).
+ */
+export function addToPile(
+  state: GameState,
+  playerIdx: 0 | 1,
+  pile: 'killPile' | 'outOfPlayPile',
+  card: CardInstance,
+): GameState {
+  const updated = { ...state.players[playerIdx], [pile]: [...state.players[playerIdx][pile], card] };
   const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
   return { ...state, players: players as unknown as typeof state.players };
 }
@@ -1614,6 +1616,91 @@ export function handCardId(
   const card = state.players[playerIdx].hand[index];
   if (!card) throw new Error(`No card at hand[${index}] for player ${playerIdx}`);
   return card.instanceId;
+}
+
+/**
+ * Find the instance ID of a hand card by definition ID. Throws if no
+ * matching card is in the player's hand. Preferred over the common
+ * `state.players[X].hand.find(c => c.definitionId === DEF)!.instanceId`
+ * boilerplate when you know the card is present.
+ */
+export function findHandCardId(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): CardInstanceId {
+  const card = state.players[playerIdx].hand.find(c => c.definitionId === defId);
+  if (!card) throw new Error(`No hand card with definitionId ${defId as string} for player ${playerIdx}`);
+  return card.instanceId;
+}
+
+/** Assert the given instance ID is currently in the player's hand. */
+export function expectInHand(
+  state: GameState,
+  playerIdx: number,
+  instanceId: CardInstanceId,
+): void {
+  expect(state.players[playerIdx].hand.find(c => c.instanceId === instanceId)).toBeDefined();
+}
+
+/** Assert the given instance ID is NOT in the player's hand (moved/discarded). */
+export function expectNotInHand(
+  state: GameState,
+  playerIdx: number,
+  instanceId: CardInstanceId,
+): void {
+  expect(state.players[playerIdx].hand.find(c => c.instanceId === instanceId)).toBeUndefined();
+}
+
+/**
+ * Get an on-guard card placed on a company (defaults to the first company
+ * and first on-guard card). Throws if the indices are out of range.
+ */
+export function getOnGuardCard(
+  state: GameState,
+  playerIdx: number,
+  companyIdx = 0,
+  ogIdx = 0,
+): OnGuardCard {
+  const company = state.players[playerIdx].companies[companyIdx];
+  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
+  const og = company.onGuardCards[ogIdx];
+  if (!og) throw new Error(`No on-guard card at [${companyIdx}][${ogIdx}] for player ${playerIdx}`);
+  return og;
+}
+
+/** Instance ID of a company's on-guard card (defaults to the first one). */
+export function onGuardCardIdAt(
+  state: GameState,
+  playerIdx: number,
+  companyIdx = 0,
+  ogIdx = 0,
+): CardInstanceId {
+  return getOnGuardCard(state, playerIdx, companyIdx, ogIdx).instanceId;
+}
+
+/**
+ * Viable actions of a given type that target a hand card with the given
+ * definition ID. Collapses the frequent pattern of collecting
+ * `viableActions(...)` and then narrowing by looking up each action's
+ * `cardInstanceId` in the player's hand to match `defId`.
+ */
+export function viableActionsForHandCard(
+  state: GameState,
+  playerId: PlayerId,
+  actionType: string,
+  playerIdx: number,
+  defId: CardDefinitionId,
+) {
+  const matchingIds = new Set(
+    state.players[playerIdx].hand
+      .filter(c => c.definitionId === defId)
+      .map(c => c.instanceId as string),
+  );
+  return viableActions(state, playerId, actionType).filter(ea => {
+    const action = ea.action as { cardInstanceId?: CardInstanceId };
+    return action.cardInstanceId !== undefined && matchingIds.has(action.cardInstanceId as string);
+  });
 }
 
 /** Get the ID of a player's company (default: first company). */
