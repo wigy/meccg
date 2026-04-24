@@ -1252,8 +1252,33 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
-    "homesite": "Blue Mountain Dwarf-hold"
+    "corruptionModifier": -1,
+    "homesite": "Blue Mountain Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-character",
