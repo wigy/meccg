@@ -2611,6 +2611,19 @@ h2 {
   gap: 0.3rem;
 }
 
+.hazard-limit-chip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-panel);
+  min-width: 3.5rem;
+  display: inline-block;
+  width: fit-content;
+  max-width: max-content;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .player-piles {
   display: grid;
   grid-template-columns: auto auto;
@@ -2939,6 +2952,22 @@ h2 {
   pointer-events: auto;
   cursor: default;
   position: relative;
+}
+
+.metric-label {
+  position: absolute;
+  top: -0.22rem;
+  left: 0.25rem;
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.58rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #f0dc50;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  padding: 0 0.2rem;
+  border-radius: 4px;
+  pointer-events: none;
 }
 
 .score:hover .mp-tooltip {
