@@ -1023,6 +1023,16 @@ function playResourcesActions(
             infModifier += dslDI;
             infParts.push(`DI bonus ${dslDI >= 0 ? '+' : ''}${dslDI}`);
           }
+
+          // One-shot check-modifier constraints for influence (e.g. Muster)
+          for (const constraint of state.activeConstraints) {
+            if (constraint.kind.type !== 'check-modifier') continue;
+            if (constraint.kind.check !== 'influence') continue;
+            if (constraint.target.kind !== 'character') continue;
+            if (constraint.target.characterId !== ch.instanceId) continue;
+            infModifier += constraint.kind.value;
+            infParts.push(`constraint bonus ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value}`);
+          }
         }
         const infNeed = factionDef.influenceNumber - infModifier;
 

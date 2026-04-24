@@ -23,7 +23,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, CardStatus } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -1005,6 +1005,7 @@ export function buildPlayOptionContext(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   );
   let inAvatarCompany = false;
+  let hasFactionInHand = false;
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -1013,6 +1014,7 @@ export function buildPlayOptionContext(
         inAvatarCompany = true;
       }
     }
+    hasFactionInHand = player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string]));
   }
   return {
     target: {
@@ -1025,6 +1027,9 @@ export function buildPlayOptionContext(
     },
     pending: {
       corruptionCheckTargetsMe,
+    },
+    player: {
+      hasFactionInHand,
     },
     inPlay: buildInPlayNames(state),
   };

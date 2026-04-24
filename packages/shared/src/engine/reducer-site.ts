@@ -1108,6 +1108,21 @@ export function resolveInfluenceAttemptRoll(
       logDetail(`DSL direct-influence modifiers: ${dslDI >= 0 ? '+' : ''}${dslDI}`);
     }
     modifier += dslDI;
+
+    // One-shot check-modifier constraints for influence (e.g. Muster): consume after use
+    const consumedConstraintIds: string[] = [];
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'character') continue;
+      if (constraint.target.characterId !== charId) continue;
+      modifier += constraint.kind.value;
+      consumedConstraintIds.push(constraint.id as string);
+      logDetail(`Influence one-shot constraint ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from ${constraint.sourceDefinitionId as string} (consumed)`);
+    }
+    if (consumedConstraintIds.length > 0) {
+      state = { ...state, activeConstraints: state.activeConstraints.filter(c => !consumedConstraintIds.includes(c.id as string)) };
+    }
   }
 
   // Roll 2d6 + modifier vs influence number
