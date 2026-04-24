@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, CombatProtectionEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -58,6 +58,23 @@ export function findAllyInCompany(
     }
   }
   return undefined;
+}
+
+/**
+ * Returns true if the given ally card carries a `combat-protection` effect
+ * that matches the specified protection kind (e.g. `"no-attack"`), meaning
+ * the ally may not be targeted as a strike recipient.
+ */
+function allyHasCombatProtection(
+  state: GameState,
+  ally: AllyInPlay,
+  protection: CombatProtectionEffect['protection'],
+): boolean {
+  const allyDef = state.cardPool[ally.definitionId as string];
+  if (!allyDef || !('effects' in allyDef) || !allyDef.effects) return false;
+  return allyDef.effects.some(
+    (e) => e.type === 'combat-protection' && (e).protection === protection,
+  );
 }
 
 /**
@@ -232,6 +249,10 @@ function assignStrikeActions(
     if (!restrictToForced) {
       for (const { ally } of findCompanyAllies(player, company.characters)) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
+        if (allyHasCombatProtection(state, ally, 'no-attack')) {
+          logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from defender strike assignment`);
+          continue;
+        }
         if (ally.status !== CardStatus.Untapped) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
@@ -279,6 +300,10 @@ function assignStrikeActions(
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
     for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
+      if (allyHasCombatProtection(state, ally, 'no-attack')) {
+        logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
+        continue;
+      }
       allCombatantIds.push({ id: ally.instanceId, tapped: ally.status !== CardStatus.Untapped });
     }
 

@@ -1908,3 +1908,22 @@ Used by Dragon's Curse (td-16). The movement/hazard legal-action
 emitter skips cards whose `play-window.phase` is not
 `"movement-hazard"`, so a combat-tagged hazard is not accidentally
 offered during the M/H phase.
+
+### 33. `combat-protection`
+
+Protects the bearing card (typically an ally) from being assigned
+strikes during combat. Only `protection: "no-attack"` is defined.
+
+When an ally carries this effect, it is excluded from the
+strike-assignment pool for both the defending player (defender's choice
+of who takes each strike) and the attacking player (who assigns
+remaining or excess strikes). The ally remains in the company and can
+still tap for other purposes (e.g. cancel-attack).
+
+```json
+{ "type": "combat-protection", "protection": "no-attack" }
+```
+
+Used by Goldberry (tw-245) — "May not be attacked." Implemented in
+`engine/legal-actions/combat.ts` (`allyHasCombatProtection()`),
+checked in both the defender-assigns and attacker-assigns loops.
