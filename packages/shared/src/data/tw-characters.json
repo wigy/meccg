@@ -1317,7 +1317,19 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Rivendell"
+    "homesite": "Rivendell",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      }
+    ],
+    "certified": "2026-04-24"
   },
   {
     "cardType": "hero-character",
