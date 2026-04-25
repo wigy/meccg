@@ -23,6 +23,7 @@ import { CardStatus } from '../../index.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
+import { canPayCost } from '../cost-evaluator.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -67,8 +68,7 @@ export function emitGrantedActionConstraintActions(
       const char = player.characters[charId as string];
       if (!char) continue;
 
-      // Default cost.tap === 'character' means untapped required.
-      if (kind.cost.tap && char.status !== CardStatus.Untapped) continue;
+      if (!canPayCost(kind.cost, char)) continue;
 
       const charDef = state.cardPool[char.definitionId as string];
       const actorContext: Record<string, unknown> = {

@@ -16,6 +16,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint } from './pending.js';
@@ -1097,32 +1098,30 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   }
   const handCard = defPlayer.hand[cardIndex];
 
-  const newPlayers = clonePlayers(state);
-  const newCharacters = { ...defPlayer.characters };
-
-  // Look up the cancel-attack effect to determine cost type
+  // Look up the cancel-attack effect to determine cost type.
   const cardDef = state.cardPool[handCard.definitionId as string];
   const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
   const cancelEffect = effects?.find(
     (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
   );
-  const costIsCheck = cancelEffect?.cost?.check !== undefined;
-  const costIsTap = cancelEffect?.cost?.tap !== undefined;
 
-  // Pay character cost: tap or enqueue corruption check
-  let needsCorruptionCheck: { characterId: CardInstanceId; modifier: number } | null = null;
-  if (action.scoutInstanceId) {
-    const charData = defPlayer.characters[action.scoutInstanceId as string];
-    if (costIsTap) {
-      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain, tapping ${charData.definitionId as string}`);
-      newCharacters[action.scoutInstanceId as string] = { ...charData, status: CardStatus.Tapped };
-    } else if (costIsCheck) {
-      const checkModifier = cancelEffect?.cost?.modifier ?? 0;
-      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain, ${charData.definitionId as string} makes corruption check (modifier ${checkModifier})`);
-      needsCorruptionCheck = { characterId: action.scoutInstanceId, modifier: checkModifier };
-    } else {
-      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain via ${charData.definitionId as string}`);
-    }
+  // Pay character cost via cost-evaluator: tap or enqueue corruption check.
+  let resultState: GameState = state;
+  if (action.scoutInstanceId && cancelEffect?.cost) {
+    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const companyId = company?.id;
+    const scopeKind = state.phaseState.phase === Phase.MovementHazard
+      ? 'company-mh-subphase' as const
+      : 'company-site-subphase' as const;
+    const costResult = applyCost(state, cancelEffect.cost, action.scoutInstanceId, {
+      playerIndex: defPlayerIndex,
+      sourceCardId: action.cardInstanceId,
+      companyId,
+      checkScopeKind: scopeKind,
+      label: cardDef?.name ?? '?',
+    });
+    if ('error' in costResult) return { state, error: costResult.error };
+    resultState = costResult.state;
   } else {
     logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain (no cost)`);
   }
@@ -1133,37 +1132,11 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   newHand.splice(cardIndex, 1);
   const newDiscard = [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
 
-  newPlayers[defPlayerIndex] = {
-    ...defPlayer,
-    characters: newCharacters,
+  resultState = updatePlayer(resultState, defPlayerIndex, p => ({
+    ...p,
     hand: newHand,
     discardPile: newDiscard,
-  };
-
-  let resultState: GameState = { ...state, players: newPlayers };
-
-  // Enqueue corruption check if the cost requires one (e.g. Vanishment).
-  // The check is a cost paid at declaration and is unaffected by chain
-  // negation — the scope and banner show during resolution after the
-  // chain completes.
-  if (needsCorruptionCheck) {
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
-    const companyId = company?.id;
-    if (companyId) {
-      const scope = state.phaseState.phase === Phase.MovementHazard
-        ? ({ kind: 'company-mh-subphase' as const, companyId })
-        : ({ kind: 'company-site-subphase' as const, companyId });
-      const sourceName = cardDef?.name ?? '?';
-      resultState = enqueueCorruptionCheck(resultState, {
-        source: action.cardInstanceId,
-        actor: action.player,
-        scope,
-        characterId: needsCorruptionCheck.characterId,
-        modifier: needsCorruptionCheck.modifier,
-        reason: sourceName,
-      });
-    }
-  }
+  }));
 
   // Push/initiate chain entry — opponent gets priority to respond. On
   // resolution, the chain resolver applies the combat cancellation via

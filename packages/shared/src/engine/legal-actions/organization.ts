@@ -46,6 +46,7 @@ import {
   mergeCompaniesActions,
 } from './organization-companies.js';
 import { fetchFromSideboardActions } from './organization-sideboard.js';
+import { canPayCost } from '../cost-evaluator.js';
 
 /**
  * Filter mode for {@link grantedActionActivations}. Selects which subset
@@ -408,7 +409,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         }
 
         // Check cost: if tap is "bearer", character must be untapped
-        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
+        if (!canPayCost(effect.cost, char)) {
           const charDef = state.cardPool[char.definitionId as string];
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
           // Fall through to consider the no-tap variant below — the
@@ -426,7 +427,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         // Standard tap-and-roll variant — emitted only if the bearer
         // is untapped (cost.tap=bearer satisfied).
-        if (!(effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped)) {
+        if (canPayCost(effect.cost, char)) {
           const charDef = state.cardPool[char.definitionId as string];
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
           actions.push({
@@ -476,7 +477,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
 
           // Check cost: if tap is "self", the character must be untapped
-          if (effect.cost.tap === 'self' && char.status !== CardStatus.Untapped) {
+          if (!canPayCost(effect.cost, char)) {
             logDetail(`Grant-action ${effect.action} on ${charDef.name}: character is tapped, cannot activate`);
             continue;
           }
@@ -568,14 +569,9 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
-        if (effect.cost.tap === 'self' && item.status !== CardStatus.Untapped) {
+        if (!canPayCost(effect.cost, char, item)) {
           const def = state.cardPool[item.definitionId as string];
-          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: item is tapped, cannot activate`);
-          continue;
-        }
-        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
-          const def = state.cardPool[item.definitionId as string];
-          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (item or bearer tapped)`);
           continue;
         }
 
