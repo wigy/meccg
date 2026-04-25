@@ -838,6 +838,9 @@ function applyOneConstraint(
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.
       return base;
+    case 'hand-size-modifier':
+      // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
+      return base;
   }
 }
 

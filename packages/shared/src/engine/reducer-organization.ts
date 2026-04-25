@@ -1248,6 +1248,10 @@ function buildPayloadConstraintKind(
     if (typeof apply.value !== 'number') return null;
     return { type: 'company-stat-modifier', stat: apply.stat, value: apply.value };
   }
+  if (name === 'hand-size-modifier') {
+    if (typeof apply.value !== 'number') return null;
+    return { type: 'hand-size-modifier', value: apply.value };
+  }
   return null;
 }
 

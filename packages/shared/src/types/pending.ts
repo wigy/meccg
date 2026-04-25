@@ -508,6 +508,17 @@ export interface ActiveConstraint {
         readonly stat: 'prowess' | 'body';
         /** The bonus applied to every character in the company. */
         readonly value: number;
+      }
+    | {
+        /**
+         * Book of Mazarbul style: +N to the active player's hand size for
+         * the rest of the turn. Added when the bearer (a sage) taps the
+         * item during the organization phase; swept at turn-end, just
+         * before the next untap phase.
+         */
+        readonly type: 'hand-size-modifier';
+        /** The hand size adjustment (positive to increase). */
+        readonly value: number;
       };
 }
 

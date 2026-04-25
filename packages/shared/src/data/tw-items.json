@@ -483,10 +483,35 @@
     "subtype": "special",
     "marshallingPoints": 1,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Moria"]
+      },
+      {
+        "type": "storable-at",
+        "sites": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"],
+        "marshallingPoints": 5
+      },
+      {
+        "type": "grant-action",
+        "action": "book-of-mazarbul-hand-boost",
+        "cost": { "tap": "self" },
+        "when": { "bearer.skills": { "$includes": "sage" } },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hand-size-modifier",
+          "scope": "turn",
+          "target": "player",
+          "value": 1
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-resource-item",
