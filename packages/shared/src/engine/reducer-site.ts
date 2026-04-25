@@ -20,7 +20,7 @@ import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongAction
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -959,9 +959,58 @@ function handleSitePlayHeroResource(
   // (e.g. Adamant Helmet cancelling dark enchantments on its wearer).
   if (isItem) {
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
+    afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
   }
 
   return { state: afterAttach };
+}
+
+/**
+ * Fire `on-event: character-gains-item` corruption checks for all characters
+ * in the active company that bear a hazard declaring this event. Called after
+ * an item is successfully attached to any company member during site phase.
+ * The check is enqueued for the hazard bearer, not the character who gained
+ * the item — matching the card text "makes a corruption check each time a
+ * character in his company gains an item."
+ */
+function fireCharacterGainsItemChecks(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  let newState = state;
+
+  for (const charId of company.characters) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+    for (const hazard of char.hazards) {
+      const hDef = newState.cardPool[hazard.definitionId as string];
+      if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
+      for (const effect of hDef.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'character-gains-item') continue;
+        if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
+
+        logDetail(`character-gains-item: "${hDef.name}" triggers corruption check for character ${charId as string}`);
+        const possessions = [
+          ...char.items.map(i => i.instanceId),
+          ...char.allies.map(a => a.instanceId),
+          ...char.hazards.map(h => h.instanceId),
+        ];
+        newState = enqueueCorruptionCheck(newState, {
+          source: hazard.instanceId,
+          actor: player.id,
+          scope: { kind: 'phase', phase: Phase.Site },
+          characterId: charId,
+          reason: `${hDef.name} (item gained)`,
+          possessions,
+        });
+      }
+    }
+  }
+  return newState;
 }
 
 /**
