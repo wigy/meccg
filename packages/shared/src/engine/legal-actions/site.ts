@@ -617,7 +617,7 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
         const hasDiscardCondition = eventDef.effects?.some(
-          (e) => e.type === 'play-condition' && (e as import('../../index.js').PlayConditionEffect).requires === 'discard-named-card',
+          (e) => e.type === 'play-condition' && (e).requires === 'discard-named-card',
         ) ?? false;
         if (charPlayTarget) {
           const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
