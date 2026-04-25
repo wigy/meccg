@@ -85,7 +85,21 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-creature",
