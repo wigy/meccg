@@ -368,11 +368,22 @@ export interface OnEventEffect extends EffectBase {
 
 /** An action performed by a triggered effect. */
 export interface TriggeredAction {
-  /** The type of triggered action. */
+  /**
+   * The type of triggered action.
+   *
+   * Supported types include:
+   * - `force-check` — enqueue a single corruption check on the `target` character.
+   * - `force-check-all-company` — enqueue a corruption check on **every** character
+   *   in the attacked company. Used by Corpse-candle under `creature-attack-begins`
+   *   so that all characters make a corruption check before defenders are selected.
+   *   Uses `check` (must be `"corruption"`) and optional `modifier`.
+   * - `offer-char-join-attack` — offer a haven character the option to join the attack.
+   * (Other types documented inline on their respective fields.)
+   */
   readonly type: string;
   /**
-   * Which check to force (for `force-check`) or which check's
-   * modifiers to sum into a 2d6 roll (for `roll-check`).
+   * Which check to force (for `force-check` / `force-check-all-company`) or which
+   * check's modifiers to sum into a 2d6 roll (for `roll-check`).
    */
   readonly check?: string;
   /** Modifier to the forced check. */
