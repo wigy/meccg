@@ -360,6 +360,66 @@ function handleSiteAutomaticAttacks(
   const autoAttacks = getActiveAutoAttacks(state, siteDef);
 
   if (attackIndex >= autoAttacks.length) {
+    // Check for auto-attack-race-duplicate effects from permanent events in play
+    // (The Moon Is Dead). Each Undead auto-attack at the site must be faced
+    // a second time. duplicatesRun = attackIndex - autoAttacks.length counts
+    // how many race-based duplicates have already been initiated this site phase.
+    const raceDupRaces = new Set<string>();
+    for (const player of state.players) {
+      for (const card of player.cardsInPlay) {
+        const def = state.cardPool[card.definitionId as string];
+        if (!def || !('effects' in def) || !def.effects) continue;
+        for (const effect of def.effects) {
+          if (effect.type === 'auto-attack-race-duplicate') {
+            raceDupRaces.add(effect.race.toLowerCase());
+          }
+        }
+      }
+    }
+    if (raceDupRaces.size > 0) {
+      const duplicatableAttacks = autoAttacks.filter(aa =>
+        raceDupRaces.has(normalizeCreatureRace(aa.creatureType)),
+      );
+      const duplicatesRun = attackIndex - autoAttacks.length;
+      if (duplicatesRun < duplicatableAttacks.length) {
+        const aa = duplicatableAttacks[duplicatesRun];
+        const dupRace = normalizeCreatureRace(aa.creatureType);
+        const inPlayNamesR = buildInPlayNames(state);
+        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true);
+        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace);
+        logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
+        const dupDetainmentR = isDetainmentAttack({
+          attackEffects: siteDef.effects,
+          attackRace: dupRace as Race | null,
+          defendingAlignment: state.players[activePlayerIndex].alignment,
+          defendingSiteEffects: siteDef.effects,
+        });
+        const dupCombatR: CombatState = {
+          attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
+          companyId: company.id,
+          defendingPlayerId: state.activePlayer!,
+          attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
+          strikesTotal: dupStrikesR,
+          strikeProwess: dupProwessR,
+          creatureBody: null,
+          creatureRace: dupRace,
+          strikeAssignments: [],
+          currentStrikeIndex: 0,
+          phase: 'assign-strikes',
+          assignmentPhase: 'defender',
+          bodyCheckTarget: null,
+          detainment: dupDetainmentR,
+        };
+        return {
+          state: {
+            ...state,
+            combat: dupCombatR,
+            phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+          },
+        };
+      }
+    }
+
     // Before advancing, check for auto-attack-duplicate constraints
     // (Incite Defenders). The duplicate re-uses the first auto-attack's
     // stats and is faced as an additional combat.

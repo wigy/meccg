@@ -740,6 +740,19 @@ export interface PlayFlagEffect extends EffectBase {
 }
 
 /**
+ * When present on a permanent hazard event in cardsInPlay, causes all
+ * automatic-attacks of the specified race at the active company's site
+ * to be duplicated (each faced a second time) after all regular
+ * automatic-attacks are resolved. Used by *The Moon Is Dead* to
+ * duplicate every Undead automatic-attack at the site.
+ */
+export interface AutoAttackRaceDuplicateEffect extends EffectBase {
+  readonly type: 'auto-attack-race-duplicate';
+  /** The creature race whose automatic-attacks should be duplicated (lowercase, e.g. "undead"). */
+  readonly race: string;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1645,4 +1658,5 @@ export type CardEffect =
   | WardBearerEffect
   | CombatProtectionEffect
   | MoveEffect
-  | WoundTargetCharacterEffect;
+  | WoundTargetCharacterEffect
+  | AutoAttackRaceDuplicateEffect;
