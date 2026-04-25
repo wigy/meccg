@@ -397,7 +397,34 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CovetousThoughts.jpg",
     "text": "Corruption. Playable only on a minion. At the end of each of his turns, target minion makes a corruption check for each item his company bears that he does not bear. For each check, modify the roll by subtracting the corruption of that item. During his organization phase, the minion may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given minion.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.cardType": "minion-character" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 6,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

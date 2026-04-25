@@ -853,6 +853,7 @@ function playHazardsActions(
                 });
                 const ctx = {
                   target: {
+                    cardType: charDef.cardType,
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,
