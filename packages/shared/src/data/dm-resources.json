@@ -109,7 +109,10 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ]
   },
   {
     "cardType": "hero-resource-event",
