@@ -468,7 +468,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonsickness.jpg",
     "text": "Playable on a character bearing a major or greater item. Character makes a corruption check modified by -1.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "keywords": ["corruption"],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$or": [
+            { "target.itemSubtypes": { "$includes": "major" } },
+            { "target.itemSubtypes": { "$includes": "greater" } }
+          ]
+        },
+        "cost": { "check": "corruption", "modifier": -1 }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-event",

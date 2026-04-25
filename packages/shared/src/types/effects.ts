@@ -805,8 +805,12 @@ export interface PlayTargetEffect extends EffectBase {
   readonly maxCompanySize?: number;
   /**
    * Cost paid by the targeted character when this card is played.
-   * Currently only `tap: "character"` is supported — taps the targeted
-   * character (e.g. Stealth: "Tap a scout to play …").
+   * Supported cost shapes:
+   * - `tap: "character"` — taps the targeted character (e.g. Stealth).
+   * - `check: "corruption", modifier: N` — the targeted character makes a
+   *   corruption check modified by N (e.g. Dragon-sickness: modifier -1).
+   *   The check is enqueued by the chain resolver when the short-event entry
+   *   resolves.
    */
   readonly cost?: ActionCost;
   /**
