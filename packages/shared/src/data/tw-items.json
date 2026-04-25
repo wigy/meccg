@@ -531,10 +531,24 @@
     "subtype": "major",
     "marshallingPoints": 2,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 2,
+        "max": 9
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": { "bearer.skills": { "$includes": "warrior" } }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-resource-item",
