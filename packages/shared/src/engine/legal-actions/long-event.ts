@@ -23,6 +23,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
+import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -159,6 +160,8 @@ export function heroResourceShortEventActions(
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike', 'modify-strike', 'reroll-strike']);
+  const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
@@ -181,9 +184,15 @@ export function heroResourceShortEventActions(
 
     // Skip short events whose effects are only usable during combat
     // (e.g. Concealment's cancel-attack). These require an active attack.
-    const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike', 'modify-strike', 'reroll-strike']);
+    // A move (discard-in-play) effect whose `when` gate is not currently met
+    // is also treated as absent — e.g. The Cock Crows has a discard mode
+    // gated on Gates of Morning being in play.
     const hasEffects = def.effects && def.effects.length > 0;
-    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+    const allCombatOnly = hasEffects && def.effects.every(e => {
+      if (combatOnlyTypes.has(e.type)) return true;
+      if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
+      return false;
+    });
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
       actions.push({
@@ -231,10 +240,13 @@ export function heroResourceShortEventActions(
     // discard-in-play effect (e.g. Marvels Told) force the discard of an
     // in-play card matching the filter — the player picks which target
     // at play time as part of the play-short-event action. If no valid
-    // target exists, the card is not playable.
+    // target exists, the card is not playable. A `when` gate on the effect
+    // is also evaluated (e.g. The Cock Crows requires Gates of Morning).
     const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
+    const discardWhenMet = !discardInPlay?.when
+      || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardInPlay && discardInPlay.filter) {
+    if (discardWhenMet && discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);

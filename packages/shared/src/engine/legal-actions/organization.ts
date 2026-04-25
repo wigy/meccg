@@ -1175,6 +1175,7 @@ export function playResourceShortEventActions(
 
   const actions: EvaluatedAction[] = [];
   const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike', 'modify-strike', 'reroll-strike']);
+  const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string];
@@ -1233,8 +1234,15 @@ export function playResourceShortEventActions(
 
     // Skip short events whose effects are only usable during combat
     // (e.g. Concealment's cancel-attack). These require an active attack.
+    // A move (discard-in-play) effect whose `when` gate is not currently met
+    // is also treated as absent — e.g. The Cock Crows has a discard mode
+    // gated on Gates of Morning being in play.
     const hasEffects = def.effects && def.effects.length > 0;
-    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+    const allCombatOnly = hasEffects && def.effects.every(e => {
+      if (combatOnlyTypes.has(e.type)) return true;
+      if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
+      return false;
+    });
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
       continue;
@@ -1265,10 +1273,13 @@ export function playResourceShortEventActions(
     // Collect eligible discard-in-play targets (e.g. Marvels Told forces
     // discard of a hazard non-environment permanent/long event). If the
     // card has a discard-in-play move effect but no valid targets exist,
-    // it cannot be played.
+    // it cannot be played. A `when` gate on the effect is also evaluated
+    // (e.g. The Cock Crows requires Gates of Morning in play).
     const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
+    const discardWhenMet = !discardInPlay?.when
+      || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardInPlay && discardInPlay.filter) {
+    if (discardWhenMet && discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
