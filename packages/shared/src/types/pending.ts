@@ -322,6 +322,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Chill Douser: when its attack is not canceled, all other attacks
+         * by creatures of the given race against the target company for the
+         * rest of the turn receive a bonus to both strikes and prowess.
+         * The constraint source is the Chill Douser instance; when resolving
+         * a creature's attack, if the creature's instance ID matches the
+         * source the boost is skipped (so the card never boosts itself).
+         */
+        readonly type: 'creature-attack-boost';
+        /** Creature race that receives the boost (e.g. "undead"). */
+        readonly race: string;
+        /** Strike bonus applied to matching creature attacks. */
+        readonly strikes: number;
+        /** Prowess bonus applied to matching creature attacks. */
+        readonly prowess: number;
+      }
+    | {
+        /**
          * Generic attribute override: a conditional `add`/`override`
          * modifier on an entity attribute. Collapses what used to be
          * three separate constraint kinds

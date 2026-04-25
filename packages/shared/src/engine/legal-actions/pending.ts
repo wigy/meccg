@@ -842,6 +842,10 @@ function applyOneConstraint(
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
       return base;
+    case 'creature-attack-boost':
+      // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
+      // no legal-action filtering needed here.
+      return base;
   }
 }
 

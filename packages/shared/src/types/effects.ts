@@ -424,6 +424,21 @@ export interface TriggeredAction {
    */
   readonly stat?: 'prowess' | 'body';
   /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * the creature race to filter (e.g. `"undead"`).
+   */
+  readonly race?: string;
+  /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * prowess bonus applied to matching creature attacks.
+   */
+  readonly prowess?: number;
+  /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * strike bonus applied to matching creature attacks.
+   */
+  readonly strikes?: number;
+  /**
    * For `add-constraint` with `constraint: "site-phase-do-nothing"`:
    * optional DSL condition evaluated per-character in the target company.
    * When a character's attributes satisfy the condition, that character

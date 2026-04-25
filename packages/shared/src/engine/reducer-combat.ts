@@ -1835,6 +1835,45 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Check for on-event: attack-not-canceled effects on the attack source.
+  // All resolved combats were by definition not canceled (cancellation prevents
+  // combat resolution entirely), so this fires unconditionally after any attack.
+  const sourceCardForNotCanceled = getAttackSourceCard(state, combat);
+  const notCanceledEvents = (sourceCardForNotCanceled?.effects ?? []).filter(
+    (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'attack-not-canceled',
+  );
+  for (const nce of notCanceledEvents) {
+    if (nce.apply.type === 'add-constraint' && nce.apply.constraint === 'creature-attack-boost') {
+      const creatureSource =
+        combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+          : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+            : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+              : null;
+      if (creatureSource) {
+        const creatureDefId = resolveInstanceId(state, creatureSource);
+        const creatureName = creatureDefId
+          ? (state.cardPool[creatureDefId as string]?.name ?? 'creature')
+          : 'creature';
+        const boostRace = nce.apply.race ?? '';
+        const boostStrikes = nce.apply.strikes ?? 0;
+        const boostProwess = nce.apply.prowess ?? 0;
+        logDetail(`Attack not canceled — ${creatureName} fires creature-attack-boost (race=${boostRace}, +${boostStrikes} strikes, +${boostProwess} prowess) on company ${combat.companyId as string}`);
+        stateAfterCombat = addConstraint(stateAfterCombat, {
+          source: creatureSource,
+          sourceDefinitionId: (creatureDefId ?? creatureSource) as import('../types/common.js').CardDefinitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: combat.companyId },
+          kind: {
+            type: 'creature-attack-boost',
+            race: boostRace,
+            strikes: boostStrikes,
+            prowess: boostProwess,
+          },
+        });
+      }
+    }
+  }
+
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
   // Apply post-attack effects scheduled by accepted haven-join offers

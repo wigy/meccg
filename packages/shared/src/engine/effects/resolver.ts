@@ -328,6 +328,50 @@ function findCompanyById(
 }
 
 /**
+ * Context for applying `creature-attack-boost` constraints during attack
+ * resolution. When provided, the resolver checks active constraints targeting
+ * the given company and applies prowess/strike bonuses to matching attacks.
+ *
+ * `creatureInstanceId` — when set, any constraint whose source matches this
+ * instance is skipped (Chill Douser cannot boost itself).
+ */
+export interface CreatureAttackBoostContext {
+  /** The company being attacked. */
+  readonly companyId: import('../../types/common.js').CompanyId;
+  /** The current attacker's instance ID (to skip self-boost). */
+  readonly creatureInstanceId?: CardInstanceId;
+}
+
+/**
+ * Synthesises {@link StatModifierEffect}s from active `creature-attack-boost`
+ * constraints targeting the given company. Filters by race, and skips the
+ * constraint whose source is `creatureInstanceId` (prevents self-boost).
+ */
+function collectCreatureAttackBoostEffects(
+  state: GameState,
+  stat: 'prowess' | 'strikes',
+  creatureRace: string | undefined,
+  ctx: CreatureAttackBoostContext,
+): CollectedEffect[] {
+  if (state.activeConstraints.length === 0) return [];
+  const results: CollectedEffect[] = [];
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'creature-attack-boost') continue;
+    if (constraint.target.kind !== 'company') continue;
+    if (constraint.target.companyId !== ctx.companyId) continue;
+    if (ctx.creatureInstanceId && constraint.source === ctx.creatureInstanceId) continue;
+    if (creatureRace && constraint.kind.race !== creatureRace) continue;
+    const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
+    if (value === 0) continue;
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    if (!sourceDef) continue;
+    const synthesized: StatModifierEffect = { type: 'stat-modifier', stat, value };
+    results.push({ effect: synthesized, sourceDef, sourceInstance: constraint.source });
+  }
+  return results;
+}
+
+/**
  * Resolves stat modifiers from collected effects, handling the override
  * mechanism and applying value caps.
  *
@@ -600,6 +644,7 @@ export function resolveAttackProwess(
   creatureRace?: string,
   isAutomaticAttack = false,
   creatureSelf?: CreatureSelfContext,
+  attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
   const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
@@ -616,6 +661,9 @@ export function resolveAttackProwess(
       globalEffects.push({ effect, sourceDef: {} as CardDefinition, sourceInstance: '' as CardInstanceId });
     }
   }
+  if (attackBoostCtx) {
+    globalEffects.push(...collectCreatureAttackBoostEffects(state, 'prowess', creatureRace, attackBoostCtx));
+  }
   return resolveStatModifiers(globalEffects, 'prowess', baseProwess, context);
 }
 
@@ -624,12 +672,15 @@ export function resolveAttackProwess(
  *
  * Collects all effects with `target: "all-attacks"` from events and cards
  * in play, evaluates conditions against the context (including `enemy.race`
- * for creature-type filtering), and sums strikes modifiers.
+ * for creature-type filtering), and sums strikes modifiers. When
+ * `attackBoostCtx` is provided, also applies active `creature-attack-boost`
+ * constraints targeting the defending company.
  *
  * @param state - The full game state.
  * @param baseStrikes - The creature's or automatic attack's base number of strikes.
  * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
+ * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -637,9 +688,13 @@ export function resolveAttackStrikes(
   baseStrikes: number,
   inPlayNames: readonly string[],
   creatureRace?: string,
+  attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
   const context = buildAttackContext(inPlayNames, creatureRace);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  if (attackBoostCtx) {
+    globalEffects.push(...collectCreatureAttackBoostEffects(state, 'strikes', creatureRace, attackBoostCtx));
+  }
   return resolveStatModifiers(globalEffects, 'strikes', baseStrikes, context);
 }
 

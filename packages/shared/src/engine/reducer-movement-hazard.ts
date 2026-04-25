@@ -1520,8 +1520,9 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
   const inPlayNames = buildInPlayNames(state);
-  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false);
-  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race);
+  const ahuntBoostCtx = { companyId: company.id };
+  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false, undefined, ahuntBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race, ahuntBoostCtx);
 
   const attackerChooses = effect.combatRules?.includes('attacker-chooses-defenders') ?? false;
   if (attackerChooses) {
