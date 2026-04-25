@@ -1190,8 +1190,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureSelf = creatureDef.effects?.length
     ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
     : undefined;
-  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
+  const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, attackBoostCtx);
 
   // Total strikes resolution. Precedence:
   //   1. combat-one-strike-per-character → strikes = company.characters.length
