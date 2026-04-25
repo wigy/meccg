@@ -1473,7 +1473,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         }
       }
       const cardName = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
-      logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}) for character ${targetCharId as string}`);
+      const failureMode = playTargetWithCostCorruption.cost?.failureMode;
+      logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);
       current = enqueueCorruptionCheck(current, {
         source: entry.card.instanceId,
         actor: resourcePlayerId,
@@ -1482,6 +1483,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         reason: cardName,
         modifier,
         possessions,
+        failureMode,
       });
     }
   }
