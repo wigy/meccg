@@ -649,7 +649,8 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Haven: Grey Havens."
+    "text": "Nearest Haven: Grey Havens.",
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
