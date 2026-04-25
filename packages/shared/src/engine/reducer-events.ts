@@ -21,6 +21,7 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../index.js';
 import { evaluateExpr } from './effects/expression-eval.js';
+import { applyCost } from './cost-evaluator.js';
 
 
 /**
@@ -299,16 +300,21 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // target, so the targetScoutInstanceId here is guaranteed to be one of
   // them. We tap the character before any other effect resolution so the
   // visible state matches the player's expectation immediately.
-  let newCharacters = player.characters;
+  let workingState = state;
   if (action.targetScoutInstanceId) {
-    const targetCharId = action.targetScoutInstanceId as string;
-    const targetChar = player.characters[targetCharId];
-    logDetail(`${def.name} taps target scout ${targetCharId}`);
-    newCharacters = {
-      ...player.characters,
-      [targetCharId]: { ...targetChar, status: CardStatus.Tapped },
-    };
+    const playTargetEff = def.effects?.find(
+      (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
+    );
+    if (playTargetEff?.cost) {
+      const costResult = applyCost(state, playTargetEff.cost, action.targetScoutInstanceId, {
+        playerIndex,
+        label: def.name,
+      });
+      if ('error' in costResult) return { state, error: costResult.error };
+      workingState = costResult.state;
+    }
   }
+  let newCharacters = workingState.players[playerIndex].characters;
 
   // Handle DSL-declared play-option `set-character-status` applies (e.g.
   // Halfling Strength's untap / heal options). Constraint-producing applies
@@ -391,7 +397,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       }];
     });
 
-  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
+  let newState: GameState = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
   // Apply self-enters-play on-event effects (e.g. Stealth's add-constraint).
   // These are non-interactive and resolved immediately when the card is played.

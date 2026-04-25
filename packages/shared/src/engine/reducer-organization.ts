@@ -18,6 +18,7 @@ import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstra
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
+import { applyCost } from './cost-evaluator.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -677,57 +678,6 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
 // system. See `specs/2026-04-08-pending-effects-plan.md`.
 
 /**
- * Which attachment slot a source card lives in, and which player owns
- * the corresponding discard pile. Hazards are opponent-owned; items and
- * allies belong to the character's own player.
- */
-function locateSourceOnCharacter(
-  char: CharacterInPlay,
-  sourceCardId: CardInstanceId,
-  playerIndex: number,
-): { slot: 'items' | 'allies' | 'hazards'; discardPileOwnerIndex: number } | null {
-  if (char.items.some(i => i.instanceId === sourceCardId)) {
-    return { slot: 'items', discardPileOwnerIndex: playerIndex };
-  }
-  if (char.allies.some(a => a.instanceId === sourceCardId)) {
-    return { slot: 'allies', discardPileOwnerIndex: playerIndex };
-  }
-  if (char.hazards.some(h => h.instanceId === sourceCardId)) {
-    return { slot: 'hazards', discardPileOwnerIndex: 1 - playerIndex };
-  }
-  return null;
-}
-
-/**
- * Remove the source card from the character's attachment list and push
- * it into the appropriate discard pile. Returns the updated character
- * (detached) and a function that mutates `newPlayers` to record the
- * discard. Caller is responsible for writing back the updated character.
- */
-function detachAndDiscardSource(
-  char: CharacterInPlay,
-  sourceCardId: CardInstanceId,
-  sourceCardDefinitionId: import('../types/common.js').CardDefinitionId,
-  playerIndex: number,
-  newPlayers: import('../types/state.js').PlayerState[],
-): { updatedChar: CharacterInPlay } | { error: string } {
-  const loc = locateSourceOnCharacter(char, sourceCardId, playerIndex);
-  if (!loc) return { error: `source card ${sourceCardId as string} not attached to character` };
-  const discardedCard: CardInstance = { instanceId: sourceCardId, definitionId: sourceCardDefinitionId };
-  const updatedChar: CharacterInPlay = loc.slot === 'items'
-    ? { ...char, items: removeById(char.items, sourceCardId) }
-    : loc.slot === 'allies'
-      ? { ...char, allies: removeById(char.allies, sourceCardId) }
-      : { ...char, hazards: removeById(char.hazards, sourceCardId) };
-  const owner = newPlayers[loc.discardPileOwnerIndex];
-  newPlayers[loc.discardPileOwnerIndex] = {
-    ...owner,
-    discardPile: [...owner.discardPile, discardedCard],
-  };
-  return { updatedChar };
-}
-
-/**
  * Context for executing a grant-action apply: everything the inner
  * dispatch needs. Kept in one record so the recursive apply walker
  * (e.g. `roll-then-apply` → onSuccess) can reuse it without repeating
@@ -1365,56 +1315,22 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   }
 
   // --- Pay cost ---
-  const newPlayers = clonePlayers(state);
-  let updatedChar: CharacterInPlay = char;
-
   // METD §7 / rule 10.08: the no-tap variant of corruption removal
   // skips paying the bearer-tap cost (and instead suffers -3 to the
   // roll plus a per-turn lock — both handled in the apply branch).
   const noTap = (action as { noTap?: true }).noTap === true;
 
-  if (resolved.cost.discard === 'self') {
-    const detached = detachAndDiscardSource(char, action.sourceCardId, action.sourceCardDefinitionId, playerIndex, newPlayers);
-    if ('error' in detached) {
-      return { state, error: `${sourceName}: ${detached.error}` };
-    }
-    updatedChar = detached.updatedChar;
-    logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
-  } else if (noTap && (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character')) {
-    logDetail(`Grant-action ${action.actionId}: ${charName} skips tap-cost (no-tap variant, source: ${sourceName})`);
-  } else if (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character' || resolved.cost.tap === 'sage-in-company') {
-    // sage-in-company: `action.characterId` is the sage paying the tap
-    // (not the bearer of the source). The discard/detach in the apply
-    // branch is scoped against the actual bearer, which is found by
-    // scanning the player's characters for the source instance.
-    updatedChar = { ...updatedChar, status: CardStatus.Tapped };
-    logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);
-  } else if (resolved.cost.tap === 'self') {
-    // `self` is the source card. When the source IS the bearer
-    // character (grant-action declared directly on a character card,
-    // e.g. Gandalf / Saruman), tap the character. When the source is
-    // attached (item / ally / hazard), tap the attachment in place.
-    if (action.sourceCardId === action.characterId) {
-      updatedChar = { ...updatedChar, status: CardStatus.Tapped };
-      logDetail(`Grant-action ${action.actionId}: ${charName} taps`);
-    } else {
-      const loc = locateSourceOnCharacter(updatedChar, action.sourceCardId, playerIndex);
-      if (!loc) {
-        return { state, error: `${sourceName} not attached to ${charName}` };
-      }
-      const tapAttachment = <T extends { readonly instanceId: CardInstanceId; readonly status: CardStatus }>(
-        list: readonly T[],
-      ): readonly T[] => list.map(a => a.instanceId === action.sourceCardId ? { ...a, status: CardStatus.Tapped } : a);
-      updatedChar = loc.slot === 'items'
-        ? { ...updatedChar, items: tapAttachment(updatedChar.items) }
-        : loc.slot === 'allies'
-          ? { ...updatedChar, allies: tapAttachment(updatedChar.allies) }
-          : { ...updatedChar, hazards: tapAttachment(updatedChar.hazards) };
-      logDetail(`Grant-action ${action.actionId}: ${charName} taps ${sourceName}`);
-    }
-  } else {
-    return { state, error: `Unsupported grant-action cost ${JSON.stringify(resolved.cost)} on ${sourceName}` };
-  }
+  const costResult = applyCost(state, resolved.cost, action.characterId, {
+    playerIndex,
+    sourceCardId: action.sourceCardId,
+    sourceCardDefId: action.sourceCardDefinitionId,
+    noTap,
+    label: `${action.actionId}/${sourceName}`,
+  });
+  if ('error' in costResult) return { state, error: `${sourceName}: ${costResult.error}` };
+
+  const newPlayers = clonePlayers(costResult.state);
+  let updatedChar: CharacterInPlay = newPlayers[playerIndex].characters[action.characterId as string] ?? char;
 
   // --- Apply effect ---
   const ctx: GrantApplyContext = {

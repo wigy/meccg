@@ -19,10 +19,11 @@ import type {
   GameEffect,
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
+import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
   resolveInfluenceAttemptRoll,
@@ -514,26 +515,23 @@ function applyCancelInfluence(
   let resultState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: handCards, discardPile: newDiscard }));
   resultState = dequeueResolution(resultState, top.id);
 
-  if (cancelEffect.cost && 'check' in cancelEffect.cost && cancelEffect.cost.check === 'corruption') {
-    const modifier = cancelEffect.cost.modifier ?? 0;
+  if (cancelEffect.cost?.check === 'corruption') {
+    const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
+    const activePlayer = state.players.find(p => p.id === state.activePlayer);
+    const companyId = activePlayer?.companies[activeCompanyIndex]?.id ?? '' as import('../index.js').CompanyId;
     const charDefId = resolveInstanceId(state, action.characterId);
     const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
     const reason = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
 
-    const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
-    const activePlayer = state.players.find(p => p.id === state.activePlayer);
-    const activeCompany = activePlayer?.companies[activeCompanyIndex];
-    const companyId = activeCompany?.id ?? '' as import('../index.js').CompanyId;
-
-    logDetail(`Cancel-influence: enqueuing corruption check for ${reason} (modifier ${modifier})`);
-    resultState = enqueueCorruptionCheck(resultState, {
-      source: action.cardInstanceId,
-      actor: action.player,
-      scope: { kind: 'company-site-subphase', companyId },
-      characterId: action.characterId,
-      modifier,
-      reason,
+    const costResult = applyCost(resultState, cancelEffect.cost, action.characterId, {
+      playerIndex,
+      sourceCardId: action.cardInstanceId,
+      companyId,
+      checkScopeKind: 'company-site-subphase',
+      label: reason,
     });
+    if ('error' in costResult) return { state, error: costResult.error };
+    resultState = costResult.state;
   }
 
   return { state: resultState };

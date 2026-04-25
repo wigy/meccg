@@ -83,6 +83,7 @@ export interface ActionCost {
 ### 4. Update `docs/card-effects-dsl.md`
 
 The current doc understates supported cost shapes:
+
 - `play-target` says only `{ tap: "character" }` is supported (line ~892) — should list all
 - `grant-action` says only `tap: "bearer"` and `tap: "sage-in-company"` — incomplete
 

@@ -35,6 +35,7 @@ import type { ResolverContext, CollectedEffect } from '../effects/index.js';
 import { buildPlayOptionContext } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
+import { canPayCost } from '../cost-evaluator.js';
 
 /**
  * Collect check-modifier effects from a character's attached hazards only
@@ -904,7 +905,7 @@ function applyGrantedActionConstraint(
   for (const charId of company.characters) {
     const char = player.characters[charId as string];
     if (!char) continue;
-    if (kind.cost.tap && char.status !== CardStatus.Untapped) continue;
+    if (!canPayCost(kind.cost, char)) continue;
 
     const def = resolveDef(state, char.instanceId);
     if (!isCharacterCard(def)) continue;

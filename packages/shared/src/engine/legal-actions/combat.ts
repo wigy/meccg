@@ -19,6 +19,7 @@ import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
+import { canPayCost } from '../cost-evaluator.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -1042,19 +1043,18 @@ function cancelAttackActions(
       return false;
     };
 
-    const requiresTap = cancelEffect.cost?.tap !== undefined;
-
     if (cancelEffect.cost) {
       for (const charId of company.characters) {
         const charData = player.characters[charId as string];
         if (!charData) continue;
-        if (requiresTap && charData.status !== CardStatus.Untapped) continue;
+        if (!canPayCost(cancelEffect.cost, charData)) continue;
 
         const charDef = state.cardPool[charData.definitionId as string];
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (!matchesRequirement(charDef)) continue;
 
-        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (${requiresTap ? 'tap' : 'check'} cost)`);
+        const costKind = cancelEffect.cost.tap ? 'tap' : 'check';
+        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (${costKind} cost)`);
         actions.push({
           action: {
             type: 'cancel-attack',

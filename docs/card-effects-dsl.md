@@ -229,7 +229,9 @@ Actions:
   `reducer-organization.ts`).
 - `remove-self-on-roll` — roll 2d6, discard this card on success
   (implemented in `reducer-organization.ts`). Supported cost variants:
-  `{ "tap": "bearer" }` (bearer taps, e.g. Lure of the Senses) and
+  `{ "tap": "bearer" }` (bearer taps, e.g. Lure of the Senses),
+  `{ "tap": "self" }` (the item taps, e.g. shields / Magical Harp),
+  `{ "discard": "self" }` (consumable discards, e.g. Cram) and
   `{ "tap": "sage-in-company" }` (an untapped sage in the bearer's
   company taps — one activation per eligible sage; Dragon's Curse).
 - `gwaihir-special-movement` — discard this ally during organization to
@@ -891,12 +893,20 @@ Optional fields:
 - `maxCompanySize` — maximum effective company size for eligibility
   (hobbits count as half). Used alongside the filter to enforce size
   limits (e.g. Stealth).
-- `cost` — cost paid by the targeted character. Currently only
-  `{ "tap": "character" }` is supported, which taps the chosen character
-  when the card is played (e.g. Stealth taps the targeted scout). When a
-  cost is present the engine emits one `play-short-event` action per
-  eligible target, each carrying a `targetScoutInstanceId` so the reducer
-  knows whom to tap.
+- `cost` — cost paid when the card resolves. Evaluated by `cost-evaluator.ts`
+  via `applyCost`; the same cost shapes are available on every effect type:
+  - `{ "tap": "character" }` — taps the targeted character (e.g. Stealth taps
+    the targeted scout). The engine emits one `play-short-event` per eligible
+    untapped target.
+  - `{ "tap": "bearer" }` — taps the character bearing the source card.
+  - `{ "tap": "self" }` — taps the source card itself (item/ally/character).
+  - `{ "tap": "sage-in-company" }` — one untapped sage in the company taps;
+    one action per eligible sage.
+  - `{ "discard": "self" }` — detaches and discards the source card.
+  - `{ "check": "corruption", "modifier": N }` — the actor makes a corruption
+    check modified by N (e.g. One Ring, Vanishment, Wizard's Laughter).
+  - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
+    entity (sets status to Inverted) as the cost.
 
 ### 16. `on-guard-reveal`
 

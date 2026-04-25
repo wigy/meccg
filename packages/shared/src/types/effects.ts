@@ -317,12 +317,26 @@ export interface GrantActionTargets {
 
 /** The cost required to activate a granted action. */
 export interface ActionCost {
-  /** If set, the card (or "self") must be tapped to pay this cost. */
-  readonly tap?: string;
-  /** If set, the card (e.g. "self") must be discarded to pay this cost. */
-  readonly discard?: string;
+  /**
+   * The entity to tap. "self" taps the source card itself (the bearer character
+   * or the attached item/ally); "bearer" taps the character carrying the source;
+   * "character" taps the explicitly targeted character; "sage-in-company" taps an
+   * untapped sage in the bearer's company.
+   */
+  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company';
+  /**
+   * The entity to discard. "self" discards the source card from its bearer.
+   * "bearer" and "character" are reserved for future use.
+   */
+  readonly discard?: 'self' | 'bearer' | 'character';
+  /**
+   * The entity to wound (set to Inverted). "bearer" wounds the character
+   * carrying the source; "character" wounds the targeted character; "self"
+   * wounds the actor.
+   */
+  readonly wound?: 'self' | 'bearer' | 'character';
   /** If set, a check must be passed (e.g. corruption check). */
-  readonly check?: string;
+  readonly check?: 'corruption';
   /** Modifier applied to the cost check roll. */
   readonly modifier?: number;
 }
