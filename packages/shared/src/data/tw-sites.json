@@ -734,7 +734,10 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "High Pass",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -744,7 +747,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess"
+    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess",
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
