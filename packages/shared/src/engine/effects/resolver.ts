@@ -822,5 +822,13 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
     }
   }
 
+  // Sum player-scoped hand-size-modifier active constraints (e.g. Book of Mazarbul tap).
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'hand-size-modifier') continue;
+    if (constraint.target.kind !== 'player') continue;
+    if (constraint.target.playerId !== player.id) continue;
+    total += constraint.kind.value;
+  }
+
   return total;
 }
