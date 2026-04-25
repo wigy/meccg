@@ -615,7 +615,25 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["coastal"]
+      },
+      {
+        "regionNames": [
+          "Andrast",
+          "Anfalas",
+          "Belfalas",
+          "Cardolan",
+          "Enedhwaith",
+          "Harondor",
+          "Lindon",
+          "Lebennin",
+          "Old Pûkel-land"
+        ]
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-creature",
