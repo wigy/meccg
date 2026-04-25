@@ -1058,7 +1058,7 @@
     "playableResources": [
       "minor",
       "major",
-      "greater"
+      "special"
     ],
     "automaticAttacks": [
       {
@@ -1068,7 +1068,26 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            { "subtype": "special" },
+            { "$not": { "keywords": { "$includes": "palantir" } } }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
