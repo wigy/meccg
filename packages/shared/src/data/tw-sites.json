@@ -1096,7 +1096,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
