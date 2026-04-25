@@ -1324,7 +1324,27 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": { "enemy.race": "troll" }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "$and": [
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
+          ]
+        },
+        "when": { "inPlay": "Gates of Morning" }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-resource-event",
