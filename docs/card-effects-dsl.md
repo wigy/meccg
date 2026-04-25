@@ -388,6 +388,7 @@ Events:
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event and enqueues a `corruption-check` pending resolution per match. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`, so cards that only fire at a haven (e.g. *Lure of the Senses*) express that as `"when": { "bearer.atHaven": true }`. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
+- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`). Supports `apply: { "type": "discard-self" }` to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated.
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. An optional `regionTypeFilter: [...]` array restricts the iteration to regions whose type appears in the list — e.g. *Lure of Nature* uses `regionTypeFilter: ["wilderness"]` to enqueue a check only for each wilderness in the path. Used by *Alone and Unadvised* and *Lure of Nature*. Implemented in `reducer-movement-hazard.ts`.
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
@@ -1937,3 +1938,30 @@ still tap for other purposes (e.g. cancel-attack).
 Used by Goldberry (tw-245) — "May not be attacked." Implemented in
 `engine/legal-actions/combat.ts` (`allyHasCombatProtection()`),
 checked in both the defender-assigns and attacker-assigns loops.
+
+### 34. `auto-attack-race-duplicate`
+
+When this effect appears on a permanent hazard event in `cardsInPlay`,
+every automatic-attack of the specified `race` at the active company's
+site must be faced a second time after all regular automatic-attacks
+are resolved. The duplication uses the same modified prowess and strikes
+(including all in-play modifiers) as the original attack.
+
+Fields:
+- `race: string` — lowercase race to match (e.g. `"undead"`). Matched
+  against `normalizeCreatureRace(aa.creatureType)` for each auto-attack.
+
+Implementation: `reducer-site.ts` `handleSiteAutomaticAttacks()`. After
+all regular attacks are resolved, the handler scans every player's
+`cardsInPlay` for this effect type, collects matching auto-attacks, and
+processes them one per `pass` action (ordered by their original index).
+The counter `duplicatesRun = automaticAttacksResolved - autoAttacks.length`
+tracks how many race-based duplicates have been initiated; this count
+grows naturally with `automaticAttacksResolved`. Race-based duplicates
+are processed before any `auto-attack-duplicate` constraint (Incite Defenders).
+
+Used by *The Moon Is Dead* (dm-71):
+
+```json
+{ "type": "auto-attack-race-duplicate", "race": "undead" }
+```
