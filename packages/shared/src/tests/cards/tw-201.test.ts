@@ -115,7 +115,7 @@ describe('Book of Mazarbul (tw-201)', () => {
     expect(storeActions).toHaveLength(1);
   });
 
-  test('store-item action available at Moria (itself a Dwarf-hold)', () => {
+  test('store-item NOT available at Moria (not a Dwarf-hold)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -130,10 +130,10 @@ describe('Book of Mazarbul (tw-201)', () => {
       ],
     });
     const storeActions = viableActions(state, PLAYER_1, 'store-item');
-    expect(storeActions).toHaveLength(1);
+    expect(storeActions).toHaveLength(0);
   });
 
-  test('store-item action available at The Lonely Mountain', () => {
+  test('store-item NOT available at The Lonely Mountain (not a Dwarf-hold)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -148,7 +148,7 @@ describe('Book of Mazarbul (tw-201)', () => {
       ],
     });
     const storeActions = viableActions(state, PLAYER_1, 'store-item');
-    expect(storeActions).toHaveLength(1);
+    expect(storeActions).toHaveLength(0);
   });
 
   test('store-item NOT available at Rivendell (not a Dwarf-hold)', () => {

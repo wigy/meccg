@@ -494,7 +494,7 @@
       },
       {
         "type": "storable-at",
-        "sites": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold", "Moria", "The Lonely Mountain"],
+        "sites": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"],
         "marshallingPoints": 5
       },
       {
