@@ -22,7 +22,7 @@ import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { addConstraint, enqueueResolution } from './pending.js';
+import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
@@ -1261,7 +1261,37 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }],
   };
 
-  return { ...state, players: newPlayers, combat };
+  let finalState: GameState = { ...state, players: newPlayers, combat };
+
+  // Scan for on-event: creature-attack-begins → force-check-all-company
+  // (e.g. Corpse-candle). The attack was not canceled — enqueue a corruption
+  // check for every character in the defending company before defender selection.
+  if (creatureDef.effects) {
+    for (const effect of creatureDef.effects) {
+      if (effect.type !== 'on-event') continue;
+      const onEvent: OnEventEffect = effect;
+      if (onEvent.event !== 'creature-attack-begins') continue;
+      if (onEvent.apply.type !== 'force-check-all-company') continue;
+      if (onEvent.apply.check !== 'corruption') continue;
+      const scope = state.phaseState.phase === Phase.MovementHazard
+        ? { kind: 'company-mh-subphase' as const, companyId: company.id }
+        : { kind: 'company-site-subphase' as const, companyId: company.id };
+      const modifier = onEvent.apply.modifier ?? 0;
+      logDetail(`${creatureDef.name} (creature-attack-begins): enqueueing corruption check for all ${company.characters.length} character(s) in company`);
+      for (const charInstanceId of company.characters) {
+        finalState = enqueueCorruptionCheck(finalState, {
+          source: entry.card!.instanceId,
+          actor: state.activePlayer!,
+          scope,
+          characterId: charInstanceId,
+          modifier,
+          reason: creatureDef.name,
+        });
+      }
+    }
+  }
+
+  return finalState;
 }
 
 /**
