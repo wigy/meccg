@@ -233,7 +233,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Blue Mountain Dwarf-hold if the influence check is greater than 9. Standard Modifications: Elves (-2), Dwarves (+2)."
+    "text": "Unique. Playable at Blue Mountain Dwarf-hold if the influence check is greater than 9. Standard Modifications: Elves (-2), Dwarves (+2).",
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-resource-faction",
