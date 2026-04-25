@@ -20,9 +20,9 @@ import type {
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -66,6 +66,8 @@ export function applyResolution(
       return applyCallOfHomeRollResolution(state, action, top);
     case 'gold-ring-test':
       return applyGoldRingTestResolution(state, action, top);
+    case 'body-check-company':
+      return applyBodyCheckCompanyResolution(state, action, top);
   }
 }
 
@@ -858,6 +860,106 @@ function returnCharacterToHand(
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   return result;
+}
+
+/**
+ * Resolve a queued `body-check-company` resolution (from a mass-body-check
+ * hazard, e.g. Veils Flung Away). The resource player rolls 2d6.
+ *
+ * - If roll >= (character.body + modifier): no effect.
+ * - Orc or Troll and roll fails: character is discarded (returned to hand).
+ * - Other races, untapped, and roll fails: character becomes tapped.
+ * - Other races, already tapped, roll fails: no effect.
+ */
+function applyBodyCheckCompanyResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'body-check-company-roll') {
+    return { state, error: `Pending body-check-company requires body-check-company-roll, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'body-check-company') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending body-check-company' };
+  }
+
+  const { characterId, modifier, sourceDefinitionId } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+  const charInPlay = player.characters[characterId as string];
+  if (!charInPlay) {
+    return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
+  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
+  const race = isCharacterCard(charDef) ? charDef.race : '';
+  const effectiveBody = body + modifier;
+
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const passed = rollTotal >= effectiveBody;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Body check (${sourceName}): ${charName}`,
+  };
+  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs body ${body}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveBody} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
+
+  const stateAfterRoll = updatePlayer(
+    { ...state, rng, cheatRollTotal },
+    actorIndex,
+    p => ({ ...p, lastDiceRoll: roll }),
+  );
+  let postRoll = dequeueResolution(stateAfterRoll, top.id);
+
+  if (!passed) {
+    const isOrcOrTroll = race === 'orc' || race === 'troll';
+    if (isOrcOrTroll) {
+      logDetail(`${sourceName}: ${charName} (${race}) failed body check — discarded`);
+      postRoll = returnCharacterToHand(postRoll, actorIndex, characterId, charInPlay);
+    } else if (charInPlay.status === 'untapped') {
+      logDetail(`${sourceName}: ${charName} failed body check while untapped — tapped`);
+      postRoll = updatePlayer(postRoll, actorIndex, p =>
+        updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })),
+      );
+    } else {
+      logDetail(`${sourceName}: ${charName} failed body check but was already tapped — no effect`);
+    }
+  }
+
+  // Once all body-check resolutions from this same source are dequeued,
+  // mark the originating short-event chain entry as resolved and let the
+  // chain finish normally (so the card lands in the hazard discard pile).
+  const remainingBodyChecks = postRoll.pendingResolutions.filter(
+    r => r.kind.type === 'body-check-company' && r.source === top.source,
+  );
+  if (remainingBodyChecks.length === 0 && postRoll.chain) {
+    const chain = postRoll.chain;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event'
+        && !e.resolved
+        && e.card?.instanceId === top.source
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [rollEffect, ...(continued.effects ?? [])],
+    };
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**

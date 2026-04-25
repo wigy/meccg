@@ -382,6 +382,8 @@ export function describeAction(
       return `Roll for Call of Home on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':
       return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
+    case 'body-check-company-roll':
+      return `Body check (${action.explanation})`;
     case 'haven-join-attack':
       return `${instName(action.characterId)} joins attacked company from haven`;
     default: {

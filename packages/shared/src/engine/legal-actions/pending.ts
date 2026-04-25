@@ -119,6 +119,8 @@ export function resolutionLegalActions(
       return callOfHomeRollActions(state, actor, top);
     case 'gold-ring-test':
       return goldRingTestActions(state, actor, top);
+    case 'body-check-company':
+      return bodyCheckCompanyActions(state, actor, top);
   }
 }
 
@@ -546,6 +548,46 @@ function goldRingTestActions(
       goldRingInstanceId,
       rollModifier,
       explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${modSign}${rollModifier}`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single body-check-company-roll action for a queued
+ * `body-check-company` resolution (from a mass-body-check hazard).
+ * The resource player rolls 2d6 for the named character.
+ */
+function bodyCheckCompanyActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'body-check-company') return [];
+  const { characterId, modifier, sourceDefinitionId } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[characterId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
+  const effectiveBody = body + modifier;
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  logDetail(`Pending body-check-company for ${charName} (body ${body}, modifier ${modifier}, threshold ${effectiveBody}) from ${sourceName}`);
+
+  return [{
+    action: {
+      type: 'body-check-company-roll' as const,
+      player: playerId,
+      characterId,
+      explanation: `${charName}: body check for ${sourceName} (need 2d6 >= ${effectiveBody})`,
     },
     viable: true,
   }];
