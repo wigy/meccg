@@ -593,12 +593,34 @@
     "alignment": "wizard",
     "unique": true,
     "subtype": "greater",
+    "keywords": ["weapon"],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
-    "prowessModifier": 0,
+    "corruptionPoints": 2,
+    "prowessModifier": 3,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "max": 9,
+        "id": "orcrist-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "max": 10,
+        "overrides": "orcrist-prowess",
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-resource-item",
