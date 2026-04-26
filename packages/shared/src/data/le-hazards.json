@@ -509,6 +509,7 @@
     "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
+    "keywords": ["environment"],
     "effects": [
       {
         "type": "force-return-to-origin",
@@ -551,7 +552,8 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StenchofMordor.jpg",
     "text": "Environment. At the start of its site phase, each company at a site in a Dark-domain [{d}] (or Shadow-land [{s}], if Doors of Night is in play) must tap one untapped character if available. Discard when any play deck is exhausted. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "keywords": ["environment"]
   },
   {
     "cardType": "hazard-event",
@@ -616,6 +618,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WearinessoftheHeart.jpg",
     "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "keywords": ["corruption"]
   }
 ]

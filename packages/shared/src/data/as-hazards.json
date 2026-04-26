@@ -80,6 +80,7 @@
       }
     ],
     "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character.",
+    "keywords": ["corruption"],
     "certified": "2026-04-14"
   },
   {

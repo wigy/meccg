@@ -208,6 +208,7 @@ export type CheckKind =
  * - `environment` — hazard events with this tag follow special play timing.
  * - `spell` — spell-tagged events have separate cancellation/discard timing.
  * - `hoard` — hoard items (METD §3) may only be played at hoard sites.
+ * - `ring` — ring items subject to ring-test and identification mechanics.
  *
  * **Tag-only keywords** (used by card text matchers; no engine rule beyond
  * filterability):
@@ -229,6 +230,7 @@ export type Keyword =
   | 'environment'
   | 'spell'
   | 'hoard'
+  | 'ring'
   | 'palantir'
   | 'ritual'
   | 'light-enchantment'

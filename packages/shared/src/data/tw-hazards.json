@@ -538,7 +538,8 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DespairoftheHeart.jpg",
     "text": "Corruption. Playable on a non-Hobbit, non-Wizard, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check each time a character in his company becomes wounded. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "keywords": ["corruption"]
   },
   {
     "cardType": "hazard-event",
@@ -548,6 +549,7 @@
     "text": "Environment. Each moving company that has a Shadow-land [{s}] or a Dark-domain [{d}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven site in play with a Shadow-land [{s}] or a Dark-domain [{d}] in its site path is tapped. This card has no effect on a minion player. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
+    "keywords": ["environment"],
     "effects": [
       {
         "type": "force-return-to-origin",
@@ -569,6 +571,7 @@
     "text": "Environment. Playable if Doors of Night is in play. Each moving company with a Wilderness [{w}] in its site path must return to its site of origin. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
+    "keywords": ["environment"],
     "effects": [
       {
         "type": "force-return-to-origin",
@@ -584,7 +587,7 @@
     "text": "The bearer of a Ring must make a corruption check modified by -2. If the bearer fails this corruption check, his Ring is discarded, but he remains in play.",
     "unique": false,
     "eventType": "short",
-    "keywords": ["Corruption"],
+    "keywords": ["corruption"],
     "certified": "2026-04-25",
     "effects": [
       {

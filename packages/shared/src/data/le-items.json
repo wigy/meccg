@@ -114,6 +114,7 @@
     "alignment": "ringwraith",
     "unique": true,
     "subtype": "special",
+    "keywords": ["palantir"],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 0,

@@ -501,7 +501,8 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WitheredLands.jpg",
     "text": "Environment. Playable if Doors of Night is in play. Treat one Wilderness [{w}] as two Wildernesses [{w}] or one Shadow-land [{s}] as two Wildernesses [{w}] or one Border-land [{b}] as two Wildernesses [{w}] until the end of the turn.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "keywords": ["environment"]
   },
   {
     "cardType": "hazard-event",
