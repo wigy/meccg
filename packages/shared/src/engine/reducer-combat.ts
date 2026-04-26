@@ -1921,6 +1921,97 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
   stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
 
+  // card-triggered-attack finalization (e.g. Rescue Prisoners):
+  // Check whether any characters in the company are still untapped.
+  // If all are tapped → discard the card from the bearer's items.
+  // If any untapped → tap the bearer and add bearer-cannot-untap constraint.
+  if (combat.attackSource.type === 'card-triggered-attack') {
+    const { cardInstanceId, bearerCharacterId } = combat.attackSource;
+    const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = stateAfterCombat.players[defIdx];
+    const company = defPlayer.companies.find(co => co.id === combat.companyId);
+    const anyUntapped = company
+      ? company.characters.some(charId => {
+          const ch = defPlayer.characters[charId as string];
+          return ch && ch.status === CardStatus.Untapped;
+        })
+      : false;
+    const cardDefId = resolveInstanceId(stateAfterCombat, cardInstanceId);
+    const cardName = cardDefId
+      ? (stateAfterCombat.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
+      : '?';
+
+    if (!anyUntapped) {
+      // No untapped characters — discard the card from bearer's items
+      logDetail(
+        `Card-auto-attack: no untapped characters after combat — discarding "${cardName}" from bearer ${bearerCharacterId as string}`,
+      );
+      const bearerChar = defPlayer.characters[bearerCharacterId as string];
+      if (bearerChar) {
+        const itemIdx = bearerChar.items.findIndex(i => i.instanceId === cardInstanceId);
+        if (itemIdx !== -1) {
+          const newItems = [...bearerChar.items];
+          const removedItem = newItems.splice(itemIdx, 1)[0];
+          const ownedByIdx = stateAfterCombat.players.findIndex(
+            p => Object.prototype.hasOwnProperty.call(p.characters, bearerCharacterId as string),
+          );
+          if (ownedByIdx >= 0) {
+            const owner = stateAfterCombat.players[ownedByIdx];
+            const newPlayers2: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [
+              stateAfterCombat.players[0],
+              stateAfterCombat.players[1],
+            ];
+            newPlayers2[ownedByIdx] = {
+              ...owner,
+              characters: {
+                ...owner.characters,
+                [bearerCharacterId as string]: { ...bearerChar, items: newItems },
+              },
+            };
+            // Card goes to the resource player's discard pile (the player who
+            // played it — the owner of the permanent event).
+            newPlayers2[defIdx] = {
+              ...newPlayers2[defIdx],
+              discardPile: [
+                ...newPlayers2[defIdx].discardPile,
+                { instanceId: removedItem.instanceId, definitionId: removedItem.definitionId },
+              ],
+            };
+            stateAfterCombat = { ...stateAfterCombat, players: newPlayers2 };
+          }
+        }
+      }
+    } else {
+      // Characters survived — tap the bearer and add bearer-cannot-untap constraint
+      logDetail(
+        `Card-auto-attack: characters survived — tapping bearer ${bearerCharacterId as string} ` +
+        `and adding bearer-cannot-untap constraint for "${cardName}"`,
+      );
+      const bearer = defPlayer.characters[bearerCharacterId as string];
+      if (bearer) {
+        const newPlayers3: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [
+          stateAfterCombat.players[0],
+          stateAfterCombat.players[1],
+        ];
+        newPlayers3[defIdx] = {
+          ...defPlayer,
+          characters: {
+            ...defPlayer.characters,
+            [bearerCharacterId as string]: { ...bearer, status: CardStatus.Tapped },
+          },
+        };
+        stateAfterCombat = { ...stateAfterCombat, players: newPlayers3 };
+      }
+      stateAfterCombat = addConstraint(stateAfterCombat, {
+        source: cardInstanceId,
+        sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: bearerCharacterId },
+        kind: { type: 'bearer-cannot-untap', cardInstanceId },
+      });
+    }
+  }
+
   return {
     state: stateAfterCombat,
     effects,

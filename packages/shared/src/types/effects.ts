@@ -785,6 +785,27 @@ export interface AutoAttackRaceDuplicateEffect extends EffectBase {
 }
 
 /**
+ * When present on a resource permanent event, causes the company to
+ * face an automatic attack of the given type immediately after the card
+ * enters play (attaches to a character). If all characters in the
+ * company are tapped after combat, the card is discarded from its
+ * bearer's items. Otherwise the bearer gains a `bearer-cannot-untap`
+ * constraint (scoped `until-cleared`) so they remain tapped until the
+ * card is stored.
+ *
+ * Used by *Rescue Prisoners* (tw-315): Spider, 2 strikes, prowess 7.
+ */
+export interface TriggerAttackOnPlayEffect extends EffectBase {
+  readonly type: 'trigger-attack-on-play';
+  /** Creature type of the triggered attack (e.g. `"Spider"`). */
+  readonly creatureType: string;
+  /** Number of strikes the attack delivers. */
+  readonly strikes: number;
+  /** Prowess of each strike. */
+  readonly prowess: number;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1733,4 +1754,5 @@ export type CardEffect =
   | CombatProtectionEffect
   | MoveEffect
   | WoundTargetCharacterEffect
-  | AutoAttackRaceDuplicateEffect;
+  | AutoAttackRaceDuplicateEffect
+  | TriggerAttackOnPlayEffect;

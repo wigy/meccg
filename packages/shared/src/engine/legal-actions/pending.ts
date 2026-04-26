@@ -932,6 +932,10 @@ function applyOneConstraint(
       // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
       // no legal-action filtering needed here.
       return base;
+    case 'bearer-cannot-untap':
+      // Enforced directly by `reducer-untap.ts` `performUntap` —
+      // no legal-action filtering needed here.
+      return base;
   }
 }
 

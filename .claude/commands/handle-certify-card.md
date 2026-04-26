@@ -135,6 +135,14 @@ Follow these steps:
 
     If all five hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`). If the card was already certified, update the date. Otherwise remove any existing `certified` field and make sure the PR title/body says the card is **NOT CERTIFIED** and names the missing mechanic.
 
+    After writing the field, **run this shell command and confirm it returns a line** before proceeding:
+
+    ```sh
+    grep '"certified"' packages/shared/src/data/<set-file>.json
+    ```
+
+    If the grep returns nothing, you did not write the field — go back and write it now. Do not open the PR until this check passes.
+
 14. **Create branch and open PR:** ⚠️ **MANDATORY — do NOT commit to master.** All certification changes include test files, and CLAUDE.md requires all test changes to go through a PR. You MUST:
     - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`)
     - Commit all changes to that branch
