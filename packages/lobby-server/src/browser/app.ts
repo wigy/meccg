@@ -16,18 +16,12 @@
  * - lobby-screens: screen management, auth, lobby WS, init
  */
 
-import type { ClientMessage } from '@meccg/shared';
-import { cardImageProxyPath } from '@meccg/shared';
 import {
-  appState, cardPool, LOBBY_MODE, SERVER_DEV,
-  VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
+  appState, cardPool, LOBBY_MODE,
   VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY, EDITING_DECK_KEY,
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
-import { connect, disconnect, resetVisualBoard } from './game-connection.js';
-import { setDeckBrowserCallbacks } from './deck-browser.js';
-import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEditorCallbacks } from './deck-editor.js';
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
 import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
@@ -36,21 +30,10 @@ import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
 } from './lobby-screens.js';
-import { renderLog, setupCardPreview, showNotification } from './render.js';
-import { resetCompanyViews } from './company-view.js';
-import { clearDice, restoreDice } from './dice.js';
-import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
+import { renderLog, showNotification } from './render-log.js';
+import { setupCardPreview } from './render-card-preview.js';
+import { loadGameBundle } from './lazy-load.js';
 
-declare global {
-  interface Window {
-    /** Set by the server -- true when the web proxy is started with --dev. */
-    __MECCG_DEV?: boolean;
-    /** Set by the lobby server -- true when running in lobby mode. */
-    __LOBBY?: boolean;
-    /** Set by the lobby server -- version from package.json. */
-    __MECCG_VERSION?: string;
-  }
-}
 
 const versionEl = document.getElementById('lobby-nav-version');
 if (versionEl && window.__MECCG_VERSION) {
@@ -59,9 +42,6 @@ if (versionEl && window.__MECCG_VERSION) {
 
 // ---- Wire up cross-module callbacks ----
 
-// These break circular dependencies between modules that need each other.
-setDeckBrowserCallbacks(openDeckEditor);
-setDeckEditorCallbacks(showScreen);
 setInboxCallbacks(showScreen);
 setCreditsPageCallbacks(showScreen);
 
@@ -71,71 +51,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('name-input') as HTMLInputElement;
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
-  const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
 
   applyBackground();
   setupCardPreview(cardPool);
-  setupDeckEditorPreview();
-  setupDecksPreview();
-  const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
-  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
-  const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
-  const reseedBtn = document.getElementById('reseed-btn') as HTMLButtonElement;
-  const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
-  const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
-  const debugView = document.getElementById('debug-view') as HTMLElement;
-  const visualView = document.getElementById('visual-view') as HTMLElement;
 
-  function setViewMode(visual: boolean): void {
-    debugView.classList.toggle('hidden', visual);
-    visualView.classList.toggle('hidden', !visual);
-    viewToggleBtn.classList.toggle('mode-visual', visual);
-    viewToggleBtn.classList.toggle('mode-debug', !visual);
-    viewToggleBtn.title = visual ? 'Switch to debug view' : 'Switch to visual view';
-    localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
-    if (!visual) {
-      const log = document.getElementById('log')!;
-      log.scrollTop = log.scrollHeight;
-      clearDice();
-    } else {
-      restoreDice();
-    }
-  }
-
-  viewToggleBtn.addEventListener('click', () => {
-    setViewMode(!debugView.classList.contains('hidden'));
-  });
-
-  // Pseudo-AI panel minimize/restore toggle
-  const pseudoAiMinimizeBtn = document.getElementById('pseudo-ai-minimize-btn');
-  if (pseudoAiMinimizeBtn) {
-    pseudoAiMinimizeBtn.addEventListener('click', () => {
-      const panel = document.getElementById('pseudo-ai-panel')!;
-      const minimized = panel.classList.toggle('minimized');
-      pseudoAiMinimizeBtn.textContent = minimized ? '\u25a1' : '_';
-      pseudoAiMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
-    });
-  }
-
-  /** Flash a button to confirm the action was triggered. */
-  function flashBtn(btn: HTMLElement): void {
-    btn.classList.remove('btn-flash');
-    void btn.offsetWidth;
-    btn.classList.add('btn-flash');
-  }
-
-  // Restore saved view mode (default to visual when no preference stored)
-  if (localStorage.getItem(VIEW_KEY) !== 'debug') {
-    setViewMode(true);
-  }
-
-  function startGame(name: string, newBackground = false): void {
+  async function startGame(name: string, newBackground = false): Promise<void> {
     if (newBackground) selectRandomBackground();
     savePlayerName(name);
     appState.autoReconnect = true;
     connectForm.style.display = 'none';
     document.getElementById('game')!.classList.remove('hidden');
-    connect(name);
+    await loadGameBundle();
+    window.__meccg!.connect!(name);
   }
 
   connectBtn.addEventListener('click', () => {
@@ -145,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderLog('Invalid name: only letters, numbers, spaces, hyphens, and underscores allowed');
       return;
     }
-    startGame(name, true);
+    void startGame(name, true);
   });
 
   nameInput.addEventListener('keydown', (e) => {
@@ -449,262 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
     brSubject.focus();
   });
 
-  installKeyboardShortcuts();
-
-  // ---- Settings modal ----
-  const settingsBtn = document.getElementById('settings-btn') as HTMLButtonElement;
-  const settingsModal = document.getElementById('settings-modal') as HTMLElement;
-  const settingsBackdrop = document.getElementById('settings-backdrop') as HTMLElement;
-  const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
-  const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
-
-  const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
-  const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
-  const swapHandBtn = document.getElementById('swap-hand-btn') as HTMLButtonElement;
-  const devMenuBtn = document.getElementById('dev-menu-btn') as HTMLButtonElement;
-  const devMenuPopup = document.getElementById('dev-menu-popup') as HTMLElement;
-
-  function closeDevMenu(): void {
-    devMenuPopup.classList.add('hidden');
-  }
-
-  function applyDevMode(on: boolean): void {
-    viewToggleBtn.style.display = on ? '' : 'none';
-    devMenuBtn.style.display = on ? '' : 'none';
-    if (!on) {
-      closeDevMenu();
-      setViewMode(true);
-    }
-  }
-
-  devMenuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    devMenuPopup.classList.toggle('hidden');
-  });
-
-  devMenuPopup.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button')) closeDevMenu();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (devMenuPopup.classList.contains('hidden')) return;
-    const target = e.target as HTMLElement;
-    if (devMenuPopup.contains(target) || devMenuBtn.contains(target)) return;
-    closeDevMenu();
-  });
-
-  // When the server is not in dev mode, hide the dev mode toggle entirely
-  if (!SERVER_DEV) {
-    const devToggleLabel = devModeToggle.closest<HTMLElement>('.settings-toggle');
-    if (devToggleLabel) devToggleLabel.style.display = 'none';
-    const devHint = devToggleLabel?.nextElementSibling as HTMLElement | null;
-    if (devHint?.classList.contains('settings-hint')) devHint.style.display = 'none';
-    applyDevMode(false);
-  } else {
-    devModeToggle.checked = localStorage.getItem(DEV_MODE_KEY) === 'true';
-    applyDevMode(devModeToggle.checked);
-  }
-
-  settingsBtn.addEventListener('click', () => {
-    settingsModal.classList.remove('hidden');
-  });
-
-  function closeSettings(): void {
-    settingsModal.classList.add('hidden');
-  }
-
-  settingsBackdrop.addEventListener('click', closeSettings);
-  settingsCloseBtn.addEventListener('click', closeSettings);
-
-  devModeToggle.addEventListener('change', () => {
-    if (!SERVER_DEV) return;
-    localStorage.setItem(DEV_MODE_KEY, String(devModeToggle.checked));
-    applyDevMode(devModeToggle.checked);
-  });
-
-  const autoPassToggle = document.getElementById('auto-pass-toggle') as HTMLInputElement;
-  autoPassToggle.checked = localStorage.getItem(AUTO_PASS_KEY) === 'true';
-
-  autoPassToggle.addEventListener('change', () => {
-    localStorage.setItem(AUTO_PASS_KEY, String(autoPassToggle.checked));
-    if (!autoPassToggle.checked && appState.autoPassTimer) {
-      clearTimeout(appState.autoPassTimer);
-      appState.autoPassTimer = null;
-    }
-  });
-
-  disconnectBtn.addEventListener('click', () => {
-    disconnect();
-  });
-
-  undoBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'undo' };
-      appState.ws.send(JSON.stringify(msg));
-      // Revert game log to the snapshot before the last action
-      const logEl = document.getElementById('log');
-      if (logEl && appState.logCountStack.length > 0) {
-        const target = appState.logCountStack.pop()!;
-        while (logEl.childElementCount > target) {
-          logEl.removeChild(logEl.lastChild!);
-        }
-      }
-      flashBtn(undoBtn);
-    }
-  });
-
-  saveBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'save' };
-      appState.ws.send(JSON.stringify(msg));
-      flashBtn(saveBtn);
-    }
-  });
-
-  /** Clear all visual game state immediately (before server responds). */
-  function clearGameBoard(): void {
-    resetVisualBoard();
-    document.getElementById('hand-arc')!.innerHTML = '';
-    document.getElementById('opponent-arc')!.innerHTML = '';
-    document.getElementById('actions')!.innerHTML = '';
-    document.getElementById('pass-btn')!.classList.add('hidden');
-    const chainPanel = document.getElementById('chain-panel');
-    if (chainPanel) { chainPanel.classList.add('hidden'); chainPanel.innerHTML = ''; }
-    for (const id of ['self-deck-box', 'opponent-deck-box']) {
-      document.getElementById(id)?.classList.add('hidden');
-    }
-    // Clear pseudo-AI action list
-    const pseudoPanel = document.getElementById('pseudo-ai-panel');
-    if (pseudoPanel) {
-      pseudoPanel.classList.add('hidden');
-      pseudoPanel.classList.remove('minimized');
-      document.getElementById('pseudo-ai-actions')!.innerHTML = '';
-    }
-    resetCompanyViews();
-    clearDice();
-  }
-
-  reseedBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'reseed' };
-      appState.ws.send(JSON.stringify(msg));
-      flashBtn(reseedBtn);
-    }
-  });
-
-  cheatRollSelect.addEventListener('change', () => {
-    const total = parseInt(cheatRollSelect.value, 10);
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN && total >= 2 && total <= 12) {
-      const msg: ClientMessage = { type: 'cheat-roll', total };
-      appState.ws.send(JSON.stringify(msg));
-      renderLog(`>> Cheat: next roll will be ${total}`, cardPool);
-    }
-    cheatRollSelect.value = '';  // Reset to "Roll" label
-  });
-
-  summonBtn.addEventListener('click', () => {
-    const cardName = prompt('Enter card name to summon:');
-    if (cardName && appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'summon-card', cardName };
-      appState.ws.send(JSON.stringify(msg));
-      renderLog(`>> Cheat: summoning "${cardName}"`, cardPool);
-      flashBtn(summonBtn);
-    }
-  });
-
-  swapHandBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'swap-hand' };
-      appState.ws.send(JSON.stringify(msg));
-      renderLog('>> Cheat: swapping hands', cardPool);
-      flashBtn(swapHandBtn);
-    }
-  });
-
-  loadBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'load' };
-      appState.ws.send(JSON.stringify(msg));
-      flashBtn(loadBtn);
-      clearGameBoard();
-    }
-  });
-
-  // ---- Snapshot modal ----
-  const snapshotBtn = document.getElementById('snapshot-btn') as HTMLButtonElement;
-  const snapshotModal = document.getElementById('snapshot-modal') as HTMLElement;
-  const snapshotBackdrop = document.getElementById('snapshot-backdrop') as HTMLElement;
-  const snapshotList = document.getElementById('snapshot-list') as HTMLElement;
-
-  snapshotBtn.addEventListener('click', () => {
-    void (async () => {
-    try {
-      const resp = await fetch('/api/snapshots');
-      const snapshots = await resp.json() as { file: string; description: string; character?: string; site?: string }[];
-      snapshotList.innerHTML = '';
-      if (snapshots.length === 0) {
-        snapshotList.textContent = 'No snapshots available.';
-      } else {
-        for (const snap of snapshots) {
-          const item = document.createElement('div');
-          item.className = 'snapshot-item';
-
-          // Card images (character + site)
-          const images = document.createElement('div');
-          images.className = 'snapshot-item-images';
-          for (const defId of [snap.character, snap.site]) {
-            if (!defId) continue;
-            const def = cardPool[defId];
-            const imgPath = def ? cardImageProxyPath(def) : undefined;
-            if (imgPath) {
-              const img = document.createElement('img');
-              img.src = imgPath;
-              img.alt = def.name;
-              images.appendChild(img);
-            }
-          }
-          if (images.childElementCount > 0) item.appendChild(images);
-
-          const name = document.createElement('div');
-          name.className = 'snapshot-item-name';
-          name.textContent = snap.file;
-          const desc = document.createElement('div');
-          desc.className = 'snapshot-item-desc';
-          desc.textContent = snap.description;
-          item.appendChild(name);
-          item.appendChild(desc);
-          item.addEventListener('click', () => {
-            if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-              const msg: ClientMessage = { type: 'load-snapshot', file: snap.file };
-              appState.ws.send(JSON.stringify(msg));
-              clearGameBoard();
-            }
-            snapshotModal.classList.add('hidden');
-          });
-          snapshotList.appendChild(item);
-        }
-      }
-      snapshotModal.classList.remove('hidden');
-    } catch {
-      renderLog('Failed to fetch snapshot list');
-    }
-    })();
-  });
-
-  snapshotBackdrop.addEventListener('click', () => {
-    snapshotModal.classList.add('hidden');
-  });
-
-  resetBtn.addEventListener('click', () => {
-    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-      const msg: ClientMessage = { type: 'reset' };
-      appState.ws.send(JSON.stringify(msg));
-      flashBtn(resetBtn);
-      clearGameBoard();
-    }
-  });
-
   // Initial screen
   if (LOBBY_MODE) {
     // In lobby mode: check session, show login or lobby
@@ -714,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
     connectForm.style.display = '';
     const savedName = loadPlayerName();
     if (savedName) {
-      startGame(savedName);
+      void startGame(savedName);
     }
   }
 });
