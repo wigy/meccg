@@ -244,6 +244,12 @@ export function collectCharacterEffects(
   const companyConstraints = collectCompanyStatModifierEffects(state, char);
   results.push(...companyConstraints);
 
+  // Character-scoped stat boosts applied via active constraints (e.g.
+  // Vilya grants +4 prowess / +2 body / +6 direct-influence to Elrond
+  // for the turn). Synthesise equivalent stat-modifier effects.
+  const charConstraints = collectCharacterStatModifierEffects(state, char);
+  results.push(...charConstraints);
+
   return results;
 }
 
@@ -298,6 +304,37 @@ function collectCompanyStatModifierEffects(
     if (constraint.target.kind !== 'company') continue;
     const company = findCompanyById(state, constraint.target.companyId);
     if (!company || !company.characters.includes(char.instanceId)) continue;
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    if (!sourceDef) continue;
+    const synthesized: StatModifierEffect = {
+      type: 'stat-modifier',
+      stat: constraint.kind.stat,
+      value: constraint.kind.value,
+    };
+    results.push({
+      effect: synthesized,
+      sourceDef,
+      sourceInstance: constraint.source,
+    });
+  }
+  return results;
+}
+
+/**
+ * Synthesise {@link StatModifierEffect}s from active
+ * `character-stat-modifier` constraints that target the given character
+ * instance (e.g. Vilya's +4 prowess / +2 body / +6 direct-influence on
+ * Elrond for the turn).
+ */
+function collectCharacterStatModifierEffects(
+  state: GameState,
+  char: CharacterInPlay,
+): CollectedEffect[] {
+  if (state.activeConstraints.length === 0) return [];
+  const results: CollectedEffect[] = [];
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'character-stat-modifier') continue;
+    if (constraint.kind.characterId !== char.instanceId) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

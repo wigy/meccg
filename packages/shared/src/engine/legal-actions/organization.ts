@@ -24,7 +24,7 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from '../../index.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
@@ -1296,6 +1296,26 @@ export function playResourceShortEventActions(
       }
     }
 
+    // duplication-limit: scope "turn" — cannot play if a copy was already
+    // played this turn (tracked via active constraints sourced from this def).
+    const turnDupLimit = def.effects?.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
+    );
+    if (turnDupLimit) {
+      const priorConstraints = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === def.id,
+      ).length;
+      if (priorConstraints >= turnDupLimit.max) {
+        logDetail(`${def.name}: cannot be duplicated this turn (${priorConstraints} active constraint(s))`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} cannot be duplicated on a given turn`,
+        });
+        continue;
+      }
+    }
+
     // Emit one play action per eligible target combination. When the card
     // has a play-target with tap cost AND discard-in-play, emit the cross-
     // product of (tap target × discard target).
@@ -1339,6 +1359,31 @@ export function playResourceShortEventActions(
         });
       } else {
         for (const targetId of tapTargets) emitPlay(targetId);
+      }
+    } else if (playTarget && playTarget.target === 'character' && playTarget.filter) {
+      // Filter-only character target (no tap cost): emit one action per eligible
+      // character so the reducer knows which character to apply effects to.
+      const filterTargets = eligiblePlayOptionTargets(state, player, playTarget);
+      if (filterTargets.length === 0) {
+        logDetail(`${def.name}: no eligible character targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        for (const targetId of filterTargets) {
+          logDetail(`Resource short-event playable (filter-target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetCharacterId: targetId,
+            },
+            viable: true,
+          });
+        }
       }
     } else {
       emitPlay(undefined);

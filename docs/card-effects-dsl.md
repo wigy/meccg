@@ -180,6 +180,32 @@ Modifies the player's hand size.
   "when": { "self.location": "Rivendell" } }
 ```
 
+### 6a. `character-stat-modifier` constraint kind
+
+Turn-scoped stat bonus applied to a single named character instance.
+Analogous to `company-stat-modifier` (which applies to every character
+in a company), but targets exactly one character. Synthesised by
+`collectCharacterEffects` in `engine/effects/resolver.ts` into an
+equivalent `stat-modifier` effect so caps and overrides work exactly
+as for item bonuses.
+
+- `stat` — the stat to boost: `"prowess"`, `"body"`, or `"direct-influence"`.
+- `value` — integer bonus (positive to increase).
+- `characterId` — the instance ID of the target character.
+
+Emitted via `on-event: self-enters-play` → `add-constraint` with
+`constraint: "character-stat-modifier"` when the card is played on its
+target character. The target is read from `action.targetCharacterId`.
+Swept at turn-end by the existing `scope: { kind: 'turn' }` sweep.
+
+Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond).
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
+             "stat": "prowess", "value": 4, "scope": "turn" } }
+```
+
 ### 6b. `draw-modifier`
 
 Modifies the number of cards drawn during the movement/hazard draw step
@@ -414,6 +440,24 @@ Apply types:
   Stinker's ring-discard grant-action to discard *The One Ring* —
   potentially belonging to the opposing player — when the ally is
   discarded. Implemented in `reducer-organization.ts` `runGrantApply()`.
+- `enqueue-corruption-check` -- under `on-event: self-enters-play`, enqueue
+  a corruption check on the character targeted by the action
+  (`action.targetCharacterId`). The optional `modifier` integer is added to
+  the check's roll threshold. When the same `self-enters-play` handler also
+  enqueues a `move`-based fetch sub-flow (a `fetch-to-deck` pending effect),
+  the corruption check is deferred until **after** all fetch picks are
+  complete (or the player passes) — the reducer embeds it as
+  `postCorruptionCheck` on the pending effect rather than pushing it into
+  `pendingResolutions` immediately, so the two resolution queues do not
+  conflict. Used by *Vilya* (`modifier: -3` on Elrond). Implemented in
+  `reducer-events.ts` (`applyShortEventOnEntersPlay`) and
+  `reducer-utils.ts` (`handleFetchFromPile`, `resolvePendingEffect`).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-corruption-check", "modifier": -3 } }
+  ```
+
 - `cancel-chain-entry` -- negate an unresolved chain entry or discard a
   card in play / remove active constraints sourced from a given card.
   Selectors:
@@ -1366,7 +1410,8 @@ for reference:
   "count": 1,
   "shuffleAfter": false,
   "corruptionCheck": { "modifier": 0 },
-  "cardName": "…"
+  "cardName": "…",
+  "when": { "…": "…" }
 }
 ```
 
@@ -1401,6 +1446,31 @@ uses them — not all are available in Phase 1.
 - `opponent` — push to the other player's pile (bounce).
 - `defender` — combat context; push to the defender's pile
   (wound-triggered item loss).
+
+**Conditional execution (`when`)**
+
+An optional `when` condition gates whether the fetch sub-flow is offered to
+the player at all. Evaluated at enqueue time (when the card enters play, not
+when the player picks), against a context exposing:
+
+- `target.siteName` — the site name of the character targeted by the action
+  (`action.targetCharacterId`); empty string when there is no target character.
+- `player.deckCount` — number of cards currently in the resource player's
+  play deck.
+
+If the condition fails, no `fetch-to-deck` pending effect is pushed and the
+sub-flow is silently skipped. Used by *Vilya* to gate the fetch on
+`{ "$and": [{ "target.siteName": "Rivendell" }, { "player.deckCount": { "$gte": 5 } }] }`.
+
+**Multi-pick fetch (`count > 1`)**
+
+When `count > 1`, the engine offers the player one pick at a time. After each
+successful pick, `handleFetchFromPile` decrements `count` and re-enqueues the
+effect with the new count so the player is offered another selection. The loop
+continues until `count` reaches 0 or the player passes (action type
+`resolve-pending-effect` with no `targetCardId`). Passing cancels all
+remaining picks. Any deferred `postCorruptionCheck` fires after the last pick
+completes or when the player passes.
 
 **Side effects**
 

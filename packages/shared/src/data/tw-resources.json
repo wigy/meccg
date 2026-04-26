@@ -1407,7 +1407,64 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Elrond" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": 4, "scope": "turn" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": 2, "scope": "turn" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "direct-influence", "value": 6, "scope": "turn" }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "discard",
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 3,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hero-character",
+              "hero-resource-item",
+              "hero-resource-ally",
+              "hero-resource-faction",
+              "hero-resource-event"
+            ]
+          }
+        },
+        "when": {
+          "$and": [
+            { "target.siteName": "Rivendell" },
+            { "player.deckCount": { "$gte": 5 } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "enqueue-corruption-check", "modifier": -3 }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",

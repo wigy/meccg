@@ -384,16 +384,62 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // picks from face-down piles (sideboard / discard) and the choice must be
   // serialised as a separate action. Discard-in-play is resolved inline
   // below: the target is already chosen on the play action.
+  //
+  // For move effects with a `when` guard, evaluate against a context that
+  // includes the targeted character's current site name and the player's
+  // deck count. This gates conditional fetches (e.g. Vilya's "at Rivendell
+  // with ≥5 cards in deck") at enqueue time so no sub-flow is opened when
+  // the condition fails.
+  const targetCharId = action.type === 'play-short-event' ? (action.targetCharacterId ?? action.targetScoutInstanceId) : undefined;
+  const targetCharSiteName = (() => {
+    if (!targetCharId) return undefined;
+    for (const p of workingState.players) {
+      const company = p.companies.find(c => c.characters.includes(targetCharId));
+      if (!company?.currentSite) continue;
+      const siteDef = workingState.cardPool[company.currentSite.definitionId as string];
+      return siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
+    }
+    return undefined;
+  })();
+  // If the card has an enqueue-corruption-check on-event AND an interactive fetch
+  // effect, the CC must fire AFTER the fetch completes (not upfront), to avoid
+  // blocking fetch-from-pile resolution with an active pendingResolution.
+  // We embed it as `postCorruptionCheck` on the pending effect entry instead.
+  const enqueueCorruptionCheckEffect = targetCharId
+    ? (def.effects?.find(e =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply.type === 'enqueue-corruption-check',
+      ) as import('../types/effects.js').OnEventEffect | undefined)
+    : undefined;
+
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .flatMap(effect => {
       if (effect.type !== 'move') return [];
       const payload = moveToFetchToDeckPayload(effect);
       if (!payload) return [];
+      if (effect.when) {
+        const fetchWhenCtx = {
+          target: { siteName: targetCharSiteName },
+          player: { deckCount: workingState.players[playerIndex].playDeck.length },
+        };
+        if (!matchesCondition(effect.when, fetchWhenCtx)) {
+          logDetail(`${def.name}: fetch condition not met — skipping`);
+          return [];
+        }
+      }
+      // Embed corruption check (if any) as postCorruptionCheck so it fires
+      // after the last pick, not as a blocking pendingResolution upfront.
+      const postCC = enqueueCorruptionCheckEffect ? {
+        characterId: targetCharId!,
+        modifier: (enqueueCorruptionCheckEffect.apply.modifier) ?? 0,
+      } : undefined;
       return [{
         type: 'card-effect' as const,
         cardInstanceId: handCard.instanceId,
         effect: payload,
-        ...(action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
+        ...(action.type === 'play-short-event' && action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
+        ...(postCC ? { postCorruptionCheck: postCC } : {}),
       }];
     });
 
@@ -401,7 +447,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   // Apply self-enters-play on-event effects (e.g. Stealth's add-constraint).
   // These are non-interactive and resolved immediately when the card is played.
-  newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
+  // When there are interactive fetch effects, skip enqueue-corruption-check here
+  // because it's embedded as postCorruptionCheck on the pending effect instead.
+  const skipEnqueueCorruptionCheck = interactiveEffects.length > 0 && !!enqueueCorruptionCheckEffect;
+  newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex, skipEnqueueCorruptionCheck);
 
   // If the selected play-option is an `add-constraint` apply targeting the
   // chosen character, add it via the generic DSL handler. The constraint
@@ -688,6 +737,7 @@ function applyShortEventOnEntersPlay(
   handCard: CardInstance,
   action: GameAction,
   playerIndex: number,
+  skipEnqueueCorruptionCheck = false,
 ): GameState {
   if (!def.effects) return state;
 
@@ -695,12 +745,62 @@ function applyShortEventOnEntersPlay(
     if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
     const onEvent = effect;
 
+    if (onEvent.apply.type === 'enqueue-corruption-check') {
+      // When a fetch sub-flow is active, the corruption check is deferred as
+      // postCorruptionCheck on the pending effect so it fires after the last
+      // pick (not as a blocking pendingResolution during the fetch).
+      if (skipEnqueueCorruptionCheck) {
+        logDetail(`enqueue-corruption-check: deferred to postCorruptionCheck (fetch sub-flow active)`);
+        continue;
+      }
+      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!characterId) {
+        logDetail(`enqueue-corruption-check: no target character — fizzle`);
+        continue;
+      }
+      const modifier = (onEvent.apply.modifier) ?? 0;
+      logDetail(`"${def.name}" played — enqueuing corruption check on ${characterId as string} (modifier ${modifier})`);
+      state = enqueueCorruptionCheck(state, {
+        source: handCard.instanceId,
+        actor: state.players[playerIndex].id,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        characterId,
+        modifier,
+        reason: def.name,
+      });
+      continue;
+    }
+
     if (onEvent.apply.type === 'add-constraint') {
       const constraintKind = onEvent.apply.constraint;
       const scopeName = onEvent.apply.scope;
       if (!constraintKind || !scopeName) continue;
 
-      // Resolve the target company from the scout targeted by the action
+      // character-stat-modifier: applied to a single targeted character (e.g. Vilya).
+      if (constraintKind === 'character-stat-modifier') {
+        const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+        if (!characterId) {
+          logDetail(`add-constraint(character-stat-modifier): no target character — fizzle`);
+          continue;
+        }
+        const stat = onEvent.apply.stat;
+        const value = onEvent.apply.value;
+        if (!stat || typeof value !== 'number') {
+          logDetail(`add-constraint(character-stat-modifier): missing stat or value — fizzle`);
+          continue;
+        }
+        logDetail(`"${def.name}" played — adding character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId },
+          kind: { type: 'character-stat-modifier', stat, value, characterId },
+        });
+        continue;
+      }
+
+      // Company-targeting constraints: resolve the target company from the scout.
       const targetCharId = action.type === 'play-short-event' ? action.targetScoutInstanceId : undefined;
       if (!targetCharId) {
         logDetail(`add-constraint(${constraintKind}): no target scout — fizzle`);

@@ -572,6 +572,22 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Vilya style: turn-scoped stat bonus applied to a single named
+         * character instance. The effect resolver synthesises an equivalent
+         * {@link StatModifierEffect} when computing that character's stats,
+         * so caps and override semantics match the DSL path exactly.
+         * Swept at turn-end alongside {@link company-stat-modifier}.
+         */
+        readonly type: 'character-stat-modifier';
+        /** Which stat receives the bonus. */
+        readonly stat: 'prowess' | 'body' | 'direct-influence';
+        /** The bonus applied to the named character. */
+        readonly value: number;
+        /** The character instance to which the bonus applies. */
+        readonly characterId: CardInstanceId;
+      }
+    | {
+        /**
          * Book of Mazarbul style: +N to the active player's hand size for
          * the rest of the turn. Added when the bearer (a sage) taps the
          * item during the organization phase; swept at turn-end, just
