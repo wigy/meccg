@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 307 | 53 | 254 | 17.3% |
+| 307 | 55 | 252 | 17.9% |
 
 ## Section Breakdown
 
@@ -22,7 +22,7 @@
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 6 | 14.3% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 29 | 7 | 24.1% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 5 | 9.4% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 7 | 13.2% |
 
 ## Detailed Test Matrix
 
@@ -288,8 +288,8 @@
 | 10.04 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Prevent Discard](10-corruption-influence-endgame/rule-10.04-corruption-check-prevent-discard.test.ts) | ☐ |
 | 10.05 | Corruption, Influence, Actions/Timing & Ending the Game | [Ringwraith Corruption Bonus](10-corruption-influence-endgame/rule-10.05-ringwraith-corruption-bonus.test.ts) | ☐ |
 | 10.06 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Orc Troll Corruption](10-corruption-influence-endgame/rule-10.06-fw-orc-troll-corruption.test.ts) | ☐ |
-| 10.07 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Cards](10-corruption-influence-endgame/rule-10.07-corruption-cards.test.ts) | ☐ |
-| 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☐ |
+| 10.07 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Cards](10-corruption-influence-endgame/rule-10.07-corruption-cards.test.ts) | ☑ |
+| 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☑ |
 | 10.09 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Immunity](10-corruption-influence-endgame/rule-10.09-corruption-immunity.test.ts) | ☐ |
 | 10.10 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Declaration](10-corruption-influence-endgame/rule-10.10-influence-attempt-declaration.test.ts) | ☑ |
 | 10.11 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Targets](10-corruption-influence-endgame/rule-10.11-influence-attempt-targets.test.ts) | ◐ |

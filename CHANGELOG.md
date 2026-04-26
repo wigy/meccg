@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.26.0 — 2026-04-26
+Challenge Deck B
+
+### Game Engine
+
+- **Escape fix:** Escape no longer offered as a play-short-event action outside combat (rule enforcement).
+- **Corruption card removal:** Tapped bearer correctly applies −3 penalty when attempting corruption-card removal (rule 10.08).
+- **Corruption card limit:** Enforced one-corruption-card-per-character-per-turn limit (CoE 7.2.1).
+- **Corruption rules 10.07–10.08:** Implemented corruption-cards test and removing-corruption-cards rules.
+- **Rescue Prisoners auto-attack:** Bearer selected post-attack; bearer-cannot-untap constraint enforced; clickable store-item shown in browser UI.
+
+### DSL & Cards
+
+- **New DSL primitives:** `cancel-chain-return-to-origin` (Goldberry), `cost-evaluator` unification, `wound-target-character` (Escape), `character-gains-item` event (Lure of Expedience), `pair-resource-with-cof` (Crown of Flowers), `attack-not-canceled` boost (Chill Douser), `reduce-attacks-to-one` + `uncancelable-attack` (Forewarned Is Forearmed), haven-join DSL primitive (Alatar).
+- **Challenge Deck B — certified this release (~60 cards):**
+  - Hero characters — Gildor Inglorion (tw-158), Beretar (tw-128), Bofur (tw-132), Elladan (tw-143), Elrohir (tw-144), Erkenbrand (tw-148), Orophin (tw-174).
+  - Hero resources/items — Rescue Prisoners (tw-315), Escape (tw-229), Muster (tw-288), Shield of Iron-bound Ash (tw-327), Great-shield of Rohan (tw-250), Red Book of Westmarch (tw-313), The Cock Crows (tw-342), Orcrist (tw-295), Sword of Gondolin (tw-336), Book of Mazarbul (tw-201), Blue Mountain Dwarves (tw-200), Gollum (tw-246), Goldberry (tw-245), Corpse-candle (tw-23), Ghosts (tw-37), The Ring's Betrayal (tw-99).
+  - Hero sites — Blue Mountain Dwarf-hold (tw-377), Carn Dûm (tw-380), Goblin-gate (tw-398), Lossadan Cairn (tw-409), Mount Gram (tw-415), Mount Gundabad (tw-416).
+  - Minion cards — Lure of Expedience (le-122), Lure of Nature (le-123), Veils Flung Away (le-146), Rebel-talk (le-132), Searching Eye (le-136), Covetous Thoughts (le-107), Orc Quarrels (le-216), Ambusher (le-59), Cave Worm (le-65), Hobgoblins (le-77), Marsh-drake (le-84), Slayer (le-90), True Fire-drake (le-95), Goblins of Goblin-gate (le-265), Foolish Words (le-112).
+  - Dragons set — Dragon-sickness (td-18), Itangast Ahunt (td-37), Rain-drake (td-57), Sand-drake (td-59), From the Pits of Angband (td-27, partial), Eärcaraxë Ahunt (td-21).
+  - Hazards — Seized by Terror (dm-88), Stirring Bones (dm-111), The Moon Is Dead (dm-71), Chill Douser (dm-106), The Windlord Found Me (dm-164), Crown of Flowers (dm-121), Forewarned Is Forearmed (dm-132), Corsairs of Umbar (tw-24).
+  - Minion wizard — Alatar (tw-117, haven-jump via DSL primitive).
+  - Against the Shadow — Safe from the Shadow (as-54).
+  - Vilya (tw-358): stat modifier + conditional fetch + deferred corruption check.
+
+### Web Client
+
+- **Game log panel:** Redesigned as top-right panel with per-game history and scroll.
+- **Dice rolls:** Opponent dice rolls shown in game log panel; separate explicit roll actions per player.
+- **Hazard limit:** Remaining hazard limit shown instead of total.
+- **Card highlighting:** Goldberry and cancel-attack allies/characters highlighted in combat view; Lucky Strike highlighted in hand arc during combat.
+- **Combat UI:** Instruction text added for cancel-window sub-phase.
+- **Score labels:** HL and small labels added to score displays.
+- **Bug fixes:** Eliminated allies sent to eliminated pile (not discard).
+
+### Infrastructure
+
+- **Browser bundles split:** Lobby, game, and deck-editor bundles built separately (esbuild); dev server restart loop fixed.
+- **AI strategy code:** Moved from `@meccg/shared` to `@meccg/text-client`; AI client scripts moved from `@meccg/lobby-server` to `@meccg/text-client`.
+- **Mail timestamps:** `updatedAt` field added to mail messages.
+- **CLAUDE.md:** Split into per-package files for clarity.
+- **Cost DSL unification:** All `ActionCost` payments routed through `cost-evaluator.ts`.
+
 ## 0.25.0 — 2026-04-23
 
 Dragons Sample Deck
