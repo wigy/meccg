@@ -71,7 +71,24 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      { "siteTypes": ["ruins-and-lairs", "shadow-hold"] }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "attack-not-canceled",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "race": "undead",
+          "strikes": 1,
+          "prowess": 1
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-creature",
