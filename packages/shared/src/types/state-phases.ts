@@ -446,6 +446,12 @@ export interface MovementHazardPhaseState {
    * combat is initiated one at a time.
    */
   readonly ahuntAttacksResolved: number;
+  /**
+   * Set of character instance IDs that have already had a corruption card played
+   * on them during this turn (CoE rule 7.2.1: only one corruption card per character per turn).
+   * Persists across all companies' M/H phases within the same turn.
+   */
+  readonly corruptionCardsPlayedPerChar: Readonly<Record<string, true>>;
 }
 
 /**

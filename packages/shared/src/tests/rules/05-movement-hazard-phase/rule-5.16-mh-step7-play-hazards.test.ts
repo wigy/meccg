@@ -64,6 +64,7 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
       returnedToOrigin: false,
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
+      corruptionCardsPlayedPerChar: {},
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

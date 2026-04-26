@@ -359,17 +359,22 @@ function handlePlayHazardCard(
     logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
+    const targetCharId = action.type === 'play-hazard' ? action.targetCharacterId : undefined;
+    const updatedCorruptionPerChar = targetCharId
+      ? { ...mhState.corruptionCardsPlayedPerChar, [targetCharId as string]: true as const }
+      : mhState.corruptionCardsPlayedPerChar;
     let newState: GameState = {
       ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
       phaseState: {
         ...mhState,
         hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
         resourcePlayerPassed: false,
+        corruptionCardsPlayedPerChar: updatedCorruptionPerChar,
       },
     };
     const payload: import('../index.js').ChainEntryPayload = {
       type: 'permanent-event',
-      targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
+      targetCharacterId: targetCharId,
     };
     if (newState.chain === null) {
       newState = initiateChain(newState, action.player, handCard, payload);
@@ -391,6 +396,14 @@ function handlePlayHazardCard(
   const newHand = [...hazardPlayer.hand];
   newHand.splice(cardIdx, 1);
 
+  const eventTargetCharId = def.eventType === 'permanent' && action.type === 'play-hazard'
+    ? action.targetCharacterId
+    : undefined;
+  const isCorruptionEvent = def.keywords?.includes('corruption') === true;
+  const updatedCorruptionPerChar = isCorruptionEvent && eventTargetCharId
+    ? { ...mhState.corruptionCardsPlayedPerChar, [eventTargetCharId as string]: true as const }
+    : mhState.corruptionCardsPlayedPerChar;
+
   let newState: GameState = {
     ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
     phaseState: {
@@ -398,6 +411,7 @@ function handlePlayHazardCard(
       hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
       // Reset resource player's pass — they may respond
       resourcePlayerPassed: false,
+      corruptionCardsPlayedPerChar: updatedCorruptionPerChar,
     },
   };
 
