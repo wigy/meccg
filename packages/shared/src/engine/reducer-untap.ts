@@ -181,8 +181,18 @@ function performUntap(state: GameState): GameState {
     }
   }
 
+  // Collect characters with a bearer-cannot-untap constraint so we can
+  // skip them during normal untap processing.
+  const cannotUntapIds = new Set<string>();
+  for (const c of state.activeConstraints) {
+    if (c.kind.type === 'bearer-cannot-untap' && c.target.kind === 'character') {
+      cannotUntapIds.add(c.target.characterId as string);
+    }
+  }
+
   // Untap all tapped characters and their items/allies;
-  // heal wounded (inverted) characters at havens to tapped position
+  // heal wounded (inverted) characters at havens to tapped position.
+  // Characters with a bearer-cannot-untap constraint are left tapped.
   const newCharacters: Record<string, CharacterInPlay> = {};
   let healedCount = 0;
   for (const [key, ch] of Object.entries(player.characters)) {
@@ -193,7 +203,10 @@ function performUntap(state: GameState): GameState {
       ally.status === CardStatus.Tapped ? { ...ally, status: CardStatus.Untapped } : ally,
     );
     let newStatus = ch.status;
-    if (ch.status === CardStatus.Tapped) {
+    if (cannotUntapIds.has(key)) {
+      // Bearer-cannot-untap constraint active — leave tapped
+      logDetail(`Untap: skipping ${key} (bearer-cannot-untap constraint active)`);
+    } else if (ch.status === CardStatus.Tapped) {
       newStatus = CardStatus.Untapped;
     } else if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
       newStatus = CardStatus.Tapped;

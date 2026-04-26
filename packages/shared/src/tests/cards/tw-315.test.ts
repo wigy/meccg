@@ -4,7 +4,8 @@
  * Card test: Rescue Prisoners (tw-315)
  * Type: hero-resource-event (permanent)
  * Effects: play-target (site: dark-hold/shadow-hold), play-flag (tapped-site-only),
- *          play-target (character), storable-at (haven/border-hold/free-hold, 2 MP),
+ *          play-target (character), trigger-auto-attack-on-play (Spider 2×7),
+ *          storable-at (haven/border-hold/free-hold, 2 MP),
  *          duplication-limit (site, max 1)
  *
  * "Playable at an already tapped Dark-hold or Shadow-hold during the site phase.
@@ -14,9 +15,6 @@
  *  marshalling points are received and that character may not untap until Rescue
  *  Prisoners is stored at a Haven, Border-hold, or Free-hold during his organization
  *  phase. Cannot be duplicated at a given site."
- *
- * NOT CERTIFIED — Spider attack on play, character untap restriction, and
- * conditional MPs (0 until stored) require engine support not yet implemented.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -24,7 +22,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   CardStatus,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GIMLI,
   MORIA, MOUNT_DOOM, BANDIT_LAIR, RIVENDELL, LORIEN,
   buildSitePhaseState, resetMint,
   viableActions,
@@ -32,6 +30,8 @@ import {
   playPermanentEventAndResolve,
   buildTestState, makePlayDeck,
   mint, addToPile, makeSitePhase,
+  findCharInstanceId, runCardAutoAttackCombat,
+  dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js';
 import { Phase } from '../../index.js';
@@ -251,9 +251,101 @@ describe('Rescue Prisoners (tw-315)', () => {
     expect(mp.misc).toBe(2);
   });
 
-  // ── Unimplemented rules (engine support required) ──
+  // ── Auto-attack: Spider combat triggered on play ──
 
-  test.todo('company faces Spider attack (2 strikes, prowess 7) when Rescue Prisoners is played');
-  test.todo('Rescue Prisoners is discarded if no characters are untapped after the Spider attack');
-  test.todo('bearer character cannot untap until Rescue Prisoners is stored');
+  test('company faces Spider attack (2 strikes, prowess 7) when Rescue Prisoners is played', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBeGreaterThan(0);
+    const action = actions[0].action as PlayPermanentEventAction;
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+
+    expect(afterPlay.combat).not.toBeNull();
+    expect(afterPlay.combat!.strikesTotal).toBe(2);
+    expect(afterPlay.combat!.strikeProwess).toBe(7);
+    expect(afterPlay.combat!.creatureRace).toBe('spider');
+  });
+
+  test('Rescue Prisoners is discarded if no characters are untapped after the Spider attack', () => {
+    // Single-character company: Aragorn is the only character and becomes bearer.
+    // After he taps to fight the Spider, no characters remain untapped → card discarded.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBeGreaterThan(0);
+    const action = actions[0].action as PlayPermanentEventAction;
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+    expect(afterPlay.combat).not.toBeNull();
+
+    // Aragorn taps to fight; afterwards all characters are tapped → discard
+    const afterCombat = runCardAutoAttackCombat(afterPlay, [{ characterDefId: ARAGORN, roll: 1 }]);
+
+    const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
+    const aragornChar = afterCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
+    expect(aragornChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(false);
+    expect(afterCombat.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === RESCUE_PRISONERS)).toBe(true);
+  });
+
+  test('bearer character cannot untap until Rescue Prisoners is stored', () => {
+    // Three-character company: Aragorn + Gimli + Legolas (bearer).
+    // Both Spider strikes go to Aragorn and Gimli; Legolas stays untapped.
+    // finalizeCombat detects an untapped survivor, taps Legolas (bearer), and
+    // adds a bearer-cannot-untap constraint — Legolas stays tapped at untap.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS],
+      characters: [ARAGORN, GIMLI, LEGOLAS],
+    });
+
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const action = (actions.map(ea => ea.action as PlayPermanentEventAction)
+      .find(a => a.targetCharacterId === legolasId))!;
+    expect(action).toBeDefined();
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, legolasId);
+    expect(afterPlay.combat).not.toBeNull();
+
+    // Aragorn takes strike 1, Gimli takes strike 2; Legolas has no strike → stays untapped
+    const afterCombat = runCardAutoAttackCombat(afterPlay, [
+      { characterDefId: ARAGORN, roll: 1 },
+      { characterDefId: GIMLI, roll: 1 },
+    ]);
+
+    // Bearer (Legolas) must be tapped with an active bearer-cannot-untap constraint
+    const legolasChar = afterCombat.players[RESOURCE_PLAYER].characters[legolasId as string];
+    expect(legolasChar.status).toBe(CardStatus.Tapped);
+    const constraint = afterCombat.activeConstraints.find(
+      c => c.kind.type === 'bearer-cannot-untap'
+        && c.target.kind === 'character'
+        && c.target.characterId === legolasId,
+    );
+    expect(constraint).toBeDefined();
+
+    // During the untap phase, Legolas must remain tapped (constraint blocks untap)
+    const inUntap = {
+      ...afterCombat,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: false,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      } as typeof afterCombat.phaseState,
+    };
+    const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+  });
 });

@@ -14,13 +14,13 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAutoAttackOnPlayEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeCreatureRace } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
@@ -882,6 +882,71 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         }
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
+      }
+    }
+  }
+
+  // Trigger-auto-attack-on-play: initiate combat immediately after the card attaches.
+  // The attack resolves in the normal combat sub-system; post-combat finalization
+  // (reducer-combat.ts finalizeCombat) handles the discard-or-keep logic.
+  if (targetCharId && def && 'effects' in def && def.effects) {
+    const triggerEffect = def.effects.find(
+      (e): e is TriggerAutoAttackOnPlayEffect => e.type === 'trigger-auto-attack-on-play',
+    );
+    if (triggerEffect) {
+      const bearerCharId = targetCharId;
+      // Find the company the bearer belongs to
+      let companyId: import('../index.js').CompanyId | undefined;
+      for (let pi = 0; pi < 2; pi++) {
+        for (const co of newState.players[pi].companies) {
+          if (co.characters.includes(bearerCharId)) {
+            companyId = co.id;
+            break;
+          }
+        }
+        if (companyId) break;
+      }
+
+      if (companyId) {
+        const defPlayerIndex = newState.players.findIndex(
+          p => p.companies.some(co => co.id === companyId),
+        );
+        const defPlayer = newState.players[defPlayerIndex];
+        const atkPlayer = newState.players[1 - defPlayerIndex];
+        const inPlayNames = buildInPlayNames(newState);
+        const creatureRace = normalizeCreatureRace(triggerEffect.creatureType);
+        const effectiveProwess = resolveAttackProwess(
+          newState, triggerEffect.prowess, inPlayNames, creatureRace, true, undefined,
+          { companyId },
+        );
+        const effectiveStrikes = resolveAttackStrikes(
+          newState, triggerEffect.strikes, inPlayNames, creatureRace, { companyId },
+        );
+        logDetail(
+          `"${def.name}" entered play — triggering ${triggerEffect.creatureType} auto-attack ` +
+          `(${effectiveStrikes} strikes, ${effectiveProwess} prowess) on company ${companyId as string}`,
+        );
+        const combat: CombatState = {
+          attackSource: {
+            type: 'card-auto-attack',
+            cardInstanceId: card.instanceId,
+            bearerCharacterId: bearerCharId,
+          },
+          companyId,
+          defendingPlayerId: defPlayer.id,
+          attackingPlayerId: atkPlayer.id,
+          strikesTotal: effectiveStrikes,
+          strikeProwess: effectiveProwess,
+          creatureBody: null,
+          creatureRace,
+          strikeAssignments: [],
+          currentStrikeIndex: 0,
+          phase: 'assign-strikes',
+          assignmentPhase: 'defender',
+          bodyCheckTarget: null,
+          detainment: false,
+        };
+        newState = { ...newState, combat };
       }
     }
   }

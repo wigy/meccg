@@ -481,13 +481,24 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     outOfPlayPile: [...p.outOfPlayPile, storedCard],
   }));
 
-  const stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
+  let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
   });
+
+  // Clear any bearer-cannot-untap constraints that reference the stored card.
+  // Rescue Prisoners places this constraint on the bearer; storing removes it
+  // so the bearer can untap normally at the next untap phase.
+  const bearerConstraints = stateAfterCheck.activeConstraints.filter(
+    c => c.kind.type === 'bearer-cannot-untap' && c.kind.cardInstanceId === itemInstId,
+  );
+  for (const c of bearerConstraints) {
+    logDetail(`Store item: clearing bearer-cannot-untap constraint from "${itemDef?.name ?? '?'}" (${c.id as string})`);
+    stateAfterCheck = removeConstraint(stateAfterCheck, c.id);
+  }
 
   // Auto-test-gold-ring site-rule (Rule 9.22): storing a gold-ring item at a
   // Darkhaven (or any site declaring this rule) triggers an automatic ring

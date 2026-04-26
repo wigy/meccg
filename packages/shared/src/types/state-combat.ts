@@ -34,7 +34,16 @@ export type AttackSource =
   | { readonly type: 'played-auto-attack'; readonly instanceId: CardInstanceId; readonly siteInstanceId: CardInstanceId }
   | { readonly type: 'agent'; readonly instanceId: CardInstanceId }
   | { readonly type: 'company-attack'; readonly attackingCompanyId: CompanyId }
-  | { readonly type: 'ahunt'; readonly longEventInstanceId: CardInstanceId };
+  | { readonly type: 'ahunt'; readonly longEventInstanceId: CardInstanceId }
+  /**
+   * Triggered by a resource permanent event carrying a
+   * `trigger-auto-attack-on-play` effect (e.g. Rescue Prisoners). The
+   * attack resolves immediately after the card enters play. If all
+   * characters in the company are tapped after combat, the card is
+   * discarded; otherwise the bearer gains a `bearer-cannot-untap`
+   * constraint until the card is stored.
+   */
+  | { readonly type: 'card-auto-attack'; readonly cardInstanceId: CardInstanceId; readonly bearerCharacterId: CardInstanceId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

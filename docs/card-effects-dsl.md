@@ -1969,3 +1969,37 @@ Used by *The Moon Is Dead* (dm-71):
 ```json
 { "type": "auto-attack-race-duplicate", "race": "undead" }
 ```
+
+### 35. `trigger-auto-attack-on-play`
+
+When present on a resource permanent event, the company immediately
+faces an automatic attack of the given type after the card attaches to
+its bearer character. The attack flows through the normal combat
+sub-system. At combat finalization:
+
+- If **all characters in the company are tapped**, the card is
+  discarded from the bearer's items and the play has no lasting effect.
+- If **any character remains untapped**, the bearer is tapped and
+  gains a `bearer-cannot-untap` active constraint (scoped
+  `until-cleared`). The constraint is swept when the item is stored
+  via `store-item` during the organization phase.
+
+Fields:
+- `creatureType: string` — e.g. `"Spider"`. Normalised with
+  `normalizeCreatureRace()` for combat-modifier lookups.
+- `strikes: number` — number of strikes the attack delivers.
+- `prowess: number` — prowess of each strike.
+
+Implementation: `chain-reducer.ts` `resolvePermanentEvent()` detects
+the effect and sets `state.combat` with an `attackSource` of type
+`card-auto-attack`. `reducer-combat.ts` `finalizeCombat()` handles the
+discard-or-keep logic and adds the `bearer-cannot-untap` constraint.
+`reducer-untap.ts` `performUntap()` skips characters with an active
+`bearer-cannot-untap` constraint. `reducer-organization.ts`
+`handleStoreItem()` sweeps matching constraints when the card is stored.
+
+Used by *Rescue Prisoners* (tw-315):
+
+```json
+{ "type": "trigger-auto-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
+```

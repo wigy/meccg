@@ -25,6 +25,7 @@ import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstanc
 import type { EvaluatedAction } from '../rules/types.js';
 import type { DeckList } from '../types/cards.js';
 import { enqueueResolution, addConstraint } from '../engine/pending.js';
+import { resolveInstanceId } from '../types/state.js';
 import type { CollectedEffect } from '../engine/effects/index.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
@@ -1584,6 +1585,103 @@ export function runAutoAttackCombat(
   }
 
   return result;
+}
+
+/**
+ * Run through a card-triggered auto-attack (card-auto-attack source) that is
+ * already active on `state.combat`. Assigns each strike in `strikeDefs` order:
+ * the defender fills their assignments first, then the attacker handles any
+ * remaining unassigned combatants plus optional excess. Resolves each
+ * character's strike in sequence and handles body checks.
+ *
+ * Use this after playing a resource permanent event whose `trigger-auto-attack-on-play`
+ * effect (e.g. Rescue Prisoners) places combat on the state during chain resolution.
+ *
+ * @param state - Game state with active `card-auto-attack` combat.
+ * @param strikeDefs - Ordered list of `{ characterDefId, roll, bodyRoll? }`. Repeat
+ *   a `characterDefId` to assign excess strikes. The defending player controls
+ *   character assignment; the engine assigns remaining unassigned combatants to
+ *   the attacker automatically via pass.
+ * @returns State after all strikes resolved and combat finalized.
+ */
+export function runCardAutoAttackCombat(
+  state: GameState,
+  strikeDefs: Array<{ characterDefId: CardDefinitionId; roll: number; bodyRoll?: number | null }>,
+): GameState {
+  const combat = state.combat!;
+  const defPlayer = combat.defendingPlayerId;
+  const atkPlayer = combat.attackingPlayerId;
+  const defIdx = state.players.findIndex(p => p.id === defPlayer);
+
+  let s = state;
+
+  // Assign strikes: defender assigns first (untapped, unassigned characters only),
+  // then passes so the attacker can assign any remaining unassigned combatants.
+  const defAssigns = new Set<string>();
+  for (const { characterDefId } of strikeDefs) {
+    const charId = findCharInstanceId(s, defIdx, characterDefId);
+    const assignable = viableActions(s, defPlayer, 'assign-strike');
+    const thisAction = assignable.find(
+      ea => (ea.action as { characterId: unknown }).characterId === charId,
+    );
+    if (thisAction) {
+      const result = reduce(s, thisAction.action);
+      expect(result.error).toBeUndefined();
+      s = result.state;
+      defAssigns.add(charId as string);
+    }
+  }
+
+  // Defender passes if still in the defender-assignment sub-phase
+  if (s.combat?.assignmentPhase === 'defender') {
+    const passResult = reduce(s, { type: 'pass', player: defPlayer });
+    if (!passResult.error) s = passResult.state;
+  }
+
+  // Attacker assigns any remaining unassigned combatants
+  while (s.combat?.phase === 'assign-strikes' && s.combat.assignmentPhase === 'attacker') {
+    const assignable = viableActions(s, atkPlayer, 'assign-strike');
+    if (assignable.length === 0) break;
+    const result = reduce(s, assignable[0].action);
+    if (result.error) break;
+    s = result.state;
+  }
+
+  // Resolve each assignment entry in sequence
+  while (s.combat && s.combat.phase !== 'assign-strikes') {
+    if (s.combat.phase === 'choose-strike-order') {
+      s = executeAction(s, defPlayer, 'choose-strike-order');
+    } else if (s.combat.phase === 'resolve-strike') {
+      // Find the roll for the character currently being resolved
+      const charId = s.combat.strikeAssignments[s.combat.currentStrikeIndex]?.characterId;
+      const defId = charId ? resolveInstanceId(s, charId) : undefined;
+      const strikeDef = defId
+        ? strikeDefs.find(sd => sd.characterDefId === defId)
+        : undefined;
+      const roll = strikeDef?.roll ?? 6;
+      s = executeAction(s, defPlayer, 'resolve-strike', roll, true);
+    } else if (s.combat.phase === 'body-check') {
+      const charIdx = s.combat.currentStrikeIndex;
+      const charId = s.combat.strikeAssignments[charIdx]?.characterId;
+      const defId = charId ? resolveInstanceId(s, charId) : undefined;
+      const strikeDef = defId
+        ? strikeDefs.find(sd => sd.characterDefId === defId)
+        : undefined;
+      const bodyRoll = strikeDef?.bodyRoll ?? null;
+      if (bodyRoll !== null) {
+        s = executeAction(s, atkPlayer, 'body-check-roll', bodyRoll);
+      } else {
+        // Skip body check with a safe roll (high number = character survives)
+        s = executeAction(s, atkPlayer, 'body-check-roll', 12);
+      }
+    } else if (s.combat.phase === 'item-salvage') {
+      s = executeAction(s, defPlayer, 'pass');
+    } else {
+      break;
+    }
+  }
+
+  return s;
 }
 
 /**
