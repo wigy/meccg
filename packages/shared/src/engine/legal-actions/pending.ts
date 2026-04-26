@@ -127,6 +127,8 @@ export function resolutionLegalActions(
       return resourcePlayOfferActions(state, actor, top);
     case 'wizard-search-on-store':
       return wizardSearchOnStoreActions(state, actor, top);
+    case 'select-card-bearer':
+      return selectCardBearerActions(state, actor, top);
   }
 }
 
@@ -1272,4 +1274,58 @@ function applyDenyScoutResources(
     logDetail(`Constraint ${constraint.id as string} (deny-scout-resources): dropping "${def.name}" — requires scout`);
     return false;
   });
+}
+
+/**
+ * Compute legal actions for a `select-card-bearer` pending resolution.
+ *
+ * Offers one `select-card-bearer` action per untapped character in the
+ * company. The resource player taps the chosen character to become the
+ * bearer of the permanent event (adding a `bearer-cannot-untap` constraint).
+ *
+ * A `pass` action is also offered to allow declining the bearer assignment,
+ * which discards the card.
+ */
+function selectCardBearerActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'select-card-bearer') return [];
+
+  const { cardInstanceId, companyId } = top.kind;
+  const actions: EvaluatedAction[] = [];
+
+  const defPlayer = state.players.find(p =>
+    p.companies.some(co => co.id === companyId),
+  );
+  if (!defPlayer) return [];
+
+  const company = defPlayer.companies.find(co => co.id === companyId);
+  if (!company) return [];
+
+  const cardDefId = resolveInstanceId(state, cardInstanceId);
+  const cardName = cardDefId
+    ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
+    : '?';
+
+  for (const charId of company.characters) {
+    const ch = defPlayer.characters[charId as string];
+    if (!ch || ch.status !== CardStatus.Untapped) continue;
+    logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardName}"`);
+    actions.push({
+      action: {
+        type: 'select-card-bearer',
+        player: actor,
+        cardInstanceId,
+        characterId: charId,
+      },
+      viable: true,
+    });
+  }
+
+  // Always offer a pass so the player can decline and discard the card
+  actions.push({ action: { type: 'pass', player: actor }, viable: true });
+
+  return actions;
 }

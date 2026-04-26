@@ -44,6 +44,7 @@ export type {
   ActivateGrantedAction,
   PlayWizardFromSearchAction,
   SkipWizardSearchAction,
+  SelectCardBearerAction,
 } from './actions-organization.js';
 
 // ---- Short-event actions ----
@@ -129,7 +130,7 @@ export type {
 
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
-import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, PlayWizardFromSearchAction, SkipWizardSearchAction } from './actions-organization.js';
+import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, CancelByTapAction, CancelStrikeAction, HalveStrikesAction, ModifyAttackAction, TapItemForStrikeAction, ModifyAttackFromHandAction, SalvageItemAction, PlayDodgeAction, PlayStrikeEventAction, PlayRerollStrikeAction, MusterRollAction, CallOfHomeRollAction, BodyCheckCompanyRollAction, SeizedByTerrorRollAction, HavenJoinAttackAction, CancelReturnToOriginAction } from './actions-movement-hazard.js';
@@ -171,6 +172,7 @@ export type GameAction =
   | ActivateGrantedAction
   | PlayWizardFromSearchAction
   | SkipWizardSearchAction
+  | SelectCardBearerAction
   | PlayShortEventAction
   | FetchFromPileAction
   | ReshuffleCardFromHandAction

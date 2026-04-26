@@ -398,6 +398,8 @@ export function describeAction(
       return `Play wizard ${action.wizardDefinitionId as string} from ${action.source}`;
     case 'skip-wizard-search':
       return `Skip wizard search`;
+    case 'select-card-bearer':
+      return `Select ${instName(action.characterId)} as bearer of ${instName(action.cardInstanceId)}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
