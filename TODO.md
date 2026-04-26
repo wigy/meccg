@@ -13,6 +13,10 @@ Look for functions that are better implemented in DSL. Have a critical look into
 FIXES
 -----
 
+2026-04-01-permanent-event-chain.md
+
+Check all keywords we have and find all potential mistakes based on card soruce data.
+
 FEATS
 -----
 
@@ -21,10 +25,9 @@ EPICS
 
 (F) Spies and Traitors
 Dark Minions Rules
-  Agents
+  Agents (2026-04-22-agents-plan.md)
 The Lidless eye Rules
-  Company vs Company
-  Detainment attack
+  Company vs Company (2026-04-01-permanent-event-chain.md)
 Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
