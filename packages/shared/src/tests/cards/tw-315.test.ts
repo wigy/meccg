@@ -31,11 +31,13 @@ import {
   buildTestState, makePlayDeck,
   mint, addToPile, makeSitePhase,
   findCharInstanceId, runCardTriggeredAttackCombat,
-  dispatch,
+  dispatch, resolveChain,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction, SelectCardBearerAction } from '../../index.js';
 import { Phase } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+
+const MANY_TURNS_AND_DOUBLINGS = 'td-132' as CardDefinitionId;
 
 const RESCUE_PRISONERS = 'tw-315' as CardDefinitionId;
 
@@ -376,5 +378,74 @@ describe('Rescue Prisoners (tw-315)', () => {
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
     expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+  });
+
+  test('bearer-cannot-untap constraint added when triggered Spider attack is cancelled', () => {
+    // Regression: when Many Turns and Doublings cancels the Spider attack from
+    // Rescue Prisoners, the bearer-cannot-untap constraint must still be added.
+    // Aragorn (ranger) + Gimli in company; Aragorn cancels the Spider attack.
+    // After cancellation: untapped characters remain → select-card-bearer is offered.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS, MANY_TURNS_AND_DOUBLINGS],
+      characters: [ARAGORN, GIMLI],
+    });
+
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+
+    // Play Rescue Prisoners (no pre-selected bearer)
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const action = actions.find(ea => (ea.action as PlayPermanentEventAction).cardInstanceId
+      && (state.players[RESOURCE_PLAYER].hand.find(c => c.instanceId === (ea.action as PlayPermanentEventAction).cardInstanceId)?.definitionId === RESCUE_PRISONERS))?.action as PlayPermanentEventAction;
+    expect(action).toBeDefined();
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
+    expect(afterPlay.combat).not.toBeNull();
+
+    // Cancel the Spider attack with Many Turns and Doublings (Aragorn is the ranger)
+    const cancelActions = viableActions(afterPlay, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBeGreaterThan(0);
+    const afterCancel = dispatch(afterPlay, cancelActions[0].action);
+    const afterChain = resolveChain(afterCancel);
+    expect(afterChain.combat).toBeNull();
+
+    // select-card-bearer resolution must be pending for Rescue Prisoners
+    const bearerActions = viableActions(afterChain, PLAYER_1, 'select-card-bearer');
+    expect(bearerActions.length).toBeGreaterThan(0);
+
+    // Select Gimli as bearer
+    const gimliAction = bearerActions.find(
+      ea => (ea.action as SelectCardBearerAction).characterId === gimliId,
+    );
+    expect(gimliAction).toBeDefined();
+    const afterBearerSelect = dispatch(afterChain, gimliAction!.action);
+
+    // Gimli must be tapped and have bearer-cannot-untap constraint
+    const gimliChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[gimliId as string];
+    expect(gimliChar.status).toBe(CardStatus.Tapped);
+    expect(gimliChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(true);
+    const constraint = afterBearerSelect.activeConstraints.find(
+      c => c.kind.type === 'bearer-cannot-untap'
+        && c.target.kind === 'character'
+        && c.target.characterId === gimliId,
+    );
+    expect(constraint).toBeDefined();
+
+    // During the untap phase, Gimli must remain tapped
+    const inUntap = {
+      ...afterBearerSelect,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: false,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      } as typeof afterBearerSelect.phaseState,
+    };
+    const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[gimliId as string].status).toBe(CardStatus.Tapped);
   });
 });
