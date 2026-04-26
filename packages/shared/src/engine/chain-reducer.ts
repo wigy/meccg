@@ -443,6 +443,41 @@ interface ResolveResult {
 }
 
 /**
+ * After a move that may have discarded cards from cardsInPlay,
+ * cascade discards to any linked cards.
+ *
+ * Crown of Flowers links a paired resource: when either card is discarded
+ * from cardsInPlay, the other must follow immediately.
+ */
+function cascadeLinkedDiscards(stateBefore: GameState, stateAfter: GameState): GameState {
+  let result = stateAfter;
+  for (let pi = 0; pi < 2; pi++) {
+    const before = stateBefore.players[pi].cardsInPlay;
+    const after = stateAfter.players[pi].cardsInPlay;
+    const afterIds = new Set(after.map(c => c.instanceId));
+    for (const card of before) {
+      if (afterIds.has(card.instanceId)) continue; // still in play
+      if (!card.linkedInstanceId) continue; // no link
+      // This card left cardsInPlay and had a link — discard the linked card too
+      const linkedId = card.linkedInstanceId;
+      logDetail(`Cascade discard: ${card.instanceId as string} was discarded with link → discarding linked ${linkedId as string}`);
+      for (let lpi = 0; lpi < 2; lpi++) {
+        const linkedIdx = result.players[lpi].cardsInPlay.findIndex(c => c.instanceId === linkedId);
+        if (linkedIdx < 0) continue;
+        const linkedCard = result.players[lpi].cardsInPlay[linkedIdx];
+        result = updatePlayer(result, lpi, p => ({
+          ...p,
+          cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== linkedId),
+          discardPile: [...p.discardPile, { instanceId: linkedCard.instanceId, definitionId: linkedCard.definitionId }],
+        }));
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Cancel and discard an environment card targeted by a short-event (e.g. Twilight).
  *
  * The target may be in a player's cardsInPlay (hazard permanent events like Doors of Night),
@@ -484,7 +519,8 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
         cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== targetInstanceId),
         discardPile: [...player.discardPile, { instanceId: targetInstanceId, definitionId: removedCard.definitionId }],
       };
-      return { ...state, players: newPlayers };
+      const afterCancel = { ...state, players: newPlayers };
+      return cascadeLinkedDiscards(state, afterCancel);
     }
   }
 
@@ -953,14 +989,27 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           sourceCardId: entry.card!.instanceId,
           sourcePlayerIndex: playerIndex,
         };
+        const stateBefore = newState;
         const r = applyMove(newState, moveEffect, ctx);
         if ('error' in r) {
           logDetail(`move apply failed on self-enters-play: ${r.error}`);
         } else {
-          newState = r.state;
+          newState = cascadeLinkedDiscards(stateBefore, r.state);
         }
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
+      } else if (effect.apply.type === 'offer-resource-play') {
+        const activePlayer = newState.activePlayer ?? entry.declaredBy;
+        newState = enqueueResolution(newState, {
+          source: card.instanceId,
+          actor: activePlayer,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          kind: {
+            type: 'resource-play-offer',
+            linkToInstanceId: card.instanceId,
+          },
+        });
+        logDetail(`"${def?.name ?? card.definitionId as string}" entered play — queued resource-play-offer for player ${activePlayer as string}`);
       }
     }
   }

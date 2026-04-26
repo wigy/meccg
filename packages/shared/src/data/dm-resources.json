@@ -85,7 +85,17 @@
     "eventType": "permanent",
     "keywords": ["environment"],
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-04-26",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "offer-resource-play"
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",

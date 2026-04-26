@@ -255,6 +255,24 @@ export interface PlayPermanentEventAction {
 }
 
 /**
+ * Pair a resource card from hand with an in-play Crown of Flowers, directly
+ * entering the resource into play linked to Crown of Flowers.
+ * Offered under a `resource-play-offer` pending resolution.
+ *
+ * The paired resource is considered to be played and in play as though
+ * Gates of Morning were in play and Doors of Night were not.
+ */
+export interface PairResourceWithCofAction {
+  readonly type: 'pair-resource-with-cof';
+  /** The player performing the pairing. */
+  readonly player: PlayerId;
+  /** The resource card instance from hand to pair with Crown of Flowers. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The Crown of Flowers instance already in play. */
+  readonly cofInstanceId: CardInstanceId;
+}
+
+/**
  * Activate a granted action from a card effect (e.g. tap to attempt
  * to remove an attached hazard permanent event).
  *

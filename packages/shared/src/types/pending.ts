@@ -282,6 +282,18 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Crown of Flowers resource-play offer: the active player may pair
+         * one resource card from their hand with the in-play Crown of Flowers.
+         * The paired resource enters play linked to Crown of Flowers, and is
+         * treated as if Gates of Morning were in play and Doors of Night were not.
+         * The player may also pass (leaving Crown of Flowers with no paired resource).
+         */
+        readonly type: 'resource-play-offer';
+        /** The Crown of Flowers instance that created this offer. */
+        readonly linkToInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * The Windlord Found Me (dm-164): when stored at a Haven, if the
          * resource player's Wizard is not already in play, they may search
          * their play deck or discard pile for a Wizard and play him at that

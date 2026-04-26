@@ -392,6 +392,8 @@ export function describeAction(
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
     case 'select-forewarned-attack':
       return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
+    case 'pair-resource-with-cof':
+      return `Pair ${instName(action.cardInstanceId)} with Crown of Flowers (${instName(action.cofInstanceId)})`;
     case 'play-wizard-from-search':
       return `Play wizard ${action.wizardDefinitionId as string} from ${action.source}`;
     case 'skip-wizard-search':
