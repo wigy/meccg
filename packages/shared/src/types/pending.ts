@@ -279,6 +279,19 @@ export interface PendingResolution {
         readonly modifier: number;
         /** Definition ID of the source hazard card (for UI / logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * The Windlord Found Me (dm-164): when stored at a Haven, if the
+         * resource player's Wizard is not already in play, they may search
+         * their play deck or discard pile for a Wizard and play him at that
+         * Haven. This does not count toward the one-character-per-turn limit.
+         */
+        readonly type: 'wizard-search-on-store';
+        /** The haven site instance ID where the wizard will be played. */
+        readonly havenSiteInstanceId: CardInstanceId;
+        /** The company at that haven (wizard joins this company). */
+        readonly companyId: CompanyId;
       };
 }
 

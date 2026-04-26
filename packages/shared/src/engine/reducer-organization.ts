@@ -6,8 +6,8 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -521,6 +521,40 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
         },
       }),
     };
+  }
+
+  // fetch-wizard-on-store: The Windlord Found Me triggers a wizard-search
+  // window when stored if the resource player's Wizard is not already in play.
+  const fetchWizardEffect = itemDef && 'effects' in itemDef
+    ? (itemDef.effects as FetchWizardOnStoreEffect[]).find(e => e.type === 'fetch-wizard-on-store')
+    : undefined;
+  if (fetchWizardEffect) {
+    const wizardInPlay = Object.values(stateAfterCheck.players[playerIndex].characters).some(ch => {
+      const chDefId = resolveInstanceId(stateAfterCheck, ch.instanceId);
+      const chDef = chDefId ? stateAfterCheck.cardPool[chDefId as string] : undefined;
+      return chDef && isCharacterCard(chDef) && isAvatarCharacter(chDef);
+    });
+    if (!wizardInPlay) {
+      const company = player.companies.find(c => c.characters.includes(charId));
+      const havenSiteInstanceId = company?.currentSite?.instanceId;
+      if (company && havenSiteInstanceId) {
+        logDetail(`The Windlord Found Me: Wizard not in play — opening wizard-search window at ${company.currentSite?.definitionId as string ?? '?'}`);
+        return {
+          state: enqueueResolution(stateAfterCheck, {
+            source: itemInstId,
+            actor: action.player,
+            scope: { kind: 'phase', phase: Phase.Organization },
+            kind: {
+              type: 'wizard-search-on-store',
+              havenSiteInstanceId,
+              companyId: company.id,
+            },
+          }),
+        };
+      }
+    } else {
+      logDetail(`The Windlord Found Me: Wizard already in play — skipping wizard-search window`);
+    }
   }
 
   return { state: stateAfterCheck };

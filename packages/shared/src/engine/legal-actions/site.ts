@@ -547,6 +547,32 @@ function playResourcesActions(
           }
         }
 
+        // duplication-limit: scope "player" — one copy per player across all their characters
+        const playerDupLimit = eventDef.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
+          if (e.type !== 'duplication-limit') return false;
+          return e.scope === 'player';
+        });
+        if (playerDupLimit) {
+          const copiesForPlayer = Object.values(player.characters).reduce(
+            (count, ch) =>
+              count +
+              ch.items.filter(item => {
+                const iDef = state.cardPool[item.definitionId as string];
+                return iDef && iDef.name === eventDef.name;
+              }).length,
+            0,
+          );
+          if (copiesForPlayer >= playerDupLimit.max) {
+            logDetail(`Permanent event ${eventDef.name}: cannot be duplicated by this player (${copiesForPlayer}/${playerDupLimit.max} held)`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name}: already held by this player`,
+            });
+            continue;
+          }
+        }
+
         // play-flag: "tapped-site-only" — card may only be played at an already-tapped site
         if (hasPlayFlag(eventDef, 'tapped-site-only') && !siteIsTapped) {
           logDetail(`Permanent event ${eventDef.name}: requires already-tapped site, but site is untapped`);
@@ -554,6 +580,17 @@ function playResourcesActions(
             action: { type: 'not-playable', player: playerId, cardInstanceId },
             viable: false,
             reason: `${eventDef.name}: site must be tapped`,
+          });
+          continue;
+        }
+
+        // play-flag: "untapped-site-required" — card may only be played at an untapped site
+        if (hasPlayFlag(eventDef, 'untapped-site-required') && siteIsTapped) {
+          logDetail(`Permanent event ${eventDef.name}: requires untapped site, but site is already tapped`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${eventDef.name}: site must be untapped`,
           });
           continue;
         }
