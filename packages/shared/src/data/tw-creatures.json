@@ -587,7 +587,21 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["wilderness", "shadow", "dark"] },
+      { "siteTypes": ["shadow-hold", "dark-hold"] }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "creature-attack-begins",
+        "apply": {
+          "type": "force-check-all-company",
+          "check": "corruption"
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-creature",

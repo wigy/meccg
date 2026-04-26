@@ -697,12 +697,24 @@ function playHazardsActions(
                   const possessionNames = charData.items
                     .map(item => state.cardPool[item.definitionId as string]?.name)
                     .filter((n): n is string => n != null);
+                  const itemKeywords = charData.items.flatMap(item => {
+                    const iDef = state.cardPool[item.definitionId as string];
+                    return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+                  });
+                  const itemSubtypes = charData.items
+                    .map(item => {
+                      const iDef = state.cardPool[item.definitionId as string];
+                      return iDef && 'subtype' in iDef ? (iDef as { subtype?: string }).subtype : undefined;
+                    })
+                    .filter((s): s is string => s != null);
                   const ctx = {
                     target: {
                       race: charDef.race,
                       skills: charDef.skills,
                       name: charDef.name,
                       possessions: possessionNames,
+                      itemKeywords,
+                      itemSubtypes,
                     },
                   };
                   if (!matchesCondition(shortPlayTarget.filter, ctx)) {
@@ -851,6 +863,12 @@ function playHazardsActions(
                   const iDef = state.cardPool[item.definitionId as string];
                   return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
                 });
+                const itemSubtypes = charData.items
+                  .map(item => {
+                    const iDef = state.cardPool[item.definitionId as string];
+                    return iDef && 'subtype' in iDef ? (iDef as { subtype?: string }).subtype : undefined;
+                  })
+                  .filter((s): s is string => s != null);
                 const ctx = {
                   target: {
                     race: charDef.race,
@@ -859,6 +877,7 @@ function playHazardsActions(
                     mind: charDef.mind,
                     possessions: possessionNames,
                     itemKeywords,
+                    itemSubtypes,
                   },
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {

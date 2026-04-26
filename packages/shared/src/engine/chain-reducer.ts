@@ -14,7 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -22,7 +22,7 @@ import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { addConstraint, enqueueResolution } from './pending.js';
+import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
@@ -1262,7 +1262,37 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }],
   };
 
-  return { ...state, players: newPlayers, combat };
+  let finalState: GameState = { ...state, players: newPlayers, combat };
+
+  // Scan for on-event: creature-attack-begins → force-check-all-company
+  // (e.g. Corpse-candle). The attack was not canceled — enqueue a corruption
+  // check for every character in the defending company before defender selection.
+  if (creatureDef.effects) {
+    for (const effect of creatureDef.effects) {
+      if (effect.type !== 'on-event') continue;
+      const onEvent: OnEventEffect = effect;
+      if (onEvent.event !== 'creature-attack-begins') continue;
+      if (onEvent.apply.type !== 'force-check-all-company') continue;
+      if (onEvent.apply.check !== 'corruption') continue;
+      const scope = state.phaseState.phase === Phase.MovementHazard
+        ? { kind: 'company-mh-subphase' as const, companyId: company.id }
+        : { kind: 'company-site-subphase' as const, companyId: company.id };
+      const modifier = onEvent.apply.modifier ?? 0;
+      logDetail(`${creatureDef.name} (creature-attack-begins): enqueueing corruption check for all ${company.characters.length} character(s) in company`);
+      for (const charInstanceId of company.characters) {
+        finalState = enqueueCorruptionCheck(finalState, {
+          source: entry.card!.instanceId,
+          actor: state.activePlayer!,
+          scope,
+          characterId: charInstanceId,
+          modifier,
+          reason: creatureDef.name,
+        });
+      }
+    }
+  }
+
+  return finalState;
 }
 
 /**
@@ -1412,6 +1442,48 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         },
       });
       return { state: current, needsInput: true };
+    }
+  }
+
+  // Hazard short events with play-target cost: corruption check (e.g. Dragon-sickness).
+  // When the chain entry resolves, enqueue a corruption check on the targeted character.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const playTargetWithCostCorruption = cardDef && 'effects' in cardDef
+      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.cost?.check === 'corruption',
+      )
+      : undefined;
+    if (playTargetWithCostCorruption) {
+      const targetCharId = entry.payload.targetCharacterId;
+      const modifier = playTargetWithCostCorruption.cost?.modifier ?? 0;
+      const resourcePlayerId = current.activePlayer!;
+      let possessions: CardInstanceId[] = [];
+      for (const p of current.players) {
+        const charData = p.characters[targetCharId as string];
+        if (charData) {
+          possessions = [
+            ...charData.items.map(i => i.instanceId),
+            ...charData.allies.map(a => a.instanceId),
+            ...charData.hazards.map(h => h.instanceId),
+          ];
+          break;
+        }
+      }
+      const cardName = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
+      logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}) for character ${targetCharId as string}`);
+      current = enqueueCorruptionCheck(current, {
+        source: entry.card.instanceId,
+        actor: resourcePlayerId,
+        scope: { kind: 'phase', phase: Phase.MovementHazard },
+        characterId: targetCharId,
+        reason: cardName,
+        modifier,
+        possessions,
+      });
     }
   }
 
