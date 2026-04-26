@@ -14,18 +14,15 @@
  *    keyed to Wilderness [{w}]."
  *
  * Engine Support:
- * | # | Feature                                         | Status          | Notes                                        |
- * |---|-------------------------------------------------|-----------------|----------------------------------------------|
- * | 1 | Unique — only one copy allowed                  | IMPLEMENTED     | standard uniqueness check                    |
- * | 2 | Playable at Old Forest (name-matched)           | IMPLEMENTED     | playableAt [{site:"Old Forest"}]             |
- * | 3 | May not be attacked (no strike assignment)      | IMPLEMENTED     | combat-protection: no-attack                 |
- * | 4 | Cancel return-to-site-of-origin chain entry     | NOT IMPLEMENTED | hazard return-to-origin mechanic not in engine |
- * | 5 | Cancel attack keyed to Wilderness [{w}]         | IMPLEMENTED     | cancel-attack with attack.keying condition   |
+ * | # | Feature                                         | Status      | Notes                                        |
+ * |---|-------------------------------------------------|-------------|----------------------------------------------|
+ * | 1 | Unique — only one copy allowed                  | IMPLEMENTED | standard uniqueness check                    |
+ * | 2 | Playable at Old Forest (name-matched)           | IMPLEMENTED | playableAt [{site:"Old Forest"}]             |
+ * | 3 | May not be attacked (no strike assignment)      | IMPLEMENTED | combat-protection: no-attack                 |
+ * | 4 | Cancel return-to-site-of-origin chain entry     | IMPLEMENTED | cancel-chain-return-to-origin + force-return-to-origin |
+ * | 5 | Cancel attack keyed to Wilderness [{w}]         | IMPLEMENTED | cancel-attack with attack.keying condition   |
  *
- * Playable: PARTIALLY — rule 4 (cancel return-to-origin) is not implemented
- * because no hazard cards currently set the return-to-origin chain mechanic.
- *
- * NOT CERTIFIED.
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -35,6 +32,8 @@ import {
   viableActions,
   findCharInstanceId,
   makeSitePhase,
+  makeMHState,
+  mint,
   PLAYER_1, PLAYER_2,
   ARAGORN, FRODO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -46,13 +45,18 @@ import type {
   CardDefinitionId,
   CardInstanceId,
   CancelAttackAction,
+  CancelReturnToOriginAction,
   CombatState,
   AssignStrikeAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import { reduce } from '../../engine/reducer.js';
+import { initiateChain } from '../../engine/chain-reducer.js';
 
 const GOLDBERRY = 'tw-245' as CardDefinitionId;
 const OLD_FOREST = 'tw-417' as CardDefinitionId;
+const SNOWSTORM = 'tw-91' as CardDefinitionId;
+const FOUL_FUMES = 'tw-36' as CardDefinitionId;
 
 describe('Goldberry (tw-245)', () => {
   beforeEach(() => resetMint());
@@ -111,9 +115,7 @@ describe('Goldberry (tw-245)', () => {
       strikesTotal: 2,
     });
 
-    // Advance to assign-strikes (defender phase) — combat is already there
     const goldberryId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    // We need Goldberry's instance, not Aragorn's. Get it from the character data.
     const aragornData = withCombat.players[RESOURCE_PLAYER].characters[goldberryId as string];
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
@@ -136,7 +138,6 @@ describe('Goldberry (tw-245)', () => {
       ],
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
-    // Build combat with 2 strikes, Aragorn already assigned one — attacker gets the remaining
     const withDefenderCombat = makeCancelWindowCombat(withGoldberry, {
       creatureRace: 'orc',
       attackKeying: [RegionType.Wilderness],
@@ -148,7 +149,6 @@ describe('Goldberry (tw-245)', () => {
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
-    // Simulate: Aragorn assigned one strike, now attacker phase
     const combat: CombatState = {
       ...withDefenderCombat.combat!,
       strikeAssignments: [
@@ -167,9 +167,6 @@ describe('Goldberry (tw-245)', () => {
   });
 
   test('non-protected allies can still be assigned strikes (protection is not blanket)', () => {
-    // FRODO's company, no Goldberry — a normal Orc Patrol ally would be targetable.
-    // We use Aragorn alone to verify the baseline: Aragorn is a character, not an ally,
-    // so this confirms the protection only affects Goldberry and not all party members.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -186,7 +183,6 @@ describe('Goldberry (tw-245)', () => {
 
     const assignActions = computeLegalActions(withCombat, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'assign-strike');
-    // Aragorn and Frodo are both valid targets (no combat-protection)
     expect(assignActions.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -256,7 +252,7 @@ describe('Goldberry (tw-245)', () => {
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
       creatureRace: 'orc',
-      attackKeying: [],  // no keying
+      attackKeying: [],
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
@@ -290,7 +286,6 @@ describe('Goldberry (tw-245)', () => {
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
-    // Tap Goldberry before computing actions
     const tappedGoldberry = { ...aragornData.allies[0], status: CardStatus.Tapped };
     const updatedChars = {
       ...withCombat.players[RESOURCE_PLAYER].characters,
@@ -313,5 +308,184 @@ describe('Goldberry (tw-245)', () => {
 
   // ─── Cancel return-to-site-of-origin ─────────────────────────────────────
 
-  test.todo('Goldberry can cancel a hazard effect that would return her company to site of origin — NOT IMPLEMENTED: return-to-origin chain mechanic requires hazard cards to be tagged with a return-to-origin marker, which is not yet in the engine');
+  test('cancel-return-to-origin IS offered when Snowstorm is an unresolved chain entry', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
+
+    const snowstormCard = { instanceId: mint(), definitionId: SNOWSTORM };
+    const withChain = initiateChain(
+      { ...withGoldberry, phaseState: makeMHState() },
+      PLAYER_2,
+      snowstormCard,
+      { type: 'long-event' },
+    );
+
+    // After P2 initiates the chain, P1 (resource player) has priority
+    expect(withChain.chain!.priority).toBe(PLAYER_1);
+
+    const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    expect(goldberryInstanceId).toBeDefined();
+
+    const cancelActions = computeLegalActions(withChain, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'cancel-return-to-origin')
+      .map(ea => ea.action as CancelReturnToOriginAction);
+
+    expect(cancelActions.some(a => a.allyInstanceId === goldberryInstanceId
+      && a.targetInstanceId === snowstormCard.instanceId)).toBe(true);
+  });
+
+  test('cancel-return-to-origin IS offered when Foul Fumes is an unresolved chain entry', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
+
+    const foulFumesCard = { instanceId: mint(), definitionId: FOUL_FUMES };
+    const withChain = initiateChain(
+      { ...withGoldberry, phaseState: makeMHState() },
+      PLAYER_2,
+      foulFumesCard,
+      { type: 'long-event' },
+    );
+
+    const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    expect(goldberryInstanceId).toBeDefined();
+
+    const cancelActions = computeLegalActions(withChain, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'cancel-return-to-origin')
+      .map(ea => ea.action as CancelReturnToOriginAction);
+
+    expect(cancelActions.some(a => a.allyInstanceId === goldberryInstanceId
+      && a.targetInstanceId === foulFumesCard.instanceId)).toBe(true);
+  });
+
+  test('tapped Goldberry cannot cancel a return-to-origin chain entry', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
+
+    const snowstormCard = { instanceId: mint(), definitionId: SNOWSTORM };
+    const withChain = initiateChain(
+      { ...withGoldberry, phaseState: makeMHState() },
+      PLAYER_2,
+      snowstormCard,
+      { type: 'long-event' },
+    );
+
+    // Tap Goldberry before computing actions
+    const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
+    const aragornData = withChain.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const tappedGoldberry = { ...aragornData.allies[0], status: CardStatus.Tapped };
+    const updatedChars = {
+      ...withChain.players[RESOURCE_PLAYER].characters,
+      [aragornId as string]: { ...aragornData, allies: [tappedGoldberry] },
+    };
+    const tappedState = {
+      ...withChain,
+      players: [
+        { ...withChain.players[RESOURCE_PLAYER], characters: updatedChars },
+        withChain.players[HAZARD_PLAYER],
+      ] as unknown as typeof withChain.players,
+    };
+
+    const cancelActions = computeLegalActions(tappedState, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'cancel-return-to-origin');
+
+    expect(cancelActions).toHaveLength(0);
+  });
+
+  test('cancel-return-to-origin is NOT offered when chain entry has no force-return-to-origin tag', () => {
+    // Use an ordinary creature (Orc) on the chain — no force-return-to-origin effect
+    const CAVE_DRAKE = 'tw-18' as CardDefinitionId; // Call of Home — a short event, no return-to-origin tag
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
+
+    // Use a hazard card that does NOT have force-return-to-origin
+    const ordinaryHazard = { instanceId: mint(), definitionId: CAVE_DRAKE };
+    const withChain = initiateChain(
+      { ...withGoldberry, phaseState: makeMHState() },
+      PLAYER_2,
+      ordinaryHazard,
+      { type: 'short-event' },
+    );
+
+    const cancelActions = computeLegalActions(withChain, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'cancel-return-to-origin');
+
+    expect(cancelActions).toHaveLength(0);
+  });
+
+  test('dispatching cancel-return-to-origin taps Goldberry and negates the chain entry', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
+
+    const snowstormCard = { instanceId: mint(), definitionId: SNOWSTORM };
+    const withChain = initiateChain(
+      { ...withGoldberry, phaseState: makeMHState() },
+      PLAYER_2,
+      snowstormCard,
+      { type: 'long-event' },
+    );
+
+    const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+
+    const action: CancelReturnToOriginAction = {
+      type: 'cancel-return-to-origin',
+      player: PLAYER_1,
+      allyInstanceId: goldberryInstanceId,
+      targetInstanceId: snowstormCard.instanceId,
+    };
+
+    const result = reduce(withChain, action);
+    expect(result.error).toBeUndefined();
+
+    // Goldberry must be tapped
+    const goldberryAfter = result.state.players[RESOURCE_PLAYER]
+      .characters[aragornId as string]?.allies[0];
+    expect(goldberryAfter?.status).toBe(CardStatus.Tapped);
+
+    // The chain entry must be negated
+    const snowstormEntry = result.state.chain!.entries.find(
+      e => e.card?.instanceId === snowstormCard.instanceId,
+    );
+    expect(snowstormEntry?.negated).toBe(true);
+
+    // Priority must have flipped to opponent
+    expect(result.state.chain!.priority).toBe(PLAYER_2);
+  });
 });

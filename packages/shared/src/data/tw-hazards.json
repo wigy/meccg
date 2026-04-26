@@ -547,7 +547,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FoulFumes.jpg",
     "text": "Environment. Each moving company that has a Shadow-land [{s}] or a Dark-domain [{d}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven site in play with a Shadow-land [{s}] or a Dark-domain [{d}] in its site path is tapped. This card has no effect on a minion player. Cannot be duplicated.",
     "unique": false,
-    "eventType": "long"
+    "eventType": "long",
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": {
+          "$or": [
+            { "sitePath.shadowCount": { "$gte": 1 } },
+            { "sitePath.darkCount": { "$gte": 1 } }
+          ]
+        },
+        "rangerException": true
+      }
+    ]
   },
   {
     "cardType": "hazard-event",
@@ -556,7 +568,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Snowstorm.jpg",
     "text": "Environment. Playable if Doors of Night is in play. Each moving company with a Wilderness [{w}] in its site path must return to its site of origin. Cannot be duplicated.",
     "unique": false,
-    "eventType": "long"
+    "eventType": "long",
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": { "sitePath.wildernessCount": { "$gte": 1 } }
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

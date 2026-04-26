@@ -12,7 +12,7 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
@@ -145,6 +145,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleOrderPassives(state, chain, action);
     case 'reveal-on-guard':
       return handleChainRevealOnGuard(state, chain, action);
+    case 'cancel-return-to-origin':
+      return handleCancelReturnToOrigin(state, chain, action);
     default:
       return { state, error: `Unexpected chain action: ${action.type}` };
   }
@@ -294,6 +296,82 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
   newState = pushChainEntry(newState, action.player, cardInstance, payload);
 
   return { state: newState };
+}
+
+/**
+ * Handles a `cancel-return-to-origin` action: taps the ally (Goldberry) and
+ * marks the target chain entry as negated. Priority then flips to the opponent
+ * so they may respond — following the same pattern as `pushChainEntry`.
+ */
+function handleCancelReturnToOrigin(
+  state: GameState,
+  chain: ChainState,
+  action: CancelReturnToOriginAction,
+): ReducerResult {
+  logHeading(`Chain: cancel-return-to-origin by player ${action.player as string}`);
+
+  if (chain.mode !== 'declaring') {
+    return { state, error: 'cancel-return-to-origin: chain is not in declaring mode' };
+  }
+  if (action.player !== chain.priority) {
+    return { state, error: 'cancel-return-to-origin: player does not have priority' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const mhState = state.phaseState as import('../index.js').MovementHazardPhaseState;
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'cancel-return-to-origin: active company not found' };
+
+  // Tap the ally
+  let tapped = false;
+  const updatedChars = { ...player.characters };
+  for (const charId of company.characters) {
+    const charData = updatedChars[charId as string];
+    if (!charData) continue;
+    const allyIdx = charData.allies.findIndex(a => a.instanceId === action.allyInstanceId);
+    if (allyIdx === -1) continue;
+    const newAllies = [...charData.allies];
+    newAllies[allyIdx] = { ...newAllies[allyIdx], status: CardStatus.Tapped };
+    updatedChars[charId as string] = { ...charData, allies: newAllies };
+    const allyName = (state.cardPool[newAllies[allyIdx].definitionId as string] as { name?: string })?.name
+      ?? (action.allyInstanceId as string);
+    logDetail(`cancel-return-to-origin: tapping ${allyName}`);
+    tapped = true;
+    break;
+  }
+  if (!tapped) return { state, error: 'cancel-return-to-origin: ally not found in active company' };
+
+  // Negate the target chain entry
+  const entryIdx = chain.entries.findIndex(
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (entryIdx === -1) return { state, error: 'cancel-return-to-origin: target chain entry not found' };
+
+  const targetName = (state.cardPool[chain.entries[entryIdx].card!.definitionId as string] as { name?: string })?.name
+    ?? (action.targetInstanceId as string);
+  logDetail(`cancel-return-to-origin: negating chain entry "${targetName}"`);
+
+  const newEntries = chain.entries.map((e, i) =>
+    i === entryIdx ? { ...e, negated: true } : e,
+  );
+
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = { ...player, characters: updatedChars };
+
+  // Flip priority to opponent so they may respond
+  const newPriority = state.players[0].id === action.player ? state.players[1].id : state.players[0].id;
+  logDetail(`cancel-return-to-origin: priority flips to ${newPriority as string}`);
+
+  const newChain: ChainState = {
+    ...chain,
+    entries: newEntries,
+    priority: newPriority,
+    priorityPlayerPassed: false,
+    nonPriorityPlayerPassed: false,
+  };
+
+  return { state: { ...state, players: newPlayers, chain: newChain } };
 }
 
 /**

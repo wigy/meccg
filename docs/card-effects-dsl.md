@@ -2028,3 +2028,57 @@ Used by *Rescue Prisoners* (tw-315):
 ```json
 { "type": "trigger-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
 ```
+
+### 36. `force-return-to-origin`
+
+Tags a hazard long-event (environment) whose resolution causes any moving
+company satisfying the optional `condition` to return to its site of origin.
+
+This tag is **consumed by the chain engine** (not an enforcement mechanism
+itself): when an ally with `cancel-chain-return-to-origin` looks for valid
+targets, it matches unresolved chain entries whose source card carries this
+effect. The actual enforcement of the return is handled separately in the
+order-effects resolution path (rule-5.31, currently `test.todo`).
+
+Fields:
+- `condition?: Condition` — evaluated against company site-path context
+  (`sitePath.wildernessCount`, `sitePath.shadowCount`, `sitePath.darkCount`,
+  etc.). If absent, always applies.
+- `rangerException?: boolean` — if true, a company containing at least one
+  ranger is exempt from returning.
+
+Used by *Snowstorm* (tw-91), *Foul Fumes* (tw-36), *Long Winter* (le-117).
+
+```json
+{ "type": "force-return-to-origin",
+  "condition": { "sitePath.wildernessCount": { "$gte": 1 } } }
+
+{ "type": "force-return-to-origin",
+  "condition": { "$or": [{ "sitePath.shadowCount": { "$gte": 1 } },
+                         { "sitePath.darkCount": { "$gte": 1 } }] },
+  "rangerException": true }
+```
+
+### 37. `cancel-chain-return-to-origin`
+
+In-play ally ability: tap this ally during the M/H chain declaring window
+to negate an unresolved chain entry that carries a `force-return-to-origin`
+effect and would apply to the ally's company.
+
+Only the resource (active) player may use this ability. Only untapped allies
+qualify. One `cancel-return-to-origin` action is emitted per eligible (ally,
+target entry) pair.
+
+Fields:
+- `cost: { tap: "self" }` — tapping the ally is the cost.
+
+Implementation: `legal-actions/chain.ts` `cancelReturnToOriginChainActions()`
+emits the legal actions. `chain-reducer.ts` `handleCancelReturnToOrigin()`
+taps the ally, marks the chain entry as `negated: true`, and flips priority
+to the opponent.
+
+Used by *Goldberry* (tw-245).
+
+```json
+{ "type": "cancel-chain-return-to-origin", "cost": { "tap": "self" } }
+```

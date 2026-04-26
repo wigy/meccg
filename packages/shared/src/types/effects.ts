@@ -1631,6 +1631,38 @@ export interface CombatProtectionEffect extends EffectBase {
 }
 
 /**
+ * Tags a hazard long-event (environment) whose resolution causes any moving
+ * company satisfying `condition` to return to its site of origin.
+ *
+ * This tag is consumed by the chain engine to identify which unresolved
+ * chain entries an ally with `cancel-chain-return-to-origin` may target.
+ * It does NOT itself enforce the return — that enforcement is handled
+ * separately in the order-effects resolution path.
+ *
+ * Used by Snowstorm (tw-91), Foul Fumes (tw-36), Long Winter (le-117).
+ */
+export interface ForceReturnToOriginEffect extends EffectBase {
+  readonly type: 'force-return-to-origin';
+  /** Company-context condition that must hold for the effect to apply. */
+  readonly condition?: Condition;
+  /** If true, a company containing at least one ranger is exempt. */
+  readonly rangerException?: boolean;
+}
+
+/**
+ * In-play ally ability: tap this ally during the M/H chain declaring window
+ * to negate an unresolved chain entry that carries a `force-return-to-origin`
+ * effect and would apply to the ally's company.
+ *
+ * Used by Goldberry (tw-245). Modelled parallel to `cancel-attack` but fires
+ * during chain declaring, not the combat pre-assignment window.
+ */
+export interface CancelChainReturnToOriginEffect extends EffectBase {
+  readonly type: 'cancel-chain-return-to-origin';
+  readonly cost: { readonly tap: 'self' };
+}
+
+/**
  * Zone reference for {@link MoveEffect}. Identifies where to locate
  * source card instances and where to push them after the move.
  *
@@ -1755,4 +1787,6 @@ export type CardEffect =
   | MoveEffect
   | WoundTargetCharacterEffect
   | AutoAttackRaceDuplicateEffect
-  | TriggerAttackOnPlayEffect;
+  | TriggerAttackOnPlayEffect
+  | ForceReturnToOriginEffect
+  | CancelChainReturnToOriginEffect;

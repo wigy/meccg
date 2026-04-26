@@ -388,6 +388,8 @@ export function describeAction(
       return `Body check (${action.explanation})`;
     case 'haven-join-attack':
       return `${instName(action.characterId)} joins attacked company from haven`;
+    case 'cancel-return-to-origin':
+      return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
