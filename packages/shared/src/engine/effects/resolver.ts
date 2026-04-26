@@ -185,15 +185,35 @@ export function collectGlobalEffects(
   context: ResolverContext,
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
+  const baseRecordContext = context as unknown as Record<string, unknown>;
 
   // Both players' cards in play (events, factions, permanent resources, etc.)
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = resolveDef(state, card.instanceId);
       if (!def || !('effects' in def) || !def.effects) continue;
+
+      // Build a card-specific condition context if the card has linked
+      // GoM/DoN overrides (Crown of Flowers pairing). The paired resource
+      // sees "Gates of Morning" as in-play and "Doors of Night" as absent,
+      // regardless of the actual in-play events.
+      let conditionContext: Record<string, unknown>;
+      if ((card.assumeInPlay && card.assumeInPlay.length > 0) ||
+          (card.assumeNotInPlay && card.assumeNotInPlay.length > 0)) {
+        const baseInPlay = (baseRecordContext.inPlay as readonly string[] | undefined) ?? [];
+        let adjusted = [...baseInPlay];
+        for (const name of card.assumeInPlay ?? []) {
+          if (!adjusted.includes(name)) adjusted.push(name);
+        }
+        adjusted = adjusted.filter(n => !(card.assumeNotInPlay ?? []).includes(n));
+        conditionContext = { ...baseRecordContext, inPlay: adjusted };
+      } else {
+        conditionContext = baseRecordContext;
+      }
+
       for (const effect of def.effects) {
         if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
-        if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
+        if (effect.when && !matchesCondition(effect.when, conditionContext)) {
           continue;
         }
         results.push({ effect, sourceDef: def, sourceInstance: card.instanceId });

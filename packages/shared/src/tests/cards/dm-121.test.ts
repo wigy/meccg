@@ -2,8 +2,8 @@
  * @module dm-121.test
  *
  * Card test: Crown of Flowers (dm-121)
- * Type: hero-resource-event (permanent)
- * Keyword: environment
+ * Type: hero-resource-event (permanent, environment)
+ * Keywords: environment
  *
  * "Environment. Crown of Flowers has no effect until you play a resource with
  * it. You can play one resource from your hand with this card. The resource is
@@ -13,30 +13,13 @@
  * of Flowers when the resource is discarded. Discard the resource if Crown of
  * Flowers is discarded."
  *
- * | # | Effect Type              | Status          | Notes                                 |
- * |---|--------------------------|-----------------|---------------------------------------|
- * | 1 | [play-resource-with]     | NOT IMPLEMENTED | No DSL type for "play resource with   |
- * |   |                          |                 | this card" mechanic                   |
- * | 2 | [gates-of-morning-scope] | NOT IMPLEMENTED | No per-card scoped environment        |
- * |   |                          |                 | override mechanic in DSL or engine    |
- * | 3 | [linked-discard]         | NOT IMPLEMENTED | Bidirectional card-link discard not   |
- * |   |                          |                 | present in DSL or engine              |
+ * | # | Effect Type                  | Status | Notes                                          |
+ * |---|------------------------------|--------|------------------------------------------------|
+ * | 1 | on-event/offer-resource-play | OK     | Pending resolution offered when CoF plays      |
+ * | 2 | assumeInPlay/assumeNotInPlay | OK     | Paired resource evaluates as if GoM in play    |
+ * | 3 | linkedInstanceId cascade     | OK     | Mutual discard when either card is discarded   |
  *
- * Playable: NO — core mechanics require new engine capabilities.
- *
- * NOT CERTIFIED — the following rules are not tested due to missing engine
- * support:
- * - Playing a resource from hand simultaneously with this card
- * - Treating the paired resource as if Gates of Morning were in play
- * - Discarding Crown of Flowers when the paired resource is discarded
- * - Discarding the paired resource when Crown of Flowers is discarded
- *
- * Tested rules (partial coverage only):
- * 1. Card is playable as a permanent event during the site phase.
- * 2. After chain resolution, the card appears in the resource player's
- *    cardsInPlay.
- * 3. The "environment" keyword is present: Doors of Night discards Crown of
- *    Flowers when it enters play (Environment keyword interaction).
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -44,14 +27,16 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
-  DOORS_OF_NIGHT,
+  DOORS_OF_NIGHT, SUN,
   buildTestState, buildSitePhaseState, resetMint, resolveChain,
   viableActions, handCardId, addCardInPlay, dispatch, companyIdAt,
   makeMHState,
   RESOURCE_PLAYER, HAZARD_PLAYER,
+  pushCardInPlay, mint,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, CardInPlay } from '../../index.js';
+import { CardStatus } from '../../index.js';
 
 const CROWN_OF_FLOWERS = 'dm-121' as CardDefinitionId;
 
@@ -70,23 +55,132 @@ describe('Crown of Flowers (dm-121)', () => {
     expect(playActions).toHaveLength(1);
   });
 
-  test('enters cardsInPlay after chain resolves', () => {
+  test('after chain resolves, enters cardsInPlay and queues resource-play-offer', () => {
     const state = buildSitePhaseState({
       site: MORIA,
       hand: [CROWN_OF_FLOWERS],
     });
 
     const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(playActions).toHaveLength(1);
-
     const afterPlay = dispatch(state, playActions[0].action);
     const resolved = resolveChain(afterPlay);
 
-    const cardId = state.players[0].hand[0].instanceId;
-    expect(resolved.players[0].cardsInPlay.some(c => c.instanceId === cardId)).toBe(true);
+    expect(resolved.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(1);
+    const resourcePlayOffer = resolved.pendingResolutions.find(
+      r => r.kind.type === 'resource-play-offer',
+    );
+    expect(resourcePlayOffer).toBeDefined();
   });
 
-  test('Environment keyword: Doors of Night discards Crown of Flowers', () => {
+  test('player can pass the resource-play-offer (CoF stays in play alone)', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      hand: [CROWN_OF_FLOWERS],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    const passActions = viableActions(resolved, PLAYER_1, 'pass');
+    expect(passActions).toHaveLength(1);
+    const afterPass = dispatch(resolved, passActions[0].action);
+    expect(afterPass.pendingResolutions.filter(r => r.kind.type === 'resource-play-offer')).toHaveLength(0);
+    expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(1);
+  });
+
+  test('player can pair a resource from hand with CoF', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      hand: [CROWN_OF_FLOWERS, SUN],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    const pairActions = viableActions(resolved, PLAYER_1, 'pair-resource-with-cof');
+    expect(pairActions).toHaveLength(1);
+
+    const afterPair = dispatch(resolved, pairActions[0].action);
+
+    // CoF and the paired resource are both in cardsInPlay
+    expect(afterPair.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(2);
+    // Resource was removed from hand
+    expect(afterPair.players[RESOURCE_PLAYER].hand).toHaveLength(0);
+
+    // The paired Sun has linked context (GoM assumed in, DoN assumed out)
+    const sunInPlay = afterPair.players[RESOURCE_PLAYER].cardsInPlay.find(
+      c => c.definitionId === SUN,
+    ) as CardInPlay;
+    expect(sunInPlay).toBeDefined();
+    expect(sunInPlay.assumeInPlay).toContain('Gates of Morning');
+    expect(sunInPlay.assumeNotInPlay).toContain('Doors of Night');
+
+    // CoF is also linked back to the resource
+    const cofInPlay = afterPair.players[RESOURCE_PLAYER].cardsInPlay.find(
+      c => c.definitionId === CROWN_OF_FLOWERS,
+    ) as CardInPlay;
+    expect(cofInPlay.linkedInstanceId).toBe(sunInPlay.instanceId);
+  });
+
+  test('discarding CoF also discards the paired resource (cascade)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState();
+    const stateWithMH = { ...base, phaseState: mhState };
+
+    // Add CoF and a paired resource (Sun) to cardsInPlay with mutual links
+    const cofId = mint();
+    const sunId = mint();
+    const cofCard: CardInPlay = {
+      instanceId: cofId,
+      definitionId: CROWN_OF_FLOWERS,
+      status: CardStatus.Untapped,
+      linkedInstanceId: sunId,
+    };
+    const sunCard: CardInPlay = {
+      instanceId: sunId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+      linkedInstanceId: cofId,
+      assumeInPlay: ['Gates of Morning'],
+      assumeNotInPlay: ['Doors of Night'],
+    };
+
+    const stateWithCards = pushCardInPlay(
+      pushCardInPlay(stateWithMH, RESOURCE_PLAYER, cofCard),
+      RESOURCE_PLAYER,
+      sunCard,
+    );
+
+    // Doors of Night discards CoF (environment keyword) → should cascade to discard Sun
+    const donId = handCardId(stateWithCards, HAZARD_PLAYER);
+    const companyId = companyIdAt(stateWithCards, RESOURCE_PLAYER);
+    const afterPlay = dispatch(stateWithCards, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: donId,
+      targetCompanyId: companyId,
+    });
+    const afterResolve = resolveChain(afterPlay);
+
+    // CoF discarded
+    expect(afterResolve.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === cofId)).toBe(false);
+    expect(afterResolve.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cofId)).toBe(true);
+    // Sun cascaded to discard
+    expect(afterResolve.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === sunId)).toBe(false);
+    expect(afterResolve.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === sunId)).toBe(true);
+  });
+
+  test('Environment keyword: Doors of Night discards Crown of Flowers (no paired resource)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,

@@ -107,6 +107,24 @@ export interface CardInPlay {
    * the binding is to the location itself, not to one player's copy.
    */
   readonly attachedToSite?: CardDefinitionId;
+  /**
+   * Instance ID of the card this is linked to via Crown of Flowers pairing
+   * (mutual discard). When either linked card is discarded from cardsInPlay,
+   * the other is discarded as well.
+   */
+  readonly linkedInstanceId?: CardInstanceId;
+  /**
+   * Card names to assume are in play when evaluating this card's effects.
+   * Crown of Flowers injects "Gates of Morning" for the paired resource,
+   * so that GoM-conditional effects on that resource are treated as active.
+   */
+  readonly assumeInPlay?: readonly string[];
+  /**
+   * Card names to assume are NOT in play when evaluating this card's effects.
+   * Crown of Flowers removes "Doors of Night" for the paired resource,
+   * so DoN-blocking effects do not suppress the paired resource's abilities.
+   */
+  readonly assumeNotInPlay?: readonly string[];
 }
 
 /**
