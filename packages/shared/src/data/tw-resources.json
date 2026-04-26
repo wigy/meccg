@@ -1279,6 +1279,12 @@
         "type": "duplication-limit",
         "scope": "site",
         "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "creatureType": "Spider",
+        "strikes": 2,
+        "prowess": 7
       }
     ]
   },
