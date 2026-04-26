@@ -1995,7 +1995,7 @@ Used by *The Moon Is Dead* (dm-71):
 { "type": "auto-attack-race-duplicate", "race": "undead" }
 ```
 
-### 35. `trigger-auto-attack-on-play`
+### 35. `trigger-attack-on-play`
 
 When present on a resource permanent event, the company immediately
 faces an automatic attack of the given type after the card attaches to
@@ -2017,7 +2017,7 @@ Fields:
 
 Implementation: `chain-reducer.ts` `resolvePermanentEvent()` detects
 the effect and sets `state.combat` with an `attackSource` of type
-`card-auto-attack`. `reducer-combat.ts` `finalizeCombat()` handles the
+`card-triggered-attack`. `reducer-combat.ts` `finalizeCombat()` handles the
 discard-or-keep logic and adds the `bearer-cannot-untap` constraint.
 `reducer-untap.ts` `performUntap()` skips characters with an active
 `bearer-cannot-untap` constraint. `reducer-organization.ts`
@@ -2026,5 +2026,5 @@ discard-or-keep logic and adds the `bearer-cannot-untap` constraint.
 Used by *Rescue Prisoners* (tw-315):
 
 ```json
-{ "type": "trigger-auto-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
+{ "type": "trigger-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
 ```

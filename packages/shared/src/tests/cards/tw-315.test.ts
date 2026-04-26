@@ -4,7 +4,7 @@
  * Card test: Rescue Prisoners (tw-315)
  * Type: hero-resource-event (permanent)
  * Effects: play-target (site: dark-hold/shadow-hold), play-flag (tapped-site-only),
- *          play-target (character), trigger-auto-attack-on-play (Spider 2×7),
+ *          play-target (character), trigger-attack-on-play (Spider 2×7),
  *          storable-at (haven/border-hold/free-hold, 2 MP),
  *          duplication-limit (site, max 1)
  *
@@ -30,7 +30,7 @@ import {
   playPermanentEventAndResolve,
   buildTestState, makePlayDeck,
   mint, addToPile, makeSitePhase,
-  findCharInstanceId, runCardAutoAttackCombat,
+  findCharInstanceId, runCardTriggeredAttackCombat,
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js';
@@ -287,7 +287,7 @@ describe('Rescue Prisoners (tw-315)', () => {
     expect(afterPlay.combat).not.toBeNull();
 
     // Aragorn taps to fight; afterwards all characters are tapped → discard
-    const afterCombat = runCardAutoAttackCombat(afterPlay, [{ characterDefId: ARAGORN, roll: 1 }]);
+    const afterCombat = runCardTriggeredAttackCombat(afterPlay, [{ characterDefId: ARAGORN, roll: 1 }]);
 
     const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
     const aragornChar = afterCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
@@ -317,7 +317,7 @@ describe('Rescue Prisoners (tw-315)', () => {
     expect(afterPlay.combat).not.toBeNull();
 
     // Aragorn takes strike 1, Gimli takes strike 2; Legolas has no strike → stays untapped
-    const afterCombat = runCardAutoAttackCombat(afterPlay, [
+    const afterCombat = runCardTriggeredAttackCombat(afterPlay, [
       { characterDefId: ARAGORN, roll: 1 },
       { characterDefId: GIMLI, roll: 1 },
     ]);

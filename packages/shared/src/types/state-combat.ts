@@ -37,13 +37,13 @@ export type AttackSource =
   | { readonly type: 'ahunt'; readonly longEventInstanceId: CardInstanceId }
   /**
    * Triggered by a resource permanent event carrying a
-   * `trigger-auto-attack-on-play` effect (e.g. Rescue Prisoners). The
+   * `trigger-attack-on-play` effect (e.g. Rescue Prisoners). The
    * attack resolves immediately after the card enters play. If all
    * characters in the company are tapped after combat, the card is
    * discarded; otherwise the bearer gains a `bearer-cannot-untap`
    * constraint until the card is stored.
    */
-  | { readonly type: 'card-auto-attack'; readonly cardInstanceId: CardInstanceId; readonly bearerCharacterId: CardInstanceId };
+  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId; readonly bearerCharacterId: CardInstanceId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

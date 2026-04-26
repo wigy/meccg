@@ -795,8 +795,8 @@ export interface AutoAttackRaceDuplicateEffect extends EffectBase {
  *
  * Used by *Rescue Prisoners* (tw-315): Spider, 2 strikes, prowess 7.
  */
-export interface TriggerAutoAttackOnPlayEffect extends EffectBase {
-  readonly type: 'trigger-auto-attack-on-play';
+export interface TriggerAttackOnPlayEffect extends EffectBase {
+  readonly type: 'trigger-attack-on-play';
   /** Creature type of the triggered attack (e.g. `"Spider"`). */
   readonly creatureType: string;
   /** Number of strikes the attack delivers. */
@@ -1755,4 +1755,4 @@ export type CardEffect =
   | MoveEffect
   | WoundTargetCharacterEffect
   | AutoAttackRaceDuplicateEffect
-  | TriggerAutoAttackOnPlayEffect;
+  | TriggerAttackOnPlayEffect;

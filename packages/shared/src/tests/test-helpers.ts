@@ -1588,23 +1588,23 @@ export function runAutoAttackCombat(
 }
 
 /**
- * Run through a card-triggered auto-attack (card-auto-attack source) that is
+ * Run through a card-triggered auto-attack (card-triggered-attack source) that is
  * already active on `state.combat`. Assigns each strike in `strikeDefs` order:
  * the defender fills their assignments first, then the attacker handles any
  * remaining unassigned combatants plus optional excess. Resolves each
  * character's strike in sequence and handles body checks.
  *
- * Use this after playing a resource permanent event whose `trigger-auto-attack-on-play`
+ * Use this after playing a resource permanent event whose `trigger-attack-on-play`
  * effect (e.g. Rescue Prisoners) places combat on the state during chain resolution.
  *
- * @param state - Game state with active `card-auto-attack` combat.
+ * @param state - Game state with active `card-triggered-attack` combat.
  * @param strikeDefs - Ordered list of `{ characterDefId, roll, bodyRoll? }`. Repeat
  *   a `characterDefId` to assign excess strikes. The defending player controls
  *   character assignment; the engine assigns remaining unassigned combatants to
  *   the attacker automatically via pass.
  * @returns State after all strikes resolved and combat finalized.
  */
-export function runCardAutoAttackCombat(
+export function runCardTriggeredAttackCombat(
   state: GameState,
   strikeDefs: Array<{ characterDefId: CardDefinitionId; roll: number; bodyRoll?: number | null }>,
 ): GameState {

@@ -585,7 +585,7 @@ export interface ActiveConstraint {
         /**
          * Rescue Prisoners style: the bearer character may not untap
          * during the normal untap phase while this constraint is active.
-         * Placed when a permanent event with `trigger-auto-attack-on-play`
+         * Placed when a permanent event with `trigger-attack-on-play`
          * enters play and the post-combat state has at least one untapped
          * character. Cleared when the card is stored via `store-item`.
          * Scope is `until-cleared` so it persists across turns until

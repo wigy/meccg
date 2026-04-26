@@ -1921,11 +1921,11 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
   stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
 
-  // card-auto-attack finalization (e.g. Rescue Prisoners):
+  // card-triggered-attack finalization (e.g. Rescue Prisoners):
   // Check whether any characters in the company are still untapped.
   // If all are tapped → discard the card from the bearer's items.
   // If any untapped → tap the bearer and add bearer-cannot-untap constraint.
-  if (combat.attackSource.type === 'card-auto-attack') {
+  if (combat.attackSource.type === 'card-triggered-attack') {
     const { cardInstanceId, bearerCharacterId } = combat.attackSource;
     const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defIdx];

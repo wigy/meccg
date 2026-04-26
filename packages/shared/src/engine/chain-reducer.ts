@@ -14,7 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAutoAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -891,7 +891,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // (reducer-combat.ts finalizeCombat) handles the discard-or-keep logic.
   if (targetCharId && def && 'effects' in def && def.effects) {
     const triggerEffect = def.effects.find(
-      (e): e is TriggerAutoAttackOnPlayEffect => e.type === 'trigger-auto-attack-on-play',
+      (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
     );
     if (triggerEffect) {
       const bearerCharId = targetCharId;
@@ -928,7 +928,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         );
         const combat: CombatState = {
           attackSource: {
-            type: 'card-auto-attack',
+            type: 'card-triggered-attack',
             cardInstanceId: card.instanceId,
             bearerCharacterId: bearerCharId,
           },

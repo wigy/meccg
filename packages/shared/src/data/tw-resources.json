@@ -1281,7 +1281,7 @@
         "max": 1
       },
       {
-        "type": "trigger-auto-attack-on-play",
+        "type": "trigger-attack-on-play",
         "creatureType": "Spider",
         "strikes": 2,
         "prowess": 7
