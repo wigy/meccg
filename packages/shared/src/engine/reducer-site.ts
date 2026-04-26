@@ -65,9 +65,10 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   }
 
   logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
+  const withChecks = fireEndOfTurnCorruptionChecks(state);
   return {
     state: {
-      ...state,
+      ...withChecks,
       phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
     },
   };
@@ -1818,6 +1819,69 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 // now handled by `applyCorruptionCheckResolution` in
 // `engine/pending-reducers.ts`.
 
+/**
+ * Scans the active player's characters for attached hazards with
+ * `on-event: end-of-turn` + `apply.type: force-check-per-others-item`.
+ * For each match, enqueues one corruption-check pending resolution per
+ * item in the bearer's company that the bearer does NOT bear. The modifier
+ * for each check is the negative corruption-point value of that item.
+ * Used by *Covetous Thoughts* (le-107).
+ */
+function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+
+  let newState = state;
+  for (const company of resourcePlayer.companies) {
+    for (const charId of company.characters) {
+      const bearer = resourcePlayer.characters[charId as string];
+      if (!bearer) continue;
+      for (const hazard of bearer.hazards) {
+        const hDef = newState.cardPool[hazard.definitionId as string];
+        if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
+        for (const effect of hDef.effects) {
+          if (effect.type !== 'on-event') continue;
+          if (effect.event !== 'end-of-turn') continue;
+          if (effect.apply.type !== 'force-check-per-others-item') continue;
+          if (effect.apply.check !== 'corruption') continue;
+
+          const otherItems = company.characters
+            .filter(oid => oid !== charId)
+            .flatMap(oid => resourcePlayer.characters[oid as string]?.items ?? []);
+
+          if (otherItems.length === 0) {
+            logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — no other-company items, skipping`);
+            continue;
+          }
+
+          logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
+          const possessions = [
+            ...bearer.items.map(i => i.instanceId),
+            ...bearer.allies.map(a => a.instanceId),
+            ...bearer.hazards.map(h => h.instanceId),
+          ];
+          for (const item of otherItems) {
+            const itemDef = newState.cardPool[item.definitionId as string];
+            const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
+            const modifier = cp > 0 ? -cp : 0;
+            logDetail(`end-of-turn: enqueuing check for ${charId as string} — item "${itemDef?.name ?? item.definitionId as string}" cp=${cp} → modifier ${modifier}`);
+            newState = enqueueCorruptionCheck(newState, {
+              source: hazard.instanceId,
+              actor: state.activePlayer!,
+              scope: { kind: 'phase', phase: Phase.EndOfTurn },
+              characterId: charId,
+              modifier,
+              reason: `${hDef.name} (${itemDef?.name ?? item.definitionId as string})`,
+              possessions,
+            });
+          }
+        }
+      }
+    }
+  }
+  return newState;
+}
+
 function advanceSiteToNextCompany(
   state: GameState,
   siteState: SitePhaseState,
@@ -1836,9 +1900,10 @@ function advanceSiteToNextCompany(
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
     // Return remaining on-guard cards to hazard player's hand
     const cleanedState = returnOnGuardCardsToHand(sweptState);
+    const withChecks = fireEndOfTurnCorruptionChecks(cleanedState);
     return {
       state: cleanupEmptyCompanies({
-        ...cleanedState,
+        ...withChecks,
         phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
       }),
     };

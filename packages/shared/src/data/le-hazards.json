@@ -489,8 +489,17 @@
             "to": "discard"
           }
         }
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "apply": {
+          "type": "force-check-per-others-item",
+          "check": "corruption"
+        }
       }
-    ]
+    ],
+    "certified": "2026-04-26"
   },
   {
     "cardType": "hazard-event",
