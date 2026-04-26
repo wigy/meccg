@@ -1464,7 +1464,8 @@
         "event": "self-enters-play",
         "apply": { "type": "enqueue-corruption-check", "modifier": -3 }
       }
-    ]
+    ],
+    "certified": "2026-04-26"
   },
   {
     "cardType": "hero-resource-event",
