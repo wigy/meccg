@@ -866,7 +866,10 @@ function returnCharacterToHand(
  * Resolve a queued `body-check-company` resolution (from a mass-body-check
  * hazard, e.g. Veils Flung Away). The resource player rolls 2d6.
  *
- * - If roll >= (character.body + modifier): no effect.
+ * - For Orc/Troll: uses `discardBodyCheck` from card data as the threshold
+ *   (may differ from `body`; e.g. Orc Brawler has body 8 but discards on 7).
+ * - For other races: uses `body` as the threshold.
+ * - If roll >= (threshold + modifier): no effect (pass).
  * - Orc or Troll and roll fails: character is discarded (returned to hand).
  * - Other races, untapped, and roll fails: character becomes tapped.
  * - Other races, already tapped, roll fails: no effect.
@@ -896,14 +899,20 @@ function applyBodyCheckCompanyResolution(
   const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
   const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
   const race = isCharacterCard(charDef) ? charDef.race : '';
-  const effectiveBody = body + modifier;
+  const isOrcOrTroll = race === 'orc' || race === 'troll';
+  // Orc/Troll use their card-stated discard threshold (may differ from body);
+  // other races use body for the fail/tap comparison.
+  const discardCheck = isOrcOrTroll && isCharacterCard(charDef) && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
+    ? charDef.discardBodyCheck
+    : body;
+  const effectiveThreshold = discardCheck + modifier;
 
   const sourceDef = state.cardPool[sourceDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
-  const passed = rollTotal >= effectiveBody;
+  const passed = rollTotal >= effectiveThreshold;
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -912,7 +921,7 @@ function applyBodyCheckCompanyResolution(
     die2: roll.die2,
     label: `Body check (${sourceName}): ${charName}`,
   };
-  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs body ${body}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveBody} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
+  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs discard threshold ${discardCheck}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveThreshold} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
 
   const stateAfterRoll = updatePlayer(
     { ...state, rng, cheatRollTotal },
@@ -922,7 +931,6 @@ function applyBodyCheckCompanyResolution(
   let postRoll = dequeueResolution(stateAfterRoll, top.id);
 
   if (!passed) {
-    const isOrcOrTroll = race === 'orc' || race === 'troll';
     if (isOrcOrTroll) {
       logDetail(`${sourceName}: ${charName} (${race}) failed body check — discarded`);
       postRoll = returnCharacterToHand(postRoll, actorIndex, characterId, charInPlay);
