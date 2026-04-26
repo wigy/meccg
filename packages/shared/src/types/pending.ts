@@ -226,6 +226,24 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Seized by Terror roll: a hazard short event has resolved against a
+         * character moving through Shadow-land or Dark-domain. The character's
+         * player rolls 2d6 and adds the character's mind. If roll + mind < 12,
+         * the character splits off into a new company that returns to the
+         * original company's site of origin.
+         */
+        readonly type: 'seized-by-terror-roll';
+        /** The targeted character instance. */
+        readonly targetCharacterId: CardInstanceId;
+        /** The hazard card that caused this check. */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Roll + mind must meet or exceed this to stay in the moving company. */
+        readonly threshold: number;
+        /** Instance ID of the site of origin (original company's currentSite). */
+        readonly originSiteInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
          * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
          * regardless. Spawned by the `auto-test-gold-ring` site-rule when a
