@@ -236,6 +236,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           returnedToOrigin: false,
           hazardsEncountered: [],
           ahuntAttacksResolved: 0,
+          corruptionCardsPlayedPerChar: {},
         },
       },
     };

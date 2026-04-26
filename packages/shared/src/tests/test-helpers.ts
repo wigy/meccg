@@ -810,6 +810,7 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     returnedToOrigin: false,
     hazardsEncountered: [],
     ahuntAttacksResolved: 0,
+    corruptionCardsPlayedPerChar: {},
     ...overrides,
   };
 }
