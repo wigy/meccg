@@ -13,7 +13,7 @@
  * AI runner just like for the random strategy.
  */
 
-import type { GameAction } from '../types/actions.js';
+import type { GameAction } from '@meccg/shared';
 import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
 import type { ActionEvaluator } from './evaluators/types.js';
 import { setupEvaluator } from './evaluators/setup.js';

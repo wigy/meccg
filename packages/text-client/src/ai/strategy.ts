@@ -6,9 +6,7 @@
  * The probabilities are displayed to the user before the AI acts.
  */
 
-import type { GameAction } from '../types/actions.js';
-import type { PlayerView } from '../types/player-view.js';
-import type { CardDefinition } from '../types/cards.js';
+import type { GameAction, PlayerView, CardDefinition } from '@meccg/shared';
 
 /** The context provided to the AI for decision making. */
 export interface AiContext {

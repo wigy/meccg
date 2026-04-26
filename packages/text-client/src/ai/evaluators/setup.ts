@@ -10,18 +10,10 @@
  * the avatar with the strongest companions when there are two companies.
  */
 
-import type { GameAction } from '../../types/actions.js';
-import type {
-  CardDefinition,
-  HeroSiteCard,
-  MinionSiteCard,
-  FallenWizardSiteCard,
-  BalrogSiteCard,
-  CharacterCard,
-} from '../../types/cards.js';
+import type { GameAction, CardDefinition, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CharacterCard } from '@meccg/shared';
+import { isAvatarCharacter } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { isAvatarCharacter } from '../../types/cards.js';
 import { lookupDef, isCharacter, isItem } from './common.js';
 
 type AnySite = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;

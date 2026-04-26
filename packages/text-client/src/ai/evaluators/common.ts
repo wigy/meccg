@@ -9,27 +9,8 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView } from '../../types/player-view.js';
-import type {
-  CardDefinition,
-  CharacterCard,
-  HeroItemCard,
-  MinionItemCard,
-  CreatureCard,
-  HeroSiteCard,
-  MinionSiteCard,
-  FallenWizardSiteCard,
-  BalrogSiteCard,
-} from '../../types/cards.js';
-import type { CardInstanceId, RegionType } from '../../types/common.js';
-import { CardStatus } from '../../types/common.js';
-import type { CharacterInPlay, Company } from '../../types/state.js';
-import {
-  isCharacterCard,
-  isItemCard,
-  isFactionCard,
-  isAllyCard,
-} from '../../types/cards.js';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;

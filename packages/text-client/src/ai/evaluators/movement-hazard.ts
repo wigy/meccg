@@ -11,8 +11,7 @@
  * stacking for corruption hazards, and a small baseline for events.
  */
 
-import type { GameAction } from '../../types/actions.js';
-import type { CreatureCard } from '../../types/cards.js';
+import type { GameAction, CreatureCard } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {

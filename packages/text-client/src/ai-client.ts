@@ -12,8 +12,10 @@
 import { WebSocket } from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId, AiContext, WeightedAction, PlayerView } from '@meccg/shared';
-import { Alignment, loadAiStrategy, loadCardPool, sampleWeighted, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId, PlayerView } from '@meccg/shared';
+import type { AiContext, WeightedAction } from './ai/index.js';
+import { Alignment, loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
+import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { JoinMessage } from '@meccg/shared';
 
 const args = process.argv.filter(a => !a.startsWith('--'));

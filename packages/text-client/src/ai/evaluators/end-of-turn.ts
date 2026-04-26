@@ -12,11 +12,11 @@
  *   4. Anything else (low score)
  */
 
-import type { GameAction } from '../../types/actions.js';
+import type { GameAction } from '@meccg/shared';
+import { computeTournamentScore } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import { lookupDef, isCharacter } from './common.js';
-import { computeTournamentScore } from '../../state-utils.js';
 
 export const endOfTurnEvaluator: ActionEvaluator = {
   phases: ['end-of-turn', 'long-event', 'free-council', 'game-over'],

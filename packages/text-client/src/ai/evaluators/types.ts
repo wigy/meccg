@@ -9,7 +9,7 @@
  * pass that mirrors the random strategy's pass-suppression behavior.
  */
 
-import type { GameAction } from '../../types/actions.js';
+import type { GameAction } from '@meccg/shared';
 import type { AiContext } from '../strategy.js';
 
 /**

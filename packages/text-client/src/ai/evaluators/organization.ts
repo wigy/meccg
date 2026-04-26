@@ -9,7 +9,7 @@
  * companies; never split (the AI lacks planning depth to justify it).
  */
 
-import type { GameAction } from '../../types/actions.js';
+import type { GameAction } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
