@@ -23,7 +23,7 @@ FEATS
 EPICS
 -----
 
-(F) Spies and Traitors
+(B) Release the Prisoners
 Dark Minions Rules
   Agents (2026-04-22-agents-plan.md)
 The Lidless eye Rules
@@ -36,10 +36,10 @@ The Balrog Rules
 UNSORTED
 --------
 
-(B) Release the Prisoners
 (C) Dwarven Quest
 (D) Bargain between Friends
 (E) Return of the King
+(F) Spies and Traitors
 (G) Marauding Brood of Uglies
 (H) Stealthy Tribe
 (I) Morgul Rallying Cry
