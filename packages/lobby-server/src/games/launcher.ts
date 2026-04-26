@@ -137,7 +137,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
   if (options?.ai) {
     const isPseudo = options.pseudoAi ?? false;
-    const aiScript = path.join(__dirname, isPseudo ? './pseudo-ai-client.ts' : './ai-client.ts');
+    const aiScript = path.join(__dirname, '../../../text-client/src/', isPseudo ? 'pseudo-ai-client.ts' : 'ai-client.ts');
     const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1]];
     if (options?.aiDeckId) aiArgs.push('--deck', options.aiDeckId);
     const aiChild = spawn('npx', aiArgs, {

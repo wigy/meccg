@@ -1,5 +1,5 @@
 /**
- * @module games/pseudo-ai-client
+ * @module pseudo-ai-client
  *
  * Headless pseudo-AI player that connects to a game server via WebSocket
  * and relays legal actions to the lobby server via IPC. The human player
@@ -40,7 +40,7 @@ interface DeckFile {
   sideboard: DeckEntry[];
 }
 
-const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
+const DECK_CATALOG_DIR = path.join(__dirname, '../../../data/decks');
 const ALIGNMENT_MAP: Record<string, Alignment> = {
   hero: Alignment.Wizard,
   minion: Alignment.Ringwraith,

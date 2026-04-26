@@ -1,5 +1,5 @@
 /**
- * @module games/ai-client
+ * @module ai-client
  *
  * Headless AI player that connects to a game server via WebSocket
  * and submits legal moves chosen by the heuristic ("Smart") strategy.
@@ -67,7 +67,7 @@ interface DeckFile {
   sideboard: DeckEntry[];
 }
 
-const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
+const DECK_CATALOG_DIR = path.join(__dirname, '../../../data/decks');
 const ALIGNMENT_MAP: Record<string, Alignment> = {
   hero: Alignment.Wizard,
   minion: Alignment.Ringwraith,
