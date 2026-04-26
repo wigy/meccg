@@ -1,0 +1,98 @@
+# CLAUDE.md — `@meccg/shared`
+
+This package contains pure TypeScript types, constants, and the game engine (pure reducer: `(state, action) → state`). Engine code lives in `src/engine/`, phase handlers in `src/engine/legal-actions/`, tests in `src/tests/`.
+
+## Key Design Principles
+
+- The server is the authority on game state — clients never modify state directly
+- Game rules are enforced server-side; the client is a presentation layer
+- The game engine is a pure reducer — no side effects in state transitions
+- **Card instance IDs are the universal reference:** Everywhere in the game (state, actions, phase state, UI) cards are referred to by their `CardInstanceId`. A reference may optionally carry the card's identity (definition ID, name), but the instance ID is always the primary key. Never use bare definition IDs or indices where an instance ID should be used.
+- **No card instance may ever disappear from the game state.** Every `CardInstance` minted into the game must remain reachable somewhere in state (a pile, zone, set-aside list, discard, etc.) for the entire game — `resolveInstanceId` must always succeed. When writing or reviewing any reducer path, check that every instance on the input side lands somewhere on the output side. This is especially easy to violate in collision/duplicate handling, set-aside logic, and phase transitions: never filter an instance out of one collection without pushing it into another.
+
+## Server-Side Logging Policy
+
+All server-side logic must include detailed logging so that the game's decision-making is fully traceable from the console output. This is critical for debugging complex rule interactions.
+
+- **Use the logging helpers** from `src/engine/legal-actions/log.ts` (`logHeading`, `logDetail`, `logResult`) — never use bare `console.log` in engine code.
+- **Log every decision and conclusion**, not just the final result. When the engine evaluates a condition, checks a constraint, rejects an action, or chooses between alternatives, log the reasoning with the relevant values.
+- **Log at entry and exit** of phase handlers and legal-action computations. Entry logs should state what step/phase is being processed and for which player. Exit logs should summarize the outcome.
+- **Log constraint checks with values**: don't just log "mind limit exceeded" — log "Gimli mind 6 would exceed limit (current 15 + 6 > 20)".
+- **Log state transitions**: when the game advances to a new phase or setup step, log the transition with the reason (e.g. "Both players stopped drafting → finalizing draft").
+
+## Card Data Organization
+
+- Card data lives in `packages/shared/src/data/` as JSON files, aggregated by `index.ts`.
+- **Separate files per extension set:** Each expansion set uses its own data files with a set prefix:
+  - `tw-characters.json`, `tw-items.json`, `tw-resources.json`, `tw-creatures.json`, `tw-sites.json`, `tw-regions.json` — The Wizards (TW, base set)
+  - `as-characters.json`, `as-sites.json` — Against the Shadow (AS, minion expansion)
+  - `le-characters.json`, `le-resources.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
+  - `wh-sites.json` — The White Hand (WH, fallen-wizard expansion)
+  - `ba-characters.json`, `ba-sites.json` — The Balrog (BA, balrog expansion)
+- **Card ID convention:** All card IDs use the pattern `{set}-{number}` (e.g. `tw-156`, `le-24`, `wh-58`, `ba-93`). Set prefixes are lowercase.
+- **Card types by alignment:** Each alignment has its own card types:
+  - Hero: `hero-character`, `hero-site`, `hero-resource-item`, etc.
+  - Minion: `minion-character`, `minion-site`
+  - Fallen-wizard: `fallen-wizard-site`
+  - Balrog: `balrog-site`
+- When adding cards from a new extension set, create new data files with the set prefix (e.g. `ba-sites.json` for The Balrog) rather than mixing sets in existing files.
+
+## Card Data Policy
+
+- When adding or modifying card data, always look up the card from the local copy of the authoritative card database at `data/cards.json` — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
+- The upstream source is <https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json> — refresh the local copy from there when needed.
+- For per-card rulings, errata, and clarifications on how a card's text actually plays, consult the CRF 22 card errata and rulings page: <https://meccg.com/rules/collected-rulings-and-errata-crf/crf-22/card-errata-and-rulings/>. Use this whenever a card's behavior is ambiguous or when implementing/certifying a card whose text needs interpretation.
+
+## `card-ids.ts` Constants Policy
+
+Only add a constant to `packages/shared/src/card-ids.ts` when the card ID is referenced in **more than one file** (typically a card-specific test plus another consumer). IDs used in a single test file must be declared locally in that test file:
+
+```ts
+const MY_CARD = 'tw-123' as CardDefinitionId;
+```
+
+Promoting every new card ID to `card-ids.ts` causes frequent merge conflicts as parallel branches touch the same shared file. Single-use constants belong with their only consumer.
+
+## Card Certification
+
+- Card certification is the process of implementing a card's effects in the DSL and verifying with a test that the card works as its text defines.
+- When certifying a card that requires a new DSL effect type, add the new type to `docs/card-effects-dsl.md` alongside the implementation.
+- **Prefer DSL expressions over magic keywords.** When a card targets a subset of entities, use the generic `filter` condition on `play-target` (evaluated via the shared condition-matcher) rather than introducing hardcoded target keywords like `own-hobbit` / `own-scout`. Example: `{ "type": "play-target", "target": "character", "filter": { "target.race": "hobbit" } }` instead of `{ "type": "play-target", "target": "own-hobbit" }`. Each hardcoded keyword adds a per-card branch in the legal-action computer; a filter expression is self-contained in the card JSON and reuses existing machinery. The same principle applies to other DSL effects: reach for generic condition/filter expressions and reuse existing constraint kinds (e.g. `check-modifier`) before adding card-specific types or keywords.
+
+## Card Uniqueness Rules
+
+- Unique cards: only 1 copy allowed per deck.
+- Non-unique cards: up to 3 copies allowed per deck.
+- Whether a card is unique is recorded per-card in the data files (`unique: true|false`); the authoritative source is `attributes.unique` in `data/cards.json`. Do not assume uniqueness from card type, subtype, or rarity.
+- Test fixtures (`makePlayDeck` etc.) must respect these limits.
+
+## Debugging Game Issues
+
+- **Always start from game logs**, not saves. Game logs are at `~/.meccg/logs/games/<gameId>.jsonl` and contain the full history of actions and state transitions.
+- Game saves are stored in `~/.meccg/saves/` as JSON files containing the full game state.
+- To debug a problem, load the save and inspect `state.phaseState` (current phase/step) and `state.players[N]` (player data — piles contain `CardInstance` objects with `instanceId` and `definitionId`).
+- Key fields to check: `phaseState.setupStep.step` (which setup step), per-step state (e.g. `siteSelectionState`, `placementDone`), `players[N].siteDeck`, `players[N].hand`, `players[N].companies`.
+- To verify legal actions, trace through the legal action function for the current step with the player's index and state.
+- The server logs detailed decision-making to the console.
+
+## Testing Philosophy
+
+Tests verify the **official CoE rules**, not internal implementation. There are no unit tests — only rules-as-specification tests and card tests.
+
+- **Rules tests** (`packages/shared/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.md`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
+- **Card tests** (`packages/shared/src/tests/cards/`, nightly): One test per card with special rules/effects. Builds game states that trigger each card's rules and verifies correct legal actions.
+- **Pattern**: Every test follows: build state → call `computeLegalActions()` or `reduce()` → assert on legal actions or resulting state.
+- **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.
+- **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.
+- **NEVER put helpers in test files**: All helper functions must go in `test-helpers.ts`. Test files must only contain `describe`/`test` blocks and inline constants — no `function` declarations.
+- **Player-index convention**: Unless a test deliberately flips roles, player 0 is the resource (active) player and player 1 is the hazard (opponent) player. Use `RESOURCE_PLAYER` / `HAZARD_PLAYER` from `test-helpers.ts` instead of bare `0` / `1` when passing a player index to helpers like `charIdAt`, `getCharacter`, `attachHazardToChar`, etc.
+- **Match fixtures to the card's alignment**: When testing a minion card (effect, site, character), build the test state with minion characters and minion sites (AS/LE card IDs), not hero equivalents. Likewise for fallen-wizard and balrog cards. Using mismatched fixtures tests the wrong code paths and can mask bugs.
+- See `docs/testing-plan.md` for the full plan.
+- **All test changes must go through a PR** — never commit test modifications directly to master. Create a branch and open a pull request for review.
+
+## Code Documentation Policy
+
+- All modules must have a `@module` JSDoc comment explaining their purpose and how they fit into the architecture.
+- All exported interfaces, types, enums, functions, and constants must have JSDoc comments.
+- Comments should explain the "why" (game mechanics context, architectural decisions) not just the "what".
+- Focus on how pieces fit together and what game rules motivate the design.
