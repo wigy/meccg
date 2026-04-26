@@ -390,6 +390,10 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'play-wizard-from-search':
+      return `Play wizard ${action.wizardDefinitionId as string} from ${action.source}`;
+    case 'skip-wizard-search':
+      return `Skip wizard search`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

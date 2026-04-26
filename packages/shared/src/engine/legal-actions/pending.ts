@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -123,6 +123,8 @@ export function resolutionLegalActions(
       return goldRingTestActions(state, actor, top);
     case 'body-check-company':
       return bodyCheckCompanyActions(state, actor, top);
+    case 'wizard-search-on-store':
+      return wizardSearchOnStoreActions(state, actor, top);
   }
 }
 
@@ -635,6 +637,75 @@ function bodyCheckCompanyActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Compute the legal actions for a queued `wizard-search-on-store` resolution
+ * (The Windlord Found Me, dm-164).
+ *
+ * Emits one `play-wizard-from-search` action per Wizard found in the player's
+ * play deck or discard pile, plus a `skip-wizard-search` action to pass.
+ * Wizards are identified by `isAvatarCharacter` (mind === null).
+ */
+function wizardSearchOnStoreActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'wizard-search-on-store') return [];
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const actions: EvaluatedAction[] = [];
+
+  // Gather wizard definition IDs from the play deck (deduplicated)
+  const deckWizardDefIds = new Set<string>();
+  for (const card of player.playDeck) {
+    const def = state.cardPool[card.definitionId as string];
+    if (def && isCharacterCard(def) && isAvatarCharacter(def)) {
+      deckWizardDefIds.add(card.definitionId as string);
+    }
+  }
+  for (const defId of deckWizardDefIds) {
+    const def = state.cardPool[defId];
+    logDetail(`Wizard-search: found ${def?.name ?? defId} in play deck`);
+    actions.push({
+      action: {
+        type: 'play-wizard-from-search' as const,
+        player: playerId,
+        wizardDefinitionId: defId as import('../../index.js').CardDefinitionId,
+        source: 'play-deck' as const,
+      },
+      viable: true,
+    });
+  }
+
+  // Gather wizard instances from the discard pile
+  for (const card of player.discardPile) {
+    const def = state.cardPool[card.definitionId as string];
+    if (def && isCharacterCard(def) && isAvatarCharacter(def)) {
+      logDetail(`Wizard-search: found ${def.name} in discard pile`);
+      actions.push({
+        action: {
+          type: 'play-wizard-from-search' as const,
+          player: playerId,
+          wizardDefinitionId: card.definitionId,
+          source: 'discard-pile' as const,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Always emit skip option
+  actions.push({
+    action: { type: 'skip-wizard-search' as const, player: playerId },
+    viable: true,
+  });
+
+  return actions;
 }
 
 /**
