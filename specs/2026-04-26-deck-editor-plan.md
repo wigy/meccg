@@ -88,6 +88,7 @@ shareable and the browser back button works.
 #### Card grid
 
 Filtered cards shown as a scrollable grid of card thumbnails. Each cell:
+
 - Card image (proxied, lazy-loaded with `loading="lazy"`)
 - Card name below the image
 - Small alignment/type badge overlay
@@ -98,6 +99,7 @@ the deck (configurable: click-to-preview vs click-to-add).
 #### Card detail panel
 
 Appears as a fixed sidebar or modal on card click:
+
 - Full-size card image
 - Name, set, type, alignment, unique indicator
 - Stats (mind/prowess/body for characters; strikes for creatures; MP; site type/region for sites)
@@ -111,6 +113,7 @@ Appears as a fixed sidebar or modal on card click:
 Two sub-sections: **Resource Deck** and **Site Deck**, each collapsible.
 
 Within each section, cards are grouped by type then sorted alphabetically. Each row:
+
 - Card name
 - Copy count badge (`×2`, `×3`)
 - Remove button (decrements count; removes row at 0)
@@ -230,7 +233,7 @@ ancient tome: grain texture overlay, gold filigree borders, deep shadows, no bri
 
 Three-column grid, full-viewport height, no outer scroll:
 
-```
+```text
 ┌─────────────────── HEADER (58px) ───────────────────────────┐
 │ Logo │ Deck Name │              │ Stats │ Save               │
 ├──────────┬───────────────────────────────┬───────────────────┤

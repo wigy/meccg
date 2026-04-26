@@ -469,25 +469,29 @@ All tests use hero characters (wizard-player), Rivendell (`tw-421`) as current s
 and Elrond (`tw-145`). Use `RESOURCE_PLAYER` / `HAZARD_PLAYER` constants.
 
 **Test 1 — Vilya is playable only in Elrond's company**
-```
+
+```text
 State: site phase, Elrond in company, Vilya in hand.
 Expected: `play-short-event` with `targetCharacterId = Elrond.instanceId` is viable.
 ```
 
 **Test 2 — Vilya is NOT playable when Elrond is not in any company**
-```
+
+```text
 State: site phase, no Elrond in play, Vilya in hand.
 Expected: `not-playable` for Vilya.
 ```
 
 **Test 3 — Vilya cannot be duplicated on a given turn (site phase)**
-```
+
+```text
 State: active constraint sourced from `tw-358` already on state, Vilya still in hand.
 Expected: `not-playable` (duplication limit hit).
 ```
 
 **Test 4 — Playing Vilya adds +4 prowess constraint on Elrond**
-```
+
+```text
 Dispatch `play-short-event` with Vilya, targetCharacterId = Elrond.
 Expected: `activeConstraints` contains a `character-stat-modifier` entry
           (stat: prowess, value: 4, characterId: Elrond.instanceId, scope: turn).
@@ -495,20 +499,23 @@ Expected: Elrond's `effectiveStats.prowess` is 7 + 4 = 11.
 ```
 
 **Test 5 — Playing Vilya adds +2 body and +6 direct-influence on Elrond**
-```
+
+```text
 Same setup.
 Expected: Elrond effectiveStats.body = 9 + 2 = 11; effectiveStats.directInfluence = 4 + 6 = 10.
 ```
 
 **Test 6 — Playing Vilya enqueues a corruption check on Elrond (modifier −3)**
-```
+
+```text
 Same setup.
 Expected: `state.pendingResolutions` contains a corruption-check for Elrond
           with modifier −3.
 ```
 
 **Test 7 — Fetch offered when Elrond is at Rivendell and deck ≥ 5 cards**
-```
+
+```text
 State: Elrond at Rivendell (currentSite = tw-421), discard pile has 2 hero resources,
        play deck has 5+ cards.
 Dispatch `play-short-event`.
@@ -517,28 +524,32 @@ Expected: legal actions include `fetch-from-pile` for each eligible discard card
 ```
 
 **Test 8 — Fetch NOT offered when Elrond is not at Rivendell**
-```
+
+```text
 State: Elrond at a non-Rivendell site (e.g. Moria).
 Dispatch `play-short-event`.
 Expected: no `fetch-to-deck` pending effect.
 ```
 
 **Test 9 — Fetch NOT offered when play deck has fewer than 5 cards**
-```
+
+```text
 State: Elrond at Rivendell, deck has 4 cards.
 Dispatch `play-short-event`.
 Expected: no `fetch-to-deck` pending effect.
 ```
 
 **Test 10 — Multi-pick: second pick offered after first fetch**
-```
+
+```text
 State: 3 eligible resources in discard, Elrond at Rivendell, deck ≥ 5.
 Dispatch play + first `fetch-from-pile`.
 Expected: `pendingEffects[0].effect.count === 2` — second pick offered.
 ```
 
 **Test 11 — Pass cancels remaining picks**
-```
+
+```text
 Same setup. After first fetch, dispatch `pass`.
 Expected: `pendingEffects` empty (remaining count cancelled).
 ```

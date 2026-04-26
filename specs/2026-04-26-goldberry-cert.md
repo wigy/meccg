@@ -277,6 +277,7 @@ function handleCancelReturnToOrigin(
 Add `force-return-to-origin` effects to Snowstorm (`tw-91`) and Foul Fumes (`tw-36`):
 
 **Snowstorm (tw-91):**
+
 ```json
 "effects": [
   {
@@ -285,9 +286,11 @@ Add `force-return-to-origin` effects to Snowstorm (`tw-91`) and Foul Fumes (`tw-
   }
 ]
 ```
+
 *(No ranger exception for Snowstorm per card text.)*
 
 **Foul Fumes (tw-36):**
+
 ```json
 "effects": [
   {
@@ -358,7 +361,8 @@ side (out of scope here).
 Replace the `test.todo` with a concrete assertion:
 
 **Test: Goldberry CAN cancel a return-to-origin chain entry**
-```
+
+```text
 State: M/H phase, chain declaring (Snowstorm on chain as unresolved entry),
        Goldberry untapped in PLAYER_1's active company.
 Expected: viableActions contains cancel-return-to-origin with allyInstanceId =
@@ -366,19 +370,22 @@ Expected: viableActions contains cancel-return-to-origin with allyInstanceId =
 ```
 
 **Test: tapped Goldberry cannot cancel return-to-origin**
-```
+
+```text
 Same setup but Goldberry is tapped.
 Expected: no cancel-return-to-origin action offered.
 ```
 
 **Test: cancel-return-to-origin is NOT offered when no return-to-origin entry is on chain**
-```
+
+```text
 M/H chain declaring phase but with an ordinary hazard creature on chain.
 Expected: no cancel-return-to-origin action for Goldberry.
 ```
 
 **Test: after cancel, chain entry is negated and Goldberry is tapped**
-```
+
+```text
 Dispatch cancel-return-to-origin action; inspect resulting state.
 Expected: entry.negated === true; Goldberry's status === CardStatus.Tapped.
 ```
@@ -390,6 +397,7 @@ card data once all tests pass.
 ### Step 9 — Pre-push verification
 
 Run in parallel:
+
 1. `npm run build`
 2. `npx vitest run packages/shared/src/tests/cards/tw-245.test.ts`
 3. `npm test`

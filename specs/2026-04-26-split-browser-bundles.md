@@ -4,7 +4,7 @@
 
 The entire browser application is compiled by esbuild as a single entry point:
 
-```
+```text
 src/browser/app.ts → public/bundle.js  (688 KB)
 ```
 

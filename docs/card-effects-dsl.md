@@ -2110,6 +2110,7 @@ are resolved. The duplication uses the same modified prowess and strikes
 (including all in-play modifiers) as the original attack.
 
 Fields:
+
 - `race: string` — lowercase race to match (e.g. `"undead"`). Matched
   against `normalizeCreatureRace(aa.creatureType)` for each auto-attack.
 
@@ -2143,6 +2144,7 @@ sub-system. At combat finalization:
   via `store-item` during the organization phase.
 
 Fields:
+
 - `creatureType: string` — e.g. `"Spider"`. Normalised with
   `normalizeCreatureRace()` for combat-modifier lookups.
 - `strikes: number` — number of strikes the attack delivers.
@@ -2174,6 +2176,7 @@ effect. The actual enforcement of the return is handled separately in the
 order-effects resolution path (rule-5.31, currently `test.todo`).
 
 Fields:
+
 - `condition?: Condition` — evaluated against company site-path context
   (`sitePath.wildernessCount`, `sitePath.shadowCount`, `sitePath.darkCount`,
   etc.). If absent, always applies.
@@ -2203,6 +2206,7 @@ qualify. One `cancel-return-to-origin` action is emitted per eligible (ally,
 target entry) pair.
 
 Fields:
+
 - `cost: { tap: "self" }` — tapping the ally is the cost.
 
 Implementation: `legal-actions/chain.ts` `cancelReturnToOriginChainActions()`

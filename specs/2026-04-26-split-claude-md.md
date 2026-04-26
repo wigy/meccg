@@ -22,6 +22,7 @@ loaded, but `packages/shared/CLAUDE.md` is only loaded when working inside that 
 ### Root `CLAUDE.md` — keep only cross-cutting content
 
 Retain:
+
 - Project Overview (short paragraph)
 - Tech Stack
 - Build & Development Commands (all packages)
@@ -35,6 +36,7 @@ Remove everything else (moved to sub-packages below).
 ### `packages/shared/CLAUDE.md` — game engine content
 
 Move from root:
+
 - Key Design Principles (instance IDs as universal reference, no-disappear invariant)
 - Server-Side Logging Policy
 - Card Data Organization
@@ -48,6 +50,7 @@ Move from root:
 ### `packages/lobby-server/CLAUDE.md` — lobby content
 
 New file. Capture lobby-specific notes not already in code comments:
+
 - Browser code lives in `src/browser/`, static assets in `public/`
 - Bundle build via esbuild (`build:browser` script)
 - Lobby spawns game-server child processes on demand

@@ -146,7 +146,7 @@ Add to the `GameAction` union and export from `index.ts`.
 During the `play-resources` step, after collecting normal play actions, add a new
 helper `playResourceWithEnvironmentActions`:
 
-```
+```text
 For each resource permanent-event in the resource player's cardsInPlay
   that carries a `play-resource-with` effect
   and whose `linkedTo` is undefined (slot is empty):
@@ -246,12 +246,14 @@ if (linkedInstanceId) {
 
 Apply the same cascading logic in every other place where a card is removed from
 `cardsInPlay`:
+
 - Environment-discarded-by-DoN path (`reducer-organization.ts` / `chain-reducer.ts`
   resource-environment discard hooks)
 - Manual discard during end-of-turn / long-event-phase cleanup
 - Any `move` TriggeredAction that discards from `cardsInPlay`
 
 Extract a shared helper `discardFromCardsInPlay(state, instanceId): GameState` that:
+
 1. Removes the card from the appropriate player's `cardsInPlay`
 2. Adds it to `discardPile`
 3. Cascades to the `linkedTo` partner (one level only — no recursion needed)
@@ -307,6 +309,7 @@ Add effects to `dm-121`:
 **File:** `docs/card-effects-dsl.md`
 
 Add entries for `play-resource-with`, documenting:
+
 - The play window (site-phase play-resources step, permanent-event must be in cardsInPlay)
 - The scoped GoM/DoN inPlay override
 - The `linkedTo` field on `CardInPlay` and mutual-discard semantics
@@ -318,46 +321,53 @@ Add entries for `play-resource-with`, documenting:
 Replace the `test.todo` stubs with concrete tests:
 
 **A. play-resource-with-environment is offered while Crown has no linked resource**
-```
+
+```text
 State: site phase, Crown in cardsInPlay (no linkedTo), a resource in hand
        that requires GoM as play condition (e.g. a mock card).
 Expected: viableActions includes play-resource-with-environment.
 ```
 
 **B. play-resource-with-environment is NOT offered once Crown already has a linked resource**
-```
+
+```text
 Crown.linkedTo is set. Same hand.
 Expected: no play-resource-with-environment offered.
 ```
 
 **C. Resource that normally requires GoM can be played with Crown even when GoM is absent**
-```
+
+```text
 GoM not in cardsInPlay; Crown in cardsInPlay; hand contains a resource
 with play-condition { "inPlay": "Gates of Morning" }.
 Expected: play-resource-with-environment is offered for that resource.
 ```
 
 **D. After chain resolution, both Crown and resource have mutual linkedTo**
-```
+
+```text
 Dispatch play-resource-with-environment, resolve chain.
 Expected: Crown.linkedTo = resource instanceId; resource.linkedTo = crown instanceId.
 ```
 
 **E. Discarding Crown also discards the linked resource**
-```
+
+```text
 Crown and resource both in cardsInPlay with mutual linkedTo.
 Force-discard Crown (e.g. DoN enters play, or direct discard action).
 Expected: resource also moves to discardPile; neither remains in cardsInPlay.
 ```
 
 **F. Discarding the linked resource also discards Crown**
-```
+
+```text
 Same setup; force-discard the resource.
 Expected: Crown also moves to discardPile.
 ```
 
 **G. Linked resource is immune to Doors of Night discard**
-```
+
+```text
 Resource is an environment in cardsInPlay with linkedTo = crownInstanceId.
 Hazard player plays Doors of Night.
 Expected: resource NOT discarded by DoN's environment-sweep; Crown NOT discarded.
@@ -369,6 +379,7 @@ Update `Playable: NO` → `Playable: YES`. Add `certified: "2026-04-26"` to card
 ### Step 11 — Pre-push verification
 
 Run in parallel:
+
 1. `npm run build`
 2. `npx vitest run packages/shared/src/tests/cards/dm-121.test.ts`
 3. `npm test`

@@ -398,6 +398,9 @@ export function connect(name: string): void {
         if (msg.effect.effect === 'dice-roll') {
           const { playerName, die1, die2, label } = msg.effect;
           renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
+          if (playerName !== name) {
+            showNotification(`rolled ${die1} + ${die2} = ${die1 + die2} (${label})`, { opponent: playerName });
+          }
           const visualView = document.getElementById('visual-view');
           if (visualView && !visualView.classList.contains('hidden')) {
             const variant = playerName === name ? 'black' : 'red';
