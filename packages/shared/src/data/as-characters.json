@@ -88,7 +88,10 @@
     "corruptionModifier": 0,
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "effects": [],
-    "text": "Unique. Manifestation of \"William\". May not be included with a starting company. May be played on the same turn Bûrat and/or Tûma is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Wûluag to untap Bûrat or Tûma if at the same site. If Bûrat and/or Tûma is in his company, Wûluag's mind is reduced by one."
+    "text": "Unique. Manifestation of \"William\". May not be included with a starting company. May be played on the same turn Bûrat and/or Tûma is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Wûluag to untap Bûrat or Tûma if at the same site. If Bûrat and/or Tûma is in his company, Wûluag's mind is reduced by one.",
+    "discardBodyCheck": [
+      8
+    ]
   },
   {
     "cardType": "minion-character",
@@ -110,7 +113,10 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Any non-Under-deeps Ruins & Lairs"
+    "homesite": "Any non-Under-deeps Ruins & Lairs",
+    "discardBodyCheck": [
+      8
+    ]
   },
   {
     "cardType": "minion-character",
@@ -131,6 +137,9 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Any non-Under-deeps Ruins & Lairs"
+    "homesite": "Any non-Under-deeps Ruins & Lairs",
+    "discardBodyCheck": [
+      8
+    ]
   }
 ]

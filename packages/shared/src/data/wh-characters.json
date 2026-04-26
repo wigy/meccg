@@ -19,7 +19,10 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Any Dark-hold"
+    "homesite": "Any Dark-hold",
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -41,7 +44,10 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Any Dark-hold"
+    "homesite": "Any Dark-hold",
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -63,6 +69,9 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Isengard"
+    "homesite": "Isengard",
+    "discardBodyCheck": [
+      8
+    ]
   }
 ]

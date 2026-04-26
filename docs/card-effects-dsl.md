@@ -1126,6 +1126,31 @@ Implemented in `chain-reducer.ts` (enqueue pending resolution on
 short-event resolution), `legal-actions/pending.ts` (generate roll
 action), and `pending-reducers.ts` (execute roll and apply consequences).
 
+### 24. `mass-body-check`
+
+Forces a body check modified by `modifier` (typically negative) on **every
+character** in the active company when the hazard short event resolves. For
+each character the resource player rolls 2d6:
+
+- Roll ≥ (body + modifier): no effect.
+- Roll < (body + modifier), character is Orc or Troll: character returned to
+  hand (discarded per normal body-check rules for Orcs/Trolls).
+- Roll < (body + modifier), character is any other race, untapped: character
+  becomes tapped.
+- Roll < (body + modifier), character is any other race, already tapped: no
+  effect.
+
+```json
+{ "type": "mass-body-check", "modifier": -1 }
+```
+
+Implemented in `chain-reducer.ts` (detect effect on short-event resolution,
+enqueue one `body-check-company` pending resolution per character),
+`legal-actions/pending.ts` (generate `body-check-company-roll` action per
+queued resolution), and `pending-reducers.ts` (execute roll, apply
+race-based consequence, resume chain auto-resolution after all checks
+resolve).
+
 ### Grant-Action: `palantir-fetch-discard`
 
 Tap the Palantír item to choose one card from the player's discard pile

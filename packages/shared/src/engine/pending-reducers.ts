@@ -22,7 +22,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -68,6 +68,8 @@ export function applyResolution(
       return applySeizedByTerrorRollResolution(state, action, top);
     case 'gold-ring-test':
       return applyGoldRingTestResolution(state, action, top);
+    case 'body-check-company':
+      return applyBodyCheckCompanyResolution(state, action, top);
   }
 }
 
@@ -892,6 +894,190 @@ function returnCharacterToHand(
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   return result;
+}
+
+/**
+ * Discard a character to their owner's discard pile (body check / hazard discard).
+ * Items and allies are discarded to the resource player's discard pile; hazards
+ * go to the hazard player's discard pile. Followers fall to GI if room, else discarded.
+ */
+function discardCharacter(
+  state: GameState,
+  playerIndex: number,
+  characterId: import('../index.js').CardInstanceId,
+  charInPlay: import('../index.js').CharacterInPlay,
+): GameState {
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = newPlayers[opponentIndex];
+  const newDiscard = [...player.discardPile];
+  const newOpponentDiscard = [...opponent.discardPile];
+
+  for (const item of charInPlay.items) {
+    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+  }
+  for (const ally of charInPlay.allies) {
+    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+  }
+  for (const hazard of charInPlay.hazards) {
+    newOpponentDiscard.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+  }
+
+  const newCharacters = { ...player.characters };
+  for (const followerId of charInPlay.followers) {
+    const follower = newCharacters[followerId as string];
+    if (!follower) continue;
+    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
+    const currentGIUsed = Object.values(newCharacters)
+      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
+      .reduce((sum, ch) => {
+        const def = state.cardPool[ch.definitionId as string];
+        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+      }, 0);
+    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+    } else {
+      for (const item of follower.items) newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+      for (const ally of follower.allies) newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      delete newCharacters[followerId as string];
+    }
+  }
+
+  delete newCharacters[characterId as string];
+  const newCompanies = player.companies.map(company => {
+    if (!company.characters.includes(characterId)) return company;
+    return { ...company, characters: company.characters.filter(id => id !== characterId) };
+  });
+
+  // Character card goes to the resource player's discard pile (not hand)
+  newDiscard.push({ instanceId: charInPlay.instanceId, definitionId: charInPlay.definitionId });
+
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: newCharacters,
+    companies: newCompanies,
+    discardPile: newDiscard,
+  };
+  newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
+
+  let result: GameState = { ...state, players: newPlayers };
+  result = cleanupEmptyCompanies(result);
+  return result;
+}
+
+/**
+ * Resolve a queued `body-check-company` resolution (from a mass-body-check
+ * hazard, e.g. Veils Flung Away). The resource player rolls 2d6.
+ *
+ * - For Orc/Troll: uses `discardBodyCheck` array from card data as the threshold;
+ *   min(array) is the pass threshold so all listed results trigger discard.
+ *   Discarded characters go to the resource player's discard pile (not hand).
+ * - For other races: uses `body` as the threshold.
+ * - If roll >= (min(discardBodyCheck) + modifier): no effect (pass).
+ * - Orc or Troll and roll fails: character is discarded (to discard pile).
+ * - Other races, untapped, and roll fails: character becomes tapped.
+ * - Other races, already tapped, roll fails: no effect.
+ */
+function applyBodyCheckCompanyResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'body-check-company-roll') {
+    return { state, error: `Pending body-check-company requires body-check-company-roll, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'body-check-company') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending body-check-company' };
+  }
+
+  const { characterId, modifier, sourceDefinitionId } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+  const charInPlay = player.characters[characterId as string];
+  if (!charInPlay) {
+    return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
+  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
+  const race = isCharacterCard(charDef) ? charDef.race : '';
+  const isOrcOrTroll = race === 'orc' || race === 'troll';
+  // Orc/Troll use their card-stated discard threshold (may differ from body);
+  // other races use body for the fail/tap comparison.
+  // Orc/Troll use their card-stated discard threshold array (may differ from body);
+  // the minimum value sets the pass threshold so all listed results trigger discard.
+  const discardValues = isOrcOrTroll && isCharacterCard(charDef) && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
+    ? charDef.discardBodyCheck
+    : [body];
+  const discardCheck = Math.min(...discardValues);
+  const effectiveThreshold = discardCheck + modifier;
+
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const passed = rollTotal >= effectiveThreshold;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Body check (${sourceName}): ${charName}`,
+  };
+  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs discard threshold ${discardCheck}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveThreshold} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
+
+  const stateAfterRoll = updatePlayer(
+    { ...state, rng, cheatRollTotal },
+    actorIndex,
+    p => ({ ...p, lastDiceRoll: roll }),
+  );
+  let postRoll = dequeueResolution(stateAfterRoll, top.id);
+
+  if (!passed) {
+    if (isOrcOrTroll) {
+      logDetail(`${sourceName}: ${charName} (${race}) failed body check — discarded to discard pile`);
+      postRoll = discardCharacter(postRoll, actorIndex, characterId, charInPlay);
+    } else if (charInPlay.status === 'untapped') {
+      logDetail(`${sourceName}: ${charName} failed body check while untapped — tapped`);
+      postRoll = updatePlayer(postRoll, actorIndex, p =>
+        updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })),
+      );
+    } else {
+      logDetail(`${sourceName}: ${charName} failed body check but was already tapped — no effect`);
+    }
+  }
+
+  // Once all body-check resolutions from this same source are dequeued,
+  // mark the originating short-event chain entry as resolved and let the
+  // chain finish normally (so the card lands in the hazard discard pile).
+  const remainingBodyChecks = postRoll.pendingResolutions.filter(
+    r => r.kind.type === 'body-check-company' && r.source === top.source,
+  );
+  if (remainingBodyChecks.length === 0 && postRoll.chain) {
+    const chain = postRoll.chain;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event'
+        && !e.resolved
+        && e.card?.instanceId === top.source
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [rollEffect, ...(continued.effects ?? [])],
+    };
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**
