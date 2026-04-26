@@ -271,6 +271,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofNature.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
@@ -332,6 +333,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
@@ -387,6 +389,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofExpedience.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
@@ -435,6 +438,7 @@
     "id": "le-107",
     "name": "Covetous Thoughts",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CovetousThoughts.jpg",
+    "keywords": ["corruption"],
     "text": "Corruption. Playable only on a minion. At the end of each of his turns, target minion makes a corruption check for each item his company bears that he does not bear. For each check, modify the roll by subtracting the corruption of that item. During his organization phase, the minion may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given minion.",
     "unique": false,
     "eventType": "permanent",

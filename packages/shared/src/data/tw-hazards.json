@@ -482,6 +482,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
