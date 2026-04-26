@@ -330,6 +330,27 @@ function renderDefenderRow(
     }
   }
 
+  // Build a map of in-play card ID → cancel-attack action for direct tap-to-cancel
+  // abilities on characters and allies (e.g. Goldberry's "tap to cancel one Wilderness
+  // attack"). Distinguished from hand-card cancel-attack actions by checking whether
+  // the cardInstanceId belongs to an in-play card in this company.
+  const companyInPlayIds = new Set<string>();
+  for (const charId of company.characters) {
+    companyInPlayIds.add(charId as string);
+    const char = charMap[charId as string];
+    if (char) {
+      for (const ally of char.allies) {
+        companyInPlayIds.add(ally.instanceId as string);
+      }
+    }
+  }
+  const cancelAttackInPlayMap = new Map<string, CancelAttackAction>();
+  for (const a of cancelAttackActions) {
+    if (!a.scoutInstanceId && companyInPlayIds.has(a.cardInstanceId as string)) {
+      cancelAttackInPlayMap.set(a.cardInstanceId as string, a);
+    }
+  }
+
   // Build a map of character ID → choose-strike-order action (for choose-strike-order phase)
   const chooseOrderMap = new Map<string, ChooseStrikeOrderAction>();
   for (const a of chooseOrderActions) {
@@ -359,7 +380,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, chooseOrderMap, modifyAttackMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -387,6 +408,7 @@ function renderCombatCharacterColumn(
   cancelByTapIds: Set<string>,
   cancelStrikeMap: Map<string, CancelStrikeAction>,
   cancelAttackScoutMap: Map<string, CancelAttackAction>,
+  cancelAttackInPlayMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   modifyAttackMap: Map<string, ModifyAttackAction>,
   assignActions: AssignStrikeAction[],
@@ -433,6 +455,8 @@ function renderCombatCharacterColumn(
 
   const chooseOrderAction = chooseOrderMap.get(charIdStr);
 
+  const cancelAttackInPlayAction = cancelAttackInPlayMap.get(charIdStr);
+
   if (cancelAttackAction) {
     // Cancel-attack scout targeting: click this scout to play the selected cancel-attack card
     img.classList.add('combat-card--assignable');
@@ -441,6 +465,14 @@ function renderCombatCharacterColumn(
       e.stopPropagation();
       clearCancelAttackSelection();
       onAction(cancelAttackAction);
+    });
+  } else if (cancelAttackInPlayAction) {
+    // In-play character cancel-attack: tap this character to cancel the attack directly
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction(cancelAttackInPlayAction);
     });
   } else if (isCancelByTap) {
     // Cancel-by-tap phase: click to tap this character and cancel an attack
@@ -571,6 +603,8 @@ function renderCombatCharacterColumn(
       const allyChooseOrder = chooseOrderMap.get(allyIdStr);
       const modifyAction = modifyAttackMap.get(allyIdStr);
 
+      const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
+
       if (modifyAction) {
         // Item has a usable modify-attack ability (e.g. Black Arrow): click to tap
         // and apply the modifier to the current attack.
@@ -579,6 +613,15 @@ function renderCombatCharacterColumn(
         itemEl.addEventListener('click', (e) => {
           e.stopPropagation();
           onAction(modifyAction);
+        });
+      } else if (allyCancelAttackInPlay) {
+        // In-play ally cancel-attack: tap this ally to cancel the attack directly
+        // (e.g. Goldberry's "tap to cancel one attack keyed to Wilderness").
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(allyCancelAttackInPlay);
         });
       } else if (assignableIds.has(allyIdStr) && combat.phase === 'assign-strikes') {
         itemEl.classList.add('combat-card--assignable');
