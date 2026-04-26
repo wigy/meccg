@@ -19,7 +19,6 @@ FEATS
 EPICS
 -----
 
-(B) Release the Prisoners
 Dark Minions Rules
   Agents (2026-04-22-agents-plan.md)
 The Lidless eye Rules
