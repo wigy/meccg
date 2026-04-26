@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MECCG</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -150,39 +153,20 @@
     </div>
   </div>
 
-  <!-- Deck editor screen (lobby mode) -->
-  <div id="deck-editor-screen" class="hidden">
-    <div class="lobby-header">
-      <h2 class="lobby-title" id="deck-editor-title">Deck</h2>
-    </div>
-    <p class="deck-editor-notice">
-      Note: actual deck editing is not yet implemented. Editing will be enabled
-      once all or most challenge decks have been completed.
-    </p>
-    <div id="deck-editor-preview" class="deck-editor-preview"></div>
-    <div class="deck-editor-content">
-      <div class="deck-editor-section">
-        <h3 class="lobby-section-title" id="deck-editor-pool-title">Pool</h3>
-        <div id="deck-editor-pool" class="deck-editor-list"></div>
-        <h3 class="lobby-section-title" id="deck-editor-characters-title" style="margin-top:0.75rem">Characters</h3>
-        <div id="deck-editor-characters" class="deck-editor-list"></div>
-      </div>
-      <div class="deck-editor-section">
-        <h3 class="lobby-section-title" id="deck-editor-resources-title">Resources</h3>
-        <div id="deck-editor-resources" class="deck-editor-list"></div>
-      </div>
-      <div class="deck-editor-section">
-        <h3 class="lobby-section-title" id="deck-editor-hazards-title">Hazards</h3>
-        <div id="deck-editor-hazards" class="deck-editor-list"></div>
-      </div>
-      <div class="deck-editor-section">
-        <h3 class="lobby-section-title" id="deck-editor-sideboard-title">Sideboard</h3>
-        <div id="deck-editor-sideboard" class="deck-editor-list"></div>
-      </div>
-      <div class="deck-editor-section">
-        <h3 class="lobby-section-title" id="deck-editor-sites-title">Sites</h3>
-        <div id="deck-editor-sites" class="deck-editor-list"></div>
-      </div>
+  <!-- Deck editor screen (full-featured) -->
+  <div id="deck-editor-screen" class="de-screen hidden">
+    <header class="de-header">
+      <button id="de-back-btn" class="de-back-btn" type="button" aria-label="Back to decks">&#8592;</button>
+      <span class="de-logo">MECCG</span>
+      <input type="text" id="de-deck-name" class="de-deck-name" placeholder="Deck name" />
+      <div id="de-stats" class="de-stats"></div>
+      <div id="de-save-indicator" class="de-save-status de-save-status--saved">Saved</div>
+      <button id="de-save-btn" class="de-save-btn" type="button">Save</button>
+    </header>
+    <div class="de-body">
+      <aside id="de-filter-panel" class="de-filter-panel"></aside>
+      <main id="de-card-grid" class="de-card-grid"></main>
+      <aside id="de-deck-panel" class="de-deck-panel"></aside>
     </div>
   </div>
 
