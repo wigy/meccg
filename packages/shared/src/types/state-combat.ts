@@ -252,6 +252,19 @@ export interface CombatState {
    * (used when cancel-window was opened solely for a haven-jump offer).
    */
   readonly attackerChoosesDefenders?: boolean;
+  /**
+   * When true, this attack cannot be canceled by any card effect
+   * (`cancel-attack` actions are suppressed for the defending player).
+   * Set for attacks isolated by *Forewarned Is Forearmed*.
+   */
+  readonly uncancelable?: boolean;
+  /**
+   * When true, this attack was reduced from multiple attacks by
+   * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the
+   * `attack-defeated` condition context so the card can self-discard
+   * only when one of these isolated attacks is defeated.
+   */
+  readonly isolated?: boolean;
 }
 
 /**

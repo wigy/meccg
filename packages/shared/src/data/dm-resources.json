@@ -121,8 +121,16 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      { "type": "reduce-attacks-to-one" },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "when": { "attack.isolated": true },
+        "apply": { "type": "discard-self" }
+      },
       { "type": "duplication-limit", "scope": "game", "max": 1 }
-    ]
+    ],
+    "certified": "2026-04-26"
   },
   {
     "cardType": "hero-resource-event",

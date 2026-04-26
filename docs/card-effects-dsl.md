@@ -932,7 +932,33 @@ Supported scopes:
 { "type": "duplication-limit", "scope": "player", "max": 1 }
 ```
 
-### 15. `play-target`
+### 15. `reduce-attacks-to-one`
+
+Marker effect for *Forewarned Is Forearmed* (dm-132). When a card with this
+effect is in play it activates two engine-level reductions:
+
+1. **Site attacks**: At the start of the site phase's automatic-attack
+   sequence, if the active company's site (non-Dragon-lair) has more than one
+   automatic attack, a `forewarned-select-attack` step is inserted before
+   `automatic-attacks`. The **hazard player** selects which single attack to
+   retain; all others are skipped. The retained attack is flagged
+   `isolated: true` and `uncancelable: true` on `CombatState`.
+2. **Creature attacks**: Any hazard creature with a `combat-multi-attack`
+   count > 1 is reduced to a single attack when the chain resolves. That
+   single attack is also flagged `isolated: true` and `uncancelable: true`.
+
+The `uncancelable` flag suppresses all cancel-attack actions (including
+`combat-cancel-attack-by-tap`). The `isolated` flag is used by the
+`on-event: attack-defeated` trigger to discard the card when the single
+retained attack is defeated (see effect #2 on dm-132).
+
+No fields beyond `type` are required.
+
+```json
+{ "type": "reduce-attacks-to-one" }
+```
+
+### 16. `play-target`
 
 Declares what this card targets when played. The engine uses this to
 generate per-target actions (one per eligible character, company, etc.).

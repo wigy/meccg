@@ -22,7 +22,7 @@ import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck } from './pending.js';
 import { resolveEffective } from './effective.js';
-import { getActiveAutoAttacks } from './manifestations.js';
+import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 
 
@@ -46,6 +46,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'select-company': handleSiteSelectCompany,
   'enter-or-skip': handleSiteEnterOrSkip,
   'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
+  'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'declare-agent-attack': (state, action, siteState) =>
@@ -251,8 +252,8 @@ function handleRevealOnGuardAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Pass: advance to play-site-auto-attack (if the site has the dynamic
-  // auto-attack effect) or automatic-attacks otherwise.
+  // Pass: advance to play-site-auto-attack (if dynamic) or forewarned-select-attack
+  // (if Forewarned Is Forearmed is in play and site has >1 attacks) or automatic-attacks.
   if (action.type === 'pass') {
     const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
     const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
@@ -261,9 +262,20 @@ function handleRevealOnGuardAttacks(
       : undefined;
     const hasDynamicAutoAttack = siteDef && isSiteCard(siteDef)
       && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
-    const nextStep: SitePhaseState['step'] = hasDynamicAutoAttack
-      ? 'play-site-auto-attack'
-      : 'automatic-attacks';
+    let nextStep: SitePhaseState['step'];
+    if (hasDynamicAutoAttack) {
+      nextStep = 'play-site-auto-attack';
+    } else if (
+      !hasDynamicAutoAttack
+      && siteDef && isSiteCard(siteDef)
+      && !(siteDef as { lairOf?: unknown }).lairOf
+      && isReduceAttacksToOneInPlay(state)
+      && getActiveAutoAttacks(state, siteDef).length > 1
+    ) {
+      nextStep = 'forewarned-select-attack';
+    } else {
+      nextStep = 'automatic-attacks';
+    }
     logDetail(`Site: reveal-on-guard-attacks → advancing to ${nextStep}`);
     return {
       state: {
@@ -325,6 +337,47 @@ function handleRevealOnGuardAttacks(
 }
 
 /**
+ * Handle the 'forewarned-select-attack' step: hazard player selects which
+ * automatic attack to retain when *Forewarned Is Forearmed* is in play and
+ * the site has more than one automatic attack.
+ *
+ * Only `select-forewarned-attack` from the hazard player is legal here.
+ * After selection, `selectedAutoAttackIndex` is stored and the step advances
+ * to `automatic-attacks`.
+ */
+function handleForewarnedSelectAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'select-forewarned-attack') {
+    return { state, error: `Expected 'select-forewarned-attack' during forewarned-select-attack step, got '${action.type}'` };
+  }
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+  const autoAttacks = siteDef && isSiteCard(siteDef)
+    ? getActiveAutoAttacks(state, siteDef)
+    : [];
+  if (action.attackIndex < 0 || action.attackIndex >= autoAttacks.length) {
+    return { state, error: `Invalid attackIndex ${action.attackIndex} for forewarned-select-attack` };
+  }
+  logDetail(`Forewarned Is Forearmed: hazard player selected attack ${action.attackIndex} (${autoAttacks[action.attackIndex].creatureType})`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: 'automatic-attacks' as const,
+        selectedAutoAttackIndex: action.attackIndex,
+      },
+    },
+  };
+}
+
+/**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
  * attack listed on the site card, one at a time.
  *
@@ -360,7 +413,14 @@ function handleSiteAutomaticAttacks(
   const attackIndex = siteState.automaticAttacksResolved;
   const autoAttacks = getActiveAutoAttacks(state, siteDef);
 
-  if (attackIndex >= autoAttacks.length) {
+  // When Forewarned Is Forearmed selected a single attack, only that attack
+  // is resolved; consider done after 1 attack (not after all autoAttacks.length).
+  const forewarnedIdx = siteState.selectedAutoAttackIndex;
+  const allAttacksDone = forewarnedIdx !== undefined
+    ? attackIndex >= 1
+    : attackIndex >= autoAttacks.length;
+
+  if (allAttacksDone) {
     // Check for auto-attack-race-duplicate effects from permanent events in play
     // (The Moon Is Dead). Each Undead auto-attack at the site must be faced
     // a second time. duplicatesRun = attackIndex - autoAttacks.length counts
@@ -478,8 +538,9 @@ function handleSiteAutomaticAttacks(
     };
   }
 
-  // Initiate combat for the next automatic attack
-  const aa = autoAttacks[attackIndex];
+  // Initiate combat for the next automatic attack (or the Forewarned-selected one)
+  const resolvedAttackIndex = forewarnedIdx !== undefined ? forewarnedIdx : attackIndex;
+  const aa = autoAttacks[resolvedAttackIndex];
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
   const inPlayNames = buildInPlayNames(state);
@@ -511,7 +572,7 @@ function handleSiteAutomaticAttacks(
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 
   const combat: CombatState = {
-    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
+    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: resolvedAttackIndex },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
@@ -530,6 +591,7 @@ function handleSiteAutomaticAttacks(
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef.effects,
     }),
+    ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
   };
 
   return {

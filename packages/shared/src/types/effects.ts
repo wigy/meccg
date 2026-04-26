@@ -1663,6 +1663,21 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * When this permanent event is in play, any site (that is not a Dragon lair)
+ * with more than one automatic attack is reduced to a single attack chosen
+ * by the hazard player, and any creature with more than one attack (i.e.
+ * combat-multi-attack) is reduced to one attack. The remaining attack
+ * cannot be canceled. The event discards itself when that isolated attack
+ * is defeated (handled via `on-event: attack-defeated` with
+ * `when: { "attack.isolated": true }`).
+ *
+ * Used by: *Forewarned Is Forearmed* (dm-132).
+ */
+export interface ReduceAttacksToOneEffect extends EffectBase {
+  readonly type: 'reduce-attacks-to-one';
+}
+
+/**
  * When present on a resource permanent event that carries `storable-at`,
  * storing the card at a haven triggers a wizard-search window for the
  * resource player — if and only if their Wizard is not already in play.
@@ -1805,4 +1820,5 @@ export type CardEffect =
   | TriggerAttackOnPlayEffect
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect
+  | ReduceAttacksToOneEffect
   | FetchWizardOnStoreEffect;

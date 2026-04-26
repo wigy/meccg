@@ -390,6 +390,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'select-forewarned-attack':
+      return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
     case 'pair-resource-with-cof':
       return `Pair ${instName(action.cardInstanceId)} with Crown of Flowers (${instName(action.cofInstanceId)})`;
     case 'play-wizard-from-search':

@@ -99,6 +99,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return viable(revealOnGuardAttacksActions(state, playerId, siteState));
   }
 
+  if (siteState.step === 'forewarned-select-attack') {
+    return viable(forewarnedSelectAttackActions(state, playerId, siteState));
+  }
+
   if (siteState.step === 'play-site-auto-attack') {
     return viable(playSiteAutoAttackActions(state, playerId, siteState));
   }
@@ -298,6 +302,34 @@ function revealOnGuardAttacksActions(
   // Always offer pass
   actions.push({ type: 'pass', player: playerId });
   return actions;
+}
+
+/**
+ * Forewarned Is Forearmed: hazard player selects which automatic attack
+ * to retain. The resource player (active) has no actions here.
+ */
+function forewarnedSelectAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  const isActive = state.activePlayer === playerId;
+  if (isActive) {
+    logDetail(`Forewarned-select-attack: resource player waits for hazard player's selection`);
+    return [];
+  }
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activeIndex].companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return [];
+  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return [];
+  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  if (autoAttacks.length <= 1) return [];
+  return autoAttacks.map((_aa, i) => ({
+    type: 'select-forewarned-attack' as const,
+    player: playerId,
+    attackIndex: i,
+  }));
 }
 
 /**
