@@ -86,7 +86,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Bree if the influence check is greater than 9. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Bree if the influence check is greater than 9. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-06"
   },
   {
@@ -123,7 +123,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), D\u00fanedain (+1).",
+    "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1).",
     "certified": "2026-04-14"
   },
   {
@@ -152,7 +152,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
   },
   {
@@ -262,7 +262,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Lond Galen if the influence check is greater than 8. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Lond Galen if the influence check is greater than 8. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
   },
   {
@@ -363,7 +363,7 @@
         }
       }
     ],
-    "text": "Environment. The prowess of each D\u00fanadan is modified by +1. Additionally, if Gates of Morning is in play, the prowess of each automatic-attack and hazard creature is modified by -1 and the prowess of each Man and D\u00fanadan is modified by +1. Cannot be duplicated.",
+    "text": "Environment. The prowess of each Dúnadan is modified by +1. Additionally, if Gates of Morning is in play, the prowess of each automatic-attack and hazard creature is modified by -1 and the prowess of each Man and Dúnadan is modified by +1. Cannot be duplicated.",
     "certified": "2026-04-06"
   },
   {
@@ -569,7 +569,7 @@
     "cardType": "hero-resource-event",
     "alignment": "wizard",
     "id": "tw-190",
-    "name": "Align Palant\u00edr",
+    "name": "Align Palantír",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AlignPalantir.jpg",
     "unique": false,
     "eventType": "permanent",
@@ -611,14 +611,14 @@
         }
       }
     ],
-    "text": "Sage only. Playable on a Palant\u00edr with a sage in the company. Bearer now has the ability to use the Palant\u00edr. If the Palant\u00edr is stored, this card is stored too. Discard Align Palant\u00edr if the company carrying the Palant\u00edr moves. Cannot be duplicated on a given Palant\u00edr.",
+    "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",
     "certified": "2026-04-14"
   },
   {
     "cardType": "hero-resource-faction",
     "alignment": "wizard",
     "id": "tw-277",
-    "name": "Men of An\u00f3rien",
+    "name": "Men of Anórien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofAnorien.jpg",
     "unique": true,
     "marshallingPoints": 2,
@@ -640,7 +640,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
   },
   {
@@ -669,7 +669,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Pelargir if the influence check is greater than 7. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Pelargir if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
   },
   {
@@ -685,7 +685,7 @@
     "race": "dunadan",
     "playableAt": [
       {
-        "site": "Henneth Ann\u00fbn"
+        "site": "Henneth Annûn"
       }
     ],
     "effects": [
@@ -698,7 +698,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Henneth Ann\u00fbn if the influence check is greater than 7. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Henneth Annûn if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
   },
   {
@@ -737,7 +737,7 @@
                 "Gap of Isen",
                 "Wold & Foothills",
                 "Enedhwaith",
-                "Old P\u00fbkel-land",
+                "Old Pûkel-land",
                 "Brown Lands",
                 "Anduin Vales",
                 "Redhorn Gate"
@@ -747,7 +747,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old P\u00fbkel-land, Brown Lands, Anduin Vales, or Redhorn Gate.",
+    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate.",
     "certified": "2026-04-14"
   },
   {
@@ -830,7 +830,7 @@
     "cardType": "hero-resource-event",
     "alignment": "wizard",
     "id": "tw-362",
-    "name": "Wizard\u2019s Laughter",
+    "name": "Wizard’s Laughter",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsLaughter.jpg",
     "unique": false,
     "eventType": "short",
@@ -850,7 +850,7 @@
       }
     ],
     "certified": "2026-04-15",
-    "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
+    "text": "Spell. Wizard only during opponent’s site phase. Automatically cancels an influence check against one of the Wizard’s player’s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
   },
   {
     "cardType": "hero-resource-faction",
@@ -894,7 +894,7 @@
         }
       }
     ],
-    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), D\u00fanedain (-1), Dwarves (-1)."
+    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), Dúnedain (-1), Dwarves (-1)."
   },
   {
     "cardType": "hero-resource-event",
@@ -964,7 +964,7 @@
     "id": "tw-197",
     "name": "Beornings",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Beornings.jpg",
-    "text": "Unique. Playable at Beorn\u2019s House if the influence check is greater than 7. Standard Modifications: Men (+1).",
+    "text": "Unique. Playable at Beorn’s House if the influence check is greater than 7. Standard Modifications: Men (+1).",
     "alignment": "wizard",
     "unique": true,
     "marshallingPoints": 2,
@@ -978,7 +978,7 @@
     "id": "tw-222",
     "name": "Easterlings",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Easterlings.jpg",
-    "text": "Unique. Playable at Easterling Camp if the influence check is greater than 9. Standard Modifications: D\u00fanedain (-2).",
+    "text": "Unique. Playable at Easterling Camp if the influence check is greater than 9. Standard Modifications: Dúnedain (-2).",
     "alignment": "wizard",
     "unique": true,
     "marshallingPoints": 4,
@@ -1002,18 +1002,10 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": {
-          "target.status": {
-            "$ne": "inverted"
-          }
-        }
+        "filter": { "target.status": { "$ne": "inverted" } }
       },
-      {
-        "type": "cancel-attack"
-      },
-      {
-        "type": "wound-target-character"
-      }
+      { "type": "cancel-attack" },
+      { "type": "wound-target-character" }
     ],
     "certified": "2026-04-24"
   },
@@ -1043,9 +1035,7 @@
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
-      {
-        "site": "Old Forest"
-      }
+      { "site": "Old Forest" }
     ],
     "effects": [
       {
@@ -1054,12 +1044,8 @@
       },
       {
         "type": "cancel-attack",
-        "cost": {
-          "tap": "self"
-        },
-        "when": {
-          "attack.keying": "wilderness"
-        }
+        "cost": { "tap": "self" },
+        "when": { "attack.keying": "wilderness" }
       }
     ]
   },
@@ -1068,7 +1054,7 @@
     "id": "tw-246",
     "name": "Gollum",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gollum.jpg",
-    "text": "Unique. Playable at Goblin-gate or Moria. If his company\u2019s size is two or less, tap Gollum to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Gollum if he is at the same non-Haven site as The One Ring ; then both Gollum and The One Ring are discarded.",
+    "text": "Unique. Playable at Goblin-gate or Moria. If his company’s size is two or less, tap Gollum to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Gollum if he is at the same non-Haven site as The One Ring ; then both Gollum and The One Ring are discarded.",
     "alignment": "wizard",
     "unique": true,
     "prowess": 2,
@@ -1194,7 +1180,7 @@
     "id": "tw-288",
     "name": "Muster",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Muster.jpg",
-    "text": "Warrior only. An influence check against a faction by a warrior is modified by adding the warrior\u2019s prowess to a maximum modifier of +5.",
+    "text": "Warrior only. An influence check against a faction by a warrior is modified by adding the warrior’s prowess to a maximum modifier of +5.",
     "alignment": "wizard",
     "unique": false,
     "eventType": "short",
@@ -1204,18 +1190,12 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": {
-          "target.skills": {
-            "$includes": "warrior"
-          }
-        }
+        "filter": { "target.skills": { "$includes": "warrior" } }
       },
       {
         "type": "play-option",
         "id": "influence-boost",
-        "when": {
-          "player.hasFactionInHand": true
-        },
+        "when": { "player.hasFactionInHand": true },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1313,7 +1293,7 @@
     "id": "tw-316",
     "name": "Return of the King",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ReturnoftheKing.jpg",
-    "text": "Unique. Aragorn II only. Only playable in Minas Tirith and only if Denethor II is not in play. Aragorn II\u2019s direct influence is modified by +3. Keep this card with Aragorn II; discard if he leaves play.",
+    "text": "Unique. Aragorn II only. Only playable in Minas Tirith and only if Denethor II is not in play. Aragorn II’s direct influence is modified by +3. Keep this card with Aragorn II; discard if he leaves play.",
     "alignment": "wizard",
     "unique": true,
     "eventType": "permanent",
@@ -1355,9 +1335,7 @@
     "effects": [
       {
         "type": "cancel-attack",
-        "when": {
-          "enemy.race": "troll"
-        }
+        "when": { "enemy.race": "troll" }
       },
       {
         "type": "move",
@@ -1366,17 +1344,11 @@
         "to": "discard",
         "filter": {
           "$and": [
-            {
-              "cardType": "hazard-event"
-            },
-            {
-              "eventType": "permanent"
-            }
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
           ]
         },
-        "when": {
-          "inPlay": "Gates of Morning"
-        }
+        "when": { "inPlay": "Gates of Morning" }
       }
     ],
     "certified": "2026-04-25"
@@ -1386,7 +1358,7 @@
     "id": "tw-346",
     "name": "The Old Thrush",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheOldThrush.jpg",
-    "text": "-3 to the prowess and body of a non-Nazg\u00fbl attack with a normal prowess of 13 or more. Cannot be duplicated on a given attack.",
+    "text": "-3 to the prowess and body of a non-Nazgûl attack with a normal prowess of 13 or more. Cannot be duplicated on a given attack.",
     "alignment": "wizard",
     "unique": false,
     "eventType": "short",
@@ -1410,7 +1382,7 @@
     "id": "tw-352",
     "name": "Tower Guard of Minas Tirith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TowerGuardofMinasTirith.jpg",
-    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: D\u00fanedain (+1).",
+    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "alignment": "wizard",
     "unique": true,
     "marshallingPoints": 2,
