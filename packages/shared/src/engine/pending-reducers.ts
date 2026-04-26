@@ -18,6 +18,7 @@ import type {
   CardInstance,
   GameEffect,
 } from '../index.js';
+import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus } from '../index.js';
@@ -70,6 +71,8 @@ export function applyResolution(
       return applyGoldRingTestResolution(state, action, top);
     case 'body-check-company':
       return applyBodyCheckCompanyResolution(state, action, top);
+    case 'resource-play-offer':
+      return applyResourcePlayOfferResolution(state, action, top);
   }
 }
 
@@ -1291,4 +1294,93 @@ function applyGoldRingTestResolution(
   );
 
   return { state: postRoll, effects: [rollEffect] };
+}
+
+/**
+ * Resolve a `resource-play-offer` pending resolution.
+ *
+ * The actor either:
+ *  - passes (Crown of Flowers stays in play with no paired resource), or
+ *  - plays `pair-resource-with-cof` to pair a resource from hand with
+ *    the in-play Crown of Flowers. The paired resource enters cardsInPlay
+ *    with `linkedInstanceId`, `assumeInPlay: ['Gates of Morning']`, and
+ *    `assumeNotInPlay: ['Doors of Night']`. Crown of Flowers is updated to
+ *    record the link as well.
+ */
+function applyResourcePlayOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'resource-play-offer') return null;
+
+  if (action.type === 'pass') {
+    logDetail(`resource-play-offer: player passes — CoF has no paired resource`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'pair-resource-with-cof') {
+    return { state, error: `Pending resource-play-offer requires pair-resource-with-cof or pass, got '${action.type}'` };
+  }
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending resource-play-offer' };
+  }
+
+  const { cardInstanceId, cofInstanceId } = action;
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // Find the card in hand
+  const handIdx = player.hand.findIndex(c => c.instanceId === cardInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Card ${cardInstanceId as string} not found in hand` };
+  }
+  const handCard = player.hand[handIdx];
+
+  // Find CoF in cardsInPlay (may be on either player)
+  let cofPlayerIndex = -1;
+  for (let pi = 0; pi < 2; pi++) {
+    if (state.players[pi].cardsInPlay.some(c => c.instanceId === cofInstanceId)) {
+      cofPlayerIndex = pi;
+      break;
+    }
+  }
+  if (cofPlayerIndex < 0) {
+    return { state, error: `Crown of Flowers ${cofInstanceId as string} not found in play` };
+  }
+
+  logDetail(`resource-play-offer: pairing ${handCard.definitionId as string} (${cardInstanceId as string}) with CoF (${cofInstanceId as string})`);
+
+  // Remove the card from hand
+  const newHand = player.hand.filter((_, i) => i !== handIdx);
+
+  // Build the paired resource CardInPlay entry
+  const pairedCard: CardInPlay = {
+    instanceId: handCard.instanceId,
+    definitionId: handCard.definitionId,
+    status: CardStatus.Untapped,
+    linkedInstanceId: cofInstanceId,
+    assumeInPlay: ['Gates of Morning'],
+    assumeNotInPlay: ['Doors of Night'],
+  };
+
+  // Apply state changes: remove from hand, add to cardsInPlay
+  let newState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: newHand,
+    cardsInPlay: [...p.cardsInPlay, pairedCard],
+  }));
+
+  // Update CoF to link back to the resource (handles same-player and cross-player)
+  newState = updatePlayer(newState, cofPlayerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.map(c =>
+      c.instanceId === cofInstanceId
+        ? { ...c, linkedInstanceId: cardInstanceId }
+        : c,
+    ),
+  }));
+
+  return { state: dequeueResolution(newState, top.id) };
 }

@@ -507,6 +507,33 @@ Apply types:
   (`handleHavenJoinAttack`, `applyPostAttackEffects`,
   `restoreHavenJumpOrigins`). Used by *Alatar* (tw-117).
 
+- `offer-resource-play` -- under `on-event: self-enters-play`, enqueue
+  a `resource-play-offer` pending resolution for the active player.
+  The player may pair any resource card from their hand with the
+  in-play source card (Crown of Flowers), or pass. When paired, the
+  chosen resource is moved from hand directly into `cardsInPlay` with
+  three extra fields: `linkedInstanceId` (pointing to the source card),
+  `assumeInPlay: ['Gates of Morning']`, and `assumeNotInPlay: ['Doors of Night']`.
+  The source card's `cardsInPlay` entry is also updated with `linkedInstanceId`
+  pointing back to the paired resource. Both links enable a cascade discard:
+  when either linked card leaves `cardsInPlay`, the other is discarded too.
+  The `collectGlobalEffects` function in `resolver.ts` reads `assumeInPlay`
+  and `assumeNotInPlay` per card and adjusts the `inPlay` names list used
+  by `matchesCondition` so GoM-conditional effects on the paired resource
+  activate even without a real Gates of Morning on the table.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "offer-resource-play" } }
+  ```
+
+  Implemented in `chain-reducer.ts` (`resolvePermanentEvent`),
+  `legal-actions/pending.ts` (`resourcePlayOfferActions`),
+  `pending-reducers.ts` (`applyResourcePlayOfferResolution`),
+  `engine/effects/resolver.ts` (`collectGlobalEffects` — per-card inPlay
+  override), and `chain-reducer.ts` (`cascadeLinkedDiscards`).
+  Used by *Crown of Flowers* (dm-121).
+
 ### Pending resolutions
 
 The engine carries two top-level lists alongside `phaseState`:

@@ -279,6 +279,18 @@ export interface PendingResolution {
         readonly modifier: number;
         /** Definition ID of the source hazard card (for UI / logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Crown of Flowers resource-play offer: the active player may pair
+         * one resource card from their hand with the in-play Crown of Flowers.
+         * The paired resource enters play linked to Crown of Flowers, and is
+         * treated as if Gates of Morning were in play and Doors of Night were not.
+         * The player may also pass (leaving Crown of Flowers with no paired resource).
+         */
+        readonly type: 'resource-play-offer';
+        /** The Crown of Flowers instance that created this offer. */
+        readonly linkToInstanceId: CardInstanceId;
       };
 }
 

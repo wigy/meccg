@@ -123,6 +123,8 @@ export function resolutionLegalActions(
       return goldRingTestActions(state, actor, top);
     case 'body-check-company':
       return bodyCheckCompanyActions(state, actor, top);
+    case 'resource-play-offer':
+      return resourcePlayOfferActions(state, actor, top);
   }
 }
 
@@ -635,6 +637,51 @@ function bodyCheckCompanyActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Compute legal actions for a queued `resource-play-offer` resolution.
+ *
+ * Offered when Crown of Flowers enters play: the active player may pair
+ * any resource card from their hand with the in-play Crown of Flowers,
+ * or pass (leaving Crown of Flowers with no paired resource this turn).
+ */
+function resourcePlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'resource-play-offer') return [];
+
+  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
+
+  const playerIndex = state.players.findIndex(p => p.id === actor);
+  if (playerIndex < 0) return actions;
+  const player = state.players[playerIndex];
+  const cofInstanceId = top.kind.linkToInstanceId;
+
+  for (const card of player.hand) {
+    const def = state.cardPool[card.definitionId as string];
+    if (!def) continue;
+    if (
+      def.cardType !== 'hero-resource-event' &&
+      def.cardType !== 'hero-resource-item' &&
+      def.cardType !== 'hero-resource-ally' &&
+      def.cardType !== 'hero-resource-faction'
+    ) continue;
+    logDetail(`resource-play-offer: offering ${def.name} (${card.instanceId as string}) as pair for CoF ${cofInstanceId as string}`);
+    actions.push({
+      action: {
+        type: 'pair-resource-with-cof',
+        player: actor,
+        cardInstanceId: card.instanceId,
+        cofInstanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
 }
 
 /**
