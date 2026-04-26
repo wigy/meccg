@@ -184,12 +184,18 @@ export function heroResourceShortEventActions(
 
     // Skip short events whose effects are only usable during combat
     // (e.g. Concealment's cancel-attack). These require an active attack.
-    // A move (discard-in-play) effect whose `when` gate is not currently met
-    // is also treated as absent — e.g. The Cock Crows has a discard mode
-    // gated on Gates of Morning being in play.
+    // Supporting effects like play-target and wound-target-character do not
+    // confer non-combat playability on their own — they merely describe how
+    // the combat effect is applied (e.g. Escape: pick a character, cancel the
+    // attack, wound them). A move (discard-in-play) effect whose `when` gate
+    // IS currently met represents a genuine non-combat mode and does allow
+    // the card to be played outside combat (e.g. The Cock Crows' GoM discard
+    // mode). A play-option effect with a met `when` also represents a
+    // non-combat mode (e.g. Many Turns and Doublings' hazard-limit reduction).
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'play-target', 'wound-target-character']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
-      if (combatOnlyTypes.has(e.type)) return true;
+      if (combatSupportTypes.has(e.type)) return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
       return false;
     });
