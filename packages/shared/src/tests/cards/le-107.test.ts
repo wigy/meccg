@@ -152,7 +152,8 @@ describe('Covetous Thoughts (le-107)', () => {
 
   // ── Effect 3: grant-action remove-self-on-roll (threshold 6) ──────────────
 
-  test('untapped minion with Covetous Thoughts can activate removal during organization', () => {
+  test('untapped minion with Covetous Thoughts gets both standard (tap) and no-tap (−3) removal variants', () => {
+    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -174,14 +175,16 @@ describe('Covetous Thoughts (le-107)', () => {
 
     const withCT = attachHazardToChar(base, RESOURCE_PLAYER, GORBAG, COVETOUS_THOUGHTS);
     const actions = viableActions(withCT, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
+    expect(actions.length).toBe(2);
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('remove-self-on-roll');
-    expect(action.rollThreshold).toBe(6);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
+    expect(standardAction.actionId).toBe('remove-self-on-roll');
+    expect(standardAction.rollThreshold).toBe(6);
   });
 
-  test('tapped minion cannot activate Covetous Thoughts removal', () => {
+  test('tapped minion can still activate Covetous Thoughts removal via no-tap variant (−3 to roll, rule 10.08)', () => {
+    // Rule 10.08: a tapped character may still attempt to remove a corruption
+    // card by taking −3 to the roll instead of tapping.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -205,7 +208,8 @@ describe('Covetous Thoughts (le-107)', () => {
     const tapped = setCharStatus(withCT, RESOURCE_PLAYER, GORBAG, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(0);
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as ActivateGrantedAction).noTap).toBe(true);
   });
 
   test('successful removal roll (>5) discards Covetous Thoughts and taps the minion', () => {
@@ -232,9 +236,10 @@ describe('Covetous Thoughts (le-107)', () => {
     const cheated = { ...withCT, cheatRollTotal: 6 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
+    expect(actions.length).toBe(2);
 
-    const next = dispatch(cheated, actions[0].action);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
+    const next = dispatch(cheated, standardAction);
 
     // Bearer should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, GORBAG, CardStatus.Tapped);
@@ -271,9 +276,10 @@ describe('Covetous Thoughts (le-107)', () => {
     const cheated = { ...withCT, cheatRollTotal: 5 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
+    expect(actions.length).toBe(2);
 
-    const next = dispatch(cheated, actions[0].action);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
+    const next = dispatch(cheated, standardAction);
 
     // Bearer should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, GORBAG, CardStatus.Tapped);
