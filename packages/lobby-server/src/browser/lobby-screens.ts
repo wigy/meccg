@@ -14,13 +14,10 @@ import {
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { restoreGameSession, saveGameSession } from './session.js';
-import { connect, setLobbyCallbacks } from './game-connection.js';
-import { connectPseudoAi } from './pseudo-ai.js';
-import { loadDecks } from './deck-browser.js';
-import { openDeckEditor } from './deck-editor.js';
 import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox.js';
 import { openCreditsPage, updateCreditsBadge } from './credits-page.js';
-import { renderLog } from './render.js';
+import { renderLog } from './render-log.js';
+import { loadGameBundle, loadDeckEditorBundle } from './lazy-load.js';
 
 /** All screen IDs in the lobby UI. */
 const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'connect-form'];
@@ -84,11 +81,11 @@ export function showScreen(id: ScreenId): void {
     if (smartBtn) { smartBtn.textContent = 'Play vs Smart-AI'; smartBtn.disabled = false; }
     const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
     if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
-    void loadDecks();
+    void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());
   }
   // Load decks when showing the decks screen
   if (id === 'decks-screen') {
-    void loadDecks();
+    void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());
   }
 }
 
@@ -188,12 +185,14 @@ export function connectLobbyWs(): void {
         selectRandomBackground();
         appState.autoReconnect = true;
         renderLog(`Game starting vs ${opponentDisplay} on port ${appState.gamePort}...`);
-        connect(appState.lobbyPlayerName!);
-        // For pseudo-AI, open a second WS as the AI player with the captured deck
-        if (appState.isPseudoAi && appState.opponentName) {
-          connectPseudoAi(appState.opponentName, appState.pendingAiDeck);
-          appState.pendingAiDeck = null;
-        }
+        // Load the game bundle lazily, then connect.
+        void loadGameBundle().then(() => {
+          window.__meccg!.connect!(appState.lobbyPlayerName!);
+          if (appState.isPseudoAi && appState.opponentName) {
+            window.__meccg!.connectPseudoAi!(appState.opponentName, appState.pendingAiDeck);
+            appState.pendingAiDeck = null;
+          }
+        });
         break;
       }
       case 'error': {
@@ -236,8 +235,9 @@ export function connectLobbyWs(): void {
 
 /** Initialize lobby mode on page load. */
 export async function initLobby(): Promise<void> {
-  // Wire up the lobby callbacks for game-connection module
-  setLobbyCallbacks(showScreen, connectLobbyWs);
+  // Register lobby callbacks on window.__meccg so game and deck-editor bundles can call back.
+  window.__meccg!.showScreen = showScreen;
+  window.__meccg!.connectLobbyWs = connectLobbyWs;
 
   try {
     const resp = await fetch('/api/me');
@@ -255,11 +255,12 @@ export async function initLobby(): Promise<void> {
         selectRandomBackground();
         appState.autoReconnect = true;
         renderLog(`Reconnecting to game on port ${appState.gamePort}...`);
-        connect(appState.lobbyPlayerName);
-        // For pseudo-AI games, reconnect the AI WS
-        if (appState.isPseudoAi && appState.opponentName) {
-          connectPseudoAi(appState.opponentName);
-        }
+        void loadGameBundle().then(() => {
+          window.__meccg!.connect!(appState.lobbyPlayerName!);
+          if (appState.isPseudoAi && appState.opponentName) {
+            window.__meccg!.connectPseudoAi!(appState.opponentName);
+          }
+        });
         return;
       }
 
@@ -267,7 +268,7 @@ export async function initLobby(): Promise<void> {
       const editingDeck = sessionStorage.getItem(EDITING_DECK_KEY);
       if (editingDeck) {
         connectLobbyWs();
-        void openDeckEditor(editingDeck);
+        void loadDeckEditorBundle().then(() => window.__meccg!.openDeckEditor!(editingDeck));
         return;
       }
 

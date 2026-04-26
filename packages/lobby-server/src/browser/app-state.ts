@@ -5,6 +5,10 @@
  * to read or modify global app state import from here rather than keeping
  * their own top-level variables. This avoids circular dependencies by
  * making state a leaf dependency.
+ *
+ * `appState` and `cardPool` are singletons backed by `window.__meccg` so
+ * that the split browser bundles (lobby, game, deck-editor) all share the
+ * same objects at runtime rather than each carrying their own copy.
  */
 
 import type { CardDefinitionId, CardInstanceId, CardDefinition, JoinMessage } from '@meccg/shared';
@@ -26,11 +30,6 @@ export interface FullDeck extends DeckSummary {
   sideboard: DeckListEntry[];
 }
 
-// ---- Card pool (immutable after load) ----
-
-/** The full card pool loaded at startup. */
-export const cardPool: Readonly<Record<string, CardDefinition>> = loadCardPool();
-
 // ---- Screen type ----
 
 /** All screen IDs used in the lobby UI. */
@@ -39,10 +38,11 @@ export type ScreenId = 'auth-screen' | 'lobby-screen' | 'decks-screen' | 'deck-e
 // ---- Global mutable state ----
 
 /**
- * Shared mutable application state. Every field is directly readable and
- * writable by any module that imports `appState`.
+ * Create the default app state object. Called only once (by the first bundle
+ * to load); subsequent bundles reuse the shared instance via `window.__meccg`.
  */
-export const appState = {
+function createDefaultAppState() {
+  return {
   /** Active game WebSocket connection. */
   ws: null as WebSocket | null,
   /** Assigned player ID from the game server. */
@@ -120,7 +120,97 @@ export const appState = {
 
   /** Which mail tab is active. */
   activeMailTab: 'inbox' as 'inbox' | 'sent',
+  };
+}
+
+/**
+ * Cross-bundle shared namespace stored on `window.__meccg`.
+ *
+ * The lobby bundle (`bundle.js`) populates `appState`, `cardPool`,
+ * `showScreen`, and `connectLobbyWs` at startup.  The game bundle
+ * (`game-bundle.js`) and deck-editor bundle (`deck-editor-bundle.js`) fill
+ * in the remaining optional slots when they load.
+ */
+export type MeccgSharedState = {
+  /** Singleton app state — the same object across all bundles. */
+  appState: ReturnType<typeof createDefaultAppState>;
+  /** Immutable card pool — loaded once, shared across all bundles. */
+  cardPool: Readonly<Record<string, CardDefinition>>;
+
+  // ---- Registered by the lobby bundle ----
+  /** Navigate to a named screen (registered by lobby-screens). */
+  showScreen: ((id: ScreenId) => void) | undefined;
+  /** Open or reconnect the lobby WebSocket (registered by lobby-screens). */
+  connectLobbyWs: (() => void) | undefined;
+
+  // ---- Registered by the game bundle ----
+  /** Connect to the game server WebSocket. */
+  connect: ((name: string) => void) | undefined;
+  /** Disconnect from the game server. */
+  disconnect: (() => void) | undefined;
+  /** Reset the visual board to a blank state. */
+  resetVisualBoard: (() => void) | undefined;
+  /** Reset all company views. */
+  resetCompanyViews: (() => void) | undefined;
+  /** Open a second WebSocket as the pseudo-AI player. */
+  connectPseudoAi: ((aiName: string, aiDeck?: FullDeck | null) => void) | undefined;
+  /** Clear dice from the board. */
+  clearDice: (() => void) | undefined;
+  /** Restore dice on the board. */
+  restoreDice: (() => void) | undefined;
+  /** Clear all game board elements (hand, actions, companies, dice). */
+  clearGameBoard: (() => void) | undefined;
+
+  // ---- Registered by the deck-editor bundle ----
+  /** Load and render the deck list. */
+  loadDecks: (() => Promise<void>) | undefined;
+  /** Open the deck editor for the given deck ID. */
+  openDeckEditor: ((deckId: string) => Promise<void>) | undefined;
 };
+
+declare global {
+  interface Window {
+    /** Set by the server — true when the web proxy is started with --dev. */
+    __MECCG_DEV?: boolean;
+    /** Set by the lobby server — true when running in lobby mode. */
+    __LOBBY?: boolean;
+    /** Set by the lobby server — version from package.json. */
+    __MECCG_VERSION?: string;
+    /**
+     * Cross-bundle singleton namespace. Populated by the lobby bundle
+     * at startup; the game and deck-editor bundles reuse the same objects.
+     */
+    __meccg?: MeccgSharedState;
+  }
+}
+
+// ---- Singleton initialisation ----
+// The first bundle to run creates the shared objects and stores them on
+// window.__meccg.  Later bundles reuse what's already there so that all
+// three bundles share exactly one appState and one cardPool object.
+const _shared: MeccgSharedState = window.__meccg ?? {
+  appState: createDefaultAppState(),
+  cardPool: loadCardPool(),
+  showScreen: undefined,
+  connectLobbyWs: undefined,
+  connect: undefined,
+  disconnect: undefined,
+  resetVisualBoard: undefined,
+  resetCompanyViews: undefined,
+  connectPseudoAi: undefined,
+  clearDice: undefined,
+  restoreDice: undefined,
+  clearGameBoard: undefined,
+  loadDecks: undefined,
+  openDeckEditor: undefined,
+};
+if (!window.__meccg) window.__meccg = _shared;
+
+/** Shared mutable application state accessible by all browser bundles. */
+export const appState = _shared.appState;
+
+/** The full card pool loaded at startup, shared across all bundles. */
+export const cardPool: Readonly<Record<string, CardDefinition>> = _shared.cardPool;
 
 // ---- Constants ----
 
