@@ -678,13 +678,21 @@ function playResourcesActions(
         }
 
         // Check play-target character filter.
-        // When the card has no discard-named-card condition, this is an attachment
-        // target — emit one action per eligible character (with targetCharacterId).
+        // When the card also has trigger-attack-on-play, bearer selection happens
+        // post-attack (via a select-card-bearer pending resolution), so no
+        // targetCharacterId is embedded in the play action. The character filter
+        // is still validated here to ensure at least one eligible character exists,
+        // but a single action (no per-character fan-out) is emitted.
+        // When the card has no discard-named-card condition and no trigger-attack,
+        // this is a direct attachment — emit one action per eligible character.
         // When a discard-named-card condition is also present, the character
         // filter is a gate only; action generation is deferred to the discard block.
         const charPlayTarget = eventDef.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
+        const hasTriggerAttack = eventDef.effects?.some(
+          (e) => e.type === 'trigger-attack-on-play',
+        ) ?? false;
         const hasDiscardCondition = eventDef.effects?.some(
           (e) => e.type === 'play-condition' && (e).requires === 'discard-named-card',
         ) ?? false;
@@ -713,6 +721,20 @@ function playResourcesActions(
               action: { type: 'not-playable', player: playerId, cardInstanceId },
               viable: false,
               reason: `${eventDef.name}: no eligible character in company`,
+            });
+            continue;
+          }
+          // trigger-attack-on-play: bearer chosen post-attack — emit a single action
+          // with no targetCharacterId; the select-card-bearer pending resolution handles
+          // bearer assignment after the attack resolves.
+          if (hasTriggerAttack && !hasDiscardCondition) {
+            logDetail(`Permanent event ${eventDef.name}: playable at ${siteName} (bearer selected post-attack)`);
+            actions.push({
+              action: {
+                type: 'play-permanent-event', player: playerId, cardInstanceId,
+                ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+              },
+              viable: true,
             });
             continue;
           }

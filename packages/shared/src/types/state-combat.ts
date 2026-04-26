@@ -38,12 +38,16 @@ export type AttackSource =
   /**
    * Triggered by a resource permanent event carrying a
    * `trigger-attack-on-play` effect (e.g. Rescue Prisoners). The
-   * attack resolves immediately after the card enters play. If all
-   * characters in the company are tapped after combat, the card is
-   * discarded; otherwise the bearer gains a `bearer-cannot-untap`
-   * constraint until the card is stored.
+   * attack resolves immediately after the card enters play.
+   *
+   * After combat, if no characters are untapped the card is discarded;
+   * otherwise a `select-card-bearer` pending resolution is queued so the
+   * resource player can choose which untapped character taps to take the card.
+   *
+   * `bearerCharacterId` is absent because the bearer is unknown until after
+   * the attack resolves.
    */
-  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId; readonly bearerCharacterId: CardInstanceId };
+  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

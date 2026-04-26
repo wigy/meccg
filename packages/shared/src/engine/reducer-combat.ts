@@ -19,7 +19,7 @@ import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType }
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, enqueueResolution } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 
 
@@ -1212,8 +1212,47 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     }
   }
 
+  // card-triggered-attack cancelled: the attack never resolved, so treat all
+  // characters as having survived untapped. Queue bearer selection if any
+  // untapped characters remain; otherwise discard the card.
+  let stateWithCancelledPlayers: GameState = { ...state, players: newPlayers, combat: null };
+  if (combat.attackSource.type === 'card-triggered-attack') {
+    const { cardInstanceId } = combat.attackSource;
+    const defIdx = stateWithCancelledPlayers.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = stateWithCancelledPlayers.players[defIdx];
+    const company = defPlayer.companies.find(co => co.id === combat.companyId);
+    const anyUntapped = company
+      ? company.characters.some(charId => {
+          const ch = defPlayer.characters[charId as string];
+          return ch && ch.status === CardStatus.Untapped;
+        })
+      : false;
+    const cardDefId = resolveInstanceId(stateWithCancelledPlayers, cardInstanceId);
+    const cardName = cardDefId
+      ? (stateWithCancelledPlayers.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
+      : '?';
+    if (!anyUntapped) {
+      logDetail(`Card-auto-attack cancelled: no untapped characters — discarding "${cardName}"`);
+      stateWithCancelledPlayers = discardCardTriggeredCard(stateWithCancelledPlayers, cardInstanceId, defIdx);
+    } else {
+      logDetail(
+        `Card-auto-attack cancelled: untapped characters remain — queuing select-card-bearer for "${cardName}"`,
+      );
+      stateWithCancelledPlayers = enqueueResolution(stateWithCancelledPlayers, {
+        source: cardInstanceId,
+        actor: combat.defendingPlayerId,
+        scope: { kind: 'phase', phase: stateWithCancelledPlayers.phaseState.phase },
+        kind: {
+          type: 'select-card-bearer',
+          cardInstanceId,
+          companyId: combat.companyId,
+        },
+      });
+    }
+  }
+
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
-  return { ...state, players: newPlayers, combat: null };
+  return stateWithCancelledPlayers;
 }
 
 /**
@@ -1657,6 +1696,40 @@ function finishSalvage(state: GameState, combat: CombatState): ReducerResult {
 
 
 /**
+ * Remove a card-triggered-attack card from cardsInPlay and send it to the
+ * defending player's discard pile. Used when no untapped characters survive
+ * the attack (or the attack is cancelled) so the card cannot be assigned.
+ */
+function discardCardTriggeredCard(
+  state: GameState,
+  cardInstanceId: import('../index.js').CardInstanceId,
+  defPlayerIdx: number,
+): GameState {
+  const newPlayers: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [
+    state.players[0],
+    state.players[1],
+  ];
+  for (let pi = 0; pi < 2; pi++) {
+    const inPlay = newPlayers[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+    if (inPlay) {
+      newPlayers[pi] = {
+        ...newPlayers[pi],
+        cardsInPlay: newPlayers[pi].cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
+      };
+      newPlayers[defPlayerIdx] = {
+        ...newPlayers[defPlayerIdx],
+        discardPile: [
+          ...newPlayers[defPlayerIdx].discardPile,
+          { instanceId: inPlay.instanceId, definitionId: inPlay.definitionId },
+        ],
+      };
+      return { ...state, players: newPlayers };
+    }
+  }
+  return state;
+}
+
+/**
  * Finalize combat after all strikes are resolved.
  *
  * If all strikes were defeated (result === 'success'), the creature card
@@ -1924,12 +1997,11 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
   stateAfterCombat = restoreHavenJumpOrigins(stateAfterCombat, combat);
 
-  // card-triggered-attack finalization (e.g. Rescue Prisoners):
-  // Check whether any characters in the company are still untapped.
-  // If all are tapped → discard the card from the bearer's items.
-  // If any untapped → tap the bearer and add bearer-cannot-untap constraint.
+  // card-triggered-attack finalization (e.g. Rescue Prisoners, The Windlord Found Me):
+  // The card sits in cardsInPlay during the attack. After combat, check for untapped
+  // characters to determine whether to discard or queue bearer selection.
   if (combat.attackSource.type === 'card-triggered-attack') {
-    const { cardInstanceId, bearerCharacterId } = combat.attackSource;
+    const { cardInstanceId } = combat.attackSource;
     const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defIdx];
     const company = defPlayer.companies.find(co => co.id === combat.companyId);
@@ -1945,72 +2017,26 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       : '?';
 
     if (!anyUntapped) {
-      // No untapped characters — discard the card from bearer's items
+      // No untapped characters — discard the card from cardsInPlay
       logDetail(
-        `Card-auto-attack: no untapped characters after combat — discarding "${cardName}" from bearer ${bearerCharacterId as string}`,
+        `Card-auto-attack: no untapped characters after combat — discarding "${cardName}" from cardsInPlay`,
       );
-      const bearerChar = defPlayer.characters[bearerCharacterId as string];
-      if (bearerChar) {
-        const itemIdx = bearerChar.items.findIndex(i => i.instanceId === cardInstanceId);
-        if (itemIdx !== -1) {
-          const newItems = [...bearerChar.items];
-          const removedItem = newItems.splice(itemIdx, 1)[0];
-          const ownedByIdx = stateAfterCombat.players.findIndex(
-            p => Object.prototype.hasOwnProperty.call(p.characters, bearerCharacterId as string),
-          );
-          if (ownedByIdx >= 0) {
-            const owner = stateAfterCombat.players[ownedByIdx];
-            const newPlayers2: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [
-              stateAfterCombat.players[0],
-              stateAfterCombat.players[1],
-            ];
-            newPlayers2[ownedByIdx] = {
-              ...owner,
-              characters: {
-                ...owner.characters,
-                [bearerCharacterId as string]: { ...bearerChar, items: newItems },
-              },
-            };
-            // Card goes to the resource player's discard pile (the player who
-            // played it — the owner of the permanent event).
-            newPlayers2[defIdx] = {
-              ...newPlayers2[defIdx],
-              discardPile: [
-                ...newPlayers2[defIdx].discardPile,
-                { instanceId: removedItem.instanceId, definitionId: removedItem.definitionId },
-              ],
-            };
-            stateAfterCombat = { ...stateAfterCombat, players: newPlayers2 };
-          }
-        }
-      }
+      stateAfterCombat = discardCardTriggeredCard(stateAfterCombat, cardInstanceId, defIdx);
     } else {
-      // Characters survived — tap the bearer and add bearer-cannot-untap constraint
+      // Untapped characters remain — queue bearer selection for the resource player
       logDetail(
-        `Card-auto-attack: characters survived — tapping bearer ${bearerCharacterId as string} ` +
-        `and adding bearer-cannot-untap constraint for "${cardName}"`,
+        `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardName}" ` +
+        `(company ${combat.companyId as string})`,
       );
-      const bearer = defPlayer.characters[bearerCharacterId as string];
-      if (bearer) {
-        const newPlayers3: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [
-          stateAfterCombat.players[0],
-          stateAfterCombat.players[1],
-        ];
-        newPlayers3[defIdx] = {
-          ...defPlayer,
-          characters: {
-            ...defPlayer.characters,
-            [bearerCharacterId as string]: { ...bearer, status: CardStatus.Tapped },
-          },
-        };
-        stateAfterCombat = { ...stateAfterCombat, players: newPlayers3 };
-      }
-      stateAfterCombat = addConstraint(stateAfterCombat, {
+      stateAfterCombat = enqueueResolution(stateAfterCombat, {
         source: cardInstanceId,
-        sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
-        scope: { kind: 'until-cleared' },
-        target: { kind: 'character', characterId: bearerCharacterId },
-        kind: { type: 'bearer-cannot-untap', cardInstanceId },
+        actor: combat.defendingPlayerId,
+        scope: { kind: 'phase', phase: stateAfterCombat.phaseState.phase },
+        kind: {
+          type: 'select-card-bearer',
+          cardInstanceId,
+          companyId: combat.companyId,
+        },
       });
     }
   }

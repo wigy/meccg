@@ -1014,31 +1014,21 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
-  // Trigger-auto-attack-on-play: initiate combat immediately after the card attaches.
-  // The attack resolves in the normal combat sub-system; post-combat finalization
-  // (reducer-combat.ts finalizeCombat) handles the discard-or-keep logic.
-  if (targetCharId && def && 'effects' in def && def.effects) {
+  // Trigger-auto-attack-on-play: initiate combat immediately after the card enters play.
+  // Bearer selection happens post-attack via a select-card-bearer pending resolution.
+  if (def && 'effects' in def && def.effects) {
     const triggerEffect = def.effects.find(
       (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
     );
     if (triggerEffect) {
-      const bearerCharId = targetCharId;
-      // Find the company the bearer belongs to
-      let companyId: import('../index.js').CompanyId | undefined;
-      for (let pi = 0; pi < 2; pi++) {
-        for (const co of newState.players[pi].companies) {
-          if (co.characters.includes(bearerCharId)) {
-            companyId = co.id;
-            break;
-          }
-        }
-        if (companyId) break;
-      }
+      // Find the active company — the declaring player's company currently being handled
+      const ps = newState.phaseState as { activeCompanyIndex?: number };
+      const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
+      const declarerIndex = getPlayerIndex(newState, entry.declaredBy);
+      const companyId = newState.players[declarerIndex].companies[activeCompanyIndex]?.id;
 
       if (companyId) {
-        const defPlayerIndex = newState.players.findIndex(
-          p => p.companies.some(co => co.id === companyId),
-        );
+        const defPlayerIndex = declarerIndex;
         const defPlayer = newState.players[defPlayerIndex];
         const atkPlayer = newState.players[1 - defPlayerIndex];
         const inPlayNames = buildInPlayNames(newState);
@@ -1052,13 +1042,13 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         );
         logDetail(
           `"${def.name}" entered play — triggering ${triggerEffect.creatureType} auto-attack ` +
-          `(${effectiveStrikes} strikes, ${effectiveProwess} prowess) on company ${companyId as string}`,
+          `(${effectiveStrikes} strikes, ${effectiveProwess} prowess) on company ${companyId as string}; ` +
+          `bearer selected post-attack`,
         );
         const combat: CombatState = {
           attackSource: {
             type: 'card-triggered-attack',
             cardInstanceId: card.instanceId,
-            bearerCharacterId: bearerCharId,
           },
           companyId,
           defendingPlayerId: defPlayer.id,

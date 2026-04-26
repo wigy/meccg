@@ -327,3 +327,25 @@ export interface SkipWizardSearchAction {
   readonly type: 'skip-wizard-search';
   readonly player: PlayerId;
 }
+
+// ---- Post-attack bearer selection (trigger-attack-on-play) ----
+
+/**
+ * Resource player selects an untapped character to tap and become the bearer
+ * of a permanent event with `trigger-attack-on-play` (e.g. Rescue Prisoners,
+ * The Windlord Found Me).
+ *
+ * Offered by a `select-card-bearer` pending resolution after the triggered
+ * attack resolves or is cancelled, when at least one character remains untapped.
+ *
+ * The chosen character is tapped and gains a `bearer-cannot-untap` constraint
+ * tied to the card instance.
+ */
+export interface SelectCardBearerAction {
+  readonly type: 'select-card-bearer';
+  readonly player: PlayerId;
+  /** The permanent-event card instance being assigned. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The untapped character chosen to bear the card. */
+  readonly characterId: CardInstanceId;
+}

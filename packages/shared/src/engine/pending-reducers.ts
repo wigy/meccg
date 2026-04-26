@@ -21,7 +21,7 @@ import type {
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
+import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
@@ -76,6 +76,8 @@ export function applyResolution(
       return applyResourcePlayOfferResolution(state, action, top);
     case 'wizard-search-on-store':
       return applyWizardSearchOnStoreResolution(state, action, top);
+    case 'select-card-bearer':
+      return applySelectCardBearerResolution(state, action, top);
   }
 }
 
@@ -1489,4 +1491,123 @@ function applyWizardSearchOnStoreResolution(
   );
 
   return { state: stateAfterPlay };
+}
+
+/**
+ * Resolve a `select-card-bearer` pending resolution.
+ *
+ * - `select-card-bearer`: tap the chosen character, attach the card to their
+ *   items, and add a `bearer-cannot-untap` constraint.
+ * - `pass`: decline the bearer assignment — discard the card from cardsInPlay.
+ */
+function applySelectCardBearerResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'select-card-bearer') return null;
+
+  const { cardInstanceId, companyId } = top.kind;
+
+  if (action.type === 'pass') {
+    // Player declines bearer assignment — discard the card
+    const defIdx = state.players.findIndex(
+      p => p.companies.some(co => co.id === companyId),
+    );
+    if (defIdx < 0) return null;
+    logDetail(`select-card-bearer: player declined — discarding card ${cardInstanceId as string}`);
+    const cardDefId = resolveInstanceId(state, cardInstanceId);
+    const cardName = cardDefId
+      ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
+      : '?';
+    logDetail(`Discarding "${cardName}" (no bearer chosen)`);
+
+    let s = state;
+    // Remove from any player's cardsInPlay
+    for (let pi = 0; pi < 2; pi++) {
+      const inPlay = s.players[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+      if (inPlay) {
+        s = updatePlayer(s, pi, p => ({
+          ...p,
+          cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
+        }));
+        s = updatePlayer(s, defIdx, p => ({
+          ...p,
+          discardPile: [
+            ...p.discardPile,
+            { instanceId: inPlay.instanceId, definitionId: inPlay.definitionId },
+          ],
+        }));
+        break;
+      }
+    }
+    return { state: dequeueResolution(s, top.id) };
+  }
+
+  if (action.type !== 'select-card-bearer') {
+    return { state, error: `Pending select-card-bearer requires select-card-bearer or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for select-card-bearer' };
+  }
+
+  const { characterId } = action;
+
+  // Find the defending player and character
+  const defIdx = state.players.findIndex(
+    p => Object.prototype.hasOwnProperty.call(p.characters, characterId as string),
+  );
+  if (defIdx < 0) return { state, error: `Character ${characterId as string} not found` };
+  const defPlayer = state.players[defIdx];
+  const ch = defPlayer.characters[characterId as string];
+  if (!ch) return { state, error: `Character ${characterId as string} not found` };
+  if (ch.status !== CardStatus.Untapped) {
+    return { state, error: `Character ${characterId as string} must be untapped to be the bearer` };
+  }
+
+  // Find the card in cardsInPlay
+  let cardInPlay: import('../types/state-cards.js').CardInPlay | undefined;
+  let cardOwnerIdx = -1;
+  for (let pi = 0; pi < 2; pi++) {
+    const found = state.players[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+    if (found) {
+      cardInPlay = found;
+      cardOwnerIdx = pi;
+      break;
+    }
+  }
+  if (!cardInPlay) return { state, error: `Card ${cardInstanceId as string} not in cardsInPlay` };
+
+  const cardDefId = resolveInstanceId(state, cardInstanceId);
+  const cardName = cardDefId
+    ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
+    : '?';
+  logDetail(
+    `select-card-bearer: "${cardName}" assigned to ${characterId as string} — tapping character, adding constraint`,
+  );
+
+  // Remove card from cardsInPlay, attach to character's items, tap character
+  let s = updatePlayer(state, cardOwnerIdx, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
+  }));
+  s = updatePlayer(s, defIdx, p => updateCharacter(p, characterId, () => ({
+    ...ch,
+    status: CardStatus.Tapped,
+    items: [
+      ...ch.items,
+      { instanceId: cardInPlay.instanceId, definitionId: cardInPlay.definitionId, status: CardStatus.Untapped },
+    ],
+  })));
+
+  // Add bearer-cannot-untap constraint
+  s = addConstraint(s, {
+    source: cardInstanceId,
+    sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId },
+    kind: { type: 'bearer-cannot-untap', cardInstanceId },
+  });
+
+  return { state: dequeueResolution(s, top.id) };
 }
