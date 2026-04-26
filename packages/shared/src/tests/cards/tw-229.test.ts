@@ -204,6 +204,11 @@ describe('Escape (tw-229)', () => {
 
     const cancelActions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
+
+    // Escape must not be offered as play-short-event outside combat — it is
+    // "Playable on an unwounded character facing an attack", meaning combat only.
+    const shortEventActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(shortEventActions).toHaveLength(0);
   });
 
   test('NOT offered as play-short-event during end-of-turn (no attack to cancel)', () => {
