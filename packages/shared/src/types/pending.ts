@@ -304,6 +304,25 @@ export interface PendingResolution {
         readonly havenSiteInstanceId: CardInstanceId;
         /** The company at that haven (wizard joins this company). */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * Post-attack bearer selection for cards with `trigger-attack-on-play`
+         * (e.g. Rescue Prisoners, The Windlord Found Me).
+         *
+         * After the triggered attack resolves or is cancelled, if at least one
+         * character in the company remains untapped, the resource player must
+         * choose which untapped character taps to take the card. If they
+         * decline (or no untapped characters remain), the card is discarded.
+         *
+         * Resolved by a `select-card-bearer` action carrying the chosen
+         * `characterId`, or a `pass` to decline and discard the card.
+         */
+        readonly type: 'select-card-bearer';
+        /** The permanent-event card instance awaiting bearer assignment. */
+        readonly cardInstanceId: CardInstanceId;
+        /** The company whose characters are eligible to be the bearer. */
+        readonly companyId: CompanyId;
       };
 }
 

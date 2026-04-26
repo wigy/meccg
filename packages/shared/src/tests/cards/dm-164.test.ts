@@ -39,7 +39,7 @@ import {
   findCharInstanceId, runCardTriggeredAttackCombat,
   dispatch,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayPermanentEventAction, PlayWizardFromSearchAction } from '../../index.js';
+import type { CardDefinitionId, PlayPermanentEventAction, PlayWizardFromSearchAction, SelectCardBearerAction } from '../../index.js';
 import { Phase } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
@@ -105,19 +105,18 @@ describe('dm-164 The Windlord Found Me', () => {
     expect(actions.length).toBe(0);
   });
 
-  // ── Character attachment ──
+  // ── No pre-selected bearer (post-attack selection) ──
 
-  test('each viable play action carries targetCharacterId (character attachment)', () => {
+  test('play action has no targetCharacterId (bearer selected post-attack)', () => {
+    // Bearer is chosen after the triggered attack resolves, not at play time.
     const state = buildSitePhaseState({
       site: MORIA,
       hand: [WINDLORD],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
-    for (const ea of actions) {
-      const act = ea.action as PlayPermanentEventAction;
-      expect(act.targetCharacterId).toBeDefined();
-    }
+    expect(actions.length).toBe(1);
+    const act = actions[0].action as PlayPermanentEventAction;
+    expect(act.targetCharacterId).toBeUndefined();
   });
 
   // ── Orc attack fires on play ──
@@ -128,10 +127,10 @@ describe('dm-164 The Windlord Found Me', () => {
       hand: [WINDLORD],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.length).toBe(1);
     const action = actions[0].action as PlayPermanentEventAction;
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
 
     expect(afterPlay.combat).not.toBeNull();
     expect(afterPlay.combat!.strikesTotal).toBe(4);
@@ -149,25 +148,23 @@ describe('dm-164 The Windlord Found Me', () => {
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     const action = actions[0].action as PlayPermanentEventAction;
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
     expect(afterPlay.combat).not.toBeNull();
 
     // Single-character company — Aragorn fights alone; bodyRoll:1 wounds without eliminating,
     // leaving him tapped with no untapped survivors → Windlord is discarded
     const afterCombat = runCardTriggeredAttackCombat(afterPlay, [{ characterDefId: ARAGORN, roll: 1, bodyRoll: 1 }]);
 
-    const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
-    const aragornChar = afterCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
-    expect(aragornChar.items.some(i => i.definitionId === WINDLORD)).toBe(false);
+    // Card is discarded from cardsInPlay (was never in Aragorn's items)
     expect(afterCombat.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === WINDLORD)).toBe(true);
+    expect(afterCombat.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === WINDLORD)).toBe(false);
   });
 
   // ── Bearer-cannot-untap constraint ──
 
   test('bearer cannot untap while Windlord is attached', () => {
-    // Five-character company: Legolas is chosen as bearer; Aragorn, Gimli,
-    // Theoden, and Faramir each absorb one of the four strikes so Legolas
-    // stays untapped and becomes bearer after the attack.
+    // Five-character company: Aragorn, Gimli, Theoden, and Faramir each absorb
+    // one of the four strikes; Legolas stays untapped and is selected as bearer.
     const state = buildSitePhaseState({
       site: MORIA,
       hand: [WINDLORD],
@@ -175,16 +172,16 @@ describe('dm-164 The Windlord Found Me', () => {
     });
 
     const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
-    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    const action = (actions.map(ea => ea.action as PlayPermanentEventAction)
-      .find(a => a.targetCharacterId === legolasId))!;
-    expect(action).toBeDefined();
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, legolasId);
+    // Play: one action, no pre-selected bearer
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as PlayPermanentEventAction;
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
     expect(afterPlay.combat).not.toBeNull();
 
-    // Aragorn, Gimli, Theoden, Faramir each take 1 strike (bodyRoll:1 = wounded, not eliminated);
-    // Legolas takes none → stays untapped → taps to become bearer after combat
+    // Aragorn, Gimli, Theoden, Faramir each take 1 strike; Legolas stays untapped
     const afterCombat = runCardTriggeredAttackCombat(afterPlay, [
       { characterDefId: ARAGORN, roll: 1, bodyRoll: 1 },
       { characterDefId: GIMLI, roll: 1, bodyRoll: 1 },
@@ -192,9 +189,21 @@ describe('dm-164 The Windlord Found Me', () => {
       { characterDefId: FARAMIR, roll: 1, bodyRoll: 1 },
     ]);
 
-    const legolasChar = afterCombat.players[RESOURCE_PLAYER].characters[legolasId as string];
+    // Post-combat: select-card-bearer offered; Legolas is the only untapped character
+    expect(afterCombat.combat).toBeNull();
+    const bearerActions = viableActions(afterCombat, PLAYER_1, 'select-card-bearer');
+    const legolasAction = bearerActions.find(
+      ea => (ea.action as SelectCardBearerAction).characterId === legolasId,
+    );
+    expect(legolasAction).toBeDefined();
+
+    // Select Legolas as bearer
+    const afterBearerSelect = dispatch(afterCombat, legolasAction!.action);
+
+    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId as string];
     expect(legolasChar.status).toBe(CardStatus.Tapped);
-    const constraint = afterCombat.activeConstraints.find(
+    expect(legolasChar.items.some(i => i.definitionId === WINDLORD)).toBe(true);
+    const constraint = afterBearerSelect.activeConstraints.find(
       c => c.kind.type === 'bearer-cannot-untap'
         && c.target.kind === 'character'
         && c.target.characterId === legolasId,

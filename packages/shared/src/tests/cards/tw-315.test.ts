@@ -33,7 +33,7 @@ import {
   findCharInstanceId, runCardTriggeredAttackCombat,
   dispatch,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js';
+import type { CardDefinitionId, PlayPermanentEventAction, SelectCardBearerAction } from '../../index.js';
 import { Phase } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
@@ -89,19 +89,17 @@ describe('Rescue Prisoners (tw-315)', () => {
 
   // ── Effects 1 + 2 combined: playable when site is tapped shadow-hold ──
 
-  test('IS playable at tapped shadow-hold (Moria), emits per-character actions', () => {
+  test('IS playable at tapped shadow-hold (Moria), emits one action without pre-selected bearer', () => {
+    // Bearer is chosen post-attack, so no targetCharacterId is embedded at play time.
     const state = buildSitePhaseState({
       site: MORIA,
       siteStatus: CardStatus.Tapped,
       hand: [RESCUE_PRISONERS],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
-    // Each action must carry a targetCharacterId (card attaches to a character)
-    for (const ea of actions) {
-      const act = ea.action as PlayPermanentEventAction;
-      expect(act.targetCharacterId).toBeDefined();
-    }
+    expect(actions.length).toBe(1);
+    const act = actions[0].action as PlayPermanentEventAction;
+    expect(act.targetCharacterId).toBeUndefined();
   });
 
   test('IS playable at tapped dark-hold (Carn Dum is le-359 — use Mount Doom as shadow-hold)', () => {
@@ -115,28 +113,24 @@ describe('Rescue Prisoners (tw-315)', () => {
     expect(actions.length).toBeGreaterThan(0);
   });
 
-  // ── Reducer: event attaches to character's items on resolution ──
+  // ── Reducer: card goes to cardsInPlay on resolution, then to character after bearer selection ──
 
-  test('reducer places Rescue Prisoners into character items on resolution', () => {
+  test('reducer places Rescue Prisoners in cardsInPlay after chain resolution (before bearer selected)', () => {
     const state = buildSitePhaseState({
       site: MORIA,
       siteStatus: CardStatus.Tapped,
       hand: [RESCUE_PRISONERS],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.length).toBe(1);
     const action = actions[0].action as PlayPermanentEventAction;
-    const charId = action.targetCharacterId!;
 
-    const after = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, charId);
+    // After chain resolution the card is in cardsInPlay and combat is active
+    const after = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
 
-    // Card must be in character's items
-    const char = after.players[RESOURCE_PLAYER].characters[charId as string];
-    expect(char).toBeDefined();
-    expect(char.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(true);
-
-    // Card must not remain in hand
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === RESCUE_PRISONERS)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === RESCUE_PRISONERS)).toBe(false);
+    expect(after.combat).not.toBeNull();
   });
 
   // ── Effect 3: duplication-limit (scope "site", max 1) ──
@@ -281,10 +275,10 @@ describe('Rescue Prisoners (tw-315)', () => {
       hand: [RESCUE_PRISONERS],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.length).toBe(1);
     const action = actions[0].action as PlayPermanentEventAction;
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
 
     expect(afterPlay.combat).not.toBeNull();
     expect(afterPlay.combat!.strikesTotal).toBe(2);
@@ -293,7 +287,7 @@ describe('Rescue Prisoners (tw-315)', () => {
   });
 
   test('Rescue Prisoners is discarded if no characters are untapped after the Spider attack', () => {
-    // Single-character company: Aragorn is the only character and becomes bearer.
+    // Single-character company: Aragorn is the only character.
     // After he taps to fight the Spider, no characters remain untapped → card discarded.
     const state = buildSitePhaseState({
       site: MORIA,
@@ -301,26 +295,25 @@ describe('Rescue Prisoners (tw-315)', () => {
       hand: [RESCUE_PRISONERS],
     });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.length).toBe(1);
     const action = actions[0].action as PlayPermanentEventAction;
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, action.targetCharacterId);
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
     expect(afterPlay.combat).not.toBeNull();
 
     // Aragorn taps to fight; afterwards all characters are tapped → discard
     const afterCombat = runCardTriggeredAttackCombat(afterPlay, [{ characterDefId: ARAGORN, roll: 1 }]);
 
-    const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
-    const aragornChar = afterCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
-    expect(aragornChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(false);
+    // Card must be discarded from cardsInPlay (was never in Aragorn's items)
     expect(afterCombat.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === RESCUE_PRISONERS)).toBe(true);
+    expect(afterCombat.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === RESCUE_PRISONERS)).toBe(false);
   });
 
   test('bearer character cannot untap until Rescue Prisoners is stored', () => {
-    // Three-character company: Aragorn + Gimli + Legolas (bearer).
+    // Three-character company: Aragorn + Gimli + Legolas.
     // Both Spider strikes go to Aragorn and Gimli; Legolas stays untapped.
-    // finalizeCombat detects an untapped survivor, taps Legolas (bearer), and
-    // adds a bearer-cannot-untap constraint — Legolas stays tapped at untap.
+    // Post-attack: select-card-bearer resolution offered; player taps Legolas to bear the card.
+    // A bearer-cannot-untap constraint blocks Legolas from untapping.
     const state = buildSitePhaseState({
       site: MORIA,
       siteStatus: CardStatus.Tapped,
@@ -329,24 +322,39 @@ describe('Rescue Prisoners (tw-315)', () => {
     });
 
     const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
-    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
-    const action = (actions.map(ea => ea.action as PlayPermanentEventAction)
-      .find(a => a.targetCharacterId === legolasId))!;
-    expect(action).toBeDefined();
 
-    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, legolasId);
+    // Play: one action, no pre-selected bearer
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as PlayPermanentEventAction;
+    expect(action.targetCharacterId).toBeUndefined();
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
     expect(afterPlay.combat).not.toBeNull();
 
-    // Aragorn takes strike 1, Gimli takes strike 2; Legolas has no strike → stays untapped
+    // Aragorn takes strike 1, Gimli takes strike 2; Legolas stays untapped
     const afterCombat = runCardTriggeredAttackCombat(afterPlay, [
       { characterDefId: ARAGORN, roll: 1 },
       { characterDefId: GIMLI, roll: 1 },
     ]);
 
-    // Bearer (Legolas) must be tapped with an active bearer-cannot-untap constraint
-    const legolasChar = afterCombat.players[RESOURCE_PLAYER].characters[legolasId as string];
+    // Post-combat: select-card-bearer pending resolution offered for Legolas (only untapped)
+    expect(afterCombat.combat).toBeNull();
+    const bearerActions = viableActions(afterCombat, PLAYER_1, 'select-card-bearer');
+    expect(bearerActions.length).toBeGreaterThan(0);
+    const legolasAction = bearerActions.find(
+      ea => (ea.action as SelectCardBearerAction).characterId === legolasId,
+    );
+    expect(legolasAction).toBeDefined();
+
+    // Select Legolas as bearer
+    const afterBearerSelect = dispatch(afterCombat, legolasAction!.action);
+
+    // Legolas must be tapped with an active bearer-cannot-untap constraint
+    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId as string];
     expect(legolasChar.status).toBe(CardStatus.Tapped);
-    const constraint = afterCombat.activeConstraints.find(
+    expect(legolasChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(true);
+    const constraint = afterBearerSelect.activeConstraints.find(
       c => c.kind.type === 'bearer-cannot-untap'
         && c.target.kind === 'character'
         && c.target.characterId === legolasId,
@@ -355,7 +363,7 @@ describe('Rescue Prisoners (tw-315)', () => {
 
     // During the untap phase, Legolas must remain tapped (constraint blocks untap)
     const inUntap = {
-      ...afterCombat,
+      ...afterBearerSelect,
       phaseState: {
         phase: Phase.Untap,
         untapped: false,
@@ -364,7 +372,7 @@ describe('Rescue Prisoners (tw-315)', () => {
         hazardSideboardAccessed: false,
         resourcePlayerPassed: false,
         hazardPlayerPassed: false,
-      } as typeof afterCombat.phaseState,
+      } as typeof afterBearerSelect.phaseState,
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
     expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);

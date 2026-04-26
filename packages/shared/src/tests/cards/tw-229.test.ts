@@ -31,7 +31,7 @@ import {
   dispatch, expectCharStatus, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CancelAttackAction } from '../../index.js';
+import type { CancelAttackAction, PlayShortEventAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const ESCAPE = 'tw-229' as CardDefinitionId;
@@ -209,6 +209,25 @@ describe('Escape (tw-229)', () => {
     // "Playable on an unwounded character facing an attack", meaning combat only.
     const shortEventActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(shortEventActions).toHaveLength(0);
+  });
+
+  test('NOT offered as play-short-event during end-of-turn (no attack to cancel)', () => {
+    // Regression: Escape was incorrectly offered as play-short-event during
+    // end-of-turn because play-target and wound-target-character were not
+    // treated as neutral companions to cancel-attack in the combat-only check.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [ESCAPE], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const escapeInstanceId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const shortEventActions = viableActions(state, PLAYER_1, 'play-short-event');
+    const escapePlayActions = shortEventActions.filter(ea => (ea.action as PlayShortEventAction).cardInstanceId === escapeInstanceId);
+    expect(escapePlayActions).toHaveLength(0);
   });
 
   test('with two characters, each gets its own action with distinct targetCharacterId', () => {

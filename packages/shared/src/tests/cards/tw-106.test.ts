@@ -319,6 +319,7 @@ describe('Twilight (tw-106)', () => {
       returnedToOrigin: false,
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
+      corruptionCardsPlayedPerChar: {},
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
@@ -380,6 +381,7 @@ describe('Twilight (tw-106)', () => {
       returnedToOrigin: false,
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
+      corruptionCardsPlayedPerChar: {},
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

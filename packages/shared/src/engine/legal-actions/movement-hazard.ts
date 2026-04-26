@@ -913,6 +913,21 @@ function playHazardsActions(
               }
             }
           }
+          // CoE rule 7.2.1: only one corruption card may be played per character per turn.
+          // Both hazard-corruption type cards and hazard-events with the "corruption" keyword count.
+          const isCorruptionCard = isCorruption || (
+            'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true
+          );
+          if (isCorruptionCard && mhState.corruptionCardsPlayedPerChar[charId as string]) {
+            const charName = state.cardPool[resourcePlayer.characters[charId as string]?.definitionId as string]?.name ?? (charId as string);
+            logDetail(`Hazard "${def.name}" blocked on ${charName}: corruption card already played this turn (CoE 7.2.1)`);
+            actions.push({
+              action: { ...action, targetCharacterId: charId },
+              viable: false,
+              reason: `Only one corruption card may be played on ${charName} per turn`,
+            });
+            continue;
+          }
           // Ward check: if the target character carries an item with a
           // ward-bearer effect matching this hazard (e.g. Adamant Helmet
           // vs. dark enchantments), the play is pointless — the engine
