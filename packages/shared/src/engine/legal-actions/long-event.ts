@@ -187,10 +187,16 @@ export function heroResourceShortEventActions(
     // A move (discard-in-play) effect whose `when` gate is not currently met
     // is also treated as absent — e.g. The Cock Crows has a discard mode
     // gated on Gates of Morning being in play.
+    // play-target and wound-target-character are neutral companions to
+    // cancel-attack (e.g. Escape: target an unwounded character, cancel the
+    // attack, wound the character). They don't represent independent non-combat
+    // effects, so they don't prevent the card from being treated as combat-only.
     const hasEffects = def.effects && def.effects.length > 0;
+    const hasCancelAttack = hasEffects && def.effects.some(e => e.type === 'cancel-attack');
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatOnlyTypes.has(e.type)) return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
+      if (hasCancelAttack && (e.type === 'play-target' || e.type === 'wound-target-character')) return true;
       return false;
     });
     if (allCombatOnly) {
