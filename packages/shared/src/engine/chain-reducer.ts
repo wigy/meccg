@@ -1190,8 +1190,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureSelf = creatureDef.effects?.length
     ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
     : undefined;
-  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
+  const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, attackBoostCtx);
 
   // Total strikes resolution. Precedence:
   //   1. combat-one-strike-per-character → strikes = company.characters.length
@@ -1483,6 +1484,41 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Seized by Terror: hazard short event targeting a character. Enqueue a
+  // pending resolution so the character's player rolls 2d6 + mind.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const sbtEffect = cardDef && 'effects' in cardDef
+      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is import('../index.js').SeizedByTerrorCheckEffect => e.type === 'seized-by-terror-check',
+      )
+      : undefined;
+    if (sbtEffect) {
+      const resourcePlayerId = current.activePlayer!;
+      const activeIndex = current.players.findIndex(p => p.id === resourcePlayerId);
+      const mhState = current.phaseState as import('../index.js').MovementHazardPhaseState;
+      const company = activeIndex >= 0 ? current.players[activeIndex].companies[mhState.activeCompanyIndex] : null;
+      const originSiteInstanceId = company?.currentSite?.instanceId ?? null;
+      logDetail(`Enqueuing seized-by-terror-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
+      current = enqueueResolution(current, {
+        source: entry.card.instanceId,
+        actor: resourcePlayerId,
+        scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+        kind: {
+          type: 'seized-by-terror-roll',
+          targetCharacterId: entry.payload.targetCharacterId,
+          hazardDefinitionId: entry.card.definitionId,
+          threshold: sbtEffect.threshold,
+          originSiteInstanceId: originSiteInstanceId ?? ('' as import('../index.js').CardInstanceId),
+        },
+      });
+      return { state: current, needsInput: true };
+    }
+  }
+
   // Hazard short events with play-target cost: corruption check (e.g. Dragon-sickness).
   // When the chain entry resolves, enqueue a corruption check on the targeted character.
   if (entry.payload.type === 'short-event'
@@ -1512,7 +1548,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         }
       }
       const cardName = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
-      logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}) for character ${targetCharId as string}`);
+      const failureMode = playTargetWithCostCorruption.cost?.failureMode;
+      logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);
       current = enqueueCorruptionCheck(current, {
         source: entry.card.instanceId,
         actor: resourcePlayerId,
@@ -1521,6 +1558,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         reason: cardName,
         modifier,
         possessions,
+        failureMode,
       });
     }
   }

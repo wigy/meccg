@@ -43,7 +43,9 @@
       }
     ],
     "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters.",
-    "discardBodyCheck": 9
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -89,6 +91,8 @@
       }
     ],
     "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters.",
-    "discardBodyCheck": 9
+    "discardBodyCheck": [
+      9
+    ]
   }
 ]

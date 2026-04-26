@@ -482,6 +482,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
@@ -564,7 +565,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheRingsBetrayal.jpg",
     "text": "The bearer of a Ring must make a corruption check modified by -2. If the bearer fails this corruption check, his Ring is discarded, but he remains in play.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "keywords": ["Corruption"],
+    "certified": "2026-04-25",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.itemKeywords": { "$includes": "ring" } },
+        "cost": { "check": "corruption", "modifier": -2, "failureMode": "discard-ring-only" }
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

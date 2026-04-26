@@ -192,8 +192,8 @@ describe('Veils Flung Away (le-146)', () => {
 
   // ── Body check: Orc/Troll discard ─────────────────────────────────────────
 
-  test('Orc character is discarded (returned to hand) when body check fails', () => {
-    // Orc Captain: body 8, modifier -1, effective threshold 7.
+  test('Orc character is discarded (to discard pile) when body check fails', () => {
+    // Orc Captain: discardBodyCheck [8], modifier -1, effective threshold 7.
     // Force roll of 6 (< 7) to trigger failure.
     const state = buildTestState({
       phase: Phase.MovementHazard,
@@ -232,10 +232,10 @@ describe('Veils Flung Away (le-146)', () => {
 
     s = dispatch(s, rollAction);
 
-    // Orc Captain should be discarded (returned to hand)
+    // Orc Captain should be discarded (to discard pile, not hand)
     expectCharNotInPlay(s, RESOURCE_PLAYER, orcId);
-    const handDefIds = s.players[0].hand.map(c => c.definitionId);
-    expect(handDefIds).toContain(ORC_CAPTAIN);
+    const discardDefIds = s.players[0].discardPile.map(c => c.definitionId);
+    expect(discardDefIds).toContain(ORC_CAPTAIN);
   });
 
   test('Orc character stays when body check passes', () => {

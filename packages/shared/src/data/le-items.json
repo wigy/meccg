@@ -7,7 +7,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheLeastofGoldRings.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -24,7 +26,14 @@
         },
         "target": "bearer"
       },
-      { "type": "storable-at", "sites": ["Dol Guldur", "Minas Morgul", "Carn Dûm"] }
+      {
+        "type": "storable-at",
+        "sites": [
+          "Dol Guldur",
+          "Minas Morgul",
+          "Carn Dûm"
+        ]
+      }
     ],
     "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result).",
     "certified": "2026-04-19"
@@ -72,7 +81,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "minion-resource-item",
@@ -88,7 +100,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "minion-resource-item",

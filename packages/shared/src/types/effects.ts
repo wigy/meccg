@@ -339,6 +339,12 @@ export interface ActionCost {
   readonly check?: 'corruption';
   /** Modifier applied to the cost check roll. */
   readonly modifier?: number;
+  /**
+   * Custom failure consequence for corruption-check costs. When set to
+   * `'discard-ring-only'`, a failed check discards the bearer's Ring item
+   * instead of the character (e.g. The Ring's Betrayal).
+   */
+  readonly failureMode?: 'discard-ring-only';
 }
 
 /**
@@ -434,6 +440,21 @@ export interface TriggeredAction {
    * which stat the bonus applies to (currently `prowess` or `body`).
    */
   readonly stat?: 'prowess' | 'body';
+  /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * the creature race to filter (e.g. `"undead"`).
+   */
+  readonly race?: string;
+  /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * prowess bonus applied to matching creature attacks.
+   */
+  readonly prowess?: number;
+  /**
+   * For `add-constraint` with `constraint: "creature-attack-boost"`:
+   * strike bonus applied to matching creature attacks.
+   */
+  readonly strikes?: number;
   /**
    * For `add-constraint` with `constraint: "site-phase-do-nothing"`:
    * optional DSL condition evaluated per-character in the target company.
@@ -1444,6 +1465,21 @@ export interface MassBodyCheckEffect extends EffectBase {
 }
 
 /**
+ * A hazard short-event check targeting a character moving through Shadow-land
+ * or Dark-domain. The character's player rolls 2d6 and adds the character's
+ * mind. If the result is less than the threshold (12), the character splits
+ * off into a new company that immediately returns to the original company's
+ * site of origin.
+ *
+ * Used by Seized by Terror (dm-88).
+ */
+export interface SeizedByTerrorCheckEffect extends EffectBase {
+  readonly type: 'seized-by-terror-check';
+  /** Roll + character mind must meet or exceed this to stay in the moving company. */
+  readonly threshold: number;
+}
+
+/**
  * Declares that while this long-event is in play, any company whose
  * movement path crosses the listed region names (or region types) faces
  * a creature-like Dragon attack during the order-effects step (CoE step 4).
@@ -1688,6 +1724,7 @@ export type CardEffect =
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
   | MassBodyCheckEffect
+  | SeizedByTerrorCheckEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | ControlRestrictionEffect

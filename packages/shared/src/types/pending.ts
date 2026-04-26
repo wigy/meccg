@@ -151,6 +151,12 @@ export interface PendingResolution {
          * Null for non-transfer corruption checks.
          */
         readonly transferredItemId: CardInstanceId | null;
+        /**
+         * Custom failure consequence. When `'discard-ring-only'`, a failed
+         * check discards only the bearer's Ring item instead of the character
+         * (e.g. The Ring's Betrayal). Absent for standard checks.
+         */
+        readonly failureMode?: 'discard-ring-only';
       }
     | {
         readonly type: 'order-effects';
@@ -217,6 +223,24 @@ export interface PendingResolution {
         readonly hazardDefinitionId: CardDefinitionId;
         /** Roll + unused GI must meet or exceed this to keep the character. */
         readonly threshold: number;
+      }
+    | {
+        /**
+         * Seized by Terror roll: a hazard short event has resolved against a
+         * character moving through Shadow-land or Dark-domain. The character's
+         * player rolls 2d6 and adds the character's mind. If roll + mind < 12,
+         * the character splits off into a new company that returns to the
+         * original company's site of origin.
+         */
+        readonly type: 'seized-by-terror-roll';
+        /** The targeted character instance. */
+        readonly targetCharacterId: CardInstanceId;
+        /** The hazard card that caused this check. */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Roll + mind must meet or exceed this to stay in the moving company. */
+        readonly threshold: number;
+        /** Instance ID of the site of origin (original company's currentSite). */
+        readonly originSiteInstanceId: CardInstanceId;
       }
     | {
         /**
@@ -339,6 +363,23 @@ export interface ActiveConstraint {
          * played for the rest of the turn.
          */
         readonly type: 'deny-scout-resources';
+      }
+    | {
+        /**
+         * Chill Douser: when its attack is not canceled, all other attacks
+         * by creatures of the given race against the target company for the
+         * rest of the turn receive a bonus to both strikes and prowess.
+         * The constraint source is the Chill Douser instance; when resolving
+         * a creature's attack, if the creature's instance ID matches the
+         * source the boost is skipped (so the card never boosts itself).
+         */
+        readonly type: 'creature-attack-boost';
+        /** Creature race that receives the boost (e.g. "undead"). */
+        readonly race: string;
+        /** Strike bonus applied to matching creature attacks. */
+        readonly strikes: number;
+        /** Prowess bonus applied to matching creature attacks. */
+        readonly prowess: number;
       }
     | {
         /**

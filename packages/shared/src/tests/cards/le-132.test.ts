@@ -285,7 +285,8 @@ describe('Rebel-talk (le-132)', () => {
 
   // ── Effect 4: grant-action remove-self-on-roll ────────────────────────────
 
-  test('untapped character with Rebel-talk can activate removal during organization', () => {
+  test('untapped character with Rebel-talk gets exactly one remove action (tap to roll)', () => {
+    // Rebel-talk is NOT a Corruption card — only one standard tap variant, no no-tap −3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -299,12 +300,14 @@ describe('Rebel-talk (le-132)', () => {
     const actions = viableActions(withRT, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('remove-self-on-roll');
-    expect(action.rollThreshold).toBe(8);
+    const act = actions[0].action as ActivateGrantedAction;
+    expect(act.actionId).toBe('remove-self-on-roll');
+    expect(act.noTap).toBeFalsy();
+    expect(act.rollThreshold).toBe(8);
   });
 
-  test('tapped character cannot activate Rebel-talk removal', () => {
+  test('tapped character with Rebel-talk cannot activate remove-self-on-roll', () => {
+    // Rebel-talk is not a Corruption card — no no-tap −3 variant, so a tapped character cannot attempt removal.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,

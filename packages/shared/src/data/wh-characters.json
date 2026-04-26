@@ -20,7 +20,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "discardBodyCheck": 9
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -43,7 +45,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "discardBodyCheck": 9
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -66,6 +70,8 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Isengard",
-    "discardBodyCheck": 8
+    "discardBodyCheck": [
+      8
+    ]
   }
 ]

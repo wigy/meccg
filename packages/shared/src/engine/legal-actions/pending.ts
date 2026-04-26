@@ -117,6 +117,8 @@ export function resolutionLegalActions(
       return musterRollActions(state, actor, top);
     case 'call-of-home-roll':
       return callOfHomeRollActions(state, actor, top);
+    case 'seized-by-terror-roll':
+      return seizedByTerrorRollActions(state, actor, top);
     case 'gold-ring-test':
       return goldRingTestActions(state, actor, top);
     case 'body-check-company':
@@ -517,6 +519,48 @@ function callOfHomeRollActions(
 }
 
 /**
+ * Compute the single seized-by-terror-roll action that resolves a queued
+ * `seized-by-terror-roll` resolution. The character's player rolls 2d6;
+ * if roll + character mind < threshold (12), the character splits off into
+ * a new company that returns to the original company's site of origin.
+ */
+function seizedByTerrorRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'seized-by-terror-roll') return [];
+  const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[targetCharacterId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const hazardDef = state.cardPool[hazardDefinitionId as string];
+  const hazardName = hazardDef?.name ?? '?';
+
+  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+  const need = threshold - mind;
+  logDetail(`Pending seized-by-terror-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, mind ${mind})`);
+
+  return [{
+    action: {
+      type: 'seized-by-terror-roll' as const,
+      player: playerId,
+      targetCharacterId,
+      need,
+      explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, mind ${mind})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
  * Compute the single gold-ring-test-roll action that resolves a queued
  * `gold-ring-test` resolution (auto-test triggered by the
  * `auto-test-gold-ring` site-rule when a gold ring is stored at a
@@ -883,6 +927,10 @@ function applyOneConstraint(
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
+      return base;
+    case 'creature-attack-boost':
+      // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
+      // no legal-action filtering needed here.
       return base;
   }
 }

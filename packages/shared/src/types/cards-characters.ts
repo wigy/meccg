@@ -114,12 +114,13 @@ export interface MinionCharacterCard {
   /** Resistance to being eliminated -- a successful strike must exceed body to wound/kill. */
   readonly body: number;
   /**
-   * For Orc and Troll characters: the body check result below which the character
-   * is discarded (returned to owner's hand), as stated on the card text
-   * (e.g. "Discard on a body check result of 7"). When absent, `body` is used.
-   * Orc Brawler and Orc Tracker have discardBodyCheck 7 despite body 8.
+   * For Orc and Troll characters: the body check result(s) at which the character
+   * is discarded to the discard pile, as stated on the card text. When absent,
+   * `body` is used. The minimum of the array sets the pass threshold.
+   * Single value: "Discard on a body check result of 8" → [8].
+   * Multiple values: "Discard on a body check result of 7 or 8" → [7, 8].
    */
-  readonly discardBodyCheck?: number;
+  readonly discardBodyCheck?: readonly number[];
   /**
    * The amount of general or direct influence required to control this character.
    * Null for Ringwraiths, who are controlled automatically as the player's avatar.

@@ -24,5 +24,5 @@ export {
   normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';
-export type { ResolverContext, CollectedEffect, CreatureSelfContext } from './resolver.js';
+export type { ResolverContext, CollectedEffect, CreatureSelfContext, CreatureAttackBoostContext } from './resolver.js';
 export { applyWardToBearer, collectBearerWardFilters, isWardedAgainst } from './ward.js';

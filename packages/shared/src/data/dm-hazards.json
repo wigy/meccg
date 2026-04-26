@@ -158,8 +158,35 @@
     "id": "dm-88",
     "name": "Seized by Terror",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SeizedbyTerror.jpg",
-    "text": "Playable on a non-Wizard character, non-Ringwraith character moving in a Shadow-land [{s}] or Dark-domain [{d}] . Target character's player makes a roll and adds character's mind. If the result is less than 12, that character splits off into a different company. This new company immediately returns to his original company’s site of origin.",
+    "text": "Playable on a non-Wizard character, non-Ringwraith character moving in a Shadow-land [{s}] or Dark-domain [{d}] . Target character’s player makes a roll and adds character’s mind. If the result is less than 12, that character splits off into a different company. This new company immediately returns to his original company’s site of origin.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$or": [
+            { "sitePath.shadowCount": { "$gte": 1 } },
+            { "sitePath.darkCount": { "$gte": 1 } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "seized-by-terror-check",
+        "threshold": 12
+      }
+    ],
+    "certified": "2026-04-25"
   }
 ]

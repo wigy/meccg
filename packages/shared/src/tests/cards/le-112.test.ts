@@ -1,10 +1,11 @@
 /**
- * @module td-25.test
+ * @module le-112.test
  *
- * Card test: Foolish Words (td-25)
+ * Card test: Foolish Words (le-112)
  * Type: hazard-event (permanent, character-targeting)
  * Effects: 5 (play-target character, on-guard-reveal influence-attempt,
- *             duplication-limit scope:character max:1, check-modifier influence -4,
+ *             duplication-limit scope:character max:1,
+ *             check-modifier [influence/riddling/offering] -4,
  *             grant-action remove-self-on-roll cost:tap-bearer threshold:8)
  *
  * "Playable on a character. Any riddling roll, offering attempt, or influence
@@ -18,13 +19,13 @@
  * | # | Feature                        | Status      | Notes                                  |
  * |---|--------------------------------|-------------|----------------------------------------|
  * | 1 | Play from hand targeting char   | IMPLEMENTED | play-hazard with targetCharacterId     |
- * | 2 | Influence check -4 modifier     | IMPLEMENTED | check-modifier effect applied          |
+ * | 2 | Influence check -4 modifier     | IMPLEMENTED | check-modifier array form              |
  * | 3 | Place on-guard during M/H       | IMPLEMENTED | any hand card can be placed on-guard   |
  * | 4 | On-guard reveal at influence    | IMPLEMENTED | awaitingOnGuardReveal flow             |
  * | 5 | Tap to attempt removal (roll>7) | IMPLEMENTED | grant-action remove-self-on-roll       |
  *
  * Playable: YES
- * Certified: 2026-04-06
+ * Certified: 2026-04-25
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -33,7 +34,7 @@ import {
   makeSitePhase, attachHazardToChar, placeOnGuard,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
-  FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
+  KNIGHTS_OF_DOL_AMROTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
   viableActions, CardStatus,
   handCardId, charIdAt, dispatch, setCharStatus,
@@ -42,10 +43,13 @@ import {
 } from '../test-helpers.js';
 import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction, PlaceOnGuardAction, RevealOnGuardAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import type { CardDefinitionId } from '../../index.js';
+
+const FOOLISH_WORDS_LE = 'le-112' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe('Foolish Words (td-25)', () => {
+describe('Foolish Words (le-112)', () => {
   beforeEach(() => resetMint());
 
   test('played from hand targets a specific character (PlayHazardAction has targetCharacterId)', () => {
@@ -62,7 +66,7 @@ describe('Foolish Words (td-25)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-          hand: [FOOLISH_WORDS],
+          hand: [FOOLISH_WORDS_LE],
           siteDeck: [MINAS_TIRITH],
         },
       ],
@@ -104,7 +108,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFWState = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+    const withFWState = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS_LE);
     const sitePhase = makeSitePhase();
     const testState = { ...withFWState, phaseState: sitePhase };
     const cleanState = { ...base, phaseState: sitePhase };
@@ -135,7 +139,7 @@ describe('Foolish Words (td-25)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-          hand: [FOOLISH_WORDS],
+          hand: [FOOLISH_WORDS_LE],
           siteDeck: [MINAS_TIRITH],
         },
       ],
@@ -152,8 +156,7 @@ describe('Foolish Words (td-25)', () => {
     expect(action.cardInstanceId).toBe(fwInstanceId);
   });
 
-  test('untapped character with Foolish Words gets exactly one remove action (tap to roll)', () => {
-    // Foolish Words is NOT a Corruption card — only one standard tap variant, no no-tap −3 variant.
+  test('untapped character with Foolish Words can activate removal during organization', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -163,18 +166,16 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS_LE);
     const actions = viableActions(withFW, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const act = actions[0].action as ActivateGrantedAction;
-    expect(act.actionId).toBe('remove-self-on-roll');
-    expect(act.noTap).toBeFalsy();
-    expect(act.rollThreshold).toBe(8);
+    const action = actions[0].action as ActivateGrantedAction;
+    expect(action.actionId).toBe('remove-self-on-roll');
+    expect(action.rollThreshold).toBe(8);
   });
 
-  test('tapped character with Foolish Words cannot activate remove-self-on-roll', () => {
-    // Foolish Words is not a Corruption card — no no-tap −3 variant, so a tapped character cannot attempt removal.
+  test('tapped character cannot activate Foolish Words removal', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -184,7 +185,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS_LE);
     const tappedState = setCharStatus(withFW, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const actions = viableActions(tappedState, PLAYER_1, 'activate-granted-action');
@@ -201,8 +202,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
-    // Cheat the roll to 8 (just above 7 = success)
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS_LE);
     const cheated = { ...withFW, cheatRollTotal: 8 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
@@ -210,15 +210,12 @@ describe('Foolish Words (td-25)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
-    // Foolish Words should be removed from character's hazards
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
 
-    // Foolish Words should be in opponent's discard pile (hazard belongs to opponent)
-    expectInDiscardPile(next, HAZARD_PLAYER, FOOLISH_WORDS);
+    expectInDiscardPile(next, HAZARD_PLAYER, FOOLISH_WORDS_LE);
   });
 
   test('failed removal roll (<=7) keeps Foolish Words attached and taps character', () => {
@@ -231,8 +228,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
-    // Cheat the roll to 7 (exactly 7 = failure, need > 7)
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS_LE);
     const cheated = { ...withFW, cheatRollTotal: 7 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
@@ -240,16 +236,13 @@ describe('Foolish Words (td-25)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
-    // Foolish Words should still be attached
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
+    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS_LE);
 
-    // Opponent's discard pile should not have Foolish Words
-    expect(next.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(false);
+    expect(next.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS_LE)).toBe(false);
   });
 
   test('on-guard Foolish Words revealed at influence-attempt applies -4 to the roll', () => {
@@ -263,7 +256,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS);
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS_LE);
     const testState = { ...withOG, phaseState: makeSitePhase() };
 
     // PLAYER_1 declares influence-attempt → on-guard window opens
@@ -281,10 +274,7 @@ describe('Foolish Words (td-25)', () => {
     const afterReveal = dispatch(afterAttempt, revealActions[0].action);
     expect(afterReveal.chain).not.toBeNull();
 
-    // Resolve the chain (both players pass priority). Auto-resolution stops
-    // at the influence-attempt entry, which pauses the chain (still alive,
-    // entry unresolved, faction card still on it) so the UI can display the
-    // situation banner before the player commits to rolling.
+    // Resolve the chain (both players pass priority)
     let current = afterReveal;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
       const pass = viableActions(current, current.chain.priority, 'pass-chain-priority');

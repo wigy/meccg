@@ -495,3 +495,25 @@ export interface BodyCheckCompanyRollAction {
   /** Human-readable description of the check. */
   readonly explanation: string;
 }
+
+/**
+ * Execute the dice roll for a Seized by Terror check on a character.
+ *
+ * Created by the pending-resolution system after a hazard short event
+ * with a `seized-by-terror-check` effect resolves. The character's player
+ * rolls 2d6; if roll + character mind < threshold (12), the character
+ * splits off into a new company that returns to the original company's
+ * site of origin.
+ */
+export interface SeizedByTerrorRollAction {
+  /** Action discriminant. */
+  readonly type: 'seized-by-terror-roll';
+  /** The character's player (who rolls). */
+  readonly player: PlayerId;
+  /** The targeted character instance. */
+  readonly targetCharacterId: CardInstanceId;
+  /** The 2d6 value needed for the character to stay (roll + mind >= this). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
