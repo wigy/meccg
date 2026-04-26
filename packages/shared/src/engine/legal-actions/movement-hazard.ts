@@ -871,6 +871,7 @@ function playHazardsActions(
                   .filter((s): s is string => s != null);
                 const ctx = {
                   target: {
+                    cardType: charDef.cardType,
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,

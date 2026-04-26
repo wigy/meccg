@@ -351,8 +351,11 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         const hazardDef = state.cardPool[hazard.definitionId as string];
-        const isCorruptionRemoval = effect.action === 'remove-self-on-roll'
-          && hazardDef?.cardType === 'hazard-corruption';
+        // Rule 10.08: any hazard with remove-self-on-roll is treated as a
+        // corruption-removal action regardless of its cardType. All such
+        // cards (Lure of Expedience, Lure of Nature, Foolish Words, …) use
+        // the tap-to-remove mechanic that qualifies for the no-tap -3 variant.
+        const isCorruptionRemoval = effect.action === 'remove-self-on-roll';
         // METD §7 / rule 10.08: once a no-tap removal attempt has been
         // made on this character+corruption-card pair, no further
         // attempts (tap or no-tap) are allowed for the rest of the turn.
