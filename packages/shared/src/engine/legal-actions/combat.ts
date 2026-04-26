@@ -873,6 +873,11 @@ function cancelAttackActions(
   if (playerId !== combat.defendingPlayerId) return [];
   if (combat.phase !== 'assign-strikes') return [];
   if (combat.strikeAssignments.length > 0) return [];
+  // Forewarned Is Forearmed: isolated attacks cannot be canceled
+  if (combat.uncancelable) {
+    logDetail(`Cancel-attack suppressed: attack is uncancelable (Forewarned Is Forearmed)`);
+    return [];
+  }
 
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];

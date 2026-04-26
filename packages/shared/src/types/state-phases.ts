@@ -479,6 +479,15 @@ export type SiteStep =
    */
   | 'reveal-on-guard-attacks'
   /**
+   * *Forewarned Is Forearmed* step: inserted between
+   * `reveal-on-guard-attacks` and `automatic-attacks` when that permanent
+   * event is in play and the company's site (non-Dragon-lair) has more
+   * than one automatic attack. The hazard player selects which single
+   * attack to retain; all others are skipped. The resource player has no
+   * actions during this step.
+   */
+  | 'forewarned-select-attack'
+  /**
    * Dynamic automatic-attack window for sites carrying a
    * `site-rule: dynamic-auto-attack` effect (e.g. Framsburg td-175). The
    * hazard player may play one creature from their hand whose keying
@@ -545,6 +554,13 @@ export interface SitePhaseState {
   readonly handledCompanyIds: readonly CompanyId[];
   /** Number of automatic attacks already resolved at the current site. */
   readonly automaticAttacksResolved: number;
+  /**
+   * When *Forewarned Is Forearmed* is in play and the site has multiple
+   * automatic attacks, this holds the zero-based index of the single
+   * attack the hazard player selected during `forewarned-select-attack`.
+   * Undefined means all attacks are processed normally.
+   */
+  readonly selectedAutoAttackIndex?: number;
   /** Whether the company has successfully entered the site (past all auto-attacks). */
   readonly siteEntered: boolean;
   /** Whether a resource that taps the site has been played by the current company. */

@@ -27,6 +27,7 @@ import { Phase } from '../index.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
+import { isReduceAttacksToOneInPlay } from './manifestations.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1304,7 +1305,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const multiAttackEffect = creatureDef.effects?.find(
     e => e.type === 'combat-multi-attack',
   );
-  const multiAttackCount = multiAttackEffect?.count ?? 1;
+  const rawMultiAttackCount = multiAttackEffect?.count ?? 1;
+  // Forewarned Is Forearmed: reduce any multi-attack creature to 1 attack
+  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state);
+  if (forewarnedActive) {
+    logDetail(`Forewarned Is Forearmed: reducing multi-attack from ${rawMultiAttackCount} to 1`);
+  }
+  const multiAttackCount = forewarnedActive ? 1 : rawMultiAttackCount;
 
   // Check for one-strike-per-character combat rule (e.g. Wandering Eldar,
   // Watcher in the Water — "Each character in the company faces one strike").
@@ -1388,6 +1395,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
+    ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   };
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes${effectiveStrikes !== creatureDef.strikes ? ` → ${effectiveStrikes}` : ''}, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== creatureDef.strikes || effectiveProwess !== creatureDef.prowess ? ' after global effects' : ''}) vs company ${company.id as string}`);

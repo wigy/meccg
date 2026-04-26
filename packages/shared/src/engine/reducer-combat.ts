@@ -1879,7 +1879,10 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // permanent events whose on-event condition matches the attack's race
   // (e.g. The Moon Is Dead: discard when an Undead attack is defeated).
   if (allDefeated && combat.creatureRace) {
-    const attackCtx = { enemy: { race: combat.creatureRace } };
+    const attackCtx = {
+      enemy: { race: combat.creatureRace },
+      attack: { isolated: combat.isolated ?? false },
+    };
     const updatedPlayersAD = stateAfterCombat.players.map(player => {
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
       const remaining: import('../types/state-cards.js').CardInPlay[] = [];

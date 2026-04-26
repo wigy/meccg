@@ -265,3 +265,23 @@ export interface PlayMinorItemAction {
   /** The character who will carry the minor item. */
   readonly attachToCharacterId: CardInstanceId;
 }
+
+/**
+ * Hazard player selects which automatic attack to retain during the
+ * `forewarned-select-attack` step, which is inserted before
+ * `automatic-attacks` when *Forewarned Is Forearmed* is in play and the
+ * company's site has more than one automatic attack.
+ *
+ * The chosen attack index corresponds to the position in the site's
+ * `automaticAttacks` array (after Dragon-lair filtering). Only the
+ * selected attack is then initiated during `automatic-attacks`; the rest
+ * are discarded (the resource player never faces them).
+ */
+export interface SelectForewarnedAttackAction {
+  /** Action discriminant. */
+  readonly type: 'select-forewarned-attack';
+  /** The hazard player making the selection. */
+  readonly player: PlayerId;
+  /** Zero-based index into the site's active automatic-attacks array. */
+  readonly attackIndex: number;
+}

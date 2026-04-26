@@ -186,6 +186,23 @@ function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
 }
 
 /**
+ * Returns true when any player has a `reduce-attacks-to-one` permanent event
+ * in cardsInPlay (i.e. *Forewarned Is Forearmed* is in play).
+ */
+export function isReduceAttacksToOneInPlay(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def) continue;
+      const effects = (def as { effects?: readonly { type: string }[] }).effects;
+      if (!effects) continue;
+      if (effects.some(e => e.type === 'reduce-attacks-to-one')) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Collects every `dragon-at-home` augmentation attack contributed by
  * in-play permanent-events whose `manifestId` matches.
  */

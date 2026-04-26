@@ -390,6 +390,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'select-forewarned-attack':
+      return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
