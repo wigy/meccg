@@ -142,7 +142,10 @@
         }
       }
     ],
-    "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company."
+    "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company.",
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "hero-resource-item",
@@ -393,7 +396,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PreciousGoldRing.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -427,7 +432,9 @@
     "effects": [
       {
         "type": "item-play-site",
-        "sites": ["Bag End"]
+        "sites": [
+          "Bag End"
+        ]
       },
       {
         "type": "stat-modifier",
@@ -449,7 +456,9 @@
       },
       {
         "type": "storable-at",
-        "siteTypes": ["haven"],
+        "siteTypes": [
+          "haven"
+        ],
         "marshallingPoints": 1
       }
     ],
@@ -470,7 +479,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "hero-resource-item",
@@ -490,18 +502,29 @@
     "effects": [
       {
         "type": "item-play-site",
-        "sites": ["Moria"]
+        "sites": [
+          "Moria"
+        ]
       },
       {
         "type": "storable-at",
-        "sites": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"],
+        "sites": [
+          "Blue Mountain Dwarf-hold",
+          "Iron Hill Dwarf-hold"
+        ],
         "marshallingPoints": 5
       },
       {
         "type": "grant-action",
         "action": "book-of-mazarbul-hand-boost",
-        "cost": { "tap": "self" },
-        "when": { "bearer.skills": { "$includes": "sage" } },
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "sage"
+          }
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "hand-size-modifier",
@@ -569,8 +592,14 @@
       },
       {
         "type": "cancel-strike",
-        "cost": { "tap": "self" },
-        "when": { "bearer.skills": { "$includes": "warrior" } }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "certified": "2026-04-25"
@@ -589,7 +618,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "hero-resource-item",
@@ -605,7 +637,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "hero-resource-item",
@@ -632,7 +667,9 @@
     "alignment": "wizard",
     "unique": true,
     "subtype": "greater",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -676,7 +713,9 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "keywords": ["shield"],
+    "keywords": [
+      "shield"
+    ],
     "certified": "2026-04-24",
     "effects": [
       {
@@ -687,7 +726,9 @@
       },
       {
         "type": "item-tap-strike-bonus",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "prowessBonus": 1
       }
     ]
@@ -717,7 +758,9 @@
     "alignment": "wizard",
     "unique": false,
     "subtype": "major",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -730,7 +773,11 @@
         "stat": "prowess",
         "value": 2,
         "max": 8,
-        "when": { "bearer.skills": { "$includes": "warrior" } }
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "certified": "2026-04-25"
@@ -760,7 +807,9 @@
     "alignment": "wizard",
     "unique": false,
     "subtype": "minor",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -774,14 +823,20 @@
     "effects": [
       {
         "type": "modify-attack",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "prowessModifier": -1,
         "bodyModifier": -1,
         "when": {
-          "bearer.skills": { "$includes": "warrior" }
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
         },
         "discardIfBearerNot": {
-          "race": ["man"]
+          "race": [
+            "man"
+          ]
         }
       }
     ],

@@ -79,6 +79,7 @@ export function enqueueCorruptionCheck(
     readonly modifier?: number;
     readonly possessions?: readonly CardInstanceId[];
     readonly transferredItemId?: CardInstanceId | null;
+    readonly failureMode?: 'discard-ring-only';
   },
 ): GameState {
   return enqueueResolution(state, {
@@ -92,6 +93,7 @@ export function enqueueCorruptionCheck(
       reason: opts.reason,
       possessions: opts.possessions ?? [],
       transferredItemId: opts.transferredItemId ?? null,
+      failureMode: opts.failureMode,
     },
   });
 }

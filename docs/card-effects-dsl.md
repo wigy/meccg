@@ -388,16 +388,20 @@ Events:
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event and enqueues a `corruption-check` pending resolution per match. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`, so cards that only fire at a haven (e.g. *Lure of the Senses*) express that as `"when": { "bearer.atHaven": true }`. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
+- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`). Supports `apply: { "type": "discard-self" }` to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated.
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. An optional `regionTypeFilter: [...]` array restricts the iteration to regions whose type appears in the list — e.g. *Lure of Nature* uses `regionTypeFilter: ["wilderness"]` to enqueue a check only for each wilderness in the path. Used by *Alone and Unadvised* and *Lure of Nature*. Implemented in `reducer-movement-hazard.ts`.
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached items for this event and applies the `discard-self` action, moving the card to the owner's discard pile. Used by *Align Palantír*. Implemented in `reducer-movement-hazard.ts`.
-- `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. Scoped to characters in the defending player's *other* companies that are at a haven, so they can be offered a chance to jump into the attack. Scanned in `chain-reducer.ts` `collectHavenJumpOffers()`. The `when` condition is evaluated against `{ bearer: { atHaven: true, siteType: 'haven' }, attack: { attackedCompanyId, bearerCompanyId } }`. Currently consumed only by `offer-char-join-attack` — used by *Alatar* (tw-117).
+- `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. The attack was not canceled by the time this event fires (canceling an attack prevents `initiateCreatureCombat` from running entirely). Handled in `chain-reducer.ts` `initiateCreatureCombat()`. Supported apply types:
+  - `offer-char-join-attack` — scoped to characters in the defending player's *other* companies that are at a haven; the `when` condition is evaluated against `{ bearer: { atHaven: true, siteType: 'haven' }, attack: { attackedCompanyId, bearerCompanyId } }`. Used by *Alatar* (tw-117).
+  - `force-check-all-company` — enqueues a corruption check for every character in the attacked company before defenders are selected. Uses `check` (must be `"corruption"`) and optional `modifier`. Used by *Corpse-candle* (tw-23, le-67).
 - `character-gains-item` -- fires immediately after any character in the bearer's company gains an item during the site phase (via `play-hero-resource`). For each character bearing a hazard with this event, enqueues one `corruption-check` pending resolution for that character (the bearer, not the character who gained the item). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Lure of Expedience* (le-122). Implemented in `reducer-site.ts` `fireCharacterGainsItemChecks()`.
 
 Apply types:
 
 - `force-check` -- force a check roll on the target. The dispatcher enqueues a {@link PendingResolution} of kind `corruption-check`; the resolver in `engine/pending-reducers.ts` runs the dice roll and applies the standard discard / eliminate consequences when the check fails.
+- `force-check-all-company` -- under `on-event: creature-attack-begins`, enqueue a corruption check for **every** character in the attacked company before defenders are selected. Uses `check: "corruption"` and optional `modifier`. Implemented in `chain-reducer.ts` `initiateCreatureCombat()`. Used by *Corpse-candle* (tw-23, le-67).
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
@@ -1938,3 +1942,30 @@ still tap for other purposes (e.g. cancel-attack).
 Used by Goldberry (tw-245) — "May not be attacked." Implemented in
 `engine/legal-actions/combat.ts` (`allyHasCombatProtection()`),
 checked in both the defender-assigns and attacker-assigns loops.
+
+### 34. `auto-attack-race-duplicate`
+
+When this effect appears on a permanent hazard event in `cardsInPlay`,
+every automatic-attack of the specified `race` at the active company's
+site must be faced a second time after all regular automatic-attacks
+are resolved. The duplication uses the same modified prowess and strikes
+(including all in-play modifiers) as the original attack.
+
+Fields:
+- `race: string` — lowercase race to match (e.g. `"undead"`). Matched
+  against `normalizeCreatureRace(aa.creatureType)` for each auto-attack.
+
+Implementation: `reducer-site.ts` `handleSiteAutomaticAttacks()`. After
+all regular attacks are resolved, the handler scans every player's
+`cardsInPlay` for this effect type, collects matching auto-attacks, and
+processes them one per `pass` action (ordered by their original index).
+The counter `duplicatesRun = automaticAttacksResolved - autoAttacks.length`
+tracks how many race-based duplicates have been initiated; this count
+grows naturally with `automaticAttacksResolved`. Race-based duplicates
+are processed before any `auto-attack-duplicate` constraint (Incite Defenders).
+
+Used by *The Moon Is Dead* (dm-71):
+
+```json
+{ "type": "auto-attack-race-duplicate", "race": "undead" }
+```

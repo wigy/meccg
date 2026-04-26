@@ -1835,6 +1835,44 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Check for on-event: attack-defeated effects on permanent events in play.
+  // When all strikes were defeated, scan every player's cardsInPlay for
+  // permanent events whose on-event condition matches the attack's race
+  // (e.g. The Moon Is Dead: discard when an Undead attack is defeated).
+  if (allDefeated && combat.creatureRace) {
+    const attackCtx = { enemy: { race: combat.creatureRace } };
+    const updatedPlayersAD = stateAfterCombat.players.map(player => {
+      const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
+      const remaining: import('../types/state-cards.js').CardInPlay[] = [];
+      for (const card of player.cardsInPlay) {
+        const def = stateAfterCombat.cardPool[card.definitionId as string];
+        if (!def || !('effects' in def) || !def.effects) { remaining.push(card); continue; }
+        const defeatedEvents = def.effects.filter(
+          (e): e is import('../types/effects.js').OnEventEffect =>
+            e.type === 'on-event' && e.event === 'attack-defeated',
+        );
+        let shouldDiscard = false;
+        for (const ev of defeatedEvents) {
+          if (!ev.when || matchesCondition(ev.when, attackCtx as unknown as Record<string, unknown>)) {
+            if (ev.apply.type === 'discard-self') {
+              shouldDiscard = true;
+              break;
+            }
+          }
+        }
+        if (shouldDiscard) { toDiscard.push(card); } else { remaining.push(card); }
+      }
+      if (toDiscard.length === 0) return player;
+      const discarded = toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+      for (const c of toDiscard) {
+        const defName = (stateAfterCombat.cardPool[c.definitionId as string] as { name?: string })?.name ?? '?';
+        logDetail(`Attack-defeated: discarding "${defName}" from cardsInPlay (on-event: attack-defeated)`);
+      }
+      return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };
+    }) as unknown as typeof stateAfterCombat.players;
+    stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAD };
+  }
+
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
   // Apply post-attack effects scheduled by accepted haven-join offers

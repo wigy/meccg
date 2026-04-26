@@ -178,8 +178,23 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     return evaluated;
   }
 
-  // Combat sub-state takes priority over phase actions
+  // Combat sub-state takes priority over phase actions, but pending
+  // resolutions (e.g. Corpse-candle pre-defense corruption checks) must
+  // still be resolved before combat actions are legal.
   if (state.combat != null) {
+    const pendingTop = topResolutionFor(state, playerId);
+    if (pendingTop !== null) {
+      logHeading(`Combat: pending resolution (${pendingTop.kind.type}) — delegating to resolution actions`);
+      const evaluated = resolutionLegalActions(state, playerId, pendingTop);
+      const viableCount = evaluated.filter(e => e.viable).length;
+      logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+      return evaluated;
+    }
+    if (state.pendingResolutions.length > 0) {
+      logHeading(`Combat: pending resolution belongs to other player — waiting`);
+      logResult(0, []);
+      return [];
+    }
     logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
     const evaluated = combatActions(state, playerId);
     const viableCount = evaluated.filter(e => e.viable).length;

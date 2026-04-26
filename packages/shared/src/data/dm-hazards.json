@@ -110,7 +110,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheMoonIsDead.jpg",
     "text": "All Undead attacks receive +1 strike and +1 prowess. All Undead automatic-attacks are duplicated (i. e., each must be faced twice, including all modifications). Discard this card when an Undead attack is defeated. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "undead" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "undead" }
+      },
+      {
+        "type": "auto-attack-race-duplicate",
+        "race": "undead"
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": { "type": "discard-self" },
+        "when": { "enemy.race": "undead" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hazard-event",

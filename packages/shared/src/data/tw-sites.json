@@ -649,7 +649,8 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Haven: Grey Havens."
+    "text": "Nearest Haven: Grey Havens.",
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
@@ -734,7 +735,10 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "High Pass",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -744,7 +748,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess"
+    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess",
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
@@ -1058,7 +1063,7 @@
     "playableResources": [
       "minor",
       "major",
-      "greater"
+      "special"
     ],
     "automaticAttacks": [
       {
@@ -1068,7 +1073,26 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            { "subtype": "special" },
+            { "$not": { "keywords": { "$includes": "palantir" } } }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
@@ -1096,7 +1120,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",
@@ -1126,7 +1151,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "certified": "2026-04-25"
   },
   {
     "cardType": "hero-site",

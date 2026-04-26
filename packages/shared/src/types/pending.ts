@@ -151,6 +151,12 @@ export interface PendingResolution {
          * Null for non-transfer corruption checks.
          */
         readonly transferredItemId: CardInstanceId | null;
+        /**
+         * Custom failure consequence. When `'discard-ring-only'`, a failed
+         * check discards only the bearer's Ring item instead of the character
+         * (e.g. The Ring's Betrayal). Absent for standard checks.
+         */
+        readonly failureMode?: 'discard-ring-only';
       }
     | {
         readonly type: 'order-effects';
