@@ -15,6 +15,7 @@ import type {
   PlayCharacterAction,
   MoveToInfluenceAction,
   TransferItemAction,
+  StoreItemAction,
   SplitCompanyAction,
   MoveToCompanyAction,
   MergeCompaniesAction,
@@ -58,6 +59,19 @@ export function getMoveToInfluenceActions(view: PlayerView): Map<string, MoveToI
     const existing = result.get(key) ?? [];
     existing.push(action);
     result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable store-item actions, keyed by the item instance ID.
+ * At most one store-item action exists per item (the item belongs to exactly one character).
+ */
+export function getStoreItemActions(view: PlayerView): Map<string, StoreItemAction> {
+  const result = new Map<string, StoreItemAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'store-item') continue;
+    result.set(action.itemInstanceId as string, action);
   }
   return result;
 }

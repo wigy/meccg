@@ -20,6 +20,7 @@ import type {
   OpponentCompanyView,
   MoveToInfluenceAction,
   TransferItemAction,
+  StoreItemAction,
   SplitCompanyAction,
   MoveToCompanyAction,
   MergeCompaniesAction,
@@ -113,6 +114,8 @@ export function renderCompanyBlock(
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
     /** Map from item instance ID to transfer-item actions for that item. */
     transferActions?: Map<string, TransferItemAction[]>;
+    /** Map from item instance ID to store-item action for that item. */
+    storeItemActions?: Map<string, StoreItemAction>;
     /** Map from character instance ID to split-company actions for that character. */
     splitActions?: Map<string, SplitCompanyAction>;
     /** Map from character instance ID to move-to-company actions for that character. */
@@ -295,7 +298,22 @@ export function renderCompanyBlock(
       return undefined;
     }
 
-    // Not in targeting mode — check if this item has transfer actions
+    // Not in targeting mode — check if this item has a store-item action (takes priority over transfer)
+    if (options?.onAction) {
+      const storeAction = options.storeItemActions?.get(itemInstId as string);
+      if (storeAction && storeAction.characterId === charInstId) {
+        const onAction = options.onAction;
+        return {
+          cls: 'company-card--transfer-source',
+          handler: (e) => {
+            e.stopPropagation();
+            onAction(storeAction);
+          },
+        };
+      }
+    }
+
+    // Check if this item has transfer actions
     if (!options.transferActions) return undefined;
     const actions = options.transferActions.get(itemInstId as string);
     if (!actions || actions.length === 0) return undefined;
