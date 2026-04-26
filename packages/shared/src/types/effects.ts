@@ -339,6 +339,12 @@ export interface ActionCost {
   readonly check?: 'corruption';
   /** Modifier applied to the cost check roll. */
   readonly modifier?: number;
+  /**
+   * Custom failure consequence for corruption-check costs. When set to
+   * `'discard-ring-only'`, a failed check discards the bearer's Ring item
+   * instead of the character (e.g. The Ring's Betrayal).
+   */
+  readonly failureMode?: 'discard-ring-only';
 }
 
 /**
@@ -1423,6 +1429,21 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * A hazard short-event check targeting a character moving through Shadow-land
+ * or Dark-domain. The character's player rolls 2d6 and adds the character's
+ * mind. If the result is less than the threshold (12), the character splits
+ * off into a new company that immediately returns to the original company's
+ * site of origin.
+ *
+ * Used by Seized by Terror (dm-88).
+ */
+export interface SeizedByTerrorCheckEffect extends EffectBase {
+  readonly type: 'seized-by-terror-check';
+  /** Roll + character mind must meet or exceed this to stay in the moving company. */
+  readonly threshold: number;
+}
+
+/**
  * Declares that while this long-event is in play, any company whose
  * movement path crosses the listed region names (or region types) faces
  * a creature-like Dragon attack during the order-effects step (CoE step 4).
@@ -1666,6 +1687,7 @@ export type CardEffect =
   | StorableAtEffect
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
+  | SeizedByTerrorCheckEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | ControlRestrictionEffect

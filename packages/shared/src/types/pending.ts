@@ -151,6 +151,12 @@ export interface PendingResolution {
          * Null for non-transfer corruption checks.
          */
         readonly transferredItemId: CardInstanceId | null;
+        /**
+         * Custom failure consequence. When `'discard-ring-only'`, a failed
+         * check discards only the bearer's Ring item instead of the character
+         * (e.g. The Ring's Betrayal). Absent for standard checks.
+         */
+        readonly failureMode?: 'discard-ring-only';
       }
     | {
         readonly type: 'order-effects';
@@ -217,6 +223,24 @@ export interface PendingResolution {
         readonly hazardDefinitionId: CardDefinitionId;
         /** Roll + unused GI must meet or exceed this to keep the character. */
         readonly threshold: number;
+      }
+    | {
+        /**
+         * Seized by Terror roll: a hazard short event has resolved against a
+         * character moving through Shadow-land or Dark-domain. The character's
+         * player rolls 2d6 and adds the character's mind. If roll + mind < 12,
+         * the character splits off into a new company that returns to the
+         * original company's site of origin.
+         */
+        readonly type: 'seized-by-terror-roll';
+        /** The targeted character instance. */
+        readonly targetCharacterId: CardInstanceId;
+        /** The hazard card that caused this check. */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Roll + mind must meet or exceed this to stay in the moving company. */
+        readonly threshold: number;
+        /** Instance ID of the site of origin (original company's currentSite). */
+        readonly originSiteInstanceId: CardInstanceId;
       }
     | {
         /**

@@ -358,7 +358,8 @@ describe('Lure of Nature (le-123)', () => {
 
   // ── Effect: tap bearer to attempt removal (roll > 4) ──────────────────
 
-  test('untapped bearer in Organization can activate remove-self-on-roll (rollThreshold 5)', () => {
+  test('untapped bearer in Organization gets both standard (tap) and no-tap (−3) removal variants', () => {
+    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -370,14 +371,12 @@ describe('Lure of Nature (le-123)', () => {
 
     const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_NATURE);
     const actions = viableActions(withCard, PLAYER_1, 'activate-granted-action');
-    // hazard-event (not hazard-corruption) cards don't get the METD §7
-    // no-tap variant, so only the standard tap-and-roll is offered here.
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(2);
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('remove-self-on-roll');
-    expect(action.rollThreshold).toBe(5);
-    expect(action.characterId).toBe(charIdAt(withCard, RESOURCE_PLAYER));
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
+    expect(standardAction.actionId).toBe('remove-self-on-roll');
+    expect(standardAction.rollThreshold).toBe(5);
+    expect(standardAction.characterId).toBe(charIdAt(withCard, RESOURCE_PLAYER));
   });
 
   test.each([
@@ -396,7 +395,8 @@ describe('Lure of Nature (le-123)', () => {
     const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_NATURE);
     const cheated = { ...withCard, cheatRollTotal: roll };
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    const next = dispatch(cheated, actions[0].action);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
+    const next = dispatch(cheated, standardAction);
 
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(getHazardsOn(next, RESOURCE_PLAYER, ARAGORN)).toHaveLength(expectedHazards);
@@ -407,7 +407,9 @@ describe('Lure of Nature (le-123)', () => {
     }
   });
 
-  test('tapped bearer cannot activate remove-self-on-roll (bearer must be untapped)', () => {
+  test('tapped bearer can still activate remove-self-on-roll via no-tap variant (−3 to roll, rule 10.08)', () => {
+    // Rule 10.08: a tapped character may still attempt to remove a corruption
+    // card by taking −3 to the roll instead of tapping.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -437,8 +439,10 @@ describe('Lure of Nature (le-123)', () => {
     };
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    // hazard-event cards don't get the no-tap variant either — no granted
-    // action at all when the bearer is tapped.
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    const action = actions[0].action as ActivateGrantedAction;
+    expect(action.noTap).toBe(true);
+    expect(action.rollThreshold).toBe(5);
+    expect(action.characterId).toBe(aragornId);
   });
 });

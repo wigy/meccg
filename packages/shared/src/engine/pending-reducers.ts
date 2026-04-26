@@ -20,9 +20,9 @@ import type {
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -64,6 +64,8 @@ export function applyResolution(
       return applyMusterRollResolution(state, action, top);
     case 'call-of-home-roll':
       return applyCallOfHomeRollResolution(state, action, top);
+    case 'seized-by-terror-roll':
+      return applySeizedByTerrorRollResolution(state, action, top);
     case 'gold-ring-test':
       return applyGoldRingTestResolution(state, action, top);
   }
@@ -166,6 +168,38 @@ function applyCorruptionCheckResolution(
     logDetail(`Corruption check passed (${total} > ${cp})`);
     const stateAfterDequeue = dequeueResolution(postRollState, top.id);
     return { state: stateAfterDequeue, effects: [rollEffect] };
+  }
+
+  // The Ring's Betrayal failure mode: discard only the Ring, character stays
+  if (top.kind.failureMode === 'discard-ring-only') {
+    logDetail(`Corruption check FAILED (${total} <= ${cp}) — failureMode discard-ring-only: discarding Ring, ${charName} remains in play`);
+    const ringInstances = action.possessions
+      .map(id => {
+        const defId = resolveInstanceId(state, id);
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        const keywords: readonly string[] = def && 'keywords' in def ? (def as { keywords?: readonly string[] }).keywords ?? [] : [];
+        return keywords.includes('ring') ? { instanceId: id, definitionId: defId! } : null;
+      })
+      .filter((x): x is CardInstance => x !== null);
+    const ringIds = new Set(ringInstances.map(r => r.instanceId));
+    const newCharacters = { ...player.characters };
+    const currentChar = newCharacters[characterId as string];
+    if (currentChar && ringIds.size > 0) {
+      newCharacters[characterId as string] = {
+        ...currentChar,
+        items: currentChar.items.filter(i => !ringIds.has(i.instanceId)),
+      };
+    }
+    const newDiscardPile = [...player.discardPile, ...ringInstances];
+    playersAfterRoll[playerIndex] = {
+      ...playersAfterRoll[playerIndex],
+      characters: newCharacters,
+      discardPile: newDiscardPile,
+    };
+    return {
+      state: dequeueResolution({ ...postRollState, players: playersAfterRoll }, top.id),
+      effects: [rollEffect],
+    };
   }
 
   // Failed — discard or eliminate the character
@@ -855,6 +889,153 @@ function returnCharacterToHand(
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
+  let result: GameState = { ...state, players: newPlayers };
+  result = cleanupEmptyCompanies(result);
+  return result;
+}
+
+/**
+ * Resolve a queued `seized-by-terror-roll` resolution. The character's
+ * player rolls 2d6 and adds the character's mind. If roll + mind < threshold
+ * (12), the character splits off into a new company at the original company's
+ * site of origin. The original company continues to its destination.
+ *
+ * If the character is alone in their company, the whole company returns to
+ * the site of origin (destinationSite is cleared).
+ */
+function applySeizedByTerrorRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'seized-by-terror-roll') {
+    return { state, error: `Pending seized-by-terror-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'seized-by-terror-roll') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending seized-by-terror-roll' };
+  }
+
+  const { targetCharacterId, threshold, originSiteInstanceId } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+  const charInPlay = player.characters[targetCharacterId as string];
+  if (!charInPlay) {
+    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
+  const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const checkValue = total + mind;
+  const passed = checkValue >= threshold;
+
+  const rollEffect: import('../index.js').GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Seized by Terror: ${charName}`,
+  };
+  const effects: import('../index.js').GameEffect[] = [rollEffect];
+  logDetail(`Seized by Terror on ${charName}: rolled ${total} + mind ${mind} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'SPLITS OFF TO ORIGIN'}`);
+
+  const stateAfterRoll = updatePlayer(state, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
+  let postRoll = dequeueResolution({ ...stateAfterRoll, rng, cheatRollTotal }, top.id);
+
+  if (!passed) {
+    postRoll = splitCharacterToOrigin(postRoll, actorIndex, targetCharacterId, originSiteInstanceId);
+  }
+
+  if (postRoll.chain) {
+    const chain = postRoll.chain;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event'
+        && !e.resolved
+        && e.payload.targetCharacterId === targetCharacterId
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [...effects, ...(continued.effects ?? [])],
+    };
+  }
+
+  return { state: postRoll, effects };
+}
+
+/**
+ * Split a character off from their current company into a new solo company
+ * at the site of origin. If the character is the only one in their company,
+ * the company stays at origin instead (destinationSite is cleared).
+ */
+function splitCharacterToOrigin(
+  state: GameState,
+  playerIndex: number,
+  characterId: import('../index.js').CardInstanceId,
+  originSiteInstanceId: import('../index.js').CardInstanceId,
+): GameState {
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+
+  // Find which company the character is in
+  const sourceCompanyIndex = player.companies.findIndex(c =>
+    c.characters.some(id => id === characterId),
+  );
+  if (sourceCompanyIndex < 0) return state;
+  const sourceCompany = player.companies[sourceCompanyIndex];
+
+  // Find the origin site in play
+  let originSite: import('../index.js').SiteInPlay | null = sourceCompany.currentSite;
+  if (sourceCompany.currentSite?.instanceId !== originSiteInstanceId) {
+    const deckEntry = state.players[playerIndex].siteDeck.find(s => s.instanceId === originSiteInstanceId);
+    if (deckEntry) {
+      originSite = { instanceId: deckEntry.instanceId, definitionId: deckEntry.definitionId, status: CardStatus.Untapped };
+    }
+  }
+
+  const updatedCompanies = [...player.companies];
+
+  if (sourceCompany.characters.length <= 1) {
+    // Character is alone — whole company returns to origin
+    logDetail(`Seized by Terror: ${characterId as string} is alone — company returns to site of origin`);
+    updatedCompanies[sourceCompanyIndex] = {
+      ...sourceCompany,
+      destinationSite: null,
+      movementPath: [],
+    };
+  } else {
+    // Remove character from source company
+    updatedCompanies[sourceCompanyIndex] = {
+      ...sourceCompany,
+      characters: sourceCompany.characters.filter(id => id !== characterId),
+    };
+
+    // Create new solo company at the site of origin
+    const newCompany: import('../index.js').Company = {
+      id: nextCompanyId(player),
+      characters: [characterId],
+      currentSite: originSite ?? null,
+      siteCardOwned: false,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+      siteOfOrigin: null,
+      onGuardCards: [],
+      hazards: [],
+    };
+    updatedCompanies.push(newCompany);
+    logDetail(`Seized by Terror: ${characterId as string} splits off into new company ${newCompany.id as string} at origin site`);
+  }
+
+  newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   return result;
