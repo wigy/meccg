@@ -13,10 +13,6 @@ Look for functions that are better implemented in DSL. Have a critical look into
 FIXES
 -----
 
-2026-04-01-permanent-event-chain.md
-
-Check all keywords we have and find all potential mistakes based on card soruce data.
-
 FEATS
 -----
 
