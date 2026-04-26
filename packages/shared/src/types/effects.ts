@@ -339,6 +339,12 @@ export interface ActionCost {
   readonly check?: 'corruption';
   /** Modifier applied to the cost check roll. */
   readonly modifier?: number;
+  /**
+   * Custom failure consequence for corruption-check costs. When set to
+   * `'discard-ring-only'`, a failed check discards the bearer's Ring item
+   * instead of the character (e.g. The Ring's Betrayal).
+   */
+  readonly failureMode?: 'discard-ring-only';
 }
 
 /**
@@ -368,11 +374,22 @@ export interface OnEventEffect extends EffectBase {
 
 /** An action performed by a triggered effect. */
 export interface TriggeredAction {
-  /** The type of triggered action. */
+  /**
+   * The type of triggered action.
+   *
+   * Supported types include:
+   * - `force-check` — enqueue a single corruption check on the `target` character.
+   * - `force-check-all-company` — enqueue a corruption check on **every** character
+   *   in the attacked company. Used by Corpse-candle under `creature-attack-begins`
+   *   so that all characters make a corruption check before defenders are selected.
+   *   Uses `check` (must be `"corruption"`) and optional `modifier`.
+   * - `offer-char-join-attack` — offer a haven character the option to join the attack.
+   * (Other types documented inline on their respective fields.)
+   */
   readonly type: string;
   /**
-   * Which check to force (for `force-check`) or which check's
-   * modifiers to sum into a 2d6 roll (for `roll-check`).
+   * Which check to force (for `force-check` / `force-check-all-company`) or which
+   * check's modifiers to sum into a 2d6 roll (for `roll-check`).
    */
   readonly check?: string;
   /** Modifier to the forced check. */
@@ -740,6 +757,19 @@ export interface PlayFlagEffect extends EffectBase {
 }
 
 /**
+ * When present on a permanent hazard event in cardsInPlay, causes all
+ * automatic-attacks of the specified race at the active company's site
+ * to be duplicated (each faced a second time) after all regular
+ * automatic-attacks are resolved. Used by *The Moon Is Dead* to
+ * duplicate every Undead automatic-attack at the site.
+ */
+export interface AutoAttackRaceDuplicateEffect extends EffectBase {
+  readonly type: 'auto-attack-race-duplicate';
+  /** The creature race whose automatic-attacks should be duplicated (lowercase, e.g. "undead"). */
+  readonly race: string;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -805,8 +835,12 @@ export interface PlayTargetEffect extends EffectBase {
   readonly maxCompanySize?: number;
   /**
    * Cost paid by the targeted character when this card is played.
-   * Currently only `tap: "character"` is supported — taps the targeted
-   * character (e.g. Stealth: "Tap a scout to play …").
+   * Supported cost shapes:
+   * - `tap: "character"` — taps the targeted character (e.g. Stealth).
+   * - `check: "corruption", modifier: N` — the targeted character makes a
+   *   corruption check modified by N (e.g. Dragon-sickness: modifier -1).
+   *   The check is enqueued by the chain resolver when the short-event entry
+   *   resolves.
    */
   readonly cost?: ActionCost;
   /**
@@ -1645,4 +1679,5 @@ export type CardEffect =
   | WardBearerEffect
   | CombatProtectionEffect
   | MoveEffect
-  | WoundTargetCharacterEffect;
+  | WoundTargetCharacterEffect
+  | AutoAttackRaceDuplicateEffect;
