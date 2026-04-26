@@ -158,7 +158,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "minion-resource-item",
@@ -174,7 +177,10 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "ring"
+    ]
   },
   {
     "cardType": "minion-resource-item",

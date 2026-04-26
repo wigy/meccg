@@ -168,6 +168,38 @@ function applyCorruptionCheckResolution(
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
+  // The Ring's Betrayal failure mode: discard only the Ring, character stays
+  if (top.kind.failureMode === 'discard-ring-only') {
+    logDetail(`Corruption check FAILED (${total} <= ${cp}) — failureMode discard-ring-only: discarding Ring, ${charName} remains in play`);
+    const ringInstances = action.possessions
+      .map(id => {
+        const defId = resolveInstanceId(state, id);
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        const keywords: readonly string[] = def && 'keywords' in def ? (def as { keywords?: readonly string[] }).keywords ?? [] : [];
+        return keywords.includes('ring') ? { instanceId: id, definitionId: defId! } : null;
+      })
+      .filter((x): x is CardInstance => x !== null);
+    const ringIds = new Set(ringInstances.map(r => r.instanceId));
+    const newCharacters = { ...player.characters };
+    const currentChar = newCharacters[characterId as string];
+    if (currentChar && ringIds.size > 0) {
+      newCharacters[characterId as string] = {
+        ...currentChar,
+        items: currentChar.items.filter(i => !ringIds.has(i.instanceId)),
+      };
+    }
+    const newDiscardPile = [...player.discardPile, ...ringInstances];
+    playersAfterRoll[playerIndex] = {
+      ...playersAfterRoll[playerIndex],
+      characters: newCharacters,
+      discardPile: newDiscardPile,
+    };
+    return {
+      state: dequeueResolution({ ...postRollState, players: playersAfterRoll }, top.id),
+      effects: [rollEffect],
+    };
+  }
+
   // Failed — discard or eliminate the character
   const newCharacters = { ...player.characters };
 

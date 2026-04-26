@@ -339,6 +339,12 @@ export interface ActionCost {
   readonly check?: 'corruption';
   /** Modifier applied to the cost check roll. */
   readonly modifier?: number;
+  /**
+   * Custom failure consequence for corruption-check costs. When set to
+   * `'discard-ring-only'`, a failed check discards the bearer's Ring item
+   * instead of the character (e.g. The Ring's Betrayal).
+   */
+  readonly failureMode?: 'discard-ring-only';
 }
 
 /**
