@@ -657,6 +657,18 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
       newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
+      // For short events with a postCorruptionCheck (e.g. Vilya), enqueue
+      // the corruption check even when the player passed the remaining picks.
+      if (current.postCorruptionCheck) {
+        newState = enqueueCorruptionCheck(newState, {
+          source: current.cardInstanceId,
+          actor: effectOwner,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          characterId: current.postCorruptionCheck.characterId,
+          modifier: current.postCorruptionCheck.modifier,
+          reason: 'card effect',
+        });
+      }
     }
   }
   return { state: newState };
@@ -716,8 +728,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, playDeck: shuffledDeck };
   }
 
-  // Consume this effect; if all done, move event card from cardsInPlay → discard
-  const remaining = state.pendingEffects.slice(1);
+  // Decrement the count; if more picks remain, re-enqueue with count-1 so the
+  // player is prompted for the next pick (e.g. Vilya's 3-card fetch).
+  const newCount = current.effect.type === 'fetch-to-deck' ? current.effect.count - 1 : 0;
+  const remaining = newCount > 0
+    ? [{ ...current, effect: { ...current.effect, count: newCount } } as import('../types/state-combat.js').PendingEffect, ...state.pendingEffects.slice(1)]
+    : state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
   if (remaining.length === 0) {
     if (current.skipDiscard) {
@@ -733,6 +749,18 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
       }
     } else {
       newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+      // For short events that have a postCorruptionCheck (e.g. Vilya), enqueue
+      // the corruption check after the card is discarded.
+      if (current.postCorruptionCheck) {
+        newState = enqueueCorruptionCheck(newState, {
+          source: current.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          characterId: current.postCorruptionCheck.characterId,
+          modifier: current.postCorruptionCheck.modifier,
+          reason: 'card effect',
+        });
+      }
     }
   }
   return { state: newState };

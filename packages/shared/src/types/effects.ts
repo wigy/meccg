@@ -436,10 +436,10 @@ export interface TriggeredAction {
    */
   readonly valueExpr?: string;
   /**
-   * For `add-constraint` with `constraint: "company-stat-modifier"`:
-   * which stat the bonus applies to (currently `prowess` or `body`).
+   * For `add-constraint` with `constraint: "company-stat-modifier"` or
+   * `"character-stat-modifier"`: which stat the bonus applies to.
    */
-  readonly stat?: 'prowess' | 'body';
+  readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /**
    * For `add-constraint` with `constraint: "creature-attack-boost"`:
    * the creature race to filter (e.g. `"undead"`).
