@@ -304,3 +304,26 @@ export interface ActivateGrantedAction {
    */
   readonly noTap?: true;
 }
+
+// ---- Wizard-search window (The Windlord Found Me) ----
+
+/**
+ * Resource player selects a Wizard from their play deck or discard pile
+ * during a wizard-search-on-store resolution window (The Windlord Found Me).
+ *
+ * Playing the Wizard at the Haven does not count toward the one-character-per-turn limit.
+ */
+export interface PlayWizardFromSearchAction {
+  readonly type: 'play-wizard-from-search';
+  readonly player: PlayerId;
+  /** Definition ID of the chosen Wizard. */
+  readonly wizardDefinitionId: CardDefinitionId;
+  /** Which pile the wizard comes from. */
+  readonly source: 'play-deck' | 'discard-pile';
+}
+
+/** Skip the wizard-search window — no Wizard desired. */
+export interface SkipWizardSearchAction {
+  readonly type: 'skip-wizard-search';
+  readonly player: PlayerId;
+}

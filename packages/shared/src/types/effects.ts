@@ -758,7 +758,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   though it were their organization phase (e.g. Safe from the Shadow,
  *   Tokens to Show).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'allow-store-eot';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1663,6 +1663,21 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * When present on a resource permanent event that carries `storable-at`,
+ * storing the card at a haven triggers a wizard-search window for the
+ * resource player — if and only if their Wizard is not already in play.
+ *
+ * The player may search their play deck or discard pile for any Wizard
+ * and play him at the storing Haven. This does not count toward the
+ * one-character-per-turn limit.
+ *
+ * Example: The Windlord Found Me (dm-164).
+ */
+export interface FetchWizardOnStoreEffect extends EffectBase {
+  readonly type: 'fetch-wizard-on-store';
+}
+
+/**
  * Zone reference for {@link MoveEffect}. Identifies where to locate
  * source card instances and where to push them after the move.
  *
@@ -1789,4 +1804,5 @@ export type CardEffect =
   | AutoAttackRaceDuplicateEffect
   | TriggerAttackOnPlayEffect
   | ForceReturnToOriginEffect
-  | CancelChainReturnToOriginEffect;
+  | CancelChainReturnToOriginEffect
+  | FetchWizardOnStoreEffect;

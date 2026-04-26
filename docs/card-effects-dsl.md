@@ -920,8 +920,16 @@ Constrains when or where a card can enter play.
 
 Caps how many copies of this card can be in a given scope.
 
+Supported scopes:
+
+- `"character"` — one copy per character (e.g. Horn of Anor).
+- `"site"` — one copy per site across all companies at the site (e.g. Rescue Prisoners).
+- `"game"` — one copy anywhere in play across both players.
+- `"player"` — one copy per player across all their characters (e.g. The Windlord Found Me).
+
 ```json
 { "type": "duplication-limit", "scope": "character", "max": 1 }
+{ "type": "duplication-limit", "scope": "player", "max": 1 }
 ```
 
 ### 15. `play-target`
@@ -2180,4 +2188,31 @@ Used by *Goldberry* (tw-245).
 
 ```json
 { "type": "cancel-chain-return-to-origin", "cost": { "tap": "self" } }
+```
+
+### 38. `fetch-wizard-on-store`
+
+Trigger: when a permanent event carrying this effect is stored at a Haven
+during the organization phase, if the resource player's Wizard is **not**
+already in play, a `wizard-search-on-store` pending resolution is enqueued.
+The player may then search their play deck or discard pile for any Wizard and
+play him at that Haven, free of the one-character-per-turn limit. The player
+may also skip the search.
+
+Fields: none.
+
+Implementation:
+
+- `reducer-organization.ts` `handleStoreItem()` detects the effect after
+  clearing `bearer-cannot-untap` constraints and enqueues the resolution.
+- `engine/legal-actions/pending.ts` `wizardSearchOnStoreActions()` emits one
+  `play-wizard-from-search` action per eligible Wizard in the deck/discard
+  plus a `skip-wizard-search` action.
+- `engine/pending-reducers.ts` `applyWizardSearchOnStoreResolution()` handles
+  both actions.
+
+Used by *The Windlord Found Me* (dm-164).
+
+```json
+{ "type": "fetch-wizard-on-store" }
 ```

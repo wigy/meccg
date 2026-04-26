@@ -17,13 +17,14 @@ import type {
   PendingResolution,
   CardInstance,
   GameEffect,
+  CharacterInPlay,
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -73,6 +74,8 @@ export function applyResolution(
       return applyBodyCheckCompanyResolution(state, action, top);
     case 'resource-play-offer':
       return applyResourcePlayOfferResolution(state, action, top);
+    case 'wizard-search-on-store':
+      return applyWizardSearchOnStoreResolution(state, action, top);
   }
 }
 
@@ -1383,4 +1386,107 @@ function applyResourcePlayOfferResolution(
   }));
 
   return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `wizard-search-on-store` pending resolution.
+ *
+ * Handles `play-wizard-from-search` (adds the Wizard to the company) and
+ * `skip-wizard-search` (closes the window without playing anyone).
+ *
+ * The Windlord Found Me (dm-164): playing the wizard here does NOT count
+ * toward the one-character-per-turn limit.
+ */
+function applyWizardSearchOnStoreResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'wizard-search-on-store') return null;
+
+  if (action.type === 'skip-wizard-search') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for wizard-search-on-store' };
+    }
+    logDetail('Wizard-search: skipped by player');
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'play-wizard-from-search') {
+    return { state, error: `Pending wizard-search-on-store requires play-wizard-from-search or skip-wizard-search, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for wizard-search-on-store' };
+  }
+
+  const { companyId } = top.kind;
+  const { wizardDefinitionId, source } = action;
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+
+  // Find the wizard instance in the specified pile
+  let wizardInst: CardInstance | undefined;
+  if (source === 'play-deck') {
+    wizardInst = player.playDeck.find(c => c.definitionId === wizardDefinitionId);
+  } else {
+    wizardInst = player.discardPile.find(c => c.definitionId === wizardDefinitionId);
+  }
+  if (!wizardInst) {
+    return { state, error: `Wizard ${wizardDefinitionId as string} not found in ${source}` };
+  }
+
+  const wizardDef = state.cardPool[wizardInst.definitionId as string];
+  const wizardName = wizardDef?.name ?? (wizardDefinitionId as string);
+  logDetail(`Wizard-search: playing ${wizardName} from ${source}`);
+
+  // Find the company by ID
+  const companyIdx = player.companies.findIndex(c => c.id === companyId);
+  if (companyIdx === -1) {
+    return { state, error: `Company ${companyId as string} not found` };
+  }
+
+  // Build the CharacterInPlay entry
+  const newChar: CharacterInPlay = {
+    instanceId: wizardInst.instanceId,
+    definitionId: wizardInst.definitionId,
+    status: CardStatus.Untapped,
+    items: [],
+    allies: [],
+    hazards: [],
+    followers: [],
+    controlledBy: 'general',
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+
+  // Remove wizard from the source pile and add to characters + company
+  const newCharacters = {
+    ...player.characters,
+    [wizardInst.instanceId as string]: newChar,
+  };
+  const updatedCompanies = [...player.companies];
+  updatedCompanies[companyIdx] = {
+    ...player.companies[companyIdx],
+    characters: [...player.companies[companyIdx].characters, wizardInst.instanceId],
+  };
+
+  const newPlayer = {
+    ...player,
+    characters: newCharacters,
+    companies: updatedCompanies,
+    playDeck: source === 'play-deck'
+      ? removeById(player.playDeck, wizardInst.instanceId)
+      : player.playDeck,
+    discardPile: source === 'discard-pile'
+      ? removeById(player.discardPile, wizardInst.instanceId)
+      : player.discardPile,
+    // Wizard does not count toward one-character-per-turn limit (card text explicit)
+  };
+
+  const stateAfterPlay = dequeueResolution(
+    updatePlayer(state, actorIndex, () => newPlayer),
+    top.id,
+  );
+
+  return { state: stateAfterPlay };
 }

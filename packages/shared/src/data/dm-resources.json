@@ -146,7 +146,47 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 3,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$or": [
+            { "siteType": { "$in": ["dark-hold", "shadow-hold"] } },
+            { "name": "Isengard" }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 3
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "creatureType": "Orc",
+        "strikes": 4,
+        "prowess": 9
+      },
+      {
+        "type": "fetch-wizard-on-store"
+      }
+    ],
+    "certified": "2026-04-26"
   },
   {
     "cardType": "hero-resource-ally",
