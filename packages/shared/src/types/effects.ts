@@ -1444,6 +1444,27 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * Forces a body check on every character in the active company when this
+ * hazard short event resolves.
+ *
+ * Each character rolls 2d6. The check passes if roll >= (character.body +
+ * modifier); it fails if roll < (character.body + modifier).
+ *
+ * Outcomes depend on the character's race:
+ * - Orc or Troll: a failed check discards the character (returns to hand,
+ *   same as Call of Home) with all attached cards discarded.
+ * - All others: a failed check taps an untapped character; a tapped
+ *   character suffers no further effect.
+ *
+ * Used by Veils Flung Away (le-146).
+ */
+export interface MassBodyCheckEffect extends EffectBase {
+  readonly type: 'mass-body-check';
+  /** Modifier applied to the effective body threshold (typically negative, e.g. -1). */
+  readonly modifier: number;
+}
+
+/**
  * A hazard short-event check targeting a character moving through Shadow-land
  * or Dark-domain. The character's player rolls 2d6 and adds the character's
  * mind. If the result is less than the threshold (12), the character splits
@@ -1702,6 +1723,7 @@ export type CardEffect =
   | StorableAtEffect
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
+  | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect

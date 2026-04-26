@@ -562,7 +562,36 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VeilsFlungAway.jpg",
     "text": "Playable on a company moving in a Wilderness [{w}] , Border-land [{b}] , or Free-domain [{f}] if Doors of Night is not in play; does not count against the hazard limit. Make a body check modified by -1 for each character. Determine if each Orc or Troll character is discarded as indicated on their cards. Otherwise, the body checks have no effect unless an untapped character fails his check, in which case he becomes tapped.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "certified": "2026-04-25",
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$and": [
+            {
+              "$or": [
+                { "sitePath.wildernessCount": { "$gte": 1 } },
+                { "sitePath.borderCount": { "$gte": 1 } },
+                { "sitePath.freeCount": { "$gte": 1 } }
+              ]
+            },
+            {
+              "$not": { "inPlay": "Doors of Night" }
+            }
+          ]
+        }
+      },
+      {
+        "type": "mass-body-check",
+        "modifier": -1
+      }
+    ]
   },
   {
     "cardType": "hazard-event",
