@@ -14,8 +14,8 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
-import { Phase, getPlayerIndex, hasPlayFlag } from '../../index.js';
-import type { CardEffect, OnEventEffect } from '../../types/effects.js';
+import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
+import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 
@@ -51,6 +51,11 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // an influence-attempt chain (rule 2.V.6)
   if (chain.restriction === 'normal') {
     actions.push(...onGuardRevealChainActions(state, playerId));
+  }
+
+  // Goldberry and similar allies: tap to cancel a force-return-to-origin chain entry
+  if (chain.restriction === 'normal' && state.phaseState.phase === Phase.MovementHazard) {
+    actions.push(...cancelReturnToOriginChainActions(state, playerId));
   }
 
   // Granted-action constraints (Great Ship, and any future card whose
@@ -196,6 +201,79 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
         },
         viable: true,
       });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * During M/H chain declaring, allies with `cancel-chain-return-to-origin`
+ * (e.g. Goldberry) may tap to negate an unresolved chain entry that is
+ * tagged with `force-return-to-origin`.
+ *
+ * Only the resource (active) player benefits. Only untapped allies qualify.
+ * One action is emitted per (ally, target entry) pair.
+ */
+function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain!;
+  const mhState = state.phaseState as import('../../index.js').MovementHazardPhaseState;
+
+  // Only the resource (active) player may use this ability
+  if (state.activePlayer !== playerId) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  // Collect unresolved chain entries carrying force-return-to-origin
+  const returnEntries: { instanceId: CardInstanceId; defName: string }[] = [];
+  for (const e of chain.entries) {
+    if (e.resolved || e.negated || !e.card) continue;
+    const def = state.cardPool[e.card.definitionId as string];
+    if (!def || !('effects' in def) || !def.effects) continue;
+    const hasTag = (def.effects).some(
+      (eff): eff is ForceReturnToOriginEffect => eff.type === 'force-return-to-origin',
+    );
+    if (hasTag) {
+      returnEntries.push({
+        instanceId: e.card.instanceId,
+        defName: (def as { name?: string }).name ?? (e.card.definitionId as string),
+      });
+    }
+  }
+  if (returnEntries.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+  const player = state.players[playerIndex];
+
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const ally of charData.allies ?? []) {
+      const allyDef = state.cardPool[ally.definitionId as string];
+      if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
+      const hasCancelEffect = (allyDef.effects).some(
+        (e): e is CancelChainReturnToOriginEffect => e.type === 'cancel-chain-return-to-origin',
+      );
+      if (!hasCancelEffect) continue;
+      const allyName = (allyDef as { name?: string }).name ?? (ally.definitionId as string);
+      if (ally.status !== CardStatus.Untapped) {
+        logDetail(`cancel-chain-return-to-origin: ${allyName} is tapped, cannot act`);
+        continue;
+      }
+      for (const entry of returnEntries) {
+        logDetail(`cancel-chain-return-to-origin: ${allyName} can cancel "${entry.defName}"`);
+        actions.push({
+          action: {
+            type: 'cancel-return-to-origin',
+            player: playerId,
+            allyInstanceId: ally.instanceId,
+            targetInstanceId: entry.instanceId,
+          },
+          viable: true,
+        });
+      }
     }
   }
 

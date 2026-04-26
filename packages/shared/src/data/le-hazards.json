@@ -499,7 +499,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LongWinter.jpg",
     "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
     "unique": false,
-    "eventType": "long"
+    "eventType": "long",
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": { "sitePath.wildernessCount": { "$gte": 2 } },
+        "rangerException": true
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

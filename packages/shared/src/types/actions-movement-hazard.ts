@@ -497,6 +497,23 @@ export interface BodyCheckCompanyRollAction {
 }
 
 /**
+ * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
+ * chain entry before it resolves. Legal during M/H chain declaring when
+ * the ally is untapped and the chain contains an unresolved entry tagged
+ * with `force-return-to-origin`.
+ */
+export interface CancelReturnToOriginAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-return-to-origin';
+  /** The resource player tapping the ally. */
+  readonly player: PlayerId;
+  /** The ally instance being tapped (e.g. Goldberry). */
+  readonly allyInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Execute the dice roll for a Seized by Terror check on a character.
  *
  * Created by the pending-resolution system after a hazard short event
