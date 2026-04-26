@@ -285,8 +285,8 @@ describe('Rebel-talk (le-132)', () => {
 
   // ── Effect 4: grant-action remove-self-on-roll ────────────────────────────
 
-  test('untapped character with Rebel-talk gets both standard (tap) and no-tap (−3) removal variants', () => {
-    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
+  test('untapped character with Rebel-talk gets exactly one remove action (tap to roll)', () => {
+    // Rebel-talk is NOT a Corruption card — only one standard tap variant, no no-tap −3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -298,16 +298,16 @@ describe('Rebel-talk (le-132)', () => {
 
     const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
     const actions = viableActions(withRT, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
-    expect(standardAction.actionId).toBe('remove-self-on-roll');
-    expect(standardAction.rollThreshold).toBe(8);
+    const act = actions[0].action as ActivateGrantedAction;
+    expect(act.actionId).toBe('remove-self-on-roll');
+    expect(act.noTap).toBeFalsy();
+    expect(act.rollThreshold).toBe(8);
   });
 
-  test('tapped character can still activate Rebel-talk removal via no-tap variant (−3 to roll, rule 10.08)', () => {
-    // Rule 10.08: a tapped character may still attempt to remove a corruption
-    // card by taking −3 to the roll instead of tapping.
+  test('tapped character with Rebel-talk cannot activate remove-self-on-roll', () => {
+    // Rebel-talk is not a Corruption card — no no-tap −3 variant, so a tapped character cannot attempt removal.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -321,8 +321,7 @@ describe('Rebel-talk (le-132)', () => {
     const tapped = setCharStatus(withRT, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
-    expect((actions[0].action as ActivateGrantedAction).noTap).toBe(true);
+    expect(actions.length).toBe(0);
   });
 
   test('successful removal roll (>7) discards Rebel-talk and taps character', () => {
@@ -339,10 +338,9 @@ describe('Rebel-talk (le-132)', () => {
     const cheated = { ...withRT, cheatRollTotal: 8 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
-    const next = dispatch(cheated, standardAction);
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
@@ -369,10 +367,9 @@ describe('Rebel-talk (le-132)', () => {
     const cheated = { ...withRT, cheatRollTotal: 7 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
-    const next = dispatch(cheated, standardAction);
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);

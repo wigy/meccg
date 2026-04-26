@@ -152,8 +152,8 @@ describe('Foolish Words (td-25)', () => {
     expect(action.cardInstanceId).toBe(fwInstanceId);
   });
 
-  test('untapped character with Foolish Words gets both standard (tap) and no-tap (−3) removal variants', () => {
-    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
+  test('untapped character with Foolish Words gets exactly one remove action (tap to roll)', () => {
+    // Foolish Words is NOT a Corruption card — only one standard tap variant, no no-tap −3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -165,16 +165,16 @@ describe('Foolish Words (td-25)', () => {
 
     const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     const actions = viableActions(withFW, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
-    expect(standardAction.actionId).toBe('remove-self-on-roll');
-    expect(standardAction.rollThreshold).toBe(8);
+    const act = actions[0].action as ActivateGrantedAction;
+    expect(act.actionId).toBe('remove-self-on-roll');
+    expect(act.noTap).toBeFalsy();
+    expect(act.rollThreshold).toBe(8);
   });
 
-  test('tapped character can still activate Foolish Words removal via no-tap variant (−3 to roll, rule 10.08)', () => {
-    // Rule 10.08: a tapped character may still attempt to remove a corruption
-    // card by taking −3 to the roll instead of tapping.
+  test('tapped character with Foolish Words cannot activate remove-self-on-roll', () => {
+    // Foolish Words is not a Corruption card — no no-tap −3 variant, so a tapped character cannot attempt removal.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -188,8 +188,7 @@ describe('Foolish Words (td-25)', () => {
     const tappedState = setCharStatus(withFW, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const actions = viableActions(tappedState, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
-    expect((actions[0].action as ActivateGrantedAction).noTap).toBe(true);
+    expect(actions.length).toBe(0);
   });
 
   test('successful removal roll (>7) discards Foolish Words and taps character', () => {
@@ -207,10 +206,9 @@ describe('Foolish Words (td-25)', () => {
     const cheated = { ...withFW, cheatRollTotal: 8 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
-    const next = dispatch(cheated, standardAction);
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
@@ -238,10 +236,9 @@ describe('Foolish Words (td-25)', () => {
     const cheated = { ...withFW, cheatRollTotal: 7 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(2);
+    expect(actions.length).toBe(1);
 
-    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
-    const next = dispatch(cheated, standardAction);
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
