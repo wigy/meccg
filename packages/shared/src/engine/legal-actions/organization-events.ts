@@ -75,6 +75,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
     }
 
+    // play-target DSL: cards targeting a site can only be played during the site phase
+    const sitePlayTarget = def.effects?.find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+    );
+    if (sitePlayTarget) {
+      logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
+      actions.push({
+        action: { type: 'not-playable', player: playerId, cardInstanceId },
+        viable: false,
+        reason: `${def.name} can only be played during the site phase`,
+      });
+      continue;
+    }
+
     // play-target DSL: character-targeting permanent events get one action per qualifying character
     const playTarget = def.effects?.find(
       (e): e is PlayTargetEffect => e.type === 'play-target',

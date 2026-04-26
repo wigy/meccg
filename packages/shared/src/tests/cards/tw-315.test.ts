@@ -42,6 +42,27 @@ const RESCUE_PRISONERS = 'tw-315' as CardDefinitionId;
 describe('Rescue Prisoners (tw-315)', () => {
   beforeEach(() => resetMint());
 
+  // ── Phase restriction: site-phase-only ──
+
+  test('NOT playable during the organization phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [RESCUE_PRISONERS],
+          siteDeck: [RIVENDELL],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
   // ── Effect 1: play-target (site filter: dark-hold or shadow-hold) ──
 
   test('NOT playable at ruins-and-lairs site (Bandit Lair)', () => {
