@@ -14,7 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, MassBodyCheckEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1442,6 +1442,45 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         },
       });
       return { state: current, needsInput: true };
+    }
+  }
+
+  // Veils Flung Away / mass-body-check: hazard short event targeting the whole
+  // company. Enqueue one body-check-company pending resolution per character in
+  // the active M/H company so each character rolls 2d6 against their body.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const mbcEffect = cardDef && 'effects' in cardDef
+      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is MassBodyCheckEffect => e.type === 'mass-body-check',
+      )
+      : undefined;
+    if (mbcEffect && current.phaseState.phase === Phase.MovementHazard) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = current.players[0].id === activePlayerId ? 0 : 1;
+      const targetCompany = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      if (targetCompany) {
+        logDetail(`mass-body-check "${(cardDef as { name?: string }).name ?? '?'}": enqueuing body checks (modifier ${mbcEffect.modifier}) for ${targetCompany.characters.length} characters`);
+        for (const charId of targetCompany.characters) {
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: activePlayerId,
+            scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+            kind: {
+              type: 'body-check-company',
+              characterId: charId,
+              modifier: mbcEffect.modifier,
+              sourceDefinitionId: entry.card.definitionId,
+            },
+          });
+        }
+        if (targetCompany.characters.length > 0) {
+          return { state: current, needsInput: true };
+        }
+      }
     }
   }
 

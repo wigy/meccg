@@ -259,6 +259,26 @@ export interface PendingResolution {
         readonly goldRingInstanceId: CardInstanceId;
         /** Roll modifier from the producing effect (e.g. Darkhaven -2). */
         readonly rollModifier: number;
+      }
+    | {
+        /**
+         * Body check for a single character in the company, queued by a
+         * `mass-body-check` hazard effect (e.g. Veils Flung Away).
+         *
+         * The character's player rolls 2d6. If the roll is less than
+         * (character.body + modifier), the check fails:
+         * - Orc or Troll: character is discarded (returned to hand).
+         * - Other races: if the character was untapped, they become tapped.
+         *
+         * One resolution is enqueued per character in the active company.
+         */
+        readonly type: 'body-check-company';
+        /** The character being checked. */
+        readonly characterId: CardInstanceId;
+        /** Modifier added to the body threshold (typically negative). */
+        readonly modifier: number;
+        /** Definition ID of the source hazard card (for UI / logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 
