@@ -37,6 +37,7 @@ import {
   getMovableCompanyIds,
   getMoveToInfluenceActions,
   getTransferItemActions,
+  getStoreItemActions,
   getSplitCompanyActions,
   getMoveToCompanyActions,
   getMergeCompaniesActions,
@@ -108,13 +109,14 @@ export function renderSingleView(
   const hasLegalMovement = movableIds.has(company.id as string);
   const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
+  const storeItemActs = owner === 'self' ? getStoreItemActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
   const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
   const ccSupportActs = owner === 'self' ? getSupportCorruptionCheckActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs }));
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
@@ -160,8 +162,9 @@ export function renderAllCompaniesView(
   // Move-to-influence actions (for highlighting characters)
   const influenceActions = getMoveToInfluenceActions(view);
 
-  // Transfer-item actions (for highlighting transferable items)
+  // Transfer-item and store-item actions (for highlighting transferable/storable items)
   const transferActions = getTransferItemActions(view);
+  const storeItemActs = getStoreItemActions(view);
 
   // Split-company, move-to-company, and merge-companies actions
   const splitActions = getSplitCompanyActions(view);
@@ -191,7 +194,7 @@ export function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
