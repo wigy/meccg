@@ -6,3 +6,5 @@ docs/api/
 .claude/settings.local.json
 .claude/worktrees/
 packages/lobby-server/public/bundle.js
+packages/lobby-server/public/deck-editor-bundle.js
+packages/lobby-server/public/game-bundle.js
