@@ -115,7 +115,8 @@ function getHazardLimitLabel(view: PlayerView): string | null {
   if (view.phaseState.step === 'set-hazard-limit' || view.phaseState.step === 'reveal-new-site' || view.phaseState.step === 'select-company') {
     return null;
   }
-  return String(view.phaseState.hazardLimitAtReveal);
+  const remaining = view.phaseState.hazardLimitAtReveal - view.phaseState.hazardsPlayedThisCompany;
+  return String(Math.max(0, remaining));
 }
 
 /** Render player names and scores in the visual view. */
