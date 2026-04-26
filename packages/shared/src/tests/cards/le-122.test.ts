@@ -24,6 +24,7 @@
  * | 3 | +2 corruption points while attached       | IMPLEMENTED | stat-modifier corruption-points +2             |
  * | 4 | Corruption check on any company item gain | IMPLEMENTED | on-event character-gains-item force-check      |
  * | 5 | Tap to attempt removal (roll>5)           | IMPLEMENTED | grant-action remove-self-on-roll threshold 6   |
+ * | 5b| Already-tapped: may still attempt at −3   | IMPLEMENTED | noTap variant offered per rule 10.08           |
  * | 6 | Cannot be duplicated on a character       | IMPLEMENTED | duplication-limit scope:character max:1        |
  *
  * Playable: YES
@@ -277,7 +278,8 @@ describe('Lure of Expedience (le-122)', () => {
 
   // ── Effect: tap bearer to attempt removal (roll > 5) ─────────────────────
 
-  test('untapped bearer in Organization can activate remove-self-on-roll (rollThreshold 6)', () => {
+  test('untapped bearer in Organization gets both standard (tap) and no-tap (−3) removal variants', () => {
+    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -289,12 +291,16 @@ describe('Lure of Expedience (le-122)', () => {
 
     const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_EXPEDIENCE);
     const actions = viableActions(withCard, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(2);
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('remove-self-on-roll');
-    expect(action.rollThreshold).toBe(6);
-    expect(action.characterId).toBe(charIdAt(withCard, RESOURCE_PLAYER));
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
+    expect(standardAction.actionId).toBe('remove-self-on-roll');
+    expect(standardAction.rollThreshold).toBe(6);
+    expect(standardAction.characterId).toBe(charIdAt(withCard, RESOURCE_PLAYER));
+
+    const noTapAction = actions.find(ea => (ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
+    expect(noTapAction.actionId).toBe('remove-self-on-roll');
+    expect(noTapAction.rollThreshold).toBe(6);
   });
 
   test.each([
@@ -324,7 +330,9 @@ describe('Lure of Expedience (le-122)', () => {
     }
   });
 
-  test('tapped bearer cannot activate remove-self-on-roll', () => {
+  test('tapped bearer can still activate remove-self-on-roll via no-tap variant (−3 to roll, rule 10.08)', () => {
+    // Rule 10.08: a tapped character may still attempt to remove a corruption
+    // card by taking −3 to the roll instead of tapping.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -354,6 +362,10 @@ describe('Lure of Expedience (le-122)', () => {
     };
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    const action = actions[0].action as ActivateGrantedAction;
+    expect(action.noTap).toBe(true);
+    expect(action.rollThreshold).toBe(6);
+    expect(action.characterId).toBe(aragornId);
   });
 });

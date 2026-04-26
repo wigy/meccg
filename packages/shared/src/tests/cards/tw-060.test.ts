@@ -134,7 +134,8 @@ describe('Lure of the Senses (tw-60)', () => {
     expect(afterPass.pendingResolutions).toHaveLength(0);
   });
 
-  test('untapped bearer in Organization can activate remove-self-on-roll (rollThreshold 7)', () => {
+  test('untapped bearer in Organization gets both standard (tap) and no-tap (−3) removal variants', () => {
+    // Rule 10.08: untapped bearer gets the standard tap variant AND the no-tap -3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -146,11 +147,11 @@ describe('Lure of the Senses (tw-60)', () => {
 
     const withLure = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES);
     const actions = viableActions(withLure, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(2);
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('remove-self-on-roll');
-    expect(action.rollThreshold).toBe(7);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)?.action as ActivateGrantedAction;
+    expect(standardAction.actionId).toBe('remove-self-on-roll');
+    expect(standardAction.rollThreshold).toBe(7);
   });
 
   test('successful removal roll (>6) discards Lure and taps the bearer', () => {
@@ -168,9 +169,10 @@ describe('Lure of the Senses (tw-60)', () => {
     const cheated = { ...withLure, cheatRollTotal: 7 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(2);
 
-    const next = dispatch(cheated, actions[0].action);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
+    const next = dispatch(cheated, standardAction);
 
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
@@ -193,9 +195,10 @@ describe('Lure of the Senses (tw-60)', () => {
     const cheated = { ...withLure, cheatRollTotal: 6 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(2);
 
-    const next = dispatch(cheated, actions[0].action);
+    const standardAction = actions.find(ea => !(ea.action as ActivateGrantedAction).noTap)!.action;
+    const next = dispatch(cheated, standardAction);
 
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
