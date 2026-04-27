@@ -15,14 +15,17 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, makeMHState, Phase,
-  PLAYER_1, PLAYER_2,
+  buildTestState, resetMint, dispatch, makeMHState, addCardInPlay, Phase,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   GANDALF, LEGOLAS,
   DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { CardInstance, CardInstanceId } from '../../../index.js';
+import type { CardDefinitionId, CardInstance, CardInstanceId } from '../../../index.js';
+
+// Safe from the Shadow (as-54): permanent event that discards when any play deck is exhausted
+const SAFE_FROM_THE_SHADOW = 'as-54' as CardDefinitionId;
 
 describe('Rule 2.08 — Play Deck Exhaustion', () => {
   beforeEach(() => resetMint());
@@ -56,7 +59,50 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(state.players[0].deckExhaustionCount).toBe(0);
   });
 
-  test.todo('Exhaustion discards cards in play that trigger on deck exhaustion');
+  test('Exhaustion discards cards in play that trigger on deck exhaustion', () => {
+    // Set up P1 with Safe from the Shadow (as-54) in cardsInPlay.
+    // Safe from the Shadow has: on-event play-deck-exhausted → discard-self.
+    // When deck exhaustion fires, the card should leave cardsInPlay and go to discardPile.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [],
+          playDeck: [],
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Add Safe from the Shadow to P1's cardsInPlay
+    const stateWithEvent = addCardInPlay(base, RESOURCE_PLAYER, SAFE_FROM_THE_SHADOW);
+    const sftsInst = stateWithEvent.players[RESOURCE_PLAYER].cardsInPlay[0];
+
+    // Advance to reset-hand step (both players pass discard step)
+    const p1Pass = dispatch(stateWithEvent, { type: 'pass', player: PLAYER_1 });
+    const p2Pass = dispatch(p1Pass, { type: 'pass', player: PLAYER_2 });
+
+    // Trigger deck-exhaust (starts the sub-flow: deckExhaustPending = true)
+    const afterExhaust = dispatch(p2Pass, { type: 'deck-exhaust', player: PLAYER_1 });
+    // Pass to complete the exhaustion (fires play-deck-exhausted event)
+    const afterComplete = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
+
+    const p1 = afterComplete.players[RESOURCE_PLAYER];
+    // Safe from the Shadow must no longer be in cardsInPlay
+    expect(p1.cardsInPlay.some(c => c.instanceId === sftsInst.instanceId)).toBe(false);
+    // It must be in discardPile
+    expect(p1.discardPile.some(c => c.instanceId === sftsInst.instanceId)).toBe(true);
+  });
 
   test('Site cards from discard pile return to location deck on exhaustion', () => {
     // P1 has empty play deck and site cards in siteDiscardPile.

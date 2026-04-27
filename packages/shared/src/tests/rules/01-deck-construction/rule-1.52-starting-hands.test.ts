@@ -14,8 +14,17 @@
  * Base hand size is always eight cards at the start of the game, regardless of any effects that a player's starting cards may have on base hand size.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { runFullSetup, Phase } from '../../test-helpers.js';
 
 describe('Rule 1.52 — Starting Hands', () => {
-  test.todo('Each player shuffles play deck and draws up to 8 cards; no mulligan');
+  test('Each player shuffles play deck and draws up to 8 cards; no mulligan', () => {
+    // runFullSetup uses the default config with a 30-card play deck per player.
+    // After full setup, both players should be in the Untap phase with 8 cards in hand.
+    const state = runFullSetup();
+
+    expect(state.phaseState.phase).toBe(Phase.Untap);
+    expect(state.players[0].hand).toHaveLength(8);
+    expect(state.players[1].hand).toHaveLength(8);
+  });
 });

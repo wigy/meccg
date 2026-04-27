@@ -172,6 +172,8 @@ function renderPhaseBanner(
       const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
       if (aa) attackerRace = aa.creatureType;
     }
+  } else if (combat.attackSource.type === 'card-triggered-attack' && combat.creatureRace) {
+    attackerRace = combat.creatureRace;
   }
   const raceLabel = attackerRace ? formatRace(attackerRace) : '';
   const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
@@ -270,6 +272,17 @@ function renderAttackerRow(
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.siteInstanceId as string);
+        container.appendChild(img);
+      }
+    }
+  } else if (combat.attackSource.type === 'card-triggered-attack') {
+    // Show the resource card that triggered the attack
+    const defId = cachedInstanceLookup(combat.attackSource.cardInstanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.cardInstanceId as string);
         container.appendChild(img);
       }
     }
