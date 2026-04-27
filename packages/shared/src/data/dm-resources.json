@@ -171,6 +171,10 @@
         "flag": "untapped-site-required"
       },
       {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
         "type": "play-target",
         "target": "character"
       },
