@@ -1017,9 +1017,21 @@ export function attachHazardToChar(
   playerIdx: number,
   charDefId: CardDefinitionId,
   hazardDefId: CardDefinitionId,
+  /** Index of the player who owns the hazard card. When provided, the instance ID is
+   *  prefixed with that player's ID (e.g. "p2-inst3") so that `ownerOf(instanceId)`
+   *  resolves correctly in the engine. Omit to use the generic "inst-N" format for
+   *  backward-compatible test states where ownership is inferred contextually. */
+  hazardOwnerIdx?: number,
 ): GameState {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
-  const hazardCard: CardInstance = { instanceId: mint(), definitionId: hazardDefId };
+  let instanceId: CardInstanceId;
+  if (hazardOwnerIdx !== undefined) {
+    const ownerPlayerId = state.players[hazardOwnerIdx].id as string;
+    instanceId = `${ownerPlayerId}-inst${nextInstanceCounter++}` as CardInstanceId;
+  } else {
+    instanceId = mint();
+  }
+  const hazardCard: CardInstance = { instanceId, definitionId: hazardDefId };
   const char = state.players[playerIdx].characters[charId as string];
   const updatedChar = { ...char, hazards: [...char.hazards, hazardCard] };
   const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
