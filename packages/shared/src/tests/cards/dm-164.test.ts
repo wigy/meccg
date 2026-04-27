@@ -119,6 +119,23 @@ describe('dm-164 The Windlord Found Me', () => {
     expect(act.targetCharacterId).toBeUndefined();
   });
 
+  // ── Site is tapped on play ──
+
+  test('site is tapped when Windlord is played', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      hand: [WINDLORD],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action as PlayPermanentEventAction;
+
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId);
+
+    const company = afterPlay.players[RESOURCE_PLAYER].companies[0];
+    expect(company.currentSite?.status).toBe(CardStatus.Tapped);
+  });
+
   // ── Orc attack fires on play ──
 
   test('company faces Orc attack (4 strikes, prowess 9) when Windlord is played', () => {

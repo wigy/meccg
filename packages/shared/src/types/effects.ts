@@ -757,8 +757,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   (items with `storable-at` effects) during the end-of-turn phase as
  *   though it were their organization phase (e.g. Safe from the Shadow,
  *   Tokens to Show).
+ * - `tap-site-on-play` — taps the active company's current site when this
+ *   permanent event resolves from the chain. Used by cards whose text
+ *   explicitly says "Tap the site" as part of their play effect (e.g.
+ *   The Windlord Found Me). Respects the `never-taps` site-rule.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

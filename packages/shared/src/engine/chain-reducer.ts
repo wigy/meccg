@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -977,6 +977,31 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   let newState: GameState = { ...state, players: newPlayers };
+
+  // tap-site-on-play: tap the active company's current site when the card enters play,
+  // unless the site carries the never-taps site-rule (e.g. The Worthy Hills).
+  if (def && 'effects' in def && hasPlayFlag(def, 'tap-site-on-play')) {
+    const ps = newState.phaseState as { activeCompanyIndex?: number };
+    const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
+    const company = newState.players[playerIndex].companies[activeCompanyIndex];
+    const siteInPlay = company?.currentSite;
+    if (siteInPlay && siteInPlay.status !== CardStatus.Tapped) {
+      const siteDef = newState.cardPool[siteInPlay.definitionId as string];
+      const neverTaps = siteDef && isSiteCard(siteDef)
+        && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
+      if (neverTaps) {
+        logDetail(`"${def.name}" tap-site-on-play: site has never-taps — leaving site untapped`);
+      } else {
+        logDetail(`"${def.name}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
+        const newCompanies = [...newState.players[playerIndex].companies];
+        newCompanies[activeCompanyIndex] = {
+          ...company,
+          currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+        };
+        newState = updatePlayer(newState, playerIndex, p => ({ ...p, companies: newCompanies }));
+      }
+    }
+  }
 
   // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)
   if (def && 'effects' in def && def.effects) {
