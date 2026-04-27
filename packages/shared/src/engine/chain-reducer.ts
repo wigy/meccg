@@ -24,6 +24,7 @@ import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeC
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
+import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -1165,11 +1166,37 @@ function applyAddConstraintFromOnEvent(
 /**
  * Resolves a long-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay`.
+ *
+ * Per CoE rule 2.IV.iii.1, if the hazard limit has been decreased after
+ * declaration (e.g. by Many Turns and Doublings) such that the number of
+ * hazards played now exceeds the current limit at resolution, the long-event
+ * fizzles — it is discarded without entering play.
  */
 function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
   const def = state.cardPool[card.definitionId as string];
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
+
+  // CoE rule 2.IV.iii.1: hazard limit active condition — check at resolution.
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    const mhState = state.phaseState;
+    const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+    const company = activePlayerIndex >= 0
+      ? state.players[activePlayerIndex].companies[mhState.activeCompanyIndex]
+      : undefined;
+    if (company) {
+      const limit = currentHazardLimit(state, mhState, company.id);
+      if (mhState.hazardsPlayedThisCompany > limit) {
+        logDetail(`Long event "${def?.name ?? card.definitionId}" fizzles — hazard limit exceeded at resolution (${mhState.hazardsPlayedThisCompany} declared > limit ${limit})`);
+        const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+        newPlayers[playerIndex] = {
+          ...newPlayers[playerIndex],
+          discardPile: [...newPlayers[playerIndex].discardPile, card],
+        };
+        return { ...state, players: newPlayers };
+      }
+    }
+  }
 
   logDetail(`Long event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 
