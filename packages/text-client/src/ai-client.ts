@@ -45,14 +45,24 @@ function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-/** Pick the per-decision delay (ms). Body checks against the human take longer. */
+/** Pick the per-decision delay (ms). Combat rolls take longer so they are followable. */
 function decisionDelayMs(action: GameAction, view: import('@meccg/shared').PlayerView): number {
-  // Body check against an opponent character: 3-4 seconds.
+  // Body check against an opponent character: 3-4 seconds of tension.
   if (action.type === 'body-check-roll') {
     const combat = view.combat;
     if (combat && combat.bodyCheckTarget === 'character' && combat.defendingPlayerId !== view.self.id) {
       return randInt(3000, 4000);
     }
+    // Body check for own character: 2-3 seconds.
+    return randInt(2000, 3000);
+  }
+  // Strike resolution involves a dice roll and needs time to register visually.
+  if (action.type === 'resolve-strike') {
+    return randInt(1500, 2500);
+  }
+  // Other combat decisions (assigning strikes, choosing order, cancelling attacks).
+  if (['assign-strike', 'choose-strike-order', 'support-strike', 'cancel-attack', 'halve-strikes', 'cancel-by-tap'].includes(action.type)) {
+    return randInt(1000, 2000);
   }
   // Default: 0.5-1.5 seconds for natural pacing.
   return randInt(500, 1500);
