@@ -276,6 +276,80 @@ export function runFullSetup(config?: GameConfig): GameState {
   return state;
 }
 
+/**
+ * Run all setup steps up through initial-draw, stopping before the initiative
+ * roll. Returns the state at the `initiative-roll` setup step so tests can
+ * control the dice via {@link GameState.cheatRollTotal}.
+ */
+export function runSetupToInitiativeRoll(config?: GameConfig): GameState {
+  let state = runSimpleDraft(config);
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
+    const p1Char = state.players[0].companies[0].characters[0];
+    const p2Char = state.players[1].companies[0].characters[0];
+    const p1Items = state.phaseState.setupStep.itemDraftState[0].unassignedItems;
+    const p2Items = state.phaseState.setupStep.itemDraftState[1].unassignedItems;
+    for (const _item of p1Items) {
+      const result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char });
+      if (result.error) throw new Error(result.error);
+      state = result.state;
+    }
+    for (const _item of p2Items) {
+      const result = reduce(state, { type: 'assign-starting-item', player: PLAYER_2, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p2Char });
+      if (result.error) throw new Error(result.error);
+      state = result.state;
+    }
+  }
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-deck-draft') {
+    state = runActions(state, [
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+  }
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'starting-site-selection') {
+    const p1Site = state.players[0].siteDeck[0].instanceId;
+    const p2Site = state.players[1].siteDeck[0].instanceId;
+    state = runActions(state, [
+      { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site },
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+  }
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-placement') {
+    const step = state.phaseState.setupStep;
+    if (!step.placementDone[0]) {
+      const r = reduce(state, { type: 'pass', player: PLAYER_1 });
+      if (r.error) throw new Error(r.error);
+      state = r.state;
+    }
+    if (!step.placementDone[1]) {
+      const r = reduce(state, { type: 'pass', player: PLAYER_2 });
+      if (r.error) throw new Error(r.error);
+      state = r.state;
+    }
+  }
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'deck-shuffle') {
+    state = runActions(state, [
+      { type: 'shuffle-play-deck', player: PLAYER_1 },
+      { type: 'shuffle-play-deck', player: PLAYER_2 },
+    ]);
+  }
+
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'initial-draw') {
+    state = runActions(state, [
+      { type: 'draw-cards', player: PLAYER_1, count: 8 },
+      { type: 'draw-cards', player: PLAYER_2, count: 8 },
+    ]);
+  }
+
+  return state;
+}
+
 // ─── Shared state builder ────────────────────────────────────────────────────
 
 import type {
@@ -284,6 +358,7 @@ import type {
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
+export { recomputeDerived };
 import { accrueRevealedInstances } from '../engine/visibility.js';
 
 let nextInstanceCounter = 1;

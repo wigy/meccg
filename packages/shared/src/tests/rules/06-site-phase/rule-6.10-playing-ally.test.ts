@@ -16,8 +16,52 @@
  * If an ally's controlling character leaves play, the ally is immediately discarded.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildSitePhaseState, resetMint, viableActions,
+  PLAYER_1, RESOURCE_PLAYER,
+  ARAGORN, TREEBEARD,
+  WELLINGHALL,
+  CardStatus,
+} from '../../test-helpers.js';
 
 describe('Rule 6.10 — Playing an Ally', () => {
-  test.todo('Play ally with untapped character at untapped playable site; taps character; ally under character control; taps site');
+  beforeEach(() => resetMint());
+
+  test('Play ally with untapped character at untapped playable site; taps character; ally under character control; taps site', () => {
+    // Treebeard is playable only at Wellinghall. With Aragorn untapped at an
+    // untapped Wellinghall, the engine must offer a play-hero-resource action.
+    const state = buildSitePhaseState({
+      site: WELLINGHALL,
+      characters: [ARAGORN],
+      hand: [TREEBEARD],
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays.length).toBeGreaterThan(0);
+    expect(plays.every(a => (a.action as { type: string }).type === 'play-hero-resource')).toBe(true);
+
+    // When the site is already tapped, the ally is not playable
+    const tappedState = buildSitePhaseState({
+      site: WELLINGHALL,
+      characters: [ARAGORN],
+      hand: [TREEBEARD],
+      siteStatus: CardStatus.Tapped,
+    });
+
+    const tappedPlays = viableActions(tappedState, PLAYER_1, 'play-hero-resource');
+    expect(tappedPlays).toHaveLength(0);
+
+    // When the only character is already tapped, the ally cannot be played
+    const noCarrierState = buildSitePhaseState({
+      site: WELLINGHALL,
+      characters: [{ defId: ARAGORN, status: CardStatus.Tapped }],
+      hand: [TREEBEARD],
+    });
+
+    const noCarrierPlays = viableActions(noCarrierState, PLAYER_1, 'play-hero-resource');
+    expect(noCarrierPlays).toHaveLength(0);
+
+    void RESOURCE_PLAYER; // suppress unused import warning
+  });
 });

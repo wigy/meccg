@@ -16,9 +16,9 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GLAMDRING,
+  ARAGORN, LEGOLAS, GLAMDRING, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint,
+  buildTestState, resetMint, makeShadowMHState, viableActions,
 } from '../../test-helpers.js';
 import { computeLegalActions, Phase } from '../../../index.js';
 import type { GameState, MovementHazardPhaseState, CardInstanceId } from '../../../index.js';
@@ -26,7 +26,36 @@ import type { GameState, MovementHazardPhaseState, CardInstanceId } from '../../
 describe('Rule 5.16 — Step 7: Play Hazards', () => {
   beforeEach(() => resetMint());
 
-  test.todo('Hazard player may take actions until hazard limit reached');
+  test('Hazard player may take actions until hazard limit reached', () => {
+    // P1 at MORIA (shadow-hold). P2 has ORC_PATROL in hand.
+    // When hazardsPlayedThisCompany < hazardLimitAtReveal → ORC_PATROL is playable.
+    // When hazardsPlayedThisCompany == hazardLimitAtReveal → ORC_PATROL is NOT viable.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const atLimit: GameState = {
+      ...base,
+      phaseState: makeShadowMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 2 }),
+    };
+    const belowLimit: GameState = {
+      ...base,
+      phaseState: makeShadowMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
+    };
+
+    // Below limit: at least one viable play-hazard action for ORC_PATROL
+    const playableActions = viableActions(belowLimit, PLAYER_2, 'play-hazard');
+    expect(playableActions.length).toBeGreaterThan(0);
+
+    // At limit: no viable play-hazard actions (ORC_PATROL non-viable due to limit)
+    const nonViable = viableActions(atLimit, PLAYER_2, 'play-hazard');
+    expect(nonViable).toHaveLength(0);
+  });
 
   test('resource player hand cards without actions get not-playable reasons', () => {
     const state = buildTestState({
