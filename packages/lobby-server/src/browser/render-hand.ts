@@ -711,11 +711,15 @@ export function renderHand(
     setSelectedInfluencerForOpponent(null);
   }
 
-  // Cache render state for short-event character targeting (e.g. Stealth → scout)
+  // Cache render state for short-event targeting (scout characters or discard-only targets)
   const hasScoutShortEvents = viable.some(
     a => a.type === 'play-short-event' && a.targetScoutInstanceId,
   );
-  if (onAction && hasScoutShortEvents) {
+  const hasDiscardOnlyShortEvents = viable.some(
+    a => a.type === 'play-short-event' && a.discardTargetInstanceId && !a.targetScoutInstanceId,
+  );
+  const hasShortEventTargeting = hasScoutShortEvents || hasDiscardOnlyShortEvents;
+  if (onAction && hasShortEventTargeting) {
     setShortEventRenderCache({ view, cardPool, onAction });
     const selectedSE = getSelectedShortEvent();
     if (selectedSE) {
@@ -727,7 +731,7 @@ export function renderHand(
         setTargetingInstruction(null);
       }
     }
-  } else if (!hasScoutShortEvents) {
+  } else if (!hasShortEventTargeting) {
     if (getSelectedShortEvent()) setTargetingInstruction(null);
     setSelectedShortEvent(null);
     setShortEventRenderCache(null);
@@ -865,13 +869,30 @@ export function renderHand(
       const hasScoutTargets = shortEventActions.some(
         a => a.type === 'play-short-event' && a.targetScoutInstanceId,
       );
-      // Cards with a `discard-in-play` effect (e.g. Marvels Told) always go
-      // through the disambiguation menu so the player explicitly sees and
-      // chooses which in-play card will be discarded — never silently picked.
       const hasDiscardTargets = shortEventActions.some(
         a => a.type === 'play-short-event' && a.discardTargetInstanceId,
       );
-      if (hasDiscardTargets) {
+      // Cards with only discard targets (no scout tap) use the two-step
+      // highlight-and-click flow: select the card, then click the target.
+      // Cards with both discard AND scout targets (e.g. Marvels Told) still
+      // use the disambiguation menu because the tap-target choice must also
+      // be shown.
+      if (hasDiscardTargets && !hasScoutTargets) {
+        const selectedSE = getSelectedShortEvent();
+        const isSESelected = selectedSE === cardInstanceId;
+        img.className = isSESelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedShortEvent(isSESelected ? null : instId);
+            setTargetingInstruction(
+              getSelectedShortEvent() ? `Click a highlighted card to play ${def.name}` : null,
+            );
+            reRenderShortEventTarget();
+          });
+        }
+      } else if (hasDiscardTargets) {
+        // Scout + discard combination: show disambiguation menu
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', (e) => {

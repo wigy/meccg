@@ -380,7 +380,7 @@ export function renderCompanyViews(
   clearCombatButtons();
 
   // Cards in play row (permanent resources, factions, etc.) — always at top
-  renderCardsInPlayRow(board, view, cardPool);
+  renderCardsInPlayRow(board, view, cardPool, onAction);
 
   // Pending corruption check banner (transfer / wound / Lure during Organization)
   renderCorruptionCheckBanner(board, view, cardPool);
