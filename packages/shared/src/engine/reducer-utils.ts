@@ -496,11 +496,22 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
 
-    // Return sites from empty companies: tapped sites go to discard, untapped to site deck
+    // Build a set of site instance IDs still occupied by a kept company.
+    // If another company is at the same site, the site stays in play (CoE rule 2.07).
+    const occupiedSiteIds = new Set(
+      keptCompanies.map(c => c.currentSite?.instanceId as string).filter(Boolean),
+    );
+
+    // Return sites from empty companies: tapped sites go to discard, untapped to site deck.
+    // Skip if another company from the same player is still at that site.
     const untappedSites: CardInstance[] = [];
     const tappedSites: CardInstance[] = [];
     for (const c of emptyCompanies) {
       if (c.currentSite) {
+        if (occupiedSiteIds.has(c.currentSite.instanceId as string)) {
+          logDetail(`cleanupEmptyCompanies: site ${c.currentSite.instanceId as string} still occupied by another company — leaving in play`);
+          continue;
+        }
         const siteCardInst = toCardInstance(c.currentSite);
         if (c.currentSite.status === CardStatus.Tapped) {
           tappedSites.push(siteCardInst);

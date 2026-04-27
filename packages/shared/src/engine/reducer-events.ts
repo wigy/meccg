@@ -206,6 +206,17 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     }));
 
+    // Rule 5.28: if the resource player has no companies, skip the M/H phase entirely
+    if (afterPass.players[activeIndex].companies.length === 0) {
+      logDetail(`Long-event: active player ${activePlayer as string} has no companies → skipping M/H phase (rule 5.28) and Site phase (rule 6.17), advancing to End-of-Turn`);
+      return {
+        state: {
+          ...afterPass,
+          phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
+        },
+      };
+    }
+
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
     return {
       state: {
