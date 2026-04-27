@@ -10,7 +10,7 @@ import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, Pendin
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
@@ -509,8 +509,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       targetInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
       const newHazards = [...char.hazards];
       newHazards.splice(foundHazardIdx, 1);
+      // Remove the hazard from the character (character belongs to foundOwnerIndex).
       newState = updatePlayer(newState, foundOwnerIndex, p => ({
         ...updateCharacter(p, charId, c => ({ ...c, hazards: newHazards })),
+      }));
+      // Discard to the card's actual owner's discard pile. In production, instance IDs
+      // are player-prefixed (e.g. "p2-29"), so ownerOf() resolves to the hazard player.
+      // In synthetic test states with "inst-N" IDs, fall back to foundOwnerIndex.
+      const hazOwner = ownerOf(haz.instanceId) as string;
+      let hazardOwnerIdx = newState.players.findIndex(p => (p.id as string) === hazOwner);
+      if (hazardOwnerIdx === -1) hazardOwnerIdx = foundOwnerIndex;
+      newState = updatePlayer(newState, hazardOwnerIdx, p => ({
+        ...p,
         discardPile: [...p.discardPile, targetInstance],
       }));
     }
