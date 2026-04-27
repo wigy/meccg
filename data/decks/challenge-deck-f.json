@@ -61,6 +61,16 @@
       "name": "Perchen",
       "card": "as-4",
       "qty": 1
+    },
+    {
+      "name": "Mîonid",
+      "card": "as-3",
+      "qty": 1
+    },
+    {
+      "name": "Dôgrib",
+      "card": "le-7",
+      "qty": 1
     }
   ],
   "deck": {

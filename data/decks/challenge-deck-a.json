@@ -61,6 +61,11 @@
       "name": "Theoden",
       "card": "tw-182",
       "qty": 1
+    },
+    {
+      "name": "Anborn",
+      "card": "tw-118",
+      "qty": 1
     }
   ],
   "deck": {
@@ -242,7 +247,7 @@
       {
         "name": "Marvels Told",
         "card": "td-134",
-        "qty": 2
+        "qty": 3
       },
       {
         "name": "Smoke Rings",
@@ -352,12 +357,12 @@
     {
       "name": "Promptings of Wisdom",
       "card": "wh-34",
-      "qty": 1
+      "qty": 2
     },
     {
       "name": "Rebuild the Town",
       "card": "dm-155",
-      "qty": 2
+      "qty": 1
     },
     {
       "name": "Riders of Rohan",
@@ -402,17 +407,17 @@
     {
       "name": "Muster Disperses",
       "card": "tw-67",
-      "qty": 1
+      "qty": 3
     },
     {
       "name": "Rebel-talk",
       "card": "le-132",
-      "qty": 3
+      "qty": 2
     },
     {
       "name": "Twilight",
       "card": "tw-106",
-      "qty": 2
+      "qty": 1
     }
   ]
 }
