@@ -148,7 +148,8 @@ export function renderAllCompaniesView(
 
   const overview = document.createElement('div');
   overview.className = 'company-overview-all';
-  overview.style.setProperty('--company-scale', '0.6');
+  const initialScale = 0.6;
+  overview.style.setProperty('--company-scale', String(initialScale));
 
   // Check if we're in character-play targeting mode
   const selectedChar = getSelectedCharacterForPlay();
@@ -306,6 +307,15 @@ export function renderAllCompaniesView(
   }
 
   container.appendChild(overview);
+
+  // Shrink companies to fit the viewport if they overflow vertically
+  requestAnimationFrame(() => {
+    let scale = initialScale;
+    while (scale > 0.25 && document.documentElement.scrollHeight > window.innerHeight + 2) {
+      scale = Math.max(0.25, Math.round((scale - 0.05) * 100) / 100);
+      overview.style.setProperty('--company-scale', String(scale));
+    }
+  });
 }
 
 /**
