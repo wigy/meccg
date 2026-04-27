@@ -252,6 +252,46 @@ describe('The Cock Crows (tw-342)', () => {
     expectInDiscardPile(after, HAZARD_PLAYER, FOOLISH_WORDS);
   });
 
+  test('discard mode: hazard on resource-player character goes to hazard player discard, not resource player', () => {
+    // Regression test: Lure of the Senses (hazard owned by p2) was attached to Aragorn
+    // (p1's character). The Cock Crows discarded it but it ended up in p1's discardPile
+    // instead of p2's. The fix uses ownerOf(instanceId) to route to the card owner's pile.
+    const gomInPlay: CardInPlay = {
+      instanceId: mint() as unknown as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [THE_COCK_CROWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Attach Lure of the Senses to ARAGORN (resource player's character), owned by the hazard player.
+    const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES, HAZARD_PLAYER);
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+
+    const after = dispatch(state, playActions[0].action);
+
+    // The Cock Crows discarded after use
+    expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, THE_COCK_CROWS);
+
+    // Lure of the Senses removed from Aragorn
+    const aragornChar = Object.values(after.players[RESOURCE_PLAYER].characters)[0];
+    expect(aragornChar.hazards).toHaveLength(0);
+
+    // Lure of the Senses must go to the hazard player's discard pile, not the resource player's
+    expectInDiscardPile(after, HAZARD_PLAYER, LURE_OF_THE_SENSES);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === LURE_OF_THE_SENSES)).toBe(false);
+  });
+
   test('multiple hazard perm-events: one discard action per target', () => {
     const gomInPlay: CardInPlay = {
       instanceId: mint() as unknown as CardInstanceId,

@@ -16,9 +16,10 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, makeMHState, Phase,
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   LORIEN, HENNETH_ANNUN, MINAS_TIRITH,
+  DAGGER_OF_WESTERNESSE, ORC_PATROL, CAVE_DRAKE,
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
 import type { GameState } from '../../../index.js';
@@ -26,7 +27,49 @@ import type { GameState } from '../../../index.js';
 describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
   beforeEach(() => resetMint());
 
-  test.todo('Phase ends when both players done; site of origin handled; both players reset hands to base hand size');
+  test('Phase ends when both players done; both players draw to base hand size', () => {
+    // P1 has 0 cards in hand with 3 in deck, P2 has 0 in hand with 2 in deck.
+    // After both pass in play-hazards, step 8 auto-draws for each player.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }],
+          hand: [],
+          playDeck: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          playDeck: [ORC_PATROL, CAVE_DRAKE],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    // Both players should have drawn all available cards (hand size 8, but deck < 8).
+    expect(afterBothPass.players[RESOURCE_PLAYER].hand).toHaveLength(3);
+    expect(afterBothPass.players[HAZARD_PLAYER].hand).toHaveLength(2);
+    // Decks now empty since fewer cards than hand size.
+    expect(afterBothPass.players[RESOURCE_PLAYER].playDeck).toHaveLength(0);
+    expect(afterBothPass.players[HAZARD_PLAYER].playDeck).toHaveLength(0);
+  });
 
   test('tapped non-haven site of origin goes to site discard pile, not back to site deck', () => {
     const built = buildTestState({
