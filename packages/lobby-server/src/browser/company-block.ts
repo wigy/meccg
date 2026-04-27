@@ -31,6 +31,7 @@ import type {
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
   PlayShortEventAction,
+  SelectCardBearerAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -131,6 +132,8 @@ export function renderCompanyBlock(
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     /** Map from source card instance ID to activate-granted-action actions. */
     grantedActions?: Map<string, ActivateGrantedAction[]>;
+    /** Map from character instance ID to select-card-bearer action. */
+    selectCardBearerActions?: Map<string, SelectCardBearerAction>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -613,6 +616,7 @@ export function renderCompanyBlock(
     const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
+    const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
 
     // Check for opponent influence actions
     const oppInfluenceActions = viableActions(view.legalActions).filter(
@@ -622,7 +626,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence, bearerAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -726,6 +730,17 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(ccSupportAction);
+        },
+      };
+    }
+
+    // Single type: select-card-bearer — tap character to bear the permanent event
+    if (bearerAction) {
+      return {
+        cls: 'company-card--influence-target',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(bearerAction);
         },
       };
     }

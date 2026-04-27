@@ -24,6 +24,7 @@ import type {
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
   ActivateGrantedAction,
+  SelectCardBearerAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -206,4 +207,17 @@ export function getMovableCompanyIds(view: PlayerView): Set<string> {
     if (action.type === 'plan-movement') ids.add(action.companyId as string);
   }
   return ids;
+}
+
+/**
+ * Collect all viable select-card-bearer actions, keyed by the character instance ID.
+ * Each character can have at most one select-card-bearer action (one card needs a bearer at a time).
+ */
+export function getSelectCardBearerActions(view: PlayerView): Map<string, SelectCardBearerAction> {
+  const result = new Map<string, SelectCardBearerAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'select-card-bearer') continue;
+    result.set(action.characterId as string, action);
+  }
+  return result;
 }
