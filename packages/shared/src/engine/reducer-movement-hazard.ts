@@ -141,9 +141,13 @@ function handlePlayHazards(
     return handlePlayHazardCard(state, action, mhState);
   }
 
+  // For all resource-player actions below: after the action resolves,
+  // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
+  let result: ReducerResult;
+
   // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---
   if (action.type === 'play-permanent-event') {
-    return handlePlayPermanentEvent(state, action);
+    result = handlePlayPermanentEvent(state, action);
   }
 
   // --- Short event ---
@@ -152,30 +156,45 @@ function handlePlayHazards(
   // their tap cost and discard-in-play target resolve inline. Hazard
   // short-events (e.g. Twilight canceling an environment) go through
   // the chain-initiating hazard handler.
-  if (action.type === 'play-short-event') {
+  else if (action.type === 'play-short-event') {
     const actingPlayer = state.players.find(p => p.id === action.player);
     const handCard = actingPlayer?.hand.find(c => c.instanceId === action.cardInstanceId);
     const def = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
     if (isResourceEventCard(def)) {
-      return handlePlayResourceShortEvent(state, action);
+      result = handlePlayResourceShortEvent(state, action);
+    } else {
+      result = handlePlayShortEvent(state, action);
     }
-    return handlePlayShortEvent(state, action);
   }
 
   // --- Granted-action (e.g. Cram untap-bearer; Great Ship
   //     cancel-chain-entry; River ranger-cancel — all via the shared
   //     handler that resolves the apply from either the source card's
   //     grant-action effect or an active granted-action constraint). ---
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
+  else if (action.type === 'activate-granted-action') {
+    result = handleGrantActionApply(state, action);
   }
 
   // --- Place on-guard ---
-  if (action.type === 'place-on-guard') {
-    return handlePlaceOnGuard(state, action, mhState);
+  else if (action.type === 'place-on-guard') {
+    result = handlePlaceOnGuard(state, action, mhState);
   }
 
-  return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
+  else {
+    return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
+  }
+
+  // Rule 5.27: if the resource player took an action, the hazard player's
+  // prior pass is cleared — they may resume playing hazards.
+  if (isResourcePlayer && !result.error) {
+    const ps = result.state.phaseState;
+    if (ps.phase === Phase.MovementHazard && ps.hazardPlayerPassed) {
+      logDetail(`Play-hazards: resource player acted → resetting hazard player's pass (rule 5.27)`);
+      result = { ...result, state: { ...result.state, phaseState: { ...ps, hazardPlayerPassed: false } } };
+    }
+  }
+
+  return result;
 }
 
 
@@ -999,36 +1018,47 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
   const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
-    logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
     // Rule 2.IV.6: auto-merge any of the resource player's companies that
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.
     const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
     // Reset moved flags so the site phase shows a clean slate
-    return {
-      state: cleanupEmptyCompanies({
-        ...updatePlayer(mergedState, activeIndex, p => ({
-          ...p,
-          companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
-        })),
-        phaseState: {
-          phase: Phase.Site,
-          step: 'select-company',
-          activeCompanyIndex: 0,
-          handledCompanyIds: [],
-          automaticAttacksResolved: 0,
-          siteEntered: false,
-          resourcePlayed: false,
-          minorItemAvailable: false,
+    const cleanedState = cleanupEmptyCompanies({
+      ...updatePlayer(mergedState, activeIndex, p => ({
+        ...p,
+        companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
+      })),
+      phaseState: {
+        phase: Phase.Site,
+        step: 'select-company',
+        activeCompanyIndex: 0,
+        handledCompanyIds: [],
+        automaticAttacksResolved: 0,
+        siteEntered: false,
+        resourcePlayed: false,
+        minorItemAvailable: false,
 
-          declaredAgentAttack: null,
-          awaitingOnGuardReveal: false,
-          pendingResourceAction: null,
-          opponentInteractionThisTurn: null,
-          pendingOpponentInfluence: null,
+        declaredAgentAttack: null,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
+        opponentInteractionThisTurn: null,
+        pendingOpponentInfluence: null,
+      },
+    });
+
+    // Rule 6.17: if the resource player has no companies, skip the site phase entirely
+    if (cleanedState.players[activeIndex].companies.length === 0) {
+      logDetail(`Movement/Hazard: all companies handled and none remain → skipping Site phase (rule 6.17), advancing to End-of-Turn`);
+      return {
+        state: {
+          ...cleanedState,
+          phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
         },
-      }),
-    };
+      };
+    }
+
+    logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
+    return { state: cleanedState };
   }
 
   logDetail(`Movement/Hazard: company ${currentCompany.id} done → returning to select-company (${remainingCount} remaining)`);

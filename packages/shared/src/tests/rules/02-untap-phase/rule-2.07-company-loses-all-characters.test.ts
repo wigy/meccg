@@ -16,12 +16,13 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
 } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState, CardInstanceId } from '../../../index.js';
+import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
+import type { FreeCouncilPhaseState } from '../../../index.js';
 
 describe('Rule 2.07 — Company Loses All Characters', () => {
   beforeEach(() => resetMint());
@@ -30,6 +31,81 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
   // We trigger character elimination via a Free Council corruption check (roll <= CP-2).
 
   test.todo('All characters leave play: company permanent-events are discarded');
+
+  test('Another company at same site: site remains in play', () => {
+    // P1 has Aragorn at Rivendell. A second P1 company (Legolas) shares
+    // the same Rivendell site instance. When Aragorn is eliminated, the site
+    // must NOT be returned or discarded — Legolas's company still occupies it.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const p1 = base.players[RESOURCE_PLAYER];
+    const company1 = p1.companies[0];
+    const aragornId = company1.characters[0];
+    const rivendellSite = company1.currentSite!;
+
+    // Move Legolas from P2 to a second P1 company sharing the same Rivendell instance
+    const p2 = base.players[HAZARD_PLAYER];
+    const legolasId = p2.companies[0].characters[0];
+    const legolasChar = p2.characters[legolasId as string];
+
+    const secondCompany = {
+      ...company1,
+      id: 'company-p1-1' as CompanyId,
+      characters: [legolasId] as readonly CardInstanceId[],
+      siteCardOwned: false,
+    };
+
+    const patchedState = {
+      ...base,
+      players: [
+        {
+          ...p1,
+          companies: [company1, secondCompany],
+          characters: { ...p1.characters, [legolasId as string]: legolasChar },
+        },
+        {
+          ...p2,
+          companies: [],
+          characters: Object.fromEntries(Object.entries(p2.characters).filter(([k]) => k !== (legolasId as string))),
+        },
+      ] as typeof base.players,
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+
+    const state = { ...patchedState, cheatRollTotal: 2, phaseState: fcState };
+    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    // Aragorn eliminated → company1 empty, but company2 (Legolas) still at Rivendell
+    // So Rivendell must NOT be returned to location deck or discarded
+    expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === rivendellSite.instanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === rivendellSite.instanceId)).toBe(false);
+    // The site remains in play with the surviving company
+    expect(after.players[RESOURCE_PLAYER].companies.some(c => c.currentSite?.instanceId === rivendellSite.instanceId)).toBe(true);
+  });
 
   test('No other company at same site and site untapped: site returned to location deck', () => {
     // Aragorn at RIVENDELL (untapped). CP=5, roll=2 → 2 <= 5-2=3 → eliminated.
