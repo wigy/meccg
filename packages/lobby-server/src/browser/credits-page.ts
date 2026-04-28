@@ -73,7 +73,7 @@ export async function openCreditsPage(): Promise<void> {
   appState.lobbyPlayerCredits = data.credits;
   updateCreditsBadge();
 
-  summaryEl.textContent = `Current balance: ${data.credits} credits`;
+  summaryEl.innerHTML = `<strong>Current balance: ${data.credits} credits</strong><p class="credits-page-note">Credits are used to limit unexpected AI expenses. Each bug report or feature request processed by the AI deducts credits from your balance. If you want to actively contribute testing, you can ask for more credits.</p>`;
 
   if (data.history.length === 0) {
     listEl.innerHTML = '<p class="lobby-empty">No credit changes recorded yet.</p>';

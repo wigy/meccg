@@ -599,6 +599,13 @@ h2 {
   margin-bottom: 1rem;
 }
 
+.credits-page-note {
+  color: #a0a8b0;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+  margin-bottom: 0;
+}
+
 .credits-page-list {
   margin-top: 0.5rem;
 }
