@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.26.0 — 2026-04-26
+
 Challenge Deck B
 
 ### Game Engine
