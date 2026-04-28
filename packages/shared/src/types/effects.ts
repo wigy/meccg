@@ -141,8 +141,9 @@ export interface StatModifierEffect extends EffectBase {
    * - `"all-characters"` — applies to every character in play (e.g. Sun).
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
+   * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    */
-  readonly target?: 'all-characters' | 'all-attacks' | 'all-automatic-attacks';
+  readonly target?: 'all-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company';
 }
 
 /**
@@ -175,20 +176,6 @@ export interface CheckModifierEffect extends EffectBase {
 export interface MpModifierEffect extends EffectBase {
   readonly type: 'mp-modifier';
   /** The marshalling point adjustment. */
-  readonly value: ValueExpr;
-}
-
-/**
- * Applies a stat modifier to every character in the bearer's company.
- *
- * Example: The One Ring adds +1 corruption point to every character
- * in the bearer's company.
- */
-export interface CompanyModifierEffect extends EffectBase {
-  readonly type: 'company-modifier';
-  /** Which stat to modify for all company members. */
-  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points';
-  /** The bonus (or penalty) applied to each company member. */
   readonly value: ValueExpr;
 }
 
@@ -761,8 +748,17 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   permanent event resolves from the chain. Used by cards whose text
  *   explicitly says "Tap the site" as part of their play effect (e.g.
  *   The Windlord Found Me). Respects the `never-taps` site-rule.
+ * - `healing-affects-all` — healing effects applied to one character in the
+ *   company extend to all other wounded characters in the same company (e.g.
+ *   Ioreth). Equivalent to the `healing-affects-all` site-rule but carried
+ *   by a character.
+ * - `no-direct-influence` — the bearing character cannot be controlled by
+ *   direct influence; any existing DI control is reverted to GI when this
+ *   hazard attaches (e.g. Rebel-talk).
+ * - `no-attack` — the bearer (typically an ally) may not be assigned strikes
+ *   from any attack source (e.g. Goldberry).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1373,20 +1369,6 @@ export interface StorableAtEffect extends EffectBase {
 }
 
 /**
- * Declares a company-level rule carried by a character. While this
- * character is in play, the rule applies to their entire company.
- *
- * Rules:
- * - `healing-affects-all` — when a healing effect targets a character in
- *   this character's company, the healing extends to all wounded characters
- *   in the company. Example: Ioreth.
- */
-export interface CompanyRuleEffect extends EffectBase {
-  readonly type: 'company-rule';
-  readonly rule: 'healing-affects-all';
-}
-
-/**
  * Gates playability on a game-state condition evaluated at legal-action
  * time. The `requires` field names the context source:
  *
@@ -1562,21 +1544,6 @@ export interface DragonAtHomeEffect extends EffectBase {
 }
 
 /**
- * Restricts how a character bearing this card can be controlled.
- *
- * Rules:
- * - `no-direct-influence` — the character cannot be controlled by direct
- *   influence; they must be under general influence. When the hazard is
- *   attached, any existing DI control is reverted to GI. Used by
- *   Rebel-talk (le-132).
- */
-export interface ControlRestrictionEffect extends EffectBase {
-  readonly type: 'control-restriction';
-  readonly rule: 'no-direct-influence';
-}
-
-
-/**
  * Triggers the "call the council" endgame transition — the card-based
  * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
  * on the caller, advances the turn, and marks who gets the final last
@@ -1618,20 +1585,6 @@ export interface WardBearerEffect extends EffectBase {
   readonly type: 'ward-bearer';
   /** DSL condition evaluated against hazard card definitions. */
   readonly filter: Condition;
-}
-
-/**
- * Protects the bearing card (typically an ally) from being targeted as a
- * strike recipient during combat.
- *
- * `protection: "no-attack"` — the bearer may not be assigned strikes from
- * any attack source (hazard creature, on-guard creature, automatic attack).
- * The bearer is excluded from the strike-assignment pool for both the
- * defending and attacking player. Used by Goldberry.
- */
-export interface CombatProtectionEffect extends EffectBase {
-  readonly type: 'combat-protection';
-  readonly protection: 'no-attack';
 }
 
 /**
@@ -1775,7 +1728,6 @@ export type CardEffect =
   | StatModifierEffect
   | CheckModifierEffect
   | MpModifierEffect
-  | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect
@@ -1808,16 +1760,13 @@ export type CardEffect =
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
-  | CompanyRuleEffect
   | CallOfHomeCheckEffect
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
-  | ControlRestrictionEffect
   | CallCouncilEffect
   | WardBearerEffect
-  | CombatProtectionEffect
   | MoveEffect
   | WoundTargetCharacterEffect
   | AutoAttackRaceDuplicateEffect

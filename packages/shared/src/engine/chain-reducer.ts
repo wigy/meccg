@@ -949,10 +949,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
-  // control-restriction: no-direct-influence — revert DI to GI on attach
-  if (targetCharId && def && 'effects' in def && def.effects?.some(
-    e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
-  )) {
+  // no-direct-influence flag — revert DI to GI on attach
+  if (targetCharId && def && 'effects' in def && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId as string];
       if (char && char.controlledBy !== 'general') {

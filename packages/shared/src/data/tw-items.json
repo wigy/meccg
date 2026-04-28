@@ -118,9 +118,10 @@
         "value": 5
       },
       {
-        "type": "company-modifier",
+        "type": "stat-modifier",
         "stat": "corruption-points",
-        "value": 1
+        "value": 1,
+        "target": "company"
       },
       {
         "type": "cancel-strike",

@@ -18,7 +18,7 @@
  * |---|-------------------------------------------------|-------------|----------------------------------------------|
  * | 1 | Unique — only one copy allowed                  | IMPLEMENTED | standard uniqueness check                    |
  * | 2 | Playable at Old Forest (name-matched)           | IMPLEMENTED | playableAt [{site:"Old Forest"}]             |
- * | 3 | May not be attacked (no strike assignment)      | IMPLEMENTED | combat-protection: no-attack                 |
+ * | 3 | May not be attacked (no strike assignment)      | IMPLEMENTED | play-flag: no-attack                         |
  * | 4 | Cancel return-to-site-of-origin chain entry     | IMPLEMENTED | cancel-chain-return-to-origin + force-return-to-origin |
  * | 5 | Cancel attack keyed to Wilderness [{w}]         | IMPLEMENTED | cancel-attack with attack.keying condition   |
  *
@@ -97,7 +97,7 @@ describe('Goldberry (tw-245)', () => {
     expect(playActions).toHaveLength(0);
   });
 
-  // ─── May not be attacked (combat-protection: no-attack) ───────────────────
+  // ─── May not be attacked (play-flag: no-attack) ──────────────────────────
 
   test('Goldberry is NOT offered as a strike target by the defending player', () => {
     const base = buildTestState({

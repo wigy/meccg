@@ -33,8 +33,8 @@ export function hasPlayFlag(
 }
 
 /**
- * Returns true if any attached hazard on a character carries a
- * `control-restriction` effect with `rule: "no-direct-influence"`.
+ * Returns true if any attached hazard on a character carries the
+ * `no-direct-influence` play-flag.
  */
 export function hasNoDirectInfluenceRestriction(
   hazards: readonly CardInPlay[],
@@ -42,9 +42,6 @@ export function hasNoDirectInfluenceRestriction(
 ): boolean {
   return hazards.some(h => {
     const def = cardPool[h.definitionId as string] as { readonly effects?: readonly CardEffect[] } | undefined;
-    if (!def?.effects) return false;
-    return def.effects.some(
-      e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
-    );
+    return hasPlayFlag(def, 'no-direct-influence');
   });
 }

@@ -41,11 +41,9 @@ UNSORTED
 (H) Stealthy Tribe
 (I) Morgul Rallying Cry
 (J) Seducing Nations of Men
-Finalise tests section 00
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
-Finalise tests section 04
 Finalise tests section 05
 Finalise tests section 06
 Finalise tests section 07

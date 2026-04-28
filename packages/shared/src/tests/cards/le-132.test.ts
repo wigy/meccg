@@ -5,7 +5,7 @@
  * Type: hazard-event (permanent, character-targeting)
  * Effects: 4 (play-target character filter:non-wizard/non-ringwraith/mind≤7,
  *             duplication-limit scope:character max:1,
- *             control-restriction no-direct-influence,
+ *             play-flag no-direct-influence,
  *             grant-action remove-self-on-roll cost:tap-bearer threshold:8)
  *
  * "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less.
@@ -20,7 +20,7 @@
  * | 1 | Play from hand targeting char         | IMPLEMENTED | play-hazard with targetCharacterId          |
  * | 2 | Filter: non-wizard, non-ringwraith    | IMPLEMENTED | play-target filter with $ne                 |
  * | 3 | Filter: mind ≤ 7                      | IMPLEMENTED | target.mind in filter context               |
- * | 4 | Cannot be controlled by DI            | IMPLEMENTED | control-restriction no-direct-influence      |
+ * | 4 | Cannot be controlled by DI            | IMPLEMENTED | play-flag no-direct-influence                |
  * | 5 | Tap to attempt removal (roll>7)       | IMPLEMENTED | grant-action remove-self-on-roll            |
  * | 6 | Cannot be duplicated on character     | IMPLEMENTED | duplication-limit scope:character max:1     |
  *
@@ -185,7 +185,7 @@ describe('Rebel-talk (le-132)', () => {
     expect(targets).toContain(faramirId);
   });
 
-  // ── Effect 3: control-restriction no-direct-influence ─────────────────────
+  // ── Effect 3: play-flag no-direct-influence ───────────────────────────────
 
   test('character with Rebel-talk cannot be moved to DI during organization', () => {
     const base = buildTestState({
