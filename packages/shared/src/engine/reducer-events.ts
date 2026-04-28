@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -353,20 +353,17 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     // healing-affects-all — if this was a heal (wounded → well), extend
     // the healing to all other wounded characters in the same company.
     // Triggers either from a character in the company carrying the
-    // `company-rule` variant (e.g. Ioreth) or from the company's current
-    // site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
+    // `healing-affects-all` play-flag (e.g. Ioreth) or from the company's
+    // current site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
     const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     if (isHeal) {
       const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
       if (company) {
-        const hasCompanyRule = company.characters.some(charId => {
+        const hasCompanyFlag = company.characters.some(charId => {
           const ch = newCharacters[charId as string];
           if (!ch) return false;
-          const charDef = state.cardPool[ch.definitionId as string];
-          return charDef && 'effects' in charDef &&
-            (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
-              e => e.type === 'company-rule' && e.rule === 'healing-affects-all',
-            );
+          const charDef = state.cardPool[ch.definitionId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          return hasPlayFlag(charDef, 'healing-affects-all');
         });
         let hasSiteRule = false;
         if (company.currentSite) {
@@ -376,8 +373,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
             ));
         }
-        if (hasCompanyRule || hasSiteRule) {
-          const source = hasCompanyRule ? 'company-rule' : 'site-rule';
+        if (hasCompanyFlag || hasSiteRule) {
+          const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
           for (const charId of company.characters) {
             const cid = charId as string;
             if (cid === targetId) continue;

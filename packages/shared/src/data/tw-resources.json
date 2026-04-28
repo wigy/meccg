@@ -1040,8 +1040,8 @@
     "certified": "2026-04-26",
     "effects": [
       {
-        "type": "combat-protection",
-        "protection": "no-attack"
+        "type": "play-flag",
+        "flag": "no-attack"
       },
       {
         "type": "cancel-chain-return-to-origin",

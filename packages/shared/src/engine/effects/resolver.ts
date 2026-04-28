@@ -230,6 +230,11 @@ export function collectGlobalEffects(
  * Used when computing effective stats for a single character — we only
  * want effects from that character's own card and their items, not from
  * all cards in play. (Global effects like events are handled separately.)
+ *
+ * `stat-modifier` effects with `target: "company"` on items are excluded
+ * from the per-bearer item pass and instead collected uniformly via
+ * {@link collectCompanyItemEffects} so that every character in the company
+ * (not just the bearer) receives the bonus.
  */
 export function collectCharacterEffects(
   state: GameState,
@@ -244,11 +249,18 @@ export function collectCharacterEffects(
 
   // Item effects — rule 9.15: for slotted items (helmet, etc.), only the
   // first item per slot is "in use" and contributes effects.
+  // Skip stat-modifier effects with target "company" — handled below.
   const active = pickActiveItemsForCharacter(state, char);
   for (const item of char.items) {
     if (!active.has(item.instanceId as string)) continue;
     const itemDef = resolveDef(state, item.instanceId);
-    if (itemDef) collectFromDef(itemDef, item.instanceId, context, results);
+    if (!itemDef) continue;
+    const itemResults: CollectedEffect[] = [];
+    collectFromDef(itemDef, item.instanceId, context, itemResults);
+    for (const r of itemResults) {
+      if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
+      results.push(r);
+    }
   }
 
   // Hazard card effects
@@ -256,6 +268,11 @@ export function collectCharacterEffects(
     const hDef = resolveDef(state, hazard.instanceId);
     if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
   }
+
+  // Company-scoped stat-modifier effects from items on all characters in
+  // the same company (e.g. The One Ring adds +1 CP to every company member).
+  const companyItemEffects = collectCompanyItemEffects(state, char, context);
+  results.push(...companyItemEffects);
 
   // Company-scoped stat boosts applied via active constraints (e.g.
   // Orc-draughts grants +1 prowess to every character in its bearer's
@@ -270,6 +287,45 @@ export function collectCharacterEffects(
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  return results;
+}
+
+/**
+ * Collects `stat-modifier` effects with `target: "company"` from items on
+ * every character in the same company as `char`.
+ *
+ * This ensures that a company-scoped item bonus (e.g. The One Ring's +1
+ * corruption) applies uniformly to all company members regardless of who
+ * bears the item.
+ */
+function collectCompanyItemEffects(
+  state: GameState,
+  char: CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const baseCtx = context as unknown as Record<string, unknown>;
+  for (const player of state.players) {
+    for (const company of player.companies) {
+      if (!company.characters.includes(char.instanceId)) continue;
+      for (const companyCharId of company.characters) {
+        const companyChar = player.characters[companyCharId as string];
+        if (!companyChar) continue;
+        const active = pickActiveItemsForCharacter(state, companyChar);
+        for (const item of companyChar.items) {
+          if (!active.has(item.instanceId as string)) continue;
+          const itemDef = resolveDef(state, item.instanceId);
+          if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
+          for (const effect of itemDef.effects) {
+            if (effect.type !== 'stat-modifier' || effect.target !== 'company') continue;
+            if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+            results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
+          }
+        }
+      }
+      return results;
+    }
+  }
   return results;
 }
 
@@ -529,28 +585,6 @@ export function resolveCheckModifier(
       total += effect.value;
     } else if (typeof effect.value === 'string' && context) {
       total += evaluateExpr(effect.value, context);
-    }
-  }
-  return total;
-}
-
-/**
- * Resolves company-wide modifiers for a given stat.
- *
- * @param effects - All collected effects (pre-filtered by condition).
- * @param stat - Which stat to check for company-wide modifiers.
- * @returns The total company modifier value.
- */
-export function resolveCompanyModifier(
-  effects: readonly CollectedEffect[],
-  stat: string,
-): number {
-  let total = 0;
-  for (const { effect } of effects) {
-    if (effect.type === 'company-modifier' && effect.stat === stat) {
-      total += typeof effect.value === 'number'
-        ? effect.value
-        : 0;
     }
   }
   return total;
