@@ -16,6 +16,8 @@ FIXES
 FEATS
 -----
 
+All company view could remove practically every other element like hands etc.
+
 EPICS
 -----
 
