@@ -380,6 +380,12 @@ export function connect(name: string): void {
           const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
           showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
         }
+        // Show a dedicated text-log entry when the opponent picks a creature race
+        // (e.g. Two or Three Tribes Present), so the player can see the choice clearly.
+        if (msg.lastAction?.type === 'play-hazard' && msg.lastAction.player !== msg.view.self.id
+          && msg.lastAction.chosenCreatureRace) {
+          showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { opponent: msg.view.opponent.name });
+        }
         appState.lastPhase = msg.view.phaseState.phase;
         // Prepare/clear site selection or fetch-from-pile based on legal actions
         if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
