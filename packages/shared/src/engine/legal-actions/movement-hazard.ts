@@ -647,7 +647,22 @@ function playHazardsActions(
             } else {
               const excludedRaces = new Set(raceChoice.exclude);
               const eligibleRaces = Object.values(Race).filter(r => !excludedRaces.has(r));
-              for (const race of eligibleRaces) {
+              // Restrict choices to races that actually have creature cards in the hazard
+              // player's accessible piles (hand + draw deck). Offering races with no
+              // creatures produces useless options and was the root cause of a misplay
+              // where a player chose "spider" despite having only orc/troll creatures.
+              // Fall back to all eligible races only if none are found (e.g. no-creature deck).
+              const deckRaces = new Set<Race>();
+              for (const pile of [player.hand, player.playDeck]) {
+                for (const card of pile) {
+                  const cardDef = state.cardPool[card.definitionId as string];
+                  if (cardDef?.cardType === 'hazard-creature') {
+                    deckRaces.add(cardDef.race);
+                  }
+                }
+              }
+              const racesToOffer = eligibleRaces.filter(r => deckRaces.has(r));
+              for (const race of racesToOffer.length > 0 ? racesToOffer : eligibleRaces) {
                 logDetail(`Hazard short-event "${def.name}": playable with creature race "${race}"`);
                 actions.push({
                   action: { ...action, chosenCreatureRace: race },
