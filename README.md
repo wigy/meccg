@@ -1,6 +1,6 @@
 # MECCG
 
-A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG), the classic trading card game set in Tolkien's Middle-earth. Built almost entirely by AI using Claude Code — from the game engine and rules enforcement to the browser UI and AI opponents. The codebase uses TypeScript and Node.js with a client/server architecture, and AI agents handle ongoing development tasks like bug fixes, feature planning, and card certification.
+A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG), widely regarded as the most complex trading card game in existence, set in Tolkien's Middle-earth. Built entirely by AI using Claude Code — across three roles: **coding** (game engine, rules enforcement, browser UI), **gameplay** (AI opponents you can play against), and **workflow** (AI agents manage the full development lifecycle: triaging bug reports, planning features, implementing fixes, certifying cards, and opening pull requests). The codebase uses TypeScript and Node.js with a client/server architecture.
 
 ## Features
 
