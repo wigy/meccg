@@ -346,6 +346,54 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
+  // ---- Card pool ----
+
+  if (urlPath === '/api/cards' && method === 'GET') {
+    try {
+      const pool = loadCardPool();
+      const cards = Object.values(pool)
+        .filter((def) => (def as unknown as { cardType: string }).cardType !== 'region')
+        .map((def) => {
+          const d = def as unknown as Record<string, unknown>;
+          const id = typeof d.id === 'string' ? d.id : '';
+          const setCode = id.split('-')[0].toUpperCase();
+          const imgPath = (() => {
+            const img = typeof d.image === 'string' ? d.image : '';
+            const prefix = 'https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/';
+            if (!img.startsWith(prefix)) return undefined;
+            return `/cards/images/${img.slice(prefix.length)}`;
+          })();
+          return {
+            id,
+            name: typeof d.name === 'string' ? d.name : '',
+            type: typeof d.cardType === 'string' ? d.cardType : '',
+            alignment: typeof d.alignment === 'string' ? d.alignment : '',
+            set: setCode,
+            unique: Boolean(d.unique),
+            image: imgPath,
+            text: typeof d.text === 'string' ? d.text : undefined,
+            race: typeof d.race === 'string' ? d.race : undefined,
+            mind: typeof d.mind === 'number' ? d.mind : undefined,
+            prowess: typeof d.prowess === 'number' ? d.prowess : undefined,
+            body: typeof d.body === 'number' ? d.body : undefined,
+            siteType: typeof d.siteType === 'string' ? d.siteType : undefined,
+            region: typeof d.region === 'string' ? d.region : undefined,
+            strikes: typeof d.strikes === 'number' ? d.strikes : undefined,
+            mp: typeof d.marshallingPoints === 'number' ? d.marshallingPoints : undefined,
+          };
+        });
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=3600',
+      });
+      res.end(JSON.stringify(cards));
+    } catch (err) {
+      lobbyLog.log('error', { context: 'cards', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to load card pool' });
+    }
+    return;
+  }
+
   // ---- Deck catalog ----
 
   if (urlPath === '/api/decks' && method === 'GET') {
@@ -406,6 +454,37 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'save-deck', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save deck' });
+    }
+    return;
+  }
+
+  if (urlPath.startsWith('/api/my-decks/') && method === 'GET' && urlPath !== '/api/my-decks/current') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const deckId = decodeURIComponent(urlPath.slice('/api/my-decks/'.length));
+    if (!deckId) { sendJson(res, 400, { error: 'Deck ID required' }); return; }
+    const deck = findDeckById(playerName, deckId);
+    if (!deck) { sendJson(res, 404, { error: 'Deck not found' }); return; }
+    sendJson(res, 200, deck);
+    return;
+  }
+
+  if (urlPath.startsWith('/api/my-decks/') && method === 'PUT' && urlPath !== '/api/my-decks/current') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const deckId = decodeURIComponent(urlPath.slice('/api/my-decks/'.length));
+    if (!deckId) { sendJson(res, 400, { error: 'Deck ID required' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { id?: string; name?: string; [key: string]: unknown };
+      if (!body.name) { sendJson(res, 400, { error: 'Deck must have a name' }); return; }
+      const existing = findDeckById(playerName, deckId);
+      if (!existing) { sendJson(res, 404, { error: 'Deck not found' }); return; }
+      savePlayerDeck(playerName, { ...body, id: deckId });
+      sendJson(res, 200, { ok: true });
+      lobbyLog.log('deck-updated', { player: playerName, deck: deckId });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'deck-update', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to update deck' });
     }
     return;
   }

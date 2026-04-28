@@ -11,7 +11,7 @@ import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   missingCards, uncertifiedCards, sortDeckEntries,
 } from './app-state.js';
-import { showConfirm } from './dialog.js';
+import { showConfirm, showAlert } from './dialog.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -74,21 +74,21 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
   const btns = document.createElement('div');
   btns.style.display = 'flex';
   btns.style.gap = '0.4rem';
-  if (isCurrent) {
-    const editBtn = document.createElement('button');
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', () => {
-      void openDeckEditorFn?.(deck.id);
-    });
-    btns.appendChild(editBtn);
-  } else {
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', () => { void openDeckEditorFn?.(deck.id); });
+  btns.appendChild(editBtn);
+  if (!isCurrent) {
     const selectBtn = document.createElement('button');
     selectBtn.textContent = 'Select';
-    selectBtn.addEventListener('click', () => {
-      void selectDeck(deck.id);
-    });
+    selectBtn.addEventListener('click', () => { void selectDeck(deck.id); });
     btns.appendChild(selectBtn);
   }
+  const dupBtn = document.createElement('button');
+  dupBtn.textContent = 'Dup';
+  dupBtn.title = 'Duplicate this deck';
+  dupBtn.addEventListener('click', () => { void duplicateDeck(deck); });
+  btns.appendChild(dupBtn);
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = 'Delete';
   deleteBtn.className = 'lobby-delete-btn';
@@ -220,8 +220,16 @@ export async function loadDecks(): Promise<void> {
   // Render my decks
   const myContainer = document.getElementById('my-decks')!;
   myContainer.innerHTML = '';
+  const newDeckBtn = document.createElement('button');
+  newDeckBtn.className = 'lobby-new-deck-btn';
+  newDeckBtn.textContent = '+ New Deck';
+  newDeckBtn.addEventListener('click', () => { void createNewDeck(); });
+  myContainer.appendChild(newDeckBtn);
   if (myDecks.length === 0) {
-    myContainer.innerHTML = '<p class="lobby-empty">No decks yet \u2014 add one from the catalog below</p>';
+    const empty = document.createElement('p');
+    empty.className = 'lobby-empty';
+    empty.textContent = 'No decks yet \u2014 add one from the catalog below';
+    myContainer.appendChild(empty);
   } else {
     for (const deck of myDecks) {
       myContainer.appendChild(renderMyDeckItem(deck, deck.id === appState.currentDeckId));
@@ -319,6 +327,61 @@ export async function loadDecks(): Promise<void> {
       if (deck.id === 'development-proto-hero') opt.selected = true;
       aiSelect.appendChild(opt);
     }
+  }
+}
+
+/** Create a new blank deck and open the editor. */
+export async function createNewDeck(): Promise<void> {
+  const playerName = appState.lobbyPlayerName ?? 'player';
+  const id = `${playerName}-new-deck-${Date.now()}`;
+  const deck: FullDeck = {
+    id,
+    name: 'New Deck',
+    alignment: 'hero',
+    pool: [],
+    deck: { characters: [], resources: [], hazards: [] },
+    sites: [],
+    sideboard: [],
+  };
+  const resp = await fetch('/api/my-decks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deck),
+  });
+  if (!resp.ok) {
+    await showAlert('Failed to create deck');
+    return;
+  }
+  await loadDecks();
+  void openDeckEditorFn?.(id);
+}
+
+/** Duplicate a deck under a new name. */
+export async function duplicateDeck(deck: FullDeck): Promise<void> {
+  const playerName = appState.lobbyPlayerName ?? 'player';
+  const newId = `${playerName}-${deck.id.replace(/^[^-]+-/, '')}-copy-${Date.now()}`;
+  const copy: FullDeck = {
+    ...deck,
+    id: newId,
+    name: `${deck.name} (copy)`,
+    pool: [...deck.pool],
+    deck: {
+      characters: [...deck.deck.characters],
+      resources: [...deck.deck.resources],
+      hazards: [...deck.deck.hazards],
+    },
+    sites: [...deck.sites],
+    sideboard: [...(deck.sideboard ?? [])],
+  };
+  const resp = await fetch('/api/my-decks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(copy),
+  });
+  if (resp.ok) {
+    await loadDecks();
+  } else {
+    await showAlert('Failed to duplicate deck');
   }
 }
 
