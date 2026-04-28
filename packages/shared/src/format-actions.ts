@@ -241,8 +241,9 @@ export function describeAction(
         ? `on ${instName(action.targetCharacterId)}`
         : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
-      if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
-      return base;
+      const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
+      if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
+      return `${base}${raceTag}`;
     }
     case 'assign-strike': {
       const tapTag = action.tapped ? ' [tapped]' : '';
