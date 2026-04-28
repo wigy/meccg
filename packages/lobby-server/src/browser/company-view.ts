@@ -204,6 +204,7 @@ export function resetCompanyViews(): void {
   resetState();
   dismissTooltip();
   setTargetingInstruction(null);
+  document.body.classList.remove('all-companies-mode');
 }
 
 /**
@@ -392,6 +393,10 @@ export function renderCompanyViews(
   renderOpponentInfluenceDefendBanner(board, view);
 
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
+
+  // In all-companies view, hide hand arcs, text log, and score boxes to maximise
+  // screen real estate for the company grid.
+  document.body.classList.toggle('all-companies-mode', !showingSingle);
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);
