@@ -106,6 +106,7 @@ function flashBtn(btn: HTMLElement): void {
 function setViewMode(visual: boolean): void {
   debugView.classList.toggle('hidden', visual);
   visualView.classList.toggle('hidden', !visual);
+  document.getElementById('game-log-panel')?.classList.toggle('hidden', !visual);
   viewToggleBtn.classList.toggle('mode-visual', visual);
   viewToggleBtn.classList.toggle('mode-debug', !visual);
   viewToggleBtn.title = visual ? 'Switch to debug view' : 'Switch to visual view';

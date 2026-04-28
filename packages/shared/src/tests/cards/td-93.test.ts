@@ -3,7 +3,7 @@
  *
  * Card test: Ioreth (td-93)
  * Type: hero-character (wizard alignment)
- * Effects: 1 (company-rule: healing-affects-all)
+ * Effects: 1 (play-flag: healing-affects-all)
  *
  * "Unique. Healing effects affect all characters in her company."
  *
@@ -16,7 +16,7 @@
  * |---|-------------------------------------------|-------------|------------------------------------|
  * | 1 | Basic character stats (prowess/body/mind)  | IMPLEMENTED | always handled by engine            |
  * | 2 | Unique flag                                | IMPLEMENTED | unique: true in card data           |
- * | 3 | company-rule: healing-affects-all           | IMPLEMENTED | reducer-events.ts healing spread    |
+ * | 3 | play-flag: healing-affects-all              | IMPLEMENTED | reducer-events.ts healing spread    |
  *
  * Playable: YES
  * Certified: 2026-04-14

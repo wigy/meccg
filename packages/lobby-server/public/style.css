@@ -3311,6 +3311,30 @@ h2 {
   top: -19vh;
 }
 
+/* All-companies view: hide hand arcs, text log, deck boxes, and action buttons */
+.all-companies-mode #hand-arc,
+.all-companies-mode #opponent-arc,
+.all-companies-mode #game-log-panel,
+.all-companies-mode #self-deck-box,
+.all-companies-mode #opponent-deck-box,
+.all-companies-mode #pass-btn,
+.all-companies-mode .enter-site-btn {
+  display: none;
+}
+
+/* Reclaim the space freed by hiding the opponent arc */
+.all-companies-mode {
+  overflow-y: hidden;
+}
+
+.all-companies-mode .company-overview-all {
+  padding-top: 3rem;
+}
+
+.all-companies-mode .cards-in-play-row {
+  top: -1rem;
+}
+
 .hand-card {
   height: var(--card-height);
   border-radius: 8px;
@@ -3640,9 +3664,9 @@ h2 {
 
 /* View toggle button — right edge of the board */
 .company-view-toggle {
-  position: absolute;
+  position: fixed;
   right: 0.75rem;
-  top: calc(50% + 1rem);
+  top: 42%;
   transform: none;
   background: rgba(30, 30, 30, 0.8);
   border: 1px solid rgba(196, 163, 90, 0.4);

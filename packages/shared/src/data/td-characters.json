@@ -129,7 +129,7 @@
     "corruptionModifier": 0,
     "homesite": "Minas Tirith",
     "effects": [
-      { "type": "company-rule", "rule": "healing-affects-all" }
+      { "type": "play-flag", "flag": "healing-affects-all" }
     ],
     "text": "Unique. Healing effects affect all characters in her company.",
     "certified": "2026-04-14"

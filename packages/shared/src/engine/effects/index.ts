@@ -14,7 +14,6 @@ export {
   collectGlobalEffects,
   resolveStatModifiers,
   resolveCheckModifier,
-  resolveCompanyModifier,
   resolveDrawModifier,
   resolveAttackProwess,
   resolveAttackStrikes,

@@ -46,6 +46,7 @@ import {
   getSupportCorruptionCheckActions,
   getGrantedActions,
   getPlayCharacterActions,
+  getSelectCardBearerActions,
 } from './company-actions.js';
 import { addOpponentInfluenceTargets } from './company-modals.js';
 import { setTargetingInstruction } from './render.js';
@@ -116,7 +117,8 @@ export function renderSingleView(
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
   const ccSupportActs = owner === 'self' ? getSupportCorruptionCheckActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs }));
+  const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
@@ -148,7 +150,8 @@ export function renderAllCompaniesView(
 
   const overview = document.createElement('div');
   overview.className = 'company-overview-all';
-  overview.style.setProperty('--company-scale', '0.6');
+  const initialScale = 0.6;
+  overview.style.setProperty('--company-scale', String(initialScale));
 
   // Check if we're in character-play targeting mode
   const selectedChar = getSelectedCharacterForPlay();
@@ -176,6 +179,7 @@ export function renderAllCompaniesView(
   const ccActions = getCorruptionCheckActions(view);
   const ccSupportActs = getSupportCorruptionCheckActions(view);
   const grantedActs = getGrantedActions(view);
+  const bearerActs = getSelectCardBearerActions(view);
 
   // Select-company actions (M/H phase company selection)
   const selectCompanyActions = new Map<string, SelectCompanyAction>();
@@ -194,7 +198,7 @@ export function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
@@ -306,6 +310,15 @@ export function renderAllCompaniesView(
   }
 
   container.appendChild(overview);
+
+  // Shrink companies to fit the viewport if they overflow vertically
+  requestAnimationFrame(() => {
+    let scale = initialScale;
+    while (scale > 0.25 && document.documentElement.scrollHeight > window.innerHeight + 2) {
+      scale = Math.max(0.25, Math.round((scale - 0.05) * 100) / 100);
+      overview.style.setProperty('--company-scale', String(scale));
+    }
+  });
 }
 
 /**

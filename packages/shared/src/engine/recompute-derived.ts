@@ -161,11 +161,11 @@ function computeEffectiveStats(
     // Corruption: sum from stat-modifier effects on corruption-points,
     // plus direct corruptionPoints from items and corruption cards that
     // don't have effects arrays yet.
+    // Company-scoped stat-modifiers (e.g. The One Ring +1 CP) are collected
+    // via collectCompanyItemEffects inside collectCharacterEffects and flow
+    // through here as normal stat-modifier entries.
     const cpFromEffects = resolveStatModifiers(collected, 'corruption-points', 0, context);
     corruptionPoints = cpFromEffects;
-
-    // Also sum company-modifier corruption effects (e.g. The One Ring +1 CP to company)
-    // These will be applied at a higher level, not per-character.
   } else {
     // Fallback: use the old hardcoded approach for cards without effects
     prowess = charDef.prowess;

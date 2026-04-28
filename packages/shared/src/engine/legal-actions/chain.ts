@@ -18,6 +18,7 @@ import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
+import { heroResourceShortEventActions } from './long-event.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -45,6 +46,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   if (chain.restriction === 'normal') {
     actions.push(...playShortEventChainActions(state, playerId));
     actions.push(...playSkillCancelChainActions(state, playerId));
+    actions.push(...resourceEventChainActions(state, playerId));
   }
 
   // On-guard reveal: hazard player may reveal on-guard events during
@@ -278,6 +280,21 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
   }
 
   return actions;
+}
+
+/**
+ * During M/H chain declaring, the resource (active) player may play any
+ * resource short event they would normally be allowed to play during the
+ * movement/hazard phase — e.g. Many Turns and Doublings to decrease the
+ * hazard limit (CoE rule 2.IV.iii.1: active condition checked at resolution).
+ *
+ * Delegates to {@link heroResourceShortEventActions}, which already filters
+ * out combat-only cards and evaluates play-option `when` conditions.
+ */
+function resourceEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  if (state.phaseState.phase !== Phase.MovementHazard) return [];
+  if (state.activePlayer !== playerId) return [];
+  return heroResourceShortEventActions(state, playerId, 'movement-hazard');
 }
 
 /**

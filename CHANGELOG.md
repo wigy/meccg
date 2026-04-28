@@ -1,6 +1,38 @@
 # Changelog
 
+## 0.27.0 — 2026-04-28
+
+Test Coverage
+
+### Game Engine
+
+- Implement rules 2.07/5.27/5.28/6.17: same-site company cleanup, hazard-player resume, skip empty M/H and site phases
+- Fix: allow resource short events in M/H chain; fizzle hazards exceeding limit at resolution
+- Fix The Windlord Found Me not tapping the site on play
+- Fix The Cock Crows discarding hazard to wrong player's pile
+
+### Web Client
+
+- All-companies view: hide hand arcs, deck boxes, text log, and action buttons; reclaim vertical space
+- View toggle button fixed-positioned for consistent placement across modes
+- Text log hidden when switching to debug view
+- Highlight select-card-bearer characters in company view
+- Use highlight-and-click flow for discard-target short events
+- Show card-triggered-attack source in combat view
+- Increase AI delay for combat actions for better followability
+- Correct challenge deck card counts to match official 119-card format
+
+### Rules Tests
+
+- Implement rule tests batch 1: convert 57 `test.todo()` stubs to passing tests (rules 1.x, 2.x, 3.x, 5.x, 6.x, 8.x, 9.x, 10.x)
+
+### Docs
+
+- Glossary: add Score Box entry
+- Clarify AI roles and MECCG complexity in README intro
+
 ## 0.26.0 — 2026-04-26
+
 Challenge Deck B
 
 ### Game Engine

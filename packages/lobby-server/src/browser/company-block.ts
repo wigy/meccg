@@ -30,6 +30,8 @@ import type {
   SupportCorruptionCheckAction,
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
+  PlayShortEventAction,
+  SelectCardBearerAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -130,6 +132,8 @@ export function renderCompanyBlock(
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     /** Map from source card instance ID to activate-granted-action actions. */
     grantedActions?: Map<string, ActivateGrantedAction[]>;
+    /** Map from character instance ID to select-card-bearer action. */
+    selectCardBearerActions?: Map<string, SelectCardBearerAction>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -340,6 +344,26 @@ export function renderCompanyBlock(
 
   /** Build click handler for cards with granted actions (hazards or items like Cram). */
   const buildHazardClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    // Discard-target short event: highlight and click the target hazard
+    const selectedSE = getSelectedShortEvent();
+    if (selectedSE && options?.onAction) {
+      const seAction = viableActions(lastView!.legalActions).find(
+        (a): a is PlayShortEventAction => a.type === 'play-short-event'
+          && a.cardInstanceId === selectedSE
+          && a.discardTargetInstanceId === instId,
+      );
+      if (seAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearShortEventSelection();
+            options.onAction!(seAction);
+          },
+        };
+      }
+    }
+
     if (!options?.onAction || !options.grantedActions) return undefined;
     const actions = options.grantedActions.get(instId as string);
     if (!actions || actions.length === 0) return undefined;
@@ -592,6 +616,7 @@ export function renderCompanyBlock(
     const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
+    const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
 
     // Check for opponent influence actions
     const oppInfluenceActions = viableActions(view.legalActions).filter(
@@ -601,7 +626,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence, bearerAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -709,6 +734,17 @@ export function renderCompanyBlock(
       };
     }
 
+    // Single type: select-card-bearer — tap character to bear the permanent event
+    if (bearerAction) {
+      return {
+        cls: 'company-card--influence-target',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(bearerAction);
+        },
+      };
+    }
+
     // Single type: company-move only
     if (companyResult && !influenceResult) return companyResult;
 
@@ -794,6 +830,7 @@ export function renderCardsInPlayRow(
   container: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction?: (action: GameAction) => void,
 ): void {
   const selfCards = view.self.cardsInPlay;
   const oppCards = view.opponent.cardsInPlay;
@@ -802,6 +839,8 @@ export function renderCardsInPlayRow(
   const row = document.createElement('div');
   row.className = 'cards-in-play-row';
   row.style.setProperty('--company-scale', '0.6');
+
+  const selectedSE = getSelectedShortEvent();
 
   const renderGroup = (cards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId; status?: string }[], className: string) => {
     if (cards.length === 0) return;
@@ -814,6 +853,22 @@ export function renderCardsInPlayRow(
       if (!imgPath) continue;
       const img = createCardImage(card.definitionId as string, def, imgPath, 'company-card', card.instanceId as string);
       if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
+      // Highlight as discard target when a short event with discardTargetInstanceId is selected
+      if (selectedSE && onAction) {
+        const seAction = viableActions(view.legalActions).find(
+          (a): a is PlayShortEventAction => a.type === 'play-short-event'
+            && a.cardInstanceId === selectedSE
+            && a.discardTargetInstanceId === card.instanceId,
+        );
+        if (seAction) {
+          img.classList.add('company-card--influence-target');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearShortEventSelection();
+            onAction(seAction);
+          });
+        }
+      }
       group.appendChild(img);
     }
     row.appendChild(group);

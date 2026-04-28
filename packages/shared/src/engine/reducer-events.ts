@@ -7,10 +7,10 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
@@ -206,6 +206,17 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     }));
 
+    // Rule 5.28: if the resource player has no companies, skip the M/H phase entirely
+    if (afterPass.players[activeIndex].companies.length === 0) {
+      logDetail(`Long-event: active player ${activePlayer as string} has no companies → skipping M/H phase (rule 5.28) and Site phase (rule 6.17), advancing to End-of-Turn`);
+      return {
+        state: {
+          ...afterPass,
+          phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
+        },
+      };
+    }
+
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
     return {
       state: {
@@ -342,20 +353,17 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     // healing-affects-all — if this was a heal (wounded → well), extend
     // the healing to all other wounded characters in the same company.
     // Triggers either from a character in the company carrying the
-    // `company-rule` variant (e.g. Ioreth) or from the company's current
-    // site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
+    // `healing-affects-all` play-flag (e.g. Ioreth) or from the company's
+    // current site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
     const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     if (isHeal) {
       const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
       if (company) {
-        const hasCompanyRule = company.characters.some(charId => {
+        const hasCompanyFlag = company.characters.some(charId => {
           const ch = newCharacters[charId as string];
           if (!ch) return false;
-          const charDef = state.cardPool[ch.definitionId as string];
-          return charDef && 'effects' in charDef &&
-            (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
-              e => e.type === 'company-rule' && e.rule === 'healing-affects-all',
-            );
+          const charDef = state.cardPool[ch.definitionId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          return hasPlayFlag(charDef, 'healing-affects-all');
         });
         let hasSiteRule = false;
         if (company.currentSite) {
@@ -365,8 +373,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
             ));
         }
-        if (hasCompanyRule || hasSiteRule) {
-          const source = hasCompanyRule ? 'company-rule' : 'site-rule';
+        if (hasCompanyFlag || hasSiteRule) {
+          const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
           for (const charId of company.characters) {
             const cid = charId as string;
             if (cid === targetId) continue;
@@ -509,8 +517,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       targetInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
       const newHazards = [...char.hazards];
       newHazards.splice(foundHazardIdx, 1);
+      // Remove the hazard from the character (character belongs to foundOwnerIndex).
       newState = updatePlayer(newState, foundOwnerIndex, p => ({
         ...updateCharacter(p, charId, c => ({ ...c, hazards: newHazards })),
+      }));
+      // Discard to the card's actual owner's discard pile. In production, instance IDs
+      // are player-prefixed (e.g. "p2-29"), so ownerOf() resolves to the hazard player.
+      // In synthetic test states with "inst-N" IDs, fall back to foundOwnerIndex.
+      const hazOwner = ownerOf(haz.instanceId) as string;
+      let hazardOwnerIdx = newState.players.findIndex(p => (p.id as string) === hazOwner);
+      if (hazardOwnerIdx === -1) hazardOwnerIdx = foundOwnerIndex;
+      newState = updatePlayer(newState, hazardOwnerIdx, p => ({
+        ...p,
         discardPile: [...p.discardPile, targetInstance],
       }));
     }

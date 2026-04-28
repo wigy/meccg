@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -24,6 +24,7 @@ import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeC
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
+import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -948,10 +949,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
-  // control-restriction: no-direct-influence — revert DI to GI on attach
-  if (targetCharId && def && 'effects' in def && def.effects?.some(
-    e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
-  )) {
+  // no-direct-influence flag — revert DI to GI on attach
+  if (targetCharId && def && 'effects' in def && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId as string];
       if (char && char.controlledBy !== 'general') {
@@ -977,6 +976,31 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   let newState: GameState = { ...state, players: newPlayers };
+
+  // tap-site-on-play: tap the active company's current site when the card enters play,
+  // unless the site carries the never-taps site-rule (e.g. The Worthy Hills).
+  if (def && 'effects' in def && hasPlayFlag(def, 'tap-site-on-play')) {
+    const ps = newState.phaseState as { activeCompanyIndex?: number };
+    const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
+    const company = newState.players[playerIndex].companies[activeCompanyIndex];
+    const siteInPlay = company?.currentSite;
+    if (siteInPlay && siteInPlay.status !== CardStatus.Tapped) {
+      const siteDef = newState.cardPool[siteInPlay.definitionId as string];
+      const neverTaps = siteDef && isSiteCard(siteDef)
+        && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
+      if (neverTaps) {
+        logDetail(`"${def.name}" tap-site-on-play: site has never-taps — leaving site untapped`);
+      } else {
+        logDetail(`"${def.name}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
+        const newCompanies = [...newState.players[playerIndex].companies];
+        newCompanies[activeCompanyIndex] = {
+          ...company,
+          currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+        };
+        newState = updatePlayer(newState, playerIndex, p => ({ ...p, companies: newCompanies }));
+      }
+    }
+  }
 
   // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)
   if (def && 'effects' in def && def.effects) {
@@ -1165,11 +1189,37 @@ function applyAddConstraintFromOnEvent(
 /**
  * Resolves a long-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay`.
+ *
+ * Per CoE rule 2.IV.iii.1, if the hazard limit has been decreased after
+ * declaration (e.g. by Many Turns and Doublings) such that the number of
+ * hazards played now exceeds the current limit at resolution, the long-event
+ * fizzles — it is discarded without entering play.
  */
 function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
   const def = state.cardPool[card.definitionId as string];
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
+
+  // CoE rule 2.IV.iii.1: hazard limit active condition — check at resolution.
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    const mhState = state.phaseState;
+    const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+    const company = activePlayerIndex >= 0
+      ? state.players[activePlayerIndex].companies[mhState.activeCompanyIndex]
+      : undefined;
+    if (company) {
+      const limit = currentHazardLimit(state, mhState, company.id);
+      if (mhState.hazardsPlayedThisCompany > limit) {
+        logDetail(`Long event "${def?.name ?? card.definitionId}" fizzles — hazard limit exceeded at resolution (${mhState.hazardsPlayedThisCompany} declared > limit ${limit})`);
+        const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+        newPlayers[playerIndex] = {
+          ...newPlayers[playerIndex],
+          discardPile: [...newPlayers[playerIndex].discardPile, card],
+        };
+        return { ...state, players: newPlayers };
+      }
+    }
+  }
 
   logDetail(`Long event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 

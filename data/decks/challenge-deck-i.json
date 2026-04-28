@@ -52,6 +52,11 @@
       "name": "Orc Tracker",
       "card": "le-34",
       "qty": 3
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 1
     }
   ],
   "deck": {
@@ -251,7 +256,7 @@
     {
       "name": "Carn Dum",
       "card": "le-359",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Cirith Gorgor",
@@ -343,7 +348,7 @@
     {
       "name": "Ghosts",
       "card": "le-72",
-      "qty": 2
+      "qty": 1
     },
     {
       "name": "Nameless Thing",
