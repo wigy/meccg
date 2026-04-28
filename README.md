@@ -19,26 +19,26 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 55 | 307 | 17.9% |
+| Rule tests | 112 | 307 | 36.5% |
 | Card tests | 237 | 257 | 92.2% |
 | Cards created | 598 | 1683 | 35.5% |
 | Cards certified | 241 | 598 | 40.3% |
-| **Total** | **1131** | **2845** | **39.8%** |
+| **Total** | **1188** | **2845** | **41.8%** |
 
 ### Deck Catalog
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
-| (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 117 (100.0%) |
+| (A) Stewards of Gondor | hero | 119 | 119 (100.0%) | 119 (100.0%) |
 | (B) Release the Prisoners | hero | 119 | 119 (100.0%) | 119 (100.0%) |
-| (C) Dwarven Quest | hero | 120 | 120 (100.0%) | 59 (49.2%) |
+| (C) Dwarven Quest | hero | 119 | 119 (100.0%) | 59 (49.6%) |
 | (D) Bargain between Friends | hero | 119 | 119 (100.0%) | 65 (54.6%) |
 | (E) Return of the King | hero | 119 | 119 (100.0%) | 73 (61.3%) |
-| (F) Spies and Traitors | minion | 117 | 117 (100.0%) | 79 (67.5%) |
-| (G) Marauding Brood of Uglies | minion | 118 | 118 (100.0%) | 44 (37.3%) |
-| (H) Stealthy Tribe | minion | 122 | 122 (100.0%) | 52 (42.6%) |
-| (I) Morgul Rallying Cry | minion | 122 | 122 (100.0%) | 47 (38.5%) |
-| (J) Seducing Nations of Men | minion | 120 | 120 (100.0%) | 57 (47.5%) |
+| (F) Spies and Traitors | minion | 119 | 118 (99.2%) | 80 (67.2%) |
+| (G) Marauding Brood of Uglies | minion | 119 | 119 (100.0%) | 44 (37.0%) |
+| (H) Stealthy Tribe | minion | 119 | 119 (100.0%) | 52 (43.7%) |
+| (I) Morgul Rallying Cry | minion | 119 | 119 (100.0%) | 45 (37.8%) |
+| (J) Seducing Nations of Men | minion | 119 | 119 (100.0%) | 56 (47.1%) |
 | The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 20 (66.7%) |
 | Dragons (Development only) | hero | 64 | 64 (100.0%) | 64 (100.0%) |
 | Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 24 (68.6%) |
