@@ -251,7 +251,9 @@ function revealOnGuardAttacksActions(
     if (def.cardType === 'hazard-creature') {
       if (!hasAutoAttacks) continue;
 
-      // Check creature keying against the site
+      // Check creature keying against the site (rule 2.V.i: "keyed to the site").
+      // Only site-type and site-name keying apply here; region-type keying is for
+      // movement (company moving through regions) and does not apply at the site phase.
       if (siteDef && isSiteCard(siteDef)) {
         let keyable = false;
         for (const key of def.keyedTo) {
@@ -260,8 +262,8 @@ function revealOnGuardAttacksActions(
             keyable = true;
             break;
           }
-          if (key.regionTypes && key.regionTypes.some(rt => siteDef.sitePath.includes(rt))) {
-            logDetail(`On-guard creature "${def.name}" keyable by region-type in site path`);
+          if (key.siteNames && key.siteNames.includes(siteDef.name)) {
+            logDetail(`On-guard creature "${def.name}" keyable by site-name: ${siteDef.name}`);
             keyable = true;
             break;
           }

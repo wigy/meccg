@@ -24,7 +24,7 @@ import {
   phaseStateAs, buildSitePhaseTwoPlayer,
   PLAYER_1, PLAYER_2,
   ARAGORN,
-  ASSASSIN, BARROW_WIGHT,
+  ASSASSIN, BARROW_WIGHT, HOBGOBLINS,
   RIVENDELL, MORIA, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { SitePhaseState, RevealOnGuardAction } from '../../../index.js';
@@ -96,6 +96,21 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     // Even a keyable creature cannot be revealed here per rule 2.V.i.
     const base = buildSitePhaseTwoPlayer({ site: RIVENDELL, heroChars: [ARAGORN] });
     const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, FIRST_COMPANY, BARROW_WIGHT);
+    const testState = { ...withOG, phaseState: REVEAL_ON_GUARD_STEP };
+
+    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(revealActions).toHaveLength(0);
+    expect(viableActions(testState, PLAYER_2, 'pass')).toHaveLength(1);
+  });
+
+  test('region-type-only keyed creature is NOT offered for reveal (rule 2.V.i)', () => {
+    // Hobgoblins is keyed only to region types {w}{w} (two wildernesses) —
+    // it has no site-type keying. Moria is a shadow-hold whose sitePath
+    // happens to have two wildernesses, but "keyed to the site" per rule
+    // 2.V.i means site-type or site-name keying only. Region-type keying
+    // is for the movement/hazard phase, not the site phase.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN] });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, FIRST_COMPANY, HOBGOBLINS);
     const testState = { ...withOG, phaseState: REVEAL_ON_GUARD_STEP };
 
     const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
