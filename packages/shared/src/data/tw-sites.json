@@ -1491,5 +1491,25 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major, gold ring)Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-439",
+    "name": "Wose Passage-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WosePassagehold.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Old Pûkel-land",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond"
   }
 ]
