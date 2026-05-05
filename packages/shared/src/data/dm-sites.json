@@ -103,5 +103,27 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature may also be played at this site."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-40",
+    "name": "The Under-leas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUnderleas.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gundabad",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Orcs",
+        "strikes": 5,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (6), The Under-grottos (8), The Under-gates (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat)."
   }
 ]
