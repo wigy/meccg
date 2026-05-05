@@ -95,7 +95,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Undead",
+        "creatureType": "Undead",
         "strikes": 3,
         "prowess": 8
       }
@@ -117,7 +117,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Orcs",
+        "creatureType": "Orcs",
         "strikes": 5,
         "prowess": 7
       }
@@ -139,7 +139,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Orcs",
+        "creatureType": "Orcs",
         "strikes": 4,
         "prowess": 7
       }
@@ -161,7 +161,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Balrog",
+        "creatureType": "Balrog",
         "strikes": 2,
         "prowess": 16
       }
@@ -183,7 +183,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Trolls",
+        "creatureType": "Trolls",
         "strikes": 4,
         "prowess": 9
       }
@@ -205,7 +205,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Trolls",
+        "creatureType": "Trolls",
         "strikes": 3,
         "prowess": 10
       }
@@ -227,7 +227,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Trolls",
+        "creatureType": "Trolls",
         "strikes": 2,
         "prowess": 9
       }
@@ -249,7 +249,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Pûkel-creature",
+        "creatureType": "Pûkel-creature",
         "strikes": 2,
         "prowess": 11
       }
@@ -271,7 +271,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Trolls",
+        "creatureType": "Trolls",
         "strikes": 3,
         "prowess": 9
       }
@@ -293,7 +293,7 @@
     "playableResources": [],
     "automaticAttacks": [
       {
-        "creatureType": "(1st) Undead",
+        "creatureType": "Undead",
         "strikes": 3,
         "prowess": 9
       }
