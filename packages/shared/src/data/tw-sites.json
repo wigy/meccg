@@ -1648,5 +1648,30 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-427",
+    "name": "Stone-circle",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Stonecircle.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Old Pûkel Gap",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
   }
 ]
