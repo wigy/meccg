@@ -1342,5 +1342,33 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Rivendell"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-382",
+    "name": "Cirith Ungol",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CirithUngol.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Orcs — 4 strikes with 7 prowess"
   }
 ]
