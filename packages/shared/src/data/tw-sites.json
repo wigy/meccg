@@ -1597,5 +1597,31 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Edhellond"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-431",
+    "name": "The Wind Throne",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWindThrone.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: LórienPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 3 strikes with 7 prowess"
   }
 ]
