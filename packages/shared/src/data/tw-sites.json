@@ -1401,5 +1401,25 @@
     "resourceDraws": 2,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-388",
+    "name": "Drúadan Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DruadanForest.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anórien",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien"
   }
 ]
