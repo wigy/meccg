@@ -1271,5 +1271,39 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-374",
+    "name": "Barad-dûr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Baraddur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 6,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowessSpecial: Any company moving to this site has its hazard limit increased by 2."
   }
 ]
