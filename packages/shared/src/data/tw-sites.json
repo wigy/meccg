@@ -1578,5 +1578,24 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: Edhellond"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-434",
+    "name": "Vale of Erech",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ValeofErech.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Lamedon",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Edhellond"
   }
 ]
