@@ -213,5 +213,27 @@
     "resourceDraws": 1,
     "hazardDraws": 4,
     "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (5), The Under-galleries (4)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If any Nazgûl permanent-event is in play, one must be used as an additional automatic-attack (attacker’s choice, discard after use—ignore result of defeat)."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-35",
+    "name": "The Sulfur-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheSulfurdeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Trolls",
+        "strikes": 2,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (5), The Pûkel-deeps (9), The Under-gates (5), The Under-galleries (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 2 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If Khamûl the Easterling or Adûnaphel is in play as a permanent-event, one must be used as an additional automatic-attack (attacker’s choice, discard after use—ignore result of defeat)."
   }
 ]
