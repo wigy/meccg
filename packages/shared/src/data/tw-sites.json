@@ -1079,7 +1079,10 @@
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "wounded-character"
       },
       {
@@ -1087,8 +1090,16 @@
         "rule": "deny-item",
         "when": {
           "$and": [
-            { "subtype": "special" },
-            { "$not": { "keywords": { "$includes": "palantir" } } }
+            {
+              "subtype": "special"
+            },
+            {
+              "$not": {
+                "keywords": {
+                  "$includes": "palantir"
+                }
+              }
+            }
           ]
         }
       }
@@ -1235,5 +1246,30 @@
     "automaticAttacks": [],
     "resourceDraws": 3,
     "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-371",
+    "name": "Amon Hen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AmonHen.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: LórienPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check"
   }
 ]
