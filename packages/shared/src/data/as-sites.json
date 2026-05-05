@@ -348,5 +348,33 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 8 prowessSpecial: Any Man hazard creature can be played at this site."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "as-140",
+    "name": "Nûrniag Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/NurniagCamp.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Nurn",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 5,
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess"
   }
 ]
