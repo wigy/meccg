@@ -292,5 +292,35 @@
     ],
     "resourceDraws": 3,
     "hazardDraws": 4
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "as-137",
+    "name": "Cirith Gorgor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/CirithGorgor.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow",
+      "free",
+      "wilderness",
+      "shadow",
+      "dark",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Udûn",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 5,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 5,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowess"
   }
 ]
