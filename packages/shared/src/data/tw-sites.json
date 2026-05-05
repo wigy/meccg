@@ -1556,5 +1556,27 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Wolves — 2 strikes with 6 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-435",
+    "name": "Variag Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/VariagCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Khand",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: Edhellond"
   }
 ]
