@@ -1511,5 +1511,25 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-438",
+    "name": "Woodmen-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Woodmentown.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Western Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien"
   }
 ]
