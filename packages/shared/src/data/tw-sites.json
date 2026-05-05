@@ -1370,5 +1370,36 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Orcs — 4 strikes with 7 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-387",
+    "name": "Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DolGuldur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess"
   }
 ]
