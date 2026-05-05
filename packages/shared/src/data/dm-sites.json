@@ -279,5 +279,27 @@
     "resourceDraws": 1,
     "hazardDraws": 4,
     "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [r]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat)."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-30",
+    "name": "The Gem-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheGemdeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gap of Isen",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Undead",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site."
   }
 ]
