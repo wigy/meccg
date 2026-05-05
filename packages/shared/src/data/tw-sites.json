@@ -1421,5 +1421,24 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-389",
+    "name": "Dunharrow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dunharrow.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Lórien"
   }
 ]
