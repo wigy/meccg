@@ -125,5 +125,27 @@
     "resourceDraws": 1,
     "hazardDraws": 4,
     "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (6), The Under-grottos (8), The Under-gates (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat)."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-39",
+    "name": "The Under-grottos",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndergrottos.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "High Pass",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (8), The Under-gates (8)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: When a gold ring is tested in a company at this site, the result of the roll is modified by +2."
   }
 ]
