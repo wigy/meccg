@@ -28,5 +28,29 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-32",
+    "name": "Hermit’s Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HermitsHill.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Wold & Foothills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a company may discard two minor items they bear to make any one major item (including a hoard item) playable at this untapped site this turn."
   }
 ]
