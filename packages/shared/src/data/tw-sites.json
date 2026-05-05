@@ -1324,5 +1324,23 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-379",
+    "name": "Cameth Brin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CamethBrin.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Rhudaur",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Rivendell"
   }
 ]
