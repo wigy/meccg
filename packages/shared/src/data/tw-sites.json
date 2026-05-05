@@ -1673,5 +1673,26 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-426",
+    "name": "Southron Oasis",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthronOasis.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Harondor",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond"
   }
 ]
