@@ -88,7 +88,7 @@ describe('Rule 8.10 — Step 3: Opponent Assigns Remaining Strikes', () => {
     // Attacker assigns the remaining strike to unassigned GIMLI
     const attackerAssigns = viableFor(s, PLAYER_2);
     const assignToGimli = attackerAssigns.find(
-      ea => ea.action.type === 'assign-strike' && (ea.action as AssignStrikeAction).characterId === gimliId,
+      ea => ea.action.type === 'assign-strike' && ea.action.characterId === gimliId,
     );
     expect(assignToGimli).toBeDefined();
 

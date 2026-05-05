@@ -27,7 +27,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import { Phase } from '../../../index.js';
-import type { AssignStrikeAction, ChooseStrikeOrderAction } from '../../../index.js';
+import type { ChooseStrikeOrderAction } from '../../../index.js';
 
 describe('Rule 8.11 — Step 4: Strike Sequences', () => {
   beforeEach(() => resetMint());
