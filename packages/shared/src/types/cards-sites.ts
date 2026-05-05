@@ -98,6 +98,12 @@ export interface HeroSiteCard {
    */
   readonly keywords?: readonly Keyword[];
   /**
+   * For Under-deeps sites only: maps adjacent site names to the minimum dice roll
+   * required to move there. A roll of 0 means the site is always reachable (no roll needed).
+   * Not present on surface sites that use normal region-path movement.
+   */
+  readonly adjacentSites?: Readonly<Record<string, number>>;
+  /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
    */
@@ -183,6 +189,12 @@ export interface MinionSiteCard {
   /** Game keywords (e.g. `hoard`) that affect card interactions. */
   readonly keywords?: readonly Keyword[];
   /**
+   * For Under-deeps sites only: maps adjacent site names to the minimum dice roll
+   * required to move there. A roll of 0 means the site is always reachable (no roll needed).
+   * Not present on surface sites that use normal region-path movement.
+   */
+  readonly adjacentSites?: Readonly<Record<string, number>>;
+  /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
    */
@@ -240,6 +252,12 @@ export interface FallenWizardSiteCard {
   /** Game keywords (e.g. `hoard`) that affect card interactions. */
   readonly keywords?: readonly Keyword[];
   /**
+   * For Under-deeps sites only: maps adjacent site names to the minimum dice roll
+   * required to move there. A roll of 0 means the site is always reachable (no roll needed).
+   * Not present on surface sites that use normal region-path movement.
+   */
+  readonly adjacentSites?: Readonly<Record<string, number>>;
+  /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
    */
@@ -296,6 +314,12 @@ export interface BalrogSiteCard {
   readonly automaticAttacks: readonly AutomaticAttack[];
   /** Game keywords (e.g. `hoard`) that affect card interactions. */
   readonly keywords?: readonly Keyword[];
+  /**
+   * For Under-deeps sites only: maps adjacent site names to the minimum dice roll
+   * required to move there. A roll of 0 means the site is always reachable (no roll needed).
+   * Not present on surface sites that use normal region-path movement.
+   */
+  readonly adjacentSites?: Readonly<Record<string, number>>;
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.

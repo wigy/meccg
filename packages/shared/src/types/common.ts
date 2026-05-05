@@ -239,7 +239,8 @@ export type Keyword =
   | 'Uruk-hai'
   | 'Olog-hai'
   | 'dragon-manifestation'
-  | 'corruption';
+  | 'corruption'
+  | 'under-deeps';
 
 /**
  * A card reference carrying both its instance ID and definition ID.

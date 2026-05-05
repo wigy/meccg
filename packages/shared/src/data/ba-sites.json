@@ -33,6 +33,7 @@
     "playableResources": [],
     "automaticAttacks": [],
     "underDeeps": true,
+    "keywords": ["under-deeps"],
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled.",
