@@ -17,6 +17,15 @@ Conditions use MongoDB-style query operators. An object with multiple keys is an
 
 A missing `when` means the effect always applies.
 
+## Keywords
+
+Keywords are string tags on a card's `keywords` array. They drive classification and rule enforcement without dedicated boolean flags.
+
+Character-specific keywords:
+
+- `"Leader"`, `"Uruk-hai"`, `"Olog-hai"` — minion character subgroupings used in condition filters (e.g. faction influence bonuses gated on `"Leader"`).
+- `"agent"` — the character is an agent. Agents count as both a character and a hazard for deck-building. They have home sites, can be played as a hazard face-down, and are subject to the 36-mind agent limit. No behaviour is gated on this keyword yet; it is present as a data marker for future rule enforcement (rule 1.05, 3.15, 9.x).
+
 ## Value Expressions
 
 Plain numbers for the simple case, string expressions (evaluated with MathJS) when formulas are needed:

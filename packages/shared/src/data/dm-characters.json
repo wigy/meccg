@@ -1,0 +1,75 @@
+[
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-1",
+    "name": "Anarin",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/dm/Anarin.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 7,
+    "directInfluence": 3,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria",
+    "keywords": [
+      "agent"
+    ]
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-2",
+    "name": "Baduila",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/dm/Baduila.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 6,
+    "body": 8,
+    "mind": 8,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Goblin-gate",
+    "keywords": [
+      "agent"
+    ]
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-3",
+    "name": "Bill Ferny",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/dm/BillFerny.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree",
+    "keywords": [
+      "agent"
+    ]
+  }
+]
