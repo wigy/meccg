@@ -1773,5 +1773,33 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-411",
+    "name": "Minas Morgul",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MinasMorgul.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Undead — 3 strikes with 8 prowess; each character wounded must make a corruption check"
   }
 ]
