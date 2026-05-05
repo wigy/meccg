@@ -1305,5 +1305,24 @@
     "resourceDraws": 3,
     "hazardDraws": 6,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowessSpecial: Any company moving to this site has its hazard limit increased by 2."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-376",
+    "name": "Beorn’s House",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BeornsHouse.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anduin Vales",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Lórien"
   }
 ]
