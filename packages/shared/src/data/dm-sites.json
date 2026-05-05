@@ -52,5 +52,34 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a company may discard two minor items they bear to make any one major item (including a hoard item) playable at this untapped site this turn."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-42",
+    "name": "Urlurtsu Nurn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/UrlurtsuNurn.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness",
+      "shadow",
+      "dark"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Nurn",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 5,
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 4 strikes with 7 prowess"
   }
 ]
