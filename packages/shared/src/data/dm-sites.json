@@ -191,5 +191,27 @@
     "resourceDraws": 1,
     "hazardDraws": 4,
     "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (4), The Sulfur-deeps (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: Stolen Knowledge. When Under-galleries would be placed in your discard pile, place it in your marshalling points pile instead for 3 marshalling points—this card is considered stored."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-36",
+    "name": "The Under-courts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndercourts.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Trolls",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (5), The Under-galleries (4)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If any Nazgûl permanent-event is in play, one must be used as an additional automatic-attack (attacker’s choice, discard after use—ignore result of defeat)."
   }
 ]
