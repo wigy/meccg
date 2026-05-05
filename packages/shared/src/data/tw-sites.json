@@ -1821,5 +1821,26 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Rivendell"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-406",
+    "name": "Lake-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Laketown.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Northern Rhovanion",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien"
   }
 ]
