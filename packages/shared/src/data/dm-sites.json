@@ -147,5 +147,27 @@
     "resourceDraws": 1,
     "hazardDraws": 3,
     "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (8), The Under-gates (8)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: When a gold ring is tested in a company at this site, the result of the roll is modified by +2."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-38",
+    "name": "The Under-gates",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndergates.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Redhorn Gate",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(1st) Balrog",
+        "strikes": 2,
+        "prowess": 16
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (5), The Under-grottos (8), The Under-leas (6)Playable: Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Balrog — 2 strikes with 16 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If Balrog of Moria is in play or if it or Durin’s Bane has been defeated, the first automatic attack is canceled."
   }
 ]
