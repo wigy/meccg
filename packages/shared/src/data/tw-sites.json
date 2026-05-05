@@ -1694,5 +1694,33 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-424",
+    "name": "Shelob’s Lair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ShelobsLair.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major)Automatic-attacks: Orcs — 2 strikes with 8 prowess"
   }
 ]
