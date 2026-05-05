@@ -1465,5 +1465,31 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-405",
+    "name": "Isles of the Dead that Live",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IslesoftheDeadthatLive.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "free",
+      "coastal-sea",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Grey Havens",
+    "region": "Eriadoran Coast",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major, gold ring)Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check"
   }
 ]
