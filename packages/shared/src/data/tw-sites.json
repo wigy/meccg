@@ -1801,5 +1801,25 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Undead — 3 strikes with 8 prowess; each character wounded must make a corruption check"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-410",
+    "name": "Lossadan Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LossadanCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Forochel",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Rivendell"
   }
 ]
