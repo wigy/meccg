@@ -23,12 +23,11 @@ import {
 } from '../../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId, MovementHazardPhaseState } from '../../../index.js';
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
-import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
+import type { AgentInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
 
 const AGENT_CHAR_ID = 'test-agent-char' as CardInstanceId;
-const AGENT_SITE_ID = 'test-agent-site' as CardInstanceId;
 const AGENT_ID = 'agent-0-0' as CompanyId;
 
 const AGENT_CHAR: CharacterInPlay = {
@@ -43,17 +42,13 @@ const AGENT_CHAR: CharacterInPlay = {
   effectiveStats: ZERO_EFFECTIVE_STATS,
 };
 
-const AGENT_SITE: SiteInPlay = {
-  instanceId: AGENT_SITE_ID,
-  definitionId: MORIA,
-  status: CardStatus.Untapped,
-};
-
-/** Build a state with a face-down agent already in the hazard player's agents array. */
+/** Build a state with a face-down agent (siteStack=[]) and Moria in the hazard player's siteDeck. */
 function buildStateWithAgent(opts: {
   revealed?: boolean;
   anotherRevealedAgent?: boolean;
+  moriaSiteId?: CardInstanceId;
 }) {
+  const moriaSiteId = opts.moriaSiteId ?? ('test-moria-site' as CardInstanceId);
   const base = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
@@ -63,11 +58,14 @@ function buildStateWithAgent(opts: {
     ],
   });
 
+  // Add Moria to hazard player's siteDeck (home site for Anarin)
+  const moriaSiteCard = { instanceId: moriaSiteId, definitionId: MORIA };
+
   const agent: AgentInPlay = {
     id: AGENT_ID,
     character: AGENT_CHAR,
     revealed: opts.revealed ?? false,
-    siteStack: [AGENT_SITE],
+    siteStack: [],  // empty — home site chosen at reveal (rule 9.04)
     actedThisTurn: false,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
@@ -76,11 +74,12 @@ function buildStateWithAgent(opts: {
   const agents: AgentInPlay[] = [agent];
 
   if (opts.anotherRevealedAgent) {
+    const anotherMoriaSiteId = 'test-moria-site-2' as CardInstanceId;
     const dup: AgentInPlay = {
       id: 'agent-1-0' as CompanyId,
       character: { ...AGENT_CHAR, instanceId: 'test-agent-char-2' as CardInstanceId },
       revealed: true,
-      siteStack: [AGENT_SITE],
+      siteStack: [{ instanceId: anotherMoriaSiteId, definitionId: MORIA, status: CardStatus.Untapped }],
       actedThisTurn: false,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
@@ -88,22 +87,24 @@ function buildStateWithAgent(opts: {
     agents.push(dup);
   }
 
-  const withAgent = {
+  return {
     ...base,
     players: [
       base.players[0],
-      { ...base.players[1], agents },
+      {
+        ...base.players[1],
+        agents,
+        siteDeck: [...base.players[1].siteDeck, moriaSiteCard],
+      },
     ] as unknown as typeof base.players,
     phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
   };
-
-  return withAgent;
 }
 
 describe('Rule 9.03 — Agent Reveal', () => {
   beforeEach(() => resetMint());
 
-  test('reveal-agent is legal during play-hazards for face-down agents', () => {
+  test('reveal-agent is legal during play-hazards when matching home site is in location deck', () => {
     const state = buildStateWithAgent({});
     const actions = viableActions(state, PLAYER_2, 'reveal-agent');
     expect(actions.length).toBe(1);
@@ -111,6 +112,37 @@ describe('Rule 9.03 — Agent Reveal', () => {
 
   test('reveal-agent is NOT offered for already-revealed agents', () => {
     const state = buildStateWithAgent({ revealed: true });
+    const actions = viableActions(state, PLAYER_2, 'reveal-agent');
+    expect(actions.length).toBe(0);
+  });
+
+  test('reveal-agent is NOT offered when no matching home site in location deck', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        // No Moria in siteDeck
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const agent: AgentInPlay = {
+      id: AGENT_ID,
+      character: AGENT_CHAR,
+      revealed: false,
+      siteStack: [],
+      actedThisTurn: false,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+    };
+    const state = {
+      ...base,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent] },
+      ] as unknown as typeof base.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
+    };
     const actions = viableActions(state, PLAYER_2, 'reveal-agent');
     expect(actions.length).toBe(0);
   });
@@ -126,13 +158,19 @@ describe('Rule 9.03 — Agent Reveal', () => {
     expect(afterCount).toBe(before);
   });
 
-  test('revealed agent has revealed=true and siteStack remains 1 entry', () => {
-    const state = buildStateWithAgent({});
+  test('revealed agent has revealed=true, siteStack=[homesite], home site removed from location deck', () => {
+    const moriaSiteId = 'test-moria-site' as CardInstanceId;
+    const state = buildStateWithAgent({ moriaSiteId });
     const revealActions = viableActions(state, PLAYER_2, 'reveal-agent');
+    expect(revealActions.length).toBe(1);
+
     const after = dispatch(state, revealActions[0].action);
     const agent = after.players[HAZARD_PLAYER].agents[0];
     expect(agent.revealed).toBe(true);
     expect(agent.siteStack.length).toBe(1);
+    expect(agent.siteStack[0].instanceId).toBe(moriaSiteId);
+    // Home site removed from location deck
+    expect(after.players[HAZARD_PLAYER].siteDeck.every(s => s.instanceId !== moriaSiteId)).toBe(true);
   });
 
   test('unique agent discarded if same definitionId is already face-up in agents', () => {

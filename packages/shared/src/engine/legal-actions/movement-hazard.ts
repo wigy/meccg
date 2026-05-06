@@ -369,15 +369,14 @@ function parseHomesiteNames(homesite: string): string[] {
 /**
  * Generate `play-agent-hazard` actions for the hazard player.
  *
- * For each agent character card in the hazard player's hand, emits one action
- * per valid home-site instance in the hazard player's own site deck.  The
- * home site must match one of the comma-separated names in the card's
- * `homesite` field.  Counts against the hazard limit (rule 2.IV.vii.1).
+ * Emits one action per agent character card in the hazard player's hand.
+ * The home site is chosen at reveal time (rule 9.04), not at play time.
+ * Playing counts 1 against the hazard limit (rule 2.IV.vii.1).
  */
 function playAgentHazardActions(
   state: GameState,
   playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
+  _mhState: MovementHazardPhaseState,
   liveLimit: number,
   limitReached: boolean,
 ): EvaluatedAction[] {
@@ -385,48 +384,23 @@ function playAgentHazardActions(
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
 
-  // Track site names already offered (deduplicate multiple copies of the same site)
-  const seenSiteNames = new Set<string>();
-
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string];
     if (!def || !isCharacterCard(def)) continue;
     if (!('keywords' in def) || !(def as { keywords?: readonly string[] }).keywords?.includes('agent')) continue;
 
-    seenSiteNames.clear();
-    const homesiteNames = parseHomesiteNames(def.homesite);
-    if (homesiteNames.length === 0) {
-      logDetail(`Agent "${def.name}": no homesite defined — not playable as hazard`);
-      continue;
-    }
+    const action: PlayAgentHazardAction = {
+      type: 'play-agent-hazard',
+      player: playerId,
+      agentCardInstanceId: handCard.instanceId,
+    };
 
-    let foundSite = false;
-    for (const siteCard of player.siteDeck) {
-      const siteDef = state.cardPool[siteCard.definitionId as string];
-      if (!siteDef || !isSiteCard(siteDef)) continue;
-      if (!homesiteNames.includes(siteDef.name)) continue;
-      if (seenSiteNames.has(siteDef.name)) continue;
-      seenSiteNames.add(siteDef.name);
-
-      const action: PlayAgentHazardAction = {
-        type: 'play-agent-hazard',
-        player: playerId,
-        agentCardInstanceId: handCard.instanceId,
-        homeSiteInstanceId: siteCard.instanceId,
-      };
-
-      if (limitReached) {
-        logDetail(`Agent "${def.name}" at "${siteDef.name}": hazard limit reached (${liveLimit})`);
-        actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
-      } else {
-        logDetail(`Agent "${def.name}" playable at home site "${siteDef.name}"`);
-        actions.push({ action, viable: true });
-      }
-      foundSite = true;
-    }
-
-    if (!foundSite) {
-      logDetail(`Agent "${def.name}": no matching home site in site deck (homesite: "${def.homesite}")`);
+    if (limitReached) {
+      logDetail(`Agent "${def.name}": hazard limit reached (${liveLimit})`);
+      actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
+    } else {
+      logDetail(`Agent "${def.name}" playable as face-down hazard (home site chosen at reveal)`);
+      actions.push({ action, viable: true });
     }
   }
 
@@ -437,8 +411,10 @@ function playAgentHazardActions(
  * Generate `reveal-agent` actions for the hazard player.
  *
  * Revealing a face-down agent is not an action and does not count against
- * the hazard limit (rule 4.2). The hazard player may reveal any of their
- * face-down agents at any time during the play-hazards step.
+ * the hazard limit (rule 4.2). The hazard player must choose a home site
+ * from their location deck matching one of the agent's home site names
+ * (rule 9.04). One action is emitted per (agent, matching home site) pair.
+ * If no matching home site exists, the reveal is not offered.
  */
 function revealAgentActions(
   state: GameState,
@@ -447,16 +423,43 @@ function revealAgentActions(
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   const actions: EvaluatedAction[] = [];
+
   for (const agent of player.agents) {
     if (agent.revealed) continue;
-    logDetail(`Agent reveal available: agent ${agent.id as string} (${agent.character.instanceId as string})`);
-    const action: RevealAgentAction = {
-      type: 'reveal-agent',
-      player: playerId,
-      agentId: agent.id,
-    };
-    actions.push({ action, viable: true });
+
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    const homesiteNames = parseHomesiteNames(agentDef.homesite);
+    if (homesiteNames.length === 0) {
+      logDetail(`Agent ${agent.id as string}: no homesite defined — cannot reveal`);
+      continue;
+    }
+
+    // Emit one action per matching site instance in the location deck
+    const seenNames = new Set<string>();
+    for (const siteInst of player.siteDeck) {
+      const siteDef = state.cardPool[siteInst.definitionId as string];
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      if (!homesiteNames.includes(siteDef.name)) continue;
+      if (seenNames.has(siteDef.name)) continue;
+      seenNames.add(siteDef.name);
+
+      logDetail(`Agent reveal: ${agentDef.name} can reveal at home site "${siteDef.name}"`);
+      const action: RevealAgentAction = {
+        type: 'reveal-agent',
+        player: playerId,
+        agentId: agent.id,
+        homeSiteInstanceId: siteInst.instanceId,
+      };
+      actions.push({ action, viable: true });
+    }
+
+    if (seenNames.size === 0) {
+      logDetail(`Agent ${agentDef.name}: no matching home site in location deck — cannot reveal`);
+    }
   }
+
   return actions;
 }
 
