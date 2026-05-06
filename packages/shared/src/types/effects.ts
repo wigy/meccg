@@ -806,6 +806,35 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
 }
 
 /**
+ * Tap an agent of the specified skill at the target company's current site,
+ * triggering an agent attack during the movement/hazard phase (rule 9.06).
+ *
+ * If the chosen agent is face-down, it must be revealed as an active
+ * condition, but is treated as face-down at declaration time for prowess
+ * and body modifier purposes (rule 9.06).
+ *
+ * Used by An Article Missing (dm-43) and Cunning Foes (dm-50).
+ */
+export interface TapAgentEffect extends EffectBase {
+  readonly type: 'tap-agent-at-site';
+  /**
+   * Required agent skill. If omitted, any agent may be tapped.
+   * Values: `"scout"`, `"warrior"`, etc.
+   */
+  readonly skill?: string;
+  /** Prowess modifier added to the agent's base (+ any face-down modifiers). */
+  readonly prowessBonus: number;
+  /** Whether the attacker assigns strikes (true → attacker chooses defenders). */
+  readonly attackerAssigns: boolean;
+  /**
+   * Special strike resolution effect.
+   * `"discard-item"`: a successful strike does not wound; instead the
+   * defending company must discard one item (defender's choice).
+   */
+  readonly strikeEffect?: 'discard-item';
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1771,6 +1800,7 @@ export type CardEffect =
   | WoundTargetCharacterEffect
   | AutoAttackRaceDuplicateEffect
   | TriggerAttackOnPlayEffect
+  | TapAgentEffect
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect
   | ReduceAttacksToOneEffect

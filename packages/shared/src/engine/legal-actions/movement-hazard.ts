@@ -7,8 +7,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus, Alignment } from '../../index.js';
-import { canCallEndgameNow, isWizard } from '../../state-utils.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment } from '../../index.js';
+import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import type { TapAgentEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -1077,6 +1078,96 @@ function playHazardsActions(
               });
               continue;
             }
+          }
+          continue;
+        }
+
+        // Tap-agent-at-site (e.g. An Article Missing dm-43, Cunning Foes dm-50):
+        // taps a scout/warrior agent at the company's new site to initiate
+        // an M/H phase attack not counting against the hazard limit.
+        const tapAgentEffect = def.effects?.find(
+          (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
+        );
+        if (tapAgentEffect) {
+          // Cannot play against a minion (Ringwraith/Balrog) player.
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+
+          // Identify the company's new (destination) site, falling back to current.
+          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const destSiteDefId = destSiteInst
+            ? resolveInstanceId(state, destSiteInst.instanceId)
+            : null;
+          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
+
+          if (!destSiteDefId || !destSiteName) {
+            logDetail(`Hazard short-event "${def.name}" not playable — cannot resolve destination site`);
+            actions.push({ action, viable: false, reason: 'No target site for agent tap' });
+            continue;
+          }
+
+          // Find agents with the required skill at the destination site.
+          let foundAgent = false;
+          for (const agent of player.agents) {
+            const agentDef = state.cardPool[agent.character.definitionId as string];
+            if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+            // Skill check
+            if (tapAgentEffect.skill && !agentDef.skills.includes(tapAgentEffect.skill as Skill)) continue;
+
+            // Location check: agent must be at the destination site.
+            const homesiteNames = agentDef.homesite
+              ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+              : [];
+            const isAtDest = agent.revealed
+              ? (agent.siteStack.length > 0 && agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId)
+              : (agent.siteStack.length > 0
+                  ? agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId
+                  : homesiteNames.includes(destSiteName));
+            if (!isAtDest) continue;
+
+            foundAgent = true;
+
+            if (!agent.revealed) {
+              // Face-down: offer one action per available home site in deck.
+              const seenHome = new Set<string>();
+              let offeredAny = false;
+              for (const siteInst of player.siteDeck) {
+                const siteDef = state.cardPool[siteInst.definitionId as string];
+                if (!siteDef || !isSiteCard(siteDef)) continue;
+                if (!homesiteNames.includes(siteDef.name)) continue;
+                if (seenHome.has(siteDef.name)) continue;
+                seenHome.add(siteDef.name);
+                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);
+                actions.push({
+                  action: { ...action, agentInstanceId: agent.character.instanceId, homeSiteInstanceId: siteInst.instanceId },
+                  viable: true,
+                });
+                offeredAny = true;
+              }
+              if (!offeredAny) {
+                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} (no home site — will discard at EOT)`);
+                actions.push({
+                  action: { ...action, agentInstanceId: agent.character.instanceId },
+                  viable: true,
+                });
+              }
+            } else {
+              logDetail(`Hazard short-event "${def.name}": can tap face-up agent ${agentDef.name}`);
+              actions.push({
+                action: { ...action, agentInstanceId: agent.character.instanceId },
+                viable: true,
+              });
+            }
+          }
+
+          if (!foundAgent) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no matching agent at company's new site`);
+            actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
           }
           continue;
         }

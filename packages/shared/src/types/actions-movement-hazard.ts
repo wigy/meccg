@@ -121,6 +121,19 @@ export interface PlayHazardAction {
    * or Three Tribes Present), the race the player announced when playing.
    */
   readonly chosenCreatureRace?: string;
+  /**
+   * For hazard short-events that tap an agent at the target company's new
+   * site (e.g. An Article Missing dm-43, Cunning Foes dm-50), the agent
+   * character instance being tapped. The agent must be at the destination site.
+   */
+  readonly agentInstanceId?: CardInstanceId;
+  /**
+   * For tap-agent-at-site effects where the agent is face-down: a home
+   * site instance from the hazard player's location deck to place with the
+   * agent on reveal. If absent, the agent is revealed without a home site
+   * and discarded at end of turn (rule 9.04).
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
 }
 
 /**

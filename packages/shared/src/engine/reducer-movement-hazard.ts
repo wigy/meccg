@@ -6,8 +6,8 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay } from '../index.js';
-import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
+import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites } from '../index.js';
@@ -858,6 +858,16 @@ function handlePlayHazardCard(
 
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
+    // Tap-agent-at-site (An Article Missing, Cunning Foes): taps an agent at
+    // the company's new site to initiate an M/H phase attack, bypassing the
+    // chain mechanism entirely.
+    const tapAgentEff = def.effects?.find(
+      (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
+    );
+    if (tapAgentEff && action.type === 'play-hazard' && action.agentInstanceId) {
+      return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, cardIdx, def, tapAgentEff);
+    }
+
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
@@ -1011,6 +1021,177 @@ function handlePlayHazardCard(
   }
 
   return { state: newState };
+}
+
+/**
+ * Handle a tap-agent-at-site hazard short-event (e.g. An Article Missing,
+ * Cunning Foes). Resolves the effect directly without going through the chain:
+ *  - Removes the card from hand and discards it (short event)
+ *  - Reveals the targeted agent if face-down (applying face-down prowess
+ *    modifiers before reveal, per rule 9.06)
+ *  - Taps the agent and marks it as having acted this turn
+ *  - Builds and sets CombatState so the M/H phase attack can proceed
+ */
+function handleTapAgentAtSite(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: GameState['players'][number],
+  hazardIndex: number,
+  handCard: GameState['players'][number]['hand'][number],
+  cardIdx: number,
+  def: CardDefinition,
+  tapAgentEff: TapAgentEffect,
+): ReducerResult {
+  const agentInstanceId = action.agentInstanceId!;
+
+  // Locate the agent
+  const agent = hazardPlayer.agents.find(a => a.character.instanceId === agentInstanceId);
+  if (!agent) return { state, error: `Agent ${agentInstanceId as string} not found` };
+
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) {
+    return { state, error: `Agent definition not found for ${agentInstanceId as string}` };
+  }
+
+  // Get active company and its new site for prowess/home-site checks
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+  let destSiteName: string | undefined;
+  if (destSiteInst) {
+    const destSiteDef = state.cardPool[destSiteInst.definitionId as string];
+    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
+  }
+
+  // --- Compute prowess NOW, before any reveal (rule 9.06) ---
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+  const homesiteNames = agentDef.homesite
+    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
+
+  let prowess = agentDef.prowess;
+  const body = agentDef.body;
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) prowess += 5;
+  if (!isFaceDown && isAtHome) prowess += 2;
+  prowess += tapAgentEff.prowessBonus;
+
+  logDetail(`Tap-agent-at-site "${def.name}": agent "${agentDef.name}" prowess ${prowess} (faceDown: ${isFaceDown}, atHome: ${isAtHome}, bonus: +${tapAgentEff.prowessBonus})`);
+
+  // --- Reveal agent if face-down ---
+  let stateAfterReveal: GameState;
+  if (isFaceDown) {
+    const currentSiteEntry = agent.siteStack.length > 0
+      ? agent.siteStack[agent.siteStack.length - 1]
+      : destSiteInst;
+    const emptyStack = agent.siteStack.length === 0;
+
+    if (action.homeSiteInstanceId) {
+      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      if (!homeSiteCard) {
+        return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
+      }
+      const priorStackSites = agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+          ? {
+              ...a,
+              revealed: true,
+              character: { ...a.character, status: CardStatus.Tapped as const },
+              siteStack: newSiteStack,
+              actedThisTurn: true,
+            }
+          : a,
+        ),
+        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+      }));
+    } else {
+      // No home site — reveal without site, discard at EOT (rule 9.04)
+      const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? []
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+          ? {
+              ...a,
+              revealed: true,
+              character: { ...a.character, status: CardStatus.Tapped as const },
+              siteStack: newSiteStack,
+              actedThisTurn: true,
+              discardAtEndOfTurn: true,
+            }
+          : a,
+        ),
+        siteDeck: [...p.siteDeck, ...priorStackSites],
+      }));
+    }
+  } else {
+    // Already face-up: just tap and mark acted
+    stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, actedThisTurn: true }
+        : a,
+      ),
+    }));
+  }
+
+  // --- Remove card from hand, add to discard ---
+  const newHand = [...stateAfterReveal.players[hazardIndex].hand];
+  newHand.splice(cardIdx, 1);
+  stateAfterReveal = updatePlayer(stateAfterReveal, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+  }));
+
+  // --- Increment hazard count (the card counts; the attack does not) ---
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit
+    ? mhState.hazardsPlayedThisCompany
+    : mhState.hazardsPlayedThisCompany + 1;
+
+  // --- Build CombatState ---
+  const combat: CombatState = {
+    attackSource: { type: 'agent', instanceId: agentInstanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer.id,
+    strikesTotal: 1,
+    strikeProwess: prowess,
+    creatureBody: body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+    ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
+  };
+
+  return {
+    state: {
+      ...stateAfterReveal,
+      combat,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    },
+  };
 }
 
 /**
