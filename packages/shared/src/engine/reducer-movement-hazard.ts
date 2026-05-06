@@ -288,6 +288,7 @@ function handlePlayAgentHazard(
     actedThisTurn: false,
     inPlayAtTurnStart: false,
     attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
   };
 
   const newState = updatePlayer(state, hazardIndex, p => ({
@@ -367,6 +368,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
       ...agent,
       revealed: true,
       siteStack: [],
+      discardAtEndOfTurn: true,
     };
     return {
       state: updatePlayer(state, hazardIndex, p => ({

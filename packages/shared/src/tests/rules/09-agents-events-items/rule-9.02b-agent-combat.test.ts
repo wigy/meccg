@@ -83,6 +83,7 @@ function buildAgentSiteState(opts: {
     actedThisTurn: false,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: opts.attackedThisSitePhase ?? false,
+    discardAtEndOfTurn: false,
   };
 
   const withAgent = {

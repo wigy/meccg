@@ -88,4 +88,10 @@ export interface AgentInPlay {
    * Reset at the start of each site phase.
    */
   readonly attackedThisSitePhase: boolean;
+  /**
+   * True if the agent was revealed without a matching home site in the hazard
+   * player's site deck (rule 9.04). Such agents are discarded at the end of
+   * the turn — at the top of the untap phase before other reset logic.
+   */
+  readonly discardAtEndOfTurn: boolean;
 }
