@@ -186,7 +186,7 @@ describe('Rivendell (tw-421)', () => {
       'Goblin-gate',
       'Gondmaeglom',
       'Grey Havens',
-      "Hermit’s Hill",
+      "Hermit's Hill",
       'Himring',
       'Isengard',
       'Isle of the Ulond',

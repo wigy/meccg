@@ -19,6 +19,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Moria",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase."
   },
@@ -43,6 +46,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Goblin-gate, Mount Gundabad",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Agent only: if you choose to discard Baduila at target company’s new site, company must return to its site of origin."
   },
@@ -66,6 +72,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree, Cameth Brin",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -89,6 +98,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Easterling Camp, Variag Camp, Shrel-Kain",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -112,6 +124,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Dunnish Clan-hold, Bree, Cameth Brin",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -135,6 +150,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
   },
@@ -159,6 +177,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm, Mount Gram",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Can use shadow-magic and spirit-magic. Agent only: may tap for an extra strike."
   },
@@ -182,6 +203,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Dol Amroth, Minas Tirith",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
   },
@@ -205,6 +229,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Vale of Erech, Lond Galen",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -228,6 +255,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Pelargir, Vale of Erech",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Can use shadow-magic. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
   },
@@ -251,6 +281,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Iron Hill Dwarf-hold",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
   },
@@ -274,6 +307,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Shrel-Kain, Lake-town, Easterling Camp",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -297,6 +333,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Woodmen-town, Lake-town, Dale",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -321,6 +360,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Minas Morgul, Cirith Ungol, Barad-dûr",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Can use spirit-magic. Agent only: may tap to make an influence check on an ally, faction, or character."
   },
@@ -345,6 +387,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Dol Guldur",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Can use sorcery. Agent only: may tap at a company's new site to attack that company during its movement/hazard phase with +2 prowess."
   },
@@ -368,6 +413,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lond Galen, Dol Amroth",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -391,6 +439,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Southron Oasis, Variag Camp, Pelargir",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -414,6 +465,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lossadan Camp, Bree",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -436,6 +490,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Cameth Brin, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -459,6 +516,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Thranduil’s Halls, Sarn Goriwing",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
   },
@@ -482,6 +542,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Drúadan Forest, Wose Passage-hold, Stone-circle",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +3 direct influence against Wose Factions."
   },
@@ -506,6 +569,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Drúadan Forest, Wose Passage-hold, Stone-circle",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +3 direct influence against Wose Factions."
   },
@@ -529,6 +595,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Variag Camp, Easterling Camp, Southron Oasis",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -553,6 +622,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Minas Tirith, Pelargir",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
   },
@@ -577,6 +649,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Sarn Goriwing, Dol Guldur",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. Can use shadow-magic. Agent only: chooses defending characters; for each successful strike, the company must discard one item (of defender’s choice), but the defending character is not harmed."
   },
@@ -600,6 +675,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lake-town, Dale, Shrel-Kain",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent."
   },
@@ -624,6 +702,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras, Dunharrow, Isengard",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site."
   },
@@ -646,6 +727,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bag End",
+    "keywords": [],
     "effects": [],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2. You may discard Folco Boffin at a Haven to play any Hobbit from your hand with his company."
   },
@@ -668,6 +750,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Isengard",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique.Half-orc. Agent. Leader. Discard on a body check result of 8. +2 direct influence against Orcs and Orc factions. Agent only: Cannot move to Free-holds [{F}] and Border-holds [{B}]."
   },
@@ -691,6 +776,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +1 direct influence against Riders of Rohan and Dunlendings."
   },
@@ -714,6 +802,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
     "effects": [],
     "text": "Unique. Agent. +2 direct influence against Dunlendings."
   }

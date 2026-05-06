@@ -57,21 +57,15 @@ the smallest possible divergence.
 
 **Card definition — character cards (`cards-characters.ts`):**
 
-Add to both `HeroCharacterCard` and `MinionCharacterCard`:
+Agent characters carry `"agent"` in their `keywords` array (type `Keyword`,
+`types/common.ts`). No new field on the interface — the existing optional
+`keywords?: readonly Keyword[]` is sufficient.
 
-```ts
-/**
- * True for character cards that the rules designate as agents.
- * Wizard/Balrog players may only use these as hazards; Ringwraith/Fallen-wizard
- * players may play them as either a character or a hazard (§1.3.R2/F4).
- */
-readonly isAgent?: boolean;
-```
-
-Upstream `data/cards.json` does not have this flag; we hand-maintain the list
-in our local data files. Every card-certify pass for an agent must set
-`isAgent: true`. Discovery task (one-off): scan GCCG / CoE errata for the
-canonical agent list and seed `isAgent: true` on those character entries in
+Upstream `data/cards.json` has `attributes.agent = true` on DM characters;
+our local data files translate this to `keywords: ["agent"]`. Every
+card-certify pass for an agent must include `"agent"` in `keywords`.
+Discovery task (one-off): scan GCCG / CoE errata for the canonical agent list
+and seed `keywords: ["agent"]` on those character entries in
 `packages/shared/src/data/*-characters.json`.
 
 **New state — per-player `AgentInPlay`:**
@@ -186,9 +180,10 @@ export interface PlayAgentHazardAction {
   readonly type: 'play-agent-hazard';
   readonly playerId: PlayerId;
   readonly agentCardInstanceId: CardInstanceId;
-  /** Home site chosen from the player's location deck — required by rule
-   *  2.IV.vii.1 only when revealing, but we pick one eagerly so the site
-   *  stack is never empty. Sent face-down; not in play until revealed. */
+  /** Home site chosen from the hazard player's own site deck — the same
+   *  deck companies draw from. Required by rule 2.IV.vii.1 only when
+   *  revealing, but we pick one eagerly so the site stack is never empty.
+   *  Sent face-down; not in play until revealed. */
   readonly homeSiteInstanceId: CardInstanceId;
 }
 ```
@@ -205,11 +200,13 @@ phase. Counts 1 against the hazard limit (rule 2.IV.vii.1). Reducer:
    `inPlayAtTurnStart` flag flips to `true` during the next untap reducer.)
 4. Insert into `players[hazardPlayer].agents`.
 
-The home site must be one of the agent card's `homesite` values; if the card
-lists multiple (e.g. "Any non-Under-deeps Ruins & Lairs"), legal-action
-computation emits one `play-agent-hazard` per viable site instance. No new
-"virtual company creation" code path — the `AgentInPlay` constructor *is* the
-virtual company.
+The home site is drawn from the **hazard player's own site deck** — the same
+pile companies use. No separate "location deck" is introduced. The home site
+must match one of the agent card's `homesite` values; if the card lists
+multiple (e.g. "Any non-Under-deeps Ruins & Lairs"), legal-action computation
+emits one `play-agent-hazard` per viable site instance in the player's site
+deck. No new "virtual company creation" code path — the `AgentInPlay`
+constructor *is* the virtual company.
 
 ### 3.5 Agent actions during opponent's M/H phase
 
@@ -298,6 +295,11 @@ owns a face-down agent. Reducer:
 
 ### 3.8 Agent attacks at site phase
 
+An agent may **optionally** attack a company that enters its site — this is
+the only way an agent fights. CvCC between an agent and a company never
+happens: agents are hazards, not characters-in-companies, so no CvCC rule
+applies to them.
+
 Wire the existing `declare-agent-attack` step to actually surface
 agents. `computeAgentAttackActions` enumerates every agent (face-up or
 face-down) whose current site matches the company's site and whose
@@ -324,9 +326,9 @@ In the site-phase reducer at site-phase start (or M/H end-of-turn), reset
 
 These are spelled out in `rule-9.08-agent-alignment-movement.test.ts`:
 
-- **Wizard (hero):** agents count as hazards for deck-building; the existing
-  `isAgent` flag plus `alignment === 'wizard'` in deck-validation rejects
-  playing as a character.
+- **Wizard (hero):** agents count as hazards for deck-building; checking
+  `keywords.includes('agent')` plus `alignment === 'wizard'` in deck-validation
+  rejects playing as a character.
 - **Ringwraith / Fallen-wizard:** `play-character` and `play-agent-hazard`
   are both legal; the player chooses at play time. Once chosen, locked for
   the life of that instance.
@@ -341,10 +343,10 @@ These are spelled out in `rule-9.08-agent-alignment-movement.test.ts`:
 
 Each bullet is one PR, each PR ends green on build + nightly + lint.
 
-1. **Data + flag.** Add `isAgent?: boolean` to the two character interfaces;
-   set it on 2–3 sample minion agents from `data/cards.json` (pick ones that
-   appear in existing tests). No behaviour change yet. Update
-   `card-effects-dsl.md` with a short note on what the flag means.
+1. **Data + keyword.** Add `"agent"` to the `Keyword` union; seed
+   `keywords: ["agent"]` on 3 sample DM agents (dm-1 Anarin, dm-2 Baduila,
+   dm-3 Bill Ferny); wire `dm-characters.json` into the card pool. Update
+   `card-effects-dsl.md` with a Keywords section. **Done.**
 2. **`AgentInPlay` state + projection.** New file `state-agents.ts`; add
    `agents: []` to `PlayerState` init and player-view projection; add
    `OpponentAgentView`; wire reducers so the field is carried through
@@ -374,21 +376,20 @@ Each bullet is one PR, each PR ends green on build + nightly + lint.
 
 ## 5. Open questions
 
-- **Where to draw the agent's home site from at play time?** Proposal is to
-  use the hazard player's site deck directly, same as sites used by
-  companies — no separate "location deck" concept introduced. The rules
-  distinguish them but nothing we do today behaves differently; merging the
-  two avoids inventing a new pile. Flag this to the user before
-  implementing step 3.
 - **Do we model "face-up site is in play" for environment effects?** Rule
   4.2.4 says yes. We need to check every effect that iterates "sites in
   play" (River, Twilight, etc.) and decide per effect whether face-up agent
   sites count. Suggest a new helper `allFaceUpSitesInPlay(state)` that
   callers opt into, rather than changing the default.
-- **CvCC vs. agents.** An agent at its site can probably be attacked by a
-  resource player's company via CvCC (rule 1.3.R2 treats agents played as
-  characters this way, but agent-hazards aren't "characters"). Not in
-  scope here — revisit when CvCC is generalized beyond Ringwraith.
+
+**Resolved:**
+
+- **Where to draw the agent's home site from at play time?** Always the
+  hazard player's own site deck — same pile companies draw from. No separate
+  "location deck" concept (see §3.4).
+- **CvCC vs. agents.** Never happens. An agent-hazard is not a character in a
+  company, so CvCC rules do not apply. The only combat an agent can initiate
+  is the optional attack when a company enters the agent's site (see §3.8).
 
 ## 6. Non-goals
 
