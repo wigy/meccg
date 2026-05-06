@@ -25,7 +25,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess.",
-    "certified": "2026-04-21"
+    "certified": "2026-04-21",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -44,13 +45,14 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment).Special: During the site phase, you may tap two characters to untap this site—one a sage, one a scout."
+    "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment).Special: During the site phase, you may tap two characters to untap this site—one a sage, one a scout.",
+    "unique": true
   },
   {
     "cardType": "minion-site",
     "alignment": "ringwraith",
     "id": "as-144",
-    "name": "Eagles' Eyrie",
+    "name": "Eagles’ Eyrie",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/EaglesEyrie.jpg",
     "siteType": "free-hold",
     "sitePath": [
@@ -75,7 +77,8 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Playable: Information, Items (minor, major). Automatic-attacks: Animals — 2 strikes with 10 prowess (attacker chooses defending characters).",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -107,7 +110,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -139,7 +143,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -171,7 +176,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -201,7 +207,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Geann a-Lisch Playable: Information, Items (minor, major) Automatic-attacks: Dragon — 1 strike with 14 prowess Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
+    "text": "Nearest Darkhaven: Geann a-Lisch Playable: Information, Items (minor, major) Automatic-attacks: Dragon — 1 strike with 14 prowess Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site.",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -231,7 +238,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -261,7 +269,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -291,7 +300,8 @@
       }
     ],
     "resourceDraws": 3,
-    "hazardDraws": 4
+    "hazardDraws": 4,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -321,7 +331,8 @@
     ],
     "resourceDraws": 3,
     "hazardDraws": 5,
-    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowess"
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowess",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -347,7 +358,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 8 prowessSpecial: Any Man hazard creature can be played at this site."
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 8 prowessSpecial: Any Man hazard creature can be played at this site.",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -375,6 +387,7 @@
     ],
     "resourceDraws": 3,
     "hazardDraws": 5,
-    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess"
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess",
+    "unique": true
   }
 ]

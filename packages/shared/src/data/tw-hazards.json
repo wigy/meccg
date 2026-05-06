@@ -455,7 +455,7 @@
     "name": "Lost in Free-domains",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinFreedomains.jpg",
     "unique": false,
-    "eventType": "permanent",
+    "eventType": "short",
     "effects": [
       {
         "type": "play-target",
@@ -482,7 +482,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
@@ -539,7 +541,9 @@
     "text": "Corruption. Playable on a non-Hobbit, non-Wizard, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check each time a character in his company becomes wounded. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"]
+    "keywords": [
+      "corruption"
+    ]
   },
   {
     "cardType": "hazard-event",
@@ -549,14 +553,24 @@
     "text": "Environment. Each moving company that has a Shadow-land [{s}] or a Dark-domain [{d}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven site in play with a Shadow-land [{s}] or a Dark-domain [{d}] in its site path is tapped. This card has no effect on a minion player. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
       {
         "type": "force-return-to-origin",
         "condition": {
           "$or": [
-            { "sitePath.shadowCount": { "$gte": 1 } },
-            { "sitePath.darkCount": { "$gte": 1 } }
+            {
+              "sitePath.shadowCount": {
+                "$gte": 1
+              }
+            },
+            {
+              "sitePath.darkCount": {
+                "$gte": 1
+              }
+            }
           ]
         },
         "rangerException": true
@@ -571,11 +585,17 @@
     "text": "Environment. Playable if Doors of Night is in play. Each moving company with a Wilderness [{w}] in its site path must return to its site of origin. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
       {
         "type": "force-return-to-origin",
-        "condition": { "sitePath.wildernessCount": { "$gte": 1 } }
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 1
+          }
+        }
       }
     ]
   },
@@ -587,14 +607,24 @@
     "text": "The bearer of a Ring must make a corruption check modified by -2. If the bearer fails this corruption check, his Ring is discarded, but he remains in play.",
     "unique": false,
     "eventType": "short",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "certified": "2026-04-25",
     "effects": [
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.itemKeywords": { "$includes": "ring" } },
-        "cost": { "check": "corruption", "modifier": -2, "failureMode": "discard-ring-only" }
+        "filter": {
+          "target.itemKeywords": {
+            "$includes": "ring"
+          }
+        },
+        "cost": {
+          "check": "corruption",
+          "modifier": -2,
+          "failureMode": "discard-ring-only"
+        }
       }
     ]
   },
@@ -624,14 +654,26 @@
         "requires": "site-path",
         "condition": {
           "$and": [
-            { "destinationSiteType": "ruins-and-lairs" },
+            {
+              "destinationSiteType": "ruins-and-lairs"
+            },
             {
               "$or": [
-                { "sitePath.wildernessCount": { "$gte": 2 } },
+                {
+                  "sitePath.wildernessCount": {
+                    "$gte": 2
+                  }
+                },
                 {
                   "$and": [
-                    { "sitePath.wildernessCount": { "$gte": 1 } },
-                    { "inPlay": "Doors of Night" }
+                    {
+                      "sitePath.wildernessCount": {
+                        "$gte": 1
+                      }
+                    },
+                    {
+                      "inPlay": "Doors of Night"
+                    }
                   ]
                 }
               ]

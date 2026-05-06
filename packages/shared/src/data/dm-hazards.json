@@ -96,6 +96,40 @@
   },
   {
     "cardType": "hazard-event",
+    "id": "dm-43",
+    "name": "An Article Missing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AnArticleMissing.jpg",
+    "text": "Tap a scout agent at target company's new site. Agent may attack (not counting against hazard limit) with a +4 modification to his prowess during the movement/hazard phase. Attacker chooses defending characters. A successful strike doesn't wound the defending character; instead the company must discard one item (defender's choice). Cannot be played if your opponent is a minion player.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-50",
+    "name": "Cunning Foes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/CunningFoes.jpg",
+    "text": "Tap a warrior agent at target company's new site. Agent attacks (not counting against hazard limit) with a +3 modification to his prowess during the movement/hazard phase. Attacker chooses defending characters. Cannot be played if your opponent is a minion player.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-62",
+    "name": "Great Need or Purpose",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GreatNeedorPurpose.jpg",
+    "text": "Each agent may take an extra agent action each time he normally takes an agent action. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "long",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ]
+  },
+  {
+    "cardType": "hazard-event",
     "id": "dm-55",
     "name": "Exhalation of Decay",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ExhalationofDecay.jpg",

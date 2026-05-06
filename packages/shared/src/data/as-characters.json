@@ -37,7 +37,7 @@
     "cardType": "minion-character",
     "alignment": "ringwraith",
     "id": "as-3",
-    "name": "Mionid",
+    "name": "Mîonid",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Mionid.jpg",
     "unique": true,
     "race": "man",

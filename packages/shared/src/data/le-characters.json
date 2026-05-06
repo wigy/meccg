@@ -540,7 +540,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HorsemanintheNight.jpg",
     "text": "+1 direct influence against any faction.",
     "alignment": "ringwraith",
-    "unique": true,
+    "unique": false,
     "race": "man",
     "skills": [
       "warrior",
@@ -712,7 +712,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcBrawler.jpg",
     "text": "Discard on a body check result of 7 or 8. -1 to all corruption checks.",
     "alignment": "ringwraith",
-    "unique": true,
+    "unique": false,
     "race": "orc",
     "skills": [
       "warrior"
@@ -737,7 +737,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcTracker.jpg",
     "text": "Discard on a body check result of 7 or 8. -1 to all corruption checks.",
     "alignment": "ringwraith",
-    "unique": true,
+    "unique": false,
     "race": "orc",
     "skills": [
       "warrior",
@@ -763,7 +763,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcVeteran.jpg",
     "text": "Discard on a body check result of 8. -1 to all corruption checks.",
     "alignment": "ringwraith",
-    "unique": true,
+    "unique": false,
     "race": "orc",
     "skills": [
       "warrior"

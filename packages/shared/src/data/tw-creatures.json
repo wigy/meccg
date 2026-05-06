@@ -126,7 +126,11 @@
           "from": "items-on-wounded",
           "to": "discard",
           "toOwner": "defender",
-          "filter": { "subtype": { "$ne": "special" } }
+          "filter": {
+            "subtype": {
+              "$ne": "special"
+            }
+          }
         },
         "target": "wounded-character",
         "when": {
@@ -284,7 +288,7 @@
   {
     "cardType": "hazard-creature",
     "id": "tw-103",
-    "name": "Tom (Tuma)",
+    "name": "“Tom” (Tûma)",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TomTuma.jpg",
     "unique": true,
     "strikes": 1,
@@ -309,7 +313,11 @@
           "from": "items-on-wounded",
           "to": "discard",
           "toOwner": "defender",
-          "filter": { "subtype": { "$ne": "special" } }
+          "filter": {
+            "subtype": {
+              "$ne": "special"
+            }
+          }
         },
         "target": "wounded-character",
         "when": {
@@ -335,7 +343,7 @@
   {
     "cardType": "hazard-creature",
     "id": "tw-112",
-    "name": "William (Wuluag)",
+    "name": "“William” (Wûluag)",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WilliamWuluag.jpg",
     "unique": true,
     "strikes": 1,
@@ -365,7 +373,11 @@
           "from": "items-on-wounded",
           "to": "discard",
           "toOwner": "defender",
-          "filter": { "subtype": { "$ne": "special" } }
+          "filter": {
+            "subtype": {
+              "$ne": "special"
+            }
+          }
         },
         "target": "wounded-character",
         "when": {
@@ -484,7 +496,9 @@
     "race": "dragon",
     "keyedTo": [
       {
-        "siteNames": ["The Lonely Mountain"]
+        "siteNames": [
+          "The Lonely Mountain"
+        ]
       },
       {
         "regionNames": [
@@ -493,7 +507,9 @@
           "Northern Rhovanion",
           "Withered Heath"
         ],
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [
@@ -588,8 +604,19 @@
     "killMarshallingPoints": 1,
     "race": "undead",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "shadow", "dark"] },
-      { "siteTypes": ["shadow-hold", "dark-hold"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ]
+      },
+      {
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
     ],
     "effects": [
       {
@@ -617,7 +644,9 @@
     "race": "men",
     "keyedTo": [
       {
-        "regionTypes": ["coastal"]
+        "regionTypes": [
+          "coastal"
+        ]
       },
       {
         "regionNames": [

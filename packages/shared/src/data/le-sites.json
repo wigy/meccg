@@ -30,8 +30,15 @@
     "hazardDraws": 2,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
-      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
-      { "type": "site-rule", "rule": "cancel-attacks" }
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": -2
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      }
     ],
     "certified": "2026-04-20"
   },
@@ -60,8 +67,15 @@
     "hazardDraws": 2,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
-      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
-      { "type": "site-rule", "rule": "cancel-attacks" }
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": -2
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      }
     ],
     "certified": "2026-04-20"
   },
@@ -96,7 +110,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess.",
-    "certified": "2026-04-20"
+    "certified": "2026-04-20",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -124,7 +139,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess.",
-    "certified": "2026-04-21"
+    "certified": "2026-04-21",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -154,7 +170,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Geann a-Lisch. Playable: Information, Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess."
+    "text": "Nearest Darkhaven: Geann a-Lisch. Playable: Information, Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess.",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -191,10 +208,15 @@
       {
         "type": "site-rule",
         "rule": "attacks-not-detainment",
-        "filter": { "enemy.race": { "$ne": "nazgul" } }
+        "filter": {
+          "enemy.race": {
+            "$ne": "nazgul"
+          }
+        }
       }
     ],
-    "certified": "2026-04-21"
+    "certified": "2026-04-21",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -244,7 +266,8 @@
         }
       }
     ],
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -273,7 +296,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Items (minor, gold ring). Automatic-attacks: Men — 3 strikes with 6 prowess.",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -298,13 +322,14 @@
         "type": "site-rule",
         "rule": "heal-during-untap"
       }
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "minion-site",
     "alignment": "ringwraith",
     "id": "le-354",
-    "name": "Beorn's House",
+    "name": "Beorn’s House",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BeornsHouse.jpg",
     "siteType": "free-hold",
     "sitePath": [
@@ -328,7 +353,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company).",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -361,11 +387,30 @@
     "hazardDraws": 2,
     "text": "Unless this site is a character's home site, a non-Orc, non-Troll character may not be brought into play at this site. Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled.",
     "effects": [
-      { "type": "site-rule", "rule": "deny-character",
-        "filter": { "$not": { "race": { "$in": ["orc", "troll"] } } },
-        "exceptHomesite": true },
-      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
-      { "type": "site-rule", "rule": "cancel-attacks" }
+      {
+        "type": "site-rule",
+        "rule": "deny-character",
+        "filter": {
+          "$not": {
+            "race": {
+              "$in": [
+                "orc",
+                "troll"
+              ]
+            }
+          }
+        },
+        "exceptHomesite": true
+      },
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": -2
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      }
     ],
     "certified": "2026-04-21"
   },
@@ -397,7 +442,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Playable: Information. Automatic-attacks: Orcs — 1 strike with 6 prowess.",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -429,7 +475,8 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company).",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -458,13 +505,14 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, gold ring). Automatic-attacks: Orcs — 3 strikes with 6 prowess.",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
     "alignment": "ringwraith",
     "id": "le-408",
-    "name": "Thranduil's Halls",
+    "name": "Thranduil’s Halls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThranduilsHalls.jpg",
     "siteType": "free-hold",
     "sitePath": [
@@ -498,7 +546,8 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Playable: Information, Items (minor, major, gold ring). Automatic-attacks (2): (1st) Elves — each character faces 1 strike with 9 prowess (detainment against covert company); (2nd) Elves — 3 strikes with 10 prowess (against overt company only).",
-    "certified": "2026-04-19"
+    "certified": "2026-04-19",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -535,7 +584,8 @@
       }
     ],
     "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps.",
-    "certified": "2026-04-21"
+    "certified": "2026-04-21",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -567,7 +617,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -598,7 +649,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -627,7 +679,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major, greater*) *—Palantíri only Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check modified by -2"
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major, greater*) *—Palantíri only Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check modified by -2",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -658,7 +711,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -685,7 +739,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess"
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess",
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -705,7 +760,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -723,7 +779,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -745,7 +802,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -773,7 +831,8 @@
       }
     ],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -793,7 +852,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -818,7 +878,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -845,7 +906,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -863,7 +925,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -885,7 +948,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -905,7 +969,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -928,7 +993,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -956,7 +1022,8 @@
       }
     ],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -977,7 +1044,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -1000,7 +1068,8 @@
     ],
     "automaticAttacks": [],
     "resourceDraws": 1,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -1020,7 +1089,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -1051,7 +1121,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "minion-site",
@@ -1080,6 +1151,7 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)."
+    "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company).",
+    "unique": true
   }
 ]
