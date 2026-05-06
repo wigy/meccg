@@ -116,7 +116,7 @@ describe('Rule 9.03 — Agent Reveal', () => {
     expect(actions.length).toBe(0);
   });
 
-  test('reveal-agent is NOT offered when no matching home site in location deck', () => {
+  test('reveal-agent is offered even when no matching home site in location deck (agent revealed without site, discarded at end of turn)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -144,7 +144,11 @@ describe('Rule 9.03 — Agent Reveal', () => {
       phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
     };
     const actions = viableActions(state, PLAYER_2, 'reveal-agent');
-    expect(actions.length).toBe(0);
+    // Reveal is still offered — just without a homeSiteInstanceId
+    expect(actions.length).toBe(1);
+    expect(actions[0].action.type).toBe('reveal-agent');
+    const revealAction = actions[0].action as { homeSiteInstanceId?: unknown };
+    expect(revealAction.homeSiteInstanceId).toBeUndefined();
   });
 
   test('reveal-agent does not cost a hazard slot (hazard count unchanged)', () => {

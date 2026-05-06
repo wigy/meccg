@@ -99,7 +99,7 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
     expect(after.players[HAZARD_PLAYER].siteDeck.every(s => s.instanceId !== MORIA_SITE_ID)).toBe(true);
   });
 
-  test('reveal-agent not offered when no matching home site in location deck (agent would be discarded at end of turn)', () => {
+  test('reveal-agent offered even when no matching home site in location deck — revealed without site, discarded at end of turn (rule 9.04)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -130,7 +130,16 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
     };
 
     const revealActions = viableActions(state, PLAYER_2, 'reveal-agent');
-    expect(revealActions.length).toBe(0);
+    // Reveal is offered without a homeSiteInstanceId
+    expect(revealActions.length).toBe(1);
+    const revealAction = revealActions[0].action as { homeSiteInstanceId?: unknown };
+    expect(revealAction.homeSiteInstanceId).toBeUndefined();
+
+    // After dispatch, agent is revealed with empty siteStack (will be discarded at end of turn)
+    const after = dispatch(state, revealActions[0].action);
+    const revealedAgent = after.players[HAZARD_PLAYER].agents[0];
+    expect(revealedAgent.revealed).toBe(true);
+    expect(revealedAgent.siteStack.length).toBe(0);
   });
 
   test.todo('Revealing at home site is not movement; must place site from location deck; if no available site, discarded at end of turn');

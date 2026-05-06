@@ -404,7 +404,9 @@ export function describeAction(
     case 'play-agent-hazard':
       return `Play agent ${instName(action.agentCardInstanceId)} as hazard (face-down)`;
     case 'reveal-agent':
-      return `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`;
+      return action.homeSiteInstanceId
+        ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
+        : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

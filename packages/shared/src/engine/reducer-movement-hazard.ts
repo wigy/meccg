@@ -348,13 +348,32 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
   const agent = hazardPlayer.agents[agentIdx];
   if (agent.revealed) return { state, error: 'Agent is already revealed' };
 
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentName = agentDef?.name ?? String(agent.character.definitionId);
+
+  // --- No home site available: reveal without site, discard at end of turn (rule 9.04) ---
+  if (!action.homeSiteInstanceId) {
+    logDetail(`Reveal agent: ${agentName} (${agent.id as string}) — no home site available, will be discarded at end of turn`);
+    const revealedAgent: AgentInPlay = {
+      ...agent,
+      revealed: true,
+      siteStack: [],
+    };
+    return {
+      state: updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map((a, i) => i === agentIdx ? revealedAgent : a),
+        // Return any prior stack sites to deck (they were never in play)
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
+      })),
+    };
+  }
+
   // Pick the home site from the location deck
   const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
   if (!homeSiteCard) return { state, error: 'Home site not in location deck' };
   const homeSiteDef = state.cardPool[homeSiteCard.definitionId as string];
 
-  const agentDef = state.cardPool[agent.character.definitionId as string];
-  const agentName = agentDef?.name ?? String(agent.character.definitionId);
   const homeSiteName = homeSiteDef && isSiteCard(homeSiteDef) ? homeSiteDef.name : String(homeSiteCard.definitionId);
   logDetail(`Reveal agent: ${agentName} (${agent.id as string}) at home site "${homeSiteName}", prior stack length ${agent.siteStack.length}`);
 

@@ -564,7 +564,8 @@ export interface PlayAgentHazardAction {
  *
  * Per rule 9.04, the hazard player must place a site card from their own
  * location deck that matches one of the agent's home sites when revealing.
- * If no matching site is available, the agent must be discarded.
+ * If no matching site is available, the reveal is still legal but the agent
+ * is immediately discarded at the end of the current turn (rule 9.04).
  *
  * On reveal, movement legality of the site stack is checked. If any hop is
  * illegal, the agent is immediately discarded and the home site is returned
@@ -583,8 +584,8 @@ export interface RevealAgentAction {
   readonly agentId: CompanyId;
   /**
    * A site instance from the hazard player's own location deck that matches
-   * one of the agent's home sites. Required by rule 9.04: the home site must
-   * be placed with the agent at reveal time.
+   * one of the agent's home sites (rule 9.04). If omitted, no matching site
+   * was available and the agent will be discarded at end of turn.
    */
-  readonly homeSiteInstanceId: CardInstanceId;
+  readonly homeSiteInstanceId?: CardInstanceId;
 }

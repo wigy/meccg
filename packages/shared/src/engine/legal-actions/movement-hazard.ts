@@ -411,10 +411,13 @@ function playAgentHazardActions(
  * Generate `reveal-agent` actions for the hazard player.
  *
  * Revealing a face-down agent is not an action and does not count against
- * the hazard limit (rule 4.2). The hazard player must choose a home site
- * from their location deck matching one of the agent's home site names
- * (rule 9.04). One action is emitted per (agent, matching home site) pair.
- * If no matching home site exists, the reveal is not offered.
+ * the hazard limit (rule 4.2). The hazard player chooses a home site from
+ * their location deck matching the agent's home site names (rule 9.04).
+ * One action is emitted per (agent, matching home site) pair.
+ *
+ * If no matching home site exists, one action is still emitted without a
+ * homeSiteInstanceId — the reveal is legal but the agent will be discarded
+ * at end of turn (rule 9.04).
  */
 function revealAgentActions(
   state: GameState,
@@ -456,7 +459,15 @@ function revealAgentActions(
     }
 
     if (seenNames.size === 0) {
-      logDetail(`Agent ${agentDef.name}: no matching home site in location deck — cannot reveal`);
+      // No matching home site in deck — reveal is still legal but agent discarded at end of turn
+      logDetail(`Agent ${agentDef.name}: no matching home site in location deck — revealing without site (will discard at end of turn)`);
+      const action: RevealAgentAction = {
+        type: 'reveal-agent',
+        player: playerId,
+        agentId: agent.id,
+        // no homeSiteInstanceId
+      };
+      actions.push({ action, viable: true });
     }
   }
 
