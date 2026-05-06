@@ -10,7 +10,7 @@ import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAc
 import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
@@ -144,6 +144,11 @@ function handlePlayHazards(
   // --- Play agent as hazard ---
   if (action.type === 'play-agent-hazard') {
     return handlePlayAgentHazard(state, action, mhState);
+  }
+
+  // --- Reveal face-down agent (no hazard slot cost) ---
+  if (action.type === 'reveal-agent') {
+    return handleRevealAgent(state, action);
   }
 
   // For all resource-player actions below: after the action resolves,
@@ -302,6 +307,141 @@ function handlePlayAgentHazard(
         resourcePlayerPassed: false,
       },
     },
+  };
+}
+
+/**
+ * Check whether a single movement hop between two site names is legal.
+ *
+ * Returns `true` if the sites are adjacent by starter or region movement
+ * (within the 4-region default limit). Used when revealing an agent to
+ * validate the site stack's movement history.
+ *
+ * Revealing at a home site is not movement (rule 9.04); callers skip
+ * the check for a stack of size 1.
+ */
+function isLegalMovementHop(
+  state: GameState,
+  fromSiteName: string,
+  toSiteName: string,
+): boolean {
+  const movementMap = buildMovementMap(state.cardPool);
+  const allSites = Object.values(state.cardPool).filter(isSiteCard);
+  const fromDef = allSites.find(s => s.name === fromSiteName);
+  if (!fromDef) return false;
+  const reachable = getReachableSites(movementMap, fromDef, allSites);
+  return reachable.some(r => r.site.name === toSiteName);
+}
+
+/**
+ * Handle the `reveal-agent` action during the play-hazards step.
+ *
+ * Revealing does not cost a hazard slot. The engine:
+ * 1. Validates movement legality of the site stack (rule 4.2.1).
+ *    If any hop is illegal, the agent is discarded.
+ * 2. Sets `revealed = true`, trims siteStack to the top entry, returns
+ *    earlier sites to the hazard player's site deck (rule 4.2.2).
+ * 3. Checks uniqueness: if a face-up unique character/agent with the
+ *    same definitionId already exists, the newly-revealed agent is
+ *    discarded (rule 4.2.3).
+ */
+function handleRevealAgent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'reveal-agent') return wrongActionType(state, action, 'reveal-agent');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.revealed) return { state, error: 'Agent is already revealed' };
+
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentName = agentDef?.name ?? String(agent.character.definitionId);
+  logDetail(`Reveal agent: ${agentName} (${agent.id as string}), siteStack length ${agent.siteStack.length}`);
+
+  // --- Step 1: Validate movement history ---
+  // A stack of 1 means the agent is at its homesite: revealing is not movement (rule 9.04).
+  let movementLegal = true;
+  for (let i = 0; i < agent.siteStack.length - 1; i++) {
+    const fromDef = state.cardPool[agent.siteStack[i].definitionId as string];
+    const toDef = state.cardPool[agent.siteStack[i + 1].definitionId as string];
+    if (!fromDef || !toDef || !isSiteCard(fromDef) || !isSiteCard(toDef)) {
+      logDetail(`Agent reveal: site definition missing at stack index ${i} — treating as illegal`);
+      movementLegal = false;
+      break;
+    }
+    if (!isLegalMovementHop(state, fromDef.name, toDef.name)) {
+      logDetail(`Agent reveal: illegal hop ${fromDef.name} → ${toDef.name} — discarding agent`);
+      movementLegal = false;
+      break;
+    }
+  }
+
+  // --- Discard path: return all sites to site deck, put character in discard ---
+  if (!movementLegal) {
+    logDetail(`Agent ${agentName}: discarded due to illegal movement history`);
+    const returnedSites = [...agent.siteStack];
+    return {
+      state: updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.filter((_, i) => i !== agentIdx),
+        discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+        siteDeck: [...p.siteDeck, ...returnedSites],
+      })),
+    };
+  }
+
+  // --- Step 2: Check uniqueness ---
+  const isUnique = agentDef && 'unique' in agentDef && (agentDef as { unique?: boolean }).unique === true;
+  if (isUnique) {
+    let duplicate = false;
+    for (const player of state.players) {
+      // Face-up characters in companies
+      for (const char of Object.values(player.characters)) {
+        if (char.definitionId === agent.character.definitionId) { duplicate = true; break; }
+      }
+      if (duplicate) break;
+      // Face-up agents already revealed
+      for (const a of player.agents) {
+        if (a.revealed && a.id !== agent.id && a.character.definitionId === agent.character.definitionId) {
+          duplicate = true; break;
+        }
+      }
+      if (duplicate) break;
+    }
+    if (duplicate) {
+      logDetail(`Agent ${agentName}: discarded due to uniqueness conflict`);
+      const returnedSites = [...agent.siteStack];
+      return {
+        state: updatePlayer(state, hazardIndex, p => ({
+          ...p,
+          agents: p.agents.filter((_, i) => i !== agentIdx),
+          discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+          siteDeck: [...p.siteDeck, ...returnedSites],
+        })),
+      };
+    }
+  }
+
+  // --- Step 3: Reveal — keep top site, return earlier sites to deck ---
+  const currentSite = agent.siteStack[agent.siteStack.length - 1];
+  const returnedSites = agent.siteStack.slice(0, agent.siteStack.length - 1);
+  const revealedAgent: AgentInPlay = {
+    ...agent,
+    revealed: true,
+    siteStack: [currentSite],
+  };
+
+  logDetail(`Agent ${agentName}: revealed at ${state.cardPool[currentSite.definitionId as string]?.name ?? String(currentSite.definitionId)}, returning ${returnedSites.length} earlier site(s) to deck`);
+
+  return {
+    state: updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map((a, i) => i === agentIdx ? revealedAgent : a),
+      siteDeck: [...p.siteDeck, ...returnedSites],
+    })),
   };
 }
 

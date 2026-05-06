@@ -403,6 +403,8 @@ export function describeAction(
       return `Select ${instName(action.characterId)} as bearer of ${instName(action.cardInstanceId)}`;
     case 'play-agent-hazard':
       return `Play agent ${instName(action.agentCardInstanceId)} as hazard (home: ${instName(action.homeSiteInstanceId)})`;
+    case 'reveal-agent':
+      return `Reveal agent ${action.agentId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

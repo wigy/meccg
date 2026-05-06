@@ -562,3 +562,30 @@ export interface PlayAgentHazardAction {
    */
   readonly homeSiteInstanceId: CardInstanceId;
 }
+
+/**
+ * Reveal a face-down agent hazard during the resource player's M/H phase.
+ *
+ * Revealing is not an agent action and does not count against the hazard
+ * limit (CoE rule 4.2). The hazard player may reveal any of their face-down
+ * agents at any time during the resource player's Movement/Hazard phase.
+ *
+ * On reveal, the engine walks the agent's site stack to verify that each
+ * hop was a legal movement. If any hop is illegal, the agent is immediately
+ * discarded and all sites are returned to the hazard player's site deck.
+ * If the movement history is legal, the current site becomes face-up
+ * (in play), all prior sites in the stack are returned to the site deck,
+ * and the agent is set to revealed.
+ *
+ * Uniqueness is then checked: if a unique agent shares its definition with
+ * any face-up character or agent already in play, the newly-revealed agent
+ * is discarded (rule 4.2.3).
+ */
+export interface RevealAgentAction {
+  /** Action discriminant. */
+  readonly type: 'reveal-agent';
+  /** The hazard player revealing the agent. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to reveal. */
+  readonly agentId: CompanyId;
+}

@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { canCallEndgameNow, isWizard } from '../../state-utils.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -430,6 +430,33 @@ function playAgentHazardActions(
     }
   }
 
+  return actions;
+}
+
+/**
+ * Generate `reveal-agent` actions for the hazard player.
+ *
+ * Revealing a face-down agent is not an action and does not count against
+ * the hazard limit (rule 4.2). The hazard player may reveal any of their
+ * face-down agents at any time during the play-hazards step.
+ */
+function revealAgentActions(
+  state: GameState,
+  playerId: PlayerId,
+): EvaluatedAction[] {
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const actions: EvaluatedAction[] = [];
+  for (const agent of player.agents) {
+    if (agent.revealed) continue;
+    logDetail(`Agent reveal available: agent ${agent.id as string} (${agent.character.instanceId as string})`);
+    const action: RevealAgentAction = {
+      type: 'reveal-agent',
+      player: playerId,
+      agentId: agent.id,
+    };
+    actions.push({ action, viable: true });
+  }
   return actions;
 }
 
@@ -1099,6 +1126,11 @@ function playHazardsActions(
     // The hazard player may play agent character cards from hand as face-down
     // hazards (rule 2.IV.vii.1). One action per (agent, home-site) pair.
     actions.push(...playAgentHazardActions(state, playerId, mhState, liveLimit, limitReached));
+
+    // --- Agent reveal ---
+    // Revealing a face-down agent is not an agent action and does not cost
+    // a hazard slot (rule 4.2). Legal any time during play-hazards step.
+    actions.push(...revealAgentActions(state, playerId));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
