@@ -4,24 +4,38 @@
   "alignment": "minion",
   "pool": [
     {
+      "name": "Horn of Anor",
+      "card": "tw-259",
+      "qty": 1
+    },
+    {
+      "name": "Horn of Anor",
+      "card": "tw-259",
+      "qty": 1
+    },
+    {
       "name": "Thorin II",
       "card": "tw-183",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Gimli",
       "card": "tw-159",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Balin",
       "card": "tw-123",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Glóin",
       "card": "tw-160",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     }
   ],
   "deck": {
