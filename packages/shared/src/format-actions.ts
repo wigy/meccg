@@ -334,7 +334,9 @@ export function describeAction(
     case 'play-site-auto-attack':
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'declare-agent-attack':
-      return `Declare agent attack ${instName(action.agentInstanceId)}`;
+      return action.homeSiteInstanceId
+        ? `Declare agent attack ${instName(action.agentInstanceId)} (reveal at ${instName(action.homeSiteInstanceId)})`
+        : `Declare agent attack ${instName(action.agentInstanceId)}`;
     case 'pass-chain-priority':
       return `Pass chain priority`;
     case 'order-passives':

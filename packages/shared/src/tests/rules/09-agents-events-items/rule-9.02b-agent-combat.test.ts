@@ -32,7 +32,7 @@ import {
   ARAGORN, LEGOLAS,
   MORIA, LORIEN,
 } from '../../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId, CompanyId, CombatState } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, CompanyId } from '../../../index.js';
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
 import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
 
@@ -122,10 +122,11 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
       expect(passes.length).toBe(0);
     });
 
-    test('face-down agent is NOT offered as declare-agent-attack (not yet supported)', () => {
+    test('face-down agent at company site IS offered as declare-agent-attack', () => {
       const state = buildAgentSiteState({ agentRevealed: false });
       const actions = viableActions(state, PLAYER_2, 'declare-agent-attack');
-      expect(actions.length).toBe(0);
+      // Face-down agent at Moria (home site) with company at Moria — should be offered
+      expect(actions.length).toBeGreaterThan(0);
     });
 
     test('agent that already attacked this site phase is NOT offered again', () => {
@@ -150,14 +151,16 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
       expect((after.phaseState as { step: string }).step).toBe('resolve-attacks');
     });
 
-    test('declaring attack: siteEntered becomes true and declaredAgentAttack is set', () => {
+    test('declaring attack: combat is immediately set and step advances to resolve-attacks', () => {
       const state = buildAgentSiteState({ agentRevealed: true });
       const actions = viableActions(state, PLAYER_2, 'declare-agent-attack');
       const after = dispatch(state, actions[0].action);
-      const sp = after.phaseState as { step: string; siteEntered: boolean; declaredAgentAttack: CardInstanceId | null };
+      const sp = after.phaseState as { step: string; siteEntered: boolean };
       expect(sp.step).toBe('resolve-attacks');
       expect(sp.siteEntered).toBe(true);
-      expect(sp.declaredAgentAttack).toBe(AGENT_CHAR_ID);
+      // Combat is built immediately (not deferred)
+      expect(after.combat).not.toBeNull();
+      expect(after.combat?.attackSource.type).toBe('agent');
     });
 
     test('declaring attack marks agent as attackedThisSitePhase = true', () => {
@@ -168,73 +171,79 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
     });
   });
 
-  describe('resolve-attacks: agent combat initiation', () => {
-    function buildResolveState(opts: {
+  describe('combat state at declaration', () => {
+    function declareAttack(opts: {
       agentStatus?: CardStatus;
       agentSiteStack?: readonly SiteInPlay[];
       companySite?: CardDefinitionId;
+      agentRevealed?: boolean;
     } = {}) {
       const base = buildAgentSiteState({
-        agentRevealed: true,
+        agentRevealed: opts.agentRevealed ?? true,
         agentStatus: opts.agentStatus,
         agentSiteStack: opts.agentSiteStack,
         companySite: opts.companySite,
       });
-      // Advance to resolve-attacks with declaredAgentAttack set
       const actions = viableActions(base, PLAYER_2, 'declare-agent-attack');
       return dispatch(base, actions[0].action);
     }
 
-    test('pass in resolve-attacks initiates combat for declared agent', () => {
-      const state = buildResolveState();
-      const passes = viableActions(state, PLAYER_1, 'pass');
-      expect(passes.length).toBe(1);
-      const after = dispatch(state, passes[0].action);
-      expect(after.combat).not.toBeNull();
-      expect(after.combat?.attackSource.type).toBe('agent');
-    });
-
     test('face-up at home site: +2 prowess, +1 body (Anarin at Moria)', () => {
-      // Agent is at Moria (its home site), face-up
-      const state = buildResolveState({ agentSiteStack: [MORIA_SITE] });
-      const after = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
-      const combat = after.combat as CombatState;
-      expect(combat.strikeProwess).toBe(6);   // 4 + 2
-      expect(combat.creatureBody).toBe(9);     // 8 + 1
-      expect(combat.strikesTotal).toBe(1);
+      const after = declareAttack({ agentSiteStack: [MORIA_SITE] });
+      expect(after.combat?.strikeProwess).toBe(6);   // 4 + 2
+      expect(after.combat?.creatureBody).toBe(9);     // 8 + 1
+      expect(after.combat?.strikesTotal).toBe(1);
     });
 
     test('face-up not at home site: base prowess, no body modifier', () => {
-      // Use Lórien site for both company and agent — not Anarin's home
       const nonHomeSiteId = 'test-a2b-nonhome' as CardInstanceId;
       const nonHomeSite: SiteInPlay = { instanceId: nonHomeSiteId, definitionId: LORIEN, status: CardStatus.Untapped };
-      const state = buildResolveState({ agentSiteStack: [nonHomeSite], companySite: LORIEN });
-      const after = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
-      const combat = after.combat as CombatState;
-      expect(combat.strikeProwess).toBe(4);   // base, no modifier
-      expect(combat.creatureBody).toBe(8);     // base, no modifier
+      const after = declareAttack({ agentSiteStack: [nonHomeSite], companySite: LORIEN });
+      expect(after.combat?.strikeProwess).toBe(4);   // base, no modifier
+      expect(after.combat?.creatureBody).toBe(8);     // base, no modifier
     });
 
-    test('wounded agent at home site: -2 prowess (net: +2 home -2 wound = 0 modifier)', () => {
-      const state = buildResolveState({ agentStatus: CardStatus.Inverted, agentSiteStack: [MORIA_SITE] });
-      const after = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
-      const combat = after.combat as CombatState;
-      // face-up at home: +2; wounded: -2; net 0
-      expect(combat.strikeProwess).toBe(4);   // 4 + 2 - 2
+    test('wounded face-up at home: -2 prowess (net: +2 home -2 wound = 0)', () => {
+      const after = declareAttack({ agentStatus: CardStatus.Inverted, agentSiteStack: [MORIA_SITE] });
+      expect(after.combat?.strikeProwess).toBe(4);   // 4 + 2 - 2
     });
 
-    test('agent attack: declaredAgentAttack cleared after combat initiated', () => {
-      const state = buildResolveState();
-      const after = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
-      expect((after.phaseState as { declaredAgentAttack: unknown }).declaredAgentAttack).toBeNull();
+    test('face-down at home: +5 prowess, +1 body, attacker assigns strikes', () => {
+      // Agent at Moria (home) face-down, company at Moria
+      // Empty siteStack → agent at home; face-down at home → +5/+1
+      const base = buildAgentSiteState({ agentRevealed: false, agentSiteStack: [] });
+      const actions = viableActions(base, PLAYER_2, 'declare-agent-attack');
+      const after = dispatch(base, actions[0].action);
+      expect(after.combat?.strikeProwess).toBe(9);   // 4 + 5
+      expect(after.combat?.creatureBody).toBe(9);    // 8 + 1
+      expect(after.combat?.assignmentPhase).toBe('attacker');
     });
 
-    test('no declared agent attack → pass in resolve-attacks advances to play-resources', () => {
-      // Build state already in resolve-attacks with no declared agent
+    test('face-down not at home: +2 prowess, no body modifier', () => {
+      // Agent at Lorien (non-home) face-down, company at Lorien
+      const nonHomeSiteId = 'test-a2b-fd-nonhome' as CardInstanceId;
+      const nonHomeSite: SiteInPlay = { instanceId: nonHomeSiteId, definitionId: LORIEN, status: CardStatus.Untapped };
+      const base = buildAgentSiteState({ agentRevealed: false, agentSiteStack: [nonHomeSite], companySite: LORIEN });
+      const actions = viableActions(base, PLAYER_2, 'declare-agent-attack');
+      const after = dispatch(base, actions[0].action);
+      expect(after.combat?.strikeProwess).toBe(6);   // 4 + 2
+      expect(after.combat?.creatureBody).toBe(8);    // base, no modifier
+      expect(after.combat?.assignmentPhase).toBe('defender');
+    });
+
+    test('face-down agent is revealed after declaring attack', () => {
+      const base = buildAgentSiteState({ agentRevealed: false, agentSiteStack: [] });
+      const actions = viableActions(base, PLAYER_2, 'declare-agent-attack');
+      const after = dispatch(base, actions[0].action);
+      expect(after.players[HAZARD_PLAYER].agents[0].revealed).toBe(true);
+    });
+
+    test('pass in resolve-attacks (no agent attack) → advances to play-resources', () => {
+      // Hazard player passes declare step → no combat
       const base = buildAgentSiteState({ agentRevealed: true });
       const withPass = dispatch(base, viableActions(base, PLAYER_2, 'pass')[0].action);
-      // Now in resolve-attacks with no declaredAgentAttack
       expect((withPass.phaseState as { step: string }).step).toBe('resolve-attacks');
+      expect(withPass.combat).toBeNull();
       const after = dispatch(withPass, viableActions(withPass, PLAYER_1, 'pass')[0].action);
       expect((after.phaseState as { step: string }).step).toBe('play-resources');
     });

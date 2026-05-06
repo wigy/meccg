@@ -432,9 +432,10 @@ function playSiteAutoAttackActions(
 
 /**
  * Generate declare-agent-attack actions for the hazard player (CoE Step 3,
- * line 358). The hazard player may declare that a revealed agent at the
- * company's current site will attack. The agent must not have already
- * attacked this site phase. The active (resource) player waits.
+ * line 358). The hazard player may declare that an agent at the company's
+ * current site will attack. Face-down agents are revealed at declaration.
+ * An agent must not have already attacked this site phase. The active
+ * (resource) player waits.
  *
  * Always includes a `pass` so the hazard player can skip the step.
  */
@@ -444,7 +445,6 @@ function declareAgentAttackActions(
 ): GameAction[] {
   const isActive = state.activePlayer === playerId;
   if (isActive) {
-    // Active (resource) player waits during this step
     logDetail(`Active player waits during declare-agent-attack step`);
     return [];
   }
@@ -452,9 +452,13 @@ function declareAgentAttackActions(
   const siteState = state.phaseState as SitePhaseState;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const currentSiteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
   const currentSiteDefId = company?.currentSite?.definitionId;
+  const currentSiteName = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef.name : undefined;
 
-  if (!currentSiteDefId) {
+  if (!currentSiteDefId || !currentSiteName) {
     logDetail(`declare-agent-attack: no current site for active company — only pass`);
     return [{ type: 'pass', player: playerId }];
   }
@@ -468,25 +472,59 @@ function declareAgentAttackActions(
       logDetail(`Agent ${agent.id as string}: already attacked this site phase — skipping`);
       continue;
     }
-    if (!agent.revealed) {
-      // Face-down agents require reveal-as-declare (not yet supported in declare action)
-      logDetail(`Agent ${agent.id as string}: face-down — skipping (reveal required at declare time)`);
-      continue;
-    }
-    if (agent.siteStack.length === 0) continue;
 
-    const topSite = agent.siteStack[agent.siteStack.length - 1];
-    if (topSite.definitionId !== currentSiteDefId) {
-      logDetail(`Agent ${agent.id as string}: not at company's site — skipping`);
-      continue;
-    }
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    const homesiteNames = agentDef && isCharacterCard(agentDef) && agentDef.homesite
+      ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [];
 
-    logDetail(`Agent ${agent.id as string}: at company's site — can declare attack`);
-    actions.push({
-      type: 'declare-agent-attack',
-      player: playerId,
-      agentInstanceId: agent.character.instanceId,
-    });
+    if (agent.revealed) {
+      // Face-up agent: must be at company's site (top of siteStack)
+      if (agent.siteStack.length === 0) continue;
+      const topSite = agent.siteStack[agent.siteStack.length - 1];
+      if (topSite.definitionId !== currentSiteDefId) {
+        logDetail(`Agent ${agent.id as string}: face-up, not at company's site — skipping`);
+        continue;
+      }
+      logDetail(`Agent ${agent.id as string}: face-up at company's site — can declare attack`);
+      actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+    } else {
+      // Face-down agent: check if it is at the company's current site
+      // Empty siteStack → agent is at one of its home sites
+      // Non-empty siteStack → agent is at top of stack
+      const isAtCompanySite = agent.siteStack.length === 0
+        ? homesiteNames.includes(currentSiteName)
+        : agent.siteStack[agent.siteStack.length - 1].definitionId === currentSiteDefId;
+
+      if (!isAtCompanySite) {
+        logDetail(`Agent ${agent.id as string}: face-down, not at company's site — skipping`);
+        continue;
+      }
+
+      // Offer one action per home site in deck (for the reveal-at-declare)
+      const seenHome = new Set<string>();
+      let offeredAny = false;
+      for (const siteInst of hazardPlayer.siteDeck) {
+        const siteDef = state.cardPool[siteInst.definitionId as string];
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (!homesiteNames.includes(siteDef.name)) continue;
+        if (seenHome.has(siteDef.name)) continue;
+        seenHome.add(siteDef.name);
+        logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
+        actions.push({
+          type: 'declare-agent-attack',
+          player: playerId,
+          agentInstanceId: agent.character.instanceId,
+          homeSiteInstanceId: siteInst.instanceId,
+        });
+        offeredAny = true;
+      }
+      if (!offeredAny) {
+        // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
+        logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
+        actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      }
+    }
   }
 
   // Always offer pass to skip the agent attack step

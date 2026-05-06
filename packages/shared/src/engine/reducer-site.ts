@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -605,13 +605,13 @@ function handleSiteAutomaticAttacks(
 /**
  * Handle the 'declare-agent-attack' step (CoE Step 3, line 358).
  *
- * The hazard player either declares that a revealed agent at the company's
- * site will attack, or passes to skip. On declaration, the agent is recorded
- * in `declaredAgentAttack` and the step advances to `resolve-attacks`.
- * On pass, the step also advances. The site is marked entered either way.
- *
- * Prowess/body modifiers (rule 3.iv.6.1) are applied at resolve time so
- * they are always computed from the agent's current state.
+ * The hazard player either declares that an agent at the company's site will
+ * attack, or passes to skip. On declaration:
+ *  - If the agent is face-down, it is revealed in-place (rule 2.V.iii).
+ *  - Prowess/body modifiers (rule 3.iv.6.1) are computed from the agent's
+ *    state BEFORE any reveal, so face-down modifiers are applied correctly.
+ *  - CombatState is built directly and set; the step advances to
+ *    `resolve-attacks` where the resource player passes to initiate it.
  */
 function handleDeclareAgentAttack(
   state: GameState,
@@ -623,11 +623,7 @@ function handleDeclareAgentAttack(
     return {
       state: {
         ...state,
-        phaseState: {
-          ...siteState,
-          step: 'resolve-attacks' as const,
-          siteEntered: true,
-        },
+        phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
       },
     };
   }
@@ -636,7 +632,7 @@ function handleDeclareAgentAttack(
     return { state, error: `Expected 'declare-agent-attack' or 'pass' during declare-agent-attack step, got '${action.type}'` };
   }
 
-  // Find the agent across all players
+  // Find the agent
   let hazardPlayerIndex = -1;
   for (let i = 0; i < state.players.length; i++) {
     if (state.players[i].agents.some(a => a.character.instanceId === action.agentInstanceId)) {
@@ -648,32 +644,144 @@ function handleDeclareAgentAttack(
     return { state, error: `Agent ${action.agentInstanceId} not found` };
   }
 
-  const agentDef = (() => {
-    const agent = state.players[hazardPlayerIndex].agents.find(a => a.character.instanceId === action.agentInstanceId)!;
-    return state.cardPool[agent.character.definitionId as string];
-  })();
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const agent = hazardPlayer.agents.find(a => a.character.instanceId === action.agentInstanceId)!;
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) {
+    return { state, error: `Agent character definition not found for ${action.agentInstanceId}` };
+  }
 
-  logDetail(`Site: declare-agent-attack — agent "${agentDef?.name ?? action.agentInstanceId}" declared to attack`);
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
 
-  // Mark agent as having attacked this site phase
-  const stateWithAgent = updatePlayer(state, hazardPlayerIndex, p => ({
-    ...p,
-    agents: p.agents.map(a =>
-      a.character.instanceId === action.agentInstanceId
-        ? { ...a, attackedThisSitePhase: true }
-        : a,
-    ),
-  }));
+  // --- Compute prowess/body modifiers NOW (before any reveal) ---
+  // Rule 3.iv.6.1: face-down/face-up × at-home/not-at-home × wounded
+  let prowess = agentDef.prowess;
+  let body = agentDef.body;
+
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+
+  // Determine current site name for home-site check
+  let currentSiteName: string | undefined;
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const topSiteDef = state.cardPool[topSite.definitionId as string];
+    if (topSiteDef && isSiteCard(topSiteDef)) currentSiteName = topSiteDef.name;
+  } else if (company?.currentSite) {
+    // Empty siteStack: agent is at company's current site (which is one of its home sites)
+    const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
+    if (companySiteDef && isSiteCard(companySiteDef)) currentSiteName = companySiteDef.name;
+  }
+  const homesiteNames = agentDef.homesite
+    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const isAtHome = currentSiteName !== undefined && homesiteNames.includes(currentSiteName);
+
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+  if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
+
+  // Rule 3.ii.4: face-down at home → attacker assigns strikes
+  const attackerAssigns = isFaceDown && isAtHome;
+
+  // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
+  const defendingAlignment = state.players[activePlayerIndex].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
+  logDetail(`Site: declare-agent-attack — "${agentDef.name}" prowess ${prowess}, body ${body}, faceDown: ${isFaceDown}, atHome: ${isAtHome}, detainment: ${detainment}`);
+
+  // --- Reveal face-down agent in-place ---
+  // The agent stays at its current site (top of siteStack or company's site).
+  // Older siteStack entries are returned to deck. Home site card placed if provided.
+  let stateAfterReveal: GameState;
+  if (isFaceDown) {
+    const currentSiteEntry = agent.siteStack.length > 0
+      ? agent.siteStack[agent.siteStack.length - 1]
+      : company?.currentSite ?? null;
+
+    if (!currentSiteEntry) {
+      return { state, error: `Cannot determine current site for face-down agent ${action.agentInstanceId}` };
+    }
+
+    // Sites to return to deck: everything in siteStack except the current (top) position,
+    // plus any home site card that was declared (it stays with the agent in its stack)
+    const priorStackSites = agent.siteStack.slice(0, -1); // all but top
+    const emptyStack = agent.siteStack.length === 0;
+
+    if (action.homeSiteInstanceId) {
+      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      if (!homeSiteCard) {
+        return { state, error: `Home site ${action.homeSiteInstanceId} not in hazard player's site deck` };
+      }
+      // For empty siteStack (at home): siteStack = [homeSiteCard], stays at home
+      // For non-empty: siteStack = [currentSite] (prior entries returned to deck, home site removed from deck)
+      const newSiteStack = emptyStack
+        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+        : [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            : a,
+        ),
+        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+      }));
+    } else {
+      // No home site — reveal without site, discard at EOT
+      const newSiteStack = emptyStack
+        ? []
+        : [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            : a,
+        ),
+        siteDeck: [...p.siteDeck, ...returnedSites],
+      }));
+    }
+  } else {
+    // Already revealed — just mark as acted
+    stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+      ...p,
+      agents: p.agents.map(a =>
+        a.character.instanceId === action.agentInstanceId
+          ? { ...a, attackedThisSitePhase: true }
+          : a,
+      ),
+    }));
+  }
+
+  // Build CombatState with pre-computed modifiers
+  const combat: CombatState = {
+    attackSource: { type: 'agent', instanceId: action.agentInstanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer.id,
+    strikesTotal: 1,
+    strikeProwess: prowess,
+    creatureBody: body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
+    bodyCheckTarget: null,
+    detainment,
+    ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+  };
 
   return {
     state: {
-      ...stateWithAgent,
-      phaseState: {
-        ...siteState,
-        step: 'resolve-attacks' as const,
-        siteEntered: true,
-        declaredAgentAttack: action.agentInstanceId,
-      },
+      ...stateAfterReveal,
+      combat,
+      phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
     },
   };
 }
@@ -818,86 +926,6 @@ function handleSiteResolveAttacks(
   }
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-
-  // If a declared agent attack is pending, initiate it now (rule 2.V.iv)
-  if (siteState.declaredAgentAttack) {
-    const agentInstanceId = siteState.declaredAgentAttack;
-    let foundAgent: import('../types/state-agents.js').AgentInPlay | undefined;
-    let hazardPlayerId: import('../index.js').PlayerId | undefined;
-
-    for (const p of state.players) {
-      const a = p.agents.find(ag => ag.character.instanceId === agentInstanceId);
-      if (a) { foundAgent = a; hazardPlayerId = p.id; break; }
-    }
-
-    if (!foundAgent || !hazardPlayerId) {
-      return { state, error: `Declared agent ${agentInstanceId} not found` };
-    }
-
-    const agentDef = state.cardPool[foundAgent.character.definitionId as string];
-    if (!agentDef || !isCharacterCard(agentDef)) {
-      return { state, error: `Agent character definition not found for ${agentInstanceId}` };
-    }
-
-    const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-
-    // Compute prowess/body modifiers (rule 3.iv.6.1)
-    let prowess = agentDef.prowess;
-    let body = agentDef.body;
-
-    const isWounded = foundAgent.character.status === CardStatus.Inverted;
-    const isFaceDown = !foundAgent.revealed;
-
-    let currentSiteName: string | undefined;
-    if (foundAgent.siteStack.length > 0) {
-      const topSite = foundAgent.siteStack[foundAgent.siteStack.length - 1];
-      const topSiteDef = state.cardPool[topSite.definitionId as string];
-      if (topSiteDef && isSiteCard(topSiteDef)) currentSiteName = topSiteDef.name;
-    }
-    const homesiteNames = agentDef.homesite
-      ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-      : [];
-    const isAtHome = currentSiteName !== undefined && homesiteNames.includes(currentSiteName);
-
-    if (isWounded) prowess -= 2;
-    if (isFaceDown && !isAtHome) prowess += 2;
-    if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
-    if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
-
-    // Rule 3.ii.4: if face-down at home, attacking player assigns strikes
-    const attackerAssigns = isFaceDown && isAtHome;
-
-    // Rule 3.II.2.R3/B3: Ringwraith and Balrog players treat agent attacks as detainment
-    const defendingAlignment = state.players[activePlayerIndex].alignment;
-    const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
-
-    logDetail(`Site: initiating agent attack — "${agentDef.name}" prowess ${prowess}, body ${body}, detainment: ${detainment}, attackerAssigns: ${attackerAssigns}`);
-
-    const combat: CombatState = {
-      attackSource: { type: 'agent', instanceId: agentInstanceId },
-      companyId: company.id,
-      defendingPlayerId: state.activePlayer!,
-      attackingPlayerId: hazardPlayerId,
-      strikesTotal: 1,
-      strikeProwess: prowess,
-      creatureBody: body,
-      strikeAssignments: [],
-      currentStrikeIndex: 0,
-      phase: 'assign-strikes',
-      assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
-      bodyCheckTarget: null,
-      detainment,
-      ...(attackerAssigns ? { forceSingleTarget: true } : {}),
-    };
-
-    return {
-      state: {
-        ...state,
-        combat,
-        phaseState: { ...siteState, declaredAgentAttack: null },
-      },
-    };
-  }
 
   // If revealed on-guard creature attacks remain, initiate the next one via chain
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
