@@ -29,7 +29,7 @@ const BADUILA = 'dm-2' as CardDefinitionId;  // homesite: "Goblin-gate, Mount Gu
 describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
   beforeEach(() => resetMint());
 
-  test('play-agent-hazard is legal during play-hazards step when agent in hand and home site in site deck', () => {
+  test('play-agent-hazard is legal during play-hazards step when agent in hand', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -42,8 +42,24 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     const withMH = { ...state, phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }) };
     const actions = viableActions(withMH, PLAYER_2, 'play-agent-hazard');
     expect(actions.length).toBeGreaterThanOrEqual(1);
-    // Should target Moria (matching homesite)
     expect(actions.every(a => a.action.type === 'play-agent-hazard')).toBe(true);
+  });
+
+  test('play-agent-hazard is legal even when no matching home site in hazard player site deck (site chosen at reveal)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        // Baduila's homesite is "Goblin-gate, Mount Gundabad" — neither is in site deck
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BADUILA], siteDeck: [RIVENDELL, MORIA] },
+      ],
+    });
+
+    const withMH = { ...state, phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }) };
+    const viable = viableActions(withMH, PLAYER_2, 'play-agent-hazard');
+    // Action is offered (home site requirement is at reveal, not play)
+    expect(viable.length).toBe(1);
   });
 
   test('play-agent-hazard not offered when hazard limit is reached', () => {
@@ -62,23 +78,7 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     expect(viable.length).toBe(0);
   });
 
-  test('play-agent-hazard not offered when no matching home site in hazard player site deck', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
-        // Baduila's homesite is "Goblin-gate, Mount Gundabad" — neither is in site deck
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BADUILA], siteDeck: [RIVENDELL, MORIA] },
-      ],
-    });
-
-    const withMH = { ...state, phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }) };
-    const viable = viableActions(withMH, PLAYER_2, 'play-agent-hazard');
-    expect(viable.length).toBe(0);
-  });
-
-  test('dispatch play-agent-hazard: agent appears in hazard player agents, removed from hand and site deck, hazard count incremented', () => {
+  test('dispatch play-agent-hazard: agent appears face-down in hazard player agents, removed from hand, site deck unchanged, hazard count incremented', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -97,16 +97,15 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
 
     // Agent removed from hand
     expect(hazardPlayer.hand.every(c => c.definitionId !== ANARIN)).toBe(true);
-    // Site removed from site deck
-    const deckNames = hazardPlayer.siteDeck.map(c => after.cardPool[c.definitionId as string]?.name);
-    expect(deckNames).not.toContain('Moria');
-    // Agent added to agents array
+    // Site deck is unchanged (home site NOT removed at play time — rule 9.04)
+    expect(hazardPlayer.siteDeck.length).toBe(withMH.players[HAZARD_PLAYER].siteDeck.length);
+    // Agent added to agents array, face-down with empty site stack
     expect(hazardPlayer.agents.length).toBe(1);
     const agent = hazardPlayer.agents[0];
     expect(agent.revealed).toBe(false);
     expect(agent.inPlayAtTurnStart).toBe(false);
     expect(agent.actedThisTurn).toBe(false);
-    expect(agent.siteStack.length).toBe(1);
+    expect(agent.siteStack.length).toBe(0);
     // Hazard count incremented
     expect((after.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(1);
   });
@@ -128,8 +127,8 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     expect(after.players[HAZARD_PLAYER].agents[0].inPlayAtTurnStart).toBe(false);
   });
 
-  test('multi-homesite agent: one action offered per matching site in deck', () => {
-    // Baduila has "Goblin-gate, Mount Gundabad" — put both in site deck
+  test('one play-agent-hazard action per agent card in hand (not per home site)', () => {
+    // Baduila has "Goblin-gate, Mount Gundabad" — even with both in site deck, only one play action
     const GOBLIN_GATE = 'tw-398' as CardDefinitionId; // Goblin-gate
     const state = buildTestState({
       activePlayer: PLAYER_1,
@@ -142,7 +141,7 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
 
     const withMH = { ...state, phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0 }) };
     const actions = viableActions(withMH, PLAYER_2, 'play-agent-hazard');
-    // One matching site (Goblin-gate) → one action
+    // One agent card in hand → one action (home site chosen at reveal, not here)
     expect(actions.length).toBe(1);
   });
 

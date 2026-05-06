@@ -402,9 +402,11 @@ export function describeAction(
     case 'select-card-bearer':
       return `Select ${instName(action.characterId)} as bearer of ${instName(action.cardInstanceId)}`;
     case 'play-agent-hazard':
-      return `Play agent ${instName(action.agentCardInstanceId)} as hazard (home: ${instName(action.homeSiteInstanceId)})`;
+      return `Play agent ${instName(action.agentCardInstanceId)} as hazard (face-down)`;
     case 'reveal-agent':
-      return `Reveal agent ${action.agentId as string}`;
+      return action.homeSiteInstanceId
+        ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
+        : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

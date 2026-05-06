@@ -22,12 +22,12 @@ import {
 } from '../../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId } from '../../../index.js';
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
-import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
+import type { AgentInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
 
 const AGENT_CHAR_ID = 'test-home-agent-char' as CardInstanceId;
-const AGENT_SITE_ID = 'test-home-agent-site' as CardInstanceId;
+const MORIA_SITE_ID = 'test-home-moria-site' as CardInstanceId;
 
 const AGENT_CHAR: CharacterInPlay = {
   instanceId: AGENT_CHAR_ID,
@@ -41,13 +41,7 @@ const AGENT_CHAR: CharacterInPlay = {
   effectiveStats: ZERO_EFFECTIVE_STATS,
 };
 
-const HOME_SITE: SiteInPlay = {
-  instanceId: AGENT_SITE_ID,
-  definitionId: MORIA,
-  status: CardStatus.Untapped,
-};
-
-/** Build a state with a face-down agent at its home site (siteStack = [homesite]). */
+/** Build a state with a face-down agent (siteStack=[]) and Moria in the hazard player's siteDeck. */
 function buildAgentAtHomeSite() {
   const base = buildTestState({
     activePlayer: PLAYER_1,
@@ -62,17 +56,24 @@ function buildAgentAtHomeSite() {
     id: 'agent-0-0' as CompanyId,
     character: AGENT_CHAR,
     revealed: false,
-    siteStack: [HOME_SITE],
+    siteStack: [],  // empty — home site placed at reveal (rule 9.04)
     actedThisTurn: false,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
   };
 
+  // Add Moria to hazard player's siteDeck as the home site
+  const moriaSiteCard = { instanceId: MORIA_SITE_ID, definitionId: MORIA };
+
   return {
     ...base,
     players: [
       base.players[0],
-      { ...base.players[1], agents: [agent] },
+      {
+        ...base.players[1],
+        agents: [agent],
+        siteDeck: [...base.players[1].siteDeck, moriaSiteCard],
+      },
     ] as unknown as typeof base.players,
     phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
   };
@@ -81,17 +82,64 @@ function buildAgentAtHomeSite() {
 describe('Rule 9.04 — Agent Reveal at Home Site', () => {
   beforeEach(() => resetMint());
 
-  test('revealing at home site (siteStack = 1) is not movement and always legal', () => {
+  test('revealing at home site is not movement — always legal; home site placed at reveal from location deck', () => {
     const state = buildAgentAtHomeSite();
     const revealActions = viableActions(state, PLAYER_2, 'reveal-agent');
+    // One action: reveal Anarin at Moria
     expect(revealActions.length).toBe(1);
 
     const after = dispatch(state, revealActions[0].action);
     const agent = after.players[HAZARD_PLAYER].agents[0];
     expect(agent.revealed).toBe(true);
     expect(agent.siteStack.length).toBe(1);
+    expect(agent.siteStack[0].instanceId).toBe(MORIA_SITE_ID);
     // Agent NOT in discard — reveal at homesite is always legal
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === ANARIN)).toBe(false);
+    // Moria removed from location deck
+    expect(after.players[HAZARD_PLAYER].siteDeck.every(s => s.instanceId !== MORIA_SITE_ID)).toBe(true);
+  });
+
+  test('reveal-agent offered even when no matching home site in location deck — revealed without site, discarded at end of turn (rule 9.04)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        // No Moria in hazard player's siteDeck
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: AGENT_CHAR,
+      revealed: false,
+      siteStack: [],
+      actedThisTurn: false,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+    };
+
+    const state = {
+      ...base,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent] },
+      ] as unknown as typeof base.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
+    };
+
+    const revealActions = viableActions(state, PLAYER_2, 'reveal-agent');
+    // Reveal is offered without a homeSiteInstanceId
+    expect(revealActions.length).toBe(1);
+    const revealAction = revealActions[0].action as { homeSiteInstanceId?: unknown };
+    expect(revealAction.homeSiteInstanceId).toBeUndefined();
+
+    // After dispatch, agent is revealed with empty siteStack (will be discarded at end of turn)
+    const after = dispatch(state, revealActions[0].action);
+    const revealedAgent = after.players[HAZARD_PLAYER].agents[0];
+    expect(revealedAgent.revealed).toBe(true);
+    expect(revealedAgent.siteStack.length).toBe(0);
   });
 
   test.todo('Revealing at home site is not movement; must place site from location deck; if no available site, discarded at end of turn');

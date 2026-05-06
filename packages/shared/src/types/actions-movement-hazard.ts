@@ -539,14 +539,12 @@ export interface SeizedByTerrorRollAction {
  * Play an agent character card from hand as a face-down hazard.
  *
  * The hazard player plays an agent character (identified by the `agent` keyword)
- * from hand as a free-roaming hazard. The agent is placed face-down with a chosen
- * home site from the hazard player's own site deck. This counts 1 against the
- * hazard limit (rule 2.IV.vii.1).
+ * from hand as a free-roaming hazard. The agent is placed face-down without a
+ * site — the home site is chosen at reveal time (rule 9.04). This counts 1
+ * against the hazard limit (rule 2.IV.vii.1).
  *
  * The agent cannot take an agent action on the turn it was played
  * (`inPlayAtTurnStart` is set to `false`; it flips to `true` at the next untap).
- *
- * The home site must match one of the agent card's `homesite` values.
  */
 export interface PlayAgentHazardAction {
   /** Action discriminant. */
@@ -555,12 +553,6 @@ export interface PlayAgentHazardAction {
   readonly player: PlayerId;
   /** The agent character card instance being played from hand. */
   readonly agentCardInstanceId: CardInstanceId;
-  /**
-   * The home-site instance from the hazard player's own site deck.
-   * The site is placed face-down as the agent's initial site; it is not
-   * considered "in play" until the agent is revealed (rule 4.2).
-   */
-  readonly homeSiteInstanceId: CardInstanceId;
 }
 
 /**
@@ -570,12 +562,14 @@ export interface PlayAgentHazardAction {
  * limit (CoE rule 4.2). The hazard player may reveal any of their face-down
  * agents at any time during the resource player's Movement/Hazard phase.
  *
- * On reveal, the engine walks the agent's site stack to verify that each
- * hop was a legal movement. If any hop is illegal, the agent is immediately
- * discarded and all sites are returned to the hazard player's site deck.
- * If the movement history is legal, the current site becomes face-up
- * (in play), all prior sites in the stack are returned to the site deck,
- * and the agent is set to revealed.
+ * Per rule 9.04, the hazard player must place a site card from their own
+ * location deck that matches one of the agent's home sites when revealing.
+ * If no matching site is available, the reveal is still legal but the agent
+ * is immediately discarded at the end of the current turn (rule 9.04).
+ *
+ * On reveal, movement legality of the site stack is checked. If any hop is
+ * illegal, the agent is immediately discarded and the home site is returned
+ * to the location deck. If legal, the current site becomes face-up (in play).
  *
  * Uniqueness is then checked: if a unique agent shares its definition with
  * any face-up character or agent already in play, the newly-revealed agent
@@ -588,4 +582,10 @@ export interface RevealAgentAction {
   readonly player: PlayerId;
   /** The CompanyId of the agent to reveal. */
   readonly agentId: CompanyId;
+  /**
+   * A site instance from the hazard player's own location deck that matches
+   * one of the agent's home sites (rule 9.04). If omitted, no matching site
+   * was available and the agent will be discarded at end of turn.
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
 }
