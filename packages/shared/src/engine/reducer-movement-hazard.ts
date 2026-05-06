@@ -1567,9 +1567,16 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.
     const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
-    // Reset moved flags so the site phase shows a clean slate
+    // Reset moved flags and per-site-phase agent flags so the site phase shows a clean slate
+    const resetHazardIndex = mergedState.players.findIndex(p => p.id !== mergedState.activePlayer);
+    const withAgentReset = resetHazardIndex >= 0
+      ? updatePlayer(mergedState, resetHazardIndex, p => ({
+          ...p,
+          agents: p.agents.map(a => ({ ...a, attackedThisSitePhase: false })),
+        }))
+      : mergedState;
     const cleanedState = cleanupEmptyCompanies({
-      ...updatePlayer(mergedState, activeIndex, p => ({
+      ...updatePlayer(withAgentReset, activeIndex, p => ({
         ...p,
         companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
       })),

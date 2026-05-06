@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -49,8 +49,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
-  'declare-agent-attack': (state, action, siteState) =>
-    handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true),
+  'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
   // TODO: play-minor-item
@@ -604,6 +603,82 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
+ * Handle the 'declare-agent-attack' step (CoE Step 3, line 358).
+ *
+ * The hazard player either declares that a revealed agent at the company's
+ * site will attack, or passes to skip. On declaration, the agent is recorded
+ * in `declaredAgentAttack` and the step advances to `resolve-attacks`.
+ * On pass, the step also advances. The site is marked entered either way.
+ *
+ * Prowess/body modifiers (rule 3.iv.6.1) are applied at resolve time so
+ * they are always computed from the agent's current state.
+ */
+function handleDeclareAgentAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type === 'pass') {
+    logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          step: 'resolve-attacks' as const,
+          siteEntered: true,
+        },
+      },
+    };
+  }
+
+  if (action.type !== 'declare-agent-attack') {
+    return { state, error: `Expected 'declare-agent-attack' or 'pass' during declare-agent-attack step, got '${action.type}'` };
+  }
+
+  // Find the agent across all players
+  let hazardPlayerIndex = -1;
+  for (let i = 0; i < state.players.length; i++) {
+    if (state.players[i].agents.some(a => a.character.instanceId === action.agentInstanceId)) {
+      hazardPlayerIndex = i;
+      break;
+    }
+  }
+  if (hazardPlayerIndex === -1) {
+    return { state, error: `Agent ${action.agentInstanceId} not found` };
+  }
+
+  const agentDef = (() => {
+    const agent = state.players[hazardPlayerIndex].agents.find(a => a.character.instanceId === action.agentInstanceId)!;
+    return state.cardPool[agent.character.definitionId as string];
+  })();
+
+  logDetail(`Site: declare-agent-attack — agent "${agentDef?.name ?? action.agentInstanceId}" declared to attack`);
+
+  // Mark agent as having attacked this site phase
+  const stateWithAgent = updatePlayer(state, hazardPlayerIndex, p => ({
+    ...p,
+    agents: p.agents.map(a =>
+      a.character.instanceId === action.agentInstanceId
+        ? { ...a, attackedThisSitePhase: true }
+        : a,
+    ),
+  }));
+
+  return {
+    state: {
+      ...stateWithAgent,
+      phaseState: {
+        ...siteState,
+        step: 'resolve-attacks' as const,
+        siteEntered: true,
+        declaredAgentAttack: action.agentInstanceId,
+      },
+    },
+  };
+}
+
+/**
  * Handle the `play-site-auto-attack` step: hazard player may play one
  * creature from hand as the site's automatic-attack (Framsburg td-175 and
  * any future site with a `site-rule: dynamic-auto-attack` effect). On a
@@ -742,8 +817,89 @@ function handleSiteResolveAttacks(
     return { state, error: `Expected 'pass' during resolve-attacks step` };
   }
 
-  // If revealed on-guard creature attacks remain, initiate the next one via chain
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+
+  // If a declared agent attack is pending, initiate it now (rule 2.V.iv)
+  if (siteState.declaredAgentAttack) {
+    const agentInstanceId = siteState.declaredAgentAttack;
+    let foundAgent: import('../types/state-agents.js').AgentInPlay | undefined;
+    let hazardPlayerId: import('../index.js').PlayerId | undefined;
+
+    for (const p of state.players) {
+      const a = p.agents.find(ag => ag.character.instanceId === agentInstanceId);
+      if (a) { foundAgent = a; hazardPlayerId = p.id; break; }
+    }
+
+    if (!foundAgent || !hazardPlayerId) {
+      return { state, error: `Declared agent ${agentInstanceId} not found` };
+    }
+
+    const agentDef = state.cardPool[foundAgent.character.definitionId as string];
+    if (!agentDef || !isCharacterCard(agentDef)) {
+      return { state, error: `Agent character definition not found for ${agentInstanceId}` };
+    }
+
+    const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+    // Compute prowess/body modifiers (rule 3.iv.6.1)
+    let prowess = agentDef.prowess;
+    let body = agentDef.body;
+
+    const isWounded = foundAgent.character.status === CardStatus.Inverted;
+    const isFaceDown = !foundAgent.revealed;
+
+    let currentSiteName: string | undefined;
+    if (foundAgent.siteStack.length > 0) {
+      const topSite = foundAgent.siteStack[foundAgent.siteStack.length - 1];
+      const topSiteDef = state.cardPool[topSite.definitionId as string];
+      if (topSiteDef && isSiteCard(topSiteDef)) currentSiteName = topSiteDef.name;
+    }
+    const homesiteNames = agentDef.homesite
+      ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+    const isAtHome = currentSiteName !== undefined && homesiteNames.includes(currentSiteName);
+
+    if (isWounded) prowess -= 2;
+    if (isFaceDown && !isAtHome) prowess += 2;
+    if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+    if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
+
+    // Rule 3.ii.4: if face-down at home, attacking player assigns strikes
+    const attackerAssigns = isFaceDown && isAtHome;
+
+    // Rule 3.II.2.R3/B3: Ringwraith and Balrog players treat agent attacks as detainment
+    const defendingAlignment = state.players[activePlayerIndex].alignment;
+    const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
+    logDetail(`Site: initiating agent attack — "${agentDef.name}" prowess ${prowess}, body ${body}, detainment: ${detainment}, attackerAssigns: ${attackerAssigns}`);
+
+    const combat: CombatState = {
+      attackSource: { type: 'agent', instanceId: agentInstanceId },
+      companyId: company.id,
+      defendingPlayerId: state.activePlayer!,
+      attackingPlayerId: hazardPlayerId,
+      strikesTotal: 1,
+      strikeProwess: prowess,
+      creatureBody: body,
+      strikeAssignments: [],
+      currentStrikeIndex: 0,
+      phase: 'assign-strikes',
+      assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
+      bodyCheckTarget: null,
+      detainment,
+      ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+    };
+
+    return {
+      state: {
+        ...state,
+        combat,
+        phaseState: { ...siteState, declaredAgentAttack: null },
+      },
+    };
+  }
+
+  // If revealed on-guard creature attacks remain, initiate the next one via chain
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   if (company) {
     const revealedIdx = company.onGuardCards.findIndex(og => {
@@ -1789,51 +1945,6 @@ function discardInfluencedCard(
   };
 }
 
-/**
- * Handle a site phase step that currently only accepts 'pass' to advance
- * to the next step. Used as a stub for reveal-on-guard-attacks,
- * automatic-attacks, and declare-agent-attack until full logic is implemented.
- *
- * @param markEntered - If true, sets siteEntered when advancing (used after
- *   the last attack step to mark the company as having successfully entered).
- */
-
-
-/**
- * Handle a site phase step that currently only accepts 'pass' to advance
- * to the next step. Used as a stub for reveal-on-guard-attacks,
- * automatic-attacks, and declare-agent-attack until full logic is implemented.
- *
- * @param markEntered - If true, sets siteEntered when advancing (used after
- *   the last attack step to mark the company as having successfully entered).
- */
-function handleSitePassStep(
-  state: GameState,
-  action: GameAction,
-  siteState: SitePhaseState,
-  currentStep: string,
-  nextStep: SitePhaseState['step'],
-  markEntered?: boolean,
-): ReducerResult {
-  if (action.type !== 'pass') {
-    return wrongActionType(state, action, 'pass', `${currentStep} step`);
-  }
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may pass during ${currentStep}` };
-  }
-
-  logDetail(`Site: ${currentStep} → advancing to ${nextStep}`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        ...siteState,
-        step: nextStep,
-        ...(markEntered ? { siteEntered: true } : {}),
-      },
-    },
-  };
-}
 
 /**
  * Advance the site phase to the next company or to End-of-Turn if all

@@ -431,22 +431,67 @@ function playSiteAutoAttackActions(
 // `engine/pending-reducers.ts` (applyCorruptionCheckResolution).
 
 /**
- * Stub: declare-agent-attack step (CoE Step 3, line 358).
+ * Generate declare-agent-attack actions for the hazard player (CoE Step 3,
+ * line 358). The hazard player may declare that a revealed agent at the
+ * company's current site will attack. The agent must not have already
+ * attacked this site phase. The active (resource) player waits.
  *
- * The hazard player may declare an agent at the site will attack.
- * For now, only active player can pass.
+ * Always includes a `pass` so the hazard player can skip the step.
  */
 function declareAgentAttackActions(
   state: GameState,
   playerId: PlayerId,
 ): GameAction[] {
   const isActive = state.activePlayer === playerId;
-  if (!isActive) {
-    logDetail(`Not active player — no actions during declare-agent-attack step`);
+  if (isActive) {
+    // Active (resource) player waits during this step
+    logDetail(`Active player waits during declare-agent-attack step`);
     return [];
   }
-  logDetail(`Declare agent attack — pass to advance`);
-  return [{ type: 'pass', player: playerId }];
+
+  const siteState = state.phaseState as SitePhaseState;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const currentSiteDefId = company?.currentSite?.definitionId;
+
+  if (!currentSiteDefId) {
+    logDetail(`declare-agent-attack: no current site for active company — only pass`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+
+  const actions: GameAction[] = [];
+  for (const agent of hazardPlayer.agents) {
+    if (agent.attackedThisSitePhase) {
+      logDetail(`Agent ${agent.id as string}: already attacked this site phase — skipping`);
+      continue;
+    }
+    if (!agent.revealed) {
+      // Face-down agents require reveal-as-declare (not yet supported in declare action)
+      logDetail(`Agent ${agent.id as string}: face-down — skipping (reveal required at declare time)`);
+      continue;
+    }
+    if (agent.siteStack.length === 0) continue;
+
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    if (topSite.definitionId !== currentSiteDefId) {
+      logDetail(`Agent ${agent.id as string}: not at company's site — skipping`);
+      continue;
+    }
+
+    logDetail(`Agent ${agent.id as string}: at company's site — can declare attack`);
+    actions.push({
+      type: 'declare-agent-attack',
+      player: playerId,
+      agentInstanceId: agent.character.instanceId,
+    });
+  }
+
+  // Always offer pass to skip the agent attack step
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
 
 /**
