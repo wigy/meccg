@@ -589,3 +589,129 @@ export interface RevealAgentAction {
    */
   readonly homeSiteInstanceId?: CardInstanceId;
 }
+
+/**
+ * Move a face-down agent hazard to a site in the same or an adjacent region.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). The agent must
+ * have been in play at the start of the turn (`inPlayAtTurnStart = true`) and
+ * not already acted this turn (`actedThisTurn = false`). The agent is tapped
+ * after moving (rule 9.02). The destination site is pushed onto `siteStack`.
+ * Excludes Under-deeps sites and haven sites (rules 9.02, 9.07).
+ */
+export interface AgentMoveAction {
+  /** Action discriminant. */
+  readonly type: 'agent-move';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the moving agent. */
+  readonly agentId: CompanyId;
+  /** Destination site from the hazard player's location deck. */
+  readonly destinationSiteInstanceId: CardInstanceId;
+}
+
+/**
+ * Move a face-down agent one step back along its site stack.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). The most recent
+ * site is popped from `siteStack` and returned to the location deck.
+ * Only legal if `siteStack.length > 1` (there is a prior site to return to).
+ * The agent is tapped after moving.
+ */
+export interface AgentMoveBackAction {
+  /** Action discriminant. */
+  readonly type: 'agent-move-back';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the moving agent. */
+  readonly agentId: CompanyId;
+}
+
+/**
+ * Return an agent to its home site.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). All current
+ * `siteStack` entries are returned to the location deck. This does NOT tap
+ * the agent (rule 4.1). For a face-down agent, siteStack becomes empty (the
+ * agent is conceptually at home without a site card). For a face-up agent,
+ * a home site card from the location deck must be placed with the agent
+ * (homeSiteInstanceId required).
+ */
+export interface AgentReturnHomeAction {
+  /** Action discriminant. */
+  readonly type: 'agent-return-home';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent returning home. */
+  readonly agentId: CompanyId;
+  /**
+   * Home site instance from the hazard player's location deck.
+   * Required only when the agent is face-up (rule 4.1); omitted for
+   * face-down agents (siteStack simply becomes empty).
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
+}
+
+/**
+ * Heal a wounded agent (Inverted) to tapped (Tapped) status.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). Only legal if
+ * `agent.character.status === CardStatus.Inverted` (wounded).
+ */
+export interface AgentHealAction {
+  /** Action discriminant. */
+  readonly type: 'agent-heal';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to heal. */
+  readonly agentId: CompanyId;
+}
+
+/**
+ * Untap a tapped agent.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). Only legal if
+ * `agent.character.status === CardStatus.Tapped`.
+ */
+export interface AgentUntapAction {
+  /** Action discriminant. */
+  readonly type: 'agent-untap';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to untap. */
+  readonly agentId: CompanyId;
+}
+
+/**
+ * Turn a revealed (face-up) agent face-down.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). Only legal if
+ * the agent is revealed (`revealed = true`) and untapped
+ * (`character.status === CardStatus.Untapped`). Does not tap the agent.
+ * The current face-up site remains in `siteStack` (now face-down again).
+ */
+export interface AgentTurnFaceDownAction {
+  /** Action discriminant. */
+  readonly type: 'agent-turn-face-down';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to turn face-down. */
+  readonly agentId: CompanyId;
+}
+
+/**
+ * Tap an untapped agent to make creatures keyable to its current site.
+ *
+ * This is an agent action (costs 1 hazard slot, rule 9.02). The agent must
+ * be untapped (`character.status === CardStatus.Untapped`). After this action,
+ * hazard creatures may be keyed to the agent's current site for the rest of
+ * the turn. Taps the agent.
+ */
+export interface AgentKeyCreaturesAction {
+  /** Action discriminant. */
+  readonly type: 'agent-key-creatures';
+  /** The hazard player taking the action. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent keying creatures. */
+  readonly agentId: CompanyId;
+}
