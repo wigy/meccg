@@ -534,3 +534,31 @@ export interface SeizedByTerrorRollAction {
   /** Human-readable breakdown of the check. */
   readonly explanation: string;
 }
+
+/**
+ * Play an agent character card from hand as a face-down hazard.
+ *
+ * The hazard player plays an agent character (identified by the `agent` keyword)
+ * from hand as a free-roaming hazard. The agent is placed face-down with a chosen
+ * home site from the hazard player's own site deck. This counts 1 against the
+ * hazard limit (rule 2.IV.vii.1).
+ *
+ * The agent cannot take an agent action on the turn it was played
+ * (`inPlayAtTurnStart` is set to `false`; it flips to `true` at the next untap).
+ *
+ * The home site must match one of the agent card's `homesite` values.
+ */
+export interface PlayAgentHazardAction {
+  /** Action discriminant. */
+  readonly type: 'play-agent-hazard';
+  /** The hazard player playing the agent. */
+  readonly player: PlayerId;
+  /** The agent character card instance being played from hand. */
+  readonly agentCardInstanceId: CardInstanceId;
+  /**
+   * The home-site instance from the hazard player's own site deck.
+   * The site is placed face-down as the agent's initial site; it is not
+   * considered "in play" until the agent is revealed (rule 4.2).
+   */
+  readonly homeSiteInstanceId: CardInstanceId;
+}

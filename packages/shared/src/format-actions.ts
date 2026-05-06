@@ -401,6 +401,8 @@ export function describeAction(
       return `Skip wizard search`;
     case 'select-card-bearer':
       return `Select ${instName(action.characterId)} as bearer of ${instName(action.cardInstanceId)}`;
+    case 'play-agent-hazard':
+      return `Play agent ${instName(action.agentCardInstanceId)} as hazard (home: ${instName(action.homeSiteInstanceId)})`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

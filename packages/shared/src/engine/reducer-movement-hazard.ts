@@ -6,11 +6,11 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -141,6 +141,11 @@ function handlePlayHazards(
     return handlePlayHazardCard(state, action, mhState);
   }
 
+  // --- Play agent as hazard ---
+  if (action.type === 'play-agent-hazard') {
+    return handlePlayAgentHazard(state, action, mhState);
+  }
+
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
   let result: ReducerResult;
@@ -208,6 +213,97 @@ function handlePlayHazards(
  * TODO: creatures, short-events, permanent-events, on-guard cards
  */
 
+
+/**
+ * Generate a unique CompanyId for a new agent in-play record.
+ *
+ * Uses an "agent-" prefix namespace (different from "company-") so that
+ * `SelectCompanyAction` can distinguish agents from companies if needed in the
+ * future, while still being a valid `CompanyId` for existing action routing.
+ */
+function nextAgentId(player: { readonly agents: readonly AgentInPlay[] }): CompanyId {
+  const maxIdx = player.agents.reduce((max, a) => {
+    const match = (a.id as string).match(/agent-.*-(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, -1);
+  return `agent-${player.agents.length}-${maxIdx + 1}` as CompanyId;
+}
+
+/**
+ * Handle the `play-agent-hazard` action during the play-hazards step.
+ *
+ * Removes the agent character from hand and the chosen home site from the
+ * hazard player's site deck. Creates a face-down `AgentInPlay` with the site
+ * as the initial stack entry. Increments the hazard count.
+ */
+function handlePlayAgentHazard(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'play-agent-hazard') return wrongActionType(state, action, 'play-agent-hazard');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentHandCard = hazardPlayer.hand.find(c => c.instanceId === action.agentCardInstanceId);
+  if (!agentHandCard) return { state, error: 'Agent card not in hand' };
+
+  const agentDef = state.cardPool[agentHandCard.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent card definition not found' };
+
+  const homeSiteCard = hazardPlayer.siteDeck.find(c => c.instanceId === action.homeSiteInstanceId);
+  if (!homeSiteCard) return { state, error: 'Home site not in site deck' };
+
+  const siteDef = state.cardPool[homeSiteCard.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Home site definition not found' };
+
+  logDetail(`Play agent hazard: "${agentDef.name}" (${agentHandCard.instanceId as string}) at home site "${siteDef.name}" — placed face-down (${mhState.hazardsPlayedThisCompany + 1} hazards played)`);
+
+  const agentChar: CharacterInPlay = {
+    instanceId: agentHandCard.instanceId,
+    definitionId: agentHandCard.definitionId,
+    status: CardStatus.Untapped,
+    items: [],
+    allies: [],
+    hazards: [],
+    followers: [],
+    controlledBy: 'general',
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+
+  const agentInPlay: AgentInPlay = {
+    id: nextAgentId(hazardPlayer),
+    character: agentChar,
+    revealed: false,
+    siteStack: [{
+      instanceId: homeSiteCard.instanceId,
+      definitionId: homeSiteCard.definitionId,
+      status: CardStatus.Untapped,
+    }],
+    actedThisTurn: false,
+    inPlayAtTurnStart: false,
+    attackedThisSitePhase: false,
+  };
+
+  const newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, action.agentCardInstanceId),
+    siteDeck: removeById(p.siteDeck, action.homeSiteInstanceId),
+    agents: [...p.agents, agentInPlay],
+  }));
+
+  return {
+    state: {
+      ...newState,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        resourcePlayerPassed: false,
+      },
+    },
+  };
+}
 
 /**
  * Play a hazard card from hand during the play-hazards step.
