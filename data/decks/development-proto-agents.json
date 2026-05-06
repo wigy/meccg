@@ -1,0 +1,138 @@
+{
+  "id": "development-proto-agents",
+  "name": "Agents (Development only)",
+  "alignment": "ringwraith",
+  "pool": [
+    {
+      "name": "Thorin II",
+      "card": "tw-183",
+      "qty": 1
+    },
+    {
+      "name": "Gimli",
+      "card": "tw-159",
+      "qty": 1
+    },
+    {
+      "name": "Balin",
+      "card": "tw-123",
+      "qty": 1
+    },
+    {
+      "name": "Glóin",
+      "card": "tw-160",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Drór",
+        "card": "dm-6",
+        "qty": 1
+      },
+      {
+        "name": "Bill Ferny",
+        "card": "dm-3",
+        "qty": 1
+      },
+      {
+        "name": "Wormtongue",
+        "card": "dm-27",
+        "qty": 1
+      },
+      {
+        "name": "Fori the Beardless",
+        "card": "dm-11",
+        "qty": 1
+      },
+      {
+        "name": "The Grimburgoth",
+        "card": "dm-15",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "An Article Missing",
+        "card": "dm-43",
+        "qty": 3
+      },
+      {
+        "name": "Cunning Foes",
+        "card": "dm-50",
+        "qty": 3
+      },
+      {
+        "name": "Great Need or Purpose",
+        "card": "dm-62",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Blue Mountain Dwarves",
+        "card": "tw-200",
+        "qty": 1
+      },
+      {
+        "name": "Iron Hill Dwarves",
+        "card": "tw-261",
+        "qty": 1
+      },
+      {
+        "name": "Book of Mazarbul",
+        "card": "tw-201",
+        "qty": 1
+      },
+      {
+        "name": "Durin's Axe",
+        "card": "tw-212",
+        "qty": 1
+      },
+      {
+        "name": "The Dwarves Are upon You!",
+        "card": "dm-124",
+        "qty": 3
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
+    },
+    {
+      "name": "Dimrill Dale",
+      "card": "le-365",
+      "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Blue Mountain Dwarf-hold",
+      "card": "tw-377",
+      "qty": 1
+    },
+    {
+      "name": "Iron Hill Dwarf-hold",
+      "card": "tw-403",
+      "qty": 1
+    },
+    {
+      "name": "The Lonely Mountain",
+      "card": "tw-428",
+      "qty": 1
+    }
+  ],
+  "sideboard": []
+}
