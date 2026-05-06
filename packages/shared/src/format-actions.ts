@@ -407,6 +407,22 @@ export function describeAction(
       return action.homeSiteInstanceId
         ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
         : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
+    case 'agent-move':
+      return `Agent ${action.agentId as string} moves to ${instName(action.destinationSiteInstanceId)}`;
+    case 'agent-move-back':
+      return `Agent ${action.agentId as string} moves back`;
+    case 'agent-return-home':
+      return action.homeSiteInstanceId
+        ? `Agent ${action.agentId as string} returns home to ${instName(action.homeSiteInstanceId)}`
+        : `Agent ${action.agentId as string} returns home`;
+    case 'agent-heal':
+      return `Agent ${action.agentId as string} heals`;
+    case 'agent-untap':
+      return `Agent ${action.agentId as string} untaps`;
+    case 'agent-turn-face-down':
+      return `Agent ${action.agentId as string} turns face-down`;
+    case 'agent-key-creatures':
+      return `Agent ${action.agentId as string} taps to key creatures`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
