@@ -534,3 +534,58 @@ export interface SeizedByTerrorRollAction {
   /** Human-readable breakdown of the check. */
   readonly explanation: string;
 }
+
+/**
+ * Play an agent character card from hand as a face-down hazard.
+ *
+ * The hazard player plays an agent character (identified by the `agent` keyword)
+ * from hand as a free-roaming hazard. The agent is placed face-down with a chosen
+ * home site from the hazard player's own site deck. This counts 1 against the
+ * hazard limit (rule 2.IV.vii.1).
+ *
+ * The agent cannot take an agent action on the turn it was played
+ * (`inPlayAtTurnStart` is set to `false`; it flips to `true` at the next untap).
+ *
+ * The home site must match one of the agent card's `homesite` values.
+ */
+export interface PlayAgentHazardAction {
+  /** Action discriminant. */
+  readonly type: 'play-agent-hazard';
+  /** The hazard player playing the agent. */
+  readonly player: PlayerId;
+  /** The agent character card instance being played from hand. */
+  readonly agentCardInstanceId: CardInstanceId;
+  /**
+   * The home-site instance from the hazard player's own site deck.
+   * The site is placed face-down as the agent's initial site; it is not
+   * considered "in play" until the agent is revealed (rule 4.2).
+   */
+  readonly homeSiteInstanceId: CardInstanceId;
+}
+
+/**
+ * Reveal a face-down agent hazard during the resource player's M/H phase.
+ *
+ * Revealing is not an agent action and does not count against the hazard
+ * limit (CoE rule 4.2). The hazard player may reveal any of their face-down
+ * agents at any time during the resource player's Movement/Hazard phase.
+ *
+ * On reveal, the engine walks the agent's site stack to verify that each
+ * hop was a legal movement. If any hop is illegal, the agent is immediately
+ * discarded and all sites are returned to the hazard player's site deck.
+ * If the movement history is legal, the current site becomes face-up
+ * (in play), all prior sites in the stack are returned to the site deck,
+ * and the agent is set to revealed.
+ *
+ * Uniqueness is then checked: if a unique agent shares its definition with
+ * any face-up character or agent already in play, the newly-revealed agent
+ * is discarded (rule 4.2.3).
+ */
+export interface RevealAgentAction {
+  /** Action discriminant. */
+  readonly type: 'reveal-agent';
+  /** The hazard player revealing the agent. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent to reveal. */
+  readonly agentId: CompanyId;
+}

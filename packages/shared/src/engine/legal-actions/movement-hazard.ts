@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { canCallEndgameNow, isWizard } from '../../state-utils.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -355,6 +355,108 @@ function drawCardsActions(
   }
 
   logDetail(`${playerLabel} player draw-cards: ${drawnSoFar}/${drawMax} drawn, ${actions.length} action(s)`);
+  return actions;
+}
+
+/**
+ * Parse a comma-separated homesite string into individual site name tokens.
+ * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"]
+ */
+function parseHomesiteNames(homesite: string): string[] {
+  return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
+}
+
+/**
+ * Generate `play-agent-hazard` actions for the hazard player.
+ *
+ * For each agent character card in the hazard player's hand, emits one action
+ * per valid home-site instance in the hazard player's own site deck.  The
+ * home site must match one of the comma-separated names in the card's
+ * `homesite` field.  Counts against the hazard limit (rule 2.IV.vii.1).
+ */
+function playAgentHazardActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  liveLimit: number,
+  limitReached: boolean,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+
+  // Track site names already offered (deduplicate multiple copies of the same site)
+  const seenSiteNames = new Set<string>();
+
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!def || !isCharacterCard(def)) continue;
+    if (!('keywords' in def) || !(def as { keywords?: readonly string[] }).keywords?.includes('agent')) continue;
+
+    seenSiteNames.clear();
+    const homesiteNames = parseHomesiteNames(def.homesite);
+    if (homesiteNames.length === 0) {
+      logDetail(`Agent "${def.name}": no homesite defined — not playable as hazard`);
+      continue;
+    }
+
+    let foundSite = false;
+    for (const siteCard of player.siteDeck) {
+      const siteDef = state.cardPool[siteCard.definitionId as string];
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      if (!homesiteNames.includes(siteDef.name)) continue;
+      if (seenSiteNames.has(siteDef.name)) continue;
+      seenSiteNames.add(siteDef.name);
+
+      const action: PlayAgentHazardAction = {
+        type: 'play-agent-hazard',
+        player: playerId,
+        agentCardInstanceId: handCard.instanceId,
+        homeSiteInstanceId: siteCard.instanceId,
+      };
+
+      if (limitReached) {
+        logDetail(`Agent "${def.name}" at "${siteDef.name}": hazard limit reached (${liveLimit})`);
+        actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
+      } else {
+        logDetail(`Agent "${def.name}" playable at home site "${siteDef.name}"`);
+        actions.push({ action, viable: true });
+      }
+      foundSite = true;
+    }
+
+    if (!foundSite) {
+      logDetail(`Agent "${def.name}": no matching home site in site deck (homesite: "${def.homesite}")`);
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `reveal-agent` actions for the hazard player.
+ *
+ * Revealing a face-down agent is not an action and does not count against
+ * the hazard limit (rule 4.2). The hazard player may reveal any of their
+ * face-down agents at any time during the play-hazards step.
+ */
+function revealAgentActions(
+  state: GameState,
+  playerId: PlayerId,
+): EvaluatedAction[] {
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const actions: EvaluatedAction[] = [];
+  for (const agent of player.agents) {
+    if (agent.revealed) continue;
+    logDetail(`Agent reveal available: agent ${agent.id as string} (${agent.character.instanceId as string})`);
+    const action: RevealAgentAction = {
+      type: 'reveal-agent',
+      player: playerId,
+      agentId: agent.id,
+    };
+    actions.push({ action, viable: true });
+  }
   return actions;
 }
 
@@ -1019,6 +1121,16 @@ function playHazardsActions(
         }
       }
     }
+
+    // --- Agent hazard play ---
+    // The hazard player may play agent character cards from hand as face-down
+    // hazards (rule 2.IV.vii.1). One action per (agent, home-site) pair.
+    actions.push(...playAgentHazardActions(state, playerId, mhState, liveLimit, limitReached));
+
+    // --- Agent reveal ---
+    // Revealing a face-down agent is not an agent action and does not cost
+    // a hazard slot (rule 4.2). Legal any time during play-hazards step.
+    actions.push(...revealAgentActions(state, playerId));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
@@ -1054,7 +1166,7 @@ function playHazardsActions(
   // Pass is always available if not already passed
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  const viableCount = actions.filter(a => a.viable && (a.action.type === 'play-hazard' || a.action.type === 'play-short-event' || a.action.type === 'place-on-guard')).length;
+  const viableCount = actions.filter(a => a.viable && (a.action.type === 'play-hazard' || a.action.type === 'play-short-event' || a.action.type === 'place-on-guard' || a.action.type === 'play-agent-hazard')).length;
   logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${viableCount} viable hazard(s), ${actions.length} total action(s)`);
   return actions;
 }

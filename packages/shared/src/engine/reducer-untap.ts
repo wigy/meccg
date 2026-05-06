@@ -228,7 +228,18 @@ function performUntap(state: GameState): GameState {
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
   logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
-  return updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters, cardsInPlay: newCardsInPlay }));
+  // Reset per-turn agent bookkeeping for the active player's agents.
+  // An agent that was in play before this untap is now eligible to take
+  // agent actions (inPlayAtTurnStart → true). Both flags reset every turn.
+  const newAgents = player.agents.map(a => ({
+    ...a,
+    inPlayAtTurnStart: true,
+    actedThisTurn: false,
+  }));
+
+  logDetail(`Untap: setting inPlayAtTurnStart=true for ${newAgents.length} agent(s)`);
+
+  return updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters, cardsInPlay: newCardsInPlay, agents: newAgents }));
 }
 
 /**
