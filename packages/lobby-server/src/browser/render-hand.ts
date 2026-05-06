@@ -438,15 +438,12 @@ function getHandCards(view: PlayerView): HandCard[] {
 
     const step = view.phaseState.setupStep;
     // Remaining pool: undrafted characters (shown dimmed as non-items)
-    const selfPoolIdx = findSelfIndex(step.remainingPool[0], step.remainingPool[1]);
-    for (const card of step.remainingPool[selfPoolIdx]) {
+    for (const card of step.remainingPool[view.selfIndex]) {
       cards.push({ defId: card.definitionId, instanceId: card.instanceId });
     }
 
-    // Unassigned items (assigned items are removed from pool)
-    const selfItemIdx = step.itemDraftState[0].unassignedItems.length > 0
-      ? 0 : 1;
-    for (const card of step.itemDraftState[selfItemIdx].unassignedItems) {
+    // Unassigned items: only show this player's own items
+    for (const card of step.itemDraftState[view.selfIndex].unassignedItems) {
       cards.push({ defId: card.definitionId, instanceId: card.instanceId });
     }
 
