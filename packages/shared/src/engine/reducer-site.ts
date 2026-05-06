@@ -741,7 +741,7 @@ function handleDeclareAgentAttack(
         ...p,
         agents: p.agents.map(a =>
           a.character.instanceId === action.agentInstanceId
-            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true, discardAtEndOfTurn: true }
             : a,
         ),
         siteDeck: [...p.siteDeck, ...returnedSites],

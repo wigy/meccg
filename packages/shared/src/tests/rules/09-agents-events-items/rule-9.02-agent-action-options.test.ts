@@ -78,6 +78,7 @@ function buildAgentState(opts: {
     actedThisTurn: opts.actedThisTurn ?? false,
     inPlayAtTurnStart: opts.inPlayAtTurnStart ?? true,
     attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
   };
 
   // P2 siteDeck: MORIA (for return-home tests) + MINAS_TIRITH (reachable from Moria, for move tests)

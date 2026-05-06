@@ -60,6 +60,7 @@ function buildAgentAtHomeSite() {
     actedThisTurn: false,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
   };
 
   // Add Moria to hazard player's siteDeck as the home site
@@ -118,6 +119,7 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
       actedThisTurn: false,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
     };
 
     const state = {
@@ -142,5 +144,41 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
     expect(revealedAgent.siteStack.length).toBe(0);
   });
 
-  test.todo('Revealing at home site is not movement; must place site from location deck; if no available site, discarded at end of turn');
+  test('agent revealed without home site is discarded at end of turn (rule 9.04)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: AGENT_CHAR,
+      revealed: true,
+      siteStack: [],
+      actedThisTurn: false,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: true,
+    };
+
+    const state = {
+      ...base,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent] },
+      ] as unknown as typeof base.players,
+    };
+
+    // Dispatch the 'untap' action (resource player untaps — triggers performUntap which discards)
+    const after = dispatch(state, { type: 'untap', player: PLAYER_1 });
+
+    // Agent is gone
+    expect(after.players[HAZARD_PLAYER].agents).toHaveLength(0);
+    // Character card ends up in hazard player's discard pile
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+  });
 });

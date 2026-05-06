@@ -55,6 +55,7 @@ function makeStubAgent(
     actedThisTurn: false,
     inPlayAtTurnStart: false,
     attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
   };
 }
 
@@ -125,6 +126,7 @@ describe('Rule 9.00 — Agent state model', () => {
     expect(rt.actedThisTurn).toBe(false);
     expect(rt.inPlayAtTurnStart).toBe(false);
     expect(rt.attackedThisSitePhase).toBe(false);
+    expect(rt.discardAtEndOfTurn).toBe(false);
 
     // Character identity preserved
     expect(rt.character.instanceId).toBe('p2-char-agent-1');

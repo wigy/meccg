@@ -69,6 +69,7 @@ function buildStateWithAgent(opts: {
     actedThisTurn: false,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
   };
 
   const agents: AgentInPlay[] = [agent];
@@ -83,6 +84,7 @@ function buildStateWithAgent(opts: {
       actedThisTurn: false,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
     };
     agents.push(dup);
   }
@@ -134,6 +136,7 @@ describe('Rule 9.03 — Agent Reveal', () => {
       actedThisTurn: false,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
     };
     const state = {
       ...base,
