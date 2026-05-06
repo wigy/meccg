@@ -24,6 +24,7 @@ import { CardDefinition } from './cards.js';
 import type { GameAction } from './actions.js';
 
 // Re-export everything from sub-modules
+export * from './state-agents.js';
 export * from './state-cards.js';
 export * from './state-player.js';
 export * from './state-phases.js';
@@ -207,6 +208,23 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       }
       for (const hazard of company.hazards) {
         if (hazard.instanceId === instanceId) return hazard.definitionId;
+      }
+    }
+
+    // Agent characters and their site stacks
+    for (const agent of player.agents) {
+      if (agent.character.instanceId === instanceId) return agent.character.definitionId;
+      for (const item of agent.character.items) {
+        if (item.instanceId === instanceId) return item.definitionId;
+      }
+      for (const ally of agent.character.allies) {
+        if (ally.instanceId === instanceId) return ally.definitionId;
+      }
+      for (const hazard of agent.character.hazards) {
+        if (hazard.instanceId === instanceId) return hazard.definitionId;
+      }
+      for (const site of agent.siteStack) {
+        if (site.instanceId === instanceId) return site.definitionId;
       }
     }
 

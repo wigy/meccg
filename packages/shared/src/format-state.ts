@@ -61,6 +61,13 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
     if (company.destinationSite) map[company.destinationSite.instanceId as string] = company.destinationSite.definitionId;
     addCards(company.onGuardCards);
   }
+  for (const agent of s.agents) {
+    map[agent.character.instanceId as string] = agent.character.definitionId;
+    for (const item of agent.character.items) map[item.instanceId as string] = item.definitionId;
+    for (const ally of agent.character.allies) map[ally.instanceId as string] = ally.definitionId;
+    for (const hazard of agent.character.hazards) map[hazard.instanceId as string] = hazard.definitionId;
+    for (const site of agent.siteStack) map[site.instanceId as string] = site.definitionId;
+  }
 
   // Opponent piles
   const o = view.opponent;

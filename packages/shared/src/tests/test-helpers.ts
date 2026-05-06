@@ -542,6 +542,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       killPile: [] as CardInstance[],
       outOfPlayPile: [] as CardInstance[],
       companies,
+      agents: [],
       characters,
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
       marshallingPoints: { ...ZERO_MARSHALLING_POINTS, ...(setup.marshallingPoints ?? {}) },
