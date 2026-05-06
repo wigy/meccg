@@ -414,6 +414,21 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
     }
   }
 
+  // --- Rule 9.07: Discard if any site in the movement path is a Haven ---
+  // An agent revealed with a Haven site anywhere in its prior siteStack is
+  // immediately discarded (the agent moved through a restricted site).
+  // Note: movement TO haven sites is already blocked in agentTurnActions.
+  if (movementLegal && agent.siteStack.length > 0) {
+    for (const stackEntry of agent.siteStack) {
+      const stackDef = state.cardPool[stackEntry.definitionId as string];
+      if (stackDef && isSiteCard(stackDef) && stackDef.siteType === 'haven') {
+        logDetail(`Agent ${agentName}: discarded — moved through Haven site "${stackDef.name}" (rule 9.07)`);
+        movementLegal = false;
+        break;
+      }
+    }
+  }
+
   // --- Discard path: return all sites to deck, put character in discard ---
   if (!movementLegal) {
     logDetail(`Agent ${agentName}: discarded due to illegal movement history`);
