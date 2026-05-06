@@ -19,6 +19,7 @@ import type {
   Company,
   MarshallingPointTotals,
 } from './state-cards.js';
+import type { AgentInPlay } from './state-agents.js';
 
 // ---- Per-player state ----
 
@@ -63,6 +64,12 @@ export interface PlayerState {
   readonly outOfPlayPile: readonly CardInstance[];
   /** All companies this player controls on the map. */
   readonly companies: readonly Company[];
+  /**
+   * All agents this player has in play as hazards.
+   * Agent characters live here, not in `characters`, so they are excluded from
+   * general-influence accounting and follower machinery.
+   */
+  readonly agents: readonly AgentInPlay[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
   /** General cards in play on the table (permanent resources, factions, etc.) not attached to characters. */

@@ -42,6 +42,8 @@ import type {
 } from './state.js';
 import type { ActiveConstraint } from './pending.js';
 import type { EvaluatedAction } from '../rules/types.js';
+import type { AgentInPlay, OpponentAgentView } from './state-agents.js';
+export type { OpponentAgentView } from './state-agents.js';
 
 // ---- Opponent's company (destination hidden until movement phase) ----
 
@@ -120,6 +122,12 @@ export interface OpponentView {
   readonly outOfPlayPile: readonly ViewCard[];
   /** The opponent's companies with destination information redacted. */
   readonly companies: readonly OpponentCompanyView[];
+  /**
+   * The opponent's agents in play, with identity and site stack redacted when face-down.
+   * The resource player can see that an agent exists and its stack size, but not the
+   * agent's character identity or exact sites until it is revealed.
+   */
+  readonly agents: readonly OpponentAgentView[];
   /** The opponent's characters in play (public information). */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
   /** General cards the opponent has in play (permanent resources, factions, etc.). */
@@ -170,6 +178,8 @@ export interface SelfView {
   readonly outOfPlayPile: readonly ViewCard[];
   /** All companies this player controls, with full destination visibility. */
   readonly companies: readonly Company[];
+  /** All agents this player has in play as hazards, with full state visibility. */
+  readonly agents: readonly AgentInPlay[];
   /** All characters this player has in play. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
   /** General cards in play on the table (permanent resources, factions, etc.). */
