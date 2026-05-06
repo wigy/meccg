@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus, Alignment } from '../../index.js';
 import { canCallEndgameNow, isWizard } from '../../state-utils.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
@@ -528,6 +528,7 @@ function agentTurnActions(
     if (status === CardStatus.Untapped || status === CardStatus.Tapped) {
       const movementMap = buildMovementMap(state.cardPool);
       const allSiteDefs = Object.values(state.cardPool).filter(isSiteCard);
+      const hazardAlignment = player.alignment;
 
       // Collect reachable site names from all valid starting points
       const reachableNames = new Set<string>();
@@ -538,6 +539,16 @@ function agentTurnActions(
           for (const r of getReachableSites(movementMap, topDef, allSiteDefs)) {
             reachableNames.add(r.site.name);
           }
+          // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
+          if (hazardAlignment === Alignment.Ringwraith || hazardAlignment === Alignment.Balrog) {
+            const originRegion = topDef.region;
+            const partnerRegion = originRegion === 'Dagorlad' ? 'Udûn' : originRegion === 'Udûn' ? 'Dagorlad' : null;
+            if (partnerRegion) {
+              for (const sd of allSiteDefs) {
+                if (sd.region === partnerRegion) reachableNames.add(sd.name);
+              }
+            }
+          }
         }
       } else if (agentDef && isCharacterCard(agentDef)) {
         // Face-down agent at home: reachable from any home site
@@ -547,6 +558,16 @@ function agentTurnActions(
           if (homeDef) {
             for (const r of getReachableSites(movementMap, homeDef, allSiteDefs)) {
               reachableNames.add(r.site.name);
+            }
+            // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
+            if (hazardAlignment === Alignment.Ringwraith || hazardAlignment === Alignment.Balrog) {
+              const originRegion = homeDef.region;
+              const partnerRegion = originRegion === 'Dagorlad' ? 'Udûn' : originRegion === 'Udûn' ? 'Dagorlad' : null;
+              if (partnerRegion) {
+                for (const sd of allSiteDefs) {
+                  if (sd.region === partnerRegion) reachableNames.add(sd.name);
+                }
+              }
             }
           }
         }
@@ -562,6 +583,10 @@ function agentTurnActions(
         if (isHavenSite(state, siteInst.definitionId as string)) continue;
         // Exclude Under-deeps sites (rule 9.02)
         if ((destDef as { underDeeps?: boolean }).underDeeps) continue;
+        // Rule 9.08: Fallen-wizard agents use only hero site cards
+        if (hazardAlignment === Alignment.FallenWizard && destDef.cardType !== 'hero-site') continue;
+        // Rule 9.08: Balrog agents use only minion site cards
+        if (hazardAlignment === Alignment.Balrog && destDef.cardType !== 'minion-site') continue;
         seenDest.add(destDef.name);
         logDetail(`Agent ${agentName}: can move to "${destDef.name}"`);
         push({
