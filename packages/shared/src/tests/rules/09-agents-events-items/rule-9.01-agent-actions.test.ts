@@ -20,8 +20,9 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
-import type { CardDefinitionId, MovementHazardPhaseState } from '../../../index.js';
-import { Phase } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, CompanyId, MovementHazardPhaseState } from '../../../index.js';
+import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
+import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
 const BADUILA = 'dm-2' as CardDefinitionId;  // homesite: "Goblin-gate, Mount Gundabad"
@@ -145,5 +146,67 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     expect(actions.length).toBe(1);
   });
 
-  test.todo('Agent hazard may take one agent action per turn during opponent M/H phase; must have been in play at start of turn');
+  test('agent with inPlayAtTurnStart=true gets actions; actedThisTurn=true blocks further; inPlayAtTurnStart=false blocks entirely', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const agentChar: CharacterInPlay = {
+      instanceId: 'test-901-char' as CardInstanceId,
+      definitionId: ANARIN,
+      status: CardStatus.Untapped,
+      items: [], allies: [], hazards: [], followers: [],
+      controlledBy: 'general',
+      effectiveStats: ZERO_EFFECTIVE_STATS,
+    };
+    const moriaSite: SiteInPlay = {
+      instanceId: 'test-901-moria' as CardInstanceId,
+      definitionId: MORIA,
+      status: CardStatus.Untapped,
+    };
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: agentChar,
+      revealed: true,
+      siteStack: [moriaSite],
+      actedThisTurn: false,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...base,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent] },
+      ] as unknown as typeof base.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0 }),
+    };
+
+    // Agent in play at turn start: actions offered
+    const moveActions = viableActions(withAgent, PLAYER_2, 'agent-move');
+    expect(moveActions.length).toBeGreaterThan(0);
+
+    // After performing one action, actedThisTurn=true → no more agent actions
+    const after = dispatch(withAgent, moveActions[0].action);
+    expect(after.players[HAZARD_PLAYER].agents[0].actedThisTurn).toBe(true);
+    expect(viableActions(after, PLAYER_2, 'agent-move').length).toBe(0);
+
+    // Agent NOT in play at turn start: no actions offered at all
+    const newTurnAgent: AgentInPlay = { ...agent, inPlayAtTurnStart: false };
+    const withNewAgent = {
+      ...withAgent,
+      players: [
+        withAgent.players[0],
+        { ...withAgent.players[1], agents: [newTurnAgent] },
+      ] as unknown as typeof withAgent.players,
+    };
+    expect(viableActions(withNewAgent, PLAYER_2, 'agent-move').length).toBe(0);
+  });
 });
