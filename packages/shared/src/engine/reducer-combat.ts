@@ -21,6 +21,7 @@ import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
+import { handlePlayResourceShortEvent } from './reducer-events.js';
 
 
 /**
@@ -70,6 +71,11 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCombatPlayHazard(state, action, combat);
     case 'haven-join-attack':
       return handleHavenJoinAttack(state, action, combat);
+    // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
+    // sequences or during step 5 if they affect the current strike. The
+    // event handler applies its effects without touching the combat state.
+    case 'play-short-event':
+      return handlePlayResourceShortEvent(state, action);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
