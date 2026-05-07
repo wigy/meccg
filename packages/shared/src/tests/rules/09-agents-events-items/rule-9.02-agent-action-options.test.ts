@@ -31,6 +31,8 @@ import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
 import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
+// The Under-gates (dm-38): under-deeps site in Redhorn Gate (same region as Moria) — used to test exclusion
+const THE_UNDER_GATES = 'dm-38' as CardDefinitionId;
 
 const AGENT_CHAR_ID = 'test-a2-char' as CardInstanceId;
 const MORIA_SITE_ID = 'test-a2-moria' as CardInstanceId;
@@ -172,6 +174,22 @@ describe('Rule 9.02 — Agent Action Options', () => {
       const state = buildAgentState({ inPlayAtTurnStart: false });
       const actions = viableActions(state, PLAYER_2, 'agent-move');
       expect(actions.length).toBe(0);
+    });
+
+    test('Under-deeps site not offered as move destination even when in same region (rule 4.1)', () => {
+      // The Under-gates (dm-38) is in Redhorn Gate — same region as Moria, so reachable by region movement.
+      // But rule 4.1 says agents can only move to non-Under-deeps sites, so it must be excluded.
+      const base = buildAgentState({ status: CardStatus.Untapped });
+      const underGatesCard = { instanceId: 'test-a2-under-gates' as CardInstanceId, definitionId: THE_UNDER_GATES };
+      const state = {
+        ...base,
+        players: base.players.map((p, i) =>
+          i !== 1 ? p : { ...p, siteDeck: [...p.siteDeck, underGatesCard] },
+        ) as unknown as typeof base.players,
+      };
+      const moveActions = viableActions(state, PLAYER_2, 'agent-move');
+      const destDefIds = moveActions.map(a => (a.action as { destinationSiteInstanceId?: CardInstanceId }).destinationSiteInstanceId);
+      expect(destDefIds).not.toContain(underGatesCard.instanceId);
     });
   });
 
