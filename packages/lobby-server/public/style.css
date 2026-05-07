@@ -3783,14 +3783,12 @@ body.all-companies-mode:has(#debug-view.hidden) {
 }
 
 .agent-site-stack {
-  display: flex;
-  align-items: center;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .agent-site-stack__card {
-  margin-right: calc(-2.5rem * var(--company-scale, 1));
-  position: relative;
-  opacity: 0.85;
+  position: absolute;
 }
 
 .agent-site-placeholder {

@@ -132,12 +132,11 @@ function showAgentActionTooltip(
 // ---- Site stack fan ----
 
 /**
- * Render the site area for an agent: a fan of face-down prior sites (offset
- * to the left) followed by the current site card (or a placeholder if the
- * agent has no site yet).
- *
- * For a face-up agent, siteStack has exactly one entry (no fan).
- * For a face-down agent, older entries are shown as offset card-backs.
+ * Render the site area for an agent: all sites in the stack shown as a
+ * staircase fan (left and down), with the current (last) site shown face-up
+ * if the agent is revealed, or face-down otherwise. Prior sites are always
+ * face-down. All cards carry data-card-id so the zoom panel can show the
+ * real site on hover.
  */
 function renderAgentSiteArea(
   agent: AgentInPlay,
@@ -147,7 +146,6 @@ function renderAgentSiteArea(
   area.className = 'company-site-area agent-site-area';
 
   if (agent.siteStack.length === 0) {
-    // Freshly played face-down agent returned home — no site card
     const placeholder = document.createElement('div');
     placeholder.className = 'agent-site-placeholder';
     placeholder.textContent = 'Home';
@@ -156,50 +154,43 @@ function renderAgentSiteArea(
   }
 
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const currentSite = agent.siteStack[agent.siteStack.length - 1];
-  const priorSites = agent.siteStack.slice(0, -1);
+  const n = agent.siteStack.length;
+  const step = 1; // rem offset per card (left and down)
+  // Site card dimensions follow --card-table-height * scale; width is ~0.7× height.
+  const scaleExpr = 'var(--card-table-height) * var(--company-scale, 1)';
+  const fan = document.createElement('div');
+  fan.className = 'agent-site-stack';
+  fan.style.width = `calc(${scaleExpr} * 0.7 + ${(n - 1) * step}rem)`;
+  fan.style.height = `calc(${scaleExpr} + ${(n - 1) * step}rem)`;
 
-  // Fan: prior face-down sites overlapping to the left
-  if (priorSites.length > 0) {
-    const fan = document.createElement('div');
-    fan.className = 'agent-site-stack';
-    for (let i = 0; i < priorSites.length; i++) {
-      const back = document.createElement('img');
-      back.src = '/images/card-back.jpg';
-      back.alt = 'Face-down site';
-      back.className = 'company-card company-card--site agent-site-stack__card';
-      back.style.zIndex = String(i);
-      fan.appendChild(back);
-    }
-    area.appendChild(fan);
-  }
+  for (let i = 0; i < n; i++) {
+    const entry = agent.siteStack[i];
+    const isLast = i === n - 1;
+    const defId = cachedInstanceLookup(entry.instanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
 
-  // Current site
-  const siteDefId = cachedInstanceLookup(currentSite.instanceId);
-  const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
-  if (siteDef && isSiteCard(siteDef)) {
-    const imgPath = cardImageProxyPath(siteDef);
     const img = document.createElement('img');
-    // Face-down agent: hide site image but keep data-card-id so zoom shows real card
-    if (agent.revealed) {
-      img.src = imgPath ?? '/images/card-back.jpg';
+    img.className = `company-card company-card--site agent-site-stack__card`;
+    img.style.zIndex = String(i);
+    // Current card (last) at lower-left; older cards peek upper-right.
+    img.style.left = `${(n - 1 - i) * step}rem`;
+    img.style.top = `${i * step}rem`;
+
+    if (isLast && agent.revealed && def && isSiteCard(def)) {
+      const imgPath = cardImageProxyPath(def);
+      img.src = imgPath ?? '/images/site-back.jpg';
     } else {
       img.src = '/images/site-back.jpg';
     }
-    img.alt = siteDef.name;
-    img.dataset.cardId = siteDefId as string;
-    img.dataset.instanceId = currentSite.instanceId as string;
-    img.className = 'company-card company-card--site';
-    area.appendChild(img);
-  } else {
-    // Site definition not found — show card-back
-    const back = document.createElement('img');
-    back.src = '/images/card-back.jpg';
-    back.alt = 'Unknown site';
-    back.className = 'company-card company-card--site';
-    area.appendChild(back);
+    img.alt = def?.name ?? 'Face-down site';
+    if (defId) {
+      img.dataset.cardId = defId as string;
+      img.dataset.instanceId = entry.instanceId as string;
+    }
+    fan.appendChild(img);
   }
 
+  area.appendChild(fan);
   return area;
 }
 
@@ -372,14 +363,21 @@ export function renderOpponentAgentBlock(
   const siteArea = document.createElement('div');
   siteArea.className = 'company-site-area agent-site-area';
   if (agent.siteStackSize > 0) {
+    const nOpp = Math.min(agent.siteStackSize, 4);
+    const stepOpp = 1;
+    const scaleExprOpp = 'var(--card-table-height) * var(--company-scale, 1)';
     const stack = document.createElement('div');
     stack.className = 'agent-site-stack';
-    for (let i = 0; i < Math.min(agent.siteStackSize, 4); i++) {
+    stack.style.width = `calc(${scaleExprOpp} * 0.7 + ${(nOpp - 1) * stepOpp}rem)`;
+    stack.style.height = `calc(${scaleExprOpp} + ${(nOpp - 1) * stepOpp}rem)`;
+    for (let i = 0; i < nOpp; i++) {
       const back = document.createElement('img');
-      back.src = '/images/card-back.jpg';
+      back.src = '/images/site-back.jpg';
       back.alt = 'Hidden site';
       back.className = 'company-card company-card--site agent-site-stack__card';
       back.style.zIndex = String(i);
+      back.style.left = `${(nOpp - 1 - i) * stepOpp}rem`;
+      back.style.top = `${i * stepOpp}rem`;
       stack.appendChild(back);
     }
     siteArea.appendChild(stack);
