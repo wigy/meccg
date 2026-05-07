@@ -728,3 +728,29 @@ export interface AgentKeyCreaturesAction {
   /** The CompanyId of the agent keying creatures. */
   readonly agentId: CompanyId;
 }
+
+/**
+ * The hazard player taps an agent to make an influence attempt during
+ * the opponent's M/H phase (rule 10.14).
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set)
+ * and does NOT count against the hazard limit. The agent taps and is
+ * revealed. The attempt resolves as a standard opponent-influence-defend
+ * with the rule 10.14 bonuses already baked in.
+ */
+export interface AgentInfluenceAttemptAction {
+  /** Action discriminant. */
+  readonly type: 'agent-influence-attempt';
+  /** The hazard player making the attempt. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent performing the influence attempt. */
+  readonly agentId: CompanyId;
+  /** The player whose card is being targeted. */
+  readonly targetPlayer: PlayerId;
+  /** The instance ID of the card being targeted. */
+  readonly targetInstanceId: CardInstanceId;
+  /** Whether the target is a character, ally, or faction. */
+  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Human-readable breakdown for logging. */
+  readonly explanation: string;
+}

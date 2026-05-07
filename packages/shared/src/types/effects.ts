@@ -835,6 +835,22 @@ export interface TapAgentEffect extends EffectBase {
 }
 
 /**
+ * An agent may tap (not as an agent action) to make an influence attempt
+ * against an opponent's character, ally, or faction during the M/H phase.
+ *
+ * CoE rule 10.14: "Agent only: may tap to make an influence check on an ally,
+ * faction, or character."
+ */
+export interface AgentTapInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-influence';
+  /**
+   * Which kinds of targets this agent may influence.
+   * Typically all three: character, ally, faction.
+   */
+  readonly targetKinds: readonly ('character' | 'ally' | 'faction')[];
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1792,6 +1808,7 @@ export type CardEffect =
   | CallOfHomeCheckEffect
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
+  | AgentTapInfluenceEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | CallCouncilEffect
