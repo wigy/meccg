@@ -23,7 +23,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
-  ASSASSIN,
+  ASSASSIN, DARK_QUARRELS,
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
   buildTestState, resetMint, makeMHState,
   resolveChain,
@@ -550,6 +550,66 @@ describe('Assassin (tw-8)', () => {
       a => a.viable && a.action.type === 'cancel-by-tap',
     );
     expect(cancelActions).toHaveLength(1);
+  });
+
+  test('cancel-attack in cancel-window decrements multiAttackCount (regression: fractional display bug)', () => {
+    // P1 has Dark Quarrels in hand to cancel one Assassin attack.
+    // After chain resolution the UI computes strikesPerAttack = strikesTotal / multiAttackCount.
+    // Bug: multiAttackCount was not decremented, yielding 2/3 = 0.666... instead of 2/2 = 1.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DARK_QUARRELS],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+    expect(afterChain.combat!.strikesTotal).toBe(3);
+    expect(afterChain.combat!.multiAttackCount).toBe(3);
+
+    // P1 plays Dark Quarrels to cancel one Assassin attack (Men race matches)
+    const darkQuarrelsId = handCardId(gameState, RESOURCE_PLAYER);
+    const afterCancel = dispatch(afterChain, {
+      type: 'cancel-attack',
+      player: PLAYER_1,
+      cardInstanceId: darkQuarrelsId,
+    });
+    const afterResolved = resolveChain(afterCancel);
+
+    // Both strikesTotal and multiAttackCount must drop by 1 so strikesPerAttack = 1
+    expect(afterResolved.combat).not.toBeNull();
+    expect(afterResolved.combat!.strikesTotal).toBe(2);
+    expect(afterResolved.combat!.multiAttackCount).toBe(2);
   });
 
   test('solo character company: no cancel-by-tap options (only pass)', () => {

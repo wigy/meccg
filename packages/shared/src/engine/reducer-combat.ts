@@ -1189,7 +1189,12 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     return {
       ...state,
       players: newPlayers,
-      combat: { ...combat, strikesTotal: newStrikesTotal, cancelByTapRemaining: newCancelByTap },
+      combat: {
+        ...combat,
+        strikesTotal: newStrikesTotal,
+        cancelByTapRemaining: newCancelByTap,
+        multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
+      },
     };
   }
 
@@ -1335,6 +1340,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
     strikeAssignments: newAssignments,
     strikesTotal: newStrikesTotal,
     cancelByTapRemaining: newCancelRemaining > 0 ? newCancelRemaining : undefined,
+    multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
   };
 
   // If no more cancels available, proceed to strike resolution
