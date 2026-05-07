@@ -3323,9 +3323,7 @@ h2 {
 .all-companies-mode #opponent-arc,
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
-.all-companies-mode #opponent-deck-box,
-.all-companies-mode #pass-btn,
-.all-companies-mode .enter-site-btn {
+.all-companies-mode #opponent-deck-box {
   display: none;
 }
 

@@ -152,6 +152,20 @@ function findHazardActions(
 }
 
 /**
+ * Find the play-agent-hazard action for a given agent card instance.
+ * Each agent card has at most one such action.
+ */
+function findAgentHazardAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return legalActions.find(
+    a => a.type === 'play-agent-hazard' && a.agentCardInstanceId === instanceId,
+  ) ?? null;
+}
+
+/**
  * Check whether a card in the hand arc has assign-starting-item actions
  * (needs the two-step target selection flow).
  */
@@ -773,6 +787,8 @@ export function renderHand(
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
     const isHazard = hazardActions.length > 0;
+    const agentHazardAction = findAgentHazardAction(cardInstanceId, viable);
+    const isAgentHazard = agentHazardAction !== null;
     const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
     const isAlly = allyActions.length > 0;
     const resourceActions = findResourcePlayActions(cardInstanceId, viable, cardPool);
@@ -790,7 +806,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !isRerollStrike && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !isRerollStrike && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -957,6 +973,11 @@ export function renderHand(
             });
           }
         }
+      }
+    } else if (isAgentHazard) {
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', () => onAction(agentHazardAction!));
       }
     } else if (isAlly) {
       // Ally play: single target plays directly, multiple targets use two-step character targeting
