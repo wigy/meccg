@@ -22,6 +22,7 @@ import type {
   SelfView,
   OpponentView,
   OpponentCompanyView,
+  OpponentAgentView,
   ViewCard,
   PlayerId,
   CardInstance,
@@ -78,6 +79,7 @@ function buildSelfView(_state: GameState, player: PlayerState): SelfView {
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),
     companies,
+    agents: player.agents,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
@@ -111,6 +113,16 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     ),
   }));
 
+  // Redact agent identity when face-down: resource player sees only that
+  // an agent exists and how many sites it has accumulated.
+  const agents: OpponentAgentView[] = player.agents.map(a => ({
+    id: a.id,
+    characterInstanceId: a.revealed ? a.character.instanceId : null,
+    revealed: a.revealed,
+    siteStackSize: a.siteStack.length,
+    actedThisTurn: a.actedThisTurn,
+  }));
+
   return {
     id: player.id,
     name: player.name,
@@ -124,6 +136,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),
     companies,
+    agents,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
@@ -171,6 +184,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       killPile: [],
       outOfPlayPile: [],
       companies: p1.companies,
+      agents: p1.agents,
       characters: p1.characters,
       cardsInPlay: p1.cardsInPlay,
       marshallingPoints: p1.marshallingPoints,

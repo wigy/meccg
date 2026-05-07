@@ -216,6 +216,7 @@ export type CheckKind =
  * - `ritual` — METD ritual-tagged events.
  * - `light-enchantment`, `dark-enchantment` — METD enchantment categories.
  * - `Leader`, `Uruk-hai`, `Olog-hai` — minion character subgroupings.
+ * - `agent` — character is an agent (counts as both character and hazard for deck-building; has home sites).
  *
  * **Legacy / superseded:**
  * - `dragon-manifestation` — superseded by the per-card `manifestId` tag
@@ -238,8 +239,10 @@ export type Keyword =
   | 'Leader'
   | 'Uruk-hai'
   | 'Olog-hai'
+  | 'agent'
   | 'dragon-manifestation'
-  | 'corruption';
+  | 'corruption'
+  | 'under-deeps';
 
 /**
  * A card reference carrying both its instance ID and definition ID.

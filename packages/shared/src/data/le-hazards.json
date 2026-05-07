@@ -61,7 +61,7 @@
     "name": "Lost in Free-domains",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LostinFreedomains.jpg",
     "unique": false,
-    "eventType": "permanent",
+    "eventType": "short",
     "effects": [
       {
         "type": "play-target",
@@ -87,7 +87,7 @@
     "name": "River",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/River.jpg",
     "unique": false,
-    "eventType": "permanent",
+    "eventType": "short",
     "effects": [
       {
         "type": "play-target",
@@ -293,17 +293,35 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofNature.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
         "target": "character",
         "filter": {
           "$and": [
-            { "target.race": { "$ne": "hobbit" } },
-            { "target.race": { "$ne": "dwarf" } },
-            { "target.race": { "$ne": "orc" } },
-            { "target.race": { "$ne": "ringwraith" } }
+            {
+              "target.race": {
+                "$ne": "hobbit"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "dwarf"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "orc"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            }
           ]
         }
       },
@@ -325,7 +343,9 @@
           "check": "corruption"
         },
         "target": "bearer",
-        "regionTypeFilter": ["wilderness"]
+        "regionTypeFilter": [
+          "wilderness"
+        ]
       },
       {
         "type": "grant-action",
@@ -355,7 +375,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
@@ -411,13 +433,23 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofExpedience.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
         "target": "character",
         "filter": {
-          "$not": { "target.race": { "$in": ["ringwraith", "wizard", "hobbit"] } }
+          "$not": {
+            "target.race": {
+              "$in": [
+                "ringwraith",
+                "wizard",
+                "hobbit"
+              ]
+            }
+          }
         }
       },
       {
@@ -433,13 +465,18 @@
       {
         "type": "on-event",
         "event": "character-gains-item",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "bearer"
       },
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 6,
@@ -460,7 +497,9 @@
     "id": "le-107",
     "name": "Covetous Thoughts",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CovetousThoughts.jpg",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "text": "Corruption. Playable only on a minion. At the end of each of his turns, target minion makes a corruption check for each item his company bears that he does not bear. For each check, modify the roll by subtracting the corruption of that item. During his organization phase, the minion may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given minion.",
     "unique": false,
     "eventType": "permanent",
@@ -468,7 +507,9 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.cardType": "minion-character" }
+        "filter": {
+          "target.cardType": "minion-character"
+        }
       },
       {
         "type": "duplication-limit",
@@ -478,7 +519,9 @@
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 6,
@@ -509,11 +552,17 @@
     "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
       {
         "type": "force-return-to-origin",
-        "condition": { "sitePath.wildernessCount": { "$gte": 2 } },
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        },
         "rangerException": true
       }
     ]
@@ -553,7 +602,9 @@
     "text": "Environment. At the start of its site phase, each company at a site in a Dark-domain [{d}] (or Shadow-land [{s}], if Doors of Night is in play) must tap one untapped character if available. Discard when any play deck is exhausted. Cannot be duplicated.",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["environment"]
+    "keywords": [
+      "environment"
+    ]
   },
   {
     "cardType": "hazard-event",
@@ -594,13 +645,27 @@
           "$and": [
             {
               "$or": [
-                { "sitePath.wildernessCount": { "$gte": 1 } },
-                { "sitePath.borderCount": { "$gte": 1 } },
-                { "sitePath.freeCount": { "$gte": 1 } }
+                {
+                  "sitePath.wildernessCount": {
+                    "$gte": 1
+                  }
+                },
+                {
+                  "sitePath.borderCount": {
+                    "$gte": 1
+                  }
+                },
+                {
+                  "sitePath.freeCount": {
+                    "$gte": 1
+                  }
+                }
               ]
             },
             {
-              "$not": { "inPlay": "Doors of Night" }
+              "$not": {
+                "inPlay": "Doors of Night"
+              }
             }
           ]
         }
@@ -619,6 +684,8 @@
     "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check.",
     "unique": false,
     "eventType": "short",
-    "keywords": ["corruption"]
+    "keywords": [
+      "corruption"
+    ]
   }
 ]

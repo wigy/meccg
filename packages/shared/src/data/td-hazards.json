@@ -469,18 +469,31 @@
     "text": "Playable on a character bearing a major or greater item. Character makes a corruption check modified by -1.",
     "unique": false,
     "eventType": "short",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
         "target": "character",
         "filter": {
           "$or": [
-            { "target.itemSubtypes": { "$includes": "major" } },
-            { "target.itemSubtypes": { "$includes": "greater" } }
+            {
+              "target.itemSubtypes": {
+                "$includes": "major"
+              }
+            },
+            {
+              "target.itemSubtypes": {
+                "$includes": "greater"
+              }
+            }
           ]
         },
-        "cost": { "check": "corruption", "modifier": -1 }
+        "cost": {
+          "check": "corruption",
+          "modifier": -1
+        }
       }
     ],
     "certified": "2026-04-25"
@@ -502,7 +515,9 @@
     "text": "Environment. Playable if Doors of Night is in play. Treat one Wilderness [{w}] as two Wildernesses [{w}] or one Shadow-land [{s}] as two Wildernesses [{w}] or one Border-land [{b}] as two Wildernesses [{w}] until the end of the turn.",
     "unique": false,
     "eventType": "short",
-    "keywords": ["environment"]
+    "keywords": [
+      "environment"
+    ]
   },
   {
     "cardType": "hazard-event",
@@ -516,7 +531,7 @@
   {
     "cardType": "hazard-event",
     "id": "td-16",
-    "name": "Dragon's Curse",
+    "name": "Dragon’s Curse",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DragonsCurse.jpg",
     "unique": false,
     "eventType": "permanent",
@@ -539,7 +554,15 @@
         "type": "play-target",
         "target": "character",
         "filter": {
-          "$not": { "target.race": { "$in": ["wizard", "ringwraith", "balrog"] } }
+          "$not": {
+            "target.race": {
+              "$in": [
+                "wizard",
+                "ringwraith",
+                "balrog"
+              ]
+            }
+          }
         }
       },
       {

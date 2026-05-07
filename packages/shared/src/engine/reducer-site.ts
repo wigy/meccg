@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -49,8 +49,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
-  'declare-agent-attack': (state, action, siteState) =>
-    handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true),
+  'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
   // TODO: play-minor-item
@@ -604,6 +603,190 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
+ * Handle the 'declare-agent-attack' step (CoE Step 3, line 358).
+ *
+ * The hazard player either declares that an agent at the company's site will
+ * attack, or passes to skip. On declaration:
+ *  - If the agent is face-down, it is revealed in-place (rule 2.V.iii).
+ *  - Prowess/body modifiers (rule 3.iv.6.1) are computed from the agent's
+ *    state BEFORE any reveal, so face-down modifiers are applied correctly.
+ *  - CombatState is built directly and set; the step advances to
+ *    `resolve-attacks` where the resource player passes to initiate it.
+ */
+function handleDeclareAgentAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type === 'pass') {
+    logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
+      },
+    };
+  }
+
+  if (action.type !== 'declare-agent-attack') {
+    return { state, error: `Expected 'declare-agent-attack' or 'pass' during declare-agent-attack step, got '${action.type}'` };
+  }
+
+  // Find the agent
+  let hazardPlayerIndex = -1;
+  for (let i = 0; i < state.players.length; i++) {
+    if (state.players[i].agents.some(a => a.character.instanceId === action.agentInstanceId)) {
+      hazardPlayerIndex = i;
+      break;
+    }
+  }
+  if (hazardPlayerIndex === -1) {
+    return { state, error: `Agent ${action.agentInstanceId} not found` };
+  }
+
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const agent = hazardPlayer.agents.find(a => a.character.instanceId === action.agentInstanceId)!;
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) {
+    return { state, error: `Agent character definition not found for ${action.agentInstanceId}` };
+  }
+
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+  // --- Compute prowess/body modifiers NOW (before any reveal) ---
+  // Rule 3.iv.6.1: face-down/face-up × at-home/not-at-home × wounded
+  let prowess = agentDef.prowess;
+  let body = agentDef.body;
+
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+
+  // Determine current site name for home-site check
+  let currentSiteName: string | undefined;
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const topSiteDef = state.cardPool[topSite.definitionId as string];
+    if (topSiteDef && isSiteCard(topSiteDef)) currentSiteName = topSiteDef.name;
+  } else if (company?.currentSite) {
+    // Empty siteStack: agent is at company's current site (which is one of its home sites)
+    const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
+    if (companySiteDef && isSiteCard(companySiteDef)) currentSiteName = companySiteDef.name;
+  }
+  const homesiteNames = agentDef.homesite
+    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const isAtHome = currentSiteName !== undefined && homesiteNames.includes(currentSiteName);
+
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+  if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
+
+  // Rule 3.ii.4: face-down at home → attacker assigns strikes
+  const attackerAssigns = isFaceDown && isAtHome;
+
+  // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
+  const defendingAlignment = state.players[activePlayerIndex].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
+  logDetail(`Site: declare-agent-attack — "${agentDef.name}" prowess ${prowess}, body ${body}, faceDown: ${isFaceDown}, atHome: ${isAtHome}, detainment: ${detainment}`);
+
+  // --- Reveal face-down agent in-place ---
+  // The agent stays at its current site (top of siteStack or company's site).
+  // Older siteStack entries are returned to deck. Home site card placed if provided.
+  let stateAfterReveal: GameState;
+  if (isFaceDown) {
+    const currentSiteEntry = agent.siteStack.length > 0
+      ? agent.siteStack[agent.siteStack.length - 1]
+      : company?.currentSite ?? null;
+
+    if (!currentSiteEntry) {
+      return { state, error: `Cannot determine current site for face-down agent ${action.agentInstanceId}` };
+    }
+
+    // Sites to return to deck: everything in siteStack except the current (top) position,
+    // plus any home site card that was declared (it stays with the agent in its stack)
+    const priorStackSites = agent.siteStack.slice(0, -1); // all but top
+    const emptyStack = agent.siteStack.length === 0;
+
+    if (action.homeSiteInstanceId) {
+      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      if (!homeSiteCard) {
+        return { state, error: `Home site ${action.homeSiteInstanceId} not in hazard player's site deck` };
+      }
+      // For empty siteStack (at home): siteStack = [homeSiteCard], stays at home
+      // For non-empty: siteStack = [currentSite] (prior entries returned to deck, home site removed from deck)
+      const newSiteStack = emptyStack
+        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+        : [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            : a,
+        ),
+        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+      }));
+    } else {
+      // No home site — reveal without site, discard at EOT
+      const newSiteStack = emptyStack
+        ? []
+        : [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true, discardAtEndOfTurn: true }
+            : a,
+        ),
+        siteDeck: [...p.siteDeck, ...returnedSites],
+      }));
+    }
+  } else {
+    // Already revealed — just mark as acted
+    stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+      ...p,
+      agents: p.agents.map(a =>
+        a.character.instanceId === action.agentInstanceId
+          ? { ...a, attackedThisSitePhase: true }
+          : a,
+      ),
+    }));
+  }
+
+  // Build CombatState with pre-computed modifiers
+  const combat: CombatState = {
+    attackSource: { type: 'agent', instanceId: action.agentInstanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer.id,
+    strikesTotal: 1,
+    strikeProwess: prowess,
+    creatureBody: body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
+    bodyCheckTarget: null,
+    detainment,
+    ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+  };
+
+  return {
+    state: {
+      ...stateAfterReveal,
+      combat,
+      phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
+    },
+  };
+}
+
+/**
  * Handle the `play-site-auto-attack` step: hazard player may play one
  * creature from hand as the site's automatic-attack (Framsburg td-175 and
  * any future site with a `site-rule: dynamic-auto-attack` effect). On a
@@ -742,8 +925,9 @@ function handleSiteResolveAttacks(
     return { state, error: `Expected 'pass' during resolve-attacks step` };
   }
 
-  // If revealed on-guard creature attacks remain, initiate the next one via chain
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+
+  // If revealed on-guard creature attacks remain, initiate the next one via chain
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   if (company) {
     const revealedIdx = company.onGuardCards.findIndex(og => {
@@ -1789,51 +1973,6 @@ function discardInfluencedCard(
   };
 }
 
-/**
- * Handle a site phase step that currently only accepts 'pass' to advance
- * to the next step. Used as a stub for reveal-on-guard-attacks,
- * automatic-attacks, and declare-agent-attack until full logic is implemented.
- *
- * @param markEntered - If true, sets siteEntered when advancing (used after
- *   the last attack step to mark the company as having successfully entered).
- */
-
-
-/**
- * Handle a site phase step that currently only accepts 'pass' to advance
- * to the next step. Used as a stub for reveal-on-guard-attacks,
- * automatic-attacks, and declare-agent-attack until full logic is implemented.
- *
- * @param markEntered - If true, sets siteEntered when advancing (used after
- *   the last attack step to mark the company as having successfully entered).
- */
-function handleSitePassStep(
-  state: GameState,
-  action: GameAction,
-  siteState: SitePhaseState,
-  currentStep: string,
-  nextStep: SitePhaseState['step'],
-  markEntered?: boolean,
-): ReducerResult {
-  if (action.type !== 'pass') {
-    return wrongActionType(state, action, 'pass', `${currentStep} step`);
-  }
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may pass during ${currentStep}` };
-  }
-
-  logDetail(`Site: ${currentStep} → advancing to ${nextStep}`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        ...siteState,
-        step: nextStep,
-        ...(markEntered ? { siteEntered: true } : {}),
-      },
-    },
-  };
-}
 
 /**
  * Advance the site phase to the next company or to End-of-Turn if all

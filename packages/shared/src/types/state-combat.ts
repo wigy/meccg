@@ -269,6 +269,15 @@ export interface CombatState {
    * only when one of these isolated attacks is defeated.
    */
   readonly isolated?: boolean;
+  /**
+   * Special strike resolution override set by tap-agent-at-site hazard
+   * short-events (e.g. An Article Missing dm-43).
+   *
+   * `'discard-item'`: a successful strike does not wound the defending
+   * character; instead the defending company must discard one item of
+   * their choice (defender picks).
+   */
+  readonly strikeEffect?: 'discard-item';
 }
 
 /**

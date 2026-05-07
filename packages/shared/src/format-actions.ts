@@ -241,8 +241,9 @@ export function describeAction(
         ? `on ${instName(action.targetCharacterId)}`
         : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
-      if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
-      return base;
+      const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
+      if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
+      return `${base}${raceTag}`;
     }
     case 'assign-strike': {
       const tapTag = action.tapped ? ' [tapped]' : '';
@@ -333,7 +334,9 @@ export function describeAction(
     case 'play-site-auto-attack':
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'declare-agent-attack':
-      return `Declare agent attack ${instName(action.agentInstanceId)}`;
+      return action.homeSiteInstanceId
+        ? `Declare agent attack ${instName(action.agentInstanceId)} (reveal at ${instName(action.homeSiteInstanceId)})`
+        : `Declare agent attack ${instName(action.agentInstanceId)}`;
     case 'pass-chain-priority':
       return `Pass chain priority`;
     case 'order-passives':
@@ -400,6 +403,30 @@ export function describeAction(
       return `Skip wizard search`;
     case 'select-card-bearer':
       return `Select ${instName(action.characterId)} as bearer of ${instName(action.cardInstanceId)}`;
+    case 'play-agent-hazard':
+      return `Play agent ${instName(action.agentCardInstanceId)} as hazard (face-down)`;
+    case 'reveal-agent':
+      return action.homeSiteInstanceId
+        ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
+        : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
+    case 'agent-move':
+      return `Agent ${action.agentId as string} moves to ${instName(action.destinationSiteInstanceId)}`;
+    case 'agent-move-back':
+      return `Agent ${action.agentId as string} moves back`;
+    case 'agent-return-home':
+      return action.homeSiteInstanceId
+        ? `Agent ${action.agentId as string} returns home to ${instName(action.homeSiteInstanceId)}`
+        : `Agent ${action.agentId as string} returns home`;
+    case 'agent-heal':
+      return `Agent ${action.agentId as string} heals`;
+    case 'agent-untap':
+      return `Agent ${action.agentId as string} untaps`;
+    case 'agent-turn-face-down':
+      return `Agent ${action.agentId as string} turns face-down`;
+    case 'agent-key-creatures':
+      return `Agent ${action.agentId as string} taps to key creatures`;
+    case 'agent-influence-attempt':
+      return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

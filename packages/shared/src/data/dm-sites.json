@@ -27,6 +27,378 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-32",
+    "name": "Hermit’s Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HermitsHill.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Wold & Foothills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a company may discard two minor items they bear to make any one major item (including a hoard item) playable at this untapped site this turn.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-42",
+    "name": "Urlurtsu Nurn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/UrlurtsuNurn.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness",
+      "shadow",
+      "dark"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Nurn",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 5,
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 4 strikes with 7 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-41",
+    "name": "The Under-vaults",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndervaults.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Mount Gram": 0,
+      "The Iron-deeps": 7,
+      "The Under-leas": 7
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature may also be played at this site.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-40",
+    "name": "The Under-leas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUnderleas.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gundabad",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 5,
+        "prowess": 7
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Mount Gundabad": 0,
+      "The Iron-deeps": 6,
+      "The Under-grottos": 8,
+      "The Under-gates": 6,
+      "The Under-vaults": 7
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (6), The Under-grottos (8), The Under-gates (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat).",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-39",
+    "name": "The Under-grottos",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndergrottos.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "High Pass",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Goblin-gate": 0,
+      "The Under-leas": 8,
+      "The Under-gates": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (8), The Under-gates (8)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: When a gold ring is tested in a company at this site, the result of the roll is modified by +2.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-38",
+    "name": "The Under-gates",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndergates.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Redhorn Gate",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Balrog",
+        "strikes": 2,
+        "prowess": 16
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Moria": 0,
+      "The Gem-deeps": 6,
+      "The Sulfur-deeps": 5,
+      "The Under-grottos": 8,
+      "The Under-leas": 6
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (5), The Under-grottos (8), The Under-leas (6)Playable: Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Balrog — 2 strikes with 16 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If Balrog of Moria is in play or if it or Durin's Bane has been defeated, the first automatic attack is canceled.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-37",
+    "name": "The Under-galleries",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndergalleries.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Ûdun",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 4,
+        "prowess": 9
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Any site in Ûdun": 0,
+      "The Under-courts": 4,
+      "The Sulfur-deeps": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (4), The Sulfur-deeps (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: Stolen Knowledge. When Under-galleries would be placed in your discard pile, place it in your marshalling points pile instead for 3 marshalling points—this card is considered stored.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-36",
+    "name": "The Under-courts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheUndercourts.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Barad-dûr": 0,
+      "The Sulfur-deeps": 5,
+      "The Under-galleries": 4
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (5), The Under-galleries (4)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If any Nazgûl permanent-event is in play, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-35",
+    "name": "The Sulfur-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheSulfurdeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 9
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Dol Guldur": 0,
+      "The Under-courts": 5,
+      "The Pûkel-deeps": 9,
+      "The Under-gates": 5,
+      "The Under-galleries": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (5), The Pûkel-deeps (9), The Under-gates (5), The Under-galleries (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 2 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If Khamûl the Easterling or Adûnaphel is in play as a permanent-event, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-34",
+    "name": "The Pûkel-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ThePukeldeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Dunharrow": 0,
+      "The Gem-deeps": 9,
+      "The Sulfur-deeps": 9
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (9), The Sulfur-deeps (9)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-33",
+    "name": "The Iron-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheIrondeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Carn Dûm": 0,
+      "The Under-leas": 6,
+      "The Under-vaults": 7
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 4,
+    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [r]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat).",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "dm-30",
+    "name": "The Gem-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheGemdeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gap of Isen",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Glittering Caves": 0,
+      "The Pûkel-deeps": 9,
+      "The Under-gates": 6
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
+    "unique": true
   }
 ]

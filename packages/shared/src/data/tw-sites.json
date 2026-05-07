@@ -158,7 +158,8 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess.",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -181,7 +182,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -204,7 +206,8 @@
     "automaticAttacks": [],
     "resourceDraws": 3,
     "hazardDraws": 6,
-    "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played."
+    "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played.",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -230,7 +233,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess."
+    "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess.",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -255,7 +259,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+    "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess.",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -295,13 +300,14 @@
         },
         "target": "wounded-character"
       }
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
     "alignment": "wizard",
     "id": "tw-391",
-    "name": "Eagles' Eyrie",
+    "name": "Eagles’ Eyrie",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EaglesEyrie.jpg",
     "siteType": "free-hold",
     "sitePath": [
@@ -315,7 +321,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -337,7 +344,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "",
-    "certified": "2026-04-11"
+    "certified": "2026-04-11",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -363,7 +371,8 @@
         "rule": "healing-affects-all"
       }
     ],
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -384,7 +393,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -407,7 +417,8 @@
     "hazardDraws": 1,
     "text": "",
     "effects": [],
-    "certified": "2026-04-11"
+    "certified": "2026-04-11",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -428,7 +439,8 @@
     "hazardDraws": 1,
     "text": "",
     "effects": [],
-    "certified": "2026-04-11"
+    "certified": "2026-04-11",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -459,7 +471,8 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien. Playable: Items (minor, major). Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess.",
     "effects": [],
-    "certified": "2026-04-11"
+    "certified": "2026-04-11",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -491,7 +504,8 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien. Playable: Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess.",
     "effects": [],
-    "certified": "2026-04-02"
+    "certified": "2026-04-02",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -511,7 +525,8 @@
     "hazardDraws": 1,
     "text": "Nearest Haven: Edhellond.",
     "effects": [],
-    "certified": "2026-04-13"
+    "certified": "2026-04-13",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -533,7 +548,8 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond.",
     "effects": [],
-    "certified": "2026-04-13"
+    "certified": "2026-04-13",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -585,7 +601,8 @@
         }
       }
     ],
-    "certified": "2026-04-13"
+    "certified": "2026-04-13",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -606,13 +623,14 @@
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien.",
     "effects": [],
-    "certified": "2026-04-11"
+    "certified": "2026-04-11",
+    "unique": true
   },
   {
     "cardType": "hero-site",
     "alignment": "wizard",
     "id": "tw-432",
-    "name": "Thranduil's Halls",
+    "name": "Thranduil’s Halls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThranduilsHalls.jpg",
     "siteType": "free-hold",
     "sitePath": [
@@ -628,7 +646,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Haven: Lórien."
+    "text": "Nearest Haven: Lórien.",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -650,7 +669,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Grey Havens.",
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -670,7 +690,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -695,7 +716,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Haven: LórienPlayable: Items (minor, gold ring)Automatic-attacks: Men — 3 strikes with 6 prowess"
+    "text": "Nearest Haven: LórienPlayable: Items (minor, gold ring)Automatic-attacks: Men — 3 strikes with 6 prowess",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -720,7 +742,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess"
+    "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -749,7 +772,8 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess",
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -770,7 +794,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Rivendell.",
-    "effects": []
+    "effects": [],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -806,7 +831,8 @@
     "lairOf": "tw-3",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -842,7 +868,8 @@
     "lairOf": "tw-26",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -878,7 +905,8 @@
     "lairOf": "tw-48",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -914,7 +942,8 @@
     "lairOf": "tw-90",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -944,7 +973,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "certified": "2026-04-26"
+    "certified": "2026-04-26",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -974,7 +1004,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -995,7 +1026,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 4,
-    "hazardDraws": 4
+    "hazardDraws": 4,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1022,7 +1054,8 @@
       }
     ],
     "resourceDraws": 1,
-    "hazardDraws": 1
+    "hazardDraws": 1,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1044,7 +1077,8 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 3,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1079,7 +1113,10 @@
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "wounded-character"
       },
       {
@@ -1087,13 +1124,22 @@
         "rule": "deny-item",
         "when": {
           "$and": [
-            { "subtype": "special" },
-            { "$not": { "keywords": { "$includes": "palantir" } } }
+            {
+              "subtype": "special"
+            },
+            {
+              "$not": {
+                "keywords": {
+                  "$includes": "palantir"
+                }
+              }
+            }
           ]
         }
       }
     ],
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1122,7 +1168,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1153,7 +1200,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1182,7 +1230,8 @@
         "rule": "healing-affects-all"
       }
     ],
-    "certified": "2026-04-22"
+    "certified": "2026-04-22",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1212,7 +1261,8 @@
       }
     ],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -1234,6 +1284,628 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 3,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-371",
+    "name": "Amon Hen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AmonHen.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: LórienPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-374",
+    "name": "Barad-dûr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Baraddur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 6,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowessSpecial: Any company moving to this site has its hazard limit increased by 2.",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-376",
+    "name": "Beorn’s House",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BeornsHouse.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anduin Vales",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Lórien",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-379",
+    "name": "Cameth Brin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CamethBrin.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Rhudaur",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Rivendell",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-382",
+    "name": "Cirith Ungol",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CirithUngol.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Orcs — 4 strikes with 7 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-387",
+    "name": "Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DolGuldur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-388",
+    "name": "Drúadan Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DruadanForest.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anórien",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-389",
+    "name": "Dunharrow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dunharrow.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Lórien",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-401",
+    "name": "Himring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Himring.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "free",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Grey Havens",
+    "region": "Elven Shores",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-405",
+    "name": "Isles of the Dead that Live",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IslesoftheDeadthatLive.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "free",
+      "coastal-sea",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Grey Havens",
+    "region": "Eriadoran Coast",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major, gold ring)Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-439",
+    "name": "Wose Passage-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WosePassagehold.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Old Pûkel-land",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-438",
+    "name": "Woodmen-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Woodmentown.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Western Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-436",
+    "name": "Weathertop",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Weathertop.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Arthedain",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Wolves",
+        "strikes": 2,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Wolves — 2 strikes with 6 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-435",
+    "name": "Variag Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/VariagCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Khand",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: Edhellond",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-434",
+    "name": "Vale of Erech",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ValeofErech.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Lamedon",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Edhellond",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-431",
+    "name": "The Wind Throne",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWindThrone.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: LórienPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 3 strikes with 7 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-429",
+    "name": "The Stones",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheStones.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Andrast",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 2,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: EdhellondPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-427",
+    "name": "Stone-circle",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Stonecircle.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Old Pûkel Gap",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-426",
+    "name": "Southron Oasis",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthronOasis.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal-sea",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Harondor",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-424",
+    "name": "Shelob’s Lair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ShelobsLair.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major)Automatic-attacks: Orcs — 2 strikes with 8 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-422",
+    "name": "Ruined Signal Tower",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RuinedSignalTower.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Enedhwaith",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Spiders",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: RivendellPlayable: Items (minor, major)Automatic-attacks: Spiders — 2 strikes with 8 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-418",
+    "name": "Ost-in-Edhil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OstinEdhil.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Hollin",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Wolves",
+        "strikes": 3,
+        "prowess": 5
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-411",
+    "name": "Minas Morgul",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MinasMorgul.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Undead — 3 strikes with 8 prowess; each character wounded must make a corruption check",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-410",
+    "name": "Lossadan Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LossadanCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Forochel",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Rivendell",
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-406",
+    "name": "Lake-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Laketown.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Northern Rhovanion",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien",
+    "unique": true
   }
 ]

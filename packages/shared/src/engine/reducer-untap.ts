@@ -228,7 +228,43 @@ function performUntap(state: GameState): GameState {
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
   logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
-  return updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters, cardsInPlay: newCardsInPlay }));
+  // Reset per-turn agent bookkeeping for the active player's agents.
+  // An agent that was in play before this untap is now eligible to take
+  // agent actions (inPlayAtTurnStart → true). Both flags reset every turn.
+  const newAgents = player.agents.map(a => ({
+    ...a,
+    inPlayAtTurnStart: true,
+    actedThisTurn: false,
+  }));
+
+  logDetail(`Untap: setting inPlayAtTurnStart=true for ${newAgents.length} agent(s)`);
+
+  let stateAfterUntap = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: newCharacters,
+    cardsInPlay: newCardsInPlay,
+    agents: newAgents,
+  }));
+
+  // Rule 9.04: Discard agents revealed without a home site. These belong to the
+  // hazard player (the opponent of the active player). They are discarded at the
+  // end of the turn in which they were revealed — which is the active player's turn.
+  const hazardPlayerIndex = 1 - playerIndex;
+  const hazardPlayer = stateAfterUntap.players[hazardPlayerIndex];
+  const discarded = hazardPlayer.agents.filter(a => a.discardAtEndOfTurn);
+  if (discarded.length > 0) {
+    logDetail(`Untap: discarding ${discarded.length} hazard agent(s) revealed without home site (rule 9.04)`);
+    const discardedCards = discarded.map(a => ({ instanceId: a.character.instanceId, definitionId: a.character.definitionId }));
+    const discardedSites = discarded.flatMap(a => a.siteStack);
+    stateAfterUntap = updatePlayer(stateAfterUntap, hazardPlayerIndex, p => ({
+      ...p,
+      agents: p.agents.filter(a => !a.discardAtEndOfTurn),
+      discardPile: [...p.discardPile, ...discardedCards],
+      siteDeck: [...p.siteDeck, ...discardedSites],
+    }));
+  }
+
+  return stateAfterUntap;
 }
 
 /**

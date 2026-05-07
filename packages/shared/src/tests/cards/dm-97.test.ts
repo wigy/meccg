@@ -27,6 +27,7 @@ import {
   handCardId, companyIdAt, resolveChain, phaseStateAs,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   findHandCardId, viableActionsForHandCard,
+  TOM_TUMA,
 } from '../test-helpers.js';
 import type { PlayerSetup } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, Race, SiteType } from '../../index.js';
@@ -100,6 +101,39 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(chosenRaces).toContain(Race.Orc);
     expect(chosenRaces).toContain(Race.Troll);
     expect(chosenRaces).toContain(Race.Man);
+  });
+
+  test('race choices are limited to races present in the hazard player\'s accessible cards', () => {
+    // Hazard player has only orc (ORC_GUARD) and troll (TOM_TUMA) creature cards in
+    // their deck — the engine must offer only those two races, not spider, man, etc.
+    const players: [PlayerSetup, PlayerSetup] = [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: [TWO_OR_THREE_TRIBES_PRESENT],
+        playDeck: [ORC_GUARD, TOM_TUMA],
+        siteDeck: [MINAS_TIRITH],
+      },
+    ];
+    const base = buildTestState({ activePlayer: PLAYER_1, phase: Phase.MovementHazard, players });
+    const gameState: GameState = {
+      ...base,
+      phaseState: makeMHState({ resolvedSitePath: [RegionType.Shadow], destinationSiteType: SiteType.ShadowHold }),
+    };
+
+    const tribesActions = viableActionsForHandCard(
+      gameState, PLAYER_2, 'play-hazard', HAZARD_PLAYER, TWO_OR_THREE_TRIBES_PRESENT,
+    );
+    const chosenRaces = tribesActions.map(a =>
+      a.action.type === 'play-hazard' ? a.action.chosenCreatureRace : undefined,
+    );
+    expect(chosenRaces).toHaveLength(2);
+    expect(chosenRaces).toContain(Race.Orc);
+    expect(chosenRaces).toContain(Race.Troll);
+    expect(chosenRaces).not.toContain(Race.Spider);
+    expect(chosenRaces).not.toContain(Race.Man);
+    expect(chosenRaces).not.toContain(Race.Dragon);
   });
 
   test('playing the card adds creature-type-no-hazard-limit constraint', () => {

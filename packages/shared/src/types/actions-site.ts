@@ -106,6 +106,13 @@ export interface DeclareAgentAttackAction {
   readonly player: PlayerId;
   /** The agent card instance that will attack. */
   readonly agentInstanceId: CardInstanceId;
+  /**
+   * For face-down agents: the home site instance to place with the agent when
+   * it is revealed at declaration time (rule 9.04). If absent, the agent is
+   * revealed without a home site and will be discarded at end of turn.
+   * Omitted for already-revealed (face-up) agents.
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
 }
 
 /**

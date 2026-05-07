@@ -251,7 +251,9 @@ function revealOnGuardAttacksActions(
     if (def.cardType === 'hazard-creature') {
       if (!hasAutoAttacks) continue;
 
-      // Check creature keying against the site
+      // Check creature keying against the site (rule 2.V.i: "keyed to the site").
+      // Only site-type and site-name keying apply here; region-type keying is for
+      // movement (company moving through regions) and does not apply at the site phase.
       if (siteDef && isSiteCard(siteDef)) {
         let keyable = false;
         for (const key of def.keyedTo) {
@@ -260,8 +262,8 @@ function revealOnGuardAttacksActions(
             keyable = true;
             break;
           }
-          if (key.regionTypes && key.regionTypes.some(rt => siteDef.sitePath.includes(rt))) {
-            logDetail(`On-guard creature "${def.name}" keyable by region-type in site path`);
+          if (key.siteNames && key.siteNames.includes(siteDef.name)) {
+            logDetail(`On-guard creature "${def.name}" keyable by site-name: ${siteDef.name}`);
             keyable = true;
             break;
           }
@@ -429,22 +431,105 @@ function playSiteAutoAttackActions(
 // `engine/pending-reducers.ts` (applyCorruptionCheckResolution).
 
 /**
- * Stub: declare-agent-attack step (CoE Step 3, line 358).
+ * Generate declare-agent-attack actions for the hazard player (CoE Step 3,
+ * line 358). The hazard player may declare that an agent at the company's
+ * current site will attack. Face-down agents are revealed at declaration.
+ * An agent must not have already attacked this site phase. The active
+ * (resource) player waits.
  *
- * The hazard player may declare an agent at the site will attack.
- * For now, only active player can pass.
+ * Always includes a `pass` so the hazard player can skip the step.
  */
 function declareAgentAttackActions(
   state: GameState,
   playerId: PlayerId,
 ): GameAction[] {
   const isActive = state.activePlayer === playerId;
-  if (!isActive) {
-    logDetail(`Not active player — no actions during declare-agent-attack step`);
+  if (isActive) {
+    logDetail(`Active player waits during declare-agent-attack step`);
     return [];
   }
-  logDetail(`Declare agent attack — pass to advance`);
-  return [{ type: 'pass', player: playerId }];
+
+  const siteState = state.phaseState as SitePhaseState;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const currentSiteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+  const currentSiteDefId = company?.currentSite?.definitionId;
+  const currentSiteName = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef.name : undefined;
+
+  if (!currentSiteDefId || !currentSiteName) {
+    logDetail(`declare-agent-attack: no current site for active company — only pass`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+
+  const actions: GameAction[] = [];
+  for (const agent of hazardPlayer.agents) {
+    if (agent.attackedThisSitePhase) {
+      logDetail(`Agent ${agent.id as string}: already attacked this site phase — skipping`);
+      continue;
+    }
+
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    const homesiteNames = agentDef && isCharacterCard(agentDef) && agentDef.homesite
+      ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+    if (agent.revealed) {
+      // Face-up agent: must be at company's site (top of siteStack)
+      if (agent.siteStack.length === 0) continue;
+      const topSite = agent.siteStack[agent.siteStack.length - 1];
+      if (topSite.definitionId !== currentSiteDefId) {
+        logDetail(`Agent ${agent.id as string}: face-up, not at company's site — skipping`);
+        continue;
+      }
+      logDetail(`Agent ${agent.id as string}: face-up at company's site — can declare attack`);
+      actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+    } else {
+      // Face-down agent: check if it is at the company's current site
+      // Empty siteStack → agent is at one of its home sites
+      // Non-empty siteStack → agent is at top of stack
+      const isAtCompanySite = agent.siteStack.length === 0
+        ? homesiteNames.includes(currentSiteName)
+        : agent.siteStack[agent.siteStack.length - 1].definitionId === currentSiteDefId;
+
+      if (!isAtCompanySite) {
+        logDetail(`Agent ${agent.id as string}: face-down, not at company's site — skipping`);
+        continue;
+      }
+
+      // Offer one action per home site in deck (for the reveal-at-declare)
+      const seenHome = new Set<string>();
+      let offeredAny = false;
+      for (const siteInst of hazardPlayer.siteDeck) {
+        const siteDef = state.cardPool[siteInst.definitionId as string];
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (!homesiteNames.includes(siteDef.name)) continue;
+        if (seenHome.has(siteDef.name)) continue;
+        seenHome.add(siteDef.name);
+        logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
+        actions.push({
+          type: 'declare-agent-attack',
+          player: playerId,
+          agentInstanceId: agent.character.instanceId,
+          homeSiteInstanceId: siteInst.instanceId,
+        });
+        offeredAny = true;
+      }
+      if (!offeredAny) {
+        // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
+        logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
+        actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      }
+    }
+  }
+
+  // Always offer pass to skip the agent attack step
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
 
 /**

@@ -32,7 +32,8 @@
     "lairOf": "td-20",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -69,7 +70,8 @@
     "lairOf": "td-36",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -104,7 +106,8 @@
     "lairOf": "td-60",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -138,7 +141,8 @@
     "keywords": [
       "hoard"
     ],
-    "certified": "2026-04-21"
+    "certified": "2026-04-21",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -171,7 +175,8 @@
     "lairOf": "td-63",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -201,12 +206,19 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["ruins-and-lairs", "shadow-hold"],
-          "regionTypes": ["wilderness", "shadow"]
+          "siteTypes": [
+            "ruins-and-lairs",
+            "shadow-hold"
+          ],
+          "regionTypes": [
+            "wilderness",
+            "shadow"
+          ]
         }
       }
     ],
-    "certified": "2026-04-22"
+    "certified": "2026-04-22",
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -237,7 +249,8 @@
       }
     ],
     "resourceDraws": 3,
-    "hazardDraws": 3
+    "hazardDraws": 3,
+    "unique": true
   },
   {
     "cardType": "hero-site",
@@ -258,6 +271,33 @@
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 2,
-    "hazardDraws": 2
+    "hazardDraws": 2,
+    "unique": true
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-180",
+    "name": "Tharbad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Tharbad.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Cardolan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: RivendellPlayable: Items (minor)Automatic-attacks: Men — 3 strike with 6 prowessSpecial: Items may be played here even if the site is tapped.",
+    "unique": true
   }
 ]

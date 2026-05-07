@@ -16,8 +16,175 @@
  * • If the influence attempt is against a faction that is playable at one of the agent's home sites, the value required to bring the faction into play is treated as zero and the hazard player's roll is modified by an additional +2.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, dispatch, makeMHState, viableActions,
+  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
+  ARAGORN, LEGOLAS,
+  LORIEN, MORIA,
+} from '../../test-helpers.js';
+import type { CardDefinitionId, CardInstanceId, CompanyId, PendingResolution } from '../../../index.js';
+import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
+import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
+
+// Golodhros (dm-14): Ringwraith agent, directInfluence=4, home: "Minas Morgul, Cirith Ungol, Barad-dûr"
+// Has the agent-tap-influence effect
+const GOLODHROS = 'dm-14' as CardDefinitionId;
+// Minas Morgul minion site (one of Golodhros's home sites)
+const MINAS_MORGUL_SITE = 'le-390' as CardDefinitionId;
+// Gorbag: minion character, home: Minas Morgul (shares home with Golodhros)
+const GORBAG = 'le-11' as CardDefinitionId;
+
+const GOLODHROS_ID = 'test-1014-gol' as CardInstanceId;
+const SITE_INST_ID = 'test-1014-site' as CardInstanceId;
+const AGENT_COMP_ID = 'agent-0-0' as CompanyId;
+
+const GOLODHROS_CHAR: CharacterInPlay = {
+  instanceId: GOLODHROS_ID,
+  definitionId: GOLODHROS,
+  status: CardStatus.Untapped,
+  items: [], allies: [], hazards: [], followers: [],
+  controlledBy: 'general',
+  effectiveStats: ZERO_EFFECTIVE_STATS,
+};
+
+const MINAS_MORGUL_IN_PLAY: SiteInPlay = {
+  instanceId: SITE_INST_ID,
+  definitionId: MINAS_MORGUL_SITE,
+  status: CardStatus.Untapped,
+};
+
+function buildInfluenceState(opts: {
+  agentAtHome?: boolean;   // true → agent at Minas Morgul (home); false → at Moria
+  target?: CardDefinitionId; // resource char def — defaults to ARAGORN
+  destinationSite?: CardDefinitionId; // company's destination
+} = {}) {
+  const atHome = opts.agentAtHome ?? true;
+  const targetChar = opts.target ?? ARAGORN;
+  const destSite = opts.destinationSite ?? MINAS_MORGUL_SITE;
+
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: LORIEN, characters: [targetChar], destinationSite: destSite }], hand: [], siteDeck: [] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+    ],
+  });
+
+  const agentSiteStack: SiteInPlay[] = atHome ? [MINAS_MORGUL_IN_PLAY] : [
+    { instanceId: 'test-1014-moria' as CardInstanceId, definitionId: MORIA, status: CardStatus.Untapped },
+  ];
+
+  const agent: AgentInPlay = {
+    id: AGENT_COMP_ID,
+    character: GOLODHROS_CHAR,
+    revealed: false,
+    siteStack: agentSiteStack,
+    actedThisTurn: false,
+    inPlayAtTurnStart: true,
+    attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
+  };
+
+  const destSiteNames: Record<string, string> = { [MINAS_MORGUL_SITE as string]: 'Minas Morgul', [MORIA as string]: 'Moria' };
+  const destSiteName = destSiteNames[destSite as string] ?? 'Minas Morgul';
+
+  return {
+    ...base,
+    players: [
+      base.players[0],
+      { ...base.players[1], agents: [agent] },
+    ] as unknown as typeof base.players,
+    phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0, destinationSiteName: destSiteName }),
+  };
+}
 
 describe('Rule 10.14 — Influencing with an Agent', () => {
-  test.todo('Agent hazard may make influence attempt during opponent M/H phase; special bonuses at home site and shared home site');
+  beforeEach(() => resetMint());
+
+  test('Agent hazard may make influence attempt during opponent M/H phase; special bonuses at home site and shared home site', () => {
+    // Golodhros at Minas Morgul (his home site), company moving to Minas Morgul, targeting Aragorn
+    const state = buildInfluenceState({ agentAtHome: true, target: ARAGORN });
+
+    // Action is offered
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    // Action dispatches without error and enqueues pending defend
+    const after = dispatch(state, actions[0].action);
+    const pending = after.pendingResolutions.find(
+      (r: PendingResolution) => r.kind.type === 'opponent-influence-defend',
+    );
+    expect(pending).toBeDefined();
+  });
+
+  test('action not offered when agent is at a different site than the company destination', () => {
+    // Golodhros at Moria, company moving to Minas Morgul — no match
+    const state = buildInfluenceState({ agentAtHome: false, destinationSite: MINAS_MORGUL_SITE });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBe(0);
+  });
+
+  test('agent at home site: influencerDI includes +2 home bonus', () => {
+    // Golodhros: base DI 4, at home → effective DI 6
+    const state = buildInfluenceState({ agentAtHome: true });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const pending = after.pendingResolutions.find(
+      (r: PendingResolution) => r.kind.type === 'opponent-influence-defend',
+    );
+    expect(pending).toBeDefined();
+    const attempt = (pending!.kind as { attempt: { influencerDI: number; targetMind: number } }).attempt;
+    // Base DI 4 + home bonus 2 = 6
+    expect(attempt.influencerDI).toBe(6);
+  });
+
+  test('agent not at home: no +2 DI bonus', () => {
+    // Build state where agent is at Moria (not home) and company also at Moria
+    const state = buildInfluenceState({ agentAtHome: false, destinationSite: MORIA });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const pending = after.pendingResolutions.find(
+      (r: PendingResolution) => r.kind.type === 'opponent-influence-defend',
+    );
+    expect(pending).toBeDefined();
+    const attempt = (pending!.kind as { attempt: { influencerDI: number } }).attempt;
+    // Base DI 4 only (no home bonus)
+    expect(attempt.influencerDI).toBe(4);
+  });
+
+  test('target sharing home site with agent: targetMind treated as zero', () => {
+    // Gorbag has home site "Minas Morgul", same as Golodhros → mind = 0 (was 6)
+    const state = buildInfluenceState({ agentAtHome: true, target: GORBAG });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const pending = after.pendingResolutions.find(
+      (r: PendingResolution) => r.kind.type === 'opponent-influence-defend',
+    );
+    expect(pending).toBeDefined();
+    const attempt = (pending!.kind as { attempt: { targetMind: number } }).attempt;
+    // Gorbag mind 6 → shared home → treated as 0
+    expect(attempt.targetMind).toBe(0);
+  });
+
+  test('agent does NOT count actedThisTurn after influence (not an agent action)', () => {
+    const state = buildInfluenceState({ agentAtHome: true });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    // actedThisTurn must remain false (influence is not an agent action)
+    expect(after.players[HAZARD_PLAYER].agents[0].actedThisTurn).toBe(false);
+    // But agent is tapped
+    expect(after.players[HAZARD_PLAYER].agents[0].character.status).toBe(CardStatus.Tapped);
+    // And revealed
+    expect(after.players[HAZARD_PLAYER].agents[0].revealed).toBe(true);
+  });
 });

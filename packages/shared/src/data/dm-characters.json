@@ -1,0 +1,816 @@
+[
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-1",
+    "name": "Anarin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Anarin.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 7,
+    "directInfluence": 3,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-2",
+    "name": "Baduila",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Baduila.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 6,
+    "body": 8,
+    "mind": 8,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Goblin-gate, Mount Gundabad",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Agent only: if you choose to discard Baduila at target company’s new site, company must return to its site of origin."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-3",
+    "name": "Bill Ferny",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/BillFerny.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree, Cameth Brin",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-4",
+    "name": "Dâsakûn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Dasakun.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 6,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Easterling Camp, Variag Camp, Shrel-Kain",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-5",
+    "name": "Deallus",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Deallus.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dunnish Clan-hold, Bree, Cameth Brin",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-6",
+    "name": "Drór",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Dror.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 2,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-7",
+    "name": "Elerína",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Elerina.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 8,
+    "directInfluence": 3,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Carn Dûm, Mount Gram",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Can use shadow-magic and spirit-magic. Agent only: may tap for an extra strike."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-8",
+    "name": "Elwen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Elwen.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dol Amroth, Minas Tirith",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-9",
+    "name": "Eun",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Eun.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Vale of Erech, Lond Galen",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-10",
+    "name": "Firiel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Firiel.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 3,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Pelargir, Vale of Erech",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Can use shadow-magic. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-11",
+    "name": "Fori the Beardless",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ForitheBeardless.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Iron Hill Dwarf-hold",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-12",
+    "name": "Gergeli",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Gergeli.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Shrel-Kain, Lake-town, Easterling Camp",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-13",
+    "name": "Gisulf",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Gisulf.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Woodmen-town, Lake-town, Dale",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-14",
+    "name": "Golodhros",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Golodhros.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 9,
+    "directInfluence": 4,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Morgul, Cirith Ungol, Barad-dûr",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [
+      {
+        "type": "agent-tap-influence",
+        "targetKinds": ["character", "ally", "faction"]
+      }
+    ],
+    "text": "Unique. Agent. Can use spirit-magic. Agent only: may tap to make an influence check on an ally, faction, or character."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-15",
+    "name": "The Grimburgoth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheGrimburgoth.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 7,
+    "body": 9,
+    "mind": 8,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dol Guldur",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Can use sorcery. Agent only: may tap at a company's new site to attack that company during its movement/hazard phase with +2 prowess."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-16",
+    "name": "Herion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Herion.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lond Galen, Dol Amroth",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-17",
+    "name": "Ivic",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Ivic.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Southron Oasis, Variag Camp, Pelargir",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-18",
+    "name": "Jûoma",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Juoma.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lossadan Camp, Bree",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-19",
+    "name": "Leamon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Leamon.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Cameth Brin, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-20",
+    "name": "Nimloth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Nimloth.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "ranger"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Thranduil’s Halls, Sarn Goriwing",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-21",
+    "name": "Ôm-buri-Ôm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/OmburiOm.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Drúadan Forest, Wose Passage-hold, Stone-circle",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +3 direct influence against Wose Factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-22",
+    "name": "Pôn-ora-Pôn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/PonoraPon.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 1,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Drúadan Forest, Wose Passage-hold, Stone-circle",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +3 direct influence against Wose Factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-23",
+    "name": "Râisha",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Raisha.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Variag Camp, Easterling Camp, Southron Oasis",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-24",
+    "name": "Súrion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Surion.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith, Pelargir",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-25",
+    "name": "Taladhan",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Taladhan.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 4,
+    "body": 9,
+    "mind": 6,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Sarn Goriwing, Dol Guldur",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. Can use shadow-magic. Agent only: chooses defending characters; for each successful strike, the company must discard one item (of defender’s choice), but the defending character is not harmed."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-26",
+    "name": "Woffung",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Woffung.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lake-town, Dale, Shrel-Kain",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-27",
+    "name": "Wormtongue",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Wormtongue.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 1,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras, Dunharrow, Isengard",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "dm-180",
+    "name": "Folco Boffin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FolcoBoffin.jpg",
+    "unique": true,
+    "race": "hobbit",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 0,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bag End",
+    "keywords": [],
+    "effects": [],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2. You may discard Folco Boffin at a Haven to play any Hobbit from your hand with his company."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-181",
+    "name": "Baugúr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Baugur.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Isengard",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique.Half-orc. Agent. Leader. Discard on a body check result of 8. +2 direct influence against Orcs and Orc factions. Agent only: Cannot move to Free-holds [{F}] and Border-holds [{B}]."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-182",
+    "name": "Freca",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Freca.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +1 direct influence against Riders of Rohan and Dunlendings."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "dm-183",
+    "name": "Wolf",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Wolf.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 2,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras, Dunnish Clan-hold",
+    "keywords": [
+      "agent"
+    ],
+    "effects": [],
+    "text": "Unique. Agent. +2 direct influence against Dunlendings."
+  }
+]

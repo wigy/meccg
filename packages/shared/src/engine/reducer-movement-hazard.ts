@@ -6,11 +6,11 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState } from '../index.js';
-import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
+import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
@@ -19,11 +19,15 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
-import { sweepExpired, addConstraint, enqueueCorruptionCheck } from './pending.js';
+import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { roll2d6 } from './reducer-utils.js';
+import { availableDI } from './legal-actions/organization.js';
+import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
+import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { isDetainmentAttack } from './detainment.js';
 
@@ -141,6 +145,26 @@ function handlePlayHazards(
     return handlePlayHazardCard(state, action, mhState);
   }
 
+  // --- Play agent as hazard ---
+  if (action.type === 'play-agent-hazard') {
+    return handlePlayAgentHazard(state, action, mhState);
+  }
+
+  // --- Reveal face-down agent (no hazard slot cost) ---
+  if (action.type === 'reveal-agent') {
+    return handleRevealAgent(state, action);
+  }
+
+  // --- Agent turn actions (each costs 1 hazard slot) ---
+  if (action.type === 'agent-move') return handleAgentMove(state, action, mhState);
+  if (action.type === 'agent-move-back') return handleAgentMoveBack(state, action, mhState);
+  if (action.type === 'agent-return-home') return handleAgentReturnHome(state, action, mhState);
+  if (action.type === 'agent-heal') return handleAgentHeal(state, action, mhState);
+  if (action.type === 'agent-untap') return handleAgentUntap(state, action, mhState);
+  if (action.type === 'agent-turn-face-down') return handleAgentTurnFaceDown(state, action, mhState);
+  if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
+  if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
+
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
   let result: ReducerResult;
@@ -208,6 +232,728 @@ function handlePlayHazards(
  * TODO: creatures, short-events, permanent-events, on-guard cards
  */
 
+
+/**
+ * Generate a unique CompanyId for a new agent in-play record.
+ *
+ * Uses an "agent-" prefix namespace (different from "company-") so that
+ * `SelectCompanyAction` can distinguish agents from companies if needed in the
+ * future, while still being a valid `CompanyId` for existing action routing.
+ */
+function nextAgentId(player: { readonly agents: readonly AgentInPlay[] }): CompanyId {
+  const maxIdx = player.agents.reduce((max, a) => {
+    const match = (a.id as string).match(/agent-.*-(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, -1);
+  return `agent-${player.agents.length}-${maxIdx + 1}` as CompanyId;
+}
+
+/**
+ * Handle the `play-agent-hazard` action during the play-hazards step.
+ *
+ * Removes the agent character from hand and the chosen home site from the
+ * hazard player's site deck. Creates a face-down `AgentInPlay` with the site
+ * as the initial stack entry. Increments the hazard count.
+ */
+function handlePlayAgentHazard(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'play-agent-hazard') return wrongActionType(state, action, 'play-agent-hazard');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentHandCard = hazardPlayer.hand.find(c => c.instanceId === action.agentCardInstanceId);
+  if (!agentHandCard) return { state, error: 'Agent card not in hand' };
+
+  const agentDef = state.cardPool[agentHandCard.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent card definition not found' };
+
+  logDetail(`Play agent hazard: "${agentDef.name}" (${agentHandCard.instanceId as string}) — placed face-down, site chosen at reveal (${mhState.hazardsPlayedThisCompany + 1} hazards played)`);
+
+  const agentChar: CharacterInPlay = {
+    instanceId: agentHandCard.instanceId,
+    definitionId: agentHandCard.definitionId,
+    status: CardStatus.Untapped,
+    items: [],
+    allies: [],
+    hazards: [],
+    followers: [],
+    controlledBy: 'general',
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+
+  const agentInPlay: AgentInPlay = {
+    id: nextAgentId(hazardPlayer),
+    character: agentChar,
+    revealed: false,
+    siteStack: [],
+    actedThisTurn: false,
+    inPlayAtTurnStart: false,
+    attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
+  };
+
+  const newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, action.agentCardInstanceId),
+    agents: [...p.agents, agentInPlay],
+  }));
+
+  return {
+    state: {
+      ...newState,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        resourcePlayerPassed: false,
+      },
+    },
+  };
+}
+
+/**
+ * Check whether a single movement hop between two site names is legal.
+ *
+ * Returns `true` if the sites are adjacent by starter or region movement
+ * (within the 4-region default limit). Used when revealing an agent to
+ * validate the site stack's movement history.
+ *
+ * Revealing at a home site is not movement (rule 9.04); callers skip
+ * the check for a stack of size 1.
+ */
+function isLegalMovementHop(
+  state: GameState,
+  fromSiteName: string,
+  toSiteName: string,
+): boolean {
+  const movementMap = buildMovementMap(state.cardPool);
+  const allSites = Object.values(state.cardPool).filter(isSiteCard);
+  const fromDef = allSites.find(s => s.name === fromSiteName);
+  if (!fromDef) return false;
+  const reachable = getReachableSites(movementMap, fromDef, allSites);
+  return reachable.some(r => r.site.name === toSiteName);
+}
+
+/**
+ * Handle the `reveal-agent` action during the play-hazards step.
+ *
+ * Revealing does not cost a hazard slot. The engine:
+ * 1. Places the chosen home site (from the location deck) as the agent's
+ *    current site (rule 9.04). The site is removed from the location deck.
+ * 2. Validates movement legality of the complete site stack (rule 4.2.1).
+ *    Revealing at the home site with an empty prior stack is always legal.
+ *    If any hop is illegal, the agent and home site are discarded.
+ * 3. Sets `revealed = true`, returns earlier stack sites to the location deck.
+ * 4. Checks uniqueness: if a face-up unique character/agent with the
+ *    same definitionId already exists, the newly-revealed agent is
+ *    discarded (rule 4.2.3), and the home site is returned to the deck.
+ */
+function handleRevealAgent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'reveal-agent') return wrongActionType(state, action, 'reveal-agent');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.revealed) return { state, error: 'Agent is already revealed' };
+
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentName = agentDef?.name ?? String(agent.character.definitionId);
+
+  // --- No home site available: reveal without site, discard at end of turn (rule 9.04) ---
+  if (!action.homeSiteInstanceId) {
+    logDetail(`Reveal agent: ${agentName} (${agent.id as string}) — no home site available, will be discarded at end of turn`);
+    const revealedAgent: AgentInPlay = {
+      ...agent,
+      revealed: true,
+      siteStack: [],
+      discardAtEndOfTurn: true,
+    };
+    return {
+      state: updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map((a, i) => i === agentIdx ? revealedAgent : a),
+        // Return any prior stack sites to deck (they were never in play)
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
+      })),
+    };
+  }
+
+  // Pick the home site from the location deck
+  const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+  if (!homeSiteCard) return { state, error: 'Home site not in location deck' };
+  const homeSiteDef = state.cardPool[homeSiteCard.definitionId as string];
+
+  const homeSiteName = homeSiteDef && isSiteCard(homeSiteDef) ? homeSiteDef.name : String(homeSiteCard.definitionId);
+  logDetail(`Reveal agent: ${agentName} (${agent.id as string}) at home site "${homeSiteName}", prior stack length ${agent.siteStack.length}`);
+
+  // Build the full site stack with the home site appended as the new current site
+  const homeSiteEntry: AgentInPlay['siteStack'][0] = {
+    instanceId: homeSiteCard.instanceId,
+    definitionId: homeSiteCard.definitionId,
+    status: CardStatus.Untapped,
+  };
+  const fullStack = [...agent.siteStack, homeSiteEntry];
+
+  // --- Step 1: Validate movement history ---
+  // Revealing at home site with empty prior stack is not movement (rule 9.04).
+  let movementLegal = true;
+  for (let i = 0; i < fullStack.length - 1; i++) {
+    const fromDef = state.cardPool[fullStack[i].definitionId as string];
+    const toDef = state.cardPool[fullStack[i + 1].definitionId as string];
+    if (!fromDef || !toDef || !isSiteCard(fromDef) || !isSiteCard(toDef)) {
+      logDetail(`Agent reveal: site definition missing at stack index ${i} — treating as illegal`);
+      movementLegal = false;
+      break;
+    }
+    if (!isLegalMovementHop(state, fromDef.name, toDef.name)) {
+      logDetail(`Agent reveal: illegal hop ${fromDef.name} → ${toDef.name} — discarding agent`);
+      movementLegal = false;
+      break;
+    }
+  }
+
+  // --- Rule 9.07: Discard if any site in the movement path is a Haven ---
+  // An agent revealed with a Haven site anywhere in its prior siteStack is
+  // immediately discarded (the agent moved through a restricted site).
+  // Note: movement TO haven sites is already blocked in agentTurnActions.
+  if (movementLegal && agent.siteStack.length > 0) {
+    for (const stackEntry of agent.siteStack) {
+      const stackDef = state.cardPool[stackEntry.definitionId as string];
+      if (stackDef && isSiteCard(stackDef) && stackDef.siteType === 'haven') {
+        logDetail(`Agent ${agentName}: discarded — moved through Haven site "${stackDef.name}" (rule 9.07)`);
+        movementLegal = false;
+        break;
+      }
+    }
+  }
+
+  // --- Discard path: return all sites to deck, put character in discard ---
+  if (!movementLegal) {
+    logDetail(`Agent ${agentName}: discarded due to illegal movement history`);
+    return {
+      state: updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.filter((_, i) => i !== agentIdx),
+        discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+        // Return old stack sites + home site to deck
+        siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+      })),
+    };
+  }
+
+  // --- Step 2: Check uniqueness ---
+  const isUnique = agentDef && 'unique' in agentDef && (agentDef as { unique?: boolean }).unique === true;
+  if (isUnique) {
+    let duplicate = false;
+    for (const player of state.players) {
+      for (const char of Object.values(player.characters)) {
+        if (char.definitionId === agent.character.definitionId) { duplicate = true; break; }
+      }
+      if (duplicate) break;
+      for (const a of player.agents) {
+        if (a.revealed && a.id !== agent.id && a.character.definitionId === agent.character.definitionId) {
+          duplicate = true; break;
+        }
+      }
+      if (duplicate) break;
+    }
+    if (duplicate) {
+      logDetail(`Agent ${agentName}: discarded due to uniqueness conflict`);
+      return {
+        state: updatePlayer(state, hazardIndex, p => ({
+          ...p,
+          agents: p.agents.filter((_, i) => i !== agentIdx),
+          discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+          // Return old stack sites + home site to deck
+          siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+        })),
+      };
+    }
+  }
+
+  // --- Step 3: Reveal — current site = home site, return earlier stack sites to deck ---
+  const returnedSites = agent.siteStack; // all prior sites go back (they were never in play)
+  const revealedAgent: AgentInPlay = {
+    ...agent,
+    revealed: true,
+    siteStack: [homeSiteEntry],
+  };
+
+  logDetail(`Agent ${agentName}: revealed at "${homeSiteName}", returning ${returnedSites.length} earlier site(s) to deck`);
+
+  return {
+    state: updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map((a, i) => i === agentIdx ? revealedAgent : a),
+      // Remove home site from deck; return all prior stack sites
+      siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+    })),
+  };
+}
+
+/**
+ * Shared helper: charge 1 hazard slot for an agent action and mark the agent
+ * as having acted this turn. Returns the updated mhState object.
+ */
+function chargeAgentAction(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
+  return {
+    ...mhState,
+    hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+    resourcePlayerPassed: false,
+  };
+}
+
+/**
+ * Shared helper: update one agent in the hazard player's agents array.
+ */
+function updateAgent(
+  state: GameState,
+  hazardIndex: number,
+  agentIdx: number,
+  updater: (a: AgentInPlay) => AgentInPlay,
+): GameState {
+  return updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.map((a, i) => i === agentIdx ? updater(a) : a),
+  }));
+}
+
+/**
+ * Handle `agent-move`: move agent to an adjacent site from its location deck.
+ *
+ * Pushes destination site onto `siteStack`, taps agent, increments hazard count.
+ */
+function handleAgentMove(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-move') return wrongActionType(state, action, 'agent-move');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const destCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.destinationSiteInstanceId);
+  if (!destCard) return { state, error: 'Destination site not in location deck' };
+
+  const destDef = state.cardPool[destCard.definitionId as string];
+  const destName = destDef && isSiteCard(destDef) ? destDef.name : String(destCard.definitionId);
+  logDetail(`Agent ${action.agentId as string}: moving to "${destName}"`);
+
+  const destEntry: SiteInPlay = {
+    instanceId: destCard.instanceId,
+    definitionId: destCard.definitionId,
+    status: CardStatus.Untapped,
+  };
+
+  const newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.map((a, i) => i !== agentIdx ? a : {
+      ...a,
+      character: { ...a.character, status: CardStatus.Tapped },
+      siteStack: [...a.siteStack, destEntry],
+      actedThisTurn: true,
+    }),
+    siteDeck: removeById(p.siteDeck, destCard.instanceId),
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-move-back`: move agent one step back along its site stack.
+ *
+ * Pops the top site from `siteStack` (returning it to location deck), taps agent.
+ */
+function handleAgentMoveBack(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-move-back') return wrongActionType(state, action, 'agent-move-back');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.siteStack.length <= 1) return { state, error: 'Cannot move back: no prior site in stack' };
+
+  const topSite = agent.siteStack[agent.siteStack.length - 1];
+  const backDef = state.cardPool[agent.siteStack[agent.siteStack.length - 2].definitionId as string];
+  const backName = backDef && isSiteCard(backDef) ? backDef.name : 'previous site';
+  logDetail(`Agent ${action.agentId as string}: moving back to "${backName}", returning ${topSite.instanceId as string} to deck`);
+
+  const newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.map((a, i) => i !== agentIdx ? a : {
+      ...a,
+      character: { ...a.character, status: CardStatus.Tapped },
+      siteStack: a.siteStack.slice(0, -1),
+      actedThisTurn: true,
+    }),
+    siteDeck: [...p.siteDeck, topSite],
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-return-home`: return agent to a home site, clearing the site stack.
+ *
+ * All current siteStack entries are returned to location deck; chosen home site becomes sole entry.
+ * Taps agent.
+ */
+/**
+ * Handle `agent-return-home`: return agent to its home site.
+ *
+ * All siteStack entries are returned to the location deck. Does NOT tap
+ * the agent (rule 4.1). For face-down agents, siteStack becomes empty.
+ * For face-up agents, the chosen home site card is placed with the agent.
+ */
+function handleAgentReturnHome(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-return-home') return wrongActionType(state, action, 'agent-return-home');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+
+  if (agent.revealed) {
+    // Face-up: home site card must be placed with agent
+    const homeCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+    if (!homeCard) return { state, error: 'Home site not in location deck (required for face-up agent)' };
+
+    const homeDef = state.cardPool[homeCard.definitionId as string];
+    const homeName = homeDef && isSiteCard(homeDef) ? homeDef.name : String(homeCard.definitionId);
+    logDetail(`Agent ${action.agentId as string}: returning home (face-up) to "${homeName}", returning ${agent.siteStack.length} site(s) to deck`);
+
+    const homeSiteEntry: SiteInPlay = {
+      instanceId: homeCard.instanceId,
+      definitionId: homeCard.definitionId,
+      status: CardStatus.Untapped,
+    };
+
+    const newState = updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map((a, i) => i !== agentIdx ? a : {
+        ...a,
+        siteStack: [homeSiteEntry],
+        actedThisTurn: true,
+        // does NOT tap (rule 4.1)
+      }),
+      siteDeck: [...removeById(p.siteDeck, homeCard.instanceId), ...agent.siteStack],
+    }));
+    return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  }
+
+  // Face-down: siteStack becomes empty, no site card needed
+  logDetail(`Agent ${action.agentId as string}: returning home (face-down), returning ${agent.siteStack.length} site(s) to deck`);
+
+  const newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.map((a, i) => i !== agentIdx ? a : {
+      ...a,
+      siteStack: [],
+      actedThisTurn: true,
+      // does NOT tap (rule 4.1)
+    }),
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-heal`: heal a wounded (Inverted) agent to Tapped.
+ */
+function handleAgentHeal(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-heal') return wrongActionType(state, action, 'agent-heal');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Inverted) {
+    return { state, error: 'Agent is not wounded' };
+  }
+
+  logDetail(`Agent ${action.agentId as string}: healed (inverted → tapped)`);
+
+  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
+    ...a,
+    character: { ...a.character, status: CardStatus.Tapped },
+    actedThisTurn: true,
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-untap`: untap a tapped agent.
+ */
+function handleAgentUntap(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-untap') return wrongActionType(state, action, 'agent-untap');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Tapped) {
+    return { state, error: 'Agent is not tapped' };
+  }
+
+  logDetail(`Agent ${action.agentId as string}: untapped`);
+
+  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
+    ...a,
+    character: { ...a.character, status: CardStatus.Untapped },
+    actedThisTurn: true,
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-turn-face-down`: turn a revealed untapped agent face-down.
+ *
+ * Does not tap the agent. The current site remains in siteStack (now face-down).
+ */
+function handleAgentTurnFaceDown(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-turn-face-down') return wrongActionType(state, action, 'agent-turn-face-down');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  if (!agent.revealed) return { state, error: 'Agent is not revealed' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped to turn face-down' };
+
+  logDetail(`Agent ${action.agentId as string}: turned face-down`);
+
+  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
+    ...a,
+    revealed: false,
+    actedThisTurn: true,
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-key-creatures`: tap an untapped agent to key creatures to its site.
+ *
+ * Taps the agent. (The actual keying logic for creature hazards is handled
+ * by the hazard-play legal-action computer which checks `keyedAgents`.)
+ */
+function handleAgentKeyCreatures(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'agent-key-creatures') return wrongActionType(state, action, 'agent-key-creatures');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Untapped) {
+    return { state, error: 'Agent must be untapped to key creatures' };
+  }
+
+  logDetail(`Agent ${action.agentId as string}: tapped to key creatures to its site`);
+
+  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
+    ...a,
+    character: { ...a.character, status: CardStatus.Tapped },
+    actedThisTurn: true,
+  }));
+
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+}
+
+/**
+ * Handle `agent-influence-attempt` (rule 10.14).
+ *
+ * The agent taps (not as an agent action, not against hazard limit) and is
+ * revealed. The influence attempt is resolved using the standard
+ * `opponent-influence-defend` pending resolution with rule 10.14 bonuses:
+ *   - +2 to influencer DI if agent is at one of its home sites
+ *   - Target mind treated as 0, +2 to attacker roll if target shares a home
+ *     site with the agent (character/ally) or faction is playable at agent's
+ *     home site (faction)
+ */
+function handleAgentInfluenceAttempt(
+  state: GameState,
+  action: GameAction,
+  _mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'agent-influence-attempt') return wrongActionType(state, action, 'agent-influence-attempt');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const resourceIndex = 1 - hazardIndex;
+  const resourcePlayer = state.players[resourceIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  // Reveal agent, tap agent (not actedThisTurn — rule 10.14)
+  const tapInfluenceEff = (agentDef.effects ?? []).find(
+    (e): e is AgentTapInfluenceEffect => e.type === 'agent-tap-influence',
+  );
+  if (!tapInfluenceEff) return { state, error: 'Agent does not have agent-tap-influence effect' };
+
+  logDetail(`Agent influence attempt: ${agentDef.name} (agent-${agent.id as string}) → ${action.targetKind} ${action.targetInstanceId as string}`);
+
+  // Determine home site and whether agent is at home
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  let agentSiteName: string | null = null;
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = state.cardPool[topSite.definitionId as string];
+    if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+  } else {
+    agentSiteName = homesiteNames[0] ?? null;
+  }
+  const isAtHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
+
+  // Rule 10.14 bonus: +2 DI if at home site
+  // Agents are in hazardPlayer.agents, not .characters, so availableDI won't find them.
+  // Read DI directly from the card definition.
+  let influencerDI = agentDef.directInfluence ?? 0;
+  if (isAtHome) {
+    influencerDI += 2;
+    logDetail(`Agent influence: ${agentDef.name} is at home site ${agentSiteName} → +2 DI (total: ${influencerDI})`);
+  }
+
+  // Resolve target mind / value and roll bonus
+  let targetMind = 0;
+  let controllerDI = 0;
+  let rollBonus = 0;
+
+  if (action.targetKind === 'character') {
+    const targetChar = resourcePlayer.characters[action.targetInstanceId as string];
+    if (!targetChar) return { state, error: 'Target character not found' };
+    const targetDef = state.cardPool[targetChar.definitionId as string];
+    if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+    targetMind = targetDef.mind ?? 0;
+
+    // Rule 10.14: shared home site → mind = 0, +2 roll
+    const targetHomesites = parseHomesiteNames((targetDef as { homesite?: string }).homesite ?? '');
+    const sharesHome = targetHomesites.some(h => homesiteNames.includes(h));
+    if (sharesHome) {
+      targetMind = 0;
+      rollBonus += 2;
+      logDetail(`Agent influence: ${targetDef.name} shares home site → mind = 0, +2 roll`);
+    }
+
+    if (targetChar.controlledBy !== 'general') {
+      controllerDI = availableDI(state, targetChar.controlledBy, resourcePlayer);
+    }
+  } else if (action.targetKind === 'ally') {
+    let allyFound = false;
+    for (const [oppCharId, oppChar] of Object.entries(resourcePlayer.characters)) {
+      const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
+      if (allyInst) {
+        const allyDef = state.cardPool[allyInst.definitionId as string];
+        if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
+        targetMind = (allyDef as { mind: number }).mind;
+        controllerDI = availableDI(state, oppCharId as CardInstanceId, resourcePlayer);
+
+        // Rule 10.14: shared home site → mind = 0, +2 roll
+        const allyHomesites = parseHomesiteNames((allyDef as { homesite?: string }).homesite ?? '');
+        const sharesHome = allyHomesites.some(h => homesiteNames.includes(h));
+        if (sharesHome) {
+          targetMind = 0;
+          rollBonus += 2;
+          logDetail(`Agent influence: ally shares home site → mind = 0, +2 roll`);
+        }
+        allyFound = true;
+        break;
+      }
+    }
+    if (!allyFound) return { state, error: 'Target ally not found' };
+  } else if (action.targetKind === 'faction') {
+    const targetFaction = resourcePlayer.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+    if (!targetFaction) return { state, error: 'Target faction not found' };
+    const factionDef = state.cardPool[targetFaction.definitionId as string];
+    if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
+    targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
+
+    // Rule 10.14: faction playable at agent's home site → value = 0, +2 roll
+    if (agentSiteName !== null) {
+      const factionAtHome = (factionDef.playableAt ?? []).some(e =>
+        'site' in e && homesiteNames.includes(e.site),
+      );
+      if (factionAtHome) {
+        targetMind = 0;
+        rollBonus += 2;
+        logDetail(`Agent influence: faction playable at agent's home → value = 0, +2 roll`);
+      }
+    }
+  }
+
+  const opponentGI = GENERAL_INFLUENCE - resourcePlayer.generalInfluenceUsed;
+  const crossAlignmentPenalty = crossAlignmentInfluencePenalty(hazardPlayer.alignment, resourcePlayer.alignment);
+
+  // Reveal and tap the agent (not actedThisTurn — this is NOT an agent action)
+  let newState = updateAgent(state, hazardIndex, agentIdx, a => ({
+    ...a,
+    revealed: true,
+    character: { ...a.character, status: CardStatus.Tapped },
+  }));
+
+  // Roll attacker 2d6 and apply roll bonus
+  const { roll, rng, cheatRollTotal } = roll2d6(newState);
+  const attackerRoll = roll.die1 + roll.die2 + rollBonus;
+
+  const rollEffect = {
+    effect: 'dice-roll' as const,
+    playerName: hazardPlayer.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Agent influence: ${agentDef.name}${rollBonus > 0 ? ` (+${rollBonus} bonus)` : ''}`,
+  };
+
+  logDetail(`Agent influence: ${agentDef.name} rolls ${roll.die1}+${roll.die2}${rollBonus > 0 ? `+${rollBonus}` : ''}=${attackerRoll} vs target ${targetMind} (DI: ${influencerDI}, GI: ${opponentGI})`);
+
+  newState = { ...newState, rng, cheatRollTotal };
+
+  const stateAfterAttempt = enqueueResolution(newState, {
+    source: agent.character.instanceId,
+    actor: resourcePlayer.id,
+    scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+    kind: {
+      type: 'opponent-influence-defend',
+      attempt: {
+        influencerId: agent.character.instanceId,
+        targetInstanceId: action.targetInstanceId,
+        targetKind: action.targetKind,
+        targetPlayer: action.targetPlayer,
+        attackerRoll,
+        influencerDI,
+        opponentGI,
+        targetMind,
+        controllerDI,
+        crossAlignmentPenalty,
+        revealedCard: null,
+      },
+    },
+  });
+
+  return { state: stateAfterAttempt, effects: [rollEffect] };
+
+  void tapInfluenceEff;
+}
 
 /**
  * Play a hazard card from hand during the play-hazards step.
@@ -296,6 +1042,16 @@ function handlePlayHazardCard(
 
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
+    // Tap-agent-at-site (An Article Missing, Cunning Foes): taps an agent at
+    // the company's new site to initiate an M/H phase attack, bypassing the
+    // chain mechanism entirely.
+    const tapAgentEff = def.effects?.find(
+      (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
+    );
+    if (tapAgentEff && action.type === 'play-hazard' && action.agentInstanceId) {
+      return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, cardIdx, def, tapAgentEff);
+    }
+
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
@@ -449,6 +1205,177 @@ function handlePlayHazardCard(
   }
 
   return { state: newState };
+}
+
+/**
+ * Handle a tap-agent-at-site hazard short-event (e.g. An Article Missing,
+ * Cunning Foes). Resolves the effect directly without going through the chain:
+ *  - Removes the card from hand and discards it (short event)
+ *  - Reveals the targeted agent if face-down (applying face-down prowess
+ *    modifiers before reveal, per rule 9.06)
+ *  - Taps the agent and marks it as having acted this turn
+ *  - Builds and sets CombatState so the M/H phase attack can proceed
+ */
+function handleTapAgentAtSite(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: GameState['players'][number],
+  hazardIndex: number,
+  handCard: GameState['players'][number]['hand'][number],
+  cardIdx: number,
+  def: CardDefinition,
+  tapAgentEff: TapAgentEffect,
+): ReducerResult {
+  const agentInstanceId = action.agentInstanceId!;
+
+  // Locate the agent
+  const agent = hazardPlayer.agents.find(a => a.character.instanceId === agentInstanceId);
+  if (!agent) return { state, error: `Agent ${agentInstanceId as string} not found` };
+
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) {
+    return { state, error: `Agent definition not found for ${agentInstanceId as string}` };
+  }
+
+  // Get active company and its new site for prowess/home-site checks
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+  let destSiteName: string | undefined;
+  if (destSiteInst) {
+    const destSiteDef = state.cardPool[destSiteInst.definitionId as string];
+    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
+  }
+
+  // --- Compute prowess NOW, before any reveal (rule 9.06) ---
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+  const homesiteNames = agentDef.homesite
+    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
+
+  let prowess = agentDef.prowess;
+  const body = agentDef.body;
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) prowess += 5;
+  if (!isFaceDown && isAtHome) prowess += 2;
+  prowess += tapAgentEff.prowessBonus;
+
+  logDetail(`Tap-agent-at-site "${def.name}": agent "${agentDef.name}" prowess ${prowess} (faceDown: ${isFaceDown}, atHome: ${isAtHome}, bonus: +${tapAgentEff.prowessBonus})`);
+
+  // --- Reveal agent if face-down ---
+  let stateAfterReveal: GameState;
+  if (isFaceDown) {
+    const currentSiteEntry = agent.siteStack.length > 0
+      ? agent.siteStack[agent.siteStack.length - 1]
+      : destSiteInst;
+    const emptyStack = agent.siteStack.length === 0;
+
+    if (action.homeSiteInstanceId) {
+      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      if (!homeSiteCard) {
+        return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
+      }
+      const priorStackSites = agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+          ? {
+              ...a,
+              revealed: true,
+              character: { ...a.character, status: CardStatus.Tapped as const },
+              siteStack: newSiteStack,
+              actedThisTurn: true,
+            }
+          : a,
+        ),
+        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+      }));
+    } else {
+      // No home site — reveal without site, discard at EOT (rule 9.04)
+      const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? []
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+          ? {
+              ...a,
+              revealed: true,
+              character: { ...a.character, status: CardStatus.Tapped as const },
+              siteStack: newSiteStack,
+              actedThisTurn: true,
+              discardAtEndOfTurn: true,
+            }
+          : a,
+        ),
+        siteDeck: [...p.siteDeck, ...priorStackSites],
+      }));
+    }
+  } else {
+    // Already face-up: just tap and mark acted
+    stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, actedThisTurn: true }
+        : a,
+      ),
+    }));
+  }
+
+  // --- Remove card from hand, add to discard ---
+  const newHand = [...stateAfterReveal.players[hazardIndex].hand];
+  newHand.splice(cardIdx, 1);
+  stateAfterReveal = updatePlayer(stateAfterReveal, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+  }));
+
+  // --- Increment hazard count (the card counts; the attack does not) ---
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit
+    ? mhState.hazardsPlayedThisCompany
+    : mhState.hazardsPlayedThisCompany + 1;
+
+  // --- Build CombatState ---
+  const combat: CombatState = {
+    attackSource: { type: 'agent', instanceId: agentInstanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer.id,
+    strikesTotal: 1,
+    strikeProwess: prowess,
+    creatureBody: body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+    ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
+  };
+
+  return {
+    state: {
+      ...stateAfterReveal,
+      combat,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    },
+  };
 }
 
 /**
@@ -1022,9 +1949,16 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.
     const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
-    // Reset moved flags so the site phase shows a clean slate
+    // Reset moved flags and per-site-phase agent flags so the site phase shows a clean slate
+    const resetHazardIndex = mergedState.players.findIndex(p => p.id !== mergedState.activePlayer);
+    const withAgentReset = resetHazardIndex >= 0
+      ? updatePlayer(mergedState, resetHazardIndex, p => ({
+          ...p,
+          agents: p.agents.map(a => ({ ...a, attackedThisSitePhase: false })),
+        }))
+      : mergedState;
     const cleanedState = cleanupEmptyCompanies({
-      ...updatePlayer(mergedState, activeIndex, p => ({
+      ...updatePlayer(withAgentReset, activeIndex, p => ({
         ...p,
         companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
       })),
