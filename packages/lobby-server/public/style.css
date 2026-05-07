@@ -3327,8 +3327,9 @@ h2 {
   display: none;
 }
 
-/* Reclaim the space freed by hiding the opponent arc */
-.all-companies-mode {
+/* Reclaim the space freed by hiding the opponent arc.
+   Only suppress body scroll in visual mode (debug-view is hidden then). */
+body.all-companies-mode:has(#debug-view.hidden) {
   overflow-y: hidden;
 }
 
