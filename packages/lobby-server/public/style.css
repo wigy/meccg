@@ -3323,7 +3323,8 @@ h2 {
 .all-companies-mode #opponent-arc,
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
-.all-companies-mode #opponent-deck-box {
+.all-companies-mode #opponent-deck-box,
+.all-companies-mode #opponent-hazard-limit {
   display: none;
 }
 
