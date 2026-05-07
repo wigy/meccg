@@ -19,7 +19,7 @@
  * | 2 | 3 attacks of 2 strikes each                              | IMPLEMENTED      | combat-multi-attack count:3 × strikes:2     |
  * | 3 | A character can tap to cancel one of these attacks       | IMPLEMENTED      | combat-cancel-attack-by-tap maxCancels:1    |
  * | 4 | Playable at any Under-deeps site (base keying)           | NOT IMPLEMENTED  | no under-deeps site match in keyedTo;       |
- * |   |                                                          |                  | underDeeps flag exists only on balrog-sites |
+ * |   |                                                          |                  | DM-set Under-deeps sites not yet in data    |
  * | 5 | (with DoN) playable at adjacent site of Under-deeps site | NOT IMPLEMENTED  | no adjacency concept in creature keying     |
  * | 6 | (with DoN) playable keyed to a Coastal Sea [{c}]         | NOT ENCODED      | could be { regionTypes: ["coastal"], when:  |
  * |   |                                                          |                  | inPlay DoN } but left out to avoid shipping |
@@ -31,10 +31,9 @@
  * and will resolve correctly once the creature enters combat, but every
  * playability path (base and both Doors-of-Night alternates) involves
  * Under-deeps sites, and the engine has no way to identify an Under-deeps
- * site during creature keying (the `underDeeps` field lives only on
- * balrog-sites, the DM-set Under-deeps sites are not in the data yet,
- * and "adjacent site of any Under-deeps site" has no representation at
- * all). The card therefore cannot be played today. NOT CERTIFIED.
+ * site during creature keying (the DM-set Under-deeps sites are not in
+ * the data yet, and "adjacent site of any Under-deeps site" has no
+ * representation at all). The card therefore cannot be played today. NOT CERTIFIED.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -160,13 +159,11 @@ describe('Nameless Thing (dm-109)', () => {
   // ─── NOT IMPLEMENTED — Under-deeps keying (base + DoN alternates) ─────────
   //
   // Filling these requires:
-  // 1. An `underDeeps: boolean` on every site card type (today only
-  //    `BalrogSiteCard`), with DM-set Under-deeps sites added to
-  //    dm-sites.json.
+  // 1. DM-set Under-deeps sites added to dm-sites.json (sites use the
+  //    'under-deeps' keyword, consistent with balrog-sites).
   // 2. A way to express "any Under-deeps site" in `CreatureKeyRestriction`
-  //    — either a new `underDeeps?: boolean` field checked in
-  //    `findCreatureKeyingMatches` (movement-hazard.ts), or an
-  //    `under-deeps` site-type enum value.
+  //    — e.g. an `under-deeps` site-type enum value or keyword filter
+  //    in `findCreatureKeyingMatches` (movement-hazard.ts).
   // 3. Site-to-site adjacency data (each Under-deeps site lists surface
   //    sites adjacent to it, and vice versa) plus matching in the
   //    creature-keying pass, so "adjacent site of any Under-deeps site"

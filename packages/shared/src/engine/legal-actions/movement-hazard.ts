@@ -583,8 +583,6 @@ function agentTurnActions(
         // Exclude haven sites (rule 9.07)
         if (isHavenSite(state, siteInst.definitionId as string)) continue;
         // Exclude Under-deeps sites (rule 4.1: agents can only move to non-Under-deeps sites).
-        // Under-deeps sites are identified by the 'under-deeps' keyword (works for all site types:
-        // DM hero-sites use keywords[], balrog-sites have both keywords[] and underDeeps: boolean).
         if (destDef.keywords?.includes('under-deeps')) continue;
         // Rule 9.08: Fallen-wizard agents use only hero site cards
         if (hazardAlignment === Alignment.FallenWizard && destDef.cardType !== 'hero-site') continue;
