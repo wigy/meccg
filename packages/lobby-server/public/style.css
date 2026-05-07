@@ -3776,6 +3776,39 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-right: calc(1rem * var(--company-scale, 1));
 }
 
+/* Agent site-stack fan: older face-down sites overlap to reveal just a sliver
+   of each card, with the current (or topmost) site fully visible at the right. */
+.agent-site-area {
+  align-items: flex-start;
+}
+
+.agent-site-stack {
+  display: flex;
+  align-items: center;
+}
+
+.agent-site-stack__card {
+  margin-right: calc(-2.5rem * var(--company-scale, 1));
+  position: relative;
+  opacity: 0.85;
+}
+
+.agent-site-placeholder {
+  width: calc(var(--card-table-height) * var(--company-scale, 1) * 0.7);
+  height: calc(var(--card-table-height) * var(--company-scale, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(0.85rem * var(--company-scale, 1));
+  font-family: 'MedievalSharp', cursive;
+  color: rgba(220, 190, 100, 0.95);
+  border: 2px solid rgba(220, 190, 100, 0.6);
+  border-radius: 6px;
+  background: rgba(196, 163, 90, 0.12);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  margin-right: calc(1rem * var(--company-scale, 1));
+}
+
 .company-movement-arrow {
   color: #c4a35a;
   padding: 0 0.3rem;

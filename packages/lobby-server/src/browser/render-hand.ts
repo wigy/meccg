@@ -977,7 +977,7 @@ export function renderHand(
     } else if (isAgentHazard) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(agentHazardAction!));
+        img.addEventListener('click', () => onAction(agentHazardAction));
       }
     } else if (isAlly) {
       // Ally play: single target plays directly, multiple targets use two-step character targeting
