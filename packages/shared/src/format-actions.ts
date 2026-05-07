@@ -425,6 +425,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} turns face-down`;
     case 'agent-key-creatures':
       return `Agent ${action.agentId as string} taps to key creatures`;
+    case 'agent-influence-attempt':
+      return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

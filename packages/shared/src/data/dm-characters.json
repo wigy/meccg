@@ -363,7 +363,12 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "agent-tap-influence",
+        "targetKinds": ["character", "ally", "faction"]
+      }
+    ],
     "text": "Unique. Agent. Can use spirit-magic. Agent only: may tap to make an influence check on an ally, faction, or character."
   },
   {

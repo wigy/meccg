@@ -6,9 +6,10 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus, Alignment } from '../../index.js';
-import { canCallEndgameNow, isWizard } from '../../state-utils.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE } from '../../index.js';
+import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import type { TapAgentEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -362,7 +363,7 @@ function drawCardsActions(
  * Parse a comma-separated homesite string into individual site name tokens.
  * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"]
  */
-function parseHomesiteNames(homesite: string): string[] {
+export function parseHomesiteNames(homesite: string): string[] {
   return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
 }
 
@@ -648,6 +649,160 @@ function agentTurnActions(
     if (status === CardStatus.Untapped) {
       logDetail(`Agent ${agentName}: can tap to key creatures to site`);
       push({ type: 'agent-key-creatures', player: playerId, agentId: agent.id });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `agent-influence-attempt` actions for agents with the
+ * `agent-tap-influence` effect (rule 10.14).
+ *
+ * - Does NOT count as an agent action (actedThisTurn is not set).
+ * - Does NOT count against the hazard limit.
+ * - Agent must have been in play at start of turn (inPlayAtTurnStart).
+ * - Agent must not be wounded.
+ * - Agent must be at the active company's location:
+ *     - moving company: agent at destination site
+ *     - stationary company: agent at current site
+ * - For faction targets: agent must be at a site where the faction is playable.
+ * - Cannot reveal identical card → no item targets.
+ * - Bonuses applied in the reducer: +2 DI if at home; shared-home mind=0 +2 roll.
+ */
+function agentInfluenceActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const resourcePlayerIndex = 1 - hazardPlayerIndex;
+  const resourcePlayer = state.players[resourcePlayerIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  const allSiteDefs = Object.values(state.cardPool).filter(isSiteCard);
+
+  for (const agent of hazardPlayer.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    const tapInfluenceEff = (agentDef.effects ?? []).find(e => e.type === 'agent-tap-influence') as
+      | { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] }
+      | undefined;
+    if (!tapInfluenceEff) continue;
+
+    // Determine the agent's current site name
+    let agentSiteName: string | null = null;
+    if (agent.siteStack.length > 0) {
+      const topSite = agent.siteStack[agent.siteStack.length - 1];
+      const siteDef = state.cardPool[topSite.definitionId as string];
+      if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+    } else {
+      // Face-down at home — site name is one of the home sites
+      agentSiteName = parseHomesiteNames(agentDef.homesite)[0] ?? null;
+    }
+
+    // Determine the target company's site name
+    const destSiteName = mhState.destinationSiteName; // null if stationary
+    const currentSiteName: string | null = (() => {
+      if (!company.currentSite) return null;
+      const d = state.cardPool[company.currentSite.definitionId as string];
+      return d && isSiteCard(d) ? d.name : null;
+    })();
+    const companySiteName = destSiteName ?? currentSiteName;
+
+    const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
+
+    const opponentGI = GENERAL_INFLUENCE - resourcePlayer.generalInfluenceUsed;
+
+    // --- Character and ally targets (agent must be at company's site) ---
+    if (isAgentAtCompanySite) {
+      // Use the active company directly — for moving companies currentSite is the origin,
+      // but we already verified the agent is at the destination via isAgentAtCompanySite.
+      for (const oppCharId of company.characters) {
+        const oppChar = resourcePlayer.characters[oppCharId as string];
+        if (!oppChar) continue;
+        const oppCharDef = state.cardPool[oppChar.definitionId as string];
+        if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
+        if (isAvatarCharacter(oppCharDef)) continue;
+
+        // Character targets
+        if (tapInfluenceEff.targetKinds.includes('character')) {
+          const influencerDI = agentDef.directInfluence ?? 0;
+          const explanation = `Agent ${agentDef.name} DI: ${influencerDI}, opponent GI: ${opponentGI}, target: ${oppCharDef.name} (mind: ${oppCharDef.mind ?? 0})`;
+          logDetail(`Agent influence: ${agentDef.name} → character ${oppCharDef.name} (${explanation})`);
+          actions.push({
+            action: {
+              type: 'agent-influence-attempt',
+              player: playerId,
+              agentId: agent.id,
+              targetPlayer: resourcePlayer.id,
+              targetInstanceId: oppCharId,
+              targetKind: 'character',
+              explanation,
+            } as AgentInfluenceAttemptAction,
+            viable: true,
+          });
+        }
+
+        // Ally targets on this character
+        if (tapInfluenceEff.targetKinds.includes('ally')) {
+          for (const allyInst of oppChar.allies) {
+            const allyDef = state.cardPool[allyInst.definitionId as string];
+            if (!allyDef || !isAllyCard(allyDef)) continue;
+            const influencerDI = agentDef.directInfluence ?? 0;
+            const explanation = `Agent ${agentDef.name} DI: ${influencerDI}, opponent GI: ${opponentGI}, target ally: ${allyDef.name} (mind: ${allyDef.mind})`;
+            logDetail(`Agent influence: ${agentDef.name} → ally ${allyDef.name} (${explanation})`);
+            actions.push({
+              action: {
+                type: 'agent-influence-attempt',
+                player: playerId,
+                agentId: agent.id,
+                targetPlayer: resourcePlayer.id,
+                targetInstanceId: allyInst.instanceId,
+                targetKind: 'ally',
+                explanation,
+              } as AgentInfluenceAttemptAction,
+              viable: true,
+            });
+          }
+        }
+      }
+    }
+
+    // --- Faction targets (agent must be at a site where faction is playable) ---
+    if (tapInfluenceEff.targetKinds.includes('faction') && agentSiteName !== null) {
+      const agentSiteDef = allSiteDefs.find(s => s.name === agentSiteName);
+      if (agentSiteDef) {
+        for (const factionInPlay of resourcePlayer.cardsInPlay) {
+          const factionDef = state.cardPool[factionInPlay.definitionId as string];
+          if (!factionDef || !isFactionCard(factionDef)) continue;
+          if (!factionDef.playableAt.some(entry => 'site' in entry && agentSiteDef.name === entry.site)) continue;
+
+          const influencerDI = agentDef.directInfluence ?? 0;
+          const targetValue = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
+          const explanation = `Agent ${agentDef.name} DI: ${influencerDI}, opponent GI: ${opponentGI}, faction: ${factionDef.name} (value: ${targetValue})`;
+          logDetail(`Agent influence: ${agentDef.name} → faction ${factionDef.name} at ${agentSiteName} (${explanation})`);
+          actions.push({
+            action: {
+              type: 'agent-influence-attempt',
+              player: playerId,
+              agentId: agent.id,
+              targetPlayer: resourcePlayer.id,
+              targetInstanceId: factionInPlay.instanceId,
+              targetKind: 'faction',
+              explanation,
+            } as AgentInfluenceAttemptAction,
+            viable: true,
+          });
+        }
+      }
     }
   }
 
@@ -1081,6 +1236,96 @@ function playHazardsActions(
           continue;
         }
 
+        // Tap-agent-at-site (e.g. An Article Missing dm-43, Cunning Foes dm-50):
+        // taps a scout/warrior agent at the company's new site to initiate
+        // an M/H phase attack not counting against the hazard limit.
+        const tapAgentEffect = def.effects?.find(
+          (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
+        );
+        if (tapAgentEffect) {
+          // Cannot play against a minion (Ringwraith/Balrog) player.
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+
+          // Identify the company's new (destination) site, falling back to current.
+          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const destSiteDefId = destSiteInst
+            ? resolveInstanceId(state, destSiteInst.instanceId)
+            : null;
+          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
+
+          if (!destSiteDefId || !destSiteName) {
+            logDetail(`Hazard short-event "${def.name}" not playable — cannot resolve destination site`);
+            actions.push({ action, viable: false, reason: 'No target site for agent tap' });
+            continue;
+          }
+
+          // Find agents with the required skill at the destination site.
+          let foundAgent = false;
+          for (const agent of player.agents) {
+            const agentDef = state.cardPool[agent.character.definitionId as string];
+            if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+            // Skill check
+            if (tapAgentEffect.skill && !agentDef.skills.includes(tapAgentEffect.skill as Skill)) continue;
+
+            // Location check: agent must be at the destination site.
+            const homesiteNames = agentDef.homesite
+              ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+              : [];
+            const isAtDest = agent.revealed
+              ? (agent.siteStack.length > 0 && agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId)
+              : (agent.siteStack.length > 0
+                  ? agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId
+                  : homesiteNames.includes(destSiteName));
+            if (!isAtDest) continue;
+
+            foundAgent = true;
+
+            if (!agent.revealed) {
+              // Face-down: offer one action per available home site in deck.
+              const seenHome = new Set<string>();
+              let offeredAny = false;
+              for (const siteInst of player.siteDeck) {
+                const siteDef = state.cardPool[siteInst.definitionId as string];
+                if (!siteDef || !isSiteCard(siteDef)) continue;
+                if (!homesiteNames.includes(siteDef.name)) continue;
+                if (seenHome.has(siteDef.name)) continue;
+                seenHome.add(siteDef.name);
+                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);
+                actions.push({
+                  action: { ...action, agentInstanceId: agent.character.instanceId, homeSiteInstanceId: siteInst.instanceId },
+                  viable: true,
+                });
+                offeredAny = true;
+              }
+              if (!offeredAny) {
+                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} (no home site — will discard at EOT)`);
+                actions.push({
+                  action: { ...action, agentInstanceId: agent.character.instanceId },
+                  viable: true,
+                });
+              }
+            } else {
+              logDetail(`Hazard short-event "${def.name}": can tap face-up agent ${agentDef.name}`);
+              actions.push({
+                action: { ...action, agentInstanceId: agent.character.instanceId },
+                viable: true,
+              });
+            }
+          }
+
+          if (!foundAgent) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no matching agent at company's new site`);
+            actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
+          }
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -1330,6 +1575,11 @@ function playHazardsActions(
     // Each costs 1 hazard slot (rule 9.02). Agent must have been in play at
     // start of turn and not yet acted this turn.
     actions.push(...agentTurnActions(state, playerId, limitReached, liveLimit));
+
+    // --- Agent influence attempts (rule 10.14) ---
+    // Agents with the `agent-tap-influence` effect tap (not as an agent action,
+    // not against hazard limit) to make an influence attempt during M/H phase.
+    actions.push(...agentInfluenceActions(state, playerId, mhState));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and

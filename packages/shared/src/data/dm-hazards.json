@@ -101,7 +101,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AnArticleMissing.jpg",
     "text": "Tap a scout agent at target company's new site. Agent may attack (not counting against hazard limit) with a +4 modification to his prowess during the movement/hazard phase. Attacker chooses defending characters. A successful strike doesn't wound the defending character; instead the company must discard one item (defender's choice). Cannot be played if your opponent is a minion player.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      {
+        "type": "tap-agent-at-site",
+        "skill": "scout",
+        "prowessBonus": 4,
+        "attackerAssigns": true,
+        "strikeEffect": "discard-item"
+      }
+    ]
   },
   {
     "cardType": "hazard-event",
@@ -110,7 +119,15 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/CunningFoes.jpg",
     "text": "Tap a warrior agent at target company's new site. Agent attacks (not counting against hazard limit) with a +3 modification to his prowess during the movement/hazard phase. Attacker chooses defending characters. Cannot be played if your opponent is a minion player.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      {
+        "type": "tap-agent-at-site",
+        "skill": "warrior",
+        "prowessBonus": 3,
+        "attackerAssigns": true
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

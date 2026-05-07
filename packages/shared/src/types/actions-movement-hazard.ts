@@ -121,6 +121,19 @@ export interface PlayHazardAction {
    * or Three Tribes Present), the race the player announced when playing.
    */
   readonly chosenCreatureRace?: string;
+  /**
+   * For hazard short-events that tap an agent at the target company's new
+   * site (e.g. An Article Missing dm-43, Cunning Foes dm-50), the agent
+   * character instance being tapped. The agent must be at the destination site.
+   */
+  readonly agentInstanceId?: CardInstanceId;
+  /**
+   * For tap-agent-at-site effects where the agent is face-down: a home
+   * site instance from the hazard player's location deck to place with the
+   * agent on reveal. If absent, the agent is revealed without a home site
+   * and discarded at end of turn (rule 9.04).
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
 }
 
 /**
@@ -714,4 +727,30 @@ export interface AgentKeyCreaturesAction {
   readonly player: PlayerId;
   /** The CompanyId of the agent keying creatures. */
   readonly agentId: CompanyId;
+}
+
+/**
+ * The hazard player taps an agent to make an influence attempt during
+ * the opponent's M/H phase (rule 10.14).
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set)
+ * and does NOT count against the hazard limit. The agent taps and is
+ * revealed. The attempt resolves as a standard opponent-influence-defend
+ * with the rule 10.14 bonuses already baked in.
+ */
+export interface AgentInfluenceAttemptAction {
+  /** Action discriminant. */
+  readonly type: 'agent-influence-attempt';
+  /** The hazard player making the attempt. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent performing the influence attempt. */
+  readonly agentId: CompanyId;
+  /** The player whose card is being targeted. */
+  readonly targetPlayer: PlayerId;
+  /** The instance ID of the card being targeted. */
+  readonly targetInstanceId: CardInstanceId;
+  /** Whether the target is a character, ally, or faction. */
+  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Human-readable breakdown for logging. */
+  readonly explanation: string;
 }
