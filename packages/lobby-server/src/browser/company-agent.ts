@@ -179,15 +179,18 @@ function renderAgentSiteArea(
   const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
   if (siteDef && isSiteCard(siteDef)) {
     const imgPath = cardImageProxyPath(siteDef);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = siteDef.name;
-      img.dataset.cardId = siteDefId as string;
-      img.dataset.instanceId = currentSite.instanceId as string;
-      img.className = 'company-card company-card--site';
-      area.appendChild(img);
+    const img = document.createElement('img');
+    // Face-down agent: hide site image but keep data-card-id so zoom shows real card
+    if (agent.revealed) {
+      img.src = imgPath ?? '/images/card-back.jpg';
+    } else {
+      img.src = '/images/site-back.jpg';
     }
+    img.alt = siteDef.name;
+    img.dataset.cardId = siteDefId as string;
+    img.dataset.instanceId = currentSite.instanceId as string;
+    img.className = 'company-card company-card--site';
+    area.appendChild(img);
   } else {
     // Site definition not found — show card-back
     const back = document.createElement('img');
