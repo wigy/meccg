@@ -12,6 +12,8 @@
 import type {
   PlayerView,
   CardInstanceId,
+  CompanyId,
+  GameAction,
   PlayCharacterAction,
   MoveToInfluenceAction,
   TransferItemAction,
@@ -25,6 +27,8 @@ import type {
   SupportCorruptionCheckAction,
   ActivateGrantedAction,
   SelectCardBearerAction,
+  RevealAgentAction,
+  AgentMoveAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -218,6 +222,59 @@ export function getSelectCardBearerActions(view: PlayerView): Map<string, Select
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'select-card-bearer') continue;
     result.set(action.characterId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable reveal-agent actions, keyed by agent company ID.
+ * There may be multiple reveal variants for one agent (with/without a home site instance).
+ */
+export function getRevealAgentActions(view: PlayerView): Map<string, RevealAgentAction[]> {
+  const result = new Map<string, RevealAgentAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'reveal-agent') continue;
+    const key = action.agentId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable agent-move actions, keyed by agent company ID.
+ * One entry per legal destination site.
+ */
+export function getAgentMoveActions(view: PlayerView): Map<string, AgentMoveAction[]> {
+  const result = new Map<string, AgentMoveAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'agent-move') continue;
+    const key = action.agentId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable non-move agent actions (heal/untap/turn-face-down/key-creatures/
+ * move-back/return-home), keyed by agent company ID.
+ */
+export function getAgentOtherActions(view: PlayerView): Map<string, GameAction[]> {
+  const AGENT_OTHER_TYPES = new Set([
+    'agent-move-back', 'agent-return-home',
+    'agent-heal', 'agent-untap',
+    'agent-turn-face-down', 'agent-key-creatures',
+  ]);
+  const result = new Map<string, GameAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (!AGENT_OTHER_TYPES.has(action.type)) continue;
+    const agentId = (action as { agentId: CompanyId }).agentId as string;
+    const existing = result.get(agentId) ?? [];
+    existing.push(action);
+    result.set(agentId, existing);
   }
   return result;
 }

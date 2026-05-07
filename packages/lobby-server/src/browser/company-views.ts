@@ -47,7 +47,11 @@ import {
   getGrantedActions,
   getPlayCharacterActions,
   getSelectCardBearerActions,
+  getRevealAgentActions,
+  getAgentMoveActions,
+  getAgentOtherActions,
 } from './company-actions.js';
+import { renderAgentBlock, renderOpponentAgentBlock } from './company-agent.js';
 import { addOpponentInfluenceTargets } from './company-modals.js';
 import { setTargetingInstruction } from './render.js';
 
@@ -181,13 +185,18 @@ export function renderAllCompaniesView(
   const grantedActs = getGrantedActions(view);
   const bearerActs = getSelectCardBearerActions(view);
 
-  // Select-company actions (M/H phase company selection)
+  // Select-company actions (M/H phase company selection — also targets agents)
   const selectCompanyActions = new Map<string, SelectCompanyAction>();
   for (const a of viableActions(view.legalActions)) {
     if (a.type === 'select-company') {
       selectCompanyActions.set(a.companyId as string, a);
     }
   }
+
+  // Agent action maps for self agents
+  const revealAgentActs = getRevealAgentActions(view);
+  const agentMoveActs = getAgentMoveActions(view);
+  const agentOtherActs = getAgentOtherActions(view);
 
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
@@ -289,6 +298,18 @@ export function renderAllCompaniesView(
     }
   }
 
+  // Self agents — rendered as one-character virtual company blocks
+  for (const agent of view.self.agents) {
+    const selectAction = selectCompanyActions.get(agent.id as string);
+    const block = renderAgentBlock(agent, view, cardPool, lastOnAction, {
+      revealActions: revealAgentActs.get(agent.id as string),
+      moveActions: agentMoveActs.get(agent.id as string),
+      otherActions: agentOtherActs.get(agent.id as string),
+      selectAction,
+    });
+    overview.appendChild(block);
+  }
+
   // Opponent companies — add click handlers when opponent influence targeting is active
   const oppInfluencer = getSelectedInfluencerForOpponent();
   const oppInfluenceActions = oppInfluencer
@@ -307,6 +328,11 @@ export function renderAllCompaniesView(
     }
 
     overview.appendChild(block);
+  }
+
+  // Opponent agents — display-only (resource player cannot act on them)
+  for (const agent of view.opponent.agents) {
+    overview.appendChild(renderOpponentAgentBlock(agent, view, cardPool));
   }
 
   container.appendChild(overview);
