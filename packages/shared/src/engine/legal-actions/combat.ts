@@ -13,13 +13,15 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
+import { heroResourceShortEventActions } from './long-event.js';
+import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -325,6 +327,12 @@ function assignStrikeActions(
  * The defending player picks which unresolved strike to resolve next.
  * Per CRF: "In an order chosen by the defending player, each assigned
  * strike is then resolved by proceeding through an individual strike sequence."
+ *
+ * Additionally, per rule 3.iv, strike sequences do not immediately follow
+ * one another — between (and before/after) strike sequences, the resource
+ * player may take any action that would otherwise be legal during the
+ * current phase of the game. In the site phase this includes resource
+ * short-events (rule 2.1.1).
  */
 function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
@@ -350,6 +358,17 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
       viable: true,
     });
   }
+
+  // Rule 3.iv: between strike sequences the resource player may take any
+  // action otherwise legal during the current phase (rule 2.1.1). Pass the
+  // enclosing phase so play-window restrictions are evaluated correctly
+  // regardless of whether combat is taking place in the site or M/H phase.
+  if (playerId === state.activePlayer) {
+    const currentPhase = state.phaseState.phase as string;
+    logDetail(`Between strike sequences: offering resource short-events for phase '${currentPhase}' (rule 3.iv)`);
+    actions.push(...heroResourceShortEventActions(state, playerId, currentPhase));
+  }
+
   return actions;
 }
 
@@ -696,6 +715,101 @@ function resolveStrikeActions(
   // item-tap-strike-bonus effects. The bearer taps the item to add a
   // prowess bonus to this specific strike (e.g. Shield of Iron-bound Ash).
   actions.push(...tapItemForStrikeActions(state, playerId, combat, tapProwess, strikeProwess));
+
+  // Rule 3.iv.5: the defending resource player may play resources on the
+  // character facing the strike if doing so would affect the strike's
+  // resolution (e.g. Vilya boosting Elrond's prowess/body).
+  if (playerId === state.activePlayer) {
+    actions.push(...shortEventsAffectingStrike(state, playerId, combat));
+  }
+
+  return actions;
+}
+
+/**
+ * Returns `play-short-event` actions for resource short-events in the
+ * defending player's hand that target the current strike character and
+ * would affect the strike's resolution (rule 3.iv.5).
+ *
+ * A card qualifies if:
+ * 1. It has a `play-target` effect whose filter matches the character
+ *    currently facing the strike.
+ * 2. It has at least one `on-event: self-enters-play` apply of type
+ *    `add-constraint` with `constraint: "character-stat-modifier"` and
+ *    `stat: "prowess"` or `stat: "body"` — directly improving the
+ *    character's prowess or body for the strike roll / body check.
+ */
+function shortEventsAffectingStrike(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  if (defPlayerIndex < 0) return [];
+  const defPlayer = state.players[defPlayerIndex];
+
+  const strikeCharData = defPlayer.characters[currentStrike.characterId as string];
+  if (!strikeCharData) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of defPlayer.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!def.effects) continue;
+
+    const playTarget = getPlayTargetEffect(def);
+    if (!playTarget || playTarget.target !== 'character') continue;
+
+    // Target filter must match the character facing this strike
+    if (playTarget.filter) {
+      const ctx = buildPlayOptionContext(state, strikeCharData, defPlayer);
+      if (!matchesCondition(playTarget.filter, ctx)) {
+        logDetail(`${def.name}: play-target filter does not match ${currentStrike.characterId as string} — not an affecting strike event`);
+        continue;
+      }
+    }
+
+    // Must have at least one effect that boosts prowess or body on the character
+    const affectsStrike = def.effects.some(
+      (e): e is OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply.type === 'add-constraint'
+        && e.apply.constraint === 'character-stat-modifier'
+        && (e.apply.stat === 'prowess' || e.apply.stat === 'body'),
+    );
+    if (!affectsStrike) {
+      logDetail(`${def.name}: no prowess/body modifier — not an affecting strike event`);
+      continue;
+    }
+
+    // Check turn-scoped duplication limit (e.g. Vilya: max 1 per turn)
+    const turnDupLimit = def.effects.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
+    );
+    if (turnDupLimit) {
+      const prior = state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length;
+      if (prior >= turnDupLimit.max) {
+        logDetail(`${def.name}: duplication limit reached (${prior}/${turnDupLimit.max}) — not playable`);
+        continue;
+      }
+    }
+
+    logDetail(`Combat step 5: ${def.name} targets strike character ${currentStrike.characterId as string} and affects prowess/body — playable`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+        targetCharacterId: currentStrike.characterId,
+      },
+      viable: true,
+    });
+  }
 
   return actions;
 }
