@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  resetMint, dispatch, viableActions, viableFor,
+  resetMint, dispatch, dispatchResult, viableActions, viableFor,
   PLAYER_1, PLAYER_2,
   SUN, CAVE_DRAKE, SMOKE_RINGS,
   DAGGER_OF_WESTERNESSE,
@@ -111,6 +111,55 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     const smokeRingsId = state.players[0].hand[0].instanceId;
     const discards = viableActions(state, PLAYER_1, 'discard-card');
     expect(discards.some(a => actionAs<DiscardCardAction>(a.action).cardInstanceId === smokeRingsId)).toBe(true);
+  });
+
+  test('Step 1 (discard): resource player can play a short event without being marked done', () => {
+    // CoE 2.VI / rule 2.1.1: resource short-events may be played during any
+    // phase. Playing a short event during the discard step must not mark the
+    // player as done for that step — they still need to explicitly pass or discard.
+    const state = eotState({ p1Hand: [SMOKE_RINGS] });
+    expect(phaseStateAs<EndOfTurnPhaseState>(state).step).toBe('discard');
+
+    const smokeRingsId = state.players[0].hand[0].instanceId;
+    const result = dispatchResult(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    expect(result.error).toBeUndefined();
+
+    // State remains in end-of-turn discard step (not marked done).
+    expect(result.state.phaseState.phase).toBe(Phase.EndOfTurn);
+    expect(phaseStateAs<EndOfTurnPhaseState>(result.state).step).toBe('discard');
+    expect(phaseStateAs<EndOfTurnPhaseState>(result.state).discardDone[0]).toBe(false);
+
+    // Smoke Rings is removed from hand (goes to cardsInPlay while fetch resolves).
+    expect(result.state.players[0].hand.some(c => c.instanceId === smokeRingsId)).toBe(false);
+  });
+
+  test('Step 3 (signal-end): resource player can play a short event before ending the turn', () => {
+    // CoE 2.VI: between end-of-turn steps, actions that are otherwise legal
+    // may be taken. Smoke Rings is a short event with no prerequisites and
+    // must be playable at signal-end, before the player passes to end the turn.
+    // Drive to signal-end by passing through steps 1 and 2 with empty decks.
+    const state = eotState({ p1Hand: [SMOKE_RINGS] });
+    const s1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const s2 = dispatch(s1, { type: 'pass', player: PLAYER_2 });
+    // reset-hand: p1 has 1 card, deck empty → pass; p2 has 0 cards, deck empty → pass
+    const s3 = dispatch(s2, { type: 'pass', player: PLAYER_1 });
+    const s4 = dispatch(s3, { type: 'pass', player: PLAYER_2 });
+    expect(phaseStateAs<EndOfTurnPhaseState>(s4).step).toBe('signal-end');
+
+    // Smoke Rings must be offered as a viable play action at signal-end.
+    const playActions = viableActions(s4, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+
+    const smokeRingsId = s4.players[0].hand[0].instanceId;
+    const result = dispatchResult(s4, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    expect(result.error).toBeUndefined();
+
+    // State remains in end-of-turn signal-end step — player still needs to pass.
+    expect(result.state.phaseState.phase).toBe(Phase.EndOfTurn);
+    expect(phaseStateAs<EndOfTurnPhaseState>(result.state).step).toBe('signal-end');
+
+    // Smoke Rings is removed from hand (goes to cardsInPlay while fetch resolves).
+    expect(result.state.players[0].hand.some(c => c.instanceId === smokeRingsId)).toBe(false);
   });
 
   test('Discarding the last card in hand still allows passing the discard step', () => {
