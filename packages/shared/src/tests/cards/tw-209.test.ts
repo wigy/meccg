@@ -154,6 +154,20 @@ describe('Dodge (tw-209)', () => {
     expect(notPlayable).toBeDefined();
   });
 
+  test('Dodge card identity is revealed to opponent after play-dodge', () => {
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
+
+    const dodgeAction = computeLegalActions(s1, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'play-dodge')!;
+    const dodgeInstanceId = (dodgeAction.action as PlayDodgeAction).cardInstanceId;
+
+    const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
+
+    // Opponent must be able to see which card was played (card plays are always public).
+    expect(s2.revealedInstances[dodgeInstanceId as string]).toBeDefined();
+  });
+
   test('normal tap-to-fight still taps the character (control case)', () => {
     const s0 = setupCombatWithCaveDrake(CAVE_DRAKE_FIGHT);
     const s1 = assignBothStrikesTo(s0, ARAGORN);

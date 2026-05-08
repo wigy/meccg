@@ -18,6 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
+import { revealInstances } from './visibility.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -700,6 +701,10 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
 
   logDetail(`Playing dodge card ${handCard.definitionId as string}`);
 
+  // Card plays are always public (CoE rules). Dodge skips the chain and
+  // goes straight to the discard pile, so reveal the identity explicitly.
+  state = revealInstances(state, [handCard]);
+
   // Pre-apply: remove dodge card from hand, add to discard pile.
   // resolveStrikeCore re-reads the defender from this mutated snapshot.
   const preAppliedDefender: PlayerState = {
@@ -739,6 +744,10 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
   const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
   logDetail(`Playing strike event ${cardName}: prowess ${prowessBonus >= 0 ? '+' : ''}${prowessBonus}, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}`);
+
+  // Card plays are always public (CoE rules). This card skips the chain and
+  // goes straight to the discard pile, so reveal the identity explicitly.
+  state = revealInstances(state, [handCard]);
 
   // Discard the card from hand.
   const stateAfterDiscard = updatePlayer(state, defPlayerIndex, p => ({
@@ -781,6 +790,10 @@ function handlePlayRerollStrike(state: GameState, action: GameAction, combat: Co
   const handCard = defPlayer.hand[handIndex];
 
   logDetail(`Playing reroll-strike card ${handCard.definitionId as string}`);
+
+  // Card plays are always public (CoE rules). This card skips the chain and
+  // goes straight to the discard pile, so reveal the identity explicitly.
+  state = revealInstances(state, [handCard]);
 
   const preAppliedDefender: PlayerState = {
     ...defPlayer,
