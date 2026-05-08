@@ -864,6 +864,20 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * While this card is in play, each agent owned by the hazard player may take
+ * this many additional agent actions each time it normally takes an agent action.
+ * The extra action(s) do not trigger further extras (only a "normal" first
+ * action triggers the bonus).
+ *
+ * Used by Great Need or Purpose (dm-62).
+ */
+export interface ExtraAgentActionsEffect extends EffectBase {
+  readonly type: 'extra-agent-actions';
+  /** Number of additional agent actions granted per normal agent action. */
+  readonly value: number;
+}
+
+/**
  * Restricts the timing window when a card may be played. The engine
  * uses this to gate the card out of normal play menus until the
  * matching window opens.
@@ -1821,4 +1835,5 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect
   | ReduceAttacksToOneEffect
-  | FetchWizardOnStoreEffect;
+  | FetchWizardOnStoreEffect
+  | ExtraAgentActionsEffect;

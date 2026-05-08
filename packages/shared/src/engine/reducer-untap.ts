@@ -230,11 +230,18 @@ function performUntap(state: GameState): GameState {
 
   // Reset per-turn agent bookkeeping and untap tapped agents.
   // An agent that was in play before this untap is now eligible to take
-  // agent actions (inPlayAtTurnStart → true). Both flags reset every turn.
+  // agent actions (inPlayAtTurnStart → true). remainingActions is set to
+  // 1 + extra-agent-actions effects in play (e.g. Great Need or Purpose).
+  const extraAgentActions = state.players.reduce((sum, p) =>
+    p.cardsInPlay.reduce((s, card) => {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) return s;
+      return s + (def.effects as CardEffect[]).reduce((n, e) => e.type === 'extra-agent-actions' ? n + (e as { value: number }).value : n, 0);
+    }, sum), 0);
   const newAgents = player.agents.map(a => ({
     ...a,
     inPlayAtTurnStart: true,
-    actedThisTurn: false,
+    remainingActions: 1 + extraAgentActions,
     character: a.character.status === CardStatus.Tapped
       ? { ...a.character, status: CardStatus.Untapped }
       : a.character,

@@ -290,7 +290,7 @@ function handlePlayAgentHazard(
     character: agentChar,
     revealed: false,
     siteStack: [],
-    actedThisTurn: false,
+    remainingActions: 0,
     inPlayAtTurnStart: false,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
@@ -557,7 +557,7 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
       ...a,
       character: { ...a.character, status: CardStatus.Tapped },
       siteStack: [...a.siteStack, destEntry],
-      actedThisTurn: true,
+      remainingActions: a.remainingActions - 1,
     }),
     siteDeck: removeById(p.siteDeck, destCard.instanceId),
   }));
@@ -592,7 +592,7 @@ function handleAgentMoveBack(state: GameState, action: GameAction, mhState: Move
       ...a,
       character: { ...a.character, status: CardStatus.Tapped },
       siteStack: a.siteStack.slice(0, -1),
-      actedThisTurn: true,
+      remainingActions: a.remainingActions - 1,
     }),
     siteDeck: [...p.siteDeck, topSite],
   }));
@@ -643,7 +643,7 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
       agents: p.agents.map((a, i) => i !== agentIdx ? a : {
         ...a,
         siteStack: [homeSiteEntry],
-        actedThisTurn: true,
+        remainingActions: a.remainingActions - 1,
         // does NOT tap (rule 4.1)
       }),
       siteDeck: [...removeById(p.siteDeck, homeCard.instanceId), ...agent.siteStack],
@@ -659,7 +659,7 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
       ...a,
       siteStack: [],
-      actedThisTurn: true,
+      remainingActions: a.remainingActions - 1,
       // does NOT tap (rule 4.1)
     }),
     siteDeck: [...p.siteDeck, ...agent.siteStack],
@@ -687,7 +687,7 @@ function handleAgentHeal(state: GameState, action: GameAction, mhState: Movement
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Tapped },
-    actedThisTurn: true,
+    remainingActions: a.remainingActions - 1,
   }));
 
   return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
@@ -713,7 +713,7 @@ function handleAgentUntap(state: GameState, action: GameAction, mhState: Movemen
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Untapped },
-    actedThisTurn: true,
+    remainingActions: a.remainingActions - 1,
   }));
 
   return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
@@ -741,7 +741,7 @@ function handleAgentTurnFaceDown(state: GameState, action: GameAction, mhState: 
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     revealed: false,
-    actedThisTurn: true,
+    remainingActions: a.remainingActions - 1,
   }));
 
   return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
@@ -770,7 +770,7 @@ function handleAgentKeyCreatures(state: GameState, action: GameAction, mhState: 
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Tapped },
-    actedThisTurn: true,
+    remainingActions: a.remainingActions - 1,
   }));
 
   return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
@@ -1292,7 +1292,7 @@ function handleTapAgentAtSite(
               revealed: true,
               character: { ...a.character, status: CardStatus.Tapped as const },
               siteStack: newSiteStack,
-              actedThisTurn: true,
+              remainingActions: 0,
             }
           : a,
         ),
@@ -1312,7 +1312,7 @@ function handleTapAgentAtSite(
               revealed: true,
               character: { ...a.character, status: CardStatus.Tapped as const },
               siteStack: newSiteStack,
-              actedThisTurn: true,
+              remainingActions: 0,
               discardAtEndOfTurn: true,
             }
           : a,
@@ -1325,7 +1325,7 @@ function handleTapAgentAtSite(
     stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
       ...p,
       agents: p.agents.map(a => a.character.instanceId === agentInstanceId
-        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, actedThisTurn: true }
+        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, remainingActions: 0 }
         : a,
       ),
     }));

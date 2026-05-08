@@ -62,7 +62,7 @@ function buildAndDeclare(opts: {
     character: { ...AGENT_CHAR, status: opts.agentStatus ?? CardStatus.Untapped },
     revealed: opts.agentRevealed,
     siteStack: opts.agentSiteStack,
-    actedThisTurn: false,
+    remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,

@@ -80,7 +80,7 @@ describe('Rule 9.06 — Agent Tapped for Effect', () => {
       character: AGENT_CHAR,
       revealed: false,
       siteStack: [MORIA_SITE],
-      actedThisTurn: false,
+      remainingActions: 1,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
       discardAtEndOfTurn: false,
@@ -117,7 +117,7 @@ describe('Rule 9.06 — Agent Tapped for Effect', () => {
     expect(agentAfter).toBeDefined();
     expect(agentAfter!.revealed).toBe(true);
     expect(agentAfter!.character.status).toBe(CardStatus.Tapped);
-    expect(agentAfter!.actedThisTurn).toBe(true);
+    expect(agentAfter!.remainingActions).toBe(0);
 
     // Combat is active
     expect(after.combat).not.toBeNull();
@@ -167,7 +167,7 @@ describe('Rule 9.06 — Agent Tapped for Effect', () => {
       character: AGENT_CHAR,
       revealed: false,
       siteStack: [minasTirithSite],
-      actedThisTurn: false,
+      remainingActions: 1,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
       discardAtEndOfTurn: false,

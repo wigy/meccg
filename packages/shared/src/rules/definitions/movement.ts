@@ -22,6 +22,13 @@ import type { RuleSet } from '../types.js';
 export const BASE_MAX_REGION_DISTANCE = 4;
 
 /**
+ * Maximum region distance for agent movement.
+ * Rule 9.02: agents may only move to sites in the same or an adjacent region,
+ * which is 2 in the rules-style counting (origin + destination both count).
+ */
+export const AGENT_MAX_REGION_DISTANCE = 2;
+
+/**
  * Creates a region-movement rule set parameterised by the effective maximum
  * region distance. The base value is {@link BASE_MAX_REGION_DISTANCE} (4);
  * callers should add/subtract any modifiers from card effects before calling.

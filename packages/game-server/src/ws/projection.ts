@@ -120,7 +120,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     characterInstanceId: a.revealed ? a.character.instanceId : null,
     revealed: a.revealed,
     siteStackSize: a.siteStack.length,
-    actedThisTurn: a.actedThisTurn,
+    actedThisTurn: a.remainingActions <= 0,
   }));
 
   return {
