@@ -62,7 +62,7 @@ export function renderActions(
 
   // No actions at all — show waiting indicator
   const nonViable = evaluated.filter(e => !e.viable);
-  if (viable.length === 0 && nonViable.length === 0) {
+  if (viable.length === 0) {
     const waiting = document.createElement('div');
     waiting.className = 'actions-waiting';
     waiting.textContent = 'Waiting…';
