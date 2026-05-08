@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 112 | 307 | 36.5% |
-| Card tests | 237 | 257 | 92.2% |
-| Cards created | 598 | 1683 | 35.5% |
-| Cards certified | 241 | 598 | 40.3% |
-| **Total** | **1188** | **2845** | **41.8%** |
+| Rule tests | 135 | 309 | 43.7% |
+| Card tests | 238 | 258 | 92.2% |
+| Cards created | 673 | 1683 | 40.0% |
+| Cards certified | 242 | 673 | 36.0% |
+| **Total** | **1288** | **2923** | **44.1%** |
 
 ### Deck Catalog
 
@@ -39,11 +39,13 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 | (H) Stealthy Tribe | minion | 119 | 119 (100.0%) | 52 (43.7%) |
 | (I) Morgul Rallying Cry | minion | 119 | 119 (100.0%) | 45 (37.8%) |
 | (J) Seducing Nations of Men | minion | 119 | 119 (100.0%) | 56 (47.1%) |
+| Agents (Development only) | minion | 139 | 139 (100.0%) | 56 (40.3%) |
 | The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 20 (66.7%) |
 | Dragons (Development only) | hero | 64 | 64 (100.0%) | 64 (100.0%) |
 | Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 24 (68.6%) |
 | Hero (Development only) | hero | 69 | 69 (100.0%) | 69 (100.0%) |
 | Minion (Development only) | minion | 51 | 51 (100.0%) | 51 (100.0%) |
+| All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 33 (34.0%) |
 
 ## Getting Started
 

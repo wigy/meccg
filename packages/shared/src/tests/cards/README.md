@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 257 | 237 | 20 | 92.2% |
+| 258 | 238 | 20 | 92.2% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 8 | 6 | 75.0% |
 | BA | 2 | 0 | 0.0% |
-| DM | 13 | 12 | 92.3% |
+| DM | 14 | 13 | 92.9% |
 | LE | 63 | 57 | 90.5% |
 | TD | 34 | 33 | 97.1% |
 | TW | 136 | 128 | 94.1% |
@@ -44,6 +44,7 @@
 | dm-159 | Smoke Rings | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 18 | ☑ |
 | dm-45 | An Unexpected Outpost | — | 13 | ☑ |
+| dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-71 | The Moon Is Dead | — | 8 | ☑ |
 | dm-88 | Seized by Terror | — | 8 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 5 | ☑ |
