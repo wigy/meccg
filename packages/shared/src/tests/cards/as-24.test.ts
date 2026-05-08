@@ -2,9 +2,10 @@
  * @module as-24.test
  *
  * Card test: Alone and Unadvised (as-24)
- * Type: hazard-corruption (character-targeting)
- * Effects: 6 (play-target character filter non-wizard/non-ringwraith maxCompanySize:3,
+ * Type: hazard-event (permanent, corruption keyword, character-targeting)
+ * Effects: 7 (play-target character filter non-wizard/non-ringwraith maxCompanySize:3,
  *             duplication-limit scope:character max:1,
+ *             stat-modifier corruption-points +4,
  *             on-event end-of-company-mh force-check corruption perRegion:true,
  *             check-modifier corruption value:company.characterCount,
  *             grant-action remove-self-on-roll cost:tap-bearer threshold:7,
@@ -21,17 +22,18 @@
  *  character."
  *
  * Engine Support:
- * | # | Feature                                  | Status      | Notes                                  |
- * |---|------------------------------------------|-------------|----------------------------------------|
- * | 1 | Play from hand targeting character        | IMPLEMENTED | play-hazard with targetCharacterId     |
- * | 2 | Filter: non-wizard, non-ringwraith        | IMPLEMENTED | play-target filter with $ne            |
- * | 3 | Max company size 3                        | IMPLEMENTED | play-target maxCompanySize             |
- * | 4 | +4 corruption points while attached       | IMPLEMENTED | corruptionPoints field on card def     |
- * | 5 | Corruption check per region at end of MH  | IMPLEMENTED | on-event end-of-company-mh per region  |
- * | 6 | Check modifier = company character count  | IMPLEMENTED | check-modifier with expression value   |
- * | 7 | Tap to attempt removal (roll>6)           | IMPLEMENTED | grant-action remove-self-on-roll       |
- * | 8 | Auto-discard if company >= 4 characters   | IMPLEMENTED | on-event company-composition-changed   |
- * | 9 | Cannot be duplicated on a character       | IMPLEMENTED | duplication-limit scope:character max:1|
+ * | # | Feature                                  | Status      | Notes                                       |
+ * |---|------------------------------------------|-------------|---------------------------------------------|
+ * | 1 | Play from hand targeting character        | IMPLEMENTED | play-hazard with targetCharacterId          |
+ * | 2 | Filter: non-wizard, non-ringwraith        | IMPLEMENTED | play-target filter with $ne                 |
+ * | 3 | Max company size 3                        | IMPLEMENTED | play-target maxCompanySize                  |
+ * | 4 | +4 corruption points while attached       | IMPLEMENTED | stat-modifier corruption-points value:4     |
+ * | 5 | Corruption check per region at end of MH  | IMPLEMENTED | on-event end-of-company-mh per region       |
+ * | 6 | Check modifier = company character count  | IMPLEMENTED | check-modifier with expression value        |
+ * | 7 | Tap to attempt removal (roll>6)           | IMPLEMENTED | grant-action remove-self-on-roll            |
+ * | 8 | Auto-discard if company >= 4 characters   | IMPLEMENTED | on-event company-composition-changed        |
+ * | 9 | Cannot be duplicated on a character       | IMPLEMENTED | duplication-limit scope:character max:1     |
+ * | 10| Valid target for Marvels Told             | IMPLEMENTED | hazard-event permanent, non-environment     |
  *
  * Playable: YES
  * Certified: 2026-04-14
@@ -41,8 +43,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, reduce,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI, ELROND,
-  ALONE_AND_UNADVISED,
+  ARAGORN, LEGOLAS, GIMLI, ELROND, GLORFINDEL_II,
+  ALONE_AND_UNADVISED, MARVELS_TOLD,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, CardStatus, dispatch, expectCharStatus, expectInDiscardPile,
   makeMHState, handCardId, companyIdAt, findCharInstanceId,
@@ -353,5 +355,28 @@ describe('Alone and Unadvised (as-24)', () => {
 
     expect(afterRecruit.players[0].companies[0].characters).toHaveLength(4);
     expect(getHazardsOn(afterRecruit, RESOURCE_PLAYER, ARAGORN)).toHaveLength(0);
+  });
+
+  test('Marvels Told can target Alone and Unadvised as a valid discard target', () => {
+    // Alone and Unadvised is a hazard permanent-event with the Corruption keyword.
+    // Marvels Told targets "hazard non-environment permanent-event or long-event",
+    // so it must offer Alone and Unadvised as a valid discard target.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GLORFINDEL_II, ARAGORN] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
+
+    const playActions = viableActions(withCard, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+
+    const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
+    const hazardId = withCard.players[0].characters[aragornId as string].hazards[0].instanceId;
+    expect((playActions[0].action as { discardTargetInstanceId?: unknown }).discardTargetInstanceId).toBe(hazardId);
   });
 });
