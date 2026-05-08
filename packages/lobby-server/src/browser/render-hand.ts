@@ -274,12 +274,19 @@ function findHazardBearerName(
  * when there are multiple valid targets. Each button names a target
  * environment; clicking it sends the corresponding action.
  */
+/**
+ * Show a disambiguation tooltip for short events with multiple targets or
+ * when the player must choose between playing and discarding the card.
+ * Each button describes the play option; a "Discard" button is appended
+ * when `discardAction` is supplied.
+ */
 function showShortEventTargetMenu(
   event: MouseEvent,
   actions: readonly GameAction[],
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
+  discardAction?: GameAction,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   // Remove any existing tooltip
@@ -333,8 +340,14 @@ function showShortEventTargetMenu(
       const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
       const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
       label = scoutDef ? scoutDef.name : '?';
+    } else if (action.targetCharacterId) {
+      // Character-targeted short events with no tap cost (e.g. Vilya on Elrond)
+      const charDefId = cachedInstanceLookup(action.targetCharacterId);
+      const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+      label = charDef ? `Play on ${charDef.name}` : '?';
     } else {
-      continue;
+      // No specific target — simple play with no disambiguation needed
+      label = 'Play';
     }
 
     const btn = document.createElement('button');
@@ -343,6 +356,20 @@ function showShortEventTargetMenu(
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  // When the card can also be discarded from hand (e.g. during the end-of-turn
+  // discard step), offer that as an explicit choice so the player is not forced
+  // to play the short event just because it is currently playable.
+  if (discardAction) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Discard';
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(discardAction);
     });
     tooltip.appendChild(btn);
   }
@@ -885,12 +912,23 @@ export function renderHand(
       const hasDiscardTargets = shortEventActions.some(
         a => a.type === 'play-short-event' && a.discardTargetInstanceId,
       );
-      // Cards with only discard targets (no scout tap) use the two-step
-      // highlight-and-click flow: select the card, then click the target.
-      // Cards with both discard AND scout targets (e.g. Marvels Told) still
-      // use the disambiguation menu because the tap-target choice must also
-      // be shown.
-      if (hasDiscardTargets && !hasScoutTargets) {
+      // When the card is both playable as a short event AND discardable from
+      // hand (e.g. during the end-of-turn voluntary discard step), always
+      // show a disambiguation menu so the player can choose. CoE rule 2.VI.i
+      // allows discarding any card — including playable short events.
+      if (discardAction) {
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          img.addEventListener('click', (e) => {
+            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction, discardAction);
+          });
+        }
+      } else if (hasDiscardTargets && !hasScoutTargets) {
+        // Cards with only discard targets (no scout tap) use the two-step
+        // highlight-and-click flow: select the card, then click the target.
+        // Cards with both discard AND scout targets (e.g. Marvels Told) still
+        // use the disambiguation menu because the tap-target choice must also
+        // be shown.
         const selectedSE = getSelectedShortEvent();
         const isSESelected = selectedSE === cardInstanceId;
         img.className = isSESelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
