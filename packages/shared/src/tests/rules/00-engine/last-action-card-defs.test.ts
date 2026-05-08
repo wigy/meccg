@@ -24,7 +24,7 @@ import {
   PLAYER_1, PLAYER_2,
   ELROND, LEGOLAS, ARAGORN,
   MARVELS_TOLD, FOOLISH_WORDS,
-  SUN, BARROW_WIGHT,
+  SUN, BARROW_WIGHT, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   handCardId, dispatch, makeMHState,
@@ -33,8 +33,10 @@ import {
   eotState,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
+  buildAnUnexpectedOutpostMH,
+  resolveChain,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, FetchFromPileAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
@@ -296,6 +298,70 @@ describe('place-on-guard — resource player must not learn the placed card', ()
     const audienceDesc = describeAction(action, pool, audienceLookup);
     expect(audienceDesc).toContain('a card');
     const realName = pool[BARROW_WIGHT as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
+describe('fetch-from-pile — opponent must not learn which card was fetched', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug 407123fe974320c9 (game movoby5r-12oj7e, seq 729):
+   * when the hazard player used An Unexpected Outpost to fetch a card from
+   * their discard pile, the opponent's action log showed the card's real
+   * name ("Fetch Lure of Nature from discard-pile"). The card was in
+   * `revealedInstances` because it had previously been played as a hazard,
+   * so `extractActionCardDefs` included its identity in `lastActionCardDefs`.
+   *
+   * fetch-from-pile moves a card from a private pile (discard or sideboard)
+   * into the private play deck — a private→private transition. The opponent
+   * should see "Fetch a card from discard-pile" regardless of whether the
+   * card's identity was ever previously revealed.
+   */
+  test('extractActionCardDefs omits the fetched card even when it was previously revealed', () => {
+    const state = buildAnUnexpectedOutpostMH({ discardPile: [ORC_PATROL] });
+    const outpostId = handCardId(state, HAZARD_PLAYER);
+    const orcPatrolId = state.players[1].discardPile[0].instanceId;
+
+    // Simulate the card having been played publicly before (e.g. as a hazard
+    // on the resource player's character) — it was revealed and stayed in
+    // revealedInstances even after moving to the private discard pile.
+    const stateWithReveal: typeof state = {
+      ...state,
+      revealedInstances: { ...state.revealedInstances, [orcPatrolId as string]: ORC_PATROL },
+    };
+
+    const afterPlay = dispatch(stateWithReveal, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: outpostId,
+      targetCompanyId: stateWithReveal.players[0].companies[0].id,
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const fetchAction: FetchFromPileAction = {
+      type: 'fetch-from-pile',
+      player: PLAYER_2,
+      cardInstanceId: orcPatrolId,
+      source: 'discard-pile',
+    };
+    const afterFetch = dispatch(afterChain, fetchAction);
+
+    // Precondition: the card is now in the private play deck and the instance
+    // was in revealedInstances before the fetch.
+    expect(afterFetch.players[1].playDeck.map(c => c.instanceId)).toContain(orcPatrolId);
+    expect(afterFetch.revealedInstances[orcPatrolId as string]).toBe(ORC_PATROL);
+
+    // The broadcast map must NOT name the fetched card — its destination is
+    // the private play deck, so the opponent only learns "a card was fetched".
+    const defs = extractActionCardDefs(afterFetch, fetchAction);
+    expect(defs[orcPatrolId as string]).toBeUndefined();
+
+    // describeAction with only the opponent's map renders "a card".
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(fetchAction, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[ORC_PATROL as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });
