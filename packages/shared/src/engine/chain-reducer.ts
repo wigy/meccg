@@ -1574,24 +1574,31 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   }
 
   // Short events that cancel the current attack (e.g. Concealment, Dark
-  // Quarrels, Many Turns and Doublings, Vanishment): when the chain entry
-  // resolves un-negated, fire each cancel-attack effect through the
-  // shared apply dispatcher. The opponent had a chance to negate this
-  // entry during chain declaration (e.g. via a hazard that cancels
-  // attack cancels).
+  // Quarrels, Many Turns and Doublings, Vanishment) or resolve a strike
+  // effect (e.g. Dodge, Lucky Strike, Risky Blow): when the chain entry
+  // resolves un-negated, fire each matching effect through the shared apply
+  // dispatcher. The opponent had a chance to negate this entry during chain
+  // declaration.
+  const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = current.cardPool[entry.card.definitionId as string];
     if (def && 'effects' in def && def.effects) {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of def.effects) {
-        if (effect.type !== 'cancel-attack') continue;
-        logDetail(`Chain resolves cancel-attack from "${def.name}"`);
+        if (
+          effect.type !== 'cancel-attack' &&
+          effect.type !== 'dodge-strike' &&
+          effect.type !== 'reroll-strike' &&
+          effect.type !== 'modify-strike'
+        ) continue;
+        logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);
         if ('error' in r) {
-          logDetail(`applyEffect cancel-attack failed: ${r.error}`);
+          logDetail(`applyEffect ${effect.type} failed: ${r.error}`);
           continue;
         }
         current = r.state;
+        if (r.effects) resolveEffects.push(...r.effects);
       }
     }
   }
@@ -1862,6 +1869,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   return {
     state: { ...current, chain: newChain },
     needsInput: false,
+    ...(resolveEffects.length > 0 ? { effects: resolveEffects } : {}),
   };
 }
 
