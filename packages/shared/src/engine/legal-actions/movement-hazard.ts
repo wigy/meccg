@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
 import type { TapAgentEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -537,7 +537,7 @@ function agentTurnActions(
         const topSite = agent.siteStack[agent.siteStack.length - 1];
         const topDef = state.cardPool[topSite.definitionId as string];
         if (topDef && isSiteCard(topDef)) {
-          for (const r of getReachableSites(movementMap, topDef, allSiteDefs)) {
+          for (const r of getReachableSites(movementMap, topDef, allSiteDefs, AGENT_MAX_REGION_DISTANCE)) {
             reachableNames.add(r.site.name);
           }
           // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
@@ -557,7 +557,7 @@ function agentTurnActions(
         for (const homeName of homesiteNames) {
           const homeDef = allSiteDefs.find(s => s.name === homeName);
           if (homeDef) {
-            for (const r of getReachableSites(movementMap, homeDef, allSiteDefs)) {
+            for (const r of getReachableSites(movementMap, homeDef, allSiteDefs, AGENT_MAX_REGION_DISTANCE)) {
               reachableNames.add(r.site.name);
             }
             // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
