@@ -2288,6 +2288,13 @@ h2 {
   font-style: italic;
 }
 
+.actions-waiting {
+  color: rgba(196, 163, 90, 0.5);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+}
+
 .action-json-toggle {
   display: inline-block;
   margin-left: 0.5rem;

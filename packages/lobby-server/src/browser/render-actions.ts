@@ -60,8 +60,16 @@ export function renderActions(
     el.appendChild(btn);
   }
 
-  // Non-viable actions — disabled with reason
+  // No actions at all — show waiting indicator
   const nonViable = evaluated.filter(e => !e.viable);
+  if (viable.length === 0 && nonViable.length === 0) {
+    const waiting = document.createElement('div');
+    waiting.className = 'actions-waiting';
+    waiting.textContent = 'Waiting…';
+    el.appendChild(waiting);
+  }
+
+  // Non-viable actions — disabled with reason
   if (nonViable.length > 0) {
     for (const ea of nonViable) {
       const btn = document.createElement('button');
