@@ -224,7 +224,7 @@ export function renderAgentBlock(
   block.dataset.companyId = agent.id as string;
 
   // Dim the block if the agent has already acted or was played this turn
-  const isInactive = agent.actedThisTurn && !options?.selectAction;
+  const isInactive = agent.remainingActions <= 0 && !options?.selectAction;
   if (isInactive) block.classList.add('company-block--inactive');
 
   // Name label — always show character name (self agents are fully visible to us)

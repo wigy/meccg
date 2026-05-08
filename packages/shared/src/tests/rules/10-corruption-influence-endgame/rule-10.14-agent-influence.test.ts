@@ -81,7 +81,7 @@ function buildInfluenceState(opts: {
     character: GOLODHROS_CHAR,
     revealed: false,
     siteStack: agentSiteStack,
-    actedThisTurn: false,
+    remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
@@ -174,14 +174,14 @@ describe('Rule 10.14 — Influencing with an Agent', () => {
     expect(attempt.targetMind).toBe(0);
   });
 
-  test('agent does NOT count actedThisTurn after influence (not an agent action)', () => {
+  test('agent remainingActions not consumed by influence (influence is not an agent action)', () => {
     const state = buildInfluenceState({ agentAtHome: true });
     const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
     expect(actions.length).toBeGreaterThan(0);
 
     const after = dispatch(state, actions[0].action);
-    // actedThisTurn must remain false (influence is not an agent action)
-    expect(after.players[HAZARD_PLAYER].agents[0].actedThisTurn).toBe(false);
+    // remainingActions must not be decremented (influence is not an agent action)
+    expect(after.players[HAZARD_PLAYER].agents[0].remainingActions).toBe(state.players[HAZARD_PLAYER].agents[0].remainingActions);
     // But agent is tapped
     expect(after.players[HAZARD_PLAYER].agents[0].character.status).toBe(CardStatus.Tapped);
     // And revealed

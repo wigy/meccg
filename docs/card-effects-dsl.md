@@ -2255,3 +2255,28 @@ Used by *The Windlord Found Me* (dm-164).
 ```json
 { "type": "fetch-wizard-on-store" }
 ```
+
+### 39. `extra-agent-actions`
+
+Grants each agent an additional agent action per turn. Applied during the
+Untap phase: when any player has a card with this effect in their
+`cardsInPlay`, every agent's `remainingActions` is set to `1 + Σ(value)`
+instead of the default 1.
+
+Fields:
+
+| Field   | Type   | Description                                |
+|---------|--------|--------------------------------------------|
+| `value` | number | Number of extra actions granted (usually 1)|
+
+Implementation:
+
+- `reducer-untap.ts` scans all players' `cardsInPlay` for `extra-agent-actions`
+  effects and sums their `value` fields. Each agent's `remainingActions` is
+  set to `1 + extraAgentActions` during the resource-player untap step.
+
+Used by *Great Need or Purpose* (dm-62).
+
+```json
+{ "type": "extra-agent-actions", "value": 1 }
+```

@@ -56,7 +56,7 @@ function buildAndDeclare(opts: { agentRevealed: boolean; agentSiteStack: readonl
     character: AGENT_CHAR,
     revealed: opts.agentRevealed,
     siteStack: opts.agentSiteStack,
-    actedThisTurn: false,
+    remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,

@@ -508,7 +508,7 @@ function agentTurnActions(
 
   for (const agent of player.agents) {
     if (!agent.inPlayAtTurnStart) continue;
-    if (agent.actedThisTurn) continue;
+    if (agent.remainingActions <= 0) continue;
 
     const agentDef = state.cardPool[agent.character.definitionId as string];
     const agentName = agentDef?.name ?? String(agent.character.definitionId);

@@ -139,11 +139,16 @@
     "eventType": "long",
     "effects": [
       {
+        "type": "extra-agent-actions",
+        "value": 1
+      },
+      {
         "type": "duplication-limit",
         "scope": "game",
         "max": 1
       }
-    ]
+    ],
+    "certified": "2026-05-08"
   },
   {
     "cardType": "hazard-event",

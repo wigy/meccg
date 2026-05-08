@@ -20,6 +20,10 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
+
+// Dimrill Dale (tw-385): ruins-and-lairs in Redhorn Gate — within 1 region of Moria (same region, distance 1)
+// Used wherever agent-move tests need a reachable destination for an agent at Moria.
+const DIMRILL_DALE = 'tw-385' as CardDefinitionId;
 import type { CardDefinitionId, CardInstanceId, CompanyId, MovementHazardPhaseState } from '../../../index.js';
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
 import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
@@ -105,7 +109,7 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     const agent = hazardPlayer.agents[0];
     expect(agent.revealed).toBe(false);
     expect(agent.inPlayAtTurnStart).toBe(false);
-    expect(agent.actedThisTurn).toBe(false);
+    expect(agent.remainingActions).toBe(0);
     expect(agent.siteStack.length).toBe(0);
     // Hazard count incremented
     expect((after.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(1);
@@ -146,13 +150,13 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     expect(actions.length).toBe(1);
   });
 
-  test('agent with inPlayAtTurnStart=true gets actions; actedThisTurn=true blocks further; inPlayAtTurnStart=false blocks entirely', () => {
+  test('agent with inPlayAtTurnStart=true gets actions; remainingActions=0 blocks further; inPlayAtTurnStart=false blocks entirely', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
         { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [DIMRILL_DALE] },
       ],
     });
 
@@ -174,7 +178,7 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
       character: agentChar,
       revealed: true,
       siteStack: [moriaSite],
-      actedThisTurn: false,
+      remainingActions: 1,
       inPlayAtTurnStart: true,
       attackedThisSitePhase: false,
       discardAtEndOfTurn: false,
@@ -193,9 +197,9 @@ describe('Rule 9.01 — Agent Actions: play-agent-hazard', () => {
     const moveActions = viableActions(withAgent, PLAYER_2, 'agent-move');
     expect(moveActions.length).toBeGreaterThan(0);
 
-    // After performing one action, actedThisTurn=true → no more agent actions
+    // After performing one action, remainingActions=0 → no more agent actions
     const after = dispatch(withAgent, moveActions[0].action);
-    expect(after.players[HAZARD_PLAYER].agents[0].actedThisTurn).toBe(true);
+    expect(after.players[HAZARD_PLAYER].agents[0].remainingActions).toBe(0);
     expect(viableActions(after, PLAYER_2, 'agent-move').length).toBe(0);
 
     // Agent NOT in play at turn start: no actions offered at all

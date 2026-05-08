@@ -80,7 +80,7 @@ function buildAgentSiteState(opts: {
     character: { ...AGENT_CHAR, status: opts.agentStatus ?? CardStatus.Untapped },
     revealed: opts.agentRevealed ?? true,
     siteStack: opts.agentSiteStack ?? [MORIA_SITE],
-    actedThisTurn: false,
+    remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: opts.attackedThisSitePhase ?? false,
     discardAtEndOfTurn: false,
