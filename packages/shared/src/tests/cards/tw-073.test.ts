@@ -20,9 +20,10 @@ import {
   ARAGORN, GIMLI,
   ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState, makeSitePhase,
   resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  buildSitePhaseTwoPlayer, placeOnGuard,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -158,5 +159,30 @@ describe('Orc-lieutenant (tw-073)', () => {
     const afterSecondChain = resolveChain(afterPlaySecond);
     expect(afterSecondChain.combat).not.toBeNull();
     expect(afterSecondChain.combat!.strikeProwess).toBe(11);
+  });
+
+  test('+4 prowess (total 11) when revealed as on-guard after automatic Orc attack at site', () => {
+    // Moria has automatic Orcs attack (4 strikes, 7 prowess). Set up the site
+    // phase as if that automatic attack was already resolved, then reveal an
+    // on-guard Orc-lieutenant and verify its prowess is 11, not 7.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN] });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, ORC_LIEUTENANT, { revealed: true });
+    const state = {
+      ...withOG,
+      phaseState: makeSitePhase({
+        step: 'resolve-attacks',
+        automaticAttacksResolved: 1,
+        siteEntered: true,
+      }),
+    };
+
+    // Pass triggers the revealed on-guard creature onto the chain
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.chain).not.toBeNull();
+
+    const afterChain = resolveChain(afterPass);
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikeProwess).toBe(11);
+    expect(afterChain.combat!.strikesTotal).toBe(1);
   });
 });

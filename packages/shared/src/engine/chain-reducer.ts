@@ -28,7 +28,7 @@ import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
-import { isReduceAttacksToOneInPlay } from './manifestations.js';
+import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1259,6 +1259,31 @@ function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): str
 }
 
 /**
+ * Returns the creature races already faced by the active company during the
+ * site phase, derived from the site's automatic attacks that have already
+ * been initiated (`phaseState.automaticAttacksResolved`). Used by on-guard
+ * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
+ * was already faced this turn).
+ */
+function deriveSiteFacedRaces(state: GameState): string[] {
+  if (state.phaseState.phase !== 'site') return [];
+  const siteState = state.phaseState;
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const company = state.players[activePlayerIndex]?.companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return [];
+  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return [];
+  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const resolved = Math.min(siteState.automaticAttacksResolved, autoAttacks.length);
+  const races = new Set<string>();
+  for (let i = 0; i < resolved; i++) {
+    const race = normalizeCreatureRace(autoAttacks[i].creatureType);
+    if (race) races.add(race);
+  }
+  return Array.from(races);
+}
+
+/**
  * Returns the `effects` array of the site that would be the venue for an
  * attack against the given company. Prefers the company's explicit
  * destination (M/H) or current site references, because the same site
@@ -1425,7 +1450,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureRace = creatureDef.race;
   const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
-    : [];
+    : deriveSiteFacedRaces(state);
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
   const creatureSelf = creatureDef.effects?.length
     ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
