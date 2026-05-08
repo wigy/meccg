@@ -26,6 +26,7 @@ import type {
   CancelStrikeAction,
   CancelAttackAction,
   ModifyAttackAction,
+  TapItemForStrikeAction,
   SalvageItemAction,
   EvaluatedAction,
 } from '@meccg/shared';
@@ -76,11 +77,12 @@ export function renderCombatView(
   const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
   const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
   const modifyAttackActions = viable.filter((a): a is ModifyAttackAction => a.type === 'modify-attack');
+  const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -324,6 +326,7 @@ function renderDefenderRow(
   cancelStrikeActions: CancelStrikeAction[],
   cancelAttackActions: CancelAttackAction[],
   modifyAttackActions: ModifyAttackAction[],
+  tapItemForStrikeActions: TapItemForStrikeAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -398,6 +401,13 @@ function renderDefenderRow(
     modifyAttackMap.set(a.cardInstanceId as string, a);
   }
 
+  // Build a map of item-instance ID → tap-item-for-strike action (e.g. Shield of Iron-bound Ash).
+  // Keyed by cardInstanceId so the item image click handler fires during resolve-strike.
+  const tapItemForStrikeMap = new Map<string, TapItemForStrikeAction>();
+  for (const a of tapItemForStrikeActions) {
+    tapItemForStrikeMap.set(a.cardInstanceId as string, a);
+  }
+
   // Build a map of character ID → strike assignment info
   const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -412,7 +422,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -443,6 +453,7 @@ function renderCombatCharacterColumn(
   cancelAttackInPlayMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   modifyAttackMap: Map<string, ModifyAttackAction>,
+  tapItemForStrikeMap: Map<string, TapItemForStrikeAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
@@ -634,6 +645,7 @@ function renderCombatCharacterColumn(
       const allyStrike = strikeMap.get(allyIdStr);
       const allyChooseOrder = chooseOrderMap.get(allyIdStr);
       const modifyAction = modifyAttackMap.get(allyIdStr);
+      const tapForStrikeAction = tapItemForStrikeMap.get(allyIdStr);
 
       const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
 
@@ -645,6 +657,15 @@ function renderCombatCharacterColumn(
         itemEl.addEventListener('click', (e) => {
           e.stopPropagation();
           onAction(modifyAction);
+        });
+      } else if (tapForStrikeAction) {
+        // Item can be tapped for a prowess bonus against the current strike
+        // (e.g. Shield of Iron-bound Ash: +1 prowess).
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(tapForStrikeAction);
         });
       } else if (allyCancelAttackInPlay) {
         // In-play ally cancel-attack: tap this ally to cancel the attack directly
