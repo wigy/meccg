@@ -22,6 +22,7 @@ import {
   PLAYER_1, PLAYER_2,
   BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  SCROLL_OF_ISILDUR,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { StoreItemAction } from '../../../types/actions-organization.js';
@@ -90,5 +91,64 @@ describe('Rule 3.32 — Storing Cards', () => {
     const nonHavenStores = viableFor(atNonHaven, PLAYER_1)
       .filter(a => a.action.type === 'store-item');
     expect(nonHavenStores).toHaveLength(0);
+  });
+
+  test('Regular greater item (no storable-at effect) is storable at Haven', () => {
+    // Scroll of Isildur is a greater item with no explicit storable-at effect.
+    // Per CoE rule 2.II.4, any item may be stored at a Haven.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId as string].items[0].instanceId;
+
+    const stores = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
+
+    expect(stores.some(a =>
+      a.action.itemInstanceId === scrollInstId &&
+      a.action.characterId === bilboId,
+    )).toBe(true);
+
+    // At a non-haven (Moria), the Scroll of Isildur is not storable.
+    const atMoria = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+    const moriaStores = viableFor(atMoria, PLAYER_1)
+      .filter(a => a.action.type === 'store-item');
+    expect(moriaStores).toHaveLength(0);
   });
 });
