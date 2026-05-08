@@ -282,8 +282,15 @@ function performUntap(state: GameState): GameState {
  * Called from all entry points into the untap phase.
  */
 export function enterUntapPhase(state: GameState): GameState {
+  // Reset sideboardAccessedDuringUntap for all players at the start of each
+  // new turn. Per CoE rule 2.I.2, the hazard limit halving only applies to
+  // "this turn's" movement/hazard phases — the flag must not carry over.
+  const players = state.players.map(p =>
+    p.sideboardAccessedDuringUntap ? { ...p, sideboardAccessedDuringUntap: false } : p,
+  ) as unknown as typeof state.players;
   return {
     ...state,
+    players,
     phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
   };
 }

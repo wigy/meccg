@@ -23,7 +23,7 @@ import {
   GANDALF, LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  makePlayDeck,
+  makePlayDeck, eotState,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 
@@ -227,6 +227,30 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
 
     // After access, sideboardAccessedDuringUntap should be true
     expect(afterPass.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
+  });
+
+  test('sideboardAccessedDuringUntap resets to false at the start of the next turn', () => {
+    // Simulate a state where PLAYER_2 accessed their sideboard last turn.
+    const rawState = eotState();
+    const state = {
+      ...rawState,
+      players: rawState.players.map(p =>
+        p.id === PLAYER_2 ? { ...p, sideboardAccessedDuringUntap: true } : p,
+      ) as unknown as typeof rawState.players,
+    };
+    expect(state.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
+
+    // Advance through EOT (discard/reset-hand/signal-end) to the next Untap phase.
+    const s1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const s2 = dispatch(s1, { type: 'pass', player: PLAYER_2 });
+    const s3 = dispatch(s2, { type: 'pass', player: PLAYER_1 });
+    const s4 = dispatch(s3, { type: 'pass', player: PLAYER_2 });
+    const untap = dispatch(s4, { type: 'pass', player: PLAYER_1 });
+
+    expect(untap.phaseState.phase).toBe(Phase.Untap);
+    // Per CoE rule 2.I.2, the halving only applies to "this turn's" M/H phases —
+    // the flag must not carry over to the next turn.
+    expect(untap.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(false);
   });
 
   test('Sideboard access can only be taken once per turn', () => {
