@@ -211,13 +211,13 @@ describe('Slayer (le-90)', () => {
     });
     expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
 
-    // Defender (P1) gets cancel-by-tap actions for non-target characters
+    // Defender (P1) gets cancel-by-tap actions for all untapped characters including target
+    // Slayer: "any one character" — Aragorn (target), Legolas, and Gimli can all tap
     const defActions = computeLegalActions(r2, PLAYER_1);
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-by-tap',
     );
-    // Legolas and Gimli can tap (not Aragorn, the target)
-    expect(cancelActions).toHaveLength(2);
+    expect(cancelActions).toHaveLength(3);
 
     // Defender taps Legolas to cancel one attack
     const r3 = dispatch(r2, {
@@ -412,7 +412,10 @@ describe('Slayer (le-90)', () => {
     expect(defenderAssignStrikes).toHaveLength(0);
   });
 
-  test('solo character company: only pass is available in cancel-by-tap window', () => {
+  test('solo character company: target character can tap to cancel (allowTargetToCancel)', () => {
+    // Regression test for bug: Slayer says "any one character" (including the target),
+    // unlike Assassin which says "not the defending character". When the company has
+    // only one character, that character is both the target and the only one who can tap.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -451,6 +454,7 @@ describe('Slayer (le-90)', () => {
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
     const afterChain = resolveChain(afterPlay);
+    expect(afterChain.combat!.cancelByTapAllowTarget).toBe(true);
 
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
@@ -461,15 +465,25 @@ describe('Slayer (le-90)', () => {
       characterId: aragornCharId,
       tapped: false,
     });
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
 
+    // Aragorn is the target but Slayer allows "any one character" — cancel action offered
     const defActions = computeLegalActions(r2, PLAYER_1);
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-by-tap',
     );
-    expect(cancelActions).toHaveLength(0);
-    const passActions = defActions.filter(
-      a => a.viable && a.action.type === 'pass',
-    );
-    expect(passActions).toHaveLength(1);
+    expect(cancelActions).toHaveLength(1);
+    expect((cancelActions[0].action as { characterId: string }).characterId).toBe(aragornCharId);
+
+    // Aragorn taps to cancel one attack; one strike remains
+    const r3 = dispatch(r2, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: aragornCharId,
+    });
+    expect(r3.combat!.strikeAssignments).toHaveLength(1);
+    expect(r3.combat!.strikesTotal).toBe(1);
+    expect(r3.players[0].characters[aragornCharId as string].status).toBe('tapped');
+    expect(r3.combat!.phase).toBe('resolve-strike');
   });
 });
