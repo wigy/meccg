@@ -84,7 +84,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     for (const sibling of player.companies) {
       if (sibling.id === company.id) continue;
       if (!sibling.currentSite) continue;
-      if (sibling.currentSite.instanceId !== company.currentSite.instanceId) continue;
+      if (sibling.currentSite.definitionId !== company.currentSite.definitionId) continue;
       if (sibling.destinationSite) {
         blockedByRule_2_II_7_1.add(sibling.destinationSite.instanceId as string);
       }

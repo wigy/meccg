@@ -96,6 +96,70 @@ describe('Rule 3.38 — Same Destination Restriction', () => {
     expect(rejected.error).toMatch(/2\.II\.7\.1|same origin/i);
   });
 
+  test('two companies at different instances of the same origin site cannot share a destination', () => {
+    // Regression: post-split, two companies hold different physical Lorien
+    // instances (same definitionId, different instanceId). Rule 2.II.7.1 must
+    // compare by definition (site name) not by instance ID.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            // buildTestState mints a fresh Lorien instance per company — do
+            // NOT share the instance so the test exercises the definition-ID path.
+            { site: LORIEN, characters: [ARAGORN] },
+            { site: LORIEN, characters: [LEGOLAS] },
+            { site: MORIA, characters: [FRODO] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const moriaInstanceId = state.players[0].companies[2].currentSite!.instanceId;
+    const firstLorienId = state.players[0].companies[0].id;
+    const secondLorienId = state.players[0].companies[1].id;
+
+    // Confirm the two Lorien instances are distinct (different instances, same definition).
+    const lorien0 = state.players[0].companies[0].currentSite!;
+    const lorien1 = state.players[0].companies[1].currentSite!;
+    expect(lorien0.instanceId).not.toBe(lorien1.instanceId);
+    expect(lorien0.definitionId).toBe(lorien1.definitionId);
+
+    // First company plans movement to Moria.
+    const plans = viableActions(state, PLAYER_1, 'plan-movement');
+    const firstToMoria = plans.find(ea => {
+      const a = ea.action as PlanMovementAction;
+      return a.companyId === firstLorienId && a.destinationSite === moriaInstanceId;
+    });
+    expect(firstToMoria).toBeDefined();
+
+    const afterFirst = dispatch(state, firstToMoria!.action);
+
+    // Second company (at a different Lorien instance but same definition) must not see Moria.
+    const plansAfter = viableActions(afterFirst, PLAYER_1, 'plan-movement');
+    const secondToMoria = plansAfter.find(ea => {
+      const a = ea.action as PlanMovementAction;
+      return a.companyId === secondLorienId && a.destinationSite === moriaInstanceId;
+    });
+    expect(secondToMoria).toBeUndefined();
+
+    // Reducer guard: direct action must also be rejected.
+    const directAction: PlanMovementAction = {
+      type: 'plan-movement',
+      player: PLAYER_1,
+      companyId: secondLorienId,
+      destinationSite: moriaInstanceId,
+    };
+    const rejected = reduce(afterFirst, directAction);
+    expect(rejected.error).toBeDefined();
+    expect(rejected.error).toMatch(/2\.II\.7\.1|same origin/i);
+  });
+
   test('a company at a different origin may still target the same in-play destination', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
