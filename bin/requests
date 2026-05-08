@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# List or delete requests in the ai and admin inboxes.
+# List, delete, or renew requests in the ai and admin inboxes.
 #
 # Usage:
 #   bin/requests              List unhandled requests (status=new)
 #   bin/requests --all        List all requests, including handled and old ones
 #   bin/requests del <id>     Delete every copy of the given mail id across all player mailboxes
+#   bin/requests renew <id>…  Mark one or more requests as new (re-queue them)
 #
 # Feature-requests go to the admin inbox; everything else (certification,
 # card, planning, implementation, bug-report) goes to the ai inbox. Both
 # are scanned so all requests appear in one place.
 #
-# Remote mode: if MECCG_LOBBY_URL is set, list mode queries the lobby API
-# (/api/system/ai-requests, with ?all=true for --all) instead of the local
-# filesystem, so remote workers can inspect a hosted lobby's queue. Master
-# key is taken from MECCG_MASTER_KEY or ~/.meccg/secrets.json. `del` is
-# local-only — the API surface does not expose cross-inbox deletion — and
-# will refuse to run against a remote lobby.
+# Remote mode: if MECCG_LOBBY_URL is set, all subcommands query the lobby API
+# instead of the local filesystem. Master key is taken from MECCG_MASTER_KEY
+# or ~/.meccg/secrets.json.
 set -euo pipefail
 
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
@@ -24,7 +22,8 @@ Usage:
   bin/requests              List unhandled requests (status=new)
   bin/requests --all        List all requests, including handled and old ones
   bin/requests del <id>     Delete every copy of the given mail id across
-                            all player mailboxes (local-only)
+                            all player mailboxes
+  bin/requests renew <id>…  Mark one or more requests as new (re-queue them)
   bin/requests -h | --help  Show this help message
 
 Feature-requests go to the admin inbox; everything else (certification,
@@ -32,7 +31,7 @@ card, planning, implementation, bug-report) goes to the ai inbox. Both are
 scanned so all requests appear in one place.
 
 Environment:
-  MECCG_LOBBY_URL   Lobby base URL. When set, list mode queries the lobby
+  MECCG_LOBBY_URL   Lobby base URL. When set, all subcommands use the lobby
                     API instead of the local filesystem.
   MECCG_MASTER_KEY  Lobby master key. Falls back to ~/.meccg/secrets.json
                     when unset.
@@ -61,21 +60,37 @@ INBOX_DIRS=(
   "$HOME/.meccg/players/admin/mail/inbox"
 )
 
+# Resolve inbox name for a message ID via the remote API.
+# Prints the inbox name (e.g. "ai" or "admin"), or empty string if not found.
+remote_inbox_for() {
+  local id="$1" key="$2"
+  curl -sf -X GET "$BASE_URL/api/system/ai-requests?all=true" \
+    -H "Authorization: Bearer $key" 2>/dev/null |
+    jq -r --arg id "$id" '.requests[] | select(.id == $id) | .inbox' | head -1
+}
+
 # ---------------------------------------------------------------------------
 # del <id>: delete every copy of the given mail id across all player mail dirs
 # ---------------------------------------------------------------------------
 if [ $# -ge 1 ] && [ "$1" = "del" ]; then
-  if [ -n "$BASE_URL" ]; then
-    echo "ERROR: 'del' is not supported in remote mode (MECCG_LOBBY_URL is set)." >&2
-    echo "Unset MECCG_LOBBY_URL to delete local copies, or use the lobby's" >&2
-    echo "administrative tooling to remove messages from a hosted inbox." >&2
-    exit 2
-  fi
   if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
     echo "Usage: $(basename "$0") del <id>" >&2
     exit 1
   fi
   ID="$2"
+
+  if [ -n "$BASE_URL" ]; then
+    KEY=$(master_key)
+    inbox=$(remote_inbox_for "$ID" "$KEY")
+    if [ -z "$inbox" ]; then
+      echo "No copies of $ID found."
+      exit 0
+    fi
+    curl -sf -X DELETE "$BASE_URL/api/system/mail/$inbox/$ID" \
+      -H "Authorization: Bearer $KEY" > /dev/null
+    echo "Deleted $ID from $inbox inbox"
+    exit 0
+  fi
 
   shopt -s nullglob
   copies=("$HOME"/.meccg/players/*/mail/*/"$ID".json)
@@ -89,6 +104,50 @@ if [ $# -ge 1 ] && [ "$1" = "del" ]; then
   for f in "${copies[@]}"; do
     rm -f "$f"
     echo "Removed $f"
+  done
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# renew <id>…: set status=new on every matching mail file
+# ---------------------------------------------------------------------------
+if [ $# -ge 1 ] && [ "$1" = "renew" ]; then
+  if [ $# -lt 2 ]; then
+    echo "Usage: $(basename "$0") renew <id>…" >&2
+    exit 1
+  fi
+  shift
+
+  if [ -n "$BASE_URL" ]; then
+    KEY=$(master_key)
+    for ID in "$@"; do
+      inbox=$(remote_inbox_for "$ID" "$KEY")
+      if [ -z "$inbox" ]; then
+        echo "No copies of $ID found." >&2
+        continue
+      fi
+      curl -sf -X PUT "$BASE_URL/api/system/mail/$inbox/$ID" \
+        -H "Authorization: Bearer $KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"status":"new"}' > /dev/null
+      echo "Renewed $ID in $inbox inbox"
+    done
+    exit 0
+  fi
+
+  for ID in "$@"; do
+    shopt -s nullglob
+    copies=("$HOME"/.meccg/players/*/mail/*/"$ID".json)
+    shopt -u nullglob
+    if [ ${#copies[@]} -eq 0 ]; then
+      echo "No copies of $ID found." >&2
+      continue
+    fi
+    for f in "${copies[@]}"; do
+      tmp=$(mktemp)
+      jq '.status = "new"' "$f" > "$tmp" && mv "$tmp" "$f"
+      echo "Renewed $f"
+    done
   done
   exit 0
 fi

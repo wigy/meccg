@@ -833,6 +833,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       return;
     }
 
+    if (systemMailMatch && method === 'DELETE') {
+      const [, playerName, msgId] = systemMailMatch;
+      const deleted = deleteMessage(playerName, msgId);
+      if (!deleted) { sendJson(res, 404, { error: 'Message not found' }); return; }
+      lobbyLog.log('system-mail-delete', { player: playerName, msgId });
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     if (urlPath === '/api/system/ai-requests' && method === 'GET') {
       try {
         const includeAll = url.searchParams.get('all') === 'true';
