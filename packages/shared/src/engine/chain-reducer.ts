@@ -815,9 +815,10 @@ function buildConstraintKind(
  *
  * The card was discarded at play time (hazard short events go to discard
  * immediately). If the card carries `fetch-to-deck` effects whose `when`
- * conditions are satisfied, move it from the discard pile to cardsInPlay
- * and enqueue the effects as {@link PendingEffect}s so the hazard player
- * can interactively choose which cards to fetch.
+ * conditions are satisfied, enqueue the effects as {@link PendingEffect}s
+ * so the hazard player can interactively choose which cards to fetch.
+ * The card remains in the discard pile throughout — hazard short events
+ * are never placed in cardsInPlay.
  */
 function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
@@ -849,21 +850,8 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 
   logDetail(`${def.name}: queuing ${fetchEffects.length} fetch-to-deck effect(s)`);
 
-  const playerIndex = getPlayerIndex(state, entry.declaredBy);
-  const player = state.players[playerIndex];
-
-  const discardIdx = player.discardPile.findIndex(c => c.instanceId === card.instanceId);
-  if (discardIdx === -1) return state;
-
-  const newDiscard = [...player.discardPile];
-  newDiscard.splice(discardIdx, 1);
-
   return {
-    ...updatePlayer(state, playerIndex, p => ({
-      ...p,
-      discardPile: newDiscard,
-      cardsInPlay: [...p.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
-    })),
+    ...state,
     pendingEffects: [...state.pendingEffects, ...fetchEffects],
   };
 }
