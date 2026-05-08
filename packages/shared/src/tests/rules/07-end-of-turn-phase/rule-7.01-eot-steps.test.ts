@@ -20,7 +20,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint, dispatch, viableActions, viableFor,
   PLAYER_1, PLAYER_2,
-  SUN, CAVE_DRAKE,
+  SUN, CAVE_DRAKE, SMOKE_RINGS,
   DAGGER_OF_WESTERNESSE,
   Phase, handCardId, eotState, phaseStateAs, actionAs, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
@@ -92,6 +92,25 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     // Passing the signal-end ends the turn (advances to next turn's untap).
     const next = dispatch(s4, { type: 'pass', player: PLAYER_1 });
     expect(next.phaseState.phase).toBe(Phase.Untap);
+  });
+
+  test('Step 1 (discard): playable short events may also be discarded from hand', () => {
+    // CoE rule 2.VI.i: "Either player may discard a card from their own hand."
+    // There is no exception for short events that happen to be playable — the
+    // active player must be offered both play-short-event AND discard-card for
+    // any short event in hand, so they can choose whether to play or discard.
+    const state = eotState({ p1Hand: [SMOKE_RINGS] });
+    expect(phaseStateAs<EndOfTurnPhaseState>(state).step).toBe('discard');
+
+    // Smoke Rings is a short event with no prerequisites — it should be
+    // offered as a play-short-event action for the active (resource) player.
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+
+    // The same card must also appear as a discard-card option.
+    const smokeRingsId = state.players[0].hand[0].instanceId;
+    const discards = viableActions(state, PLAYER_1, 'discard-card');
+    expect(discards.some(a => actionAs<DiscardCardAction>(a.action).cardInstanceId === smokeRingsId)).toBe(true);
   });
 
   test('Discarding the last card in hand still allows passing the discard step', () => {
