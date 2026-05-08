@@ -357,23 +357,14 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'finished' || ea.action.type === 'untap'
     || ea.action.type === 'opponent-influence-defend'));
   const passAction = passEval?.action;
+  const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
+    btn.classList.add('hidden');
     const hasViable = view.legalActions.some(ea => ea.viable);
-    if (!hasViable) {
-      btn.textContent = 'Waiting…';
-      btn.disabled = true;
-      btn.classList.add('pass-btn--waiting');
-      btn.classList.remove('hidden');
-      btn.onclick = null;
-    } else {
-      btn.classList.add('hidden');
-      btn.disabled = false;
-      btn.classList.remove('pass-btn--waiting');
-    }
+    waitingEl?.classList.toggle('hidden', hasViable);
     return;
   }
-  btn.disabled = false;
-  btn.classList.remove('pass-btn--waiting');
+  waitingEl?.classList.add('hidden');
 
   // Choose label based on action type and phase
   let label = 'Done';
