@@ -540,7 +540,10 @@
         "type": "play-option",
         "id": "heal",
         "when": {
-          "target.status": "inverted"
+          "$and": [
+            { "target.status": "inverted" },
+            { "phase": "organization" }
+          ]
         },
         "apply": {
           "type": "set-character-status",

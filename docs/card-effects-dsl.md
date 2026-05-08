@@ -1808,7 +1808,7 @@ Reduces opponent draws from Alatar's company's movement by one (floored at zero)
     "when": { "target.status": "tapped" },
     "apply": { "type": "set-character-status", "status": "untapped" } },
   { "type": "play-option", "id": "heal",
-    "when": { "target.status": "inverted" },
+    "when": { "$and": [ { "target.status": "inverted" }, { "phase": "organization" } ] },
     "apply": { "type": "set-character-status", "status": "untapped" } },
   { "type": "play-option", "id": "corruption-check-boost",
     "apply": { "type": "add-constraint",
@@ -1821,12 +1821,14 @@ Reduces opponent draws from Alatar's company's movement by one (floored at zero)
 `play-option` declares one of several mutually-exclusive choices the
 player may take when playing a card. Each option has an `id`, an optional
 `when` evaluated against the target context (`target.race`,
-`target.status`, `target.skills`, `inPlay`), and an `apply` clause
+`target.status`, `target.skills`, `inPlay`, `phase`), and an `apply` clause
 resolved by the generic reducer.
 
 The `when` context includes `inPlay` — an array of all card names
 currently in play — so conditions like `{ "inPlay": "Gates of Morning" }`
-work.
+work. It also includes `phase` — the current game phase string (e.g.
+`"organization"`, `"site"`, `"movement-hazard"`) — so options can be
+restricted to specific phases: `{ "phase": "organization" }`.
 
 Supported `apply` kinds today:
 

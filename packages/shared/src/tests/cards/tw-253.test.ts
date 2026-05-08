@@ -245,6 +245,28 @@ describe('Halfling Strength (tw-253)', () => {
     expectInDiscardPile(state, RESOURCE_PLAYER, hsInstance);
   });
 
+  test('site phase: heal option NOT offered even for a wounded hobbit (organization phase only)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Inverted }] }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const healActions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .filter(a => a.optionId === 'heal');
+    expect(healActions).toHaveLength(0);
+  });
+
   test('corruption-check-boost is offered only while the targeted hobbit faces a pending corruption check', () => {
     // Halfling Strength in hand; Bilbo untapped and well. Without a
     // pending corruption check the card offers nothing.
