@@ -682,13 +682,20 @@ export interface CombatMultiAttackEffect extends EffectBase {
 }
 
 /**
- * The defending player may tap non-target characters in the defending
- * company to cancel attacks. Example: Assassin.
+ * The defending player may tap characters in the defending company to cancel
+ * attacks. By default only non-target characters may tap (Assassin: "not the
+ * defending character"). When `allowTargetToCancel` is true, the target
+ * character may also tap to cancel (Slayer: "any one character").
  */
 export interface CombatCancelAttackByTapEffect extends EffectBase {
   readonly type: 'combat-cancel-attack-by-tap';
   /** Maximum number of attacks that can be canceled. */
   readonly maxCancels: number;
+  /**
+   * When true, the target character (the one assigned the strike) may also tap
+   * to cancel one of the attacks. Defaults to false (Assassin restriction).
+   */
+  readonly allowTargetToCancel?: boolean;
 }
 
 /**
