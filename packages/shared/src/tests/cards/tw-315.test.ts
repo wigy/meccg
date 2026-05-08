@@ -32,6 +32,7 @@ import {
   mint, addToPile, makeSitePhase,
   findCharInstanceId, runCardTriggeredAttackCombat,
   dispatch, resolveChain,
+  setCharStatus,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction, SelectCardBearerAction } from '../../index.js';
 import { Phase } from '../../index.js';
@@ -375,6 +376,65 @@ describe('Rescue Prisoners (tw-315)', () => {
         resourcePlayerPassed: false,
         hazardPlayerPassed: false,
       } as typeof afterBearerSelect.phaseState,
+    };
+    const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+  });
+
+  test('wounded bearer heals to tapped at a haven even when bearer-cannot-untap is active', () => {
+    // Regression: bearer-cannot-untap must block untapping (tapped→untapped) only.
+    // Healing (inverted→tapped) at a haven must still occur even while the constraint
+    // is active (CoE rule 2.I.1 distinguishes untap from heal).
+    const state = buildSitePhaseState({
+      site: MORIA,
+      siteStatus: CardStatus.Tapped,
+      hand: [RESCUE_PRISONERS],
+      characters: [ARAGORN, GIMLI, LEGOLAS],
+    });
+
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, (actions[0].action as PlayPermanentEventAction).cardInstanceId);
+
+    const afterCombat = runCardTriggeredAttackCombat(afterPlay, [
+      { characterDefId: ARAGORN, roll: 1 },
+      { characterDefId: GIMLI, roll: 1 },
+    ]);
+
+    const bearerActions = viableActions(afterCombat, PLAYER_1, 'select-card-bearer');
+    const legolasAction = bearerActions.find(ea => (ea.action as SelectCardBearerAction).characterId === legolasId)!;
+    const afterBearerSelect = dispatch(afterCombat, legolasAction.action);
+
+    expect(afterBearerSelect.activeConstraints.some(c => c.kind.type === 'bearer-cannot-untap')).toBe(true);
+
+    // Move company to Rivendell (a haven) and wound Legolas (simulates post-hazard injury)
+    const company = afterBearerSelect.players[RESOURCE_PLAYER].companies[0];
+    const rivendellSite = { instanceId: mint(), definitionId: RIVENDELL, status: CardStatus.Untapped };
+    const stateAtHaven = {
+      ...afterBearerSelect,
+      players: [
+        {
+          ...afterBearerSelect.players[RESOURCE_PLAYER],
+          companies: [{ ...company, currentSite: rivendellSite }],
+        },
+        afterBearerSelect.players[1],
+      ] as typeof afterBearerSelect.players,
+    };
+    const stateWounded = setCharStatus(stateAtHaven, RESOURCE_PLAYER, LEGOLAS, CardStatus.Inverted);
+
+    // Untap: Legolas is wounded at a haven → must heal to tapped despite bearer-cannot-untap
+    const inUntap = {
+      ...stateWounded,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: false,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      } as typeof stateWounded.phaseState,
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
     expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);

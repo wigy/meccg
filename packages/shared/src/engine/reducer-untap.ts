@@ -204,8 +204,15 @@ function performUntap(state: GameState): GameState {
     );
     let newStatus = ch.status;
     if (cannotUntapIds.has(key)) {
-      // Bearer-cannot-untap constraint active — leave tapped
-      logDetail(`Untap: skipping ${key} (bearer-cannot-untap constraint active)`);
+      // bearer-cannot-untap blocks tapped→untapped only; healing (inverted→tapped)
+      // at a haven is a separate operation and must still proceed (CoE rule 2.I.1).
+      if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
+        newStatus = CardStatus.Tapped;
+        healedCount++;
+        logDetail(`Untap: healing ${key} to tapped (bearer-cannot-untap blocks untap, not healing)`);
+      } else {
+        logDetail(`Untap: skipping untap for ${key} (bearer-cannot-untap constraint active)`);
+      }
     } else if (ch.status === CardStatus.Tapped) {
       newStatus = CardStatus.Untapped;
     } else if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
