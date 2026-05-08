@@ -1953,6 +1953,11 @@ function checkSitePathCondition(
   if (mhState.destinationSiteType) {
     ctx['destinationSiteType'] = mhState.destinationSiteType;
   }
+  // Expose the destination region type (the region the destination site sits
+  // in) so play conditions can gate on it (e.g. Choking Shadows Mode B2).
+  if (mhState.resolvedSitePath.length > 0) {
+    ctx['destinationRegionType'] = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
+  }
   if (state) {
     const inPlayNames: string[] = [];
     for (const p of state.players) {

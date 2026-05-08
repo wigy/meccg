@@ -56,15 +56,42 @@ describe('Choking Shadows (tw-21)', () => {
     expect(def.cardType).toBe('hazard-event');
     expect(def.eventType).toBe('short');
     expect(def.keywords).toContain('environment');
-    // 1 duplication-limit + 3 on-event modes
-    expect(def.effects).toHaveLength(4);
+    // 1 duplication-limit + 1 play-condition + 3 on-event modes
+    expect(def.effects).toHaveLength(5);
     expect(def.effects![0].type).toBe('duplication-limit');
-    expect(def.effects![1].type).toBe('on-event');
+    expect(def.effects![1].type).toBe('play-condition');
     expect(def.effects![2].type).toBe('on-event');
     expect(def.effects![3].type).toBe('on-event');
+    expect(def.effects![4].type).toBe('on-event');
   });
 
-  test('can be played as a hazard short event during M/H play-hazards step', () => {
+  test('can be played at a R&L destination during M/H play-hazards step', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhGameState: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Moria',
+        resolvedSitePath: [RegionType.Wilderness],
+        resolvedSitePathNames: ['Hollin'],
+      }),
+    };
+    const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(1);
+  });
+
+  test('not playable when destination is non-R&L and Doors of Night is not in play', () => {
+    // Bug: Choking Shadows was playable against any company regardless of
+    // destination/DoN, even though none of its effects could trigger.
+    // Rule 5.1.2: a short-event cannot be played unless it would have an effect.
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -74,9 +101,19 @@ describe('Choking Shadows (tw-21)', () => {
       ],
     });
 
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
+    // Dark-hold destination, shadow region — none of the three Choking Shadows
+    // modes can trigger (Modes B1/B2 require DoN; Mode A requires R&L).
+    const mhGameState: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.DarkHold,
+        destinationSiteName: 'Carn Dum',
+        resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness, RegionType.Wilderness, RegionType.Shadow],
+        resolvedSitePathNames: ['Redhorn Gate', 'Hollin', 'Rhudaur', 'Angmar'],
+      }),
+    };
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(0);
   });
 
   test('goes to discard pile after play (short event)', () => {
@@ -84,12 +121,20 @@ describe('Choking Shadows (tw-21)', () => {
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
+    const mhGameState: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Moria',
+        resolvedSitePath: [RegionType.Wilderness],
+        resolvedSitePathNames: ['Hollin'],
+      }),
+    };
     const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
@@ -103,12 +148,20 @@ describe('Choking Shadows (tw-21)', () => {
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS, CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
+    const mhGameState: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Moria',
+        resolvedSitePath: [RegionType.Wilderness],
+        resolvedSitePathNames: ['Hollin'],
+      }),
+    };
     const cs1Id = handCardId(mhGameState, HAZARD_PLAYER, 0);
 
     // Play first copy → enters chain
@@ -157,14 +210,21 @@ describe('Choking Shadows (tw-21)', () => {
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
     const mhGameState: GameState = {
       ...state,
-      phaseState: makeMHState({ hazardsPlayedThisCompany: 4, hazardLimitAtReveal: 4 }),
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Moria',
+        resolvedSitePath: [RegionType.Wilderness],
+        resolvedSitePathNames: ['Hollin'],
+        hazardsPlayedThisCompany: 4,
+        hazardLimitAtReveal: 4,
+      }),
     };
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);
@@ -204,7 +264,9 @@ describe('Choking Shadows (tw-21)', () => {
     }
   });
 
-  test('Mode A — non-R&L destination with no Doors of Night, no effect applied', () => {
+  test('Mode A — non-R&L destination with no Doors of Night, not playable (play-condition)', () => {
+    // Rule 5.1.2: cannot play if no effect can trigger. At a non-R&L site
+    // without Doors of Night, none of the three Choking Shadows modes apply.
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -222,10 +284,8 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
 
-    const csId = handCardId(mhGameState, HAZARD_PLAYER);
-    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
-
-    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'attribute-modifier')).toHaveLength(0);
+    const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   // ─── Mode B: type overrides with Doors of Night in play ──────────────────
