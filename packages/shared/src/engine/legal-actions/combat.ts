@@ -1464,8 +1464,9 @@ function cancelByTapActions(
   const actions: EvaluatedAction[] = [];
 
   for (const charId of company.characters) {
-    // Cannot tap the target character
-    if (charId === targetCharId) continue;
+    // By default the target character cannot tap to cancel (Assassin: "not the defending character").
+    // When allowTargetToCancel is set (Slayer: "any one character"), the target may also tap.
+    if (!combat.cancelByTapAllowTarget && charId === targetCharId) continue;
     const charData = player.characters[charId as string];
     if (!charData || charData.status !== CardStatus.Untapped) continue;
 

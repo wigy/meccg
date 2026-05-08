@@ -1415,6 +1415,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     e => e.type === 'combat-cancel-attack-by-tap',
   );
   const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
+  const cancelByTapAllowTarget = cancelByTapEffect?.allowTargetToCancel ?? false;
 
   const attackSource = state.phaseState.phase === 'site'
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
@@ -1484,6 +1485,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
+    cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   };
 

@@ -197,10 +197,17 @@ export interface CombatState {
   readonly multiAttackCount?: number;
   /**
    * Number of remaining cancel-by-tap opportunities the defender has.
-   * Each tap of a non-target character cancels one strike assignment.
-   * Set by the `cancel-attack-by-tap` combat rule.
+   * Each tap cancels one strike assignment. Set by the `cancel-attack-by-tap`
+   * combat rule.
    */
   readonly cancelByTapRemaining?: number;
+  /**
+   * When true, the target character (the one assigned the strike) may also tap
+   * to cancel an attack. Derived from `allowTargetToCancel` on the creature's
+   * `combat-cancel-attack-by-tap` effect (e.g. Slayer: "any one character").
+   * Defaults to false (Assassin restriction: "not the defending character").
+   */
+  readonly cancelByTapAllowTarget?: boolean;
   /**
    * Items available for salvage transfer from an eliminated character.
    * Only set during the 'item-salvage' phase (CoE rule 3.I.2).

@@ -1333,9 +1333,10 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
     return { state, error: 'Character not in defending company' };
   }
 
-  // Cannot tap the target character
+  // By default the target character cannot tap to cancel (Assassin: "not the defending character").
+  // When cancelByTapAllowTarget is set (Slayer: "any one character"), the target may also tap.
   const targetCharId = combat.strikeAssignments[0]?.characterId;
-  if (action.characterId === targetCharId) {
+  if (!combat.cancelByTapAllowTarget && action.characterId === targetCharId) {
     return { state, error: 'Cannot tap the defending character to cancel' };
   }
 

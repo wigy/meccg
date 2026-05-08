@@ -1730,7 +1730,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   if (company.currentSite) {
     const rule_7_1_violation = player.companies.find(
       c => c.id !== action.companyId
-        && c.currentSite?.instanceId === company.currentSite!.instanceId
+        && c.currentSite?.definitionId === company.currentSite!.definitionId
         && c.destinationSite?.instanceId === action.destinationSite,
     );
     if (rule_7_1_violation) {
