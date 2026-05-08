@@ -374,17 +374,25 @@ export function connect(name: string): void {
             isMine ? undefined : { opponent: '' },
           );
         }
-        // Show notification describing what the opponent just did
-        if (msg.lastAction && msg.lastAction.player !== msg.view.self.id
-          && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
+        // Show notification describing what either player just did
+        if (msg.lastAction && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
+          const isSelf = msg.lastAction.player === msg.view.self.id;
           const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
-          showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
+          if (isSelf) {
+            showNotification(desc, { cardPool, self: msg.view.self.name });
+          } else {
+            showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
+          }
         }
-        // Show a dedicated text-log entry when the opponent picks a creature race
-        // (e.g. Two or Three Tribes Present), so the player can see the choice clearly.
-        if (msg.lastAction?.type === 'play-hazard' && msg.lastAction.player !== msg.view.self.id
-          && msg.lastAction.chosenCreatureRace) {
-          showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { opponent: msg.view.opponent.name });
+        // Show a dedicated text-log entry when a player picks a creature race
+        // (e.g. Two or Three Tribes Present), so the opponent can see the choice clearly.
+        if (msg.lastAction?.type === 'play-hazard' && msg.lastAction.chosenCreatureRace) {
+          const isSelf = msg.lastAction.player === msg.view.self.id;
+          if (isSelf) {
+            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { self: msg.view.self.name });
+          } else {
+            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { opponent: msg.view.opponent.name });
+          }
         }
         appState.lastPhase = msg.view.phaseState.phase;
         // Prepare/clear site selection or fetch-from-pile based on legal actions

@@ -3126,6 +3126,10 @@ h2 {
   color: rgba(140, 180, 220, 0.95);
 }
 
+.toast--self {
+  color: rgba(130, 200, 140, 0.95);
+}
+
 .toast--error {
   color: #ff7070;
 }

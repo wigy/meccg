@@ -27,7 +27,7 @@ import { $ } from './render-utils.js';
 import { textToHtml, tagCardImages } from './render-text-format.js';
 
 /** Kind of a game message — drives CSS colouring. */
-export type GameMessageKind = 'info' | 'error' | 'opponent' | 'system';
+export type GameMessageKind = 'info' | 'error' | 'opponent' | 'self' | 'system';
 
 /** A single stored message in the per-game log. */
 export interface GameMessage {
@@ -126,6 +126,7 @@ function buildEntryElement(msg: GameMessage): HTMLElement {
   const kindClass =
     msg.kind === 'error' ? ' toast--error'
     : msg.kind === 'opponent' ? ' toast--opponent'
+    : msg.kind === 'self' ? ' toast--self'
     : msg.kind === 'system' ? ' toast--system'
     : '';
   entry.className = `toast${kindClass}`;
@@ -154,6 +155,11 @@ export interface NotificationOptions {
    * If non-empty, the message is prefixed with `"<name>: "`.
    */
   opponent?: string;
+  /**
+   * When set, display as a self-action toast (green color).
+   * If non-empty, the message is prefixed with `"<name>: "`.
+   */
+  self?: string;
 }
 
 /**
@@ -172,18 +178,21 @@ export function showNotification(
   let options: NotificationOptions;
   if (opts === true) {
     options = { error: true };
-  } else if (opts && typeof opts === 'object' && !('error' in opts || 'cardPool' in opts || 'opponent' in opts)) {
+  } else if (opts && typeof opts === 'object' && !('error' in opts || 'cardPool' in opts || 'opponent' in opts || 'self' in opts)) {
     options = { cardPool: opts as Readonly<Record<string, CardDefinition>> };
   } else {
     options = (opts as NotificationOptions) ?? {};
   }
 
-  const displayMessage = options.opponent ? `${options.opponent}: ${message}` : message;
+  const prefix = options.opponent || options.self;
+  const displayMessage = prefix ? `${prefix}: ${message}` : message;
   const kind: GameMessageKind = options.error
     ? 'error'
     : options.opponent !== undefined
       ? 'opponent'
-      : 'info';
+      : options.self !== undefined
+        ? 'self'
+        : 'info';
 
   // Format the message HTML once (with card-image hovers if a pool was given).
   const tmp = document.createElement('div');
