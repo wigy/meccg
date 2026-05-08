@@ -106,6 +106,17 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
+      // Rule 3.iv.6.1: for agent attacks the attacker must roll first before
+      // the defender can resolve. Gate the entire resolve window behind the roll.
+      if (combat.attackSource.type === 'agent' && combat.agentRollTotal === undefined) {
+        if (playerId === combat.attackingPlayerId) {
+          logDetail('Agent combat: attacker must roll for agent before defender can resolve');
+          return [{ action: { type: 'agent-strike-roll' as const, player: playerId }, viable: true }];
+        }
+        logDetail('Agent combat: defender waits for attacker to roll for agent');
+        return [];
+      }
+
       // CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
       // While the attacker has any playable combat hazards and has not yet
       // passed on this strike sequence, they hold an exclusive priority
@@ -421,7 +432,11 @@ function resolveStrikeActions(
   } else {
     baseProwess = charData?.effectiveStats?.prowess ?? 0;
   }
-  const strikeProwess = combat.strikeProwess;
+  // For agent attacks, use the agent's rolled total (2d6 + modified prowess) as
+  // the effective prowess the character must beat (rule 3.iv.6.1).
+  const strikeProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+    ? combat.agentRollTotal
+    : combat.strikeProwess;
   let statusPenalty = 0;
   if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
   if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
@@ -437,9 +452,13 @@ function resolveStrikeActions(
   const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
-  const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
+  const tapExplanation = combat.attackSource.type === 'agent'
+    ? `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs agent roll ${strikeProwess})`
+    : `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
   const untapNeed = Math.max(2, strikeProwess - untapProwess + 1);
-  const untapExplanation = `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs ${strikeProwess})`;
+  const untapExplanation = combat.attackSource.type === 'agent'
+    ? `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs agent roll ${strikeProwess})`
+    : `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs ${strikeProwess})`;
 
   logDetail(`Defender can resolve strike against ${charName} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
   actions.push({

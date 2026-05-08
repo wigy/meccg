@@ -221,6 +221,16 @@ export interface CombatState {
    */
   readonly attackerStep1Done?: boolean;
   /**
+   * Rule 3.iv.6.1 — Agent Strike Roll.
+   * For agent hazard attacks, the attacking player rolls 2d6 and adds the
+   * agent's modified prowess before the defender rolls. This field holds
+   * the agent's total (2d6 + modified prowess) for the current strike
+   * sequence, which becomes the effective prowess the defender must beat.
+   * Absent until the attacker takes the `agent-strike-roll` action.
+   * Reset to undefined on each new strike sequence.
+   */
+  readonly agentRollTotal?: number;
+  /**
    * Pending haven-join offers raised when the attack began (fired by
    * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`,
    * e.g. Alatar). Each offer lets a specific character in a haven company

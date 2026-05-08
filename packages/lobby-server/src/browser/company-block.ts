@@ -32,6 +32,7 @@ import type {
   OpponentInfluenceAttemptAction,
   PlayShortEventAction,
   SelectCardBearerAction,
+  DeclareAgentAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -186,10 +187,25 @@ export function renderCompanyBlock(
   row.className = 'company-row';
 
   // Site area (leftmost)
+  // During declare-agent-attack step, find agents threatening the active company's site
+  let agentAttackActions: DeclareAgentAttackAction[] | undefined;
+  if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'declare-agent-attack' && options?.onAction) {
+    const siteState = view.phaseState;
+    const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const activeCompany = resourceCompanies[siteState.activeCompanyIndex];
+    if (activeCompany && company.id === activeCompany.id) {
+      agentAttackActions = viableActions(view.legalActions).filter(
+        (a): a is DeclareAgentAttackAction => a.type === 'declare-agent-attack',
+      );
+    }
+  }
+
   row.appendChild(renderSiteArea(company, view, cardPool, {
     hasLegalMovement: options?.hasLegalMovement,
     onAction: options?.onAction,
     grantedActions: options?.grantedActions,
+    agentAttackActions,
   }));
 
   // Characters — title character always rendered first (leftmost after site).

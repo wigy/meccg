@@ -507,7 +507,7 @@ function declareAgentAttackActions(
       for (const siteInst of hazardPlayer.siteDeck) {
         const siteDef = state.cardPool[siteInst.definitionId as string];
         if (!siteDef || !isSiteCard(siteDef)) continue;
-        if (!homesiteNames.includes(siteDef.name)) continue;
+        if (siteDef.name !== currentSiteName) continue;
         if (seenHome.has(siteDef.name)) continue;
         seenHome.add(siteDef.name);
         logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);

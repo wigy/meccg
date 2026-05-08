@@ -499,13 +499,33 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
 }
 
 /**
- * Shared helper: charge 1 hazard slot for an agent action and mark the agent
- * as having acted this turn. Returns the updated mhState object.
+ * Count the total extra agent actions granted by `extra-agent-actions` effects
+ * currently in play across all players (e.g. Great Need or Purpose).
+ * Exported so legal-actions can reuse the same logic.
  */
-function chargeAgentAction(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
+export function countExtraAgentActions(state: GameState): number {
+  return state.players.reduce((sum, p) =>
+    sum + p.cardsInPlay.reduce((s, card) => {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def)) return s;
+      return s + (def.effects as readonly { type: string; value?: number }[]).reduce(
+        (n, e) => e.type === 'extra-agent-actions' ? n + (e.value ?? 0) : n, 0,
+      );
+    }, 0),
+  0);
+}
+
+/**
+ * Shared helper: charge a hazard slot for an agent action (unless it is an
+ * extra action granted by an effect like Great Need or Purpose, which is free).
+ *
+ * Rule: only the agent's BASE action costs a hazard slot. Extra actions
+ * (remainingActions <= extraAgentActions before decrement) are free.
+ */
+function chargeAgentAction(mhState: MovementHazardPhaseState, isExtraAction: boolean): MovementHazardPhaseState {
   return {
     ...mhState,
-    hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+    hazardsPlayedThisCompany: isExtraAction ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1,
     resourcePlayerPassed: false,
   };
 }
@@ -551,6 +571,9 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
     status: CardStatus.Untapped,
   };
 
+  const agentBeforeMove = hazardPlayer.agents[agentIdx];
+  const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state);
+
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -562,7 +585,7 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
     siteDeck: removeById(p.siteDeck, destCard.instanceId),
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraMove) } };
 }
 
 /**
@@ -586,6 +609,7 @@ function handleAgentMoveBack(state: GameState, action: GameAction, mhState: Move
   const backName = backDef && isSiteCard(backDef) ? backDef.name : 'previous site';
   logDetail(`Agent ${action.agentId as string}: moving back to "${backName}", returning ${topSite.instanceId as string} to deck`);
 
+  const isExtraMoveBack = agent.remainingActions <= countExtraAgentActions(state);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -597,7 +621,7 @@ function handleAgentMoveBack(state: GameState, action: GameAction, mhState: Move
     siteDeck: [...p.siteDeck, topSite],
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraMoveBack) } };
 }
 
 /**
@@ -638,6 +662,7 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
       status: CardStatus.Untapped,
     };
 
+    const isExtraReturnFaceUp = agent.remainingActions <= countExtraAgentActions(state);
     const newState = updatePlayer(state, hazardIndex, p => ({
       ...p,
       agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -648,12 +673,13 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
       }),
       siteDeck: [...removeById(p.siteDeck, homeCard.instanceId), ...agent.siteStack],
     }));
-    return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+    return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraReturnFaceUp) } };
   }
 
   // Face-down: siteStack becomes empty, no site card needed
   logDetail(`Agent ${action.agentId as string}: returning home (face-down), returning ${agent.siteStack.length} site(s) to deck`);
 
+  const isExtraReturnFaceDown = agent.remainingActions <= countExtraAgentActions(state);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -664,7 +690,7 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
     }),
     siteDeck: [...p.siteDeck, ...agent.siteStack],
   }));
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraReturnFaceDown) } };
 }
 
 /**
@@ -684,13 +710,14 @@ function handleAgentHeal(state: GameState, action: GameAction, mhState: Movement
 
   logDetail(`Agent ${action.agentId as string}: healed (inverted → tapped)`);
 
+  const isExtraHeal = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Tapped },
     remainingActions: a.remainingActions - 1,
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraHeal) } };
 }
 
 /**
@@ -710,13 +737,14 @@ function handleAgentUntap(state: GameState, action: GameAction, mhState: Movemen
 
   logDetail(`Agent ${action.agentId as string}: untapped`);
 
+  const isExtraUntap = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Untapped },
     remainingActions: a.remainingActions - 1,
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraUntap) } };
 }
 
 /**
@@ -738,13 +766,14 @@ function handleAgentTurnFaceDown(state: GameState, action: GameAction, mhState: 
 
   logDetail(`Agent ${action.agentId as string}: turned face-down`);
 
+  const isExtraTurnDown = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     revealed: false,
     remainingActions: a.remainingActions - 1,
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraTurnDown) } };
 }
 
 /**
@@ -767,13 +796,14 @@ function handleAgentKeyCreatures(state: GameState, action: GameAction, mhState: 
 
   logDetail(`Agent ${action.agentId as string}: tapped to key creatures to its site`);
 
+  const isExtraKeyCreatures = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
   const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
     ...a,
     character: { ...a.character, status: CardStatus.Tapped },
     remainingActions: a.remainingActions - 1,
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState) } };
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraKeyCreatures) } };
 }
 
 /**

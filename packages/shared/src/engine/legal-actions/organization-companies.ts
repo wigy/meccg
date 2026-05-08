@@ -78,15 +78,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     // Rule 2.II.7.1: no two companies sharing an origin may declare movement
     // to the same new site during one organization phase. Drop any candidate
-    // whose instanceId is already another sibling-at-same-origin's
-    // destinationSite.
-    const blockedByRule_2_II_7_1 = new Set<string>();
+    // whose definition is already another sibling-at-same-origin's
+    // destinationSite. Compare by definitionId, not instanceId, because two
+    // companies at the same named site may hold different card instances.
+    const blockedByRule_2_II_7_1 = new Set<string>(); // definitionIds
     for (const sibling of player.companies) {
       if (sibling.id === company.id) continue;
       if (!sibling.currentSite) continue;
-      if (sibling.currentSite.instanceId !== company.currentSite.instanceId) continue;
+      if (sibling.currentSite.definitionId !== company.currentSite.definitionId) continue;
       if (sibling.destinationSite) {
-        blockedByRule_2_II_7_1.add(sibling.destinationSite.instanceId as string);
+        blockedByRule_2_II_7_1.add(sibling.destinationSite.definitionId as string);
       }
     }
 
@@ -97,7 +98,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       for (const siteDef of candidateSites) {
         const destInstId = siteInstMap.get(siteDef.name);
         if (!destInstId) continue;
-        if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
           logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
           continue;
         }
@@ -134,7 +135,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
-      if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+      if (blockedByRule_2_II_7_1.has(r.site.id)) {
         logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
         continue;
       }

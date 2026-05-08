@@ -17,12 +17,13 @@ import type {
   DeclarePathAction,
   RegionType,
   ActivateGrantedAction,
+  DeclareAgentAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
-import { showGrantedActionTooltip } from './company-modals.js';
+import { showGrantedActionTooltip, dismissTooltip } from './company-modals.js';
 
 /** Resolve a card instance ID to its definition via the cached instance lookup. */
 export function resolveCardDef(
@@ -102,6 +103,71 @@ function applyHazardOnGuardClick(
 /**
  * Render the site area for a company: current site, movement path, destination.
  */
+/**
+ * Show a tooltip for declaring an agent attack from the site overlay.
+ * Groups multiple home-site variants of the same action under a single "Declare Agent Attack" button
+ * when there is only one option, or lists them labelled by home site when there are multiple.
+ */
+function showAgentAttackTooltip(
+  anchor: HTMLElement,
+  actions: DeclareAgentAttackAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  dismissTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  for (const action of actions) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    if (action.homeSiteInstanceId) {
+      const cachedInstanceLookup = getCachedInstanceLookup();
+      const homeDefId = cachedInstanceLookup(action.homeSiteInstanceId);
+      const homeDef = homeDefId ? cardPool[homeDefId as string] : undefined;
+      btn.textContent = `Declare Agent Attack at ${homeDef?.name ?? 'home site'}`;
+    } else {
+      btn.textContent = 'Declare Agent Attack';
+    }
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = '-9999px';
+  tooltip.style.top = '-9999px';
+  document.body.appendChild(tooltip);
+
+  const tipRect = tooltip.getBoundingClientRect();
+  const rect = anchor.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const top =
+    tipRect.height + 4 <= rect.top
+      ? rect.top - tipRect.height - 4
+      : rect.bottom + 4 + tipRect.height <= vh
+        ? rect.bottom + 4
+        : Math.max(4, vh - tipRect.height - 4);
+  const left = Math.max(4, Math.min(rect.left, vw - tipRect.width - 4));
+
+  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left}px`;
+
+  const dismiss = (e: MouseEvent): void => {
+    if (!tooltip.contains(e.target as Node)) {
+      dismissTooltip();
+      document.removeEventListener('click', dismiss, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+}
+
 export function renderSiteArea(
   company: Company | OpponentCompanyView,
   view: PlayerView,
@@ -115,6 +181,13 @@ export function renderSiteArea(
      * a River constraint).
      */
     grantedActions?: Map<string, ActivateGrantedAction[]>;
+    /**
+     * Declare-agent-attack actions for agents threatening this company's current
+     * site. When present, each distinct agent is shown as a half-size thumbnail
+     * overlapping the top-right of the site card, highlighted with the standard
+     * selectable (golden) glow. Clicking opens a tooltip with the attack options.
+     */
+    agentAttackActions?: DeclareAgentAttackAction[];
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -397,6 +470,58 @@ export function renderSiteArea(
         strip.appendChild(cImg);
       }
       anchor.appendChild(strip);
+    }
+  }
+
+  // Agent attack overlay: half-size agent thumbnail(s) at top-right of site card,
+  // golden glow + clickable during declare-agent-attack step.
+  if (options?.agentAttackActions && options.agentAttackActions.length > 0 && options.onAction) {
+    const attackActions = options.agentAttackActions;
+    const onAction = options.onAction;
+
+    // Group by agent instance ID (multiple actions = multiple home-site choices for same agent)
+    const byAgent = new Map<string, DeclareAgentAttackAction[]>();
+    for (const a of attackActions) {
+      const key = a.agentInstanceId as string;
+      if (!byAgent.has(key)) byAgent.set(key, []);
+      byAgent.get(key)!.push(a);
+    }
+
+    // Wrap the outermost site element in a relative container
+    const constraintAnchor = area.querySelector<HTMLElement>('.constraint-anchor');
+    const onGuardWrapper = area.querySelector<HTMLElement>('.on-guard-wrapper');
+    const siteImages = area.querySelectorAll<HTMLElement>('.company-card--site');
+    const siteTarget = constraintAnchor ?? onGuardWrapper ?? (siteImages[siteImages.length - 1] as HTMLElement | null);
+
+    if (siteTarget) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'agent-attack-wrapper';
+      siteTarget.replaceWith(wrapper);
+      wrapper.appendChild(siteTarget);
+
+      let thumbIndex = 0;
+      for (const [agentInstId, actions] of byAgent) {
+        const agentDefId = cachedInstanceLookup(agentInstId as CardInstanceId);
+        const agentDef = agentDefId ? cardPool[agentDefId as string] : undefined;
+        const agentImgPath = agentDef ? cardImageProxyPath(agentDef) : undefined;
+
+        let thumb: HTMLImageElement;
+        if (agentDef && agentImgPath && agentDefId) {
+          thumb = createCardImage(agentDefId as string, agentDef, agentImgPath, 'agent-attack-thumb', agentInstId);
+        } else {
+          thumb = document.createElement('img');
+          thumb.src = '/images/card-back.jpg';
+          thumb.alt = 'Agent';
+          thumb.className = 'agent-attack-thumb';
+        }
+        thumb.style.setProperty('--agent-thumb-index', String(thumbIndex++));
+        thumb.style.cursor = 'pointer';
+        thumb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showAgentAttackTooltip(thumb, actions, cardPool, onAction);
+        });
+        wrapper.appendChild(thumb);
+      }
     }
   }
 

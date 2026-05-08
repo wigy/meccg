@@ -41,6 +41,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleChooseStrikeOrder(state, action, combat);
     case 'resolve-strike':
       return handleResolveStrike(state, action, combat);
+    case 'agent-strike-roll':
+      return handleAgentStrikeRoll(state, action, combat);
     case 'support-strike':
       return handleSupportStrike(state, action, combat);
     case 'body-check-roll':
@@ -189,8 +191,8 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
   if (unresolvedIndices.length === 0) return null;
   if (unresolvedIndices.length === 1) {
     logDetail(`One unresolved strike remaining (index ${unresolvedIndices[0]}) — auto-selecting`);
-    // Reset the attacker's Step 1 window for the new strike sequence.
-    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null, attackerStep1Done: false };
+    // Reset the attacker's Step 1 window and agent roll for the new strike sequence.
+    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null, attackerStep1Done: false, agentRollTotal: undefined };
   }
   logDetail(`${unresolvedIndices.length} unresolved strikes — defender chooses order`);
   return { phase: 'choose-strike-order', bodyCheckTarget: null };
@@ -204,9 +206,9 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 
   const idx = action.strikeIndex;
   logDetail(`Defender chose to resolve strike ${idx} (character ${combat.strikeAssignments[idx].characterId as string})`);
-  // Entering a new strike sequence — reset the attacker's Step 1 window.
+  // Entering a new strike sequence — reset the attacker's Step 1 window and agent roll.
   return {
-    state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx, attackerStep1Done: false } },
+    state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx, attackerStep1Done: false, agentRollTotal: undefined } },
   };
 }
 
@@ -453,16 +455,20 @@ function resolveStrikeCore(
 
   const rollTotal = roll.die1 + roll.die2;
   const characterTotal = rollTotal + prowess;
-  logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
+  // For agent attacks, compare against the agent's rolled total (rule 3.iv.6.1).
+  const effectiveProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+    ? combat.agentRollTotal
+    : combat.strikeProwess;
+  logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs ${combat.attackSource.type === 'agent' ? `agent roll ${effectiveProwess}` : `creature prowess ${combat.strikeProwess}`}`);
 
   // Determine outcome
   let result: 'success' | 'wounded' | 'eliminated';
   let bodyCheckTarget: 'character' | 'creature' | null = null;
-  if (characterTotal > combat.strikeProwess) {
+  if (characterTotal > effectiveProwess) {
     result = 'success';
     if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
     logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
-  } else if (characterTotal < combat.strikeProwess) {
+  } else if (characterTotal < effectiveProwess) {
     result = 'wounded';
     if (combat.detainment) {
       logDetail('Strike succeeds — detainment: character tapped, no body check');
@@ -483,7 +489,7 @@ function resolveStrikeCore(
   const tapOnNonWounded =
     mode === 'tap' ||
     mode === 'reroll' ||
-    (mode === 'untap' && characterTotal === combat.strikeProwess);
+    (mode === 'untap' && characterTotal === effectiveProwess);
 
   // Record strike assignment. Dodge tags the strike so the body check picks
   // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
@@ -564,6 +570,43 @@ function resolveStrikeCore(
 function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'resolve-strike') return wrongActionType(state, action, 'resolve-strike');
   return resolveStrikeCore(state, combat, action.tapToFight ? 'tap' : 'untap', 0, null);
+}
+
+/**
+ * Attacker rolls 2d6 for the agent's strike (rule 3.iv.6.1).
+ * The total (2d6 + agent's modified prowess) is stored as `agentRollTotal`
+ * and becomes the effective prowess the defender must beat.
+ */
+function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'agent-strike-roll') return wrongActionType(state, action, 'agent-strike-roll');
+  if (combat.attackSource.type !== 'agent') return { state, error: 'agent-strike-roll only valid for agent attacks' };
+
+  const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const atkPlayer = state.players[atkPlayerIndex];
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const agentRollTotal = rollTotal + combat.strikeProwess;
+
+  // Resolve agent name for the log label
+  const agentDefId = resolveInstanceId(state, combat.attackSource.instanceId);
+  const agentDef = agentDefId ? state.cardPool[agentDefId as string] : undefined;
+  const agentName = agentDef && 'name' in agentDef ? (agentDef as { name: string }).name : 'Agent';
+
+  logDetail(`Agent strike roll: ${agentName} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${combat.strikeProwess} = ${agentRollTotal}`);
+
+  const effect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: atkPlayer.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Agent Strike: ${agentName}`,
+  };
+
+  return {
+    state: { ...state, rng, cheatRollTotal, combat: { ...combat, agentRollTotal } },
+    effects: [effect],
+  };
 }
 
 /** Tap a supporting character for +1 prowess on the current strike. */

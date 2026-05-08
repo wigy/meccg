@@ -19,7 +19,7 @@ import { playPermanentEventActions, playShortEventActions } from './organization
 import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
-import { currentHazardLimit } from '../reducer-movement-hazard.js';
+import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -514,8 +514,10 @@ function agentTurnActions(
     const agentName = agentDef?.name ?? String(agent.character.definitionId);
     const status = agent.character.status;
 
+    const extraAgentActions = countExtraAgentActions(state);
+    const isExtraAction = agent.remainingActions <= extraAgentActions;
     function push(action: AgentMoveAction | AgentMoveBackAction | AgentReturnHomeAction | AgentHealAction | AgentUntapAction | AgentTurnFaceDownAction | AgentKeyCreaturesAction) {
-      if (limitReached) {
+      if (limitReached && !isExtraAction) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
       } else {
         actions.push({ action, viable: true });
@@ -1287,13 +1289,14 @@ function playHazardsActions(
             foundAgent = true;
 
             if (!agent.revealed) {
-              // Face-down: offer one action per available home site in deck.
+              // Face-down: offer one action per available home site card matching the destination.
+              // Only the destination site is valid — other home sites of the agent are irrelevant here.
               const seenHome = new Set<string>();
               let offeredAny = false;
               for (const siteInst of player.siteDeck) {
                 const siteDef = state.cardPool[siteInst.definitionId as string];
                 if (!siteDef || !isSiteCard(siteDef)) continue;
-                if (!homesiteNames.includes(siteDef.name)) continue;
+                if (siteDef.name !== destSiteName) continue;
                 if (seenHome.has(siteDef.name)) continue;
                 seenHome.add(siteDef.name);
                 logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);

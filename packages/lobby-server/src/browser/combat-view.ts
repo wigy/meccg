@@ -172,6 +172,10 @@ function renderPhaseBanner(
       const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
       if (aa) attackerRace = aa.creatureType;
     }
+  } else if (combat.attackSource.type === 'agent') {
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def && 'name' in def) attackerRace = (def as { name: string }).name;
   } else if (combat.attackSource.type === 'card-triggered-attack' && combat.creatureRace) {
     attackerRace = combat.creatureRace;
   }
@@ -198,9 +202,14 @@ function renderPhaseBanner(
   } else if (combat.phase === 'choose-strike-order') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
     phaseText = `${racePrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;
+  } else if (combat.phase === 'resolve-strike' && combat.attackSource.type === 'agent' && combat.agentRollTotal === undefined) {
+    phaseText = `${racePrefix}Agent rolls for strike`;
   } else if (combat.phase === 'resolve-strike') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
-    phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}`;
+    const agentRollSuffix = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+      ? ` — agent rolled ${combat.agentRollTotal}`
+      : '';
+    phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}${agentRollSuffix}`;
   } else if (combat.phase === 'item-salvage') {
     const itemCount = combat.salvageItems?.length ?? 0;
     phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
@@ -272,6 +281,16 @@ function renderAttackerRow(
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.siteInstanceId as string);
+        container.appendChild(img);
+      }
+    }
+  } else if (combat.attackSource.type === 'agent') {
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
         container.appendChild(img);
       }
     }
@@ -769,7 +788,7 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 // ---- Combat action buttons (bottom-right, same area as pass button) ----
 
 /** Combat action types that get rendered as buttons (not handled by card clicks). */
-const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll']);
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll']);
 
 /**
  * Render combat action buttons stacked above the pass button in the
@@ -805,6 +824,7 @@ function combatButtonLabel(action: GameAction): string {
   if (action.type === 'resolve-strike') {
     return action.tapToFight ? 'Tapped' : 'Untapped';
   }
+  if (action.type === 'agent-strike-roll') return 'Roll for Agent';
   if (action.type === 'body-check-roll') return 'Body Check';
   if (action.type === 'pass') return 'Pass';
   return action.type;

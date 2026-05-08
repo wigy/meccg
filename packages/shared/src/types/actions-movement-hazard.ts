@@ -176,6 +176,20 @@ export interface ResolveStrikeAction {
 }
 
 /**
+ * The attacking player rolls 2d6 for the agent's strike in agent combat.
+ *
+ * Rule 3.iv.6.1: for agent hazard attacks, both players roll simultaneously.
+ * The attacker rolls first and adds the agent's modified prowess. The defender
+ * then rolls and adds character prowess. The character's total is compared
+ * against the agent's total to determine the outcome.
+ */
+export interface AgentStrikeRollAction {
+  readonly type: 'agent-strike-roll';
+  /** The attacking (hazard) player rolling for the agent. */
+  readonly player: PlayerId;
+}
+
+/**
  * Have an untapped character support another character's strike in combat.
  *
  * An untapped character in the same company can tap to give +1 prowess to
