@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, DodgeStrikeEffect, ModifyStrikeEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -725,10 +725,10 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
 }
 
 /**
- * Play a dodge-strike card from hand during resolve-strike. Discards the
- * card and delegates to `resolveStrikeCore` in dodge mode, which resolves
- * the strike at full prowess without tapping on success/tie and records
- * the dodge body penalty for a subsequent body check.
+ * Play a dodge-strike card from hand during resolve-strike. Moves the
+ * card from hand to discard and initiates a chain so the opponent gets
+ * priority to respond. On chain resolution, `resolveChainDodgeStrike`
+ * applies the actual dodge effect.
  */
 function handlePlayDodge(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'play-dodge') return wrongActionType(state, action, 'play-dodge');
@@ -737,28 +737,37 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
   const defPlayer = state.players[defPlayerIndex];
   const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = defPlayer.hand[handIndex];
-  const cardDef = state.cardPool[handCard.definitionId as string];
-  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
-  const dodgeEffect = effects.find((e): e is DodgeStrikeEffect => e.type === 'dodge-strike') as DodgeStrikeEffect;
-
   logDetail(`Playing dodge card ${handCard.definitionId as string}`);
 
-  // Pre-apply: remove dodge card from hand, add to discard pile.
-  // resolveStrikeCore re-reads the defender from this mutated snapshot.
-  const preAppliedDefender: PlayerState = {
-    ...defPlayer,
-    hand: [...defPlayer.hand.slice(0, handIndex), ...defPlayer.hand.slice(handIndex + 1)],
-    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
-  };
+  // Move card from hand to discard pile. The chain holds a reference to the
+  // card instance, so the identity becomes public via accrueRevealedInstances.
+  let resultState = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
+    discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  }));
 
-  return resolveStrikeCore(state, combat, 'dodge', dodgeEffect.bodyPenalty, preAppliedDefender);
+  // Initiate chain — opponent gets priority to respond. On resolution,
+  // the chain resolver applies the dodge effect via resolveChainDodgeStrike.
+  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+  if (resultState.chain === null) {
+    resultState = initiateChain(resultState, action.player, handCard, payload);
+  } else {
+    resultState = pushChainEntry(resultState, action.player, handCard, payload);
+  }
+
+  return { state: resultState };
 }
 
 /**
  * Play a `modify-strike` short event (e.g. Risky Blow) from hand during
- * resolve-strike. Discards the card and accumulates its prowess bonus
- * and body penalty onto the current strike for the subsequent
- * resolution / body check.
+ * resolve-strike. Moves the card from hand to discard and initiates a
+ * chain so the opponent gets priority to respond. On chain resolution,
+ * `resolveChainModifyStrike` applies the prowess/body modifiers.
+ *
+ * The `requiredSkillEventPlayed` flag is set at DECLARATION time so that
+ * CoE rule 3.iv.5 blocks a second skill-required event from being
+ * declared while the first is still on the chain.
  */
 function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'play-strike-event') return { state, error: 'Expected play-strike-event' };
@@ -778,42 +787,46 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
     return { state, error: 'Only one resource that requires a skill may be played per strike (CoE 3.iv.5)' };
   }
 
+  const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
   const prowessBonus = modifyEffect.prowessBonus ?? 0;
   const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
-  const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
   logDetail(`Playing strike event ${cardName}: prowess ${prowessBonus >= 0 ? '+' : ''}${prowessBonus}, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}`);
 
-  // Discard the card from hand.
-  const stateAfterDiscard = updatePlayer(state, defPlayerIndex, p => ({
+  // Move card from hand to discard pile. The chain holds a reference to the
+  // card instance, so the identity becomes public via accrueRevealedInstances.
+  let resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
     hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
     discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
   }));
 
-  // Accumulate the bonuses on the current strike assignment. If the
-  // played effect requires a skill, record it so that CoE rule 3.iv.5
-  // ("only one resource that requires a skill may be played during this
-  // step") blocks a second skill-required event on the same strike.
-  const newAssignments = combat.strikeAssignments.map((a, i) =>
-    i === combat.currentStrikeIndex
-      ? {
-          ...a,
-          strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus,
-          strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + bodyPenalty,
-          requiredSkillEventPlayed: a.requiredSkillEventPlayed || Boolean(modifyEffect.requiredSkill),
-        }
-      : a,
-  );
-  const newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
+  // Set requiredSkillEventPlayed at declaration time (CoE 3.iv.5): this
+  // blocks a second skill-required event from being declared while this
+  // card is still on the chain waiting to resolve.
+  if (modifyEffect.requiredSkill) {
+    const newAssignments = combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, requiredSkillEventPlayed: true } : a,
+    );
+    resultState = { ...resultState, combat: { ...combat, strikeAssignments: newAssignments } };
+  }
 
-  return { state: { ...stateAfterDiscard, combat: newCombat } };
+  // Initiate chain — opponent gets priority to respond. On resolution,
+  // the chain resolver applies the modify-strike effect via resolveChainModifyStrike.
+  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+  if (resultState.chain === null) {
+    resultState = initiateChain(resultState, action.player, handCard, payload);
+  } else {
+    resultState = pushChainEntry(resultState, action.player, handCard, payload);
+  }
+
+  return { state: resultState };
 }
 
 /**
  * Play a reroll-strike card from hand during resolve-strike (e.g. Lucky
- * Strike). Discards the card and delegates to `resolveStrikeCore` in
- * reroll mode, which rolls 2d6 twice and resolves the strike using the
- * better total. The character taps as in normal tap-to-fight.
+ * Strike). Moves the card from hand to discard and initiates a chain so
+ * the opponent gets priority to respond. On chain resolution,
+ * `resolveChainRerollStrike` applies the reroll effect.
  */
 function handlePlayRerollStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'play-reroll-strike') return { state, error: 'Expected play-reroll-strike' };
@@ -825,13 +838,24 @@ function handlePlayRerollStrike(state: GameState, action: GameAction, combat: Co
 
   logDetail(`Playing reroll-strike card ${handCard.definitionId as string}`);
 
-  const preAppliedDefender: PlayerState = {
-    ...defPlayer,
-    hand: [...defPlayer.hand.slice(0, handIndex), ...defPlayer.hand.slice(handIndex + 1)],
-    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
-  };
+  // Move card from hand to discard pile. The chain holds a reference to the
+  // card instance, so the identity becomes public via accrueRevealedInstances.
+  let resultState = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
+    discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  }));
 
-  return resolveStrikeCore(state, combat, 'reroll', 0, preAppliedDefender);
+  // Initiate chain — opponent gets priority to respond. On resolution,
+  // the chain resolver applies the reroll effect via resolveChainRerollStrike.
+  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+  if (resultState.chain === null) {
+    resultState = initiateChain(resultState, action.player, handCard, payload);
+  } else {
+    resultState = pushChainEntry(resultState, action.player, handCard, payload);
+  }
+
+  return { state: resultState };
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */
@@ -1307,6 +1331,72 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
   return stateWithCancelledPlayers;
+}
+
+/**
+ * Apply a dodge-strike card's effect when its chain entry resolves.
+ *
+ * Called from the chain resolver when a short-event entry carrying a
+ * `dodge-strike` effect resolves un-negated. Delegates to
+ * {@link resolveStrikeCore} in dodge mode. The card was already removed
+ * from hand when the chain was initiated, so `preAppliedDefender` is null.
+ *
+ * @param state - Current game state (must have active combat).
+ * @param bodyPenalty - The body modifier applied if the character is wounded.
+ */
+export function resolveChainDodgeStrike(state: GameState, bodyPenalty: number): ReducerResult {
+  const combat = state.combat;
+  if (!combat) return { state, error: 'No active combat' };
+  return resolveStrikeCore(state, combat, 'dodge', bodyPenalty, null);
+}
+
+/**
+ * Apply a reroll-strike card's effect when its chain entry resolves.
+ *
+ * Called from the chain resolver when a short-event entry carrying a
+ * `reroll-strike` effect resolves un-negated. Delegates to
+ * {@link resolveStrikeCore} in reroll mode. The card was already removed
+ * from hand when the chain was initiated, so `preAppliedDefender` is null.
+ *
+ * @param state - Current game state (must have active combat).
+ */
+export function resolveChainRerollStrike(state: GameState): ReducerResult {
+  const combat = state.combat;
+  if (!combat) return { state, error: 'No active combat' };
+  return resolveStrikeCore(state, combat, 'reroll', 0, null);
+}
+
+/**
+ * Apply a modify-strike card's accumulated bonuses when its chain entry resolves.
+ *
+ * Called from the chain resolver when a short-event entry carrying a
+ * `modify-strike` effect resolves un-negated. Accumulates prowess and body
+ * modifiers on the current strike assignment. (The `requiredSkillEventPlayed`
+ * flag was already set at declaration time in {@link handlePlayStrikeEvent}.)
+ *
+ * @param state - Current game state (must have active combat).
+ * @param prowessBonus - Bonus added to the character's prowess for the strike roll.
+ * @param bodyPenalty - Penalty applied to the character's body on the body check.
+ * @param requiredSkill - Whether the card required a skill (already recorded at declaration).
+ */
+export function resolveChainModifyStrike(
+  state: GameState,
+  prowessBonus: number,
+  bodyPenalty: number,
+  _requiredSkill: boolean,
+): GameState {
+  const combat = state.combat;
+  if (!combat) return state;
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? {
+          ...a,
+          strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus,
+          strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + bodyPenalty,
+        }
+      : a,
+  );
+  return { ...state, combat: { ...combat, strikeAssignments: newAssignments } };
 }
 
 /**
