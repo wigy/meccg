@@ -2415,6 +2415,22 @@ function snapshotHazardLimit(
       logDetail(`Hazard limit modified by ${constraint.kind.value} (${constraint.sourceDefinitionId as string}): ${prev} → ${limit}`);
     }
   }
+
+  // Apply site-rule hazard-limit-modifier from the destination site's effects.
+  // Only for moving companies ("moving to this site" — non-moving companies stay).
+  if (company.destinationSite) {
+    const destDef = state.cardPool[company.destinationSite.definitionId as string];
+    if (destDef && isSiteCard(destDef)) {
+      for (const eff of destDef.effects ?? []) {
+        if (eff.type === 'site-rule' && eff.rule === 'hazard-limit-modifier') {
+          const prev = limit;
+          limit += eff.value;
+          logDetail(`Hazard limit modified by ${eff.value} (site-rule on ${destDef.name}): ${prev} → ${limit}`);
+        }
+      }
+    }
+  }
+
   limit = Math.max(limit, 0);
 
   logDetail(`Hazard limit at reveal: ${limit}`);

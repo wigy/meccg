@@ -1161,6 +1161,18 @@ Rules:
     } }
   ```
 
+- `hazard-limit-modifier` — adjusts the hazard limit for any company
+  moving to this site. Applied during the `set-hazard-limit` step before
+  the snapshot is taken. `value` is the integer adjustment (positive to
+  increase, negative to decrease). The floor of zero still applies.
+  Consumed by `engine/reducer-movement-hazard.ts` `snapshotHazardLimit`.
+  Used by *Barad-dûr* (tw-374) — "Any company moving to this site has
+  its hazard limit increased by 2."
+
+  ```json
+  { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
