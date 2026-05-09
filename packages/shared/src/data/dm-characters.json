@@ -710,8 +710,28 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.homesite": { "$includes": "Edoras" }
+        }
+      }
+    ],
+    "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site.",
+    "certified": "2026-05-09"
   },
   {
     "cardType": "hero-character",
