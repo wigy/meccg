@@ -168,7 +168,7 @@
     "race": "elf",
     "playableAt": [
       {
-        "site": "Thranduil's Halls"
+        "site": "Thranduil’s Halls"
       }
     ],
     "effects": [
@@ -1153,9 +1153,31 @@
     "unique": true,
     "marshallingPoints": 4,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 8,
     "race": "dwarf",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Iron Hill Dwarf-hold"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",

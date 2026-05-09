@@ -13,6 +13,8 @@ Look for functions that are better implemented in DSL. Have a critical look into
 FIXES
 -----
 
+When run-ai job fails, quit.
+
 FEATS
 -----
 
