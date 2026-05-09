@@ -59,7 +59,9 @@ describe('An Unexpected Outpost (dm-45)', () => {
     expect(afterChain.pendingEffects[0].effect.type).toBe('fetch-to-deck');
     expect(afterChain.pendingEffects[0].actor).toBe(PLAYER_2);
 
-    expect(afterChain.players[1].cardsInPlay.map(c => c.instanceId)).toContain(cardId);
+    // Hazard short events stay in discard after chain resolution — never placed in cardsInPlay
+    expect(afterChain.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(cardId);
+    expect(afterChain.players[1].discardPile.map(c => c.instanceId)).toContain(cardId);
   });
 
   test('fetch sub-flow shows eligible hazard cards from sideboard', () => {
@@ -236,7 +238,9 @@ describe('An Unexpected Outpost (dm-45)', () => {
     });
 
     expect(afterFetch1.pendingEffects).toHaveLength(1);
-    expect(afterFetch1.players[1].cardsInPlay.map(c => c.instanceId)).toContain(cardId);
+    // Card stays in discard throughout; not placed in cardsInPlay between fetches
+    expect(afterFetch1.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(cardId);
+    expect(afterFetch1.players[1].discardPile.map(c => c.instanceId)).toContain(cardId);
 
     const afterFetch2 = dispatch(afterFetch1, {
       type: 'fetch-from-pile',
