@@ -1300,7 +1300,10 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1311,6 +1314,18 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-05-09",
     "unique": true
   },
   {
