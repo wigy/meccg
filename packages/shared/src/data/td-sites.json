@@ -248,8 +248,12 @@
         "prowess": 10
       }
     ],
+    "effects": [
+      { "type": "site-rule", "rule": "always-return-to-deck" }
+    ],
     "resourceDraws": 3,
     "hazardDraws": 3,
+    "certified": "2026-05-09",
     "unique": true
   },
   {

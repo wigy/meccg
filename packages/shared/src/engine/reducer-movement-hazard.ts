@@ -1613,17 +1613,23 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       } else {
         const originDef = state.cardPool[originSite.definitionId as string];
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
+        const alwaysReturnToDeck = originDef && isSiteCard(originDef)
+          && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck');
         const isTapped = originSite.status === CardStatus.Tapped;
         newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
         const entry = { instanceId: originSite.instanceId, definitionId: originSite.definitionId };
-        if (!isHaven && isTapped) {
+        if (!isHaven && isTapped && !alwaysReturnToDeck) {
           logDetail(`Step 8: site of origin is tapped non-haven — discarding to site discard pile`);
           newSiteDiscardPile.push(entry);
         } else if (isHaven) {
           logDetail(`Step 8: site of origin is a haven — returning to location deck`);
           newSiteDeck.push(entry);
         } else {
-          logDetail(`Step 8: site of origin is untapped non-haven — returning to location deck`);
+          if (alwaysReturnToDeck && isTapped) {
+            logDetail(`Step 8: site of origin carries always-return-to-deck — returning tapped site to location deck`);
+          } else {
+            logDetail(`Step 8: site of origin is untapped non-haven — returning to location deck`);
+          }
           newSiteDeck.push(entry);
         }
       }
