@@ -2282,3 +2282,41 @@ Used by *Great Need or Purpose* (dm-62).
 ```json
 { "type": "extra-agent-actions", "value": 1 }
 ```
+
+### 40. `agent-tap-attack`
+
+An agent character taps itself (not as an agent action, not against the hazard
+limit) during the opponent's M/H phase to attack the active company. Prowess
+is computed before reveal (rule 9.06), exactly like `tap-agent-at-site`.
+
+Fields:
+
+| Field             | Type    | Description                                              |
+|-------------------|---------|----------------------------------------------------------|
+| `prowessBonus`    | number  | Added to the agent's base + face-down/home prowess.      |
+| `attackerAssigns` | boolean | If true, attacker chooses defenders. Default: false.     |
+
+Conditions:
+
+- Agent must have been in play at turn start (`inPlayAtTurnStart`).
+- Agent must not be wounded (`CardStatus.Inverted`).
+- Agent must be at the active company's destination site (or current site if
+  stationary).
+
+Prowess modifiers applied before reveal:
+- Face-down, not at home: base + 2
+- Face-down, at home: base + 5
+- Face-up, at home: base + 2
+- Face-up, not at home: base + 0
+- Then `prowessBonus` is added.
+
+Implementation:
+
+- Legal actions: `agentTapAttackActions()` in `legal-actions/movement-hazard.ts`.
+- Reducer: `handleAgentTapAttack()` in `reducer-movement-hazard.ts`.
+
+Used by *The Grimburgoth* (dm-15).
+
+```json
+{ "type": "agent-tap-attack", "prowessBonus": 2 }
+```

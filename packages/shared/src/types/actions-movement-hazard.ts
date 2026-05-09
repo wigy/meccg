@@ -768,3 +768,26 @@ export interface AgentInfluenceAttemptAction {
   /** Human-readable breakdown for logging. */
   readonly explanation: string;
 }
+
+/**
+ * The hazard player taps an agent to attack a company during the opponent's
+ * M/H phase (agent-tap-attack effect, e.g. The Grimburgoth dm-15).
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set)
+ * and does NOT count against the hazard limit. The agent taps and is
+ * revealed. Combat resolves as a standard agent attack.
+ */
+export interface AgentTapAttackAction {
+  /** Action discriminant. */
+  readonly type: 'agent-tap-attack';
+  /** The hazard player initiating the attack. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent performing the attack. */
+  readonly agentId: CompanyId;
+  /**
+   * For face-down agents: a home site instance from the hazard player's
+   * location deck to place with the agent on reveal. If absent, the agent
+   * is revealed without a home site and discarded at end of turn (rule 9.04).
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
+}
