@@ -284,7 +284,27 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      }
+    ],
+    "certified": "2026-05-09",
     "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
   },
   {
