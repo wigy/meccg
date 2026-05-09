@@ -27,7 +27,7 @@ import {
   buildTestState, resetMint,
   setupCombatWithCaveDrake, assignBothStrikesTo,
   handCardId, dispatch, expectCharStatus, expectInDiscardPile,
-  actionAs, RESOURCE_PLAYER,
+  actionAs, RESOURCE_PLAYER, resolveChain,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 import type { PlayDodgeAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
@@ -57,7 +57,8 @@ describe('Dodge (tw-209)', () => {
       .find(a => a.viable && a.action.type === 'play-dodge')!;
 
     // Cheat roll high: Aragorn prowess 6 + 12 = 18 > 10 → success
-    const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
+    const s2raw = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
+    const s2 = resolveChain(s2raw);
 
     // Aragorn should still be untapped (dodged, not wounded)
     expectCharStatus(s2, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
@@ -75,7 +76,7 @@ describe('Dodge (tw-209)', () => {
       .find(a => a.viable && a.action.type === 'play-dodge')!;
 
     // Cheat roll low: Aragorn prowess 6 + 2 = 8 < 10 → wounded
-    const s2 = dispatch({ ...s1, cheatRollTotal: 2 }, dodgeAction.action);
+    const s2 = resolveChain(dispatch({ ...s1, cheatRollTotal: 2 }, dodgeAction.action));
 
     // Should be in body-check phase
     expect(s2.combat!.phase).toBe('body-check');
@@ -152,6 +153,20 @@ describe('Dodge (tw-209)', () => {
         actionAs<NotPlayableAction>(a.action).cardInstanceId === state.players[0].hand[0].instanceId,
     );
     expect(notPlayable).toBeDefined();
+  });
+
+  test('Dodge card identity is revealed to opponent after play-dodge', () => {
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
+
+    const dodgeAction = computeLegalActions(s1, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'play-dodge')!;
+    const dodgeInstanceId = (dodgeAction.action as PlayDodgeAction).cardInstanceId;
+
+    const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
+
+    // Opponent must be able to see which card was played (card plays are always public).
+    expect(s2.revealedInstances[dodgeInstanceId as string]).toBeDefined();
   });
 
   test('normal tap-to-fight still taps the character (control case)', () => {

@@ -815,9 +815,10 @@ function buildConstraintKind(
  *
  * The card was discarded at play time (hazard short events go to discard
  * immediately). If the card carries `fetch-to-deck` effects whose `when`
- * conditions are satisfied, move it from the discard pile to cardsInPlay
- * and enqueue the effects as {@link PendingEffect}s so the hazard player
- * can interactively choose which cards to fetch.
+ * conditions are satisfied, enqueue the effects as {@link PendingEffect}s
+ * so the hazard player can interactively choose which cards to fetch.
+ * The card remains in the discard pile throughout — hazard short events
+ * are never placed in cardsInPlay.
  */
 function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
@@ -849,21 +850,8 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 
   logDetail(`${def.name}: queuing ${fetchEffects.length} fetch-to-deck effect(s)`);
 
-  const playerIndex = getPlayerIndex(state, entry.declaredBy);
-  const player = state.players[playerIndex];
-
-  const discardIdx = player.discardPile.findIndex(c => c.instanceId === card.instanceId);
-  if (discardIdx === -1) return state;
-
-  const newDiscard = [...player.discardPile];
-  newDiscard.splice(discardIdx, 1);
-
   return {
-    ...updatePlayer(state, playerIndex, p => ({
-      ...p,
-      discardPile: newDiscard,
-      cardsInPlay: [...p.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
-    })),
+    ...state,
     pendingEffects: [...state.pendingEffects, ...fetchEffects],
   };
 }
@@ -1601,24 +1589,31 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   }
 
   // Short events that cancel the current attack (e.g. Concealment, Dark
-  // Quarrels, Many Turns and Doublings, Vanishment): when the chain entry
-  // resolves un-negated, fire each cancel-attack effect through the
-  // shared apply dispatcher. The opponent had a chance to negate this
-  // entry during chain declaration (e.g. via a hazard that cancels
-  // attack cancels).
+  // Quarrels, Many Turns and Doublings, Vanishment) or resolve a strike
+  // effect (e.g. Dodge, Lucky Strike, Risky Blow): when the chain entry
+  // resolves un-negated, fire each matching effect through the shared apply
+  // dispatcher. The opponent had a chance to negate this entry during chain
+  // declaration.
+  const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = current.cardPool[entry.card.definitionId as string];
     if (def && 'effects' in def && def.effects) {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of def.effects) {
-        if (effect.type !== 'cancel-attack') continue;
-        logDetail(`Chain resolves cancel-attack from "${def.name}"`);
+        if (
+          effect.type !== 'cancel-attack' &&
+          effect.type !== 'dodge-strike' &&
+          effect.type !== 'reroll-strike' &&
+          effect.type !== 'modify-strike'
+        ) continue;
+        logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);
         if ('error' in r) {
-          logDetail(`applyEffect cancel-attack failed: ${r.error}`);
+          logDetail(`applyEffect ${effect.type} failed: ${r.error}`);
           continue;
         }
         current = r.state;
+        if (r.effects) resolveEffects.push(...r.effects);
       }
     }
   }
@@ -1889,6 +1884,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   return {
     state: { ...current, chain: newChain },
     needsInput: false,
+    ...(resolveEffects.length > 0 ? { effects: resolveEffects } : {}),
   };
 }
 
