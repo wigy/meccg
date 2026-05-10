@@ -1787,7 +1787,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Andrast",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -1798,7 +1802,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
