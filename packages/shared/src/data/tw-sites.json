@@ -1512,7 +1512,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
