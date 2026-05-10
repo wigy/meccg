@@ -272,7 +272,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
