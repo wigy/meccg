@@ -1186,6 +1186,18 @@ Rules:
   { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
   ```
 
+- `allow-creature-by-race` — bypasses the normal keying check for hazard
+  creatures whose race matches `race`. Any creature of that race may be
+  played against a company whose effective site (destination if moving,
+  else current) carries this rule, regardless of the creature's `keyedTo`
+  entries. Consumed by `engine/legal-actions/movement-hazard.ts`
+  `siteAllowsCreatureByRace`. Used by *Geann a-Lisch* (as-138) — "Any
+  Man hazard creature can be played at this site."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

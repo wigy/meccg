@@ -1012,7 +1012,8 @@ function playHazardsActions(
           continue;
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
-        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race);
+        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
+          || siteAllowsCreatureByRace(state, targetCompany, def.race);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -1020,7 +1021,7 @@ function playHazardsActions(
           continue;
         }
         if (matches.length === 0 && keyingBypassed) {
-          logDetail(`Creature "${def.name}" keyable via keying-bypass constraint (race "${def.race}")`);
+          logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
           actions.push({
             action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race } },
             viable: true,
@@ -1964,6 +1965,35 @@ function cancelAttacksSiteName(
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
   const cancels = siteDef.effects.some(e => e.type === 'site-rule' && e.rule === 'cancel-attacks');
   return cancels ? siteDef.name : null;
+}
+
+/**
+ * Check whether the target company's effective site (destination if moving,
+ * else current) carries an `allow-creature-by-race` site-rule that matches
+ * the given creature race. When it does, the creature's normal keying check
+ * is bypassed (e.g. Geann a-Lisch: "Any Man hazard creature can be played
+ * at this site.").
+ */
+function siteAllowsCreatureByRace(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  race: string,
+): boolean {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return false;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return false;
+  const siteDef = state.cardPool[siteDefId as unknown as string];
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
+  return siteDef.effects.some(
+    e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
+      && 'race' in e && e.race === race,
+  );
 }
 
 /** Build a human-readable keying requirement string for error messages. */

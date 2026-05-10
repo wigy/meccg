@@ -348,7 +348,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Old Pûkel-land",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -358,7 +362,15 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "men"
+      }
+    ],
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 8 prowessSpecial: Any Man hazard creature can be played at this site.",
+    "certified": "2026-05-10",
     "unique": true
   },
   {

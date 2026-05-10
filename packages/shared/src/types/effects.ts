@@ -1035,7 +1035,8 @@ export type SiteRuleEffect =
   | HealDuringUntapSiteRule
   | DynamicAutoAttackSiteRule
   | AlwaysReturnToDeckSiteRule
-  | HazardLimitSiteRule;
+  | HazardLimitSiteRule
+  | AllowCreatureByRaceSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1245,6 +1246,25 @@ export interface HazardLimitSiteRule extends EffectBase {
   readonly rule: 'hazard-limit-modifier';
   /** The adjustment to apply (positive increases, negative decreases). */
   readonly value: number;
+}
+
+/**
+ * Declares that hazard creatures of the given race may be played at this site
+ * regardless of normal keying requirements. The keying check is bypassed when
+ * the attacking creature's race matches this rule's `race` field.
+ *
+ * Example — Geann a-Lisch (as-138): "Any Man hazard creature can be played
+ * at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+ * ```
+ */
+export interface AllowCreatureByRaceSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-creature-by-race';
+  /** The creature race that bypasses keying at this site (e.g. "men"). */
+  readonly race: string;
 }
 
 /**
