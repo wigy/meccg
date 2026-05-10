@@ -437,6 +437,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to key creatures`;
     case 'agent-influence-attempt':
       return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
+    case 'agent-tap-attack':
+      return `Agent ${action.agentId as string} taps to attack`;
     case 'agent-strike-roll':
       return `Agent rolls for strike`;
     default: {

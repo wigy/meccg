@@ -858,6 +858,23 @@ export interface AgentTapInfluenceEffect extends EffectBase {
 }
 
 /**
+ * An agent may tap (not as an agent action) at a company's new site during
+ * the M/H phase to attack that company.
+ *
+ * Rule 10.14 analog for attacks: "Agent only: may tap at a company's new
+ * site to attack that company during its movement/hazard phase with +N prowess."
+ *
+ * Used by The Grimburgoth (dm-15).
+ */
+export interface AgentTapAttackEffect extends EffectBase {
+  readonly type: 'agent-tap-attack';
+  /** Prowess bonus added to the agent's base prowess (plus any face-down bonuses). */
+  readonly prowessBonus: number;
+  /** Whether the attacker assigns strikes (true → attacker chooses defenders). Defaults to defender assigns. */
+  readonly attackerAssigns?: boolean;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1830,6 +1847,7 @@ export type CardEffect =
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
   | AgentTapInfluenceEffect
+  | AgentTapAttackEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | CallCouncilEffect
