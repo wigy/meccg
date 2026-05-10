@@ -1065,7 +1065,8 @@ export type SiteRuleEffect =
   | DynamicAutoAttackSiteRule
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
-  | AllowCreatureByRaceSiteRule;
+  | AllowCreatureByRaceSiteRule
+  | StolenKnowledgeSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1294,6 +1295,27 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
   readonly rule: 'allow-creature-by-race';
   /** The creature race that bypasses keying at this site (e.g. "men"). */
   readonly race: string;
+}
+
+/**
+ * When this site card would be placed in the owning player's discard pile,
+ * route it to the out-of-play pile instead and award the specified marshalling
+ * points. The card is "considered stored."
+ *
+ * Example — The Under-galleries (dm-37): "Stolen Knowledge. When
+ * Under-galleries would be placed in your discard pile, place it in your
+ * marshalling points pile instead for 3 marshalling points—this card is
+ * considered stored."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "stolen-knowledge", "marshallingPoints": 3 }
+ * ```
+ */
+export interface StolenKnowledgeSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'stolen-knowledge';
+  /** Marshalling points awarded when the site is routed to the out-of-play pile. */
+  readonly marshallingPoints: number;
 }
 
 /**

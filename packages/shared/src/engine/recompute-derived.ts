@@ -292,8 +292,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     mp = { ...mp, kill: mp.kill + killMP };
   }
 
-  // Out-of-play pile: holds eliminated characters AND items stored at sites.
+  // Out-of-play pile: holds eliminated characters, items stored at sites, and
+  // sites with the `stolen-knowledge` rule (routed here instead of discard).
   // - Items with a `storable-at` effect earn their override MP (or base MP).
+  // - Sites with a `stolen-knowledge` effect earn their declared fixed MP (misc category).
   // - Eliminated cards may carry `mp-modifier` effects with reason "elimination".
   for (const card of player.outOfPlayPile) {
     const def = resolveDef(state, card.instanceId);
@@ -313,6 +315,15 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       } else {
         mp = addMP(mp, def);
       }
+      continue;
+    }
+
+    // Stolen-knowledge sites: earn the fixed MP declared on the rule (misc category).
+    const stolenKnowledgeEffect = effects?.find(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge') as
+      | { type: 'site-rule'; rule: 'stolen-knowledge'; marshallingPoints: number }
+      | undefined;
+    if (stolenKnowledgeEffect) {
+      mp = { ...mp, misc: mp.misc + stolenKnowledgeEffect.marshallingPoints };
       continue;
     }
 

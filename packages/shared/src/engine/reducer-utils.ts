@@ -503,9 +503,11 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     );
 
     // Return sites from empty companies: tapped sites go to discard, untapped to site deck.
+    // Exception: sites with stolen-knowledge go to out-of-play pile instead of discard.
     // Skip if another company from the same player is still at that site.
     const untappedSites: CardInstance[] = [];
     const tappedSites: CardInstance[] = [];
+    const stolenKnowledgeSites: CardInstance[] = [];
     for (const c of emptyCompanies) {
       if (c.currentSite) {
         if (occupiedSiteIds.has(c.currentSite.instanceId as string)) {
@@ -514,7 +516,15 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
         }
         const siteCardInst = toCardInstance(c.currentSite);
         if (c.currentSite.status === CardStatus.Tapped) {
-          tappedSites.push(siteCardInst);
+          const siteDef = state.cardPool[c.currentSite.definitionId as string];
+          const hasStolenKnowledge = siteDef && isSiteCard(siteDef)
+            && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge');
+          if (hasStolenKnowledge) {
+            logDetail(`cleanupEmptyCompanies: tapped site ${c.currentSite.instanceId as string} carries stolen-knowledge — routing to out-of-play pile`);
+            stolenKnowledgeSites.push(siteCardInst);
+          } else {
+            tappedSites.push(siteCardInst);
+          }
         } else {
           untappedSites.push(siteCardInst);
         }
@@ -522,8 +532,9 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     }
     const newSiteDeck = [...player.siteDeck, ...untappedSites];
     const newDiscardPile = [...player.discardPile, ...tappedSites];
+    const newOutOfPlayPile = [...player.outOfPlayPile, ...stolenKnowledgeSites];
 
-    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile };
+    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile, outOfPlayPile: newOutOfPlayPile };
   });
 
   return { ...state, players: [newPlayers[0], newPlayers[1]] };

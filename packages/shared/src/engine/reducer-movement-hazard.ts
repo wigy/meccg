@@ -1742,6 +1742,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     // to the location deck (untapped or haven).
     let newSiteDeck = [...resourcePlayer.siteDeck];
     const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
+    const newOutOfPlayPile = [...resourcePlayer.outOfPlayPile];
     if (originSite) {
       const siblingStillAtOrigin = resourcePlayer.companies.some(
         (c, idx) => idx !== mhState.activeCompanyIndex
@@ -1754,12 +1755,19 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
         const alwaysReturnToDeck = originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck');
+        const stolenKnowledge = originDef && isSiteCard(originDef)
+          && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge');
         const isTapped = originSite.status === CardStatus.Tapped;
         newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
         const entry = { instanceId: originSite.instanceId, definitionId: originSite.definitionId };
         if (!isHaven && isTapped && !alwaysReturnToDeck) {
-          logDetail(`Step 8: site of origin is tapped non-haven — discarding to site discard pile`);
-          newSiteDiscardPile.push(entry);
+          if (stolenKnowledge) {
+            logDetail(`Step 8: site of origin carries stolen-knowledge — routing tapped site to out-of-play pile instead of discard`);
+            newOutOfPlayPile.push(entry);
+          } else {
+            logDetail(`Step 8: site of origin is tapped non-haven — discarding to site discard pile`);
+            newSiteDiscardPile.push(entry);
+          }
         } else if (isHaven) {
           logDetail(`Step 8: site of origin is a haven — returning to location deck`);
           newSiteDeck.push(entry);
@@ -1780,6 +1788,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       companies: updatedCompanies,
       siteDeck: newSiteDeck,
       siteDiscardPile: newSiteDiscardPile,
+      outOfPlayPile: newOutOfPlayPile,
     };
 
     // Defer firing the company-arrives-at-site event until we've

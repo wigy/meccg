@@ -241,7 +241,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Ûdun",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -259,8 +259,13 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 4,
+    "effects": [
+      { "type": "site-rule", "rule": "dynamic-auto-attack", "keying": { "siteTypes": ["shadow-hold"] } },
+      { "type": "site-rule", "rule": "stolen-knowledge", "marshallingPoints": 3 }
+    ],
     "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (4), The Sulfur-deeps (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: Stolen Knowledge. When Under-galleries would be placed in your discard pile, place it in your marshalling points pile instead for 3 marshalling points—this card is considered stored.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
