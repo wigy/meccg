@@ -875,6 +875,35 @@ export interface AgentTapAttackEffect extends EffectBase {
 }
 
 /**
+ * Played from hand as a short event during combat (pre-assignment window).
+ * Applies a stat modifier to every character in the defending company
+ * whose card definition satisfies the optional `filter` condition.
+ * The modifier is scoped to the current attack only (cleared when the
+ * attack finalizes via the `attack` {@link ConstraintScope}).
+ *
+ * Implemented via individual `character-stat-modifier` active constraints
+ * — one per matching character — so caps and overrides work identically
+ * to JSON-declared stat-modifiers.
+ *
+ * Example: The Dwarves Are upon You! (+2 prowess / −1 body to all Dwarves
+ * in the company against the current attack).
+ */
+export interface CompanyCombatBoostEffect extends EffectBase {
+  readonly type: 'company-combat-boost';
+  /** The stat to modify (`"prowess"` or `"body"`). */
+  readonly stat: 'prowess' | 'body';
+  /** The modifier value (positive to boost, negative to penalise). */
+  readonly value: number;
+  /**
+   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
+   * for each character in the defending company. Only characters that satisfy
+   * the condition receive the modifier. When absent, every character in the
+   * company receives it.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1900,4 +1929,5 @@ export type CardEffect =
   | CancelChainReturnToOriginEffect
   | ReduceAttacksToOneEffect
   | FetchWizardOnStoreEffect
-  | ExtraAgentActionsEffect;
+  | ExtraAgentActionsEffect
+  | CompanyCombatBoostEffect;

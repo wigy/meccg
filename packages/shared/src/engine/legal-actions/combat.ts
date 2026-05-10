@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard } from '../../index.js';
@@ -81,6 +81,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const halveActions = halveStrikesActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const modifyFromHandActions = modifyAttackFromHandActions(state, playerId, combat);
+  const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -98,11 +99,12 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...halveActions,
           ...modifyActions,
           ...modifyFromHandActions,
+          ...companyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...companyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
@@ -1428,6 +1430,95 @@ function modifyAttackFromHandActions(
     actions.push({
       action: {
         type: 'modify-attack-from-hand',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Returns `play-short-event` actions for resource short-events in the
+ * defending player's hand that carry `company-combat-boost` effects.
+ *
+ * These events boost all characters in the defending company that match
+ * the effect's optional `filter` (e.g. all Dwarves). The event must be
+ * offered in the pre-assignment window of the `assign-strikes` phase,
+ * before any strike has been assigned.
+ *
+ * Duplication check: the effect may carry a `duplication-limit` with
+ * `scope: "attack"`. If so, attack-scoped constraints from this definition
+ * are counted in `activeConstraints` — if the count equals `max`, the card
+ * was already played this attack and is suppressed.
+ */
+function companyCombatBoostActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex < 0) return [];
+  const player = state.players[playerIndex];
+
+  // Find the defending company's characters.
+  const company = player.companies.find(c => c.id === combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
+
+    const boostEffects = (cardDef.effects).filter(
+      (e): e is CompanyCombatBoostEffect => e.type === 'company-combat-boost',
+    );
+    if (boostEffects.length === 0) continue;
+
+    // Attack-scoped duplication check.
+    const attackDupLimit = (cardDef.effects).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (attackDupLimit) {
+      const prior = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === cardDef.id && c.scope.kind === 'attack',
+      ).length;
+      if (prior >= attackDupLimit.max) {
+        logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        continue;
+      }
+    }
+
+    // At least one boost effect must match a character in the defending company.
+    let hasMatch = false;
+    for (const effect of boostEffects) {
+      if (!effect.filter) { hasMatch = true; break; }
+      for (const charId of company.characters) {
+        const char = player.characters[charId as string];
+        if (!char) continue;
+        const charCardDef = state.cardPool[char.definitionId as string];
+        if (!charCardDef || !('race' in charCardDef)) continue;
+        const ctx = { target: { race: (charCardDef as { race?: string }).race ?? '', name: (charCardDef as { name?: string }).name ?? '', skills: (charCardDef as { skills?: readonly string[] }).skills ?? [] } };
+        if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
+      }
+      if (hasMatch) break;
+    }
+    if (!hasMatch) {
+      logDetail(`${cardDef.name}: no matching characters in company — company-combat-boost not offered`);
+      continue;
+    }
+
+    logDetail(`Company-combat-boost available: ${cardDef.name}`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
         player: playerId,
         cardInstanceId: handCard.instanceId,
       },

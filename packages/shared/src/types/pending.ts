@@ -334,6 +334,8 @@ export interface PendingResolution {
  */
 export type ConstraintScope =
   | { readonly kind: 'turn' }
+  /** Cleared when the current attack finalizes (combat ends). */
+  | { readonly kind: 'attack' }
   | { readonly kind: 'phase'; readonly phase: Phase }
   | { readonly kind: 'company-site-phase'; readonly companyId: CompanyId }
   | { readonly kind: 'company-mh-phase'; readonly companyId: CompanyId }
@@ -669,4 +671,6 @@ export type ScopeBoundary =
   | { readonly kind: 'phase-step-end'; readonly phase: Phase; readonly step: string }
   | { readonly kind: 'company-mh-end'; readonly companyId: CompanyId }
   | { readonly kind: 'company-site-end'; readonly companyId: CompanyId }
+  /** Clears `attack`-scoped constraints when an attack finalizes. */
+  | { readonly kind: 'attack-end' }
   | { readonly kind: 'turn-end' };
