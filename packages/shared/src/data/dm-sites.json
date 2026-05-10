@@ -28,7 +28,19 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ]
   },
   {
     "cardType": "hero-site",
