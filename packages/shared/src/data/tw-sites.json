@@ -261,7 +261,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
