@@ -1917,7 +1917,10 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Hollin",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Wolves",
@@ -1928,6 +1931,7 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess",
+    "certified": "2026-05-10",
     "unique": true
   },
   {
