@@ -403,7 +403,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Nurn",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -414,6 +418,7 @@
     "resourceDraws": 3,
     "hazardDraws": 5,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess",
+    "certified": "2026-05-10",
     "unique": true
   }
 ]
