@@ -858,6 +858,23 @@ export interface AgentTapInfluenceEffect extends EffectBase {
 }
 
 /**
+ * An agent may tap (not as an agent action) at a company's new site during
+ * the M/H phase to attack that company.
+ *
+ * Rule 10.14 analog for attacks: "Agent only: may tap at a company's new
+ * site to attack that company during its movement/hazard phase with +N prowess."
+ *
+ * Used by The Grimburgoth (dm-15).
+ */
+export interface AgentTapAttackEffect extends EffectBase {
+  readonly type: 'agent-tap-attack';
+  /** Prowess bonus added to the agent's base prowess (plus any face-down bonuses). */
+  readonly prowessBonus: number;
+  /** Whether the attacker assigns strikes (true → attacker chooses defenders). Defaults to defender assigns. */
+  readonly attackerAssigns?: boolean;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -1016,7 +1033,8 @@ export type SiteRuleEffect =
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
-  | DynamicAutoAttackSiteRule;
+  | DynamicAutoAttackSiteRule
+  | HazardLimitSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1189,6 +1207,24 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
+}
+
+/**
+ * Adjusts the hazard limit for any company moving to this site.
+ * Applied during the `set-hazard-limit` step before the snapshot is taken.
+ *
+ * Example — Barad-dûr (tw-374): "Any company moving to this site has its
+ * hazard limit increased by 2."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+ * ```
+ */
+export interface HazardLimitSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'hazard-limit-modifier';
+  /** The adjustment to apply (positive increases, negative decreases). */
+  readonly value: number;
 }
 
 /**
@@ -1830,6 +1866,7 @@ export type CardEffect =
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
   | AgentTapInfluenceEffect
+  | AgentTapAttackEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | CallCouncilEffect

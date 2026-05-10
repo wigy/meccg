@@ -7,7 +7,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
-import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
@@ -164,6 +164,7 @@ function handlePlayHazards(
   if (action.type === 'agent-turn-face-down') return handleAgentTurnFaceDown(state, action, mhState);
   if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
   if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
+  if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
 
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
@@ -983,6 +984,144 @@ function handleAgentInfluenceAttempt(
   return { state: stateAfterAttempt, effects: [rollEffect] };
 
   void tapInfluenceEff;
+}
+
+/**
+ * Handle `agent-tap-attack` — an agent taps itself during the M/H phase to
+ * attack the active company (e.g. The Grimburgoth dm-15, rule 10.14 analog).
+ *
+ * - Does NOT count as an agent action (remainingActions unchanged).
+ * - Does NOT count against the hazard limit.
+ * - Prowess computed before reveal (rule 9.06).
+ * - Agent is revealed if face-down, then tapped.
+ */
+function handleAgentTapAttack(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'agent-tap-attack') return wrongActionType(state, action, 'agent-tap-attack');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  const agentDef = state.cardPool[agent.character.definitionId as string];
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  const tapAttackEff = (agentDef.effects ?? []).find(
+    (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
+  );
+  if (!tapAttackEff) return { state, error: 'Agent does not have agent-tap-attack effect' };
+
+  // Get destination site name for prowess/home-site checks
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+  let destSiteName: string | undefined;
+  if (destSiteInst) {
+    const destSiteDef = state.cardPool[destSiteInst.definitionId as string];
+    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
+  }
+
+  // Compute prowess BEFORE reveal (rule 9.06)
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+  const homesiteNames = agentDef.homesite
+    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
+
+  let prowess = agentDef.prowess;
+  const body = agentDef.body;
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) prowess += 5;
+  if (!isFaceDown && isAtHome) prowess += 2;
+  prowess += tapAttackEff.prowessBonus;
+
+  logDetail(`Agent tap-attack "${agentDef.name}": prowess ${prowess} (faceDown: ${isFaceDown}, atHome: ${isAtHome}, bonus: +${tapAttackEff.prowessBonus})`);
+
+  // Reveal agent if face-down (same logic as handleTapAgentAtSite)
+  let newState: GameState;
+  if (isFaceDown) {
+    const currentSiteEntry = agent.siteStack.length > 0
+      ? agent.siteStack[agent.siteStack.length - 1]
+      : destSiteInst;
+    const emptyStack = agent.siteStack.length === 0;
+
+    if (action.homeSiteInstanceId) {
+      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      if (!homeSiteCard) {
+        return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
+      }
+      const priorStackSites = agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      const returnedSites = emptyStack ? [] : priorStackSites;
+      newState = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
+          ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack }
+          : a,
+        ),
+        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+      }));
+    } else {
+      // No home site — reveal without site, discard at EOT (rule 9.04)
+      const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
+      const newSiteStack = emptyStack
+        ? []
+        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+      newState = updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
+          ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, discardAtEndOfTurn: true }
+          : a,
+        ),
+        siteDeck: [...p.siteDeck, ...priorStackSites],
+      }));
+    }
+  } else {
+    // Already face-up: just tap (do NOT set remainingActions — not an agent action)
+    newState = updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
+        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const } }
+        : a,
+      ),
+    }));
+  }
+
+  // Build CombatState
+  const combat: CombatState = {
+    attackSource: { type: 'agent', instanceId: agent.character.instanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer.id,
+    strikesTotal: 1,
+    strikeProwess: prowess,
+    creatureBody: body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: tapAttackEff.attackerAssigns ? 'attacker' : 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+    ...(tapAttackEff.attackerAssigns ? { forceSingleTarget: true } : {}),
+  };
+
+  return {
+    state: {
+      ...newState,
+      combat,
+      phaseState: { ...mhState, hazardPlayerPassed: false, resourcePlayerPassed: false },
+    },
+  };
 }
 
 /**
@@ -2415,6 +2554,22 @@ function snapshotHazardLimit(
       logDetail(`Hazard limit modified by ${constraint.kind.value} (${constraint.sourceDefinitionId as string}): ${prev} → ${limit}`);
     }
   }
+
+  // Apply site-rule hazard-limit-modifier from the destination site's effects.
+  // Only for moving companies ("moving to this site" — non-moving companies stay).
+  if (company.destinationSite) {
+    const destDef = state.cardPool[company.destinationSite.definitionId as string];
+    if (destDef && isSiteCard(destDef)) {
+      for (const eff of destDef.effects ?? []) {
+        if (eff.type === 'site-rule' && eff.rule === 'hazard-limit-modifier') {
+          const prev = limit;
+          limit += eff.value;
+          logDetail(`Hazard limit modified by ${eff.value} (site-rule on ${destDef.name}): ${prev} → ${limit}`);
+        }
+      }
+    }
+  }
+
   limit = Math.max(limit, 0);
 
   logDetail(`Hazard limit at reveal: ${limit}`);
