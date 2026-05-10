@@ -1198,6 +1198,18 @@ Rules:
   { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
   ```
 
+- `creatures-always-keyed-to-site` — any hazard creature that is keyable
+  to the destination site's original type or name (via `siteTypes` or
+  `siteNames` in any `keyedTo` entry) may be played even when a
+  `no-creature-hazards-on-company` constraint (e.g. from *Stealth*) is
+  active. The creature must still satisfy normal keying; only the external
+  restriction is bypassed. Consumed by `engine/legal-actions/pending.ts`
+  `applyNoCreatureHazardsOnCompany`. Used by *Mount Doom* (tw-414).
+
+  ```json
+  { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

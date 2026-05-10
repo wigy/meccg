@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -1204,6 +1204,11 @@ function applySitePhaseDoNothing(
  * whose target company matches the constraint's target *and* whose card
  * is a hazard creature. Other hazard categories and creature plays
  * against other companies are unaffected.
+ *
+ * Exception: if the target company's destination site carries the
+ * `creatures-always-keyed-to-site` rule (e.g. Mount Doom), creatures
+ * that are keyable to the site by site-type or site-name bypass this
+ * constraint.
  */
 function applyNoCreatureHazardsOnCompany(
   state: GameState,
@@ -1224,9 +1229,44 @@ function applyNoCreatureHazardsOnCompany(
     const defId = resolveInstanceId(state, cardInstId);
     const def = defId ? state.cardPool[defId as string] : undefined;
     if (!def || def.cardType !== 'hazard-creature') return true;
+    // creatures-always-keyed-to-site bypass: if the destination site carries
+    // this rule and the creature is keyed to the site by type or name, allow it.
+    if (isCreatureSiteKeyedBypassed(state, protectedCompany, def)) {
+      logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): "${def.name}" bypassed by creatures-always-keyed-to-site rule`);
+      return true;
+    }
     logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
     return false;
   });
+}
+
+/**
+ * Check whether the target company's destination site carries the
+ * `creatures-always-keyed-to-site` rule and the given creature is
+ * keyed to the site's original type or name. Used to bypass the
+ * `no-creature-hazards-on-company` constraint at Mount Doom.
+ */
+function isCreatureSiteKeyedBypassed(
+  state: GameState,
+  companyId: CompanyId,
+  def: import('../../types/cards-hazards.js').CreatureCard,
+): boolean {
+  for (const player of state.players) {
+    const company = player.companies.find(c => c.id === companyId);
+    if (!company) continue;
+    const destSite = company.destinationSite;
+    if (!destSite) return false;
+    const siteDef = state.cardPool[destSite.definitionId as string];
+    if (!isSiteCard(siteDef)) return false;
+    if (!(siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'creatures-always-keyed-to-site')) return false;
+    const siteType = siteDef.siteType;
+    const siteName = siteDef.name;
+    return def.keyedTo.some(k =>
+      (k.siteTypes && k.siteTypes.includes(siteType))
+      || (k.siteNames && k.siteNames.includes(siteName)),
+    );
+  }
+  return false;
 }
 
 /**
