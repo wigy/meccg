@@ -1409,7 +1409,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Rivendell",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-09"
   },
   {
     "cardType": "hero-site",
