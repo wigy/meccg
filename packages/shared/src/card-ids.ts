@@ -294,7 +294,7 @@ export const THRANDUILS_HALLS = did('tw-432');
 export const ISENGARD = did('tw-404');
 /** Blue Mountain Dwarf-hold — hero free-hold in Númeriador, nearest haven Grey Havens. */
 export const BLUE_MOUNTAIN_DWARF_HOLD = did('tw-377');
-/** Bandit Lair — hero border-hold in Brown Lands, nearest haven Lórien. */
+/** Bandit Lair — hero ruins-and-lairs in Brown Lands, nearest haven Lórien. */
 export const BANDIT_LAIR = did('tw-373');
 /** Dunnish Clan-hold — hero border-hold in Dunland, nearest haven Rivendell. */
 export const DUNNISH_CLAN_HOLD = did('tw-390');
