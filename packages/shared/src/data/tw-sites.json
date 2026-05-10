@@ -736,7 +736,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Redhorn Gate",
-    "playableResources": [],
+    "playableResources": ["information"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -747,7 +747,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
