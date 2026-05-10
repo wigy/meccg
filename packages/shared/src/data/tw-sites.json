@@ -1492,6 +1492,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien",
+    "effects": [],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
