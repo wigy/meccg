@@ -42,7 +42,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Wold & Foothills",
-    "playableResources": [],
+    "playableResources": ["minor"],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -53,7 +53,13 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a company may discard two minor items they bear to make any one major item (including a hoard item) playable at this untapped site this turn.",
-    "unique": true
+    "unique": true,
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "discard-minors-for-major"
+      }
+    ]
   },
   {
     "cardType": "hero-site",
