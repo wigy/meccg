@@ -1065,7 +1065,8 @@ export type SiteRuleEffect =
   | DynamicAutoAttackSiteRule
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
-  | AllowCreatureByRaceSiteRule;
+  | AllowCreatureByRaceSiteRule
+  | AllowItemsWhenTappedSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1294,6 +1295,23 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
   readonly rule: 'allow-creature-by-race';
   /** The creature race that bypasses keying at this site (e.g. "men"). */
   readonly race: string;
+}
+
+/**
+ * Items may be played at this site even when its status is Tapped.
+ * The normal tapped-site gate in `legal-actions/site.ts` is bypassed for
+ * item plays when this rule is present.
+ *
+ * Example — Tharbad (td-180): "Items may be played here even if the site
+ * is tapped."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-items-when-tapped" }
+ * ```
+ */
+export interface AllowItemsWhenTappedSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-items-when-tapped';
 }
 
 /**

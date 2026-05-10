@@ -920,7 +920,11 @@ function playResourcesActions(
       // does not normally list "minor" in its playable resources.
       const minorItemBonus = siteState.minorItemAvailable && itemDef.subtype === 'minor';
 
-      if (siteIsTapped && !minorItemBonus) {
+      // site-rule: allow-items-when-tapped — items remain playable even when the site is tapped
+      const allowWhenTapped = siteDef && isSiteCard(siteDef)
+        && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'allow-items-when-tapped');
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
