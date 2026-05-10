@@ -1034,6 +1034,7 @@ export type SiteRuleEffect =
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
   | DynamicAutoAttackSiteRule
+  | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
@@ -1207,6 +1208,25 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
+}
+
+/**
+ * Declares that this site is always returned to the location deck on
+ * departure, even when it is tapped. Under normal CoE rules (2.IV.vii), a
+ * tapped non-haven site is discarded to the site discard pile when a company
+ * moves away. When this rule is present, the engine skips the discard path
+ * and always pushes the site back into the player's `siteDeck`.
+ *
+ * Example — Buhr Widu (td-173): "This site is always returned to the location
+ * deck, never to the discard pile."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "always-return-to-deck" }
+ * ```
+ */
+export interface AlwaysReturnToDeckSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'always-return-to-deck';
 }
 
 /**

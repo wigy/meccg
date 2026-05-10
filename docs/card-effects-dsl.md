@@ -1161,6 +1161,19 @@ Rules:
     } }
   ```
 
+- `always-return-to-deck` — overrides the normal site-of-origin disposal
+  rule (CoE 2.IV.vii). Under the base rule, a tapped non-haven site is
+  discarded to the site discard pile when the company departs. When this
+  site-rule is present, the site is always returned to the player's
+  location deck even when tapped. Consumed by
+  `engine/reducer-movement-hazard.ts` at M/H step 8. Used by *Buhr Widu*
+  (td-173): "This site is always returned to the location deck, never to
+  the discard pile."
+
+  ```json
+  { "type": "site-rule", "rule": "always-return-to-deck" }
+  ```
+
 - `hazard-limit-modifier` — adjusts the hazard limit for any company
   moving to this site. Applied during the `set-hazard-limit` step before
   the snapshot is taken. `value` is the integer adjustment (positive to
