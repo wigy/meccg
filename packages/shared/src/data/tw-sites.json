@@ -1455,7 +1455,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Southern Mirkwood",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
