@@ -1075,9 +1075,21 @@
         "prowess": 8
       }
     ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
