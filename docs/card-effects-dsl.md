@@ -1149,9 +1149,11 @@ Rules:
   `keyedTo` entries names a matching siteType or regionType. The played
   creature attacks with its own prowess/strikes/body and is discarded
   after combat regardless of outcome (no kill-MP, matching standard
-  auto-attack semantics). Consumed by `engine/reducer-site.ts` and
+  auto-attack semantics). The optional `nonUnique: true` flag restricts
+  eligibility to non-unique creatures only (e.g. *The Gem-deeps* and
+  other under-deeps sites). Consumed by `engine/reducer-site.ts` and
   `engine/legal-actions/site.ts` through the new `play-site-auto-attack`
-  site-phase step. Used by *Framsburg* (td-175).
+  site-phase step. Used by *Framsburg* (td-175) and *The Gem-deeps* (dm-30).
 
   ```json
   { "type": "site-rule", "rule": "dynamic-auto-attack",
@@ -1159,6 +1161,9 @@ Rules:
       "siteTypes": ["ruins-and-lairs", "shadow-hold"],
       "regionTypes": ["wilderness", "shadow"]
     } }
+  { "type": "site-rule", "rule": "dynamic-auto-attack",
+    "keying": { "siteTypes": ["shadow-hold"] },
+    "nonUnique": true }
   ```
 
 - `always-return-to-deck` — overrides the normal site-of-origin disposal

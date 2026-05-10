@@ -396,6 +396,11 @@ function playSiteAutoAttackActions(
       const def = state.cardPool[card.definitionId as string];
       if (!def || def.cardType !== 'hazard-creature') continue;
 
+      if (dynamicRule.nonUnique && def.unique) {
+        logDetail(`Creature "${def.name}" is unique — not eligible (site requires non-unique)`);
+        continue;
+      }
+
       let keyable = false;
       for (const key of def.keyedTo) {
         if (key.siteTypes && key.siteTypes.some(st => allowedSiteTypes.has(st))) {
