@@ -1864,7 +1864,10 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Imlad Morgul",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1875,7 +1878,8 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major)Automatic-attacks: Orcs — 2 strikes with 8 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
