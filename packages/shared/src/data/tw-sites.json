@@ -915,7 +915,8 @@
     "keywords": [
       "hoard"
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
