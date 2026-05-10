@@ -197,6 +197,8 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
       case 'company-site-end':
         if (s.kind === 'company-site-subphase' && s.companyId === boundary.companyId) return false;
         return true;
+      case 'attack-end':
+        return true;
       case 'turn-end':
         return true;
     }
@@ -215,6 +217,9 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         return true;
       case 'company-site-end':
         if (s.kind === 'company-site-phase' && s.companyId === boundary.companyId) return false;
+        return true;
+      case 'attack-end':
+        if (s.kind === 'attack') return false;
         return true;
       case 'turn-end':
         if (s.kind === 'turn') return false;

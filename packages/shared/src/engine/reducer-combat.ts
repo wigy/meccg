@@ -19,7 +19,7 @@ import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType }
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint, enqueueResolution } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
@@ -2186,6 +2186,10 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       });
     }
   }
+
+  // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers
+  // from short events like "The Dwarves Are upon You!").
+  stateAfterCombat = sweepExpired(stateAfterCombat, { kind: 'attack-end' });
 
   return {
     state: stateAfterCombat,

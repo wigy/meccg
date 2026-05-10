@@ -107,7 +107,13 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "company-combat-boost", "stat": "prowess", "value": 2, "filter": { "target.race": "dwarf" } },
+      { "type": "company-combat-boost", "stat": "body", "value": -1, "filter": { "target.race": "dwarf" } },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-resource-event",
