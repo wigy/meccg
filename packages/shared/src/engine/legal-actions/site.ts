@@ -395,6 +395,10 @@ function playSiteAutoAttackActions(
     for (const card of hazardPlayer.hand) {
       const def = state.cardPool[card.definitionId as string];
       if (!def || def.cardType !== 'hazard-creature') continue;
+      if (dynamicRule.nonUnique && def.unique) {
+        logDetail(`Creature "${def.name}" is unique — excluded by non-unique dynamic auto-attack rule`);
+        continue;
+      }
 
       let keyable = false;
       for (const key of def.keyedTo) {

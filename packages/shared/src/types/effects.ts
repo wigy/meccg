@@ -1238,6 +1238,8 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
+  /** When true, only non-unique hazard creatures are eligible for this dynamic attack. */
+  readonly nonUnique?: boolean;
 }
 
 /**
