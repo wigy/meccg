@@ -1033,7 +1033,8 @@ export type SiteRuleEffect =
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
-  | DynamicAutoAttackSiteRule;
+  | DynamicAutoAttackSiteRule
+  | HazardLimitSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1206,6 +1207,24 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
+}
+
+/**
+ * Adjusts the hazard limit for any company moving to this site.
+ * Applied during the `set-hazard-limit` step before the snapshot is taken.
+ *
+ * Example — Barad-dûr (tw-374): "Any company moving to this site has its
+ * hazard limit increased by 2."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+ * ```
+ */
+export interface HazardLimitSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'hazard-limit-modifier';
+  /** The adjustment to apply (positive increases, negative decreases). */
+  readonly value: number;
 }
 
 /**
