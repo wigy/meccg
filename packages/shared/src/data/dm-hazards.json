@@ -127,7 +127,8 @@
         "prowessBonus": 3,
         "attackerAssigns": true
       }
-    ]
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hazard-event",
