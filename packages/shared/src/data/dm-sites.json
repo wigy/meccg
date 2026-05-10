@@ -208,7 +208,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Redhorn Gate",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Balrog",
