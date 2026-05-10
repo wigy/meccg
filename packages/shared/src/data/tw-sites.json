@@ -234,7 +234,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
