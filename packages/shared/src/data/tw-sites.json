@@ -1930,7 +1930,11 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Imlad Morgul",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1941,6 +1945,18 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Undead — 3 strikes with 8 prowess; each character wounded must make a corruption check",
+    "certified": "2026-05-10",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
     "unique": true
   },
   {
