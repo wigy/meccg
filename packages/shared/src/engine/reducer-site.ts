@@ -1215,6 +1215,66 @@ function handleSitePlayHeroResource(
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
+  // Pre-calculate site-tap and minor-item bonus for use in both branches.
+  const neverTaps = siteNeverTaps(state, siteInPlay);
+  if (neverTaps) {
+    logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
+  }
+  const openingBonus = !siteState.resourcePlayed && !neverTaps;
+  const consumingBonus = siteState.resourcePlayed && siteState.minorItemAvailable;
+  const nextMinorItemAvailable = openingBonus
+    ? true
+    : consumingBonus
+      ? false
+      : siteState.minorItemAvailable;
+  const newPhaseState: SitePhaseState = {
+    ...siteState,
+    resourcePlayed: true,
+    minorItemAvailable: nextMinorItemAvailable,
+  };
+  const tappedSite = neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped };
+
+  // Auto-test-gold-ring site-rule (Rule 9.22 site-phase variant): playing a
+  // gold-ring item at a site that declares this rule triggers an immediate
+  // ring test. The ring bypasses character attachment and goes directly to
+  // outOfPlayPile so the pending gold-ring-test resolver can locate it.
+  if (isItemCard(def) && def.subtype === 'gold-ring') {
+    const siteDefId = siteInPlay.definitionId;
+    const siteDef = state.cardPool[siteDefId as string];
+    const autoTestRule = isSiteCard(siteDef) && siteDef.effects
+      ? siteDef.effects.find(e => e.type === 'site-rule' && e.rule === 'auto-test-gold-ring')
+      : undefined;
+    if (autoTestRule && autoTestRule.type === 'site-rule' && autoTestRule.rule === 'auto-test-gold-ring') {
+      const modSign = autoTestRule.rollModifier >= 0 ? '+' : '';
+      logDetail(`Site: auto-test gold ring ${def.name} at ${siteDef.name} (modifier ${modSign}${autoTestRule.rollModifier})`);
+      const tappedChar: CharacterInPlay = { ...charInPlay, status: CardStatus.Tapped };
+      const updatedCompaniesAutoTest = [...player.companies];
+      updatedCompaniesAutoTest[siteState.activeCompanyIndex] = { ...company, currentSite: tappedSite };
+      const baseState: GameState = {
+        ...updatePlayer(state, playerIndex, p => ({
+          ...p,
+          hand: newHand,
+          characters: { ...p.characters, [targetCharId as string]: tappedChar },
+          companies: updatedCompaniesAutoTest,
+          outOfPlayPile: [...p.outOfPlayPile, { instanceId: action.cardInstanceId, definitionId: handCard.definitionId }],
+        })),
+        phaseState: newPhaseState,
+      };
+      return {
+        state: enqueueResolution(baseState, {
+          source: action.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: Phase.Site },
+          kind: {
+            type: 'gold-ring-test',
+            goldRingInstanceId: action.cardInstanceId,
+            rollModifier: autoTestRule.rollModifier,
+          },
+        }),
+      };
+    }
+  }
+
   // Tap the character and attach the item or ally
   const updatedChar: CharacterInPlay = {
     ...charInPlay,
@@ -1229,37 +1289,12 @@ function handleSitePlayHeroResource(
 
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
 
-  // Tap the site by updating company's currentSite status, unless the
-  // site carries the `never-taps` site-rule (e.g. The Worthy Hills).
-  const neverTaps = siteNeverTaps(state, siteInPlay);
-  if (neverTaps) {
-    logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
-  }
   const newCompanies = [...player.companies];
-  newCompanies[siteState.activeCompanyIndex] = {
-    ...company,
-    currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
-  };
-
-  // Rule 2.V.5: when a resource that taps the site is successfully played,
-  // the resource player may attempt one additional minor item as the next
-  // action. A `never-taps` site never triggers the bonus. The bonus is
-  // consumed when the subsequent minor-item play arrives.
-  const openingBonus = !siteState.resourcePlayed && !neverTaps;
-  const consumingBonus = siteState.resourcePlayed && siteState.minorItemAvailable;
-  const nextMinorItemAvailable = openingBonus
-    ? true
-    : consumingBonus
-      ? false
-      : siteState.minorItemAvailable;
+  newCompanies[siteState.activeCompanyIndex] = { ...company, currentSite: tappedSite };
 
   let afterAttach: GameState = {
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
-    phaseState: {
-      ...siteState,
-      resourcePlayed: true,
-      minorItemAvailable: nextMinorItemAvailable,
-    },
+    phaseState: newPhaseState,
   };
 
   // Apply ward-bearer effects declared by the incoming card: any hazard
