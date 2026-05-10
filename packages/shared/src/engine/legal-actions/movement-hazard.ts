@@ -6,10 +6,10 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
-import type { TapAgentEffect } from '../../types/effects.js';
+import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -812,6 +812,118 @@ function agentInfluenceActions(
 }
 
 /**
+ * Generate `agent-tap-attack` actions for agents with the `agent-tap-attack`
+ * effect (e.g. The Grimburgoth dm-15).
+ *
+ * - Does NOT count as an agent action (actedThisTurn is not set).
+ * - Does NOT count against the hazard limit.
+ * - Agent must have been in play at start of turn (inPlayAtTurnStart).
+ * - Agent must not be wounded.
+ * - Agent must be at the active company's destination site (or current site
+ *   if stationary).
+ * - Only one attack per agent per M/H phase.
+ */
+function agentTapAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const resourcePlayerIndex = 1 - hazardPlayerIndex;
+  const resourcePlayer = state.players[resourcePlayerIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  const destSiteName = mhState.destinationSiteName;
+  const currentSiteName: string | null = (() => {
+    if (!company.currentSite) return null;
+    const d = state.cardPool[company.currentSite.definitionId as string];
+    return d && isSiteCard(d) ? d.name : null;
+  })();
+  const companySiteName = destSiteName ?? currentSiteName;
+
+  for (const agent of hazardPlayer.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    const tapAttackEff = (agentDef.effects ?? []).find(
+      (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
+    );
+    if (!tapAttackEff) continue;
+
+    // Determine the agent's current site name
+    let agentSiteName: string | null = null;
+    if (agent.siteStack.length > 0) {
+      const topSite = agent.siteStack[agent.siteStack.length - 1];
+      const siteDef = state.cardPool[topSite.definitionId as string];
+      if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+    } else {
+      const homesiteNames = agentDef.homesite
+        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      agentSiteName = homesiteNames[0] ?? null;
+    }
+
+    const isAgentAtCompanySite =
+      agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
+    if (!isAgentAtCompanySite) {
+      logDetail(`Agent tap-attack ${agentDef.name}: not at company's site (agent: ${agentSiteName ?? 'unknown'}, company: ${companySiteName ?? 'unknown'}) — skipping`);
+      continue;
+    }
+
+    logDetail(`Agent tap-attack ${agentDef.name}: at company site "${companySiteName}" — offering attack`);
+
+    if (!agent.revealed) {
+      // Face-down: offer one action per home site in deck (reveal at attack)
+      const homesiteNames = agentDef.homesite
+        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const seenHome = new Set<string>();
+      let offeredAny = false;
+      for (const siteInst of hazardPlayer.siteDeck) {
+        const siteDef = state.cardPool[siteInst.definitionId as string];
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (!homesiteNames.includes(siteDef.name)) continue;
+        if (seenHome.has(siteDef.name)) continue;
+        seenHome.add(siteDef.name);
+        logDetail(`Agent tap-attack ${agentDef.name}: face-down, offering with home site "${siteDef.name}"`);
+        actions.push({
+          action: {
+            type: 'agent-tap-attack',
+            player: playerId,
+            agentId: agent.id,
+            homeSiteInstanceId: siteInst.instanceId,
+          } as AgentTapAttackAction,
+          viable: true,
+        });
+        offeredAny = true;
+      }
+      if (!offeredAny) {
+        // No home site in deck — reveal without site, discard at EOT
+        logDetail(`Agent tap-attack ${agentDef.name}: face-down, no home site in deck — offering without site`);
+        actions.push({
+          action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+          viable: true,
+        });
+      }
+    } else {
+      // Face-up: single action
+      actions.push({
+        action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -1583,6 +1695,11 @@ function playHazardsActions(
     // Agents with the `agent-tap-influence` effect tap (not as an agent action,
     // not against hazard limit) to make an influence attempt during M/H phase.
     actions.push(...agentInfluenceActions(state, playerId, mhState));
+
+    // --- Agent tap attacks (e.g. The Grimburgoth dm-15) ---
+    // Agents with the `agent-tap-attack` effect tap (not as an agent action,
+    // not against hazard limit) to attack during M/H phase.
+    actions.push(...agentTapAttackActions(state, playerId, mhState));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and

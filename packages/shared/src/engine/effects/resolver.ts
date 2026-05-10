@@ -75,6 +75,8 @@ export interface ResolverContext {
   readonly target?: {
     readonly name: string;
     readonly race: string;
+    /** Home site names parsed from the character's `homesite` string, for conditions like `{ "target.homesite": { "$includes": "Edoras" } }`. */
+    readonly homesite?: readonly string[];
   };
   /** Additional context properties for extensibility. */
   readonly [key: string]: unknown;

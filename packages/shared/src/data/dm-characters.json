@@ -154,8 +154,14 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+        "when": { "reason": "influence-check", "target.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.race": "dwarf" } }
+    ],
+    "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions.",
+    "certified": "2026-05-09"
   },
   {
     "cardType": "minion-character",
@@ -285,7 +291,27 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      }
+    ],
+    "certified": "2026-05-09",
     "text": "Unique. Agent. +2 direct influence against Dwarves and Dwarf Factions."
   },
   {
@@ -394,10 +420,17 @@
     "corruptionModifier": 0,
     "homesite": "Dol Guldur",
     "keywords": [
-      "agent"
+      "agent",
+      "sorcery-user"
     ],
-    "effects": [],
-    "text": "Unique. Agent. Can use sorcery. Agent only: may tap at a company's new site to attack that company during its movement/hazard phase with +2 prowess."
+    "effects": [
+      {
+        "type": "agent-tap-attack",
+        "prowessBonus": 2
+      }
+    ],
+    "text": "Unique. Agent. Can use sorcery. Agent only: may tap at a company's new site to attack that company during its movement/hazard phase with +2 prowess.",
+    "certified": "2026-05-09"
   },
   {
     "cardType": "minion-character",
@@ -711,8 +744,28 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.homesite": { "$includes": "Edoras" }
+        }
+      }
+    ],
+    "text": "Unique. Agent. +4 direct influence against Riders of Rohan and any character or minion that has Edoras as a home site.",
+    "certified": "2026-05-09"
   },
   {
     "cardType": "hero-character",
@@ -733,7 +786,6 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bag End",
-    "keywords": [],
     "effects": [],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2. You may discard Folco Boffin at a Haven to play any Hobbit from your hand with his company."
   },

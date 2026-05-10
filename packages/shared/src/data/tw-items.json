@@ -423,7 +423,6 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedBookofWestmarch.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
