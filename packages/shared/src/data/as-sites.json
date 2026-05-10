@@ -321,17 +321,27 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Udûn",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
         "strikes": 5,
         "prowess": 8
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 10
       }
     ],
     "resourceDraws": 3,
     "hazardDraws": 5,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowess",
+    "certified": "2026-05-10",
     "unique": true
   },
   {
