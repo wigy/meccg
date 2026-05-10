@@ -1761,7 +1761,11 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Grey Mountain Narrows",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1772,7 +1776,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: LórienPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 3 strikes with 7 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
