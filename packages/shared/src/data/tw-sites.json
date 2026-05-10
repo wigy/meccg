@@ -1031,7 +1031,8 @@
     "automaticAttacks": [],
     "resourceDraws": 4,
     "hazardDraws": 4,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
