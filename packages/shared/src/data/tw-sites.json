@@ -1471,7 +1471,8 @@
     "resourceDraws": 2,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
