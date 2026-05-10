@@ -135,6 +135,9 @@ export function availableDI(
         target: {
           name: targetDef.name,
           race: targetDef.race,
+          homesite: targetDef.homesite
+            ? targetDef.homesite.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+            : [],
         },
       };
       const charEffects = collectCharacterEffects(state, controller, resolverCtx);
