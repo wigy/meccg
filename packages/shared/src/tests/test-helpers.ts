@@ -1677,6 +1677,108 @@ export function runAutoAttackCombat(
 }
 
 /**
+ * Run a multi-character automatic-attack from the setupAutoAttackStep state.
+ * Triggers the attack via a pass from the resource player, assigns characters
+ * in strikeDefs order, then resolves each strike.
+ *
+ * @param baseState - State at the automatic-attacks step (use setupAutoAttackStep).
+ * @param strikeDefs - Ordered list of characters and their outcome parameters.
+ *   - `characterDefId`: character definition ID to assign to a strike
+ *   - `roll`: cheat roll total (2–12) for strike resolution
+ *   - `tapToFight`: if true (default), character taps to fight at full prowess; if false, stays untapped at prowess-3
+ *   - `bodyRoll`: cheat roll for body check if wounded; defaults to 12 (survives)
+ * @param resourcePlayer - The resource player who assigns characters (default PLAYER_1).
+ * @param hazardPlayer - The hazard player who rolls body checks (default PLAYER_2).
+ * @returns ReducerResult after all strikes resolved and combat finalized.
+ */
+export function runAutoAttackCombatMulti(
+  baseState: GameState,
+  strikeDefs: Array<{ characterDefId: CardDefinitionId; roll: number; tapToFight?: boolean; bodyRoll?: number }>,
+  resourcePlayer: PlayerId = PLAYER_1,
+  hazardPlayer: PlayerId = PLAYER_2,
+): ReducerResult {
+  const resIdx = baseState.players.findIndex(p => p.id === resourcePlayer);
+
+  // Trigger auto-attack
+  const result = reduce(baseState, { type: 'pass', player: resourcePlayer });
+  expect(result.error).toBeUndefined();
+  expect(result.state.combat).toBeDefined();
+  let s = result.state;
+
+  // Assign characters in order
+  for (const { characterDefId } of strikeDefs) {
+    if (s.combat?.assignmentPhase !== 'defender') break;
+    const charId = findCharInstanceId(s, resIdx, characterDefId);
+    const assignable = viableActions(s, resourcePlayer, 'assign-strike');
+    const act = assignable.find(ea => (ea.action as { characterId: unknown }).characterId === charId);
+    if (act) {
+      const r = reduce(s, act.action);
+      expect(r.error).toBeUndefined();
+      s = r.state;
+    }
+  }
+
+  // Defender passes if still in defender assignment
+  if (s.combat?.assignmentPhase === 'defender') {
+    const r = reduce(s, { type: 'pass', player: resourcePlayer });
+    if (!r.error) s = r.state;
+  }
+
+  // Attacker assigns any remaining unassigned combatants
+  while (s.combat?.phase === 'assign-strikes' && s.combat.assignmentPhase === 'attacker') {
+    const assignable = viableActions(s, hazardPlayer, 'assign-strike');
+    if (assignable.length === 0) break;
+    const r = reduce(s, assignable[0].action);
+    if (r.error) break;
+    s = r.state;
+  }
+
+  // Resolve strikes
+  while (s.combat && s.combat.phase !== 'assign-strikes') {
+    if (s.combat.phase === 'choose-strike-order') {
+      const actions = viableActions(s, resourcePlayer, 'choose-strike-order');
+      if (actions.length === 0) break;
+      const r = reduce(s, actions[0].action);
+      if (r.error) break;
+      s = r.state;
+    } else if (s.combat.phase === 'resolve-strike') {
+      const charId = s.combat.strikeAssignments[s.combat.currentStrikeIndex]?.characterId;
+      const defId = charId ? resolveInstanceId(s, charId) : undefined;
+      const sd = defId ? strikeDefs.find(d => d.characterDefId === defId) : undefined;
+      const roll = sd?.roll ?? 6;
+      const tap = sd?.tapToFight ?? true;
+      const actions = viableActions({ ...s, cheatRollTotal: roll }, resourcePlayer, 'resolve-strike');
+      if (actions.length === 0) break;
+      const chosen = tap
+        ? (actions.find(a => 'tapToFight' in a.action && a.action.tapToFight)?.action ?? actions[0].action)
+        : (actions.find(a => 'tapToFight' in a.action && !a.action.tapToFight)?.action ?? actions[0].action);
+      const r = reduce({ ...s, cheatRollTotal: roll }, chosen);
+      if (r.error) break;
+      s = r.state;
+    } else if (s.combat.phase === 'body-check') {
+      const charIdx = s.combat.currentStrikeIndex;
+      const charId = s.combat.strikeAssignments[charIdx]?.characterId;
+      const defId = charId ? resolveInstanceId(s, charId) : undefined;
+      const sd = defId ? strikeDefs.find(d => d.characterDefId === defId) : undefined;
+      const bodyRoll = sd?.bodyRoll ?? 12;
+      const actions = viableActions(s, hazardPlayer, 'body-check-roll');
+      if (actions.length === 0) break;
+      const r = reduce({ ...s, cheatRollTotal: bodyRoll }, actions[0].action);
+      if (r.error) break;
+      s = r.state;
+    } else if (s.combat.phase === 'item-salvage') {
+      const r = reduce(s, { type: 'pass', player: resourcePlayer });
+      if (r.error) break;
+      s = r.state;
+    } else {
+      break;
+    }
+  }
+
+  return { state: s };
+}
+
+/**
  * Run through a card-triggered auto-attack (card-triggered-attack source) that is
  * already active on `state.combat`. Assigns each strike in `strikeDefs` order:
  * the defender fills their assignments first, then the attacker handles any
