@@ -2418,3 +2418,43 @@ Used by *The Grimburgoth* (dm-15).
 ```json
 { "type": "agent-tap-attack", "prowessBonus": 2 }
 ```
+
+### 41. `permanent-event-auto-attack`
+
+While this hazard permanent event is in play, each site listed in `siteIds`
+gains an additional automatic-attack with the given stats. This is the DSL
+primitive for **Spawn-type** events that augment specific sites without using
+the Dragon manifestation chain (`dragon-at-home` requires `lairOf` + `manifestId`).
+
+The augmented attacks appear after all printed site attacks and any
+`dragon-at-home` augmentations, but before the `play-site-auto-attack`
+dynamic step.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteIds` | yes | Array of site definition IDs to augment (e.g. `["tw-413", "le-392"]`). |
+| `attack.creatureType` | yes | Creature race label (e.g. `"Balrog"`, `"Spawn"`). |
+| `attack.strikes` | yes | Number of strikes. |
+| `attack.prowess` | yes | Prowess of each strike. |
+| `attack.body` | no | Body value for body checks. Absent = no body check (e.g. Balrog of Moria `18/-`). |
+| `attack.combatRules` | no | Array of combat-rule strings (e.g. `["attacker-chooses-defenders"]`). |
+| `onDefeat` | no | `"remove-from-play"`: defeating this attack moves the card from play to the defeating player's kill pile (awarding kill MPs). Absent = card stays in play. |
+
+Implementation:
+
+- `collectPermanentEventAttacks()` in `engine/manifestations.ts` scans all `cardsInPlay` for matching effects; called from `getActiveAutoAttacks()`.
+- `finalizeCombat()` in `engine/reducer-combat.ts` handles `onDefeat: "remove-from-play"` after all strikes are defeated.
+- The `body` and `combatRules` fields are propagated to `CombatState` via the updated auto-attack setup in `engine/reducer-site.ts`.
+
+Used by *Balrog of Moria* (tw-12), *Monstrosity of Diverse Shape* (ba-21),
+*Spawn of Ungoliant* (ba-24), *Ungoliant's Progeny* (ba-27), and
+*Ungoliant's Foul Issue* (ba-28).
+
+```json
+{
+  "type": "permanent-event-auto-attack",
+  "siteIds": ["tw-413", "le-392"],
+  "attack": { "creatureType": "Balrog", "strikes": 1, "prowess": 18 },
+  "onDefeat": "remove-from-play"
+}
+```
