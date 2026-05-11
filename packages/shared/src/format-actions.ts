@@ -441,6 +441,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to attack`;
     case 'agent-strike-roll':
       return `Agent rolls for strike`;
+    case 'under-deeps-roll':
+      return `${action.player as string} rolls for Under-deeps movement`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

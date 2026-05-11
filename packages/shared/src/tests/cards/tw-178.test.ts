@@ -13,7 +13,7 @@
  * | # | Feature                                          | Status      | Notes                                              |
  * |---|--------------------------------------------------|-------------|----------------------------------------------------|
  * | 1 | +1 resource draw per Wilderness in site path     | IMPLEMENTED | draw-modifier with sitePath.wildernessCount expr   |
- * | 2 | +1 to all of his corruption checks               | IMPLEMENTED | corruptionModifier=1 + check-modifier effect       |
+ * | 2 | +1 to all of his corruption checks               | IMPLEMENTED | check-modifier effect, value=+1       |
  *
  * Playable: YES
  */
@@ -175,7 +175,7 @@ describe('Radagast (tw-178)', () => {
 
     expect(ccActions.length).toBe(1);
     expect(ccActions[0].characterId).toBe(radagastId);
-    // corruptionModifier is +1 (from the corruptionModifier field, which is
+    // check-modifier is +1 (from the check-modifier effect)
     // the canonical source; the DSL check-modifier effect on Radagast's own
     // card is skipped to avoid double-counting).
     expect(ccActions[0].corruptionModifier).toBe(1);

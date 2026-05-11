@@ -61,6 +61,7 @@ import dmSites from './dm-sites.json';
 // ---- The Balrog (BA) — balrog expansion ----
 import baCharacters from './ba-characters.json';
 import baSites from './ba-sites.json';
+import baHazards from './ba-hazards.json';
 
 /**
  * Pre-merged array of every card definition across all categories and sets.
@@ -109,6 +110,7 @@ const allCards: readonly CardDefinition[] = [
   // The Balrog
   ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),
+  ...(baHazards as unknown as CardDefinition[]),
   ...(asResources as unknown as CardDefinition[]),
   ...(asItems as unknown as CardDefinition[]),
 ];

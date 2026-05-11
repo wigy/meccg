@@ -547,7 +547,10 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "wolves",
-    "keyedTo": []
+    "certified": "2026-05-11",
+    "keyedTo": [
+      { "regionTypes": ["border", "wilderness", "shadow"] }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -561,7 +564,15 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animals",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["wilderness", "wilderness"] },
+      { "regionTypes": ["coastal"] },
+      { "siteNames": ["Moria"] }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character" }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-creature",
@@ -714,7 +725,42 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "spiders",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      },
+      {
+        "regionNames": [
+          "Heart of Mirkwood",
+          "Southern Mirkwood",
+          "Western Mirkwood",
+          "Woodland Realm"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-body-check-equals-body",
+        "apply": {
+          "type": "discard-character"
+        },
+        "when": {
+          "$not": {
+            "target.race": {
+              "$in": [
+                "wizard",
+                "ringwraith"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-creature",
@@ -728,7 +774,18 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animals",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["border", "wilderness", "shadow", "dark"],
+        "siteTypes": ["ruins-and-lairs"]
+      }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character", "excludeAvatars": true },
+      { "type": "combat-defender-prowess-from-mind" },
+      { "type": "combat-detainment" }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-creature",

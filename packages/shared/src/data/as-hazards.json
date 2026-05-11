@@ -105,7 +105,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FullofFrothandRage.jpg",
     "text": "All Spider and Animal attacks receive +2 prowess. Discard if a Spider or Animal attack is defeated. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": { "$in": ["spider", "animal"] }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": { "type": "discard-self" },
+        "when": {
+          "enemy.race": { "$in": ["spider", "animal"] }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-event",
