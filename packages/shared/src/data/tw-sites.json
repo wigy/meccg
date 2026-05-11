@@ -1813,7 +1813,10 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Old Pûkel Gap",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -1824,7 +1827,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
