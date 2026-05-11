@@ -213,6 +213,6 @@ describe('The Under-courts (dm-36)', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_COURTS });
     const def = state.cardPool[ADUNAPHEL as string];
     expect(def).toBeDefined();
-    expect((def as { name: string }).name).toBe('Adûnaphel the Quiet');
+    expect((def as { name: string }).name).toBe('Adûnaphel');
   });
 });
