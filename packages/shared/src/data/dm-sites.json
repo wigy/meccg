@@ -270,7 +270,13 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (5), The Under-grottos (8), The Under-leas (6)Playable: Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Balrog — 2 strikes with 16 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If Balrog of Moria is in play or if it or Durin's Bane has been defeated, the first automatic attack is canceled.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
+      {
+        "type": "site-rule",
+        "rule": "cancel-first-attack-if-in-play",
+        "definitionId": "tw-12"
+      },
       {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",

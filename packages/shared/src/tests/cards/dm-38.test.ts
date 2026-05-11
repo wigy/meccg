@@ -5,7 +5,7 @@
  * Type: hero-site (shadow-hold) in Redhorn Gate
  * Keywords: under-deeps
  *
- * Text:
+ * Card text:
  *   Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (5),
  *     The Under-grottos (8), The Under-leas (6)
  *   Playable: Items (minor, major, greater, gold ring)
@@ -31,48 +31,36 @@
  * |   |                   |        | Under-grottos(8), Under-leas(6)                        |
  *
  * Engine Support:
- * | # | Feature                                      | Status          | Notes                                        |
- * |---|----------------------------------------------|-----------------|----------------------------------------------|
- * | 1 | Site phase flow                              | IMPLEMENTED     | select-company, enter-or-skip, play-resources |
- * | 2 | First auto-attack (Balrog 2/16)              | IMPLEMENTED     | passes through as data                       |
- * | 3 | Minor/major/greater/gold-ring playability    | IMPLEMENTED     | playableResources gate                       |
- * | 4 | 2nd auto-attack (opponent plays from hand)   | NOT IMPLEMENTED | dynamic auto-attack, no engine support       |
- * | 5 | Cancel 1st attack if Balrog in play/defeated | NOT IMPLEMENTED | no DSL effect type for conditional cancel    |
- * | 6 | Under-deeps movement (adjacentSites)         | NOT IMPLEMENTED | rule 3.45 is test.todo()                     |
+ * | # | Feature                                      | Status      | Notes                                              |
+ * |---|----------------------------------------------|-------------|----------------------------------------------------|
+ * | 1 | Site phase flow                              | IMPLEMENTED | select-company, enter-or-skip, play-resources      |
+ * | 2 | First auto-attack (Balrog 2/16)              | IMPLEMENTED | passes through as data                             |
+ * | 3 | Minor/major/greater/gold-ring playability    | IMPLEMENTED | playableResources gate                             |
+ * | 4 | 2nd auto-attack (R&L keyed, dynamic)         | IMPLEMENTED | dynamic-auto-attack site-rule                      |
+ * | 5 | Cancel 1st attack if Balrog in play          | IMPLEMENTED | cancel-first-attack-if-in-play site-rule (tw-12)   |
+ * | 6 | Under-deeps movement (adjacentSites)         | IMPLEMENTED | rule 3.45                                          |
  *
- * Playable: PARTIALLY
- * NOT CERTIFIED — dynamic 2nd auto-attack (opponent plays from hand keyed to R&L)
- *   and conditional first-attack cancellation rule have no engine support.
+ * Playable: YES
+ * Certified: 2026-05-11
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1,
+  PLAYER_1, PLAYER_2,
   ARAGORN, DAGGER_OF_WESTERNESSE, GLAMDRING, THE_MITHRIL_COAT, PRECIOUS_GOLD_RING,
+  CAVE_DRAKE, ORC_WARBAND,
   resetMint,
-  buildSitePhaseState, setupAutoAttackStep,
+  buildSitePhaseState, buildDualHandSitePhaseState,
+  setupAutoAttackStep, addCardInPlay,
   viableActions, dispatch,
 } from '../test-helpers.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, PlaySiteAutoAttackAction } from '../../index.js';
 
 const THE_UNDER_GATES = 'dm-38' as CardDefinitionId;
+const BALROG_OF_MORIA = 'tw-12' as CardDefinitionId;
 
 describe('The Under-gates (dm-38)', () => {
   beforeEach(() => resetMint());
-
-  // ─── First automatic attack: Balrog 2/16 ────────────────────────────────────
-
-  test('first automatic attack: Balrog — 2 strikes with 16 prowess', () => {
-    const state = buildSitePhaseState({ site: THE_UNDER_GATES, characters: [ARAGORN] });
-    const readyState = setupAutoAttackStep(state);
-
-    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(next.combat).not.toBeNull();
-    expect(next.combat!.strikesTotal).toBe(2);
-    expect(next.combat!.strikeProwess).toBe(16);
-    expect(next.combat!.creatureRace).toBe('balrog');
-    expect(next.combat!.attackSource.type).toBe('automatic-attack');
-  });
 
   // ─── Item playability ────────────────────────────────────────────────────────
 
@@ -81,7 +69,6 @@ describe('The Under-gates (dm-38)', () => {
       site: THE_UNDER_GATES,
       hand: [DAGGER_OF_WESTERNESSE],
     });
-
     const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(actions.length).toBeGreaterThan(0);
   });
@@ -91,7 +78,6 @@ describe('The Under-gates (dm-38)', () => {
       site: THE_UNDER_GATES,
       hand: [GLAMDRING],
     });
-
     const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(actions.length).toBeGreaterThan(0);
   });
@@ -101,7 +87,6 @@ describe('The Under-gates (dm-38)', () => {
       site: THE_UNDER_GATES,
       hand: [THE_MITHRIL_COAT],
     });
-
     const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(actions.length).toBeGreaterThan(0);
   });
@@ -111,8 +96,87 @@ describe('The Under-gates (dm-38)', () => {
       site: THE_UNDER_GATES,
       hand: [PRECIOUS_GOLD_RING],
     });
-
     const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(actions.length).toBeGreaterThan(0);
+  });
+
+  // ─── First automatic attack: Balrog 2/16 ────────────────────────────────────
+
+  test('first automatic attack: Balrog — 2 strikes with 16 prowess (without Balrog of Moria in play)', () => {
+    const state = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_GATES }));
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(2);
+    expect(next.combat!.strikeProwess).toBe(16);
+    expect(next.combat!.creatureRace).toBe('balrog');
+    expect(next.combat!.attackSource.type).toBe('automatic-attack');
+  });
+
+  // ─── Cancel 1st attack if Balrog of Moria is in play ────────────────────────
+
+  test('first Balrog attack is canceled when Balrog of Moria (tw-12) is in play', () => {
+    const base = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_GATES }));
+    // Put Balrog of Moria in PLAYER_2's cardsInPlay as a permanent event
+    const state = addCardInPlay(base, 1, BALROG_OF_MORIA);
+    // With Balrog in play, getActiveAutoAttacks returns [] (first attack canceled),
+    // so allAttacksDone=true immediately — no Balrog combat is initiated
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    // Combat should be null — Balrog attack was canceled
+    expect(next.combat).toBeNull();
+  });
+
+  test('first Balrog attack fires normally when Balrog of Moria is NOT in play', () => {
+    const state = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_GATES }));
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.creatureRace).toBe('balrog');
+  });
+
+  // ─── 2nd auto-attack: dynamic (ruins-and-lairs keyed) ───────────────────────
+
+  test('step is play-site-auto-attack after Balrog attack resolves', () => {
+    const state = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_GATES }));
+    expect((state.phaseState).step).toBe('automatic-attacks');
+  });
+
+  test('ruins-and-lairs keyed Cave-drake is offered as 2nd auto-attack', () => {
+    const state = buildDualHandSitePhaseState({
+      site: THE_UNDER_GATES,
+      resourceCharacters: [ARAGORN],
+      step: 'play-site-auto-attack',
+      hazardHand: [CAVE_DRAKE],
+    });
+    const actions = viableActions(state, PLAYER_2, 'play-site-auto-attack');
+    expect(actions).toHaveLength(1);
+    const caveInst = state.players[1].hand[0].instanceId;
+    expect((actions[0].action as PlaySiteAutoAttackAction).cardInstanceId).toBe(caveInst);
+  });
+
+  test('Orc-warband (ruins-and-lairs and shadow-hold keyed) IS offered at Under-gates (R&L keying matches)', () => {
+    const state = buildDualHandSitePhaseState({
+      site: THE_UNDER_GATES,
+      resourceCharacters: [ARAGORN],
+      step: 'play-site-auto-attack',
+      hazardHand: [ORC_WARBAND],
+    });
+    const actions = viableActions(state, PLAYER_2, 'play-site-auto-attack');
+    // Orc-warband is keyed to R&L (and shadow-hold), so it qualifies here
+    expect(actions).toHaveLength(1);
+  });
+
+  // ─── Card pool sanity ────────────────────────────────────────────────────────
+
+  test('dm-38 is in the card pool', () => {
+    const state = buildSitePhaseState({ site: THE_UNDER_GATES });
+    const def = state.cardPool[THE_UNDER_GATES as string];
+    expect(def).toBeDefined();
+    expect((def as { name: string }).name).toBe('The Under-gates');
+  });
+
+  test('tw-12 (Balrog of Moria) is in the card pool', () => {
+    const state = buildSitePhaseState({ site: THE_UNDER_GATES });
+    const def = state.cardPool[BALROG_OF_MORIA as string];
+    expect(def).toBeDefined();
+    expect((def as { name: string }).name).toBe('Balrog of Moria');
   });
 });

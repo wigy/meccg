@@ -30,6 +30,7 @@ import type {
   SiteCard,
 } from '../index.js';
 import { ownerOf } from '../types/state.js';
+import { logDetail } from './legal-actions/log.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -175,7 +176,25 @@ export function getActiveAutoAttacks(
 
   // Augment with any permanent-event-auto-attack effects targeting this site.
   const peAugments = collectPermanentEventAttacks(state, siteDef);
-  return peAugments.length === 0 ? printed : [...printed, ...peAugments];
+  let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
+
+  // Apply cancel-first-attack-if-in-play site rules.
+  const siteEffects = (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
+  if (siteEffects) {
+    for (const siteEff of siteEffects) {
+      if (siteEff.type !== 'site-rule') continue;
+      if (siteEff.rule !== 'cancel-first-attack-if-in-play') continue;
+      const refDefId = siteEff.definitionId as string;
+      const refInPlay = state.players.some(p => p.cardsInPlay.some(c => c.definitionId === refDefId));
+      if (refInPlay && combined.length > 0) {
+        combined = combined.slice(1);
+        const cardName = (state.cardPool[refDefId] as { name?: string } | undefined)?.name ?? refDefId;
+        logDetail(`cancel-first-attack-if-in-play: "${cardName}" is in play — first attack at ${siteDef.name} canceled`);
+      }
+      break;
+    }
+  }
+  return combined;
 }
 
 /**
