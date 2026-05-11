@@ -295,6 +295,18 @@ export interface CombatState {
    * their choice (defender picks).
    */
   readonly strikeEffect?: 'discard-item';
+  /**
+   * When true, avatar characters (Wizards and Ringwraiths, mind === null) are
+   * excluded from strike assignment. Set by `combat-one-strike-per-character`
+   * with `excludeAvatars: true` (e.g. Neeker-breekers).
+   */
+  readonly excludeAvatarStrikes?: boolean;
+  /**
+   * When true, each defending character's prowess for this attack is replaced
+   * by their mind attribute value (e.g. Neeker-breekers). Status modifiers
+   * (tapped, wounded) and support bonuses still apply on top of the mind base.
+   */
+  readonly defenderProwessFromMind?: boolean;
 }
 
 /**

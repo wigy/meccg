@@ -431,6 +431,15 @@ Events:
 - `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. The attack was not canceled by the time this event fires (canceling an attack prevents `initiateCreatureCombat` from running entirely). Handled in `chain-reducer.ts` `initiateCreatureCombat()`. Supported apply types:
   - `offer-char-join-attack` — scoped to characters in the defending player's *other* companies that are at a haven; the `when` condition is evaluated against `{ bearer: { atHaven: true, siteType: 'haven' }, attack: { attackedCompanyId, bearerCompanyId } }`. Used by *Alatar* (tw-117).
   - `force-check-all-company` — enqueues a corruption check for every character in the attacked company before defenders are selected. Uses `check` (must be `"corruption"`) and optional `modifier`. Used by *Corpse-candle* (tw-23, le-67).
+- `character-body-check-equals-body` -- fires during the body check roll inside `handleBodyCheckRoll` in `reducer-combat.ts` when the effective roll result **exactly equals** (not exceeds) the defending character's body value. The `when` condition is evaluated against `{ target: { race } }` where `race` is the character's race string. Supports `apply: { "type": "discard-character" }`, which removes the character from their company and places them in the defending player's discard pile (rather than the out-of-play pile). Items and allies on the character are discarded immediately (no salvage phase). Does not fire for ally combatants. The `when` condition should exclude Wizard and Ringwraith characters per the card text. Used by *Giant Spiders* (tw-40).
+
+  ```json
+  { "type": "on-event", "event": "character-body-check-equals-body",
+    "apply": { "type": "discard-character" },
+    "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } } }
+  ```
+
+- `company-member-wounded` -- fires after combat finalization when any character in the defending company was wounded (result `'wounded'`, not tapped under detainment rules). Scans every character in the defending company for attached hazard events carrying this on-event; for each match, enqueues one `corruption-check` pending resolution on the **bearer** (the character bearing the hazard, not the wounded character). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Despair of the Heart* (tw-27). Implemented in `reducer-combat.ts` combat finalization.
 - `character-gains-item` -- fires immediately after any character in the bearer's company gains an item during the site phase (via `play-hero-resource`). For each character bearing a hazard with this event, enqueues one `corruption-check` pending resolution for that character (the bearer, not the character who gained the item). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Lure of Expedience* (le-122). Implemented in `reducer-site.ts` `fireCharacterGainsItemChecks()`.
 - `end-of-turn` -- fires when the active player's site phase ends and the game transitions into the End-of-Turn phase (both when all companies have been handled and when the player passes with no active step). The reducer (`reducer-site.ts`) scans every character of the active player for attached hazards carrying this on-event. Supports `apply: { type: "force-check-per-others-item", check: "corruption" }`, which enqueues one `corruption-check` pending resolution per item in the bearer's company that the bearer does not bear; the modifier for each check is the negative corruption-point value of that item (`-item.corruptionPoints`). Used by *Covetous Thoughts* (le-107). Implemented in `reducer-site.ts` `fireEndOfTurnCorruptionChecks()`.
 
@@ -441,6 +450,7 @@ Apply types:
 - `force-check-all-company` -- under `on-event: creature-attack-begins`, enqueue a corruption check for **every** character in the attacked company before defenders are selected. Uses `check: "corruption"` and optional `modifier`. Implemented in `chain-reducer.ts` `initiateCreatureCombat()`. Used by *Corpse-candle* (tw-23, le-67).
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
+- `discard-character` -- under `on-event: character-body-check-equals-body`, discard the struck character to the defending player's discard pile (not the out-of-play pile). The character is removed from their company; all their items and allies are also discarded immediately. No item-salvage phase is offered. Condition context exposes `{ target: { race } }`. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `discard-named-card-from-company` -- find an item attached to any
@@ -672,9 +682,26 @@ the card is discarded after use.
 A `when` condition gates availability (e.g. requires a specific card
 in play).
 
+Optional fields control the operation mode:
+
+- `op` — `"halve"` (default) or `"subtract"`. When `"subtract"`, reduces
+  strikes by a fixed `value` instead of halving.
+- `value` — Amount to subtract when `op` is `"subtract"`. Default: `2`.
+- `min` — Minimum strikes after modification. Default: `1`.
+
 ```json
 { "type": "halve-strikes",
   "when": { "inPlay": "Gates of Morning" } }
+```
+
+Subtract variant (e.g. Not at Home — reduces by 2, minimum 1):
+
+```json
+{ "type": "halve-strikes",
+  "op": "subtract",
+  "value": 2,
+  "min": 1,
+  "when": { "inPlay": "Gates of Morning", "attack.source": "automatic-attack" } }
 ```
 
 ### 10. `dodge-strike`
@@ -881,7 +908,18 @@ strings to chase through the engine.
   character in the defending company (`strikesTotal =
   company.characters.length`), overriding the card's raw `strikes` value.
   Card text is "Each character in the company faces one strike". Mutually
-  exclusive with `combat-multi-attack`. (implemented in `chain-reducer.ts`)
+  exclusive with `combat-multi-attack`. Optional `excludeAvatars: true`
+  excludes avatar characters (Wizards and Ringwraiths, `mind === null`)
+  from the strike count and assignment: `strikesTotal = non-avatar
+  characters`. Card text is "Each non-Wizard/non-Ringwraith character in
+  the company faces one strike" (e.g. Neeker-breekers). (implemented in
+  `chain-reducer.ts`, `legal-actions/combat.ts`)
+- `combat-defender-prowess-from-mind` — each defending character's prowess
+  for this attack is replaced by their mind attribute value. Status modifiers
+  (tapped −1, wounded −2) and support bonuses still apply on top of the
+  mind base. Card text is "His prowess against such a strike is equal to
+  his mind attribute" (e.g. Neeker-breekers). (implemented in
+  `reducer-combat.ts`)
 - `combat-detainment` — marks the attack as detainment (CoE §3.II).
   Detainment strikes tap the character instead of wounding/eliminating,
   suppress the character body check (rule 3.II.1), do not trigger
@@ -1201,6 +1239,29 @@ Rules:
 
   ```json
   { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+  ```
+
+- `creatures-always-keyed-to-site` — any hazard creature that is keyable
+  to the destination site's original type or name (via `siteTypes` or
+  `siteNames` in any `keyedTo` entry) may be played even when a
+  `no-creature-hazards-on-company` constraint (e.g. from *Stealth*) is
+  active. The creature must still satisfy normal keying; only the external
+  restriction is bypassed. Consumed by `engine/legal-actions/pending.ts`
+  `applyNoCreatureHazardsOnCompany`. Used by *Mount Doom* (tw-414).
+
+  ```json
+  { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+  ```
+
+- `allow-items-when-tapped` — items may be played at this site even when
+  its status is Tapped. The normal tapped-site gate in
+  `legal-actions/site.ts` is bypassed for item plays (but the subtype
+  check from `playableResources` still applies). Consumed by
+  `engine/legal-actions/site.ts` items evaluation. Used by *Tharbad*
+  (td-180) — "Items may be played here even if the site is tapped."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-items-when-tapped" }
   ```
 
 ### 20. `item-play-site`
@@ -2361,4 +2422,44 @@ Used by *The Grimburgoth* (dm-15).
 
 ```json
 { "type": "agent-tap-attack", "prowessBonus": 2 }
+```
+
+### 41. `permanent-event-auto-attack`
+
+While this hazard permanent event is in play, each site listed in `siteIds`
+gains an additional automatic-attack with the given stats. This is the DSL
+primitive for **Spawn-type** events that augment specific sites without using
+the Dragon manifestation chain (`dragon-at-home` requires `lairOf` + `manifestId`).
+
+The augmented attacks appear after all printed site attacks and any
+`dragon-at-home` augmentations, but before the `play-site-auto-attack`
+dynamic step.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteIds` | yes | Array of site definition IDs to augment (e.g. `["tw-413", "le-392"]`). |
+| `attack.creatureType` | yes | Creature race label (e.g. `"Balrog"`, `"Spawn"`). |
+| `attack.strikes` | yes | Number of strikes. |
+| `attack.prowess` | yes | Prowess of each strike. |
+| `attack.body` | no | Body value for body checks. Absent = no body check (e.g. Balrog of Moria `18/-`). |
+| `attack.combatRules` | no | Array of combat-rule strings (e.g. `["attacker-chooses-defenders"]`). |
+| `onDefeat` | no | `"remove-from-play"`: defeating this attack moves the card from play to the defeating player's kill pile (awarding kill MPs). Absent = card stays in play. |
+
+Implementation:
+
+- `collectPermanentEventAttacks()` in `engine/manifestations.ts` scans all `cardsInPlay` for matching effects; called from `getActiveAutoAttacks()`.
+- `finalizeCombat()` in `engine/reducer-combat.ts` handles `onDefeat: "remove-from-play"` after all strikes are defeated.
+- The `body` and `combatRules` fields are propagated to `CombatState` via the updated auto-attack setup in `engine/reducer-site.ts`.
+
+Used by *Balrog of Moria* (tw-12), *Monstrosity of Diverse Shape* (ba-21),
+*Spawn of Ungoliant* (ba-24), *Ungoliant's Progeny* (ba-27), and
+*Ungoliant's Foul Issue* (ba-28).
+
+```json
+{
+  "type": "permanent-event-auto-attack",
+  "siteIds": ["tw-413", "le-392"],
+  "attack": { "creatureType": "Balrog", "strikes": 1, "prowess": 18 },
+  "onDefeat": "remove-from-play"
+}
 ```

@@ -13,7 +13,8 @@
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
-import { isCharacterCard, CardStatus } from '../../index.js';
+import { CardStatus } from '../../index.js';
+import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
 
@@ -52,7 +53,8 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     const charInPlay = player.characters[charId];
     const charDef = state.cardPool[charInPlay.definitionId as string];
     const cp = charInPlay.effectiveStats.corruptionPoints;
-    const modifier = charDef && isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+    const checkContext = { reason: 'corruption-check' };
+    const modifier = resolveCheckModifier(collectCharacterEffects(state, charInPlay, checkContext), 'corruption');
     const possessions: CardInstanceId[] = [
       ...charInPlay.items.map(i => i.instanceId),
       ...charInPlay.allies.map(a => a.instanceId),
