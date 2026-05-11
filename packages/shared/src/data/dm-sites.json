@@ -120,7 +120,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -140,6 +140,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -149,6 +150,11 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
       }
     ]
   },
