@@ -2313,6 +2313,42 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Handle permanent-event auto-attack discardAfterUse (e.g. Witch-king at Iron-deeps / Under-leas).
+  // When a site automatic-attack's source permanent-event has discardAfterUse:true, the event
+  // is moved to the hazard player's discard pile after use regardless of outcome or kill MPs.
+  if (combat.attackSource.type === 'automatic-attack') {
+    const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
+    const dauSiteDefId = resolveInstanceId(state, dauSiteInstId);
+    const dauSiteDef = dauSiteDefId ? state.cardPool[dauSiteDefId as string] : undefined;
+    if (dauSiteDef && isSiteCard(dauSiteDef)) {
+      const dauAttacks = getActiveAutoAttacks(state, dauSiteDef);
+      const dauAa = dauAttacks[dauAttackIdx];
+      const dauSourceInstId = dauAa?.sourceInstanceId;
+      if (dauSourceInstId) {
+        const dauSourceDefId = resolveInstanceId(state, dauSourceInstId);
+        const dauSourceDef = dauSourceDefId ? state.cardPool[dauSourceDefId as string] : undefined;
+        const dauEffects = (dauSourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+        for (const dauEff of dauEffects) {
+          if (dauEff.type !== 'permanent-event-auto-attack') continue;
+          if (!dauEff.discardAfterUse) continue;
+          const dauSourceName = (dauSourceDef as { name?: string } | undefined)?.name ?? '?';
+          const dauHazardIdx = stateAfterCombat.players.findIndex(p => p.id === combat.attackingPlayerId);
+          const dauSourceCard = stateAfterCombat.players[dauHazardIdx]?.cardsInPlay.find(c => c.instanceId === dauSourceInstId);
+          if (dauSourceCard) {
+            const dauCardRef = { instanceId: dauSourceCard.instanceId, definitionId: dauSourceCard.definitionId };
+            const dauUpdatedPlayers = stateAfterCombat.players.map((p, idx) => {
+              if (idx === dauHazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== dauSourceInstId), discardPile: [...p.discardPile, dauCardRef] };
+              return p;
+            }) as unknown as typeof stateAfterCombat.players;
+            stateAfterCombat = { ...stateAfterCombat, players: dauUpdatedPlayers };
+            logDetail(`Permanent-event "${dauSourceName}" used as extra auto-attack (discardAfterUse) — moved to discard pile`);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
   // Apply post-attack effects scheduled by accepted haven-join offers
