@@ -352,7 +352,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
-    || ea.action.type === 'faction-influence-roll'
+    || ea.action.type === 'faction-influence-roll' || ea.action.type === 'under-deeps-roll'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
     || ea.action.type === 'finished' || ea.action.type === 'untap'
     || ea.action.type === 'opponent-influence-defend'));
@@ -381,6 +381,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   } else if (passAction.type === 'corruption-check') {
     label = 'Roll';
   } else if (passAction.type === 'faction-influence-roll') {
+    label = 'Roll';
+  } else if (passAction.type === 'under-deeps-roll') {
     label = 'Roll';
   } else if (passAction.type === 'deck-exhaust') {
     label = 'Exhaust';

@@ -6,7 +6,7 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
@@ -2551,6 +2551,17 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
   const activeIndex = getPlayerIndex(state, action.player);
   const player = state.players[activeIndex];
   const company = player.companies[mhState.activeCompanyIndex];
+  const destName = company.destinationSite ? (state.cardPool[company.destinationSite.definitionId as string]?.name ?? '?') : '?';
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: rollTotal >= required
+      ? `Under-deeps movement to ${destName}: ${roll.die1}+${roll.die2}=${rollTotal} (need ${required}) — travels`
+      : `Under-deeps movement to ${destName}: ${roll.die1}+${roll.die2}=${rollTotal} (need ${required}) — stays`,
+  };
 
   if (rollTotal >= required) {
     logDetail(`Under-deeps roll SUCCESS — advancing to set-hazard-limit`);
@@ -2568,6 +2579,7 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
           underDeepsRollRequired: undefined,
         },
       },
+      effects: [rollEffect],
     };
   }
 
@@ -2597,7 +2609,8 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
   };
 
   const withRoll: GameState = { ...state, rng, cheatRollTotal, players: newPlayers };
-  return advanceAfterCompanyMH(withRoll, { ...mhState, underDeepsRollRequired: undefined });
+  const result = advanceAfterCompanyMH(withRoll, { ...mhState, underDeepsRollRequired: undefined });
+  return { ...result, effects: [rollEffect, ...(result.effects ?? [])] };
 }
 
 /**
