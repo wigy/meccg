@@ -198,7 +198,12 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     const effectiveMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
-    const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites, effectiveMaxRegions);
+    const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
+    // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
+    // regular starter/region movement. When already at an under-deeps site, regular movement
+    // does not apply at all.
+    const regularCandidates = currentIsUD ? [] : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false));
+    const reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
     // Deduplicate: a site reachable by both starter and region movement only needs one action
     const seen = new Set<string>();
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);

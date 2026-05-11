@@ -178,8 +178,13 @@ function revealNewSiteActions(
 
   const movementMap = buildMovementMap(state.cardPool);
 
+  // Under-deeps sites cannot be reached by starter or region movement — only under-deeps movement applies.
+  const originIsUD = originDef.keywords?.includes('under-deeps') ?? false;
+  const destIsUD = destDef.keywords?.includes('under-deeps') ?? false;
+  const isUnderDeepsMovement = originIsUD || destIsUD;
+
   // --- Starter movement ---
-  if (isStarterMovementPossible(movementMap, originDef, destDef)) {
+  if (!isUnderDeepsMovement && isStarterMovementPossible(movementMap, originDef, destDef)) {
     logDetail(`Starter movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Starter });
   }
@@ -187,7 +192,7 @@ function revealNewSiteActions(
   // --- Region movement ---
   const originRegion = movementMap.siteRegion.get(originDef.name);
   const destRegion = movementMap.siteRegion.get(destDef.name);
-  if (originRegion && destRegion) {
+  if (!isUnderDeepsMovement && originRegion && destRegion) {
     // Build region name → definition ID map for converting path names to IDs
     const regionNameToId = buildRegionNameMap(state);
     const paths = findRegionPaths(movementMap, originRegion, destRegion, mhState.maxRegionDistance);
