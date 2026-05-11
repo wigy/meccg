@@ -1513,7 +1513,7 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   const originalStrikes = combat.strikesTotal;
   const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
   const halveEffect = cardDef && 'effects' in cardDef && cardDef.effects
-    ? (cardDef.effects as readonly import('../types/effects.js').CardEffect[]).find(
+    ? cardDef.effects.find(
         (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
       )
     : undefined;
