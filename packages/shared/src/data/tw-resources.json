@@ -1395,7 +1395,26 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "modify-attack-from-hand",
+        "player": "defender",
+        "prowessModifier": -3,
+        "bodyModifier": -3,
+        "when": {
+          "$and": [
+            { "$not": { "enemy.race": "nazgul" } },
+            { "enemy.prowess": { "$gte": 13 } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",

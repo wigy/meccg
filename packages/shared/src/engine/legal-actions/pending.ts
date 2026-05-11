@@ -1060,6 +1060,10 @@ function applyOneConstraint(
       // Enforced directly by `reducer-untap.ts` `performUntap` —
       // no legal-action filtering needed here.
       return base;
+    case 'attack-card-played':
+      // Pure marker for the duplication-limit mechanism; consulted directly
+      // by `modifyAttackFromHandActions` — no broad legal-action filtering.
+      return base;
   }
 }
 

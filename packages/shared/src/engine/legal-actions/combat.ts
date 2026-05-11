@@ -1410,16 +1410,45 @@ function modifyAttackFromHandActions(
       : combat.defendingPlayerId;
     if (playerId !== expectedPlayerId) continue;
 
-    if (effect.when) {
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames };
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
+    // Attack-scoped duplication check.
+    const attackDupLimit = (cardDef.effects).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (attackDupLimit) {
+      const prior = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === handCard.definitionId && c.scope.kind === 'attack',
+      ).length;
+      if (prior >= attackDupLimit.max) {
+        logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        continue;
       }
+    }
+
+    if (effect.when) {
+      // Build enemy context. Use the creature's base (printed) prowess for
+      // "normal prowess" conditions. For creature attacks look it up from the
+      // card pool; for automatic attacks use strikeProwess (it IS the printed
+      // prowess, since no card definition exists to differ from).
+      let baseProwess = combat.strikeProwess;
+      if (combat.attackSource.type === 'creature') {
+        const atkPlayerIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+        if (atkPlayerIdx >= 0) {
+          const creatureCard = state.players[atkPlayerIdx].cardsInPlay.find(
+            c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
+          );
+          if (creatureCard) {
+            const cDef = state.cardPool[creatureCard.definitionId as string];
+            if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+          }
+        }
+      }
+      const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
+      if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) {
         attackCtx['keying'] = combat.attackKeying;
       }
-      ctx['attack'] = attackCtx;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: when condition not met`);
         continue;
