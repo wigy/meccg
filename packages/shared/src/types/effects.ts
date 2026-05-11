@@ -707,9 +707,29 @@ export interface CombatCancelAttackByTapEffect extends EffectBase {
  * "Each character in the company faces one strike". The card's raw
  * `strikes` value is ignored when this effect is present. Mutually
  * exclusive with `combat-multi-attack`.
+ *
+ * When `excludeAvatars` is true, avatar characters (Wizards and Ringwraiths,
+ * whose `mind === null`) are excluded: `strikesTotal = non-avatar characters`.
+ * Card text is "Each non-Wizard/non-Ringwraith character in the company faces
+ * one strike" (e.g. Neeker-breekers).
  */
 export interface CombatOneStrikePerCharacterEffect extends EffectBase {
   readonly type: 'combat-one-strike-per-character';
+  /** When true, avatar characters (mind === null) are excluded from strike assignment. */
+  readonly excludeAvatars?: boolean;
+}
+
+/**
+ * Each defending character's prowess for this attack is replaced by their
+ * mind attribute value instead of their normal combat prowess. Used by
+ * Neeker-breekers: "His prowess against such a strike is equal to his mind
+ * attribute." Avatar characters (mind === null) are never assigned strikes
+ * when this effect is paired with `combat-one-strike-per-character:
+ * excludeAvatars`. Status modifiers (tapped, wounded) and support bonuses
+ * still apply on top of the mind base.
+ */
+export interface CombatDefenderProwessFromMindEffect extends EffectBase {
+  readonly type: 'combat-defender-prowess-from-mind';
 }
 
 /**
@@ -1966,6 +1986,7 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatOneStrikePerCharacterEffect
+  | CombatDefenderProwessFromMindEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect

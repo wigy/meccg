@@ -393,7 +393,11 @@ function resolveStrikeCore(
 
   // Compute effective prowess
   let prowess: number;
-  if (allyMatch) {
+  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+    // Neeker-breekers: use the character's mind attribute as base prowess
+    prowess = charDef.mind;
+    logDetail(`Defender prowess from mind: ${charDef.mind} (${charDef.name ?? targetDefId as string})`);
+  } else if (allyMatch) {
     prowess = isAllyCard(charDef) ? charDef.prowess : 0;
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);

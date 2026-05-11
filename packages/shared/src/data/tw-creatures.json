@@ -728,7 +728,18 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animals",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["border", "wilderness", "shadow", "dark"],
+        "siteTypes": ["ruins-and-lairs"]
+      }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character", "excludeAvatars": true },
+      { "type": "combat-defender-prowess-from-mind" },
+      { "type": "combat-detainment" }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-creature",
