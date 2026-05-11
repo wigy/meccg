@@ -1757,16 +1757,33 @@ function handleModifyAttackFromHand(state: GameState, action: GameAction, combat
   const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
   logDetail(`Modify-attack-from-hand: ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
 
-  return {
-    state: {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: {
-        ...combat,
-        strikeProwess: newStrikeProwess,
-        creatureBody: newCreatureBody,
-      },
+  let newState: GameState = {
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
+    combat: {
+      ...combat,
+      strikeProwess: newStrikeProwess,
+      creatureBody: newCreatureBody,
     },
   };
+
+  // If the card has a duplication-limit scoped to "attack", record a marker
+  // constraint so the legal-action generator can suppress re-plays.
+  const attackDupLimit = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.find(
+    (e): e is import('../types/effects.js').DuplicationLimitEffect =>
+      e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
+  );
+  if (attackDupLimit) {
+    newState = addConstraint(newState, {
+      source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      scope: { kind: 'attack' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'attack-card-played' },
+    });
+    logDetail(`${cardName}: added attack-card-played marker (duplication-limit scope attack)`);
+  }
+
+  return { state: newState };
 }
 
 /**
