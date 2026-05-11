@@ -376,7 +376,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -398,6 +398,7 @@
     "hazardDraws": 4,
     "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (5), The Pûkel-deeps (9), The Under-gates (5), The Under-galleries (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 2 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If Khamûl the Easterling or Adûnaphel is in play as a permanent-event, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",

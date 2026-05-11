@@ -1090,7 +1090,8 @@ export type SiteRuleEffect =
   | HazardLimitSiteRule
   | AllowCreatureByRaceSiteRule
   | CreaturesAlwaysKeyedToSiteSiteRule
-  | AllowItemsWhenTappedSiteRule;
+  | AllowItemsWhenTappedSiteRule
+  | CancelFirstAttackIfInPlaySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1354,6 +1355,25 @@ export interface CreaturesAlwaysKeyedToSiteSiteRule extends EffectBase {
 export interface AllowItemsWhenTappedSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'allow-items-when-tapped';
+}
+
+/**
+ * Cancels the first automatic attack at this site if the referenced card is
+ * currently in any player's cardsInPlay as a permanent event.
+ *
+ * Used by The Under-gates (dm-38): "If Balrog of Moria is in play [as a
+ * permanent-event] ... the first automatic attack is canceled."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "cancel-first-attack-if-in-play",
+ *   "definitionId": "tw-12" }
+ * ```
+ */
+export interface CancelFirstAttackIfInPlaySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'cancel-first-attack-if-in-play';
+  /** Definition ID of the card that, when in play, causes the first attack to be canceled. */
+  readonly definitionId: CardDefinitionId;
 }
 
 /**
@@ -1812,6 +1832,15 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
    * Spawn augmentations.
    */
   readonly onDefeat?: 'remove-from-play';
+  /**
+   * When true, after this auto-attack resolves (regardless of win or loss),
+   * the permanent event card is moved from the hazard player's cardsInPlay
+   * to their discard pile. No kill MPs are awarded. Used by Nazgûl
+   * permanent-events (Witch-king, Khamûl, Adûnaphel) that are used as
+   * additional auto-attacks at Under-deeps sites — the card text says
+   * "discard after use — ignore result of defeat".
+   */
+  readonly discardAfterUse?: boolean;
 }
 
 /**
