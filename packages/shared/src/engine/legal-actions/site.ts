@@ -606,6 +606,13 @@ function playResourcesActions(
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   logDetail(`Site ${siteName}: playable resource types: ${[...playableTypes].join(', ') || 'none'}, tapped: ${siteIsTapped}`);
 
+  // Check for major-item-unlocked constraint (Hermit's Hill dm-32 special ability)
+  const majorItemUnlocked = state.activeConstraints.some(
+    c => c.kind.type === 'major-item-unlocked'
+      && c.target.kind === 'company'
+      && c.target.companyId === company.id,
+  );
+
   // Find untapped characters in this company for item attachment
   const untappedCharacters = company.characters
     .map(cId => player.characters[cId as string])
@@ -955,7 +962,10 @@ function playResourcesActions(
         // Either form satisfies; if both are absent the restriction is
         // empty and trivially fails (a malformed effect).
         const allowed = matchesSiteList || matchesFilter;
-        if (!allowed) {
+        // major-item-unlocked also allows hoard items (items with keyword "hoard"
+        // that have an item-play-site restriction requiring a hoard site)
+        const isHoardItem = (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') === true;
+        if (!allowed && !(majorItemUnlocked && isHoardItem)) {
           const reason = siteRestriction.sites
             ? `only playable at ${siteRestriction.sites.join(', ')}`
             : `${itemDef.name}: site does not satisfy play restriction`;
@@ -968,13 +978,18 @@ function playResourcesActions(
           continue;
         }
       } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus) {
-        logDetail(`Item ${itemDef.name} (${itemDef.subtype}): not playable at ${siteName}`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`,
-        });
-        continue;
+        // major-item-unlocked allows major items (subtype "major") at the site
+        if (majorItemUnlocked && itemDef.subtype === 'major') {
+          logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);
+        } else {
+          logDetail(`Item ${itemDef.name} (${itemDef.subtype}): not playable at ${siteName}`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`,
+          });
+          continue;
+        }
       }
 
       const siteEffects = siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined;
@@ -1351,15 +1366,16 @@ function playResourcesActions(
 
 /**
  * Emit `activate-granted-action` actions for `grant-action` effects declared
- * directly on the company's current site. Currently handles only the
- * `"sage-and-scout-in-company"` cost, which requires tapping one untapped
- * sage AND one untapped scout in the company. The Worthy Hills (as-142) is
- * the only card that uses this pattern: tapping a sage + scout to untap the
- * site itself.
+ * directly on the company's current site. Handles two patterns:
  *
- * Only offered when the site is tapped (untapping an already-untapped site
- * is a no-op that the engine does not gate on, but the ability is only
- * meaningful after the site has been tapped).
+ * - `"sage-and-scout-in-company"` cost (The Worthy Hills as-142): taps one
+ *   untapped sage AND one untapped scout to untap a tapped site. Only offered
+ *   when the site is already tapped.
+ *
+ * - `"discard-minors-for-major"` action (Hermit's Hill dm-32): discards two
+ *   minor items from the company to unlock major/hoard item playability for
+ *   the rest of the company's site phase. Only offered when the site is
+ *   untapped and the company holds at least two minor items.
  */
 function sitePhaseGrantActions(
   state: GameState,
@@ -1368,7 +1384,6 @@ function sitePhaseGrantActions(
 ): EvaluatedAction[] {
   const siteInstanceId = company.currentSite?.instanceId ?? null;
   if (!siteInstanceId) return [];
-  if (company.currentSite?.status !== CardStatus.Tapped) return [];
 
   const siteDefId = resolveInstanceId(state, siteInstanceId);
   if (!siteDefId) return [];
@@ -1376,55 +1391,108 @@ function sitePhaseGrantActions(
   if (!siteDef || !('effects' in siteDef)) return [];
 
   const siteEffects = (siteDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [];
-  const grantEffects = siteEffects.filter(
-    (e): e is import('../../types/effects.js').GrantActionEffect =>
-      e.type === 'grant-action' && e.cost.tap === 'sage-and-scout-in-company',
+  const allGrantEffects = siteEffects.filter(
+    (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
   );
-  if (grantEffects.length === 0) return [];
+  if (allGrantEffects.length === 0) return [];
 
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
-
-  const sages = company.characters.filter(cId => {
-    const char = player.characters[cId as string];
-    if (!char || char.status !== CardStatus.Untapped) return false;
-    const def = state.cardPool[char.definitionId as string];
-    return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('sage') === true;
-  });
-
-  const scouts = company.characters.filter(cId => {
-    const char = player.characters[cId as string];
-    if (!char || char.status !== CardStatus.Untapped) return false;
-    const def = state.cardPool[char.definitionId as string];
-    return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('scout') === true;
-  });
-
+  const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   const actions: EvaluatedAction[] = [];
-  for (const effect of grantEffects) {
-    if (sages.length === 0 || scouts.length === 0) {
-      logDetail(`Site grant-action "${effect.action}": no eligible sage+scout pair in company`);
+
+  for (const effect of allGrantEffects) {
+    // sage-and-scout-in-company: site must be tapped (ability untaps it)
+    if (effect.cost.tap === 'sage-and-scout-in-company') {
+      if (!siteIsTapped) continue;
+
+      const sages = company.characters.filter(cId => {
+        const char = player.characters[cId as string];
+        if (!char || char.status !== CardStatus.Untapped) return false;
+        const def = state.cardPool[char.definitionId as string];
+        return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('sage') === true;
+      });
+      const scouts = company.characters.filter(cId => {
+        const char = player.characters[cId as string];
+        if (!char || char.status !== CardStatus.Untapped) return false;
+        const def = state.cardPool[char.definitionId as string];
+        return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('scout') === true;
+      });
+
+      if (sages.length === 0 || scouts.length === 0) {
+        logDetail(`Site grant-action "${effect.action}": no eligible sage+scout pair in company`);
+        continue;
+      }
+      for (const sageId of sages) {
+        for (const scoutId of scouts) {
+          if ((sageId as string) === (scoutId as string)) continue;
+          logDetail(`Site grant-action "${effect.action}": sage ${sageId as string} + scout ${scoutId as string} eligible`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: sageId,
+              secondCharacterId: scoutId,
+              sourceCardId: siteInstanceId,
+              sourceCardDefinitionId: siteDefId,
+              actionId: effect.action,
+              rollThreshold: 0,
+            },
+            viable: true,
+          });
+        }
+      }
       continue;
     }
-    for (const sageId of sages) {
-      for (const scoutId of scouts) {
-        if ((sageId as string) === (scoutId as string)) continue; // can't use same character for both
-        logDetail(`Site grant-action "${effect.action}": sage ${sageId as string} + scout ${scoutId as string} eligible`);
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: sageId,
-            secondCharacterId: scoutId,
-            sourceCardId: siteInstanceId,
-            sourceCardDefinitionId: siteDefId,
-            actionId: effect.action,
-            rollThreshold: 0,
-          },
-          viable: true,
-        });
+
+    // discard-minors-for-major: site must be untapped; company needs ≥2 minor items
+    if (effect.action === 'discard-minors-for-major') {
+      if (siteIsTapped) continue;
+
+      // Collect all minor items across the company's characters
+      const minorItems: { itemId: import('../../index.js').CardInstanceId; bearerId: import('../../index.js').CardInstanceId }[] = [];
+      for (const charId of company.characters) {
+        const char = player.characters[charId as string];
+        if (!char) continue;
+        for (const item of char.items) {
+          const itemDef = state.cardPool[item.definitionId as string];
+          if (itemDef && 'subtype' in itemDef && (itemDef as { subtype: string }).subtype === 'minor') {
+            minorItems.push({ itemId: item.instanceId, bearerId: charId });
+          }
+        }
       }
+
+      if (minorItems.length < 2) {
+        logDetail(`Site grant-action "${effect.action}": fewer than 2 minor items in company`);
+        continue;
+      }
+
+      // Emit one action per unordered pair of minor items
+      for (let i = 0; i < minorItems.length; i++) {
+        for (let j = i + 1; j < minorItems.length; j++) {
+          const first = minorItems[i];
+          const second = minorItems[j];
+          logDetail(`Site grant-action "${effect.action}": offering discard of items ${first.itemId as string} + ${second.itemId as string}`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: first.bearerId,
+              sourceCardId: siteInstanceId,
+              sourceCardDefinitionId: siteDefId,
+              actionId: effect.action,
+              rollThreshold: 0,
+              targetCardId: first.itemId,
+              secondTargetCardId: second.itemId,
+            },
+            viable: true,
+          });
+        }
+      }
+      continue;
     }
   }
+
   return actions;
 }
 

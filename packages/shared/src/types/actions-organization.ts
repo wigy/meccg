@@ -303,6 +303,12 @@ export interface ActivateGrantedAction {
    */
   readonly secondCharacterId?: CardInstanceId;
   /**
+   * Second target card for actions that require two item targets
+   * (e.g. Hermit's Hill "discard-minors-for-major": `targetCardId`
+   * carries the first minor item, this field carries the second).
+   */
+  readonly secondTargetCardId?: CardInstanceId;
+  /**
    * METD §7 / rule 10.08 — for `remove-self-on-roll` from a corruption
    * card: when true, the character does NOT tap, the roll suffers -3,
    * and a per-character per-card lock blocks any further removal
