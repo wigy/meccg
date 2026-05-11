@@ -8,7 +8,8 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
+import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -393,7 +394,11 @@ function resolveStrikeCore(
 
   // Compute effective prowess
   let prowess: number;
-  if (allyMatch) {
+  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+    // Neeker-breekers: use the character's mind attribute as base prowess
+    prowess = charDef.mind;
+    logDetail(`Defender prowess from mind: ${charDef.mind} (${charDef.name ?? targetDefId as string})`);
+  } else if (allyMatch) {
     prowess = isAllyCard(charDef) ? charDef.prowess : 0;
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
@@ -1051,6 +1056,61 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
     }
 
+    // Check for on-event: character-body-check-equals-body on the attack source.
+    // Example: Giant Spiders discards non-Wizard/non-Ringwraith characters when
+    // the body check roll exactly equals (not exceeds) the character's body.
+    if (effectiveRoll === body && charData && !allyMatch) {
+      const sourceCard = getAttackSourceCard(stateWithRoll, combat);
+      const equalsBodyEvent = (sourceCard?.effects ?? []).find(
+        (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-body-check-equals-body',
+      );
+      if (equalsBodyEvent) {
+        const targetCharDef = stateWithRoll.cardPool[targetDefId as string];
+        const targetRace = isCharacterCard(targetCharDef) ? targetCharDef.race : undefined;
+        const condContext: Record<string, unknown> = { target: { race: targetRace } };
+        const conditionMet = !equalsBodyEvent.when || matchesCondition(equalsBodyEvent.when, condContext);
+        if (conditionMet && equalsBodyEvent.apply.type === 'discard-character') {
+          logDetail(`Body check equals body — character discarded to discard pile (not eliminated)`);
+          const newAssignments2 = combat.strikeAssignments.map((a, i) => {
+            if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+            if (!a.resolved && a.characterId === strike.characterId) {
+              logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
+              return { ...a, resolved: true, result: 'success' as const };
+            }
+            return a;
+          });
+          const newPlayers3 = clonePlayers(stateWithRoll);
+          const newPlayerData2 = { ...defPlayer };
+          const combatWithDiscard = { ...combat, strikeAssignments: newAssignments2 };
+          if (company) {
+            newPlayerData2.companies = newPlayerData2.companies.map(c =>
+              c.id === combat.companyId
+                ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+                : c,
+            );
+          }
+          const discardedCharDefId = resolveInstanceId(state, strike.characterId);
+          newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
+          for (const ally of charData.allies) {
+            logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+          }
+          for (const item of charData.items) {
+            logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }];
+          }
+          const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
+          newPlayerData2.characters = remainingCharsDisc;
+          newPlayers3[defPlayerIndex] = newPlayerData2;
+          const next4 = nextStrikePhase(combatWithDiscard);
+          if (next4) {
+            return { state: { ...stateWithRoll, players: newPlayers3, combat: { ...combatWithDiscard, ...next4 } }, effects };
+          }
+          return finalizeCombat({ ...stateWithRoll, players: newPlayers3, combat: combatWithDiscard }, effects);
+        }
+      }
+    }
+
     logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
     // Advance to next strike or finalize
     const next3 = nextStrikePhase(combat);
@@ -1511,8 +1571,23 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   if (cardIndex < 0) return { state, error: 'Card not in hand' };
 
   const originalStrikes = combat.strikesTotal;
-  const newStrikes = Math.ceil(originalStrikes / 2);
-  logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
+  const halveEffect = cardDef && 'effects' in cardDef && cardDef.effects
+    ? cardDef.effects.find(
+        (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
+      )
+    : undefined;
+  const op = halveEffect?.op ?? 'halve';
+  let newStrikes: number;
+  if (op === 'subtract') {
+    const subtractValue = halveEffect?.value ?? 2;
+    const min = halveEffect?.min ?? 1;
+    newStrikes = Math.max(min, originalStrikes - subtractValue);
+    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  } else {
+    newStrikes = Math.ceil(originalStrikes / 2);
+    logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  }
 
   const newHand = [...defPlayer.hand];
   const [discardedCard] = newHand.splice(cardIndex, 1);
@@ -1742,16 +1817,33 @@ function handleModifyAttackFromHand(state: GameState, action: GameAction, combat
   const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
   logDetail(`Modify-attack-from-hand: ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
 
-  return {
-    state: {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: {
-        ...combat,
-        strikeProwess: newStrikeProwess,
-        creatureBody: newCreatureBody,
-      },
+  let newState: GameState = {
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
+    combat: {
+      ...combat,
+      strikeProwess: newStrikeProwess,
+      creatureBody: newCreatureBody,
     },
   };
+
+  // If the card has a duplication-limit scoped to "attack", record a marker
+  // constraint so the legal-action generator can suppress re-plays.
+  const attackDupLimit = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.find(
+    (e): e is import('../types/effects.js').DuplicationLimitEffect =>
+      e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
+  );
+  if (attackDupLimit) {
+    newState = addConstraint(newState, {
+      source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      scope: { kind: 'attack' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'attack-card-played' },
+    });
+    logDetail(`${cardName}: added attack-card-played marker (duplication-limit scope attack)`);
+  }
+
+  return { state: newState };
 }
 
 /**
@@ -2021,6 +2113,53 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Check for on-event: company-member-wounded effects on characters' attached
+  // hazard events. When any characters were wounded, scan every character in
+  // the defending company for attached hazards carrying this event; for each
+  // match, enqueue a corruption check on the bearer (the character bearing the
+  // hazard, not necessarily the wounded character). Used by Despair of the Heart.
+  if (
+    woundedCharIds.length > 0 &&
+    (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
+  ) {
+    const defPlayerIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = stateAfterCombat.players[defPlayerIdx];
+    const company = defPlayer?.companies.find(c => c.id === combat.companyId);
+    if (company) {
+      const companyId = company.id;
+      const scope = state.phaseState.phase === Phase.MovementHazard
+        ? ({ kind: 'company-mh-subphase' as const, companyId })
+        : ({ kind: 'company-site-subphase' as const, companyId });
+      for (const bearerInstId of company.characters) {
+        const bearer = defPlayer.characters[bearerInstId as string];
+        if (!bearer) continue;
+        for (const hazard of bearer.hazards) {
+          const hazardDef = stateAfterCombat.cardPool[hazard.definitionId as string] as
+            { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          if (!hazardDef) continue;
+          const companyMemberWoundedEvents = (hazardDef.effects ?? []).filter(
+            (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'company-member-wounded',
+          );
+          for (const evt of companyMemberWoundedEvents) {
+            if (evt.apply.type === 'force-check') {
+              const modifier = evt.apply.modifier ?? 0;
+              const hazardName = hazardDef.name ?? hazard.definitionId as string;
+              logDetail(`Company-member-wounded: ${hazardName} triggers corruption check on bearer ${bearerInstId as string} (modifier ${modifier})`);
+              stateAfterCombat = enqueueCorruptionCheck(stateAfterCombat, {
+                source: hazard.instanceId,
+                actor: combat.defendingPlayerId,
+                scope,
+                characterId: bearerInstId,
+                modifier,
+                reason: hazardName,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Check for on-event: attack-not-defeated effects on the attack source.
   // If the attack was NOT fully defeated and the creature card carries this
   // event, apply its constraint to the defending company.
@@ -2132,6 +2271,46 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };
     }) as unknown as typeof stateAfterCombat.players;
     stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAD };
+  }
+
+  // Handle permanent-event auto-attack onDefeat:'remove-from-play' (e.g. Balrog of Moria TW-12).
+  // When all strikes of a site automatic-attack are defeated and the attack's source
+  // is a permanent-event carrying this flag, remove the event from the hazard player's
+  // cardsInPlay and move it to the defending player's killPile to award kill MPs.
+  if (allDefeated && combat.attackSource.type === 'automatic-attack') {
+    const { siteInstanceId, attackIndex } = combat.attackSource;
+    const siteDefId = resolveInstanceId(state, siteInstanceId);
+    const siteDef = siteDefId ? state.cardPool[siteDefId as string] : undefined;
+    if (siteDef && isSiteCard(siteDef)) {
+      const autoAttacks = getActiveAutoAttacks(state, siteDef);
+      const aa = autoAttacks[attackIndex];
+      const sourceInstId = aa?.sourceInstanceId;
+      if (sourceInstId) {
+        const sourceDefId = resolveInstanceId(state, sourceInstId);
+        const sourceDef = sourceDefId ? state.cardPool[sourceDefId as string] : undefined;
+        const effects = (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+        for (const eff of effects) {
+          if (eff.type !== 'permanent-event-auto-attack') continue;
+          const peaEff = eff;
+          if (peaEff.onDefeat !== 'remove-from-play') continue;
+          const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? '?';
+          const hazardIdx = stateAfterCombat.players.findIndex(p => p.id === combat.attackingPlayerId);
+          const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+          const sourceCard = stateAfterCombat.players[hazardIdx]?.cardsInPlay.find(c => c.instanceId === sourceInstId);
+          if (sourceCard) {
+            const cardRef = { instanceId: sourceCard.instanceId, definitionId: sourceCard.definitionId };
+            const updatedPlayersOD = stateAfterCombat.players.map((p, idx) => {
+              if (idx === hazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === defIdx) return { ...p, killPile: [...p.killPile, cardRef] };
+              return p;
+            }) as unknown as typeof stateAfterCombat.players;
+            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersOD };
+            logDetail(`Permanent-event "${sourceName}" defeated — removed from play, kill MPs awarded to defender`);
+          }
+          break;
+        }
+      }
+    }
   }
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);

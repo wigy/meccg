@@ -461,7 +461,7 @@ function handleSiteAutomaticAttacks(
           attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
           strikesTotal: dupStrikesR,
           strikeProwess: dupProwessR,
-          creatureBody: null,
+          creatureBody: aa.body ?? null,
           creatureRace: dupRace,
           strikeAssignments: [],
           currentStrikeIndex: 0,
@@ -469,6 +469,7 @@ function handleSiteAutomaticAttacks(
           assignmentPhase: 'defender',
           bodyCheckTarget: null,
           detainment: dupDetainmentR,
+          ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
         };
         return {
           state: {
@@ -509,7 +510,7 @@ function handleSiteAutomaticAttacks(
         attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
         strikesTotal: dupStrikes,
         strikeProwess: dupProwess,
-        creatureBody: null,
+        creatureBody: aa.body ?? null,
         creatureRace: creatureRace2,
         strikeAssignments: [],
         currentStrikeIndex: 0,
@@ -517,6 +518,7 @@ function handleSiteAutomaticAttacks(
         assignmentPhase: 'defender',
         bodyCheckTarget: null,
         detainment: dupDetainment,
+        ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
       };
       return {
         state: {
@@ -570,6 +572,7 @@ function handleSiteAutomaticAttacks(
 
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 
+  const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
   const combat: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: resolvedAttackIndex },
     companyId: company.id,
@@ -577,12 +580,12 @@ function handleSiteAutomaticAttacks(
     attackingPlayerId: hazardPlayerId,
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
-    creatureBody: null,
+    creatureBody: aa.body ?? null,
     creatureRace,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
-    assignmentPhase: 'defender',
+    assignmentPhase: (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
     detainment: isDetainmentAttack({
       attackEffects: siteDef.effects,
@@ -591,6 +594,7 @@ function handleSiteAutomaticAttacks(
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
+    ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
   };
 
   return {

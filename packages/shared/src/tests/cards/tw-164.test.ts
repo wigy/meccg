@@ -8,7 +8,7 @@
  * "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
  *
  * This tests both effects:
- * 1. check-modifier: -1 to corruption checks (via corruptionModifier base stat)
+ * 1. check-modifier: -1 to corruption checks (check-modifier effect)
  * 2. check-modifier: -1 to influence checks against factions
  */
 
@@ -63,7 +63,7 @@ describe('Haldir (tw-164)', () => {
 
     expect(ccActions.length).toBe(1);
     expect(ccActions[0].characterId).toBe(haldirId);
-    // corruptionModifier should be -1 (Haldir's penalty)
+    // check-modifier is -1 (Haldir's penalty)
     expect(ccActions[0].corruptionModifier).toBe(-1);
     // need = CP + 1 - modifier. With modifier -1, need = CP + 2.
     // This makes it harder for Haldir to pass corruption checks.

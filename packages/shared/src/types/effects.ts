@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, RegionType, SiteType } from './common.js';
 
 // ---- Value Expressions ----
 
@@ -308,9 +308,12 @@ export interface ActionCost {
    * The entity to tap. "self" taps the source card itself (the bearer character
    * or the attached item/ally); "bearer" taps the character carrying the source;
    * "character" taps the explicitly targeted character; "sage-in-company" taps an
-   * untapped sage in the bearer's company.
+   * untapped sage in the bearer's company; "sage-and-scout-in-company" taps one
+   * untapped sage AND one untapped scout in the bearer's company (The Worthy Hills
+   * as-142 special rule — the action carries sage as `characterId` and scout as
+   * `secondCharacterId`).
    */
-  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company';
+  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use.
@@ -704,9 +707,29 @@ export interface CombatCancelAttackByTapEffect extends EffectBase {
  * "Each character in the company faces one strike". The card's raw
  * `strikes` value is ignored when this effect is present. Mutually
  * exclusive with `combat-multi-attack`.
+ *
+ * When `excludeAvatars` is true, avatar characters (Wizards and Ringwraiths,
+ * whose `mind === null`) are excluded: `strikesTotal = non-avatar characters`.
+ * Card text is "Each non-Wizard/non-Ringwraith character in the company faces
+ * one strike" (e.g. Neeker-breekers).
  */
 export interface CombatOneStrikePerCharacterEffect extends EffectBase {
   readonly type: 'combat-one-strike-per-character';
+  /** When true, avatar characters (mind === null) are excluded from strike assignment. */
+  readonly excludeAvatars?: boolean;
+}
+
+/**
+ * Each defending character's prowess for this attack is replaced by their
+ * mind attribute value instead of their normal combat prowess. Used by
+ * Neeker-breekers: "His prowess against such a strike is equal to his mind
+ * attribute." Avatar characters (mind === null) are never assigned strikes
+ * when this effect is paired with `combat-one-strike-per-character:
+ * excludeAvatars`. Status modifiers (tapped, wounded) and support bonuses
+ * still apply on top of the mind base.
+ */
+export interface CombatDefenderProwessFromMindEffect extends EffectBase {
+  readonly type: 'combat-defender-prowess-from-mind';
 }
 
 /**
@@ -1065,7 +1088,9 @@ export type SiteRuleEffect =
   | DynamicAutoAttackSiteRule
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
-  | AllowCreatureByRaceSiteRule;
+  | AllowCreatureByRaceSiteRule
+  | CreaturesAlwaysKeyedToSiteSiteRule
+  | AllowItemsWhenTappedSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1297,6 +1322,41 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
 }
 
 /**
+ * Declares that any hazard creature that is keyable to this site (via site
+ * type or site name in its `keyedTo` entries) may be played regardless of
+ * any active `no-creature-hazards-on-company` constraint. The creature must
+ * still pass normal keying; only external restrictions are bypassed.
+ *
+ * Example — Mount Doom (tw-414): "hazard creatures may always be played
+ * keyed to the site regardless of any other cards played."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+ * ```
+ */
+export interface CreaturesAlwaysKeyedToSiteSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'creatures-always-keyed-to-site';
+}
+
+/**
+ * Items may be played at this site even when its status is Tapped.
+ * The normal tapped-site gate in `legal-actions/site.ts` is bypassed for
+ * item plays when this rule is present.
+ *
+ * Example — Tharbad (td-180): "Items may be played here even if the site
+ * is tapped."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-items-when-tapped" }
+ * ```
+ */
+export interface AllowItemsWhenTappedSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-items-when-tapped';
+}
+
+/**
  * Fetches a card from one or more source piles into the play deck and shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
@@ -1366,15 +1426,22 @@ export interface CancelInfluenceEffect extends EffectBase {
 }
 
 /**
- * Halves the number of strikes in the current attack (rounded up).
- * Played from hand as a short event during combat before strikes are
- * assigned; the card is discarded after use.
+ * Modifies the number of strikes in the current attack. Played from hand as
+ * a short event during combat before strikes are assigned; the card is
+ * discarded after use.
  *
- * Example: Dark Quarrels (alternative mode) — if Gates of Morning is
- * in play, halve the strikes of any attack.
+ * Two modes (selected by `op`):
+ * - `"halve"` (default) — `Math.ceil(strikes / 2)` (Dark Quarrels, Orc Quarrels).
+ * - `"subtract"` — `Math.max(min, strikes - value)` (Not at Home: subtract 2, min 1).
  */
 export interface HalveStrikesEffect extends EffectBase {
   readonly type: 'halve-strikes';
+  /** Operation mode. Default 'halve'. */
+  readonly op?: 'halve' | 'subtract';
+  /** Amount to subtract when op is 'subtract'. Default 2. */
+  readonly value?: number;
+  /** Minimum strikes after modification (subtract mode). Default 1. */
+  readonly min?: number;
 }
 
 /**
@@ -1715,6 +1782,39 @@ export interface DragonAtHomeEffect extends EffectBase {
 }
 
 /**
+ * While this hazard permanent event is in play, the listed sites each gain
+ * an additional automatic-attack with the given stats. Used by Spawn-type
+ * events (e.g. Balrog of Moria, Monstrosity of Diverse Shape) that augment
+ * specific Under-deeps sites regardless of any Dragon manifestation chain.
+ *
+ * When `onDefeat` is `'remove-from-play'`: defeating this augmented attack
+ * removes the permanent-event card from play (it moves to the defeating
+ * player's kill pile, awarding kill MPs). Used by Balrog of Moria TW-12.
+ * Absent for ordinary Spawn augmentations (the event stays in play).
+ */
+export interface PermanentEventAutoAttackEffect extends EffectBase {
+  readonly type: 'permanent-event-auto-attack';
+  /** Site definition IDs whose auto-attack list is augmented while this event is in play. */
+  readonly siteIds: readonly CardDefinitionId[];
+  /** The attack stats contributed to those sites. */
+  readonly attack: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    /** Absent means no body check (e.g. Balrog of Moria "18/-"). */
+    readonly body?: number;
+    readonly combatRules?: readonly string[];
+  };
+  /**
+   * When `'remove-from-play'`, defeating this auto-attack removes the
+   * permanent event from play — the card moves to the defeating player's
+   * kill pile and its kill MPs are awarded to them. Absent for ordinary
+   * Spawn augmentations.
+   */
+  readonly onDefeat?: 'remove-from-play';
+}
+
+/**
  * Triggers the "call the council" endgame transition — the card-based
  * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
  * on the caller, advances the turn, and marks who gets the final last
@@ -1919,6 +2019,7 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatOneStrikePerCharacterEffect
+  | CombatDefenderProwessFromMindEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
@@ -1950,4 +2051,5 @@ export type CardEffect =
   | ReduceAttacksToOneEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
-  | CompanyCombatBoostEffect;
+  | CompanyCombatBoostEffect
+  | PermanentEventAutoAttackEffect;

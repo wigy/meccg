@@ -191,14 +191,24 @@
         "requires": "site-path",
         "condition": {
           "$or": [
-            { "destinationSiteType": "ruins-and-lairs" },
+            {
+              "destinationSiteType": "ruins-and-lairs"
+            },
             {
               "$and": [
-                { "inPlay": { "$includes": "Doors of Night" } },
+                {
+                  "inPlay": {
+                    "$includes": "Doors of Night"
+                  }
+                },
                 {
                   "$or": [
-                    { "destinationSiteType": "ruins-and-lairs" },
-                    { "destinationRegionType": "wilderness" }
+                    {
+                      "destinationSiteType": "ruins-and-lairs"
+                    },
+                    {
+                      "destinationRegionType": "wilderness"
+                    }
                   ]
                 }
               ]
@@ -563,7 +573,69 @@
     "eventType": "permanent",
     "keywords": [
       "corruption"
-    ]
+    ],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": {
+                "$ne": "hobbit"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "company-member-wounded",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 5,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-event",
@@ -713,5 +785,34 @@
       }
     ],
     "text": "The prowess of one Dragon attack is modified by +2.Alternatively, it may be played on a Ruins & Lairs [{R}] site that has two Wildernesses [{w}] in its site path (only one Wilderness [{w}] is required if Doors of Night is in play)—one Dragon hazard creature may be played on a company at that site this turn.“… there was neither bush nor tree, and only broken and blackened stumps…” —Hob"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-12",
+    "name": "Balrog of Moria",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BalrogofMoria.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "Spawn"
+    ],
+    "marshallingPoints": 5,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "tw-413",
+          "le-392"
+        ],
+        "attack": {
+          "creatureType": "Balrog",
+          "strikes": 1,
+          "prowess": 18
+        },
+        "onDefeat": "remove-from-play"
+      }
+    ],
+    "text": "Unique. Spawn. The Balrog appears in Moria. The Moria site gains a second automatic-attack of 1 strike with 18 prowess and no body (i.e., 18/-). If this 2nd automatic-attack is defeated, this permanent-event is removed from play (i.e., the Balrog is defeated). If your opponent defeats this 2nd automatic-attack, he receives the marshalling points. Cannot be included in a Balrog’s deck and cannot be played if your opponent is a Balrog player."
   }
 ]

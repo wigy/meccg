@@ -1,0 +1,98 @@
+[
+  {
+    "cardType": "hazard-event",
+    "id": "ba-21",
+    "name": "Monstrosity of Diverse Shape",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MonstrosityofDiverseShape.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": ["Spawn"],
+    "marshallingPoints": 4,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["ba-89", "ba-95"],
+        "attack": {
+          "creatureType": "Spawn",
+          "strikes": 2,
+          "prowess": 15,
+          "body": 9
+        }
+      }
+    ],
+    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-24",
+    "name": "Spawn of Ungoliant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/SpawnofUngoliant.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": ["Spawn"],
+    "marshallingPoints": 4,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["ba-94", "ba-90", "dm-34", "dm-30"],
+        "attack": {
+          "creatureType": "Spawn",
+          "strikes": 3,
+          "prowess": 15,
+          "body": 8
+        }
+      }
+    ],
+    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-27",
+    "name": "Ungoliant's Progeny",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UngoliantsProgeny.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": ["Spawn"],
+    "marshallingPoints": 4,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["ba-104", "ba-96"],
+        "attack": {
+          "creatureType": "Spawn",
+          "strikes": 2,
+          "prowess": 16,
+          "body": 8
+        }
+      }
+    ],
+    "text": "Unique. Spawn. The Wind-deeps and The Rusted-deeps each have an additional automatic-attack: Spawn — 2 strikes with 16/8 prowess/body."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-28",
+    "name": "Ungoliant's Foul Issue",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UngoliantsFoulIssue.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": ["Spawn"],
+    "marshallingPoints": 4,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["ba-83"],
+        "attack": {
+          "creatureType": "Spawn",
+          "strikes": 2,
+          "prowess": 17,
+          "body": 7
+        }
+      }
+    ],
+    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body."
+  }
+]

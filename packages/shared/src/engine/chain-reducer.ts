@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -1418,9 +1418,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Check for one-strike-per-character combat rule (e.g. Wandering Eldar,
   // Watcher in the Water — "Each character in the company faces one strike").
   // When present, the creature's raw strikes value is ignored; total strikes
-  // equals the defending company's character count.
-  const oneStrikePerCharacter = creatureDef.effects?.some(
+  // equals the defending company's character count. When excludeAvatars is
+  // true (e.g. Neeker-breekers), avatars (mind === null) are excluded.
+  const oneStrikePerCharacterEffect = creatureDef.effects?.find(
     e => e.type === 'combat-one-strike-per-character',
+  );
+  const oneStrikePerCharacter = oneStrikePerCharacterEffect !== undefined;
+  const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+  const defenderProwessFromMind = creatureDef.effects?.some(
+    e => e.type === 'combat-defender-prowess-from-mind',
   ) ?? false;
 
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
@@ -1453,8 +1459,18 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   //   3. default                         → strikes = effectiveStrikes
   let totalStrikes: number;
   if (oneStrikePerCharacter) {
-    totalStrikes = company.characters.length;
-    logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
+    if (excludeAvatarStrikes) {
+      const nonAvatarCount = company.characters.filter(charId => {
+        const defId = resolveInstanceId(state, charId);
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        return !isAvatarCharacter(def);
+      }).length;
+      totalStrikes = nonAvatarCount;
+      logDetail(`One strike per non-avatar character: ${nonAvatarCount} non-avatar character(s) → ${totalStrikes} total strikes`);
+    } else {
+      totalStrikes = company.characters.length;
+      logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
+    }
   } else {
     totalStrikes = effectiveStrikes * multiAttackCount;
     if (multiAttackCount > 1) {
@@ -1499,6 +1515,8 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
     cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
+    excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
+    defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   };
 
