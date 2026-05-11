@@ -1181,17 +1181,15 @@ Rules:
   ```
 
 - `dynamic-auto-attack` — when a company enters this site, the opponent
-  may play one hazard creature from hand as the site's automatic-attack.
+  may play one non-unique hazard creature from hand as the site's automatic-attack.
   The `keying` filter lists the site-types and region-types that satisfy
   the creature's keying; a creature is eligible iff at least one of its
   `keyedTo` entries names a matching siteType or regionType. The played
   creature attacks with its own prowess/strikes/body and is discarded
   after combat regardless of outcome (no kill-MP, matching standard
-  auto-attack semantics). The optional `nonUnique: true` flag restricts
-  eligibility to non-unique creatures only (e.g. *The Gem-deeps* and
-  other under-deeps sites). Consumed by `engine/reducer-site.ts` and
+  auto-attack semantics). Consumed by `engine/reducer-site.ts` and
   `engine/legal-actions/site.ts` through the new `play-site-auto-attack`
-  site-phase step. Used by *Framsburg* (td-175) and *The Gem-deeps* (dm-30).
+  site-phase step. Used by *Framsburg* (td-175) and all DM under-deeps sites.
 
   ```json
   { "type": "site-rule", "rule": "dynamic-auto-attack",
@@ -1199,9 +1197,6 @@ Rules:
       "siteTypes": ["ruins-and-lairs", "shadow-hold"],
       "regionTypes": ["wilderness", "shadow"]
     } }
-  { "type": "site-rule", "rule": "dynamic-auto-attack",
-    "keying": { "siteTypes": ["shadow-hold"] },
-    "nonUnique": true }
   ```
 
 - `always-return-to-deck` — overrides the normal site-of-origin disposal

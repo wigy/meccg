@@ -1263,8 +1263,6 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
-  /** When true, only non-unique creatures are eligible (e.g. The Gem-deeps). */
-  readonly nonUnique?: boolean;
 }
 
 /**
