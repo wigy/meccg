@@ -2112,6 +2112,53 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Check for on-event: company-member-wounded effects on characters' attached
+  // hazard events. When any characters were wounded, scan every character in
+  // the defending company for attached hazards carrying this event; for each
+  // match, enqueue a corruption check on the bearer (the character bearing the
+  // hazard, not necessarily the wounded character). Used by Despair of the Heart.
+  if (
+    woundedCharIds.length > 0 &&
+    (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
+  ) {
+    const defPlayerIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = stateAfterCombat.players[defPlayerIdx];
+    const company = defPlayer?.companies.find(c => c.id === combat.companyId);
+    if (company) {
+      const companyId = company.id;
+      const scope = state.phaseState.phase === Phase.MovementHazard
+        ? ({ kind: 'company-mh-subphase' as const, companyId })
+        : ({ kind: 'company-site-subphase' as const, companyId });
+      for (const bearerInstId of company.characters) {
+        const bearer = defPlayer.characters[bearerInstId as string];
+        if (!bearer) continue;
+        for (const hazard of bearer.hazards) {
+          const hazardDef = stateAfterCombat.cardPool[hazard.definitionId as string] as
+            { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          if (!hazardDef) continue;
+          const companyMemberWoundedEvents = (hazardDef.effects ?? []).filter(
+            (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'company-member-wounded',
+          );
+          for (const evt of companyMemberWoundedEvents) {
+            if (evt.apply.type === 'force-check') {
+              const modifier = evt.apply.modifier ?? 0;
+              const hazardName = hazardDef.name ?? hazard.definitionId as string;
+              logDetail(`Company-member-wounded: ${hazardName} triggers corruption check on bearer ${bearerInstId as string} (modifier ${modifier})`);
+              stateAfterCombat = enqueueCorruptionCheck(stateAfterCombat, {
+                source: hazard.instanceId,
+                actor: combat.defendingPlayerId,
+                scope,
+                characterId: bearerInstId,
+                modifier,
+                reason: hazardName,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Check for on-event: attack-not-defeated effects on the attack source.
   // If the attack was NOT fully defeated and the creature card carries this
   // event, apply its constraint to the defending company.
