@@ -10,7 +10,7 @@
  * modified by +4. -2 marshalling points if eliminated."
  *
  * This tests all three effects:
- * 1. check-modifier: +4 to corruption checks (via corruptionModifier base stat)
+ * 1. check-modifier: +4 to corruption checks (check-modifier effect)
  * 2. play-restriction: home-site-only (cannot play at havens, only at Bag End)
  * 3. mp-modifier: -2 marshalling points when in eliminated pile
  */
@@ -74,7 +74,7 @@ describe('Bilbo (tw-131)', () => {
 
     expect(ccActions.length).toBe(1);
     expect(ccActions[0].characterId).toBe(bilboId);
-    // corruptionModifier is +4 (Bilbo's bonus)
+    // check-modifier is +4 (Bilbo's bonus)
     expect(ccActions[0].corruptionModifier).toBe(4);
     // need = CP + 1 - modifier. With modifier +4, need = CP - 3.
     // This makes it much easier for Bilbo to pass corruption checks.

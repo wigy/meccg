@@ -17,7 +17,6 @@
     "directInfluence": 1,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Moria",
     "keywords": [
       "Leader"
@@ -65,7 +64,6 @@
     "directInfluence": 0,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Moria",
     "keywords": [
       "Leader"

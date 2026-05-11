@@ -15,7 +15,7 @@
  * | # | Feature                                 | Status      | Notes                                              |
  * |---|-----------------------------------------|-------------|----------------------------------------------------|
  * | 1 | +1 prowess vs Orcs in combat            | IMPLEMENTED | stat-modifier, reason=combat, enemy.race=orc       |
- * | 2 | -1 to corruption checks                 | IMPLEMENTED | corruptionModifier field; effect is documentation  |
+ * | 2 | -1 to corruption checks                 | IMPLEMENTED | check-modifier effect  |
  * | 3 | -1 to influence checks against factions | IMPLEMENTED | check-modifier influence; applied in faction check |
  *
  * Playable: YES
@@ -145,7 +145,7 @@ describe('Dori (tw-141)', () => {
 
     expect(ccActions.length).toBe(1);
     expect(ccActions[0].characterId).toBe(doriId);
-    // corruptionModifier -1 makes it harder (need increases by 1)
+    // check-modifier -1 makes it harder (need increases by 1)
     expect(ccActions[0].corruptionModifier).toBe(-1);
     expect(ccActions[0].need).toBe(ccActions[0].corruptionPoints + 1 - (-1));
   });

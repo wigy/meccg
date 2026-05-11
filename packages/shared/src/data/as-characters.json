@@ -17,7 +17,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Dunnish Clan-hold",
     "effects": [
       {
@@ -51,7 +50,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Variag Camp",
     "effects": [
       {
@@ -85,7 +83,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "effects": [],
     "text": "Unique. Manifestation of \"William\". May not be included with a starting company. May be played on the same turn Bûrat and/or Tûma is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Wûluag to untap Bûrat or Tûma if at the same site. If Bûrat and/or Tûma is in his company, Wûluag's mind is reduced by one.",
@@ -112,7 +109,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "discardBodyCheck": [
       8
@@ -136,7 +132,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "discardBodyCheck": [
       8
