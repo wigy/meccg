@@ -39,7 +39,8 @@ import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard, CorruptionCheckAction, InfluenceAttemptAction } from '../../index.js';
 
 const BOFUR = 'tw-132' as CardDefinitionId;
-const FILI = 'tw-150' as CardDefinitionId;
+// Óin (tw-172): dwarf, DI 0, no faction influence penalty — clean baseline
+const OIN = 'tw-172' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -154,23 +155,23 @@ describe('Bofur (tw-132)', () => {
   });
 
   test('-1 influence penalty makes need higher than an equivalent dwarf without the penalty', () => {
-    // Fíli is a dwarf with DI 0 and no special influence check modifiers.
+    // Óin (tw-172) is a dwarf with DI 0 and no faction influence check modifier.
     // At Blue Mountain Dwarf-hold: need = 9 - DI(0) - dwarf bonus(+2) = 7.
     // Bofur's -1 penalty raises his need to 8 (see previous test), proving the penalty fires.
-    const filiState = buildSitePhaseState({
-      characters: [FILI],
+    const oinState = buildSitePhaseState({
+      characters: [OIN],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
       hand: [BLUE_MOUNTAIN_DWARVES],
     });
 
-    const filiId = findCharInstanceId(filiState, RESOURCE_PLAYER, FILI);
-    const filiActions = computeLegalActions(filiState, PLAYER_1)
+    const oinId = findCharInstanceId(oinState, RESOURCE_PLAYER, OIN);
+    const oinActions = computeLegalActions(oinState, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction);
 
-    const filiAttempt = filiActions.find(a => a.influencingCharacterId === filiId);
-    expect(filiAttempt).toBeDefined();
+    const oinAttempt = oinActions.find(a => a.influencingCharacterId === oinId);
+    expect(oinAttempt).toBeDefined();
     // need = 9 - DI(0) - dwarf bonus(+2) = 7 (no Bofur penalty)
-    expect(filiAttempt!.need).toBe(7);
+    expect(oinAttempt!.need).toBe(7);
   });
 });
