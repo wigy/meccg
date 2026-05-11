@@ -340,7 +340,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -360,6 +360,7 @@
     "hazardDraws": 4,
     "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (5), The Under-galleries (4)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If any Nazgûl permanent-event is in play, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
