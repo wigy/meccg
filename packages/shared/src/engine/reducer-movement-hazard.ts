@@ -2297,6 +2297,13 @@ function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseStat
         return undefined;
       }
     }
+    // Check site names against destination site name
+    if (key.siteNames && key.siteNames.length > 0 && mhState.destinationSiteName) {
+      if (key.siteNames.includes(mhState.destinationSiteName)) {
+        logDetail(`Creature "${def.name}" keyable to site name: ${mhState.destinationSiteName}`);
+        return undefined;
+      }
+    }
   }
 
   const keyDesc = def.keyedTo.map(k => {
@@ -2304,6 +2311,7 @@ function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseStat
     if (k.regionTypes?.length) parts.push(`regions: ${k.regionTypes.join('/')}`);
     if (k.regionNames?.length) parts.push(`named: ${k.regionNames.join('/')}`);
     if (k.siteTypes?.length) parts.push(`sites: ${k.siteTypes.join('/')}`);
+    if (k.siteNames?.length) parts.push(`at: ${k.siteNames.join('/')}`);
     return parts.join(', ');
   }).join(' OR ');
   return `${def.name} cannot be keyed to this company's path (requires ${keyDesc})`;

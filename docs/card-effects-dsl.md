@@ -672,9 +672,26 @@ the card is discarded after use.
 A `when` condition gates availability (e.g. requires a specific card
 in play).
 
+Optional fields control the operation mode:
+
+- `op` — `"halve"` (default) or `"subtract"`. When `"subtract"`, reduces
+  strikes by a fixed `value` instead of halving.
+- `value` — Amount to subtract when `op` is `"subtract"`. Default: `2`.
+- `min` — Minimum strikes after modification. Default: `1`.
+
 ```json
 { "type": "halve-strikes",
   "when": { "inPlay": "Gates of Morning" } }
+```
+
+Subtract variant (e.g. Not at Home — reduces by 2, minimum 1):
+
+```json
+{ "type": "halve-strikes",
+  "op": "subtract",
+  "value": 2,
+  "min": 1,
+  "when": { "inPlay": "Gates of Morning", "attack.source": "automatic-attack" } }
 ```
 
 ### 10. `dodge-strike`
