@@ -1238,8 +1238,10 @@ function playResourcesActions(
         let infModifier = 0;
         const infParts: string[] = [`influence # ${factionDef.influenceNumber}`];
         if (charDef && isCharacterCard(charDef)) {
-          infModifier += charDef.directInfluence;
-          infParts.push(`DI ${charDef.directInfluence}`);
+          // Use free DI (total DI minus mind cost of followers), not the raw card stat
+          const freeDI = availableDI(state, ch.instanceId, player);
+          infModifier += freeDI;
+          infParts.push(`DI ${freeDI}`);
 
           // DSL effects
           const resolverCtx: ResolverContext = {

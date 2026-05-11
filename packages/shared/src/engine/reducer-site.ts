@@ -1428,7 +1428,8 @@ export function resolveInfluenceAttemptRoll(
   // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
   if (charDef && isCharacterCard(charDef)) {
-    modifier += charDef.directInfluence;
+    // Use free DI (total DI minus mind cost of followers), not the raw card stat
+    modifier += availableDI(state, charId, player);
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
