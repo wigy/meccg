@@ -22,7 +22,6 @@ EPICS
 -----
 
 Map
-Dark Minions Rules
 The Lidless eye Rules
   Company vs Company (2026-04-03-cvcc-plan.md)
 Against the shadow Rules
