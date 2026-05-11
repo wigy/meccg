@@ -565,7 +565,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
  * `auto-test-gold-ring` site-rule applies and the item is a gold ring,
  * return the rule's roll modifier. Returns null otherwise (no auto-test).
  */
-function goldRingAutoTestModifier(
+export function goldRingAutoTestModifier(
   state: GameState,
   companies: readonly Company[],
   characterId: CardInstanceId,
@@ -584,7 +584,7 @@ function goldRingAutoTestModifier(
 }
 
 /** Same lookup as {@link goldRingAutoTestModifier} but returns the site's name. */
-function goldRingAutoTestSiteName(
+export function goldRingAutoTestSiteName(
   state: GameState,
   companies: readonly Company[],
   characterId: CardInstanceId,

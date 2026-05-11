@@ -537,7 +537,17 @@ function goldRingTestActions(
   if (actorIndex === -1) return [];
   const player = state.players[actorIndex];
 
-  const ringCard = player.outOfPlayPile.find(c => c.instanceId === goldRingInstanceId);
+  // Ring may be in outOfPlayPile (org-phase store path) or in a character's
+  // items array (site-phase play path with auto-test-gold-ring).
+  const ringInOutOfPlay = player.outOfPlayPile.find(c => c.instanceId === goldRingInstanceId);
+  let ringCardFound = ringInOutOfPlay;
+  if (!ringCardFound) {
+    for (const char of Object.values(player.characters)) {
+      const found = char.items.find(i => i.instanceId === goldRingInstanceId);
+      if (found) { ringCardFound = found; break; }
+    }
+  }
+  const ringCard = ringCardFound;
   const ringDef = ringCard ? state.cardPool[ringCard.definitionId as string] : undefined;
   const ringName = ringDef?.name ?? '?';
   const modSign = rollModifier >= 0 ? '+' : '';
