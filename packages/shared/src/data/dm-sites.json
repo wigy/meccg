@@ -120,7 +120,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -140,6 +140,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -149,6 +150,11 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
       }
     ]
   },
@@ -162,11 +168,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gundabad",
-    "playableResources": [
-      "minor",
-      "major",
-      "greater"
-    ],
+    "playableResources": [],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -188,7 +190,6 @@
     "hazardDraws": 4,
     "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (6), The Under-grottos (8), The Under-gates (6), The Under-vaults (7)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If the Witch-king of Angmar is in play as a permanent-event, it must be used as an additional automatic-attack (discard after use—ignore result of defeat).",
     "unique": true,
-    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -253,12 +254,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Redhorn Gate",
-    "playableResources": [
-      "minor",
-      "major",
-      "greater",
-      "gold-ring"
-    ],
+    "playableResources": [],
     "automaticAttacks": [
       {
         "creatureType": "Balrog",
@@ -280,7 +276,6 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (5), The Under-grottos (8), The Under-leas (6)Playable: Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Balrog — 2 strikes with 16 prowess (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to Ruins & Lairs [{R}]Special: If Balrog of Moria is in play or if it or Durin's Bane has been defeated, the first automatic attack is canceled.",
     "unique": true,
-    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -290,11 +285,6 @@
             "ruins-and-lairs"
           ]
         }
-      },
-      {
-        "type": "site-rule",
-        "rule": "cancel-first-attack-if-in-play",
-        "definitionId": "tw-12"
       }
     ]
   },
@@ -350,11 +340,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [
-      "minor",
-      "major",
-      "greater"
-    ],
+    "playableResources": [],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -374,7 +360,6 @@
     "hazardDraws": 4,
     "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (5), The Under-galleries (4)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If any Nazgûl permanent-event is in play, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
     "unique": true,
-    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -397,11 +382,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [
-      "minor",
-      "major",
-      "greater"
-    ],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -503,11 +484,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [
-      "minor",
-      "major",
-      "greater"
-    ],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -550,7 +527,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gap of Isen",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -570,6 +547,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -579,6 +557,16 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
     ]
   }
