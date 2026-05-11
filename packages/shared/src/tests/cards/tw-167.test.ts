@@ -7,8 +7,6 @@
  * Skills: warrior, scout
  * Race: dwarf
  * Homesite: Blue Mountain Dwarf-hold
- * corruptionModifier: -1
- *
  * "Unique. +1 prowess against Orcs. -1 to all of his corruption checks.
  *  -1 to influence checks against factions."
  *
@@ -16,7 +14,7 @@
  * | # | Feature                     | Status      | Notes                                              |
  * |---|-----------------------------|-------------|----------------------------------------------------|
  * | 1 | +1 prowess vs Orcs          | IMPLEMENTED | stat-modifier, reason=combat, enemy.race=orc       |
- * | 2 | -1 to corruption checks     | IMPLEMENTED | via corruptionModifier:-1 field (effects[1] dead)  |
+ * | 2 | -1 to corruption checks     | IMPLEMENTED | check-modifier, check=corruption, value=-1         |
  * | 3 | -1 to influence vs factions | IMPLEMENTED | check-modifier, reason=faction-influence-check     |
  *
  * Playable: YES
