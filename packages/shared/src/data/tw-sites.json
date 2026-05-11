@@ -207,7 +207,12 @@
     "resourceDraws": 3,
     "hazardDraws": 6,
     "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played.",
-    "unique": true
+    "effects": [
+      { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 },
+      { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+    ],
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",

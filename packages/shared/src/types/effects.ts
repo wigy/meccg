@@ -1069,6 +1069,7 @@ export type SiteRuleEffect =
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
   | AllowCreatureByRaceSiteRule
+  | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
@@ -1298,6 +1299,24 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
   readonly rule: 'allow-creature-by-race';
   /** The creature race that bypasses keying at this site (e.g. "men"). */
   readonly race: string;
+}
+
+/**
+ * Declares that any hazard creature that is keyable to this site (via site
+ * type or site name in its `keyedTo` entries) may be played regardless of
+ * any active `no-creature-hazards-on-company` constraint. The creature must
+ * still pass normal keying; only external restrictions are bypassed.
+ *
+ * Example — Mount Doom (tw-414): "hazard creatures may always be played
+ * keyed to the site regardless of any other cards played."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+ * ```
+ */
+export interface CreaturesAlwaysKeyedToSiteSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'creatures-always-keyed-to-site';
 }
 
 /**

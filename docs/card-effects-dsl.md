@@ -1198,6 +1198,18 @@ Rules:
   { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
   ```
 
+- `creatures-always-keyed-to-site` — any hazard creature that is keyable
+  to the destination site's original type or name (via `siteTypes` or
+  `siteNames` in any `keyedTo` entry) may be played even when a
+  `no-creature-hazards-on-company` constraint (e.g. from *Stealth*) is
+  active. The creature must still satisfy normal keying; only the external
+  restriction is bypassed. Consumed by `engine/legal-actions/pending.ts`
+  `applyNoCreatureHazardsOnCompany`. Used by *Mount Doom* (tw-414).
+
+  ```json
+  { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+  ```
+
 - `allow-items-when-tapped` — items may be played at this site even when
   its status is Tapped. The normal tapped-site gate in
   `legal-actions/site.ts` is bypassed for item plays (but the subtype
