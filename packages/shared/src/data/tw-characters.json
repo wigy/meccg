@@ -1287,7 +1287,24 @@
     "directInfluence": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Minas Tirith"
+    "homesite": "Minas Tirith",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Anórien"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-character",
@@ -1415,7 +1432,32 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Blue Mountain Dwarf-hold"
+    "homesite": "Blue Mountain Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-character",
@@ -1611,7 +1653,24 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Blue Mountain Dwarf-hold"
+    "homesite": "Blue Mountain Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-character",
