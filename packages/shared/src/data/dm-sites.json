@@ -120,7 +120,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -140,6 +140,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -149,6 +150,11 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
       }
     ]
   },
@@ -382,7 +388,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -404,6 +410,7 @@
     "hazardDraws": 4,
     "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (5), The Pûkel-deeps (9), The Under-gates (5), The Under-galleries (8)Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Trolls — 2 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [S]Special: If Khamûl the Easterling or Adûnaphel is in play as a permanent-event, one must be used as an additional automatic-attack (attacker's choice, discard after use—ignore result of defeat).",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -426,7 +433,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -446,6 +457,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (9), The Sulfur-deeps (9)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -455,6 +467,16 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
     ]
   },
@@ -510,7 +532,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gap of Isen",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "gold-ring"],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -530,6 +552,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -539,6 +562,16 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
     ]
   }

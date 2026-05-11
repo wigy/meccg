@@ -178,7 +178,9 @@ export function getActiveAutoAttacks(
   const peAugments = collectPermanentEventAttacks(state, siteDef);
   let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
 
-  // Apply cancel-first-attack-if-in-play site rules.
+  // Apply cancel-first-attack-if-in-play site rules: if the referenced card
+  // is in any player's cardsInPlay, remove the first attack from the list.
+  // Used by The Under-gates (dm-38) when Balrog of Moria is in play.
   const siteEffects = (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
   if (siteEffects) {
     for (const siteEff of siteEffects) {
@@ -194,6 +196,7 @@ export function getActiveAutoAttacks(
       break;
     }
   }
+
   return combined;
 }
 
