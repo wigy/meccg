@@ -395,6 +395,11 @@ function playSiteAutoAttackActions(
     for (const card of hazardPlayer.hand) {
       const def = state.cardPool[card.definitionId as string];
       if (!def || def.cardType !== 'hazard-creature') continue;
+      // Only non-unique creatures may be played as a site auto-attack
+      if (def.unique) {
+        logDetail(`Creature "${def.name}" is unique — not eligible as site's dynamic auto-attack`);
+        continue;
+      }
 
       let keyable = false;
       for (const key of def.keyedTo) {
@@ -920,7 +925,11 @@ function playResourcesActions(
       // does not normally list "minor" in its playable resources.
       const minorItemBonus = siteState.minorItemAvailable && itemDef.subtype === 'minor';
 
-      if (siteIsTapped && !minorItemBonus) {
+      // site-rule: allow-items-when-tapped — items remain playable even when the site is tapped
+      const allowWhenTapped = siteDef && isSiteCard(siteDef)
+        && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'allow-items-when-tapped');
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1326,6 +1335,10 @@ function playResourcesActions(
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
   actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
 
+  // Site-phase grant-actions declared on the current site (e.g. The Worthy Hills as-142:
+  // tap sage + scout to untap the site).
+  actions.push(...sitePhaseGrantActions(state, playerId, company));
+
   // Opponent influence attempts (rule 10.10)
   const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);
   actions.push(...oppInfluence);
@@ -1333,6 +1346,85 @@ function playResourcesActions(
   // Pass to end this company's site phase
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
+  return actions;
+}
+
+/**
+ * Emit `activate-granted-action` actions for `grant-action` effects declared
+ * directly on the company's current site. Currently handles only the
+ * `"sage-and-scout-in-company"` cost, which requires tapping one untapped
+ * sage AND one untapped scout in the company. The Worthy Hills (as-142) is
+ * the only card that uses this pattern: tapping a sage + scout to untap the
+ * site itself.
+ *
+ * Only offered when the site is tapped (untapping an already-untapped site
+ * is a no-op that the engine does not gate on, but the ability is only
+ * meaningful after the site has been tapped).
+ */
+function sitePhaseGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  company: import('../../index.js').Company,
+): EvaluatedAction[] {
+  const siteInstanceId = company.currentSite?.instanceId ?? null;
+  if (!siteInstanceId) return [];
+  if (company.currentSite?.status !== CardStatus.Tapped) return [];
+
+  const siteDefId = resolveInstanceId(state, siteInstanceId);
+  if (!siteDefId) return [];
+  const siteDef = state.cardPool[siteDefId as string];
+  if (!siteDef || !('effects' in siteDef)) return [];
+
+  const siteEffects = (siteDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [];
+  const grantEffects = siteEffects.filter(
+    (e): e is import('../../types/effects.js').GrantActionEffect =>
+      e.type === 'grant-action' && e.cost.tap === 'sage-and-scout-in-company',
+  );
+  if (grantEffects.length === 0) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+
+  const sages = company.characters.filter(cId => {
+    const char = player.characters[cId as string];
+    if (!char || char.status !== CardStatus.Untapped) return false;
+    const def = state.cardPool[char.definitionId as string];
+    return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('sage') === true;
+  });
+
+  const scouts = company.characters.filter(cId => {
+    const char = player.characters[cId as string];
+    if (!char || char.status !== CardStatus.Untapped) return false;
+    const def = state.cardPool[char.definitionId as string];
+    return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('scout') === true;
+  });
+
+  const actions: EvaluatedAction[] = [];
+  for (const effect of grantEffects) {
+    if (sages.length === 0 || scouts.length === 0) {
+      logDetail(`Site grant-action "${effect.action}": no eligible sage+scout pair in company`);
+      continue;
+    }
+    for (const sageId of sages) {
+      for (const scoutId of scouts) {
+        if ((sageId as string) === (scoutId as string)) continue; // can't use same character for both
+        logDetail(`Site grant-action "${effect.action}": sage ${sageId as string} + scout ${scoutId as string} eligible`);
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: sageId,
+            secondCharacterId: scoutId,
+            sourceCardId: siteInstanceId,
+            sourceCardDefinitionId: siteDefId,
+            actionId: effect.action,
+            rollThreshold: 0,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
   return actions;
 }
 

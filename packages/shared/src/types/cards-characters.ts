@@ -63,8 +63,6 @@ export interface HeroCharacterCard {
   readonly marshallingPoints: number;
   /** Always 'character' -- used for scoring category calculations at the Free Council. */
   readonly marshallingCategory: MarshallingCategory.Character;
-  /** Modifier applied to this character's corruption checks (negative = harder to resist). */
-  readonly corruptionModifier: number;
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
@@ -132,8 +130,6 @@ export interface MinionCharacterCard {
   readonly marshallingPoints: number;
   /** Always 'character' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Character;
-  /** Modifier applied to this character's corruption checks. */
-  readonly corruptionModifier: number;
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */

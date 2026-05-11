@@ -41,12 +41,37 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Cardolan",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 9,
+        "special": "each character faces 1 strike"
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 2,
+    "effects": [
+      {
+        "type": "combat-detainment"
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-site",
+        "cost": {
+          "tap": "sage-and-scout-in-company"
+        },
+        "apply": {
+          "type": "untap-site"
+        }
+      }
+    ],
     "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment).Special: During the site phase, you may tap two characters to untap this site—one a sage, one a scout.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "minion-site",
@@ -303,9 +328,13 @@
         "prowess": 9
       }
     ],
+    "effects": [
+      { "type": "combat-detainment" }
+    ],
     "resourceDraws": 3,
     "hazardDraws": 4,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -403,7 +432,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Nurn",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -414,6 +447,7 @@
     "resourceDraws": 3,
     "hazardDraws": 5,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess",
+    "certified": "2026-05-10",
     "unique": true
   }
 ]

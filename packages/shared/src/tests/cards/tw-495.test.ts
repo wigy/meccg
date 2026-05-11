@@ -11,7 +11,7 @@
  * in his company."
  *
  * Tests:
- * 1. check-modifier: +1 to corruption checks (base corruptionModifier)
+ * 1. check-modifier: +1 to corruption checks (check-modifier effect)
  * 2. play-restriction: home-site-only (can only be played at Bag End, not havens)
  * 3. cancel-strike: tap to cancel a strike against another hobbit in company
  */
