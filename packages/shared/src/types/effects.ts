@@ -1264,8 +1264,6 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
     readonly siteTypes?: readonly SiteType[];
     readonly regionTypes?: readonly RegionType[];
   };
-  /** When true, only non-unique hazard creatures are eligible for this dynamic attack. */
-  readonly nonUnique?: boolean;
 }
 
 /**
@@ -1360,17 +1358,21 @@ export interface AllowItemsWhenTappedSiteRule extends EffectBase {
 }
 
 /**
- * Cancels the site's first automatic-attack if a specific card (identified by
- * `definitionId`) is currently in play in any player's `cardsInPlay`.
+ * Cancels the first automatic attack at this site if the referenced card is
+ * currently in any player's cardsInPlay as a permanent event.
  *
- * Used by The Under-gates (dm-38): "If Balrog of Moria is in play or if it or
- * Durin's Bane has been defeated, the first automatic attack is canceled."
- * The "defeated" branch is handled separately via `isManifestationDefeated`.
+ * Used by The Under-gates (dm-38): "If Balrog of Moria is in play [as a
+ * permanent-event] ... the first automatic attack is canceled."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "cancel-first-attack-if-in-play",
+ *   "definitionId": "tw-12" }
+ * ```
  */
 export interface CancelFirstAttackIfInPlaySiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'cancel-first-attack-if-in-play';
-  /** The definition ID of the card whose presence cancels the first attack. */
+  /** Definition ID of the card that, when in play, causes the first attack to be canceled. */
   readonly definitionId: CardDefinitionId;
 }
 
@@ -1831,10 +1833,12 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
    */
   readonly onDefeat?: 'remove-from-play';
   /**
-   * When `true`, the permanent-event is moved to the hazard player's discard
-   * pile after the attack resolves, regardless of outcome (no kill MPs awarded).
-   * Used for Nazgûl permanent-events that must be used as an additional
-   * auto-attack at certain under-deeps sites (e.g. Witch-king at dm-33/dm-40).
+   * When true, after this auto-attack resolves (regardless of win or loss),
+   * the permanent event card is moved from the hazard player's cardsInPlay
+   * to their discard pile. No kill MPs are awarded. Used by Nazgûl
+   * permanent-events (Witch-king, Khamûl, Adûnaphel) that are used as
+   * additional auto-attacks at Under-deeps sites — the card text says
+   * "discard after use — ignore result of defeat".
    */
   readonly discardAfterUse?: boolean;
 }

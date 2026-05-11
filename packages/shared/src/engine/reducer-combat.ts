@@ -2314,8 +2314,9 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   }
 
   // Handle permanent-event auto-attack discardAfterUse (e.g. Witch-king at Iron-deeps / Under-leas).
-  // When a site automatic-attack's source permanent-event has discardAfterUse:true, the event
-  // is moved to the hazard player's discard pile after use regardless of outcome or kill MPs.
+  // Fires regardless of outcome (win or lose). When a site auto-attack's source is a permanent
+  // event with discardAfterUse: true, move the card from the hazard player's cardsInPlay to their
+  // discard pile. No kill MPs are awarded ("ignore result of defeat").
   if (combat.attackSource.type === 'automatic-attack') {
     const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
     const dauSiteDefId = resolveInstanceId(state, dauSiteInstId);

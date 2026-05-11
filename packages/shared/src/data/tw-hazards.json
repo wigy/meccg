@@ -819,14 +819,22 @@
     "cardType": "hazard-event",
     "id": "tw-113",
     "name": "Witch-king of Angmar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WitchkingofAngmar.jpg",
     "unique": true,
     "eventType": "permanent",
+    "keywords": [
+      "Nazgûl"
+    ],
     "marshallingPoints": 6,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["dm-33", "dm-40", "dm-36"],
+        "siteIds": [
+          "dm-33",
+          "dm-40",
+          "dm-36"
+        ],
         "attack": {
           "creatureType": "Nazgûl",
           "strikes": 1,
@@ -836,20 +844,27 @@
         "discardAfterUse": true
       }
     ],
-    "text": "Unique. Permanent-event. The Witch-king of Angmar attacks any company at The Iron-deeps, The Under-leas, or The Under-courts with 1 strike at 17 prowess/12 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
+    "text": "Unique. Nazgûl (1st). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Angmar, Gundabad, Gorgoroth, and Imlad Morgul; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Witch-king becomes a short-event: one character must make a corruption check."
   },
   {
     "cardType": "hazard-event",
     "id": "tw-47",
     "name": "Khamûl the Easterling",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/KhamultheEasterling.jpg",
     "unique": true,
     "eventType": "permanent",
+    "keywords": [
+      "Nazgûl"
+    ],
     "marshallingPoints": 6,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["dm-35", "dm-36"],
+        "siteIds": [
+          "dm-35",
+          "dm-36"
+        ],
         "attack": {
           "creatureType": "Nazgûl",
           "strikes": 1,
@@ -859,20 +874,27 @@
         "discardAfterUse": true
       }
     ],
-    "text": "Unique. Permanent-event. Khamûl attacks any company at The Under-grottos or The Under-courts with 1 strike at 18 prowess/8 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
+    "text": "Unique. Nazgûl (2nd). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Heart of Mirkwood, Gorgoroth, and Southern Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Khamûl becomes a short-event: target character makes a corruption check."
   },
   {
     "cardType": "hazard-event",
     "id": "tw-2",
-    "name": "Adûnaphel the Quiet",
+    "name": "Adûnaphel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Adunaphel.jpg",
     "unique": true,
     "eventType": "permanent",
+    "keywords": [
+      "Nazgûl"
+    ],
     "marshallingPoints": 5,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["dm-35", "dm-36"],
+        "siteIds": [
+          "dm-35",
+          "dm-36"
+        ],
         "attack": {
           "creatureType": "Nazgûl",
           "strikes": 1,
@@ -882,6 +904,6 @@
         "discardAfterUse": true
       }
     ],
-    "text": "Unique. Permanent-event. Adûnaphel attacks any company at The Under-grottos or The Under-courts with 1 strike at 15 prowess/10 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
+    "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap."
   }
 ]
