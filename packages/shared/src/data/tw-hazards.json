@@ -814,5 +814,74 @@
       }
     ],
     "text": "Unique. Spawn. The Balrog appears in Moria. The Moria site gains a second automatic-attack of 1 strike with 18 prowess and no body (i.e., 18/-). If this 2nd automatic-attack is defeated, this permanent-event is removed from play (i.e., the Balrog is defeated). If your opponent defeats this 2nd automatic-attack, he receives the marshalling points. Cannot be included in a Balrog’s deck and cannot be played if your opponent is a Balrog player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-113",
+    "name": "Witch-king of Angmar",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 6,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["dm-33", "dm-40", "dm-36"],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 17,
+          "body": 12
+        },
+        "discardAfterUse": true
+      }
+    ],
+    "text": "Unique. Permanent-event. The Witch-king of Angmar attacks any company at The Iron-deeps, The Under-leas, or The Under-courts with 1 strike at 17 prowess/12 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-47",
+    "name": "Khamûl the Easterling",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 6,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["dm-35", "dm-36"],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 18,
+          "body": 8
+        },
+        "discardAfterUse": true
+      }
+    ],
+    "text": "Unique. Permanent-event. Khamûl attacks any company at The Under-grottos or The Under-courts with 1 strike at 18 prowess/8 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-2",
+    "name": "Adûnaphel the Quiet",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 5,
+    "marshallingPointsType": "kill",
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": ["dm-35", "dm-36"],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 15,
+          "body": 10
+        },
+        "discardAfterUse": true
+      }
+    ],
+    "text": "Unique. Permanent-event. Adûnaphel attacks any company at The Under-grottos or The Under-courts with 1 strike at 15 prowess/10 body. After the attack (regardless of result), this card is discarded. Kill MPs to opponent."
   }
 ]
