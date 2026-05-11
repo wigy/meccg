@@ -42,9 +42,11 @@ Two patterns in the card text require attention:
 The Under-galleries list "Any site in Ûdun (0)" as a surface adjacency. This means any site whose `region === 'Udûn'` is a valid surface site with roll 0.
 
 **Representation**: A sentinel value in `adjacentSites`:
+
 ```jsonc
 { "adjacentSites": { "*region:Udûn": 0 } }
 ```
+
 A key starting with `*region:` is treated as a wildcard matching any site in that region. The adjacency check must scan the card pool for sites in that region.
 
 ### Ancient Deep-hold (BA-83)

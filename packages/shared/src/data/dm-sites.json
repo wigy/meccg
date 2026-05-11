@@ -420,7 +420,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -440,6 +444,7 @@
     "hazardDraws": 3,
     "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (9), The Sulfur-deeps (9)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Shadow-holds [{S}]Special: Any Undead creature or Pûkel-creature may also be played at this site.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "site-rule",
@@ -449,6 +454,16 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
     ]
   },
