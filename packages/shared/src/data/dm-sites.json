@@ -90,7 +90,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Nurn",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -101,7 +105,8 @@
     "resourceDraws": 3,
     "hazardDraws": 5,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 4 strikes with 7 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
