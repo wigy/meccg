@@ -309,7 +309,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Ûdun",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -338,6 +338,11 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "stolen-knowledge",
+        "marshallingPoints": 3
       }
     ]
   },
