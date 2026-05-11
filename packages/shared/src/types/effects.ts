@@ -1406,15 +1406,22 @@ export interface CancelInfluenceEffect extends EffectBase {
 }
 
 /**
- * Halves the number of strikes in the current attack (rounded up).
- * Played from hand as a short event during combat before strikes are
- * assigned; the card is discarded after use.
+ * Modifies the number of strikes in the current attack. Played from hand as
+ * a short event during combat before strikes are assigned; the card is
+ * discarded after use.
  *
- * Example: Dark Quarrels (alternative mode) — if Gates of Morning is
- * in play, halve the strikes of any attack.
+ * Two modes (selected by `op`):
+ * - `"halve"` (default) — `Math.ceil(strikes / 2)` (Dark Quarrels, Orc Quarrels).
+ * - `"subtract"` — `Math.max(min, strikes - value)` (Not at Home: subtract 2, min 1).
  */
 export interface HalveStrikesEffect extends EffectBase {
   readonly type: 'halve-strikes';
+  /** Operation mode. Default 'halve'. */
+  readonly op?: 'halve' | 'subtract';
+  /** Amount to subtract when op is 'subtract'. Default 2. */
+  readonly value?: number;
+  /** Minimum strikes after modification (subtract mode). Default 1. */
+  readonly min?: number;
 }
 
 /**

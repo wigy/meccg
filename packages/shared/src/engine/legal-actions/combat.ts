@@ -1019,10 +1019,16 @@ function cancelAttackActions(
     // Always expose `attack.source` (the AttackSource discriminator) so
     // cards can distinguish M/H creatures from on-guard reveals and site
     // automatic attacks. `attack.keying` is additive when present.
+    // `attack.siteKeyed` is true for creature attacks whose keying has no
+    // regional types (i.e. keyed purely to site types or site names).
     const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
     if (combat.attackKeying && combat.attackKeying.length > 0) {
       attackCtx['keying'] = combat.attackKeying;
     }
+    const isSiteKeyedCreature = (
+      combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
     return ctx;
@@ -1099,16 +1105,10 @@ function cancelAttackActions(
     );
     if (!cancelEffect) continue;
 
-    // Check `when` condition against combat context (e.g. enemy.race filter)
-    if (cancelEffect.when) {
-      const ctx: Record<string, unknown> = {};
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
-      }
-      if (!matchesCondition(cancelEffect.when, ctx)) {
-        logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
-        continue;
-      }
+    // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      continue;
     }
 
     // Cards with wound-target-character (e.g. Escape): one action per
@@ -1260,6 +1260,7 @@ function halveStrikesActions(
       if (combat.creatureRace) {
         ctx['enemy'] = { race: combat.creatureRace };
       }
+      ctx['attack'] = { source: combat.attackSource.type };
       if (!matchesCondition(halveEffect.when, ctx)) {
         logDetail(`Halve-strikes ${handCard.definitionId as string}: when condition not met`);
         continue;

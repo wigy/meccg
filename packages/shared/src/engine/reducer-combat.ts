@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -1511,8 +1511,23 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   if (cardIndex < 0) return { state, error: 'Card not in hand' };
 
   const originalStrikes = combat.strikesTotal;
-  const newStrikes = Math.ceil(originalStrikes / 2);
-  logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
+  const halveEffect = cardDef && 'effects' in cardDef && cardDef.effects
+    ? cardDef.effects.find(
+        (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
+      )
+    : undefined;
+  const op = halveEffect?.op ?? 'halve';
+  let newStrikes: number;
+  if (op === 'subtract') {
+    const subtractValue = halveEffect?.value ?? 2;
+    const min = halveEffect?.min ?? 1;
+    newStrikes = Math.max(min, originalStrikes - subtractValue);
+    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  } else {
+    newStrikes = Math.ceil(originalStrikes / 2);
+    logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+  }
 
   const newHand = [...defPlayer.hand];
   const [discardedCard] = newHand.splice(cardIndex, 1);
