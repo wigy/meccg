@@ -116,7 +116,7 @@ describe('Bofur (tw-132)', () => {
 
     expect(ccActions.length).toBe(1);
     expect(ccActions[0].characterId).toBe(bofurId);
-    // corruptionModifier is -1 (Bofur's penalty)
+    // check-modifier is -1 (Bofur's penalty)
     expect(ccActions[0].corruptionModifier).toBe(-1);
     // need = CP + 1 - modifier. With modifier -1, need = CP + 2.
     expect(ccActions[0].need).toBe(ccActions[0].corruptionPoints + 1 - (-1));

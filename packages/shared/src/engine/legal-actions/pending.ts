@@ -31,60 +31,12 @@ import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCa
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
-import type { ResolverContext, CollectedEffect } from '../effects/index.js';
+import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 
-/**
- * Collect check-modifier effects from a character's attached hazards only
- * (excluding the character's own definition to avoid double-counting with
- * the built-in corruptionModifier field).
- */
-function collectHazardCheckModifiers(
-  state: GameState,
-  char: import('../../index.js').CharacterInPlay,
-  context: ResolverContext,
-): CollectedEffect[] {
-  const results: CollectedEffect[] = [];
-  for (const hazard of char.hazards) {
-    const hDef = resolveDef(state, hazard.instanceId);
-    if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-    for (const effect of hDef.effects) {
-      if (effect.type !== 'check-modifier') continue;
-      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) continue;
-      results.push({ effect, sourceDef: hDef, sourceInstance: hazard.instanceId });
-    }
-  }
-  return results;
-}
-
-/**
- * Collect check-modifier effects from a character's attached items only.
- * Items may carry effects that modify corruption / influence / etc. checks
- * (e.g. Wizard's Staff's "+2 to any corruption check required by a spell
- * card"). Effects are filtered by their `when` condition against the given
- * context, which typically includes `source.keywords` so items can key off
- * the triggering card's keywords.
- */
-function collectItemCheckModifiers(
-  state: GameState,
-  char: import('../../index.js').CharacterInPlay,
-  context: ResolverContext,
-): CollectedEffect[] {
-  const results: CollectedEffect[] = [];
-  for (const item of char.items) {
-    const iDef = resolveDef(state, item.instanceId);
-    if (!iDef || !('effects' in iDef) || !iDef.effects) continue;
-    for (const effect of iDef.effects) {
-      if (effect.type !== 'check-modifier') continue;
-      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) continue;
-      results.push({ effect, sourceDef: iDef, sourceInstance: item.instanceId });
-    }
-  }
-  return results;
-}
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
 function viable(actions: import('../../index.js').GameAction[]): EvaluatedAction[] {
@@ -793,18 +745,11 @@ function corruptionCheckActions(
   // Base CP from current effective stats
   let cp = char.effectiveStats.corruptionPoints;
 
-  // Built-in character corruption modifier (canonical source — many character
-  // defs duplicate this as a check-modifier effect, so we ignore effects on
-  // the character's own definition to avoid double-counting).
-  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-
   // The producing effect's own modifier (e.g. Barrow-wight's -2)
-  let totalModifier = baseModifier + modifier;
+  let totalModifier = modifier;
 
   // Add one-shot `check-modifier` constraints targeting this character and
-  // keyed to corruption checks (e.g. Halfling Strength +4). Generic enough
-  // that any future card granting a one-shot corruption / influence / other
-  // check bonus reuses the same constraint machinery.
+  // keyed to corruption checks (e.g. Halfling Strength +4).
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'check-modifier') continue;
     if (constraint.kind.check !== 'corruption') continue;
@@ -823,30 +768,14 @@ function corruptionCheckActions(
     : [];
   const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords } };
 
-  // DSL check-modifier effects from attached hazards only (not the
-  // character's own definition — that's already in baseModifier).
-  const hazardEffects = collectHazardCheckModifiers(state, char, checkContext);
-  if (hazardEffects.length > 0) {
-    const company = player.companies.find(c => c.characters.includes(characterId));
-    const companyCharCount = company ? company.characters.length : 1;
-    const dslModifier = resolveCheckModifier(hazardEffects, 'corruption', { company: { characterCount: companyCharCount } });
-    if (dslModifier !== 0) {
-      totalModifier += dslModifier;
-      logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} from attached hazards (company size: ${companyCharCount})`);
-    }
-  }
-
-  // DSL check-modifier effects from the character's items (e.g. Wizard's
-  // Staff's "+2 to any corruption check required by a spell card"). Items
-  // see the same context as hazards so they can key on the triggering
-  // card's keywords via `{ "source.keywords": { "$includes": "spell" } }`.
-  const itemEffects = collectItemCheckModifiers(state, char, checkContext);
-  if (itemEffects.length > 0) {
-    const dslModifier = resolveCheckModifier(itemEffects, 'corruption');
-    if (dslModifier !== 0) {
-      totalModifier += dslModifier;
-      logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} from attached items (source keywords: [${sourceKeywords.join(', ')}])`);
-    }
+  // DSL check-modifier effects from the character's own definition, items, and hazards.
+  const company = player.companies.find(c => c.characters.includes(characterId));
+  const companyCharCount = company ? company.characters.length : 1;
+  const allEffects = collectCharacterEffects(state, char, checkContext);
+  const dslModifier = resolveCheckModifier(allEffects, 'corruption', { company: { characterCount: companyCharCount } });
+  if (dslModifier !== 0) {
+    totalModifier += dslModifier;
+    logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} (company size: ${companyCharCount}, source keywords: [${sourceKeywords.join(', ')}])`);
   }
 
   // Build possessions list. For transfer checks, the item physically lives

@@ -1210,6 +1210,17 @@ Rules:
   { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
   ```
 
+- `allow-items-when-tapped` — items may be played at this site even when
+  its status is Tapped. The normal tapped-site gate in
+  `legal-actions/site.ts` is bypassed for item plays (but the subtype
+  check from `playableResources` still applies). Consumed by
+  `engine/legal-actions/site.ts` items evaluation. Used by *Tharbad*
+  (td-180) — "Items may be played here even if the site is tapped."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-items-when-tapped" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
