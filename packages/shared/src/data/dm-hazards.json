@@ -110,7 +110,8 @@
         "attackerAssigns": true,
         "strikeEffect": "discard-item"
       }
-    ]
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-event",

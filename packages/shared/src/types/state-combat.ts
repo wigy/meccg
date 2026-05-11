@@ -161,8 +161,9 @@ export interface CombatState {
    * - `'choose-strike-order'`: defender picks which unresolved strike resolves next
    * - `'resolve-strike'`: the chosen strike is resolved (tap/untap, support, dice roll)
    * - `'body-check'`: body check after a strike result
+   * - `'discard-item-from-company'`: defender must discard one item (An Article Missing)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -218,6 +219,13 @@ export interface CombatState {
    * Shrinks as items are transferred (one item per recipient).
    */
   readonly salvageRecipients?: readonly CardInstanceId[];
+  /**
+   * Items available for the defender to choose from during the
+   * 'discard-item-from-company' phase (An Article Missing, dm-43).
+   * Collected from all characters in the defending company when a
+   * successful agent strike with `strikeEffect: 'discard-item'` resolves.
+   */
+  readonly discardItemOptions?: readonly ItemInPlay[];
   /**
    * CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
    * While the attacker has any playable combat hazards (e.g. Dragon's Curse)

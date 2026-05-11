@@ -153,6 +153,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return bodyCheckActions(state, playerId, combat);
     case 'item-salvage':
       return itemSalvageActions(state, playerId, combat);
+    case 'discard-item-from-company':
+      return discardItemFromCompanyActions(state, playerId, combat);
     default:
       return [];
   }
@@ -1672,6 +1674,38 @@ function itemSalvageActions(
   });
 
   return actions;
+}
+
+/**
+ * Actions during the discard-item-from-company sub-phase (An Article Missing, dm-43).
+ *
+ * After a successful agent strike with strikeEffect 'discard-item', the defending
+ * player must discard one item from any character in the company. One action per
+ * available item is generated; the defender chooses which item to lose.
+ */
+function discardItemFromCompanyActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const { discardItemOptions } = combat;
+  if (!discardItemOptions || discardItemOptions.length === 0) return [];
+
+  return discardItemOptions.map(item => {
+    const itemDef = state.cardPool[item.definitionId as string];
+    const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+    logDetail(`Discard-item available: ${itemName}`);
+    return {
+      action: {
+        type: 'discard-item-from-company' as const,
+        player: playerId,
+        itemInstanceId: item.instanceId,
+      },
+      viable: true,
+    };
+  });
 }
 
 /**

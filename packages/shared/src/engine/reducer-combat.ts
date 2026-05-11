@@ -7,6 +7,7 @@
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
+import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
 import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -70,6 +71,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleModifyAttackFromHand(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
+    case 'discard-item-from-company':
+      return handleDiscardItemFromCompany(state, action, combat);
     case 'play-hazard':
       return handleCombatPlayHazard(state, action, combat);
     case 'haven-join-attack':
@@ -486,6 +489,15 @@ function resolveStrikeCore(
     logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
   }
 
+  // An Article Missing (dm-43): on a successful agent strike the defender is not
+  // wounded; the company must instead discard one item of their choice.
+  const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
+  if (discardItemEffect) {
+    logDetail('An Article Missing: successful strike — character not wounded; company must discard one item');
+    result = 'success';
+    bodyCheckTarget = null;
+  }
+
   // Whether the combatant taps on a non-wounded outcome:
   //  - tap:    always (success or tie)
   //  - reroll: always (same as tap)
@@ -558,6 +570,23 @@ function resolveStrikeCore(
     newCombat = { ...combat, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
   } else {
     const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+
+    // An Article Missing: enter discard-item-from-company phase so the defender
+    // must choose one item to discard before combat continues.
+    if (discardItemEffect) {
+      const companyCharIds = company?.characters ?? [];
+      const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
+        const ch = newPlayers[defPlayerIndex].characters[charId as string];
+        return ch ? [...ch.items] : [];
+      });
+      if (allItems.length > 0) {
+        logDetail(`Entering discard-item-from-company phase: ${allItems.length} item(s) available`);
+        newCombat = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
+        return { state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat }, effects };
+      }
+      logDetail('An Article Missing: no items in company — discard-item effect skipped');
+    }
+
     const next = nextStrikePhase(combatWithAssignments);
     if (!next) {
       return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: combatWithAssignments }, effects);
@@ -1922,6 +1951,54 @@ function finishSalvage(state: GameState, combat: CombatState): ReducerResult {
     return { state: { ...state, combat: { ...cleanCombat, ...next } } };
   }
   return finalizeCombat({ ...state, combat: cleanCombat });
+}
+
+/**
+ * Defender discards one item from the company after a successful agent strike
+ * with strikeEffect: 'discard-item' (An Article Missing, dm-43).
+ * Once the item is discarded, combat advances to the next strike or finalizes.
+ */
+function handleDiscardItemFromCompany(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'discard-item-from-company') return wrongActionType(state, action, 'discard-item-from-company');
+  if (combat.phase !== 'discard-item-from-company') return { state, error: 'Not in discard-item-from-company phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can discard the item' };
+
+  const { discardItemOptions } = combat;
+  if (!discardItemOptions) return { state, error: 'No discard-item options in combat state' };
+
+  const itemIndex = discardItemOptions.findIndex(it => it.instanceId === action.itemInstanceId);
+  if (itemIndex < 0) return { state, error: 'Item not available for discard' };
+
+  const item = discardItemOptions[itemIndex];
+  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const newPlayers = clonePlayers(state);
+
+  // Remove item from its bearer and add to discard pile
+  let itemRemoved = false;
+  const newCharacters = { ...newPlayers[defIdx].characters };
+  for (const [charId, charData] of Object.entries(newCharacters)) {
+    const idx = charData.items.findIndex(it => it.instanceId === item.instanceId);
+    if (idx >= 0) {
+      newCharacters[charId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
+      itemRemoved = true;
+      break;
+    }
+  }
+  if (!itemRemoved) return { state, error: 'Item not found on any character in company' };
+
+  logDetail(`An Article Missing: discarding item ${item.instanceId as string} from company`);
+  newPlayers[defIdx] = {
+    ...newPlayers[defIdx],
+    characters: newCharacters,
+    discardPile: [...newPlayers[defIdx].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+  };
+
+  const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };
+  const next = nextStrikePhase(cleanCombat);
+  if (!next) {
+    return finalizeCombat({ ...state, players: newPlayers, combat: cleanCombat });
+  }
+  return { state: { ...state, players: newPlayers, combat: { ...cleanCombat, ...next } } };
 }
 
 /**
