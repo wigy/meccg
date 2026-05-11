@@ -9,6 +9,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
@@ -64,6 +65,15 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
     return viable(revealNewSiteActions(state, playerId, mhState));
   }
 
+  if (mhState.step === 'under-deeps-roll') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during under-deeps-roll step`);
+      return [];
+    }
+    logDetail(`Under-deeps roll — resource player must roll (required: ${mhState.underDeepsRollRequired ?? '?'})`);
+    return viable([{ type: 'under-deeps-roll', player: playerId }]);
+  }
+
   // set-hazard-limit step (CoE step 3): immediate, only pass to advance
   if (mhState.step === 'set-hazard-limit') {
     if (!isActive) {
@@ -117,14 +127,13 @@ function viable(actions: GameAction[]): EvaluatedAction[] {
  * Generate actions for the reveal-new-site step (CoE step 1).
  *
  * If the company is moving, computes all possible ways to reach the
- * destination (starter and/or region movement) and offers each as a
- * `declare-path` action. No pass action — the player must choose a path.
+ * destination (starter, region, or Under-deeps movement) and offers each
+ * as a `declare-path` action. No pass action — the player must choose a path.
  *
  * If the company is not moving (no destination), only a pass action is
  * offered to advance to the next step.
  *
  * TODO: triggering events on site reveal
- * TODO: under-deeps movement roll (stay if roll < site number)
  */
 function revealNewSiteActions(
   state: GameState,
@@ -202,6 +211,12 @@ function revealNewSiteActions(
         regionPath: regionIds,
       });
     }
+  }
+
+  // --- Under-deeps movement ---
+  if (isUnderDeepsAdjacent(state, originDef, destDef)) {
+    logDetail(`Under-deeps movement available: ${originDef.name} → ${destDef.name}`);
+    actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
   }
 
   logDetail(`${actions.length} possible movement path(s) for company ${company.id as string}`);

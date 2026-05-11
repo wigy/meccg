@@ -259,6 +259,33 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["dragon", "drake", "troll"] } },
+            {
+              "$or": [
+                { "attack.source": "automatic-attack" },
+                { "attack.siteKeyed": true }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "halve-strikes",
+        "op": "subtract",
+        "value": 2,
+        "min": 1,
+        "when": {
+          "inPlay": "Gates of Morning",
+          "attack.source": "automatic-attack"
+        }
+      }
+    ],
+    "certified": "2026-05-11"
   }
 ]

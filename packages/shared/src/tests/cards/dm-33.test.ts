@@ -2,10 +2,10 @@
  * @module dm-33.test
  *
  * Card test: The Iron-deeps (dm-33)
- * Type: hero-site (dark-hold) — under-deeps
- * Effects: 1 — `site-rule: dynamic-auto-attack` keyed to {R}
+ * Type: hero-site (dark-hold) — under-deeps site in Angmar
+ * Effects: 1 — `site-rule: dynamic-auto-attack` keyed to Ruins & Lairs {R}
  *
- * Text:
+ * Card text:
  *   Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)
  *   Playable: Items (minor, major, greater)
  *   Automatic-attacks (2):
@@ -28,21 +28,22 @@
  * | 7 | resourceDraws     | OK     | 1                                                             |
  * | 8 | hazardDraws       | OK     | 4                                                             |
  * | 9 | keywords          | OK     | ["under-deeps"]                                               |
- * | 10| effects           | DATA   | site-rule dynamic-auto-attack keyed to ruins-and-lairs ({R})  |
+ * | 10| effects           | OK     | site-rule dynamic-auto-attack keyed to ruins-and-lairs {R}    |
  *
  * Engine Support:
- * | # | Feature                            | Status          | Notes                                                  |
- * |---|------------------------------------|-----------------|--------------------------------------------------------|
- * | 1 | Site phase flow                    | IMPLEMENTED     | select-company, enter-or-skip, play-resources          |
- * | 2 | Item playability (minor/major/gtr) | IMPLEMENTED     | playableResources gate                                 |
- * | 3 | Gold-ring NOT playable             | IMPLEMENTED     | not in playableResources                               |
- * | 4 | 1st auto-attack: Trolls 3/9        | IMPLEMENTED     | combat initiated with correct stats                    |
- * | 5 | `site-rule: dynamic-auto-attack`   | IMPLEMENTED     | play-site-auto-attack step, keyed to ruins-and-lairs   |
- * | 6 | Witch-king extra auto-attack       | NOT IMPLEMENTED | named permanent-event as additional auto-attack        |
+ * | # | Feature                                | Status      | Notes                                                  |
+ * |---|----------------------------------------|-------------|--------------------------------------------------------|
+ * | 1 | Site phase flow                        | IMPLEMENTED | select-company, enter-or-skip, play-resources          |
+ * | 2 | Item playability (minor/major/greater)  | IMPLEMENTED | playableResources gate                                 |
+ * | 3 | Gold-ring NOT playable                 | IMPLEMENTED | not in playableResources                               |
+ * | 4 | 1st auto-attack: Trolls 3/9            | IMPLEMENTED | combat initiated with correct stats                    |
+ * | 5 | `site-rule: dynamic-auto-attack`       | IMPLEMENTED | play-site-auto-attack step, keyed to ruins-and-lairs   |
+ * | 6 | Keying filter {R}                      | IMPLEMENTED | creature must match ruins-and-lairs siteType           |
+ * | 7 | Unique creature rejected               | IMPLEMENTED | def.unique check in playSiteAutoAttackActions          |
+ * | 8 | Witch-king extra auto-attack           | IMPLEMENTED | permanent-event-auto-attack with discardAfterUse: true |
  *
- * Playable: PARTIALLY
- * NOT CERTIFIED — Witch-king of Angmar special rule (use in-play Nazgûl
- *   permanent-event as additional automatic-attack) has no engine support.
+ * Playable: YES
+ * Certified: 2026-05-11
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
