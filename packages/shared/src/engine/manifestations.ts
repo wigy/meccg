@@ -20,6 +20,7 @@
 import type {
   AutomaticAttack,
   CardDefinition,
+  CardEffect,
   CardInstance,
   DragonAtHomeEffect,
   GameState,
@@ -29,6 +30,7 @@ import type {
   SiteCard,
 } from '../index.js';
 import { ownerOf } from '../types/state.js';
+import { logDetail } from './legal-actions/log.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -154,20 +156,48 @@ export function getActiveAutoAttacks(
   siteDef: SiteCard,
 ): readonly AutomaticAttack[] {
   const lairOf = (siteDef as { lairOf?: ManifestId }).lairOf;
-  if (!lairOf) return siteDef.automaticAttacks;
 
   let printed: readonly AutomaticAttack[] = siteDef.automaticAttacks;
-  if (isManifestationDefeated(state, lairOf)) {
-    // Dragon defeated → strip its Dragon-typed printed attacks. Other
-    // attacks on the same site (rare) are left intact.
-    printed = printed.filter(a => a.creatureType !== 'Dragon');
+
+  if (lairOf) {
+    if (isManifestationDefeated(state, lairOf)) {
+      // Dragon defeated → strip its Dragon-typed printed attacks. Other
+      // attacks on the same site (rare) are left intact.
+      printed = printed.filter(a => a.creatureType !== 'Dragon');
+    }
+
+    // Augment with any in-play At-Home effect for this manifestation,
+    // unless the matching Ahunt is also in play.
+    if (!isAhuntInPlay(state, lairOf)) {
+      const augments = collectAtHomeAttacks(state, lairOf);
+      if (augments.length > 0) printed = [...printed, ...augments];
+    }
   }
 
-  // Augment with any in-play At-Home effect for this manifestation,
-  // unless the matching Ahunt is also in play.
-  if (isAhuntInPlay(state, lairOf)) return printed;
-  const augments = collectAtHomeAttacks(state, lairOf);
-  return augments.length === 0 ? printed : [...printed, ...augments];
+  // Augment with any permanent-event-auto-attack effects targeting this site.
+  const peAugments = collectPermanentEventAttacks(state, siteDef);
+  let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
+
+  // Apply cancel-first-attack-if-in-play site rules: if the referenced card
+  // is in any player's cardsInPlay, remove the first attack from the list.
+  // Used by The Under-gates (dm-38) when Balrog of Moria is in play.
+  const siteEffects = (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
+  if (siteEffects) {
+    for (const siteEff of siteEffects) {
+      if (siteEff.type !== 'site-rule') continue;
+      if (siteEff.rule !== 'cancel-first-attack-if-in-play') continue;
+      const refDefId = siteEff.definitionId as string;
+      const refInPlay = state.players.some(p => p.cardsInPlay.some(c => c.definitionId === refDefId));
+      if (refInPlay && combined.length > 0) {
+        combined = combined.slice(1);
+        const cardName = (state.cardPool[refDefId] as { name?: string } | undefined)?.name ?? refDefId;
+        logDetail(`cancel-first-attack-if-in-play: "${cardName}" is in play — first attack at ${siteDef.name} canceled`);
+      }
+      break;
+    }
+  }
+
+  return combined;
 }
 
 /**
@@ -200,6 +230,38 @@ export function isReduceAttacksToOneInPlay(state: GameState): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Collects `permanent-event-auto-attack` augmentations targeting the given site
+ * from all cards currently in any player's cardsInPlay. These are Spawn-type
+ * hazard events (e.g. Balrog of Moria TW-12, Monstrosity of Diverse Shape BA-21)
+ * that explicitly list site IDs they augment. Unlike dragon-at-home, these are
+ * not gated by any manifestation chain — they augment any listed site regardless.
+ */
+function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): AutomaticAttack[] {
+  const out: AutomaticAttack[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+      if (!effects) continue;
+      for (const e of effects) {
+        if (e.type !== 'permanent-event-auto-attack') continue;
+        const eff = e;
+        if (!eff.siteIds.includes(siteDef.id)) continue;
+        out.push({
+          creatureType: eff.attack.creatureType,
+          strikes: eff.attack.strikes,
+          prowess: eff.attack.prowess,
+          body: eff.attack.body,
+          combatRules: eff.attack.combatRules,
+          sourceInstanceId: card.instanceId,
+        });
+      }
+    }
+  }
+  return out;
 }
 
 /**
