@@ -373,6 +373,21 @@ export interface SalvageItemAction {
 }
 
 /**
+ * Discard one item from the defending company after a successful agent strike
+ * with `strikeEffect: 'discard-item'` (An Article Missing, dm-43).
+ * The defending character is not wounded; instead the company loses an item.
+ * Available during the 'discard-item-from-company' combat phase.
+ */
+export interface DiscardItemFromCompanyAction {
+  /** Action discriminant. */
+  readonly type: 'discard-item-from-company';
+  /** The defending player performing the discard. */
+  readonly player: PlayerId;
+  /** The instance ID of the item being discarded. */
+  readonly itemInstanceId: CardInstanceId;
+}
+
+/**
  * Cancel a strike against a character by having another character in
  * the same company pay a cost (e.g. Fatty Bolger taps to cancel a
  * strike against another hobbit).

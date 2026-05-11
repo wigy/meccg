@@ -379,6 +379,8 @@ export function describeAction(
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
+    case 'discard-item-from-company':
+      return `Discard item ${instName(action.itemInstanceId)} (An Article Missing)`;
     case 'play-dodge':
       return `Dodge: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'play-strike-event':
