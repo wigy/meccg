@@ -59,7 +59,7 @@ import {
   getReachableSites,
   CardStatus,
 } from '../../index.js';
-import type { CardDefinitionId, SiteCard, ActivateGrantedAction } from '../../index.js';
+import type { CardDefinitionId, GameState, SiteCard, ActivateGrantedAction } from '../../index.js';
 
 const HERMITS_HILL = 'dm-32' as CardDefinitionId;
 
@@ -108,7 +108,7 @@ describe("Hermit's Hill (dm-32)", () => {
   // ─── discard-minors-for-major grant-action ────────────────────────────────────
 
   test('discard-minors-for-major action offered when company has 2 minor items', () => {
-    let state = buildSitePhaseState({
+    let state: GameState = buildSitePhaseState({
       site: HERMITS_HILL,
       characters: [ARAGORN, BILBO],
     });
@@ -123,7 +123,7 @@ describe("Hermit's Hill (dm-32)", () => {
   });
 
   test('discard-minors-for-major action NOT offered when company has only 1 minor item', () => {
-    let state = buildSitePhaseState({
+    let state: GameState = buildSitePhaseState({
       site: HERMITS_HILL,
       characters: [ARAGORN],
     });
@@ -137,7 +137,7 @@ describe("Hermit's Hill (dm-32)", () => {
   });
 
   test('discard-minors-for-major action NOT offered when site is already tapped', () => {
-    let state = buildSitePhaseState({
+    let state: GameState = buildSitePhaseState({
       site: HERMITS_HILL,
       characters: [ARAGORN, BILBO],
       siteStatus: CardStatus.Tapped,
@@ -153,7 +153,7 @@ describe("Hermit's Hill (dm-32)", () => {
   });
 
   test('after discarding 2 minor items, major item (Glamdring) becomes playable', () => {
-    let state = buildSitePhaseState({
+    let state: GameState = buildSitePhaseState({
       site: HERMITS_HILL,
       characters: [ARAGORN, BILBO],
       hand: [GLAMDRING],
@@ -184,7 +184,7 @@ describe("Hermit's Hill (dm-32)", () => {
   });
 
   test('discarding 2 minor items removes them from characters and adds them to discard pile', () => {
-    let state = buildSitePhaseState({
+    let state: GameState = buildSitePhaseState({
       site: HERMITS_HILL,
       characters: [ARAGORN, BILBO],
     });
