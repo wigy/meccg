@@ -114,9 +114,15 @@ export interface HeroSiteCard {
    */
   readonly keywords?: readonly Keyword[];
   /**
-   * For Under-deeps sites only: maps adjacent site names to the minimum dice roll
+   * For Under-deeps sites only: maps adjacent site names to the minimum 2d6 roll
    * required to move there. A roll of 0 means the site is always reachable (no roll needed).
    * Not present on surface sites that use normal region-path movement.
+   *
+   * **Wildcard key convention**: a key of the form `"*region:<RegionName>"` matches
+   * any site whose `region` field equals `<RegionName>`. Used for sites like
+   * The Under-galleries that list "Any site in Ûdun (0)" as an adjacency — stored
+   * as `{ "*region:Ûdun": 0 }`. The adjacency resolver scans the card pool for
+   * sites in that region and returns the associated roll.
    */
   readonly adjacentSites?: Readonly<Record<string, number>>;
   /**

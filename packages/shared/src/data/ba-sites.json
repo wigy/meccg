@@ -2,6 +2,120 @@
   {
     "cardType": "balrog-site",
     "alignment": "balrog",
+    "id": "ba-89",
+    "name": "The Drowning-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheDrowningdeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Númeriador",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Drake",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Blue Mountain Dwarf-hold": 13,
+      "The Under-vaults": 8,
+      "Remains of Thangorodrim": 9
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Blue Mountain Dwarf-hold (13), The Under-vaults (8), Remains of Thangorodrim (9)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to Coastal Seas.\nSpecial: Creatures keyed to Coastal Sea and any Drakes may be keyed to this site.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "regionTypes": ["coastal"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-90",
+    "name": "The Gem-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheGemdeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gap of Isen",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Glittering Caves": 0,
+      "The Pûkel-deeps": 8,
+      "The Under-gates": 6
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (8), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-91",
+    "name": "The Iron-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheIrondeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Carn Dûm": 0,
+      "The Under-leas": 6,
+      "The Under-vaults": 7
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["ruins-and-lairs"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
     "id": "ba-93",
     "name": "Moria",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Moria.jpg",
@@ -22,6 +136,233 @@
   {
     "cardType": "balrog-site",
     "alignment": "balrog",
+    "id": "ba-94",
+    "name": "The Pûkel-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ThePukeldeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Dunharrow": 0,
+      "The Gem-deeps": 8,
+      "The Sulfur-deeps": 9
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (8), The Sulfur-deeps (9)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-95",
+    "name": "Remains of Thangorodrim",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/RemainsofThangorodrim.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Drake",
+        "strikes": 2,
+        "prowess": 12
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "The Drowning-deeps": 9
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: no surface site, The Drowning-deeps (9)\nPlayable: Information, Items (minor, major, greater)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 12 prowess\n(2nd) Opponent may play as an automatic-attack one hazard creature from his hand normally keyed to Coastal Sea.\nSpecial: Creatures keyed to Coastal Seas may be keyed to this site.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "regionTypes": ["coastal"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-96",
+    "name": "The Rusted-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheRusteddeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Iron Hills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Drake",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Iron Hill Dwarf-hold": 13,
+      "The Wind-deeps": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-97",
+    "name": "The Sulfur-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheSulfurdeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Troll",
+        "strikes": 2,
+        "prowess": 9
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Dol Guldur": 0,
+      "The Under-gates": 6,
+      "The Pûkel-deeps": 9,
+      "The Under-galleries": 9,
+      "The Under-courts": 7
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Dol Guldur (0), The Under-gates (6), The Pûkel-deeps (9), The Under-galleries (9), The Under-courts (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Troll — 2 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-98",
+    "name": "The Under-courts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndercourts.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Barad-dûr": 0,
+      "The Under-galleries": 6,
+      "The Sulfur-deeps": 7
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Barad-dûr (0), The Under-galleries (6), The Sulfur-deeps (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 10 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-99",
+    "name": "The Under-galleries",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndergalleries.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Ûdun",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 4,
+        "prowess": 9
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "*region:Udûn": 0,
+      "The Under-courts": 6,
+      "The Sulfur-deeps": 9
+    },
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (6), The Sulfur-deeps (9)\nPlayable: Information, Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
     "id": "ba-100",
     "name": "The Under-gates",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndergates.jpg",
@@ -32,12 +373,176 @@
     "playableResources": [],
     "automaticAttacks": [],
     "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Moria": 0,
+      "The Gem-deeps": 6,
+      "The Sulfur-deeps": 6,
+      "The Under-leas": 4,
+      "The Under-grottos": 6
+    },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled.",
+    "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (6), The Under-leas (4), The Under-grottos (6)\nAny gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled.",
     "effects": [
       { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
       { "type": "site-rule", "rule": "cancel-attacks" }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-101",
+    "name": "The Under-grottos",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndergrottos.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "High Pass",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Goblin-gate": 0,
+      "The Under-leas": 6,
+      "The Under-gates": 6
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (6), The Under-gates (6)\nPlayable: Items (minor, gold ring)\nAutomatic-attacks (2): (1st) Undead — 4 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-102",
+    "name": "The Under-leas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUnderleas.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gundabad",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 5,
+        "prowess": 7,
+        "combatRules": ["detainment"]
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Mount Gundabad": 0,
+      "The Wind-deeps": 5,
+      "The Iron-deeps": 6,
+      "The Under-grottos": 6,
+      "The Under-gates": 4,
+      "The Under-vaults": 5
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Mount Gundabad (0), The Wind-deeps (5), The Iron-deeps (6), The Under-grottos (6), The Under-gates (4), The Under-vaults (5)\nPlayable: Items (minor)\nAutomatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (detainment)\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["ruins-and-lairs"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-103",
+    "name": "The Under-vaults",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndervaults.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "Mount Gram": 0,
+      "The Iron-deeps": 7,
+      "The Under-leas": 5,
+      "The Drowning-deeps": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (5), The Drowning-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-104",
+    "name": "The Wind-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheWinddeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "keywords": ["under-deeps"],
+    "adjacentSites": {
+      "The Wind Throne": 0,
+      "The Under-leas": 5,
+      "The Rusted-deeps": 8
+    },
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: The Wind Throne (0), The Under-leas (5), The Rusted-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["shadow-hold"]
+        }
+      }
     ]
   }
 ]

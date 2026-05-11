@@ -27,6 +27,7 @@ import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution 
 import { roll2d6 } from './reducer-utils.js';
 import { availableDI } from './legal-actions/organization.js';
 import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
+import { resolveAdjacency } from './legal-actions/organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -49,6 +50,7 @@ type MHHandler = (state: GameState, action: GameAction, mhState: MovementHazardP
 const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHandler>> = {
   'select-company': handleSelectCompany,
   'reveal-new-site': handleRevealNewSite,
+  'under-deeps-roll': handleUnderDeepsRoll,
   'set-hazard-limit': handleSetHazardLimit,
   'order-effects': handleOrderEffectsStep,
   'draw-cards': handleDrawCards,
@@ -2366,22 +2368,10 @@ function handleSelectCompany(
  * For non-moving companies, accepts a 'pass' action to advance.
  * For moving companies, accepts a 'declare-path' action that sets the
  * movement type and (for region movement) the region path.
+ * For Under-deeps movement, transitions to `under-deeps-roll` when a roll
+ * is required, or directly to `set-hazard-limit` when the roll is 0.
  *
  * TODO: triggering events on site reveal
- * TODO: under-deeps movement roll (stay if roll < site number)
- */
-
-
-/**
- * Handle the 'reveal-new-site' step (CoE step 1): the new site card is
- * revealed and the resource player declares their movement path.
- *
- * For non-moving companies, accepts a 'pass' action to advance.
- * For moving companies, accepts a 'declare-path' action that sets the
- * movement type and (for region movement) the region path.
- *
- * TODO: triggering events on site reveal
- * TODO: under-deeps movement roll (stay if roll < site number)
  */
 function handleRevealNewSite(
   state: GameState,
@@ -2460,6 +2450,47 @@ function handleRevealNewSite(
     // Special movement (e.g. Gwaihir): no region path traversed.
     // Only site-type keyed creatures can be played against this company.
     logDetail(`Special movement: no region path — only site-keyed hazards apply`);
+  } else if (action.movementType === 'under-deeps') {
+    // Under-deeps: no region path — only site-type keyed hazards apply.
+    // Determine required roll and either advance directly or enter the roll step.
+    logDetail(`Under-deeps movement: no region path — only site-keyed hazards apply`);
+    const required = getUnderDeepsRequiredRoll(state, originDef, destDef);
+    logDetail(`Under-deeps roll required: ${required}`);
+    if (required === 0) {
+      logDetail(`Under-deeps: roll not required (0) — advancing to set-hazard-limit`);
+      return {
+        state: {
+          ...state,
+          phaseState: {
+            ...mhState,
+            step: 'set-hazard-limit' as const,
+            movementType: action.movementType,
+            declaredRegionPath: [],
+            resolvedSitePath: [],
+            resolvedSitePathNames: [],
+            destinationSiteType: destDef.siteType,
+            destinationSiteName: destDef.name,
+          },
+        },
+      };
+    }
+    logDetail(`Under-deeps: roll required (>= ${required}) — entering under-deeps-roll step`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...mhState,
+          step: 'under-deeps-roll' as const,
+          movementType: action.movementType,
+          declaredRegionPath: [],
+          resolvedSitePath: [],
+          resolvedSitePathNames: [],
+          destinationSiteType: destDef.siteType,
+          destinationSiteName: destDef.name,
+          underDeepsRollRequired: required,
+        },
+      },
+    };
   }
 
   logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to set-hazard-limit`);
@@ -2478,6 +2509,95 @@ function handleRevealNewSite(
       },
     },
   };
+}
+
+/**
+ * Look up the required 2d6 roll for Under-deeps movement between two sites.
+ *
+ * Checks origin's `adjacentSites` for the destination, then (if not found)
+ * checks the destination's `adjacentSites` for the origin. When the origin
+ * is a surface site (not under-deeps), the roll is always 0.
+ */
+function getUnderDeepsRequiredRoll(state: GameState, origin: import('../index.js').SiteCard, dest: import('../index.js').SiteCard): number {
+  const originIsUD = origin.keywords?.includes('under-deeps') ?? false;
+  if (!originIsUD) return 0;
+
+  const fromOrigin = resolveAdjacency(state, origin, dest.name);
+  if (fromOrigin !== undefined) return fromOrigin;
+
+  const fromDest = resolveAdjacency(state, dest, origin.name);
+  if (fromDest !== undefined) return fromDest;
+
+  return 0;
+}
+
+/**
+ * Handle the `under-deeps-roll` step: the resource player rolls 2d6.
+ *
+ * - Roll >= required: company moves; advance to `set-hazard-limit`.
+ * - Roll < required: company stays; destination returned to location deck;
+ *   advance to next company (does NOT count as "returned to origin").
+ */
+function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'under-deeps-roll') {
+    return { state, error: `Expected 'under-deeps-roll' during under-deeps-roll step, got '${action.type}'` };
+  }
+
+  const required = mhState.underDeepsRollRequired ?? 0;
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  logDetail(`Under-deeps roll: ${roll.die1}+${roll.die2}=${rollTotal} vs required ${required}`);
+
+  const activeIndex = getPlayerIndex(state, action.player);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+
+  if (rollTotal >= required) {
+    logDetail(`Under-deeps roll SUCCESS — advancing to set-hazard-limit`);
+    const successPlayers = clonePlayers(state);
+    successPlayers[activeIndex] = { ...successPlayers[activeIndex], lastDiceRoll: roll };
+    return {
+      state: {
+        ...state,
+        rng,
+        cheatRollTotal,
+        players: successPlayers,
+        phaseState: {
+          ...mhState,
+          step: 'set-hazard-limit' as const,
+          underDeepsRollRequired: undefined,
+        },
+      },
+    };
+  }
+
+  logDetail(`Under-deeps roll FAILURE — company stays at ${company.currentSite ? (state.cardPool[company.currentSite.definitionId as string]?.name ?? '?') : '?'}, returning destination to site deck`);
+
+  // Return destination site to location deck (no "returned" trigger)
+  const newPlayers = clonePlayers(state);
+  const activePlayer = newPlayers[activeIndex];
+  const updatedCompanies = [...activePlayer.companies];
+  const destInst = company.destinationSite;
+
+  updatedCompanies[mhState.activeCompanyIndex] = {
+    ...company,
+    destinationSite: null,
+  };
+
+  let newSiteDeck = activePlayer.siteDeck;
+  if (destInst) {
+    newSiteDeck = [...activePlayer.siteDeck, { instanceId: destInst.instanceId, definitionId: destInst.definitionId }];
+  }
+
+  newPlayers[activeIndex] = {
+    ...activePlayer,
+    companies: updatedCompanies,
+    siteDeck: newSiteDeck,
+    lastDiceRoll: roll,
+  };
+
+  const withRoll: GameState = { ...state, rng, cheatRollTotal, players: newPlayers };
+  return advanceAfterCompanyMH(withRoll, { ...mhState, underDeepsRollRequired: undefined });
 }
 
 /**

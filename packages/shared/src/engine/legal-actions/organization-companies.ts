@@ -21,9 +21,82 @@ import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
 
 /**
+ * Look up a site card definition by site name, scanning the card pool.
+ * Returns undefined if no matching site is found.
+ */
+function findSiteByName(state: GameState, name: string): SiteCard | undefined {
+  for (const def of Object.values(state.cardPool)) {
+    if (isSiteCard(def) && def.name === name) return def;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve a site name against one site card's `adjacentSites` map.
+ *
+ * Handles wildcard keys of the form `"*region:<RegionName>"`: if a key
+ * starts with `*region:`, the target site's region is looked up and
+ * compared to `<RegionName>`. Returns the required roll, or `undefined`
+ * if the target is not listed as adjacent on the given site card.
+ */
+export function resolveAdjacency(state: GameState, site: SiteCard, targetName: string): number | undefined {
+  const adj = site.adjacentSites;
+  if (!adj) return undefined;
+
+  // Direct name match
+  if (adj[targetName] !== undefined) return adj[targetName];
+
+  // Wildcard: "*region:<regionName>"
+  for (const [key, roll] of Object.entries(adj)) {
+    if (!key.startsWith('*region:')) continue;
+    const regionName = key.slice('*region:'.length);
+    const targetCard = findSiteByName(state, targetName);
+    if (targetCard?.region === regionName) return roll;
+  }
+  return undefined;
+}
+
+/**
+ * Check whether two sites are Under-deeps-adjacent in either direction.
+ *
+ * Returns true when either site's `adjacentSites` lists the other (or
+ * matches via a wildcard region key). At least one of the two sites must
+ * carry the `under-deeps` keyword for the result to be meaningful.
+ */
+export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard): boolean {
+  if (resolveAdjacency(state, origin, dest.name) !== undefined) return true;
+  if (resolveAdjacency(state, dest, origin.name) !== undefined) return true;
+  return false;
+}
+
+/**
+ * Collect all sites reachable via Under-deeps movement from the given
+ * current site. At least one side of each pair must carry the
+ * `under-deeps` keyword; adjacency is checked bidirectionally.
+ */
+function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[]): SiteCard[] {
+  const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
+  const results: SiteCard[] = [];
+
+  for (const dest of candidateSites) {
+    if (dest.name === currentSiteDef.name) continue;
+    const destIsUD = dest.keywords?.includes('under-deeps') ?? false;
+
+    // At least one side must be Under-deeps
+    if (!currentIsUD && !destIsUD) continue;
+
+    if (isUnderDeepsAdjacent(state, currentSiteDef, dest)) {
+      results.push(dest);
+    }
+  }
+  return results;
+}
+
+/**
  * Computes plan-movement actions for each company.
  * For every company, emits one viable action per reachable site in the player's
- * site deck, determined by the movement map (starter and region movement).
+ * site deck, determined by the movement map (starter and region movement),
+ * plus Under-deeps movement when applicable.
  * Companies that already have a destination planned are skipped.
  */
 export function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -139,6 +212,32 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
         continue;
       }
+      const candidate: GameAction = {
+        type: 'plan-movement',
+        player: playerId,
+        companyId: company.id,
+        destinationSite: destInstId,
+      };
+      const regress = isRegressive(candidate, state.reverseActions);
+      actions.push({
+        action: { ...candidate, ...(regress ? { regress: true } : {}) },
+        viable: true,
+      });
+    }
+
+    // --- Under-deeps movement pass ---
+    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites);
+    logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${udReachable.length} Under-deeps destination(s)`);
+    for (const dest of udReachable) {
+      const destInstId = siteInstMap.get(dest.name);
+      if (!destInstId) continue;
+      if (seen.has(destInstId as string)) continue;
+      seen.add(destInstId as string);
+      if (blockedByRule_2_II_7_1.has(dest.id)) {
+        logDetail(`  ${dest.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+        continue;
+      }
+      logDetail(`  Under-deeps destination: ${dest.name}`);
       const candidate: GameAction = {
         type: 'plan-movement',
         player: playerId,
