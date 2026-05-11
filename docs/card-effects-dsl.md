@@ -1259,6 +1259,19 @@ Rules:
   { "type": "site-rule", "rule": "allow-items-when-tapped" }
   ```
 
+- `cancel-first-attack-if-in-play` — cancels the first automatic attack
+  at this site when the permanent-event card identified by `definitionId`
+  is currently in any player's `cardsInPlay`. If the referenced card is
+  not in play, all attacks are resolved normally. Consumed by
+  `getActiveAutoAttacks()` in `engine/manifestations.ts`, which slices off
+  the first element from the combined auto-attack list. Used by
+  *The Under-gates* (dm-38) — "If Balrog of Moria is in play ... the first
+  automatic attack is canceled."
+
+  ```json
+  { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
@@ -2440,16 +2453,20 @@ dynamic step.
 | `attack.body` | no | Body value for body checks. Absent = no body check (e.g. Balrog of Moria `18/-`). |
 | `attack.combatRules` | no | Array of combat-rule strings (e.g. `["attacker-chooses-defenders"]`). |
 | `onDefeat` | no | `"remove-from-play"`: defeating this attack moves the card from play to the defeating player's kill pile (awarding kill MPs). Absent = card stays in play. |
+| `discardAfterUse` | no | When `true`, after this auto-attack resolves (regardless of win or loss), the permanent event card is moved from the hazard player's `cardsInPlay` to their discard pile. No kill MPs are awarded. Used by Nazgûl permanent-events at Under-deeps sites ("discard after use — ignore result of defeat"). |
 
 Implementation:
 
 - `collectPermanentEventAttacks()` in `engine/manifestations.ts` scans all `cardsInPlay` for matching effects; called from `getActiveAutoAttacks()`.
-- `finalizeCombat()` in `engine/reducer-combat.ts` handles `onDefeat: "remove-from-play"` after all strikes are defeated.
+- `finalizeCombat()` in `engine/reducer-combat.ts` handles `onDefeat: "remove-from-play"` after all strikes are defeated, and `discardAfterUse: true` (regardless of outcome) after all strikes resolve.
 - The `body` and `combatRules` fields are propagated to `CombatState` via the updated auto-attack setup in `engine/reducer-site.ts`.
 
 Used by *Balrog of Moria* (tw-12), *Monstrosity of Diverse Shape* (ba-21),
 *Spawn of Ungoliant* (ba-24), *Ungoliant's Progeny* (ba-27), and
-*Ungoliant's Foul Issue* (ba-28).
+*Ungoliant's Foul Issue* (ba-28) for `onDefeat: "remove-from-play"`.
+
+Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
+*Adûnaphel* (tw-2) for `discardAfterUse: true`.
 
 ```json
 {
@@ -2457,5 +2474,14 @@ Used by *Balrog of Moria* (tw-12), *Monstrosity of Diverse Shape* (ba-21),
   "siteIds": ["tw-413", "le-392"],
   "attack": { "creatureType": "Balrog", "strikes": 1, "prowess": 18 },
   "onDefeat": "remove-from-play"
+}
+```
+
+```json
+{
+  "type": "permanent-event-auto-attack",
+  "siteIds": ["dm-33", "dm-40", "dm-36"],
+  "attack": { "creatureType": "Nazgûl", "strikes": 1, "prowess": 17, "body": 12 },
+  "discardAfterUse": true
 }
 ```
