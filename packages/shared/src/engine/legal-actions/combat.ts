@@ -16,7 +16,7 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId 
 import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -234,6 +234,14 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
+      if (combat.excludeAvatarStrikes) {
+        const defId = charData.definitionId;
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from Neeker-breekers strike assignment`);
+          continue;
+        }
+      }
       logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
@@ -295,6 +303,14 @@ function assignStrikeActions(
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
+      if (combat.excludeAvatarStrikes) {
+        const charData = defPlayer.characters[charId as string];
+        const def = charData?.definitionId ? state.cardPool[charData.definitionId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from attacker assignment pool`);
+          continue;
+        }
+      }
       const charData = defPlayer.characters[charId as string];
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }

@@ -907,7 +907,18 @@ strings to chase through the engine.
   character in the defending company (`strikesTotal =
   company.characters.length`), overriding the card's raw `strikes` value.
   Card text is "Each character in the company faces one strike". Mutually
-  exclusive with `combat-multi-attack`. (implemented in `chain-reducer.ts`)
+  exclusive with `combat-multi-attack`. Optional `excludeAvatars: true`
+  excludes avatar characters (Wizards and Ringwraiths, `mind === null`)
+  from the strike count and assignment: `strikesTotal = non-avatar
+  characters`. Card text is "Each non-Wizard/non-Ringwraith character in
+  the company faces one strike" (e.g. Neeker-breekers). (implemented in
+  `chain-reducer.ts`, `legal-actions/combat.ts`)
+- `combat-defender-prowess-from-mind` — each defending character's prowess
+  for this attack is replaced by their mind attribute value. Status modifiers
+  (tapped −1, wounded −2) and support bonuses still apply on top of the
+  mind base. Card text is "His prowess against such a strike is equal to
+  his mind attribute" (e.g. Neeker-breekers). (implemented in
+  `reducer-combat.ts`)
 - `combat-detainment` — marks the attack as detainment (CoE §3.II).
   Detainment strikes tap the character instead of wounding/eliminating,
   suppress the character body check (rule 3.II.1), do not trigger
