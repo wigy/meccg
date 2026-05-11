@@ -18,9 +18,9 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1050,6 +1050,78 @@ export function executeDeferredSiteAction(
 
 
 /**
+ * Handle the Hermit's Hill (dm-32) special site grant-action: the company
+ * discards two minor items they bear to unlock major item playability at the
+ * current untapped site for the rest of this company's site phase.
+ *
+ * Locates both items by instance ID (`targetCardId` and `secondTargetCardId`),
+ * detaches them from their bearers, moves them to the discard pile, then adds
+ * a `major-item-unlocked` constraint scoped to the company's site phase.
+ */
+function handleDiscardMinorsForMajor(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+  if (!action.targetCardId || !action.secondTargetCardId) {
+    return { state, error: 'discard-minors-for-major: missing targetCardId or secondTargetCardId' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  const discardItemIds = [action.targetCardId, action.secondTargetCardId];
+  let workingState = state;
+
+  for (const itemId of discardItemIds) {
+    const currentPlayer = workingState.players[playerIndex];
+    let found = false;
+
+    for (const charId of Object.keys(currentPlayer.characters)) {
+      const char = currentPlayer.characters[charId];
+      if (!char) continue;
+      const itemIdx = char.items.findIndex(i => i.instanceId === itemId);
+      if (itemIdx < 0) continue;
+
+      const discardedItem = char.items[itemIdx];
+      const newItems = char.items.filter((_, i) => i !== itemIdx);
+      const updatedChar = { ...char, items: newItems };
+      const newDiscardPile = [
+        ...currentPlayer.discardPile,
+        { instanceId: discardedItem.instanceId, definitionId: discardedItem.definitionId },
+      ];
+
+      workingState = updatePlayer(workingState, playerIndex, p => ({
+        ...p,
+        characters: { ...p.characters, [charId]: updatedChar },
+        discardPile: newDiscardPile,
+      }));
+      logDetail(`Site: discard-minors-for-major discarded item ${itemId as string} from ${charId}`);
+      found = true;
+      break;
+    }
+
+    if (!found) {
+      return { state, error: `discard-minors-for-major: item ${itemId as string} not found on any character` };
+    }
+  }
+
+  // Add major-item-unlocked constraint scoped to this company's site phase
+  const newState = addConstraint(workingState, {
+    source: action.sourceCardId,
+    sourceDefinitionId: action.sourceCardDefinitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'major-item-unlocked' },
+  });
+
+  logDetail(`Site: discard-minors-for-major activated for company ${company.id as string} — major items now playable`);
+  return { state: newState };
+}
+
+/**
  * Handle the 'play-resources' step: resource player plays items or
  * permanent events, or passes to end the company's site phase.
  *
@@ -1154,6 +1226,13 @@ function handleSitePlayResources(
   // Opponent influence attempt
   if (action.type === 'opponent-influence-attempt') {
     return handleOpponentInfluenceAttempt(state, action, siteState);
+  }
+
+  // Site-phase grant-action: Hermit's Hill discard-minors-for-major (dm-32).
+  // Handled before the generic grant-action path because it has no character
+  // actor to tap — the cost is discarding two minor items directly.
+  if (action.type === 'activate-granted-action' && action.actionId === 'discard-minors-for-major') {
+    return handleDiscardMinorsForMajor(state, action, siteState);
   }
 
   // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
@@ -1272,6 +1351,37 @@ function handleSitePlayHeroResource(
   if (isItem) {
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
     afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
+  }
+
+  // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
+  // site that declares this rule immediately enqueues a gold-ring-test resolution.
+  // The ring stays on the character until the test fires (unlike the org-phase
+  // store-item path which moves it to outOfPlayPile first).
+  if (isItem) {
+    const itemSubtype = 'subtype' in def ? (def as { subtype?: string }).subtype : undefined;
+    const afterAttachPlayer = afterAttach.players[playerIndex];
+    const autoTestMod = goldRingAutoTestModifier(
+      afterAttach,
+      afterAttachPlayer.companies,
+      targetCharId,
+      itemSubtype,
+    );
+    if (autoTestMod !== null) {
+      const siteName = goldRingAutoTestSiteName(afterAttach, afterAttachPlayer.companies, targetCharId) ?? '?';
+      logDetail(`Auto-test gold ring ${def.name} at ${siteName} (modifier ${autoTestMod >= 0 ? '+' : ''}${autoTestMod})`);
+      return {
+        state: enqueueResolution(afterAttach, {
+          source: action.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: Phase.Site },
+          kind: {
+            type: 'gold-ring-test',
+            goldRingInstanceId: action.cardInstanceId,
+            rollModifier: autoTestMod,
+          },
+        }),
+      };
+    }
   }
 
   return { state: afterAttach };

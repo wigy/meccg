@@ -670,6 +670,17 @@ export interface ActiveConstraint {
          * be duplicated on a given attack."
          */
         readonly type: 'attack-card-played';
+      }
+    | {
+        /**
+         * Hermit's Hill (dm-32): a company discarded two minor items to
+         * unlock major item playability at the current untapped site for
+         * the rest of this company's site phase. Both major items
+         * (subtype "major") and hoard items (keyword "hoard") become
+         * playable. Scoped to `company-site-phase` so it is swept when
+         * the company's site phase ends.
+         */
+        readonly type: 'major-item-unlocked';
       };
 }
 
