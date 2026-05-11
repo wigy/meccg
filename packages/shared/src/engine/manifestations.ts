@@ -20,6 +20,7 @@
 import type {
   AutomaticAttack,
   CardDefinition,
+  CardEffect,
   CardInstance,
   DragonAtHomeEffect,
   GameState,
@@ -154,20 +155,27 @@ export function getActiveAutoAttacks(
   siteDef: SiteCard,
 ): readonly AutomaticAttack[] {
   const lairOf = (siteDef as { lairOf?: ManifestId }).lairOf;
-  if (!lairOf) return siteDef.automaticAttacks;
 
   let printed: readonly AutomaticAttack[] = siteDef.automaticAttacks;
-  if (isManifestationDefeated(state, lairOf)) {
-    // Dragon defeated → strip its Dragon-typed printed attacks. Other
-    // attacks on the same site (rare) are left intact.
-    printed = printed.filter(a => a.creatureType !== 'Dragon');
+
+  if (lairOf) {
+    if (isManifestationDefeated(state, lairOf)) {
+      // Dragon defeated → strip its Dragon-typed printed attacks. Other
+      // attacks on the same site (rare) are left intact.
+      printed = printed.filter(a => a.creatureType !== 'Dragon');
+    }
+
+    // Augment with any in-play At-Home effect for this manifestation,
+    // unless the matching Ahunt is also in play.
+    if (!isAhuntInPlay(state, lairOf)) {
+      const augments = collectAtHomeAttacks(state, lairOf);
+      if (augments.length > 0) printed = [...printed, ...augments];
+    }
   }
 
-  // Augment with any in-play At-Home effect for this manifestation,
-  // unless the matching Ahunt is also in play.
-  if (isAhuntInPlay(state, lairOf)) return printed;
-  const augments = collectAtHomeAttacks(state, lairOf);
-  return augments.length === 0 ? printed : [...printed, ...augments];
+  // Augment with any permanent-event-auto-attack effects targeting this site.
+  const peAugments = collectPermanentEventAttacks(state, siteDef);
+  return peAugments.length === 0 ? printed : [...printed, ...peAugments];
 }
 
 /**
@@ -200,6 +208,38 @@ export function isReduceAttacksToOneInPlay(state: GameState): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Collects `permanent-event-auto-attack` augmentations targeting the given site
+ * from all cards currently in any player's cardsInPlay. These are Spawn-type
+ * hazard events (e.g. Balrog of Moria TW-12, Monstrosity of Diverse Shape BA-21)
+ * that explicitly list site IDs they augment. Unlike dragon-at-home, these are
+ * not gated by any manifestation chain — they augment any listed site regardless.
+ */
+function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): AutomaticAttack[] {
+  const out: AutomaticAttack[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+      if (!effects) continue;
+      for (const e of effects) {
+        if (e.type !== 'permanent-event-auto-attack') continue;
+        const eff = e;
+        if (!eff.siteIds.includes(siteDef.id)) continue;
+        out.push({
+          creatureType: eff.attack.creatureType,
+          strikes: eff.attack.strikes,
+          prowess: eff.attack.prowess,
+          body: eff.attack.body,
+          combatRules: eff.attack.combatRules,
+          sourceInstanceId: card.instanceId,
+        });
+      }
+    }
+  }
+  return out;
 }
 
 /**

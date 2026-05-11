@@ -16,7 +16,7 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId 
 import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -234,6 +234,14 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
+      if (combat.excludeAvatarStrikes) {
+        const defId = charData.definitionId;
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from Neeker-breekers strike assignment`);
+          continue;
+        }
+      }
       logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
@@ -295,6 +303,14 @@ function assignStrikeActions(
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
+      if (combat.excludeAvatarStrikes) {
+        const charData = defPlayer.characters[charId as string];
+        const def = charData?.definitionId ? state.cardPool[charData.definitionId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from attacker assignment pool`);
+          continue;
+        }
+      }
       const charData = defPlayer.characters[charId as string];
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
@@ -1019,10 +1035,16 @@ function cancelAttackActions(
     // Always expose `attack.source` (the AttackSource discriminator) so
     // cards can distinguish M/H creatures from on-guard reveals and site
     // automatic attacks. `attack.keying` is additive when present.
+    // `attack.siteKeyed` is true for creature attacks whose keying has no
+    // regional types (i.e. keyed purely to site types or site names).
     const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
     if (combat.attackKeying && combat.attackKeying.length > 0) {
       attackCtx['keying'] = combat.attackKeying;
     }
+    const isSiteKeyedCreature = (
+      combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
     return ctx;
@@ -1099,16 +1121,10 @@ function cancelAttackActions(
     );
     if (!cancelEffect) continue;
 
-    // Check `when` condition against combat context (e.g. enemy.race filter)
-    if (cancelEffect.when) {
-      const ctx: Record<string, unknown> = {};
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
-      }
-      if (!matchesCondition(cancelEffect.when, ctx)) {
-        logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
-        continue;
-      }
+    // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      continue;
     }
 
     // Cards with wound-target-character (e.g. Escape): one action per
@@ -1260,6 +1276,7 @@ function halveStrikesActions(
       if (combat.creatureRace) {
         ctx['enemy'] = { race: combat.creatureRace };
       }
+      ctx['attack'] = { source: combat.attackSource.type };
       if (!matchesCondition(halveEffect.when, ctx)) {
         logDetail(`Halve-strikes ${handCard.definitionId as string}: when condition not met`);
         continue;
@@ -1410,16 +1427,45 @@ function modifyAttackFromHandActions(
       : combat.defendingPlayerId;
     if (playerId !== expectedPlayerId) continue;
 
-    if (effect.when) {
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames };
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
+    // Attack-scoped duplication check.
+    const attackDupLimit = (cardDef.effects).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (attackDupLimit) {
+      const prior = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === handCard.definitionId && c.scope.kind === 'attack',
+      ).length;
+      if (prior >= attackDupLimit.max) {
+        logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        continue;
       }
+    }
+
+    if (effect.when) {
+      // Build enemy context. Use the creature's base (printed) prowess for
+      // "normal prowess" conditions. For creature attacks look it up from the
+      // card pool; for automatic attacks use strikeProwess (it IS the printed
+      // prowess, since no card definition exists to differ from).
+      let baseProwess = combat.strikeProwess;
+      if (combat.attackSource.type === 'creature') {
+        const atkPlayerIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+        if (atkPlayerIdx >= 0) {
+          const creatureCard = state.players[atkPlayerIdx].cardsInPlay.find(
+            c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
+          );
+          if (creatureCard) {
+            const cDef = state.cardPool[creatureCard.definitionId as string];
+            if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+          }
+        }
+      }
+      const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
+      if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) {
         attackCtx['keying'] = combat.attackKeying;
       }
-      ctx['attack'] = attackCtx;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: when condition not met`);
         continue;

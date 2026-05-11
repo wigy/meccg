@@ -1582,6 +1582,22 @@ export function playLongEventAndResolve(
 // ─── Auto-attack state builders ──────────────────────────────────────────────
 
 /**
+ * Adds cards to the resource player's (P1) cardsInPlay.
+ *
+ * @param state - A state built by `buildSitePhaseState` or similar.
+ * @param cards - Card instances to add to P1's cardsInPlay.
+ */
+export function addP1CardsInPlay<T extends GameState>(
+  state: T,
+  cards: CardInPlay[],
+): T {
+  const players = state.players.map((p, i) =>
+    i === 0 ? { ...p, cardsInPlay: [...p.cardsInPlay, ...cards] } : p,
+  ) as unknown as typeof state.players;
+  return { ...state, players };
+}
+
+/**
  * Adds cards to the hazard player's (P2) cardsInPlay.
  *
  * @param state - A state built by `buildSitePhaseState` or similar.
