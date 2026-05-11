@@ -258,9 +258,18 @@ export type MHStep =
    * Currently auto-advances to declare-path — no player actions required.
    *
    * TODO: triggering events on site reveal
-   * TODO: under-deeps movement roll (stay if roll < site number)
    */
   | 'reveal-new-site'
+  /**
+   * Under-deeps movement roll step (CoE 2.IV.i.1): after the new
+   * Under-deeps site is revealed, the resource player rolls 2d6. If the
+   * result is less than the required number on the origin site card,
+   * the company stays and the destination is returned to the location deck.
+   * Only entered when the origin is an Under-deeps site and the required
+   * roll is > 0. Advances to `set-hazard-limit` on success or back to
+   * `select-company` on failure.
+   */
+  | 'under-deeps-roll'
   /**
    * CoE step 3: the base hazard limit is computed from the company's
    * current size (max of size or 2), halved (rounded up) if the hazard
@@ -420,6 +429,13 @@ export interface MovementHazardPhaseState {
    * Only one on-guard placement is allowed per company per M/H phase.
    */
   readonly onGuardPlacedThisCompany: boolean;
+  /**
+   * Present during the `under-deeps-roll` step only.
+   * The minimum 2d6 result the resource player must roll for the company
+   * to successfully complete Under-deeps movement. On failure the
+   * destination is returned to the location deck and the company stays.
+   */
+  readonly underDeepsRollRequired?: number;
   /**
    * Whether the active company's destination site has been revealed
    * (turned face-up) during the reveal-new-site step. Once true, the

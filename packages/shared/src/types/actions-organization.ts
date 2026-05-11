@@ -297,6 +297,12 @@ export interface ActivateGrantedAction {
   /** Optional target card for the action (e.g. which gold ring to test). */
   readonly targetCardId?: CardInstanceId;
   /**
+   * Second character involved in the cost, used when `cost.tap ===
+   * "sage-and-scout-in-company"`. Carries the scout's instance ID while
+   * `characterId` carries the sage's instance ID.
+   */
+  readonly secondCharacterId?: CardInstanceId;
+  /**
    * METD §7 / rule 10.08 — for `remove-self-on-roll` from a corruption
    * card: when true, the character does NOT tap, the roll suffers -3,
    * and a per-character per-card lock blocks any further removal

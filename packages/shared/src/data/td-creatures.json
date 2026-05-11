@@ -231,7 +231,14 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "spiders",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "shadow"],
+        "siteTypes": ["ruins-and-lairs"]
+      }
+    ],
+    "effects": [],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-creature",
@@ -245,6 +252,22 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Redhorn Gate",
+          "High Pass",
+          "Gap of Isen",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath",
+          "Númeriador",
+          "Iron Hills"
+        ]
+      }
+    ],
+    "effects": [],
+    "certified": "2026-05-11"
   }
 ]

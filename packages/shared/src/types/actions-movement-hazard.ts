@@ -524,6 +524,21 @@ export interface BodyCheckCompanyRollAction {
 }
 
 /**
+ * Roll 2d6 for the Under-deeps movement check.
+ *
+ * Required when a company moves from an Under-deeps site to an adjacent
+ * site and the adjacency number on the origin card is > 0 (CoE 2.IV.i.1).
+ * The resource player rolls; if the total is less than the required number
+ * the company stays and the destination is returned to the location deck.
+ */
+export interface UnderDeepsRollAction {
+  /** Action discriminant. */
+  readonly type: 'under-deeps-roll';
+  /** The resource player rolling. */
+  readonly player: PlayerId;
+}
+
+/**
  * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
  * chain entry before it resolves. Legal during M/H chain declaring when
  * the ally is untapped and the chain contains an unresolved entry tagged

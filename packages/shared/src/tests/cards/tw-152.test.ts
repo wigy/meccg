@@ -32,7 +32,7 @@ describe('Frodo (tw-152)', () => {
   beforeEach(() => resetMint());
 
 
-  test('corruption check modifier is +4 from corruptionModifier field', () => {
+  test('corruption check modifier is +4 from check-modifier effect', () => {
     // Set up Frodo in play with an item that gives corruption points,
     // then trigger a corruption check via pending check in organization phase.
     const state = buildTestState({
@@ -64,7 +64,7 @@ describe('Frodo (tw-152)', () => {
     const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check');
     expect(ccAction).toBeDefined();
 
-    // Frodo has Glamdring (2 CP), corruptionModifier +4
+    // Frodo has Glamdring (2 CP), check-modifier +4
     // need = CP + 1 - modifier = 2 + 1 - 4 = -1
     // Any roll passes (min dice roll 2 > -1)
     const cc = ccAction!.action as { corruptionModifier: number; need: number };
