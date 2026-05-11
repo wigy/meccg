@@ -2402,6 +2402,7 @@ Conditions:
   stationary).
 
 Prowess modifiers applied before reveal:
+
 - Face-down, not at home: base + 2
 - Face-down, at home: base + 5
 - Face-up, at home: base + 2
