@@ -18,7 +18,7 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -1272,6 +1272,37 @@ function handleSitePlayHeroResource(
   if (isItem) {
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
     afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
+  }
+
+  // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
+  // site that declares this rule immediately enqueues a gold-ring-test resolution.
+  // The ring stays on the character until the test fires (unlike the org-phase
+  // store-item path which moves it to outOfPlayPile first).
+  if (isItem) {
+    const itemSubtype = 'subtype' in def ? (def as { subtype?: string }).subtype : undefined;
+    const afterAttachPlayer = afterAttach.players[playerIndex];
+    const autoTestMod = goldRingAutoTestModifier(
+      afterAttach,
+      afterAttachPlayer.companies,
+      targetCharId,
+      itemSubtype,
+    );
+    if (autoTestMod !== null) {
+      const siteName = goldRingAutoTestSiteName(afterAttach, afterAttachPlayer.companies, targetCharId) ?? '?';
+      logDetail(`Auto-test gold ring ${def.name} at ${siteName} (modifier ${autoTestMod >= 0 ? '+' : ''}${autoTestMod})`);
+      return {
+        state: enqueueResolution(afterAttach, {
+          source: action.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: Phase.Site },
+          kind: {
+            type: 'gold-ring-test',
+            goldRingInstanceId: action.cardInstanceId,
+            rollModifier: autoTestMod,
+          },
+        }),
+      };
+    }
   }
 
   return { state: afterAttach };

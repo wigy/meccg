@@ -1259,13 +1259,52 @@ function applyGoldRingTestResolution(
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
 
-  // Locate the gold ring in the owner's out-of-play pile (where store-item
-  // just moved it). If absent, error so the caller can surface a bug.
-  const ringIdx = player.outOfPlayPile.findIndex(c => c.instanceId === goldRingInstanceId);
-  if (ringIdx === -1) {
-    return { state: dequeueResolution(state, top.id), error: 'Gold ring not found in out-of-play pile' };
+  // Locate the gold ring. Org-phase store-item path: ring is in outOfPlayPile.
+  // Site-phase auto-test path: ring was just played and sits in a character's
+  // items array. Search both locations.
+  const ringInOutOfPlay = player.outOfPlayPile.findIndex(c => c.instanceId === goldRingInstanceId);
+
+  let ringCard: typeof player.outOfPlayPile[0];
+  let stateAfterRing: GameState;
+
+  if (ringInOutOfPlay !== -1) {
+    ringCard = player.outOfPlayPile[ringInOutOfPlay];
+    const newOutOfPlay = [...player.outOfPlayPile];
+    newOutOfPlay.splice(ringInOutOfPlay, 1);
+    stateAfterRing = updatePlayer(state, actorIndex, p => ({
+      ...p,
+      outOfPlayPile: newOutOfPlay,
+      discardPile: [...p.discardPile, ringCard],
+    }));
+  } else {
+    // Site-phase path: find ring in character items.
+    let foundCharId: string | null = null;
+    let foundItemIdx = -1;
+    for (const [charIdStr, char] of Object.entries(player.characters)) {
+      const idx = char.items.findIndex(i => i.instanceId === goldRingInstanceId);
+      if (idx !== -1) {
+        foundCharId = charIdStr;
+        foundItemIdx = idx;
+        break;
+      }
+    }
+    if (foundCharId === null) {
+      return { state: dequeueResolution(state, top.id), error: 'Gold ring not found in out-of-play pile or character items' };
+    }
+    const char = player.characters[foundCharId];
+    ringCard = char.items[foundItemIdx];
+    const newItems = [...char.items];
+    newItems.splice(foundItemIdx, 1);
+    stateAfterRing = updatePlayer(state, actorIndex, p => ({
+      ...p,
+      characters: {
+        ...p.characters,
+        [foundCharId]: { ...char, items: newItems },
+      },
+      discardPile: [...p.discardPile, ringCard],
+    }));
   }
-  const ringCard = player.outOfPlayPile[ringIdx];
+
   const ringDef = state.cardPool[ringCard.definitionId as string];
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
@@ -1282,19 +1321,8 @@ function applyGoldRingTestResolution(
     label: `Gold-ring test: ${ringName}`,
   };
 
-  // Discard the gold ring from out-of-play regardless of the roll
-  // (Rule 9.21: gold ring is immediately discarded when tested).
-  const newOutOfPlay = [...player.outOfPlayPile];
-  newOutOfPlay.splice(ringIdx, 1);
-  const stateAfterRing = updatePlayer(state, actorIndex, p => ({
-    ...p,
-    outOfPlayPile: newOutOfPlay,
-    discardPile: [...p.discardPile, ringCard],
-    lastDiceRoll: roll,
-  }));
-
   const postRoll = dequeueResolution(
-    { ...stateAfterRing, rng, cheatRollTotal },
+    { ...updatePlayer(stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
     top.id,
   );
 
