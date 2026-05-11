@@ -1,7 +1,7 @@
 {
   "id": "development-proto-agents",
   "name": "Agents (Development only)",
-  "alignment": "minion",
+  "alignment": "hero",
   "pool": [
     {
       "name": "Horn of Anor",
