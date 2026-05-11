@@ -17,7 +17,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Dale",
     "effects": [
       {
@@ -51,7 +50,6 @@
     "directInfluence": 0,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Framsburg",
     "effects": [
       {
@@ -84,7 +82,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Grey Havens",
     "effects": [
       {
@@ -126,10 +123,12 @@
     "directInfluence": 1,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Minas Tirith",
     "effects": [
-      { "type": "play-flag", "flag": "healing-affects-all" }
+      {
+        "type": "play-flag",
+        "flag": "healing-affects-all"
+      }
     ],
     "text": "Unique. Healing effects affect all characters in her company.",
     "certified": "2026-04-14"
@@ -153,7 +152,6 @@
     "directInfluence": 2,
     "marshallingPoints": 3,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "None",
     "text": "Unique. +3 direct influence against Dwarves and Dwarf factions.",
     "effects": [

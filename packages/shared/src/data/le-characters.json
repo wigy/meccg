@@ -17,7 +17,6 @@
     "directInfluence": 4,
     "marshallingPoints": 3,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Barad-dûr",
     "manifestId": "tw-65",
     "effects": [
@@ -77,7 +76,6 @@
     "directInfluence": 3,
     "marshallingPoints": 3,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Dol Guldur",
     "keywords": [
       "Leader",
@@ -152,7 +150,6 @@
     "directInfluence": 0,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Minas Morgul",
     "keywords": [
       "Leader",
@@ -202,7 +199,6 @@
     "directInfluence": 0,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Cirith Ungol",
     "keywords": [
       "Leader",
@@ -253,7 +249,6 @@
     "directInfluence": 4,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Urlurtsu Nurn",
     "effects": [
       {
@@ -294,7 +289,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Variag Camp",
     "effects": [
       {
@@ -327,7 +321,6 @@
     "directInfluence": 0,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
     "keywords": [
       "Leader"
@@ -376,7 +369,6 @@
     "directInfluence": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Sarn Goriwing",
     "effects": [],
     "text": "Unique.",
@@ -400,7 +392,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Shrel-Kain",
     "effects": [
       {
@@ -433,7 +424,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Lake-town",
     "effects": [],
     "text": "Unique.",
@@ -457,7 +447,6 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Barad-dûr",
     "effects": [],
     "text": "Unique. Can use shadow-magic.",
@@ -480,7 +469,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Vale of Erech",
     "effects": [],
     "text": "Unique.",
@@ -505,7 +493,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
@@ -530,7 +517,6 @@
     "directInfluence": 1,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Dol Guldur"
   },
   {
@@ -552,7 +538,6 @@
     "directInfluence": 2,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any Dark-hold"
   },
   {
@@ -574,7 +559,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Southron Oasis"
   },
   {
@@ -595,7 +579,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
@@ -620,7 +603,6 @@
     "directInfluence": 2,
     "marshallingPoints": 3,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Minas Morgul",
     "discardBodyCheck": [
       9
@@ -644,7 +626,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
@@ -669,7 +650,6 @@
     "directInfluence": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Easterling Camp",
     "effects": [
       {
@@ -702,7 +682,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Woodmen-town"
   },
   {
@@ -723,7 +702,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       7,
@@ -749,7 +727,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       7,
@@ -774,7 +751,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       8
@@ -799,7 +775,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
@@ -823,7 +798,6 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Easterling Camp"
   },
   {
@@ -846,7 +820,6 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
@@ -872,7 +845,6 @@
     "directInfluence": 5,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Udûn"
   },
   {
@@ -895,7 +867,6 @@
     "directInfluence": 3,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Udûn"
   },
   {
@@ -917,7 +888,6 @@
     "directInfluence": 5,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Udûn or Imlad Morgul"
   },
   {
@@ -940,7 +910,6 @@
     "directInfluence": 3,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Any site in Imlad Morgul"
   }
 ]

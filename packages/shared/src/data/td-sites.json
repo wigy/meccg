@@ -292,7 +292,7 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Cardolan",
-    "playableResources": [],
+    "playableResources": ["minor"],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -302,6 +302,10 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
+    "effects": [
+      { "type": "site-rule", "rule": "allow-items-when-tapped" }
+    ],
+    "certified": "2026-05-10",
     "text": "Nearest Haven: RivendellPlayable: Items (minor)Automatic-attacks: Men — 3 strike with 6 prowessSpecial: Items may be played here even if the site is tapped.",
     "unique": true
   }
