@@ -1051,6 +1051,61 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
     }
 
+    // Check for on-event: character-body-check-equals-body on the attack source.
+    // Example: Giant Spiders discards non-Wizard/non-Ringwraith characters when
+    // the body check roll exactly equals (not exceeds) the character's body.
+    if (effectiveRoll === body && charData && !allyMatch) {
+      const sourceCard = getAttackSourceCard(stateWithRoll, combat);
+      const equalsBodyEvent = (sourceCard?.effects ?? []).find(
+        (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-body-check-equals-body',
+      );
+      if (equalsBodyEvent) {
+        const targetCharDef = stateWithRoll.cardPool[targetDefId as string];
+        const targetRace = isCharacterCard(targetCharDef) ? targetCharDef.race : undefined;
+        const condContext: Record<string, unknown> = { target: { race: targetRace } };
+        const conditionMet = !equalsBodyEvent.when || matchesCondition(equalsBodyEvent.when, condContext);
+        if (conditionMet && equalsBodyEvent.apply.type === 'discard-character') {
+          logDetail(`Body check equals body — character discarded to discard pile (not eliminated)`);
+          const newAssignments2 = combat.strikeAssignments.map((a, i) => {
+            if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+            if (!a.resolved && a.characterId === strike.characterId) {
+              logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
+              return { ...a, resolved: true, result: 'success' as const };
+            }
+            return a;
+          });
+          const newPlayers3 = clonePlayers(stateWithRoll);
+          const newPlayerData2 = { ...defPlayer };
+          const combatWithDiscard = { ...combat, strikeAssignments: newAssignments2 };
+          if (company) {
+            newPlayerData2.companies = newPlayerData2.companies.map(c =>
+              c.id === combat.companyId
+                ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+                : c,
+            );
+          }
+          const discardedCharDefId = resolveInstanceId(state, strike.characterId);
+          newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
+          for (const ally of charData.allies) {
+            logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+          }
+          for (const item of charData.items) {
+            logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }];
+          }
+          const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
+          newPlayerData2.characters = remainingCharsDisc;
+          newPlayers3[defPlayerIndex] = newPlayerData2;
+          const next4 = nextStrikePhase(combatWithDiscard);
+          if (next4) {
+            return { state: { ...stateWithRoll, players: newPlayers3, combat: { ...combatWithDiscard, ...next4 } }, effects };
+          }
+          return finalizeCombat({ ...stateWithRoll, players: newPlayers3, combat: combatWithDiscard }, effects);
+        }
+      }
+    }
+
     logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
     // Advance to next strike or finalize
     const next3 = nextStrikePhase(combat);
