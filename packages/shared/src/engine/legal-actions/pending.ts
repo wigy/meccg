@@ -993,6 +993,10 @@ function applyOneConstraint(
       // Pure marker for the duplication-limit mechanism; consulted directly
       // by `modifyAttackFromHandActions` — no broad legal-action filtering.
       return base;
+    case 'major-item-unlocked':
+      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
+      // to allow major and hoard items — no broad legal-action filtering here.
+      return base;
   }
 }
 

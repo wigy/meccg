@@ -68,10 +68,12 @@
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a company may discard two minor items they bear to make any one major item (including a hoard item) playable at this untapped site this turn.",
     "unique": true,
+    "certified": "2026-05-11",
     "effects": [
       {
         "type": "grant-action",
-        "action": "discard-minors-for-major"
+        "action": "discard-minors-for-major",
+        "cost": {}
       }
     ]
   },
