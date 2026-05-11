@@ -1,11 +1,12 @@
 [
   {
-    "cardType": "hazard-corruption",
+    "cardType": "hazard-event",
     "id": "as-24",
     "name": "Alone and Unadvised",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/AloneandUnadvised.jpg",
     "unique": false,
-    "corruptionPoints": 4,
+    "eventType": "permanent",
+    "keywords": ["corruption"],
     "effects": [
       {
         "type": "play-target",
@@ -30,6 +31,11 @@
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 4
       },
       {
         "type": "on-event",
@@ -80,7 +86,6 @@
       }
     ],
     "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character.",
-    "keywords": ["corruption"],
     "certified": "2026-04-14"
   },
   {
@@ -100,7 +105,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FullofFrothandRage.jpg",
     "text": "All Spider and Animal attacks receive +2 prowess. Discard if a Spider or Animal attack is defeated. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": { "$in": ["spider", "animal"] }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": { "type": "discard-self" },
+        "when": {
+          "enemy.race": { "$in": ["spider", "animal"] }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hazard-event",

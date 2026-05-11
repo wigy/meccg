@@ -135,6 +135,9 @@ export function availableDI(
         target: {
           name: targetDef.name,
           race: targetDef.race,
+          homesite: targetDef.homesite
+            ? targetDef.homesite.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+            : [],
         },
       };
       const charEffects = collectCharacterEffects(state, controller, resolverCtx);
@@ -1000,6 +1003,7 @@ export function buildPlayOptionContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
   player?: PlayerState,
+  currentPhase?: string,
 ): Record<string, unknown> {
   const def = state.cardPool[char.definitionId as string];
   if (!def || !isCharacterCard(def)) {
@@ -1036,6 +1040,7 @@ export function buildPlayOptionContext(
       hasFactionInHand,
     },
     inPlay: buildInPlayNames(state),
+    ...(currentPhase !== undefined ? { phase: currentPhase } : {}),
   };
 }
 
@@ -1044,8 +1049,9 @@ function buildTargetContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
   player?: PlayerState,
+  currentPhase?: string,
 ): Record<string, unknown> {
-  return buildPlayOptionContext(state, char, player);
+  return buildPlayOptionContext(state, char, player, currentPhase);
 }
 
 /**
@@ -1099,6 +1105,7 @@ function playOptionActionsForCard(
   def: { name: string },
   playTarget: PlayTargetEffect,
   options: readonly PlayOptionEffect[],
+  currentPhase?: string,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const hasTapCost = playTarget.cost?.tap === 'character';
@@ -1108,7 +1115,7 @@ function playOptionActionsForCard(
     if (!char) continue;
     const charDef = state.cardPool[char.definitionId as string];
     const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
-    const ctx = buildTargetContext(state, char, player);
+    const ctx = buildTargetContext(state, char, player, currentPhase);
     for (const opt of options) {
       if (opt.when && !matchesCondition(opt.when, ctx)) {
         logDetail(`${def.name} on ${targetName}: option "${opt.id}" when-condition rejected`);
@@ -1265,7 +1272,7 @@ export function playResourceShortEventActions(
     const playOptions = getPlayOptionEffects(def);
     if (playOptions.length > 0 && playTarget) {
       const optionActions = playOptionActionsForCard(
-        state, player, playerId, handCard.instanceId, def, playTarget, playOptions,
+        state, player, playerId, handCard.instanceId, def, playTarget, playOptions, currentPhase,
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);

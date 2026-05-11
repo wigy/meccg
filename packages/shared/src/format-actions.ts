@@ -143,6 +143,16 @@ export function extractActionCardDefs(
       for (const v of Object.values(value)) visit(v);
     }
   };
+  // fetch-from-pile moves a card from a private pile (discard or sideboard)
+  // into the private play deck. Even if the card was previously revealed
+  // (e.g. played as a hazard earlier), broadcasting its identity here would
+  // tell the opponent which specific card was chosen — private information.
+  // Exclude cardInstanceId so the opponent's toast shows "Fetch a card from …".
+  if (action.type === 'fetch-from-pile') {
+    const { cardInstanceId: _excluded, ...rest } = action;
+    visit(rest);
+    return defs;
+  }
   visit(action);
   return defs;
 }
@@ -427,6 +437,10 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to key creatures`;
     case 'agent-influence-attempt':
       return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
+    case 'agent-tap-attack':
+      return `Agent ${action.agentId as string} taps to attack`;
+    case 'agent-strike-roll':
+      return `Agent rolls for strike`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

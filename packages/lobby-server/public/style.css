@@ -2288,6 +2288,13 @@ h2 {
   font-style: italic;
 }
 
+.actions-waiting {
+  color: rgba(196, 163, 90, 0.5);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+}
+
 .action-json-toggle {
   display: inline-block;
   margin-left: 0.5rem;
@@ -3126,6 +3133,10 @@ h2 {
   color: rgba(140, 180, 220, 0.95);
 }
 
+.toast--self {
+  color: rgba(130, 200, 140, 0.95);
+}
+
 .toast--error {
   color: #ff7070;
 }
@@ -3243,6 +3254,19 @@ h2 {
   border-color: rgba(196, 163, 90, 0.8);
 }
 
+#waiting-indicator {
+  position: fixed;
+  right: 2rem;
+  bottom: 2.6rem;
+  z-index: var(--z-panel);
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1rem;
+  color: rgba(196, 163, 90, 0.35);
+  font-style: italic;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
 .enter-site-btn {
   position: fixed;
   right: 2rem;
@@ -3324,13 +3348,13 @@ h2 {
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
 .all-companies-mode #opponent-deck-box,
-.all-companies-mode #pass-btn,
-.all-companies-mode .enter-site-btn {
+.all-companies-mode #opponent-hazard-limit {
   display: none;
 }
 
-/* Reclaim the space freed by hiding the opponent arc */
-.all-companies-mode {
+/* Reclaim the space freed by hiding the opponent arc.
+   Only suppress body scroll in visual mode (debug-view is hidden then). */
+body.all-companies-mode:has(#debug-view.hidden) {
   overflow-y: hidden;
 }
 
@@ -3776,6 +3800,37 @@ h2 {
   margin-right: calc(1rem * var(--company-scale, 1));
 }
 
+/* Agent site-stack fan: older face-down sites overlap to reveal just a sliver
+   of each card, with the current (or topmost) site fully visible at the right. */
+.agent-site-area {
+  align-items: flex-start;
+}
+
+.agent-site-stack {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.agent-site-stack__card {
+  position: absolute;
+}
+
+.agent-site-placeholder {
+  width: calc(var(--card-table-height) * var(--company-scale, 1) * 0.7);
+  height: calc(var(--card-table-height) * var(--company-scale, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(0.85rem * var(--company-scale, 1));
+  font-family: 'MedievalSharp', cursive;
+  color: rgba(220, 190, 100, 0.95);
+  border: 2px solid rgba(220, 190, 100, 0.6);
+  border-radius: 6px;
+  background: rgba(196, 163, 90, 0.12);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  margin-right: calc(1rem * var(--company-scale, 1));
+}
+
 .company-movement-arrow {
   color: #c4a35a;
   padding: 0 0.3rem;
@@ -3917,6 +3972,31 @@ h2 {
 .on-guard-card:nth-child(4) { --og-index: 3; z-index: 3; }
 .on-guard-card:nth-child(5) { --og-index: 4; z-index: 4; }
 .on-guard-card:nth-child(6) { --og-index: 5; z-index: 5; }
+
+/* Wrapper for agent attack overlay on the site card */
+.agent-attack-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Half-size agent thumbnail overlapping top-right of site card, golden selectable glow */
+.agent-attack-thumb {
+  position: absolute;
+  top: calc(-5% - var(--agent-thumb-index, 0) * 6%);
+  right: calc(-10% - var(--agent-thumb-index, 0) * 6%);
+  height: calc(var(--card-table-height) * var(--company-scale, 1) * 0.5);
+  border-radius: 4px;
+  z-index: 8;
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 20px rgba(var(--color-selectable), 0.4);
+}
+
+.agent-attack-thumb:hover {
+  box-shadow:
+    0 0 12px rgba(var(--color-selectable), 1),
+    0 0 28px rgba(var(--color-selectable), 0.7);
+}
 
 /* Anchor wrapper around the site card for positioning constraint cards */
 .constraint-anchor {
@@ -4233,8 +4313,6 @@ h2 {
 /* Character action tooltip — disambiguation menu */
 .char-action-tooltip {
   z-index: var(--z-action-menu);
-  transform: translate(-50%, -100%);
-  margin-top: -8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -4630,6 +4708,7 @@ h2 {
   width: 100%;
   height: 100%;
   position: relative;
+  z-index: var(--z-panel);
   padding: 1rem 2rem;
   gap: 0.5rem;
 }

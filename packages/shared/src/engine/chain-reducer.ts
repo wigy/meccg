@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -28,7 +28,7 @@ import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
-import { isReduceAttacksToOneInPlay } from './manifestations.js';
+import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -815,9 +815,10 @@ function buildConstraintKind(
  *
  * The card was discarded at play time (hazard short events go to discard
  * immediately). If the card carries `fetch-to-deck` effects whose `when`
- * conditions are satisfied, move it from the discard pile to cardsInPlay
- * and enqueue the effects as {@link PendingEffect}s so the hazard player
- * can interactively choose which cards to fetch.
+ * conditions are satisfied, enqueue the effects as {@link PendingEffect}s
+ * so the hazard player can interactively choose which cards to fetch.
+ * The card remains in the discard pile throughout — hazard short events
+ * are never placed in cardsInPlay.
  */
 function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
@@ -849,21 +850,8 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 
   logDetail(`${def.name}: queuing ${fetchEffects.length} fetch-to-deck effect(s)`);
 
-  const playerIndex = getPlayerIndex(state, entry.declaredBy);
-  const player = state.players[playerIndex];
-
-  const discardIdx = player.discardPile.findIndex(c => c.instanceId === card.instanceId);
-  if (discardIdx === -1) return state;
-
-  const newDiscard = [...player.discardPile];
-  newDiscard.splice(discardIdx, 1);
-
   return {
-    ...updatePlayer(state, playerIndex, p => ({
-      ...p,
-      discardPile: newDiscard,
-      cardsInPlay: [...p.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
-    })),
+    ...state,
     pendingEffects: [...state.pendingEffects, ...fetchEffects],
   };
 }
@@ -1259,6 +1247,31 @@ function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): str
 }
 
 /**
+ * Returns the creature races already faced by the active company during the
+ * site phase, derived from the site's automatic attacks that have already
+ * been initiated (`phaseState.automaticAttacksResolved`). Used by on-guard
+ * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
+ * was already faced this turn).
+ */
+function deriveSiteFacedRaces(state: GameState): string[] {
+  if (state.phaseState.phase !== 'site') return [];
+  const siteState = state.phaseState;
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const company = state.players[activePlayerIndex]?.companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return [];
+  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return [];
+  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const resolved = Math.min(siteState.automaticAttacksResolved, autoAttacks.length);
+  const races = new Set<string>();
+  for (let i = 0; i < resolved; i++) {
+    const race = normalizeCreatureRace(autoAttacks[i].creatureType);
+    if (race) races.add(race);
+  }
+  return Array.from(races);
+}
+
+/**
  * Returns the `effects` array of the site that would be the venue for an
  * attack against the given company. Prefers the company's explicit
  * destination (M/H) or current site references, because the same site
@@ -1405,9 +1418,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Check for one-strike-per-character combat rule (e.g. Wandering Eldar,
   // Watcher in the Water — "Each character in the company faces one strike").
   // When present, the creature's raw strikes value is ignored; total strikes
-  // equals the defending company's character count.
-  const oneStrikePerCharacter = creatureDef.effects?.some(
+  // equals the defending company's character count. When excludeAvatars is
+  // true (e.g. Neeker-breekers), avatars (mind === null) are excluded.
+  const oneStrikePerCharacterEffect = creatureDef.effects?.find(
     e => e.type === 'combat-one-strike-per-character',
+  );
+  const oneStrikePerCharacter = oneStrikePerCharacterEffect !== undefined;
+  const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+  const defenderProwessFromMind = creatureDef.effects?.some(
+    e => e.type === 'combat-defender-prowess-from-mind',
   ) ?? false;
 
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
@@ -1415,6 +1434,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     e => e.type === 'combat-cancel-attack-by-tap',
   );
   const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
+  const cancelByTapAllowTarget = cancelByTapEffect?.allowTargetToCancel ?? false;
 
   const attackSource = state.phaseState.phase === 'site'
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
@@ -1424,7 +1444,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureRace = creatureDef.race;
   const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
-    : [];
+    : deriveSiteFacedRaces(state);
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
   const creatureSelf = creatureDef.effects?.length
     ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
@@ -1439,8 +1459,18 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   //   3. default                         → strikes = effectiveStrikes
   let totalStrikes: number;
   if (oneStrikePerCharacter) {
-    totalStrikes = company.characters.length;
-    logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
+    if (excludeAvatarStrikes) {
+      const nonAvatarCount = company.characters.filter(charId => {
+        const defId = resolveInstanceId(state, charId);
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        return !isAvatarCharacter(def);
+      }).length;
+      totalStrikes = nonAvatarCount;
+      logDetail(`One strike per non-avatar character: ${nonAvatarCount} non-avatar character(s) → ${totalStrikes} total strikes`);
+    } else {
+      totalStrikes = company.characters.length;
+      logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
+    }
   } else {
     totalStrikes = effectiveStrikes * multiAttackCount;
     if (multiAttackCount > 1) {
@@ -1484,6 +1514,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
+    cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
+    excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
+    defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   };
 
@@ -1574,24 +1607,31 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   }
 
   // Short events that cancel the current attack (e.g. Concealment, Dark
-  // Quarrels, Many Turns and Doublings, Vanishment): when the chain entry
-  // resolves un-negated, fire each cancel-attack effect through the
-  // shared apply dispatcher. The opponent had a chance to negate this
-  // entry during chain declaration (e.g. via a hazard that cancels
-  // attack cancels).
+  // Quarrels, Many Turns and Doublings, Vanishment) or resolve a strike
+  // effect (e.g. Dodge, Lucky Strike, Risky Blow): when the chain entry
+  // resolves un-negated, fire each matching effect through the shared apply
+  // dispatcher. The opponent had a chance to negate this entry during chain
+  // declaration.
+  const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = current.cardPool[entry.card.definitionId as string];
     if (def && 'effects' in def && def.effects) {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of def.effects) {
-        if (effect.type !== 'cancel-attack') continue;
-        logDetail(`Chain resolves cancel-attack from "${def.name}"`);
+        if (
+          effect.type !== 'cancel-attack' &&
+          effect.type !== 'dodge-strike' &&
+          effect.type !== 'reroll-strike' &&
+          effect.type !== 'modify-strike'
+        ) continue;
+        logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);
         if ('error' in r) {
-          logDetail(`applyEffect cancel-attack failed: ${r.error}`);
+          logDetail(`applyEffect ${effect.type} failed: ${r.error}`);
           continue;
         }
         current = r.state;
+        if (r.effects) resolveEffects.push(...r.effects);
       }
     }
   }
@@ -1862,6 +1902,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   return {
     state: { ...current, chain: newChain },
     needsInput: false,
+    ...(resolveEffects.length > 0 ? { effects: resolveEffects } : {}),
   };
 }
 

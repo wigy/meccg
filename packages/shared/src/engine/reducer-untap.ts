@@ -204,8 +204,15 @@ function performUntap(state: GameState): GameState {
     );
     let newStatus = ch.status;
     if (cannotUntapIds.has(key)) {
-      // Bearer-cannot-untap constraint active — leave tapped
-      logDetail(`Untap: skipping ${key} (bearer-cannot-untap constraint active)`);
+      // bearer-cannot-untap blocks tapped→untapped only; healing (inverted→tapped)
+      // at a haven is a separate operation and must still proceed (CoE rule 2.I.1).
+      if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
+        newStatus = CardStatus.Tapped;
+        healedCount++;
+        logDetail(`Untap: healing ${key} to tapped (bearer-cannot-untap blocks untap, not healing)`);
+      } else {
+        logDetail(`Untap: skipping untap for ${key} (bearer-cannot-untap constraint active)`);
+      }
     } else if (ch.status === CardStatus.Tapped) {
       newStatus = CardStatus.Untapped;
     } else if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
@@ -228,16 +235,27 @@ function performUntap(state: GameState): GameState {
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
   logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
-  // Reset per-turn agent bookkeeping for the active player's agents.
+  // Reset per-turn agent bookkeeping and untap tapped agents.
   // An agent that was in play before this untap is now eligible to take
-  // agent actions (inPlayAtTurnStart → true). Both flags reset every turn.
+  // agent actions (inPlayAtTurnStart → true). remainingActions is set to
+  // 1 + extra-agent-actions effects in play (e.g. Great Need or Purpose).
+  const extraAgentActions = state.players.reduce((sum, p) =>
+    p.cardsInPlay.reduce((s, card) => {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) return s;
+      return s + (def.effects as CardEffect[]).reduce((n, e) => e.type === 'extra-agent-actions' ? n + (e as { value: number }).value : n, 0);
+    }, sum), 0);
   const newAgents = player.agents.map(a => ({
     ...a,
     inPlayAtTurnStart: true,
-    actedThisTurn: false,
+    remainingActions: 1 + extraAgentActions,
+    character: a.character.status === CardStatus.Tapped
+      ? { ...a.character, status: CardStatus.Untapped }
+      : a.character,
   }));
 
-  logDetail(`Untap: setting inPlayAtTurnStart=true for ${newAgents.length} agent(s)`);
+  const tappedAgentCount = player.agents.filter(a => a.character.status === CardStatus.Tapped).length;
+  logDetail(`Untap: untapping ${tappedAgentCount} agent(s), setting inPlayAtTurnStart=true for ${newAgents.length} agent(s)`);
 
   let stateAfterUntap = updatePlayer(state, playerIndex, p => ({
     ...p,
@@ -278,8 +296,15 @@ function performUntap(state: GameState): GameState {
  * Called from all entry points into the untap phase.
  */
 export function enterUntapPhase(state: GameState): GameState {
+  // Reset sideboardAccessedDuringUntap for all players at the start of each
+  // new turn. Per CoE rule 2.I.2, the hazard limit halving only applies to
+  // "this turn's" movement/hazard phases — the flag must not carry over.
+  const players = state.players.map(p =>
+    p.sideboardAccessedDuringUntap ? { ...p, sideboardAccessedDuringUntap: false } : p,
+  ) as unknown as typeof state.players;
   return {
     ...state,
+    players,
     phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
   };
 }

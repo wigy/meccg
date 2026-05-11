@@ -334,6 +334,8 @@ export interface PendingResolution {
  */
 export type ConstraintScope =
   | { readonly kind: 'turn' }
+  /** Cleared when the current attack finalizes (combat ends). */
+  | { readonly kind: 'attack' }
   | { readonly kind: 'phase'; readonly phase: Phase }
   | { readonly kind: 'company-site-phase'; readonly companyId: CompanyId }
   | { readonly kind: 'company-mh-phase'; readonly companyId: CompanyId }
@@ -654,6 +656,20 @@ export interface ActiveConstraint {
         readonly type: 'bearer-cannot-untap';
         /** The permanent-event card instance that placed this restriction. */
         readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
+         * Marker placed when a `modify-attack-from-hand` card with
+         * `duplication-limit scope "attack"` is played. Stored with
+         * `scope: { kind: 'attack' }` so it is swept when combat
+         * finalizes. The duplication check in `modifyAttackFromHandActions`
+         * counts constraints of this type from the same source definition
+         * to prevent re-play on the same attack.
+         *
+         * Example: The Old Thrush (tw-346) — "-3 prowess and body; cannot
+         * be duplicated on a given attack."
+         */
+        readonly type: 'attack-card-played';
       };
 }
 
@@ -669,4 +685,6 @@ export type ScopeBoundary =
   | { readonly kind: 'phase-step-end'; readonly phase: Phase; readonly step: string }
   | { readonly kind: 'company-mh-end'; readonly companyId: CompanyId }
   | { readonly kind: 'company-site-end'; readonly companyId: CompanyId }
+  /** Clears `attack`-scoped constraints when an attack finalizes. */
+  | { readonly kind: 'attack-end' }
   | { readonly kind: 'turn-end' };

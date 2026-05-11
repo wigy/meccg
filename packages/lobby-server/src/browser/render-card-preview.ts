@@ -90,7 +90,8 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       if (def.mind !== null) addAttr(el, 'Mind', def.mind);
       addAttr(el, 'Direct Influence', def.directInfluence);
       addAttr(el, 'MP', def.marshallingPoints);
-      if (def.corruptionModifier !== 0) addAttr(el, 'Corruption Mod', def.corruptionModifier);
+      const corruptionMod = def.effects?.find(e => e.type === 'check-modifier' && (e as { check?: string }).check === 'corruption') as { value?: number } | undefined;
+      if (corruptionMod?.value) addAttr(el, 'Corruption Mod', corruptionMod.value);
       addAttr(el, 'Home Site', def.homesite);
       break;
     }

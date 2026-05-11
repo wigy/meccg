@@ -1202,6 +1202,30 @@ function runGrantApply(
     return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects], stateOps: [...stateOpsExtra, ...inner.stateOps] };
   }
 
+  if (apply.type === 'untap-site') {
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const siteInstance = company.currentSite;
+    if (!siteInstance) {
+      return { error: `${ctx.charName}'s company has no current site` };
+    }
+    const siteDef = state.cardPool[siteInstance.definitionId as string];
+    const siteName = siteDef?.name ?? '?';
+    logDetail(`Grant-action ${ctx.action.actionId}: untapping site ${siteName}`);
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      companies: bearerPlayer.companies.map(c =>
+        c.id === company.id
+          ? { ...c, currentSite: { ...siteInstance, status: CardStatus.Untapped } }
+          : c,
+      ),
+    };
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
 }
 
@@ -1376,6 +1400,21 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
 
   const newPlayers = clonePlayers(costResult.state);
   let updatedChar: CharacterInPlay = newPlayers[playerIndex].characters[action.characterId as string] ?? char;
+
+  // For sage-and-scout-in-company cost: `applyCost` taps the sage (characterId).
+  // Also tap the scout (secondCharacterId) here.
+  if (resolved.cost.tap === 'sage-and-scout-in-company' && action.secondCharacterId) {
+    const scout = newPlayers[playerIndex].characters[action.secondCharacterId as string];
+    if (!scout) return { state, error: `sage-and-scout-in-company: scout ${action.secondCharacterId as string} not found` };
+    logDetail(`Grant-action ${action.actionId}: tapping scout ${action.secondCharacterId as string}`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: {
+        ...newPlayers[playerIndex].characters,
+        [action.secondCharacterId as string]: { ...scout, status: CardStatus.Tapped },
+      },
+    };
+  }
 
   // --- Apply effect ---
   const ctx: GrantApplyContext = {
@@ -1730,7 +1769,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   if (company.currentSite) {
     const rule_7_1_violation = player.companies.find(
       c => c.id !== action.companyId
-        && c.currentSite?.instanceId === company.currentSite!.instanceId
+        && c.currentSite?.definitionId === company.currentSite!.definitionId
         && c.destinationSite?.instanceId === action.destinationSite,
     );
     if (rule_7_1_violation) {

@@ -423,7 +423,6 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedBookofWestmarch.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -551,7 +550,42 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 9,
+        "id": "durins-axe-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "max": 9,
+        "overrides": "durins-axe-prowess",
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 3,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      },
+      {
+        "type": "mp-modifier",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-resource-item",

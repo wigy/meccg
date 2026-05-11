@@ -52,7 +52,7 @@ function makeStubAgent(
       definitionId: siteDefinitionId as CardDefinitionId,
       status: CardStatus.Untapped,
     }],
-    actedThisTurn: false,
+    remainingActions: 1,
     inPlayAtTurnStart: false,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
@@ -123,7 +123,7 @@ describe('Rule 9.00 — Agent state model', () => {
     const rt = roundTripped.players[1].agents[0];
     expect(rt.id).toBe('p2-agent-1');
     expect(rt.revealed).toBe(false);
-    expect(rt.actedThisTurn).toBe(false);
+    expect(rt.remainingActions).toBe(1);
     expect(rt.inPlayAtTurnStart).toBe(false);
     expect(rt.attackedThisSitePhase).toBe(false);
     expect(rt.discardAtEndOfTurn).toBe(false);

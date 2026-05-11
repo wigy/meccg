@@ -330,8 +330,6 @@ export interface BalrogSiteCard {
    * Corresponds to the darker box in the bottom-left of the physical card.
    */
   readonly hazardDraws: number;
-  /** Whether this is an Under-deeps site (underground network below Middle-earth). */
-  readonly underDeeps: boolean;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
   /** Declarative effects for site-specific rules (e.g. healing, hazard-limit modifiers). */

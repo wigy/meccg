@@ -612,6 +612,54 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
+  // Handle company-combat-boost effects: add attack-scoped character-stat-modifier
+  // constraints for each matching character in the defending company.
+  // Only active when this card is played during combat (state.combat non-null).
+  const companyCombatBoosts = (def.effects ?? []).filter(
+    (e): e is import('../types/effects.js').CompanyCombatBoostEffect => e.type === 'company-combat-boost',
+  );
+  if (companyCombatBoosts.length > 0 && newState.combat) {
+    const combat = newState.combat;
+    const defPlayerIndex = newState.players.findIndex(p => p.id === combat.defendingPlayerId);
+    if (defPlayerIndex >= 0) {
+      const defPlayer = newState.players[defPlayerIndex];
+      const company = defPlayer.companies.find(c => c.id === combat.companyId);
+      if (company) {
+        for (const boostEffect of companyCombatBoosts) {
+          for (const charId of company.characters) {
+            const char = defPlayer.characters[charId as string];
+            if (!char) continue;
+            const charCardDef = newState.cardPool[char.definitionId as string];
+            if (!charCardDef) continue;
+            if (boostEffect.filter) {
+              const ctx = {
+                target: {
+                  race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
+                  name: ('name' in charCardDef ? (charCardDef as { name?: string }).name : undefined) ?? '',
+                  skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
+                },
+              };
+              if (!matchesCondition(boostEffect.filter, ctx)) continue;
+            }
+            logDetail(`${def.name}: adding attack-scoped +${boostEffect.value} ${boostEffect.stat} to ${charId as string}`);
+            newState = addConstraint(newState, {
+              source: handCard.instanceId,
+              sourceDefinitionId: handCard.definitionId,
+              scope: { kind: 'attack' },
+              target: { kind: 'character', characterId: charId },
+              kind: {
+                type: 'character-stat-modifier',
+                stat: boostEffect.stat,
+                value: boostEffect.value,
+                characterId: charId,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
     logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);

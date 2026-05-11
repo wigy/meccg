@@ -305,7 +305,7 @@ export function heroResourceShortEventActions(
     const playOptions = getPlayOptionEffects(def);
     if (playOptions.length > 0 && playTarget) {
       const optionActions = playOptionActionsForShortEvent(
-        state, player, playerId, cardInstanceId, def, playTarget, playOptions,
+        state, player, playerId, cardInstanceId, def, playTarget, playOptions, currentPhase,
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible play-option targets — not playable`);
@@ -331,7 +331,7 @@ export function heroResourceShortEventActions(
       }
     } else if (playTarget && playTarget.target === 'character') {
       const optionActions = playOptionActionsForShortEvent(
-        state, player, playerId, cardInstanceId, def, playTarget, getPlayOptionEffects(def),
+        state, player, playerId, cardInstanceId, def, playTarget, getPlayOptionEffects(def), currentPhase,
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible character targets — not playable`);
@@ -364,6 +364,7 @@ function playOptionActionsForShortEvent(
   def: { name: string },
   playTarget: PlayTargetEffect,
   options: readonly PlayOptionEffect[],
+  currentPhase?: string,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const targets = playTarget.cost?.tap === 'character'
@@ -373,7 +374,7 @@ function playOptionActionsForShortEvent(
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
     if (!char) continue;
-    const ctx = buildPlayOptionContext(state, char, player);
+    const ctx = buildPlayOptionContext(state, char, player, currentPhase);
     if (options.length === 0) {
       logDetail(`${def.name} playable on ${targetId as string} (no options)`);
       actions.push({

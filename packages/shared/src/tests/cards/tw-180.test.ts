@@ -10,7 +10,7 @@
  * modified by +3."
  *
  * Tests:
- * 1. check-modifier: +3 to corruption checks (base corruptionModifier)
+ * 1. check-modifier: +3 to corruption checks (check-modifier effect)
  * 2. play-restriction: home-site-only (can only be played at Bag End, not havens)
  */
 

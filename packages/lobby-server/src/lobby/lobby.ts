@@ -19,6 +19,8 @@ interface ActiveGameInfo {
   readonly token: string;
   readonly opponent: string;
   readonly opponentDisplayName: string;
+  /** AI deck ID used for this game (only set for AI games), remembered for rejoin. */
+  readonly aiDeckId?: string;
 }
 
 /** A connected player in the lobby. */
@@ -193,6 +195,9 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         break;
       }
 
+      // Capture AI deck before clearing state, so the rejoin can reuse it
+      const storedAiDeckId = from.activeGame?.aiDeckId;
+
       // Clear stale inGame state from the dead game
       from.inGame = false;
       from.activeGame = null;
@@ -200,7 +205,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       if (opponentName === 'AI-Pseudo') {
         void startPseudoAiGame(from);
       } else if (isAi) {
-        void startAiGame(from);
+        void startAiGame(from, storedAiDeckId);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
@@ -279,6 +284,7 @@ async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void>
       token: result.tokens[0],
       opponent: aiName,
       opponentDisplayName: aiName,
+      aiDeckId: deckId,
     };
     send(player.ws, { type: 'game-starting', ...player.activeGame });
 

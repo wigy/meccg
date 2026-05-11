@@ -207,7 +207,12 @@
     "resourceDraws": 3,
     "hazardDraws": 6,
     "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played.",
-    "unique": true
+    "effects": [
+      { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 },
+      { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+    ],
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -234,7 +239,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -260,7 +266,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess.",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -647,6 +654,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien.",
+    "certified": "2026-05-11",
     "unique": true
   },
   {
@@ -706,7 +714,10 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Brown Lands",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -717,6 +728,7 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: LórienPlayable: Items (minor, gold ring)Automatic-attacks: Men — 3 strikes with 6 prowess",
+    "certified": "2026-05-09",
     "unique": true
   },
   {
@@ -732,7 +744,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Redhorn Gate",
-    "playableResources": [],
+    "playableResources": ["information"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -743,7 +755,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -795,6 +808,7 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Rivendell.",
     "effects": [],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -832,7 +846,8 @@
     "keywords": [
       "hoard"
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -869,6 +884,7 @@
     "keywords": [
       "hoard"
     ],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -906,7 +922,8 @@
     "keywords": [
       "hoard"
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -943,7 +960,8 @@
     "keywords": [
       "hoard"
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1005,6 +1023,18 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1027,7 +1057,8 @@
     "automaticAttacks": [],
     "resourceDraws": 4,
     "hazardDraws": 4,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1053,9 +1084,21 @@
         "prowess": 8
       }
     ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1078,7 +1121,8 @@
     "automaticAttacks": [],
     "resourceDraws": 3,
     "hazardDraws": 3,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1262,7 +1306,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1285,7 +1330,8 @@
     "automaticAttacks": [],
     "resourceDraws": 3,
     "hazardDraws": 3,
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1300,7 +1346,10 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1311,6 +1360,18 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-05-09",
     "unique": true
   },
   {
@@ -1330,7 +1391,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Gorgoroth",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1346,7 +1407,11 @@
     "resourceDraws": 3,
     "hazardDraws": 6,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowessSpecial: Any company moving to this site has its hazard limit increased by 2.",
-    "unique": true
+    "effects": [
+      { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+    ],
+    "unique": true,
+    "certified": "2026-05-09"
   },
   {
     "cardType": "hero-site",
@@ -1366,6 +1431,7 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien",
+    "certified": "2026-05-09",
     "unique": true
   },
   {
@@ -1385,7 +1451,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Rivendell",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-09"
   },
   {
     "cardType": "hero-site",
@@ -1403,7 +1470,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Imlad Morgul",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1414,6 +1481,8 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Orcs — 4 strikes with 7 prowess",
+    "effects": [],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1430,7 +1499,7 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Southern Mirkwood",
-    "playableResources": [],
+    "playableResources": ["minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1446,7 +1515,8 @@
     "resourceDraws": 2,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1467,6 +1537,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien",
+    "effects": [],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1487,7 +1559,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1502,7 +1575,10 @@
     ],
     "nearestHaven": "Grey Havens",
     "region": "Elven Shores",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1513,6 +1589,18 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1529,7 +1617,11 @@
     ],
     "nearestHaven": "Grey Havens",
     "region": "Eriadoran Coast",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1540,6 +1632,18 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: Grey HavensPlayable: Items (minor, major, gold ring)Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1561,6 +1665,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond",
+    "certified": "2026-05-11",
     "unique": true
   },
   {
@@ -1582,7 +1687,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -1597,7 +1703,7 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Arthedain",
-    "playableResources": [],
+    "playableResources": ["information"],
     "automaticAttacks": [
       {
         "creatureType": "Wolves",
@@ -1608,7 +1714,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Wolves — 2 strikes with 6 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -1631,7 +1738,8 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: Edhellond",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -1651,7 +1759,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: Edhellond",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -1667,7 +1776,11 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Grey Mountain Narrows",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1678,7 +1791,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: LórienPlayable: Information, Items (minor, major)Automatic-attacks: Orcs — 3 strikes with 7 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
@@ -1693,7 +1807,11 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Andrast",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -1704,7 +1822,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1719,7 +1838,10 @@
     ],
     "nearestHaven": "Edhellond",
     "region": "Old Pûkel Gap",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -1730,7 +1852,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1742,7 +1865,7 @@
     "sitePath": [
       "wilderness",
       "free",
-      "coastal-sea",
+      "coastal",
       "wilderness"
     ],
     "nearestHaven": "Edhellond",
@@ -1752,6 +1875,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond",
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1770,7 +1894,10 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Imlad Morgul",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -1781,7 +1908,8 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major)Automatic-attacks: Orcs — 2 strikes with 8 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1797,7 +1925,10 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Enedhwaith",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Spiders",
@@ -1808,7 +1939,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: RivendellPlayable: Items (minor, major)Automatic-attacks: Spiders — 2 strikes with 8 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1823,7 +1955,10 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Hollin",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Wolves",
@@ -1834,6 +1969,7 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess",
+    "certified": "2026-05-10",
     "unique": true
   },
   {
@@ -1852,7 +1988,11 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Imlad Morgul",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1863,6 +2003,18 @@
     "resourceDraws": 3,
     "hazardDraws": 4,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks: Undead — 3 strikes with 8 prowess; each character wounded must make a corruption check",
+    "certified": "2026-05-10",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "wounded-character"
+      }
+    ],
     "unique": true
   },
   {
@@ -1884,7 +2036,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Rivendell",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-site",
@@ -1906,6 +2059,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-10"
   }
 ]

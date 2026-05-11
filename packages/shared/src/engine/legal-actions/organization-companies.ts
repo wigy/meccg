@@ -14,7 +14,7 @@ import type {
   GameAction,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
@@ -78,15 +78,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     // Rule 2.II.7.1: no two companies sharing an origin may declare movement
     // to the same new site during one organization phase. Drop any candidate
-    // whose instanceId is already another sibling-at-same-origin's
-    // destinationSite.
-    const blockedByRule_2_II_7_1 = new Set<string>();
+    // whose definition is already another sibling-at-same-origin's
+    // destinationSite. Compare by definitionId, not instanceId, because two
+    // companies at the same named site may hold different card instances.
+    const blockedByRule_2_II_7_1 = new Set<string>(); // definitionIds
     for (const sibling of player.companies) {
       if (sibling.id === company.id) continue;
       if (!sibling.currentSite) continue;
-      if (sibling.currentSite.instanceId !== company.currentSite.instanceId) continue;
+      if (sibling.currentSite.definitionId !== company.currentSite.definitionId) continue;
       if (sibling.destinationSite) {
-        blockedByRule_2_II_7_1.add(sibling.destinationSite.instanceId as string);
+        blockedByRule_2_II_7_1.add(sibling.destinationSite.definitionId as string);
       }
     }
 
@@ -97,7 +98,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       for (const siteDef of candidateSites) {
         const destInstId = siteInstMap.get(siteDef.name);
         if (!destInstId) continue;
-        if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
           logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
           continue;
         }
@@ -134,7 +135,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
-      if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+      if (blockedByRule_2_II_7_1.has(r.site.id)) {
         logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
         continue;
       }
@@ -323,15 +324,22 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
   return actions;
 }
 
+/** Regular item subtypes (minor/major/greater) that are storable at any Haven per CoE rule 2.II.4. */
+const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
+
 /**
  * Computes store-item actions during the organization phase.
  *
- * Items with a `storable-at` effect can be moved from a character to the
- * player's stored-items pile when the character's company is at a matching
- * site. After storage, the initial bearer must make a corruption check.
+ * Two categories of items are storable (CoE rule 2.II.4):
  *
- * A site matches if its name is in the effect's `sites` list, or its
- * `siteType` is in the effect's `siteTypes` list (e.g. any Haven).
+ * 1. **Regular items** (subtype minor, major, or greater) without an explicit
+ *    `storable-at` restriction: storable at any Haven site.
+ * 2. **Items with a `storable-at` effect**: storable only at sites whose name
+ *    appears in the effect's `sites` list, or whose type appears in
+ *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
+ *    items with alternative storage sites (e.g. Sapling of the White Tree).
+ *
+ * After storage, the initial bearer must make a corruption check.
  * Emits one action per valid (item, character) pair.
  */
 export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -355,16 +363,23 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
 
       for (const item of char.items) {
         const itemDef = state.cardPool[item.definitionId as string];
-        if (!itemDef || !('effects' in itemDef)) continue;
+        if (!itemDef) continue;
 
-        const effects = (itemDef as {
-          effects?: readonly { type: string; sites?: readonly string[]; siteTypes?: readonly string[] }[];
-        }).effects;
+        const effects = ('effects' in itemDef)
+          ? (itemDef as { effects?: readonly { type: string; sites?: readonly string[]; siteTypes?: readonly string[] }[] }).effects
+          : undefined;
         const storableEffect = effects?.find(e => e.type === 'storable-at');
-        if (!storableEffect) continue;
-        const siteNameMatch = storableEffect.sites?.includes(siteName) ?? false;
-        const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
-        if (!siteNameMatch && !siteTypeMatch) continue;
+
+        let isStorable = false;
+        if (storableEffect) {
+          const siteNameMatch = storableEffect.sites?.includes(siteName) ?? false;
+          const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
+          isStorable = siteNameMatch || siteTypeMatch;
+        } else if (isItemCard(itemDef) && siteType === 'haven') {
+          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype);
+        }
+
+        if (!isStorable) continue;
 
         const itemName = itemDef.name ?? '?';
         logDetail(`  → viable: store ${itemName} from ${charName} at ${siteName}`);

@@ -176,6 +176,20 @@ export interface ResolveStrikeAction {
 }
 
 /**
+ * The attacking player rolls 2d6 for the agent's strike in agent combat.
+ *
+ * Rule 3.iv.6.1: for agent hazard attacks, both players roll simultaneously.
+ * The attacker rolls first and adds the agent's modified prowess. The defender
+ * then rolls and adds character prowess. The character's total is compared
+ * against the agent's total to determine the outcome.
+ */
+export interface AgentStrikeRollAction {
+  readonly type: 'agent-strike-roll';
+  /** The attacking (hazard) player rolling for the agent. */
+  readonly player: PlayerId;
+}
+
+/**
  * Have an untapped character support another character's strike in combat.
  *
  * An untapped character in the same company can tap to give +1 prowess to
@@ -753,4 +767,27 @@ export interface AgentInfluenceAttemptAction {
   readonly targetKind: 'character' | 'ally' | 'faction';
   /** Human-readable breakdown for logging. */
   readonly explanation: string;
+}
+
+/**
+ * The hazard player taps an agent to attack a company during the opponent's
+ * M/H phase (agent-tap-attack effect, e.g. The Grimburgoth dm-15).
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set)
+ * and does NOT count against the hazard limit. The agent taps and is
+ * revealed. Combat resolves as a standard agent attack.
+ */
+export interface AgentTapAttackAction {
+  /** Action discriminant. */
+  readonly type: 'agent-tap-attack';
+  /** The hazard player initiating the attack. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent performing the attack. */
+  readonly agentId: CompanyId;
+  /**
+   * For face-down agents: a home site instance from the hazard player's
+   * location deck to place with the agent on reveal. If absent, the agent
+   * is revealed without a home site and discarded at end of turn (rule 9.04).
+   */
+  readonly homeSiteInstanceId?: CardInstanceId;
 }

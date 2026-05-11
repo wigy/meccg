@@ -24,13 +24,15 @@ import {
   buildTestState, resetMint, dispatch, makeMHState, viableActions,
   PLAYER_1, PLAYER_2, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  RIVENDELL, LORIEN, MORIA,
 } from '../../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId, MovementHazardPhaseState } from '../../../index.js';
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
 import type { AgentInPlay, SiteInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
+// The Under-gates (dm-38): under-deeps site in Redhorn Gate (same region as Moria) — used to test exclusion
+const THE_UNDER_GATES = 'dm-38' as CardDefinitionId;
 
 const AGENT_CHAR_ID = 'test-a2-char' as CardInstanceId;
 const MORIA_SITE_ID = 'test-a2-moria' as CardInstanceId;
@@ -51,7 +53,8 @@ const MORIA_SITE: SiteInPlay = {
   status: CardStatus.Untapped,
 };
 
-// A reachable non-haven site from Moria (nearestHaven: Lórien, same as Minas Tirith)
+// Dimrill Dale (tw-385): ruins-and-lairs in Redhorn Gate — same region as Moria, reachable within 1 region.
+const DIMRILL_DALE = 'tw-385' as CardDefinitionId;
 const REACHABLE_SITE_ID = 'test-a2-reachable' as CardInstanceId;
 
 function buildAgentState(opts: {
@@ -59,7 +62,7 @@ function buildAgentState(opts: {
   revealed?: boolean;
   siteStack?: readonly SiteInPlay[];
   inPlayAtTurnStart?: boolean;
-  actedThisTurn?: boolean;
+  remainingActions?: number;
 }) {
   const base = buildTestState({
     activePlayer: PLAYER_1,
@@ -75,16 +78,16 @@ function buildAgentState(opts: {
     character: { ...AGENT_CHAR, status: opts.status ?? CardStatus.Untapped },
     revealed: opts.revealed ?? true,
     siteStack: opts.siteStack ?? [MORIA_SITE],
-    actedThisTurn: opts.actedThisTurn ?? false,
+    remainingActions: opts.remainingActions ?? 1,
     inPlayAtTurnStart: opts.inPlayAtTurnStart ?? true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
   };
 
-  // P2 siteDeck: MORIA (for return-home tests) + MINAS_TIRITH (reachable from Moria, for move tests)
+  // P2 siteDeck: MORIA (for return-home tests) + DIMRILL_DALE (reachable from Moria, same region, for move tests)
   // Note: MORIA_SITE (with MORIA_SITE_ID) is in the agent's siteStack — a different instance in the deck.
   const moriaDeckCard = { instanceId: 'test-a2-moria-deck' as CardInstanceId, definitionId: MORIA };
-  const reachableCard = { instanceId: REACHABLE_SITE_ID, definitionId: MINAS_TIRITH };
+  const reachableCard = { instanceId: REACHABLE_SITE_ID, definitionId: DIMRILL_DALE };
 
   return {
     ...base,
@@ -163,7 +166,7 @@ describe('Rule 9.02 — Agent Action Options', () => {
     });
 
     test('move not offered when agent has already acted this turn', () => {
-      const state = buildAgentState({ actedThisTurn: true });
+      const state = buildAgentState({ remainingActions: 0 });
       const actions = viableActions(state, PLAYER_2, 'agent-move');
       expect(actions.length).toBe(0);
     });
@@ -172,6 +175,22 @@ describe('Rule 9.02 — Agent Action Options', () => {
       const state = buildAgentState({ inPlayAtTurnStart: false });
       const actions = viableActions(state, PLAYER_2, 'agent-move');
       expect(actions.length).toBe(0);
+    });
+
+    test('Under-deeps site not offered as move destination even when in same region (rule 4.1)', () => {
+      // The Under-gates (dm-38) is in Redhorn Gate — same region as Moria, so reachable by region movement.
+      // But rule 4.1 says agents can only move to non-Under-deeps sites, so it must be excluded.
+      const base = buildAgentState({ status: CardStatus.Untapped });
+      const underGatesCard = { instanceId: 'test-a2-under-gates' as CardInstanceId, definitionId: THE_UNDER_GATES };
+      const state = {
+        ...base,
+        players: base.players.map((p, i) =>
+          i !== 1 ? p : { ...p, siteDeck: [...p.siteDeck, underGatesCard] },
+        ) as unknown as typeof base.players,
+      };
+      const moveActions = viableActions(state, PLAYER_2, 'agent-move');
+      const destDefIds = moveActions.map(a => (a.action as { destinationSiteInstanceId?: CardInstanceId }).destinationSiteInstanceId);
+      expect(destDefIds).not.toContain(underGatesCard.instanceId);
     });
   });
 
@@ -314,7 +333,7 @@ describe('Rule 9.02 — Agent Action Options', () => {
 
   describe('one action per turn gate', () => {
     test('no agent actions offered after agent has acted this turn', () => {
-      const state = buildAgentState({ actedThisTurn: true });
+      const state = buildAgentState({ remainingActions: 0 });
       const agentActionTypes = ['agent-move', 'agent-move-back', 'agent-return-home', 'agent-heal', 'agent-untap', 'agent-turn-face-down', 'agent-key-creatures'];
       for (const type of agentActionTypes) {
         expect(viableActions(state, PLAYER_2, type).length).toBe(0);

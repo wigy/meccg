@@ -16,6 +16,7 @@ import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updateP
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
+import { handlePlayResourceShortEvent } from './reducer-events.js';
 
 
 /**
@@ -120,6 +121,13 @@ function handleEndOfTurnDiscard(
   if (action.type === 'store-item') {
     // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
     return handleStoreItem(state, action);
+  }
+
+  // Rule 2.1.1 / CoE 2.VI: resource short-events may be played during any
+  // phase, including between end-of-turn steps. Playing a short event does
+  // NOT mark the player done for the discard step.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -307,6 +315,12 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   if (action.type === 'store-item') {
     // Safe from the Shadow / Tokens to Show: storing allowed during EOT.
     return handleStoreItem(state, action);
+  }
+
+  // Rule 2.1.1 / CoE 2.VI: resource short-events may be played during any
+  // phase, including at the signal-end step before passing to end the turn.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };

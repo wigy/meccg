@@ -40,7 +40,7 @@ export interface OpponentAgentView {
    * resource player gauge how far the agent has traveled while face-down.
    */
   readonly siteStackSize: number;
-  /** Whether the agent has already taken an action this turn. */
+  /** Whether the agent has no remaining actions this turn (derived from `remainingActions === 0`). */
   readonly actedThisTurn: boolean;
 }
 
@@ -74,8 +74,14 @@ export interface AgentInPlay {
    * resource player's view treats them as "not in play" (rule 4.2.1).
    */
   readonly siteStack: readonly SiteInPlay[];
-  /** True once the agent has taken an action this turn (one action per turn rule 4.1). */
-  readonly actedThisTurn: boolean;
+  /**
+   * How many agent actions this agent may still take this turn.
+   * Set to 0 when the agent is first played (cannot act the turn it enters play).
+   * Reset each untap to `1 + extraAgentActions` where `extraAgentActions` is the
+   * total from `extra-agent-actions` effects in play (e.g. Great Need or Purpose).
+   * Decremented by 1 each time the agent takes an action. Gate: `> 0`.
+   */
+  readonly remainingActions: number;
   /**
    * True if the agent was already in play at the start of the current turn.
    * An agent freshly played this turn cannot take an agent action (rule 4.1).

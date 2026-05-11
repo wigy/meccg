@@ -26,6 +26,7 @@ import type {
   CancelStrikeAction,
   CancelAttackAction,
   ModifyAttackAction,
+  TapItemForStrikeAction,
   SalvageItemAction,
   EvaluatedAction,
 } from '@meccg/shared';
@@ -76,11 +77,12 @@ export function renderCombatView(
   const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
   const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
   const modifyAttackActions = viable.filter((a): a is ModifyAttackAction => a.type === 'modify-attack');
+  const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -172,6 +174,10 @@ function renderPhaseBanner(
       const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
       if (aa) attackerRace = aa.creatureType;
     }
+  } else if (combat.attackSource.type === 'agent') {
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def && 'name' in def) attackerRace = (def as { name: string }).name;
   } else if (combat.attackSource.type === 'card-triggered-attack' && combat.creatureRace) {
     attackerRace = combat.creatureRace;
   }
@@ -198,9 +204,14 @@ function renderPhaseBanner(
   } else if (combat.phase === 'choose-strike-order') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
     phaseText = `${racePrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;
+  } else if (combat.phase === 'resolve-strike' && combat.attackSource.type === 'agent' && combat.agentRollTotal === undefined) {
+    phaseText = `${racePrefix}Agent rolls for strike`;
   } else if (combat.phase === 'resolve-strike') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
-    phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}`;
+    const agentRollSuffix = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+      ? ` — agent rolled ${combat.agentRollTotal}`
+      : '';
+    phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}${agentRollSuffix}`;
   } else if (combat.phase === 'item-salvage') {
     const itemCount = combat.salvageItems?.length ?? 0;
     phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
@@ -275,6 +286,16 @@ function renderAttackerRow(
         container.appendChild(img);
       }
     }
+  } else if (combat.attackSource.type === 'agent') {
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
+        container.appendChild(img);
+      }
+    }
   } else if (combat.attackSource.type === 'card-triggered-attack') {
     // Show the resource card that triggered the attack
     const defId = cachedInstanceLookup(combat.attackSource.cardInstanceId);
@@ -305,6 +326,7 @@ function renderDefenderRow(
   cancelStrikeActions: CancelStrikeAction[],
   cancelAttackActions: CancelAttackAction[],
   modifyAttackActions: ModifyAttackAction[],
+  tapItemForStrikeActions: TapItemForStrikeAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -379,6 +401,13 @@ function renderDefenderRow(
     modifyAttackMap.set(a.cardInstanceId as string, a);
   }
 
+  // Build a map of item-instance ID → tap-item-for-strike action (e.g. Shield of Iron-bound Ash).
+  // Keyed by cardInstanceId so the item image click handler fires during resolve-strike.
+  const tapItemForStrikeMap = new Map<string, TapItemForStrikeAction>();
+  for (const a of tapItemForStrikeActions) {
+    tapItemForStrikeMap.set(a.cardInstanceId as string, a);
+  }
+
   // Build a map of character ID → strike assignment info
   const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -393,7 +422,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -424,6 +453,7 @@ function renderCombatCharacterColumn(
   cancelAttackInPlayMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   modifyAttackMap: Map<string, ModifyAttackAction>,
+  tapItemForStrikeMap: Map<string, TapItemForStrikeAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
@@ -615,6 +645,7 @@ function renderCombatCharacterColumn(
       const allyStrike = strikeMap.get(allyIdStr);
       const allyChooseOrder = chooseOrderMap.get(allyIdStr);
       const modifyAction = modifyAttackMap.get(allyIdStr);
+      const tapForStrikeAction = tapItemForStrikeMap.get(allyIdStr);
 
       const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
 
@@ -626,6 +657,15 @@ function renderCombatCharacterColumn(
         itemEl.addEventListener('click', (e) => {
           e.stopPropagation();
           onAction(modifyAction);
+        });
+      } else if (tapForStrikeAction) {
+        // Item can be tapped for a prowess bonus against the current strike
+        // (e.g. Shield of Iron-bound Ash: +1 prowess).
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(tapForStrikeAction);
         });
       } else if (allyCancelAttackInPlay) {
         // In-play ally cancel-attack: tap this ally to cancel the attack directly
@@ -769,7 +809,7 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 // ---- Combat action buttons (bottom-right, same area as pass button) ----
 
 /** Combat action types that get rendered as buttons (not handled by card clicks). */
-const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll']);
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll']);
 
 /**
  * Render combat action buttons stacked above the pass button in the
@@ -805,6 +845,7 @@ function combatButtonLabel(action: GameAction): string {
   if (action.type === 'resolve-strike') {
     return action.tapToFight ? 'Tapped' : 'Untapped';
   }
+  if (action.type === 'agent-strike-roll') return 'Roll for Agent';
   if (action.type === 'body-check-roll') return 'Body Check';
   if (action.type === 'pass') return 'Pass';
   return action.type;

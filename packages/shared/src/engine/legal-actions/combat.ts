@@ -13,13 +13,15 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
+import { heroResourceShortEventActions } from './long-event.js';
+import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -79,6 +81,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const halveActions = halveStrikesActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const modifyFromHandActions = modifyAttackFromHandActions(state, playerId, combat);
+  const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -96,14 +99,26 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...halveActions,
           ...modifyActions,
           ...modifyFromHandActions,
+          ...companyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...companyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
+      // Rule 3.iv.6.1: for agent attacks the attacker must roll first before
+      // the defender can resolve. Gate the entire resolve window behind the roll.
+      if (combat.attackSource.type === 'agent' && combat.agentRollTotal === undefined) {
+        if (playerId === combat.attackingPlayerId) {
+          logDetail('Agent combat: attacker must roll for agent before defender can resolve');
+          return [{ action: { type: 'agent-strike-roll' as const, player: playerId }, viable: true }];
+        }
+        logDetail('Agent combat: defender waits for attacker to roll for agent');
+        return [];
+      }
+
       // CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
       // While the attacker has any playable combat hazards and has not yet
       // passed on this strike sequence, they hold an exclusive priority
@@ -219,6 +234,14 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
+      if (combat.excludeAvatarStrikes) {
+        const defId = charData.definitionId;
+        const def = defId ? state.cardPool[defId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from Neeker-breekers strike assignment`);
+          continue;
+        }
+      }
       logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
@@ -280,6 +303,14 @@ function assignStrikeActions(
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
+      if (combat.excludeAvatarStrikes) {
+        const charData = defPlayer.characters[charId as string];
+        const def = charData?.definitionId ? state.cardPool[charData.definitionId as string] : undefined;
+        if (isAvatarCharacter(def)) {
+          logDetail(`Character ${charId as string} is an avatar — excluded from attacker assignment pool`);
+          continue;
+        }
+      }
       const charData = defPlayer.characters[charId as string];
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
@@ -325,6 +356,12 @@ function assignStrikeActions(
  * The defending player picks which unresolved strike to resolve next.
  * Per CRF: "In an order chosen by the defending player, each assigned
  * strike is then resolved by proceeding through an individual strike sequence."
+ *
+ * Additionally, per rule 3.iv, strike sequences do not immediately follow
+ * one another — between (and before/after) strike sequences, the resource
+ * player may take any action that would otherwise be legal during the
+ * current phase of the game. In the site phase this includes resource
+ * short-events (rule 2.1.1).
  */
 function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
@@ -350,6 +387,17 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
       viable: true,
     });
   }
+
+  // Rule 3.iv: between strike sequences the resource player may take any
+  // action otherwise legal during the current phase (rule 2.1.1). Pass the
+  // enclosing phase so play-window restrictions are evaluated correctly
+  // regardless of whether combat is taking place in the site or M/H phase.
+  if (playerId === state.activePlayer) {
+    const currentPhase = state.phaseState.phase as string;
+    logDetail(`Between strike sequences: offering resource short-events for phase '${currentPhase}' (rule 3.iv)`);
+    actions.push(...heroResourceShortEventActions(state, playerId, currentPhase));
+  }
+
   return actions;
 }
 
@@ -402,7 +450,11 @@ function resolveStrikeActions(
   } else {
     baseProwess = charData?.effectiveStats?.prowess ?? 0;
   }
-  const strikeProwess = combat.strikeProwess;
+  // For agent attacks, use the agent's rolled total (2d6 + modified prowess) as
+  // the effective prowess the character must beat (rule 3.iv.6.1).
+  const strikeProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+    ? combat.agentRollTotal
+    : combat.strikeProwess;
   let statusPenalty = 0;
   if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
   if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
@@ -418,9 +470,13 @@ function resolveStrikeActions(
   const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
-  const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
+  const tapExplanation = combat.attackSource.type === 'agent'
+    ? `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs agent roll ${strikeProwess})`
+    : `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
   const untapNeed = Math.max(2, strikeProwess - untapProwess + 1);
-  const untapExplanation = `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs ${strikeProwess})`;
+  const untapExplanation = combat.attackSource.type === 'agent'
+    ? `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs agent roll ${strikeProwess})`
+    : `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs ${strikeProwess})`;
 
   logDetail(`Defender can resolve strike against ${charName} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
   actions.push({
@@ -697,6 +753,101 @@ function resolveStrikeActions(
   // prowess bonus to this specific strike (e.g. Shield of Iron-bound Ash).
   actions.push(...tapItemForStrikeActions(state, playerId, combat, tapProwess, strikeProwess));
 
+  // Rule 3.iv.5: the defending resource player may play resources on the
+  // character facing the strike if doing so would affect the strike's
+  // resolution (e.g. Vilya boosting Elrond's prowess/body).
+  if (playerId === state.activePlayer) {
+    actions.push(...shortEventsAffectingStrike(state, playerId, combat));
+  }
+
+  return actions;
+}
+
+/**
+ * Returns `play-short-event` actions for resource short-events in the
+ * defending player's hand that target the current strike character and
+ * would affect the strike's resolution (rule 3.iv.5).
+ *
+ * A card qualifies if:
+ * 1. It has a `play-target` effect whose filter matches the character
+ *    currently facing the strike.
+ * 2. It has at least one `on-event: self-enters-play` apply of type
+ *    `add-constraint` with `constraint: "character-stat-modifier"` and
+ *    `stat: "prowess"` or `stat: "body"` — directly improving the
+ *    character's prowess or body for the strike roll / body check.
+ */
+function shortEventsAffectingStrike(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  if (defPlayerIndex < 0) return [];
+  const defPlayer = state.players[defPlayerIndex];
+
+  const strikeCharData = defPlayer.characters[currentStrike.characterId as string];
+  if (!strikeCharData) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of defPlayer.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!def.effects) continue;
+
+    const playTarget = getPlayTargetEffect(def);
+    if (!playTarget || playTarget.target !== 'character') continue;
+
+    // Target filter must match the character facing this strike
+    if (playTarget.filter) {
+      const ctx = buildPlayOptionContext(state, strikeCharData, defPlayer);
+      if (!matchesCondition(playTarget.filter, ctx)) {
+        logDetail(`${def.name}: play-target filter does not match ${currentStrike.characterId as string} — not an affecting strike event`);
+        continue;
+      }
+    }
+
+    // Must have at least one effect that boosts prowess or body on the character
+    const affectsStrike = def.effects.some(
+      (e): e is OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply.type === 'add-constraint'
+        && e.apply.constraint === 'character-stat-modifier'
+        && (e.apply.stat === 'prowess' || e.apply.stat === 'body'),
+    );
+    if (!affectsStrike) {
+      logDetail(`${def.name}: no prowess/body modifier — not an affecting strike event`);
+      continue;
+    }
+
+    // Check turn-scoped duplication limit (e.g. Vilya: max 1 per turn)
+    const turnDupLimit = def.effects.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
+    );
+    if (turnDupLimit) {
+      const prior = state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length;
+      if (prior >= turnDupLimit.max) {
+        logDetail(`${def.name}: duplication limit reached (${prior}/${turnDupLimit.max}) — not playable`);
+        continue;
+      }
+    }
+
+    logDetail(`Combat step 5: ${def.name} targets strike character ${currentStrike.characterId as string} and affects prowess/body — playable`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+        targetCharacterId: currentStrike.characterId,
+      },
+      viable: true,
+    });
+  }
+
   return actions;
 }
 
@@ -884,10 +1035,16 @@ function cancelAttackActions(
     // Always expose `attack.source` (the AttackSource discriminator) so
     // cards can distinguish M/H creatures from on-guard reveals and site
     // automatic attacks. `attack.keying` is additive when present.
+    // `attack.siteKeyed` is true for creature attacks whose keying has no
+    // regional types (i.e. keyed purely to site types or site names).
     const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
     if (combat.attackKeying && combat.attackKeying.length > 0) {
       attackCtx['keying'] = combat.attackKeying;
     }
+    const isSiteKeyedCreature = (
+      combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
     return ctx;
@@ -964,16 +1121,10 @@ function cancelAttackActions(
     );
     if (!cancelEffect) continue;
 
-    // Check `when` condition against combat context (e.g. enemy.race filter)
-    if (cancelEffect.when) {
-      const ctx: Record<string, unknown> = {};
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
-      }
-      if (!matchesCondition(cancelEffect.when, ctx)) {
-        logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
-        continue;
-      }
+    // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      continue;
     }
 
     // Cards with wound-target-character (e.g. Escape): one action per
@@ -1125,6 +1276,7 @@ function halveStrikesActions(
       if (combat.creatureRace) {
         ctx['enemy'] = { race: combat.creatureRace };
       }
+      ctx['attack'] = { source: combat.attackSource.type };
       if (!matchesCondition(halveEffect.when, ctx)) {
         logDetail(`Halve-strikes ${handCard.definitionId as string}: when condition not met`);
         continue;
@@ -1275,16 +1427,45 @@ function modifyAttackFromHandActions(
       : combat.defendingPlayerId;
     if (playerId !== expectedPlayerId) continue;
 
-    if (effect.when) {
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames };
-      if (combat.creatureRace) {
-        ctx['enemy'] = { race: combat.creatureRace };
+    // Attack-scoped duplication check.
+    const attackDupLimit = (cardDef.effects).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (attackDupLimit) {
+      const prior = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === handCard.definitionId && c.scope.kind === 'attack',
+      ).length;
+      if (prior >= attackDupLimit.max) {
+        logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        continue;
       }
+    }
+
+    if (effect.when) {
+      // Build enemy context. Use the creature's base (printed) prowess for
+      // "normal prowess" conditions. For creature attacks look it up from the
+      // card pool; for automatic attacks use strikeProwess (it IS the printed
+      // prowess, since no card definition exists to differ from).
+      let baseProwess = combat.strikeProwess;
+      if (combat.attackSource.type === 'creature') {
+        const atkPlayerIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+        if (atkPlayerIdx >= 0) {
+          const creatureCard = state.players[atkPlayerIdx].cardsInPlay.find(
+            c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
+          );
+          if (creatureCard) {
+            const cDef = state.cardPool[creatureCard.definitionId as string];
+            if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+          }
+        }
+      }
+      const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
+      if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) {
         attackCtx['keying'] = combat.attackKeying;
       }
-      ctx['attack'] = attackCtx;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: when condition not met`);
         continue;
@@ -1295,6 +1476,95 @@ function modifyAttackFromHandActions(
     actions.push({
       action: {
         type: 'modify-attack-from-hand',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Returns `play-short-event` actions for resource short-events in the
+ * defending player's hand that carry `company-combat-boost` effects.
+ *
+ * These events boost all characters in the defending company that match
+ * the effect's optional `filter` (e.g. all Dwarves). The event must be
+ * offered in the pre-assignment window of the `assign-strikes` phase,
+ * before any strike has been assigned.
+ *
+ * Duplication check: the effect may carry a `duplication-limit` with
+ * `scope: "attack"`. If so, attack-scoped constraints from this definition
+ * are counted in `activeConstraints` — if the count equals `max`, the card
+ * was already played this attack and is suppressed.
+ */
+function companyCombatBoostActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex < 0) return [];
+  const player = state.players[playerIndex];
+
+  // Find the defending company's characters.
+  const company = player.companies.find(c => c.id === combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
+
+    const boostEffects = (cardDef.effects).filter(
+      (e): e is CompanyCombatBoostEffect => e.type === 'company-combat-boost',
+    );
+    if (boostEffects.length === 0) continue;
+
+    // Attack-scoped duplication check.
+    const attackDupLimit = (cardDef.effects).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (attackDupLimit) {
+      const prior = state.activeConstraints.filter(
+        c => c.sourceDefinitionId === cardDef.id && c.scope.kind === 'attack',
+      ).length;
+      if (prior >= attackDupLimit.max) {
+        logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        continue;
+      }
+    }
+
+    // At least one boost effect must match a character in the defending company.
+    let hasMatch = false;
+    for (const effect of boostEffects) {
+      if (!effect.filter) { hasMatch = true; break; }
+      for (const charId of company.characters) {
+        const char = player.characters[charId as string];
+        if (!char) continue;
+        const charCardDef = state.cardPool[char.definitionId as string];
+        if (!charCardDef || !('race' in charCardDef)) continue;
+        const ctx = { target: { race: (charCardDef as { race?: string }).race ?? '', name: (charCardDef as { name?: string }).name ?? '', skills: (charCardDef as { skills?: readonly string[] }).skills ?? [] } };
+        if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
+      }
+      if (hasMatch) break;
+    }
+    if (!hasMatch) {
+      logDetail(`${cardDef.name}: no matching characters in company — company-combat-boost not offered`);
+      continue;
+    }
+
+    logDetail(`Company-combat-boost available: ${cardDef.name}`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
         player: playerId,
         cardInstanceId: handCard.instanceId,
       },
@@ -1331,8 +1601,9 @@ function cancelByTapActions(
   const actions: EvaluatedAction[] = [];
 
   for (const charId of company.characters) {
-    // Cannot tap the target character
-    if (charId === targetCharId) continue;
+    // By default the target character cannot tap to cancel (Assassin: "not the defending character").
+    // When allowTargetToCancel is set (Slayer: "any one character"), the target may also tap.
+    if (!combat.cancelByTapAllowTarget && charId === targetCharId) continue;
     const charData = player.characters[charId as string];
     if (!charData || charData.status !== CardStatus.Untapped) continue;
 

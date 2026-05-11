@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.28.0 — 2026-05-08
+
+Agent Basics
+
+### Game Engine
+
+- Implement full agent hazard lifecycle: state model, play-agent-hazard, reveal-agent, turn actions (move, return-home, heal, untap, face-down, key-creatures), agent combat with face-down prowess/body modifiers, and agent discarded at end of turn (rules 9.01–9.08)
+- Implement agent influence attempt during M/H phase (rule 10.14)
+- Implement agent-tapped-for-hazard-effect (rule 9.06) and alignment-specific movement (rule 9.08)
+- Implement creature hazard playing and combat resolution via creature-race-choice (rules 5.18–5.19)
+- Fix: agent movement limited to same/adjacent region (rule 9.02); haven restriction on reveal (rule 9.07)
+- Fix: Choking Shadows not playable when no effect can trigger (rule 5.1.2)
+- Fix: Slayer cancel-by-tap allows the defending character to tap ("any one character")
+- Fix: rule 2.II.7.1 same-origin check uses site definition ID, not instance ID
+- Fix: short events can be discarded during end-of-turn phase
+- Fix: Vilya and resource short-events playable during combat
+- Fix: sideboardAccessedDuringUntap reset at start of each new turn
+- Fix: decrement multiAttackCount when cancelling a multi-attack strike (Assassin)
+- Fix: on-guard creature reveal requires site-type keying, not region-type
+- Fix: agents untap during active player's untap phase
+- Refactor: replace underDeeps boolean flag with `under-deeps` keyword on all sites
+- Refactor: consolidate 4 single-use DSL effect types into `play-flag` / `stat-modifier`
+- Certify: Great Need or Purpose (dm-62) + AgentInPlay remainingActions
+
+### Card Data
+
+- Add all 31 Dark Minions characters to card data
+- Add 3 agent hazard events; fix `unique`/`eventType`/`name` across 14 data files
+- Add `agent` keyword to DM characters; seed dm-characters with sample agents
+- Add 31 new sites: 22 Under-deeps (DM set), 9 hero sites (TW/AS/TD sets)
+
+### Web Client
+
+- Render agents as virtual company blocks in all-companies view
+- Highlight agent cards in hand when play-agent-hazard action is legal
+- Show both players' actions in the game log panel
+- Show dimmed "Waiting…" indicator in action panel when no viable actions exist
+- Fix: combat arena z-index so battle info renders above opponent arc
+- Fix: AI opponent no longer stuck in setup after game-server rejoin
+- Fix: hide hazard limit chip in all-companies view; restore debug scrolling
+
+### Infrastructure
+
+- Add sample agent deck (dwarf characters for development testing)
+- Add sample deck containing all 97 hero sites
+
 ## 0.27.0 — 2026-04-28
 
 Test Coverage

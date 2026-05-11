@@ -6,7 +6,6 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/InciteDefenders.jpg",
     "unique": false,
     "eventType": "short",
-    "keywords": [],
     "certified": "2026-04-14",
     "effects": [
       {
@@ -150,7 +149,6 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rebeltalk.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": [],
     "effects": [
       {
         "type": "play-target",
@@ -211,7 +209,6 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FoolishWords.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": [],
     "effects": [
       {
         "type": "play-target",

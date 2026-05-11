@@ -197,10 +197,17 @@ export interface CombatState {
   readonly multiAttackCount?: number;
   /**
    * Number of remaining cancel-by-tap opportunities the defender has.
-   * Each tap of a non-target character cancels one strike assignment.
-   * Set by the `cancel-attack-by-tap` combat rule.
+   * Each tap cancels one strike assignment. Set by the `cancel-attack-by-tap`
+   * combat rule.
    */
   readonly cancelByTapRemaining?: number;
+  /**
+   * When true, the target character (the one assigned the strike) may also tap
+   * to cancel an attack. Derived from `allowTargetToCancel` on the creature's
+   * `combat-cancel-attack-by-tap` effect (e.g. Slayer: "any one character").
+   * Defaults to false (Assassin restriction: "not the defending character").
+   */
+  readonly cancelByTapAllowTarget?: boolean;
   /**
    * Items available for salvage transfer from an eliminated character.
    * Only set during the 'item-salvage' phase (CoE rule 3.I.2).
@@ -220,6 +227,16 @@ export interface CombatState {
    * sequence (nextStrikePhase / choose-strike-order → resolve-strike).
    */
   readonly attackerStep1Done?: boolean;
+  /**
+   * Rule 3.iv.6.1 — Agent Strike Roll.
+   * For agent hazard attacks, the attacking player rolls 2d6 and adds the
+   * agent's modified prowess before the defender rolls. This field holds
+   * the agent's total (2d6 + modified prowess) for the current strike
+   * sequence, which becomes the effective prowess the defender must beat.
+   * Absent until the attacker takes the `agent-strike-roll` action.
+   * Reset to undefined on each new strike sequence.
+   */
+  readonly agentRollTotal?: number;
   /**
    * Pending haven-join offers raised when the attack began (fired by
    * `on-event: creature-attack-begins` + `apply: offer-char-join-attack`,
@@ -278,6 +295,18 @@ export interface CombatState {
    * their choice (defender picks).
    */
   readonly strikeEffect?: 'discard-item';
+  /**
+   * When true, avatar characters (Wizards and Ringwraiths, mind === null) are
+   * excluded from strike assignment. Set by `combat-one-strike-per-character`
+   * with `excludeAvatars: true` (e.g. Neeker-breekers).
+   */
+  readonly excludeAvatarStrikes?: boolean;
+  /**
+   * When true, each defending character's prowess for this attack is replaced
+   * by their mind attribute value (e.g. Neeker-breekers). Status modifiers
+   * (tapped, wounded) and support bonuses still apply on top of the mind base.
+   */
+  readonly defenderProwessFromMind?: boolean;
 }
 
 /**

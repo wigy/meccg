@@ -168,7 +168,7 @@
     "race": "elf",
     "playableAt": [
       {
-        "site": "Thranduil's Halls"
+        "site": "Thranduil’s Halls"
       }
     ],
     "effects": [
@@ -540,7 +540,10 @@
         "type": "play-option",
         "id": "heal",
         "when": {
-          "target.status": "inverted"
+          "$and": [
+            { "target.status": "inverted" },
+            { "phase": "organization" }
+          ]
         },
         "apply": {
           "type": "set-character-status",
@@ -1150,9 +1153,32 @@
     "unique": true,
     "marshallingPoints": 4,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 8,
     "race": "dwarf",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Iron Hill Dwarf-hold"
+      }
+    ],
+    "certified": "2026-05-10",
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",
@@ -1369,7 +1395,27 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "modify-attack-from-hand",
+        "player": "defender",
+        "prowessModifier": -3,
+        "bodyModifier": -3,
+        "when": {
+          "$and": [
+            { "$not": { "enemy.race": "nazgul" } },
+            { "enemy.prowess": { "$gte": 13 } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-resource-event",

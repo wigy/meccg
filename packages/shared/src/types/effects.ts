@@ -308,9 +308,12 @@ export interface ActionCost {
    * The entity to tap. "self" taps the source card itself (the bearer character
    * or the attached item/ally); "bearer" taps the character carrying the source;
    * "character" taps the explicitly targeted character; "sage-in-company" taps an
-   * untapped sage in the bearer's company.
+   * untapped sage in the bearer's company; "sage-and-scout-in-company" taps one
+   * untapped sage AND one untapped scout in the bearer's company (The Worthy Hills
+   * as-142 special rule — the action carries sage as `characterId` and scout as
+   * `secondCharacterId`).
    */
-  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company';
+  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use.
@@ -682,13 +685,20 @@ export interface CombatMultiAttackEffect extends EffectBase {
 }
 
 /**
- * The defending player may tap non-target characters in the defending
- * company to cancel attacks. Example: Assassin.
+ * The defending player may tap characters in the defending company to cancel
+ * attacks. By default only non-target characters may tap (Assassin: "not the
+ * defending character"). When `allowTargetToCancel` is true, the target
+ * character may also tap to cancel (Slayer: "any one character").
  */
 export interface CombatCancelAttackByTapEffect extends EffectBase {
   readonly type: 'combat-cancel-attack-by-tap';
   /** Maximum number of attacks that can be canceled. */
   readonly maxCancels: number;
+  /**
+   * When true, the target character (the one assigned the strike) may also tap
+   * to cancel one of the attacks. Defaults to false (Assassin restriction).
+   */
+  readonly allowTargetToCancel?: boolean;
 }
 
 /**
@@ -697,9 +707,29 @@ export interface CombatCancelAttackByTapEffect extends EffectBase {
  * "Each character in the company faces one strike". The card's raw
  * `strikes` value is ignored when this effect is present. Mutually
  * exclusive with `combat-multi-attack`.
+ *
+ * When `excludeAvatars` is true, avatar characters (Wizards and Ringwraiths,
+ * whose `mind === null`) are excluded: `strikesTotal = non-avatar characters`.
+ * Card text is "Each non-Wizard/non-Ringwraith character in the company faces
+ * one strike" (e.g. Neeker-breekers).
  */
 export interface CombatOneStrikePerCharacterEffect extends EffectBase {
   readonly type: 'combat-one-strike-per-character';
+  /** When true, avatar characters (mind === null) are excluded from strike assignment. */
+  readonly excludeAvatars?: boolean;
+}
+
+/**
+ * Each defending character's prowess for this attack is replaced by their
+ * mind attribute value instead of their normal combat prowess. Used by
+ * Neeker-breekers: "His prowess against such a strike is equal to his mind
+ * attribute." Avatar characters (mind === null) are never assigned strikes
+ * when this effect is paired with `combat-one-strike-per-character:
+ * excludeAvatars`. Status modifiers (tapped, wounded) and support bonuses
+ * still apply on top of the mind base.
+ */
+export interface CombatDefenderProwessFromMindEffect extends EffectBase {
+  readonly type: 'combat-defender-prowess-from-mind';
 }
 
 /**
@@ -851,6 +881,52 @@ export interface AgentTapInfluenceEffect extends EffectBase {
 }
 
 /**
+ * An agent may tap (not as an agent action) at a company's new site during
+ * the M/H phase to attack that company.
+ *
+ * Rule 10.14 analog for attacks: "Agent only: may tap at a company's new
+ * site to attack that company during its movement/hazard phase with +N prowess."
+ *
+ * Used by The Grimburgoth (dm-15).
+ */
+export interface AgentTapAttackEffect extends EffectBase {
+  readonly type: 'agent-tap-attack';
+  /** Prowess bonus added to the agent's base prowess (plus any face-down bonuses). */
+  readonly prowessBonus: number;
+  /** Whether the attacker assigns strikes (true → attacker chooses defenders). Defaults to defender assigns. */
+  readonly attackerAssigns?: boolean;
+}
+
+/**
+ * Played from hand as a short event during combat (pre-assignment window).
+ * Applies a stat modifier to every character in the defending company
+ * whose card definition satisfies the optional `filter` condition.
+ * The modifier is scoped to the current attack only (cleared when the
+ * attack finalizes via the `attack` {@link ConstraintScope}).
+ *
+ * Implemented via individual `character-stat-modifier` active constraints
+ * — one per matching character — so caps and overrides work identically
+ * to JSON-declared stat-modifiers.
+ *
+ * Example: The Dwarves Are upon You! (+2 prowess / −1 body to all Dwarves
+ * in the company against the current attack).
+ */
+export interface CompanyCombatBoostEffect extends EffectBase {
+  readonly type: 'company-combat-boost';
+  /** The stat to modify (`"prowess"` or `"body"`). */
+  readonly stat: 'prowess' | 'body';
+  /** The modifier value (positive to boost, negative to penalise). */
+  readonly value: number;
+  /**
+   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
+   * for each character in the defending company. Only characters that satisfy
+   * the condition receive the modifier. When absent, every character in the
+   * company receives it.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Caps how many copies of this card can exist in a given scope.
  *
  * Example: Horn of Anor — cannot be duplicated on a given character.
@@ -861,6 +937,20 @@ export interface DuplicationLimitEffect extends EffectBase {
   readonly scope: string;
   /** Maximum number of copies allowed in scope. */
   readonly max: number;
+}
+
+/**
+ * While this card is in play, each agent owned by the hazard player may take
+ * this many additional agent actions each time it normally takes an agent action.
+ * The extra action(s) do not trigger further extras (only a "normal" first
+ * action triggers the bonus).
+ *
+ * Used by Great Need or Purpose (dm-62).
+ */
+export interface ExtraAgentActionsEffect extends EffectBase {
+  readonly type: 'extra-agent-actions';
+  /** Number of additional agent actions granted per normal agent action. */
+  readonly value: number;
 }
 
 /**
@@ -995,7 +1085,12 @@ export type SiteRuleEffect =
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
-  | DynamicAutoAttackSiteRule;
+  | DynamicAutoAttackSiteRule
+  | AlwaysReturnToDeckSiteRule
+  | HazardLimitSiteRule
+  | AllowCreatureByRaceSiteRule
+  | CreaturesAlwaysKeyedToSiteSiteRule
+  | AllowItemsWhenTappedSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1171,6 +1266,97 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
 }
 
 /**
+ * Declares that this site is always returned to the location deck on
+ * departure, even when it is tapped. Under normal CoE rules (2.IV.vii), a
+ * tapped non-haven site is discarded to the site discard pile when a company
+ * moves away. When this rule is present, the engine skips the discard path
+ * and always pushes the site back into the player's `siteDeck`.
+ *
+ * Example — Buhr Widu (td-173): "This site is always returned to the location
+ * deck, never to the discard pile."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "always-return-to-deck" }
+ * ```
+ */
+export interface AlwaysReturnToDeckSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'always-return-to-deck';
+}
+
+/**
+ * Adjusts the hazard limit for any company moving to this site.
+ * Applied during the `set-hazard-limit` step before the snapshot is taken.
+ *
+ * Example — Barad-dûr (tw-374): "Any company moving to this site has its
+ * hazard limit increased by 2."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+ * ```
+ */
+export interface HazardLimitSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'hazard-limit-modifier';
+  /** The adjustment to apply (positive increases, negative decreases). */
+  readonly value: number;
+}
+
+/**
+ * Declares that hazard creatures of the given race may be played at this site
+ * regardless of normal keying requirements. The keying check is bypassed when
+ * the attacking creature's race matches this rule's `race` field.
+ *
+ * Example — Geann a-Lisch (as-138): "Any Man hazard creature can be played
+ * at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+ * ```
+ */
+export interface AllowCreatureByRaceSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-creature-by-race';
+  /** The creature race that bypasses keying at this site (e.g. "men"). */
+  readonly race: string;
+}
+
+/**
+ * Declares that any hazard creature that is keyable to this site (via site
+ * type or site name in its `keyedTo` entries) may be played regardless of
+ * any active `no-creature-hazards-on-company` constraint. The creature must
+ * still pass normal keying; only external restrictions are bypassed.
+ *
+ * Example — Mount Doom (tw-414): "hazard creatures may always be played
+ * keyed to the site regardless of any other cards played."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "creatures-always-keyed-to-site" }
+ * ```
+ */
+export interface CreaturesAlwaysKeyedToSiteSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'creatures-always-keyed-to-site';
+}
+
+/**
+ * Items may be played at this site even when its status is Tapped.
+ * The normal tapped-site gate in `legal-actions/site.ts` is bypassed for
+ * item plays when this rule is present.
+ *
+ * Example — Tharbad (td-180): "Items may be played here even if the site
+ * is tapped."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-items-when-tapped" }
+ * ```
+ */
+export interface AllowItemsWhenTappedSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-items-when-tapped';
+}
+
+/**
  * Fetches a card from one or more source piles into the play deck and shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
@@ -1240,15 +1426,22 @@ export interface CancelInfluenceEffect extends EffectBase {
 }
 
 /**
- * Halves the number of strikes in the current attack (rounded up).
- * Played from hand as a short event during combat before strikes are
- * assigned; the card is discarded after use.
+ * Modifies the number of strikes in the current attack. Played from hand as
+ * a short event during combat before strikes are assigned; the card is
+ * discarded after use.
  *
- * Example: Dark Quarrels (alternative mode) — if Gates of Morning is
- * in play, halve the strikes of any attack.
+ * Two modes (selected by `op`):
+ * - `"halve"` (default) — `Math.ceil(strikes / 2)` (Dark Quarrels, Orc Quarrels).
+ * - `"subtract"` — `Math.max(min, strikes - value)` (Not at Home: subtract 2, min 1).
  */
 export interface HalveStrikesEffect extends EffectBase {
   readonly type: 'halve-strikes';
+  /** Operation mode. Default 'halve'. */
+  readonly op?: 'halve' | 'subtract';
+  /** Amount to subtract when op is 'subtract'. Default 2. */
+  readonly value?: number;
+  /** Minimum strikes after modification (subtract mode). Default 1. */
+  readonly min?: number;
 }
 
 /**
@@ -1793,6 +1986,7 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatOneStrikePerCharacterEffect
+  | CombatDefenderProwessFromMindEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
@@ -1809,6 +2003,7 @@ export type CardEffect =
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
   | AgentTapInfluenceEffect
+  | AgentTapAttackEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | CallCouncilEffect
@@ -1821,4 +2016,6 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect
   | ReduceAttacksToOneEffect
-  | FetchWizardOnStoreEffect;
+  | FetchWizardOnStoreEffect
+  | ExtraAgentActionsEffect
+  | CompanyCombatBoostEffect;

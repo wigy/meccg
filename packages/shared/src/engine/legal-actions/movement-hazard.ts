@@ -6,10 +6,10 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
-import type { TapAgentEffect } from '../../types/effects.js';
+import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -19,7 +19,7 @@ import { playPermanentEventActions, playShortEventActions } from './organization
 import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
-import { currentHazardLimit } from '../reducer-movement-hazard.js';
+import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -508,14 +508,16 @@ function agentTurnActions(
 
   for (const agent of player.agents) {
     if (!agent.inPlayAtTurnStart) continue;
-    if (agent.actedThisTurn) continue;
+    if (agent.remainingActions <= 0) continue;
 
     const agentDef = state.cardPool[agent.character.definitionId as string];
     const agentName = agentDef?.name ?? String(agent.character.definitionId);
     const status = agent.character.status;
 
+    const extraAgentActions = countExtraAgentActions(state);
+    const isExtraAction = agent.remainingActions <= extraAgentActions;
     function push(action: AgentMoveAction | AgentMoveBackAction | AgentReturnHomeAction | AgentHealAction | AgentUntapAction | AgentTurnFaceDownAction | AgentKeyCreaturesAction) {
-      if (limitReached) {
+      if (limitReached && !isExtraAction) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
       } else {
         actions.push({ action, viable: true });
@@ -537,7 +539,7 @@ function agentTurnActions(
         const topSite = agent.siteStack[agent.siteStack.length - 1];
         const topDef = state.cardPool[topSite.definitionId as string];
         if (topDef && isSiteCard(topDef)) {
-          for (const r of getReachableSites(movementMap, topDef, allSiteDefs)) {
+          for (const r of getReachableSites(movementMap, topDef, allSiteDefs, AGENT_MAX_REGION_DISTANCE)) {
             reachableNames.add(r.site.name);
           }
           // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
@@ -557,7 +559,7 @@ function agentTurnActions(
         for (const homeName of homesiteNames) {
           const homeDef = allSiteDefs.find(s => s.name === homeName);
           if (homeDef) {
-            for (const r of getReachableSites(movementMap, homeDef, allSiteDefs)) {
+            for (const r of getReachableSites(movementMap, homeDef, allSiteDefs, AGENT_MAX_REGION_DISTANCE)) {
               reachableNames.add(r.site.name);
             }
             // Rule 9.08: Ringwraith/Balrog treat Dagorlad ↔ Ûdun as adjacent
@@ -582,8 +584,8 @@ function agentTurnActions(
         if (!reachableNames.has(destDef.name)) continue;
         // Exclude haven sites (rule 9.07)
         if (isHavenSite(state, siteInst.definitionId as string)) continue;
-        // Exclude Under-deeps sites (rule 9.02)
-        if ((destDef as { underDeeps?: boolean }).underDeeps) continue;
+        // Exclude Under-deeps sites (rule 4.1: agents can only move to non-Under-deeps sites).
+        if (destDef.keywords?.includes('under-deeps')) continue;
         // Rule 9.08: Fallen-wizard agents use only hero site cards
         if (hazardAlignment === Alignment.FallenWizard && destDef.cardType !== 'hero-site') continue;
         // Rule 9.08: Balrog agents use only minion site cards
@@ -810,6 +812,118 @@ function agentInfluenceActions(
 }
 
 /**
+ * Generate `agent-tap-attack` actions for agents with the `agent-tap-attack`
+ * effect (e.g. The Grimburgoth dm-15).
+ *
+ * - Does NOT count as an agent action (actedThisTurn is not set).
+ * - Does NOT count against the hazard limit.
+ * - Agent must have been in play at start of turn (inPlayAtTurnStart).
+ * - Agent must not be wounded.
+ * - Agent must be at the active company's destination site (or current site
+ *   if stationary).
+ * - Only one attack per agent per M/H phase.
+ */
+function agentTapAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const resourcePlayerIndex = 1 - hazardPlayerIndex;
+  const resourcePlayer = state.players[resourcePlayerIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  const destSiteName = mhState.destinationSiteName;
+  const currentSiteName: string | null = (() => {
+    if (!company.currentSite) return null;
+    const d = state.cardPool[company.currentSite.definitionId as string];
+    return d && isSiteCard(d) ? d.name : null;
+  })();
+  const companySiteName = destSiteName ?? currentSiteName;
+
+  for (const agent of hazardPlayer.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = state.cardPool[agent.character.definitionId as string];
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    const tapAttackEff = (agentDef.effects ?? []).find(
+      (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
+    );
+    if (!tapAttackEff) continue;
+
+    // Determine the agent's current site name
+    let agentSiteName: string | null = null;
+    if (agent.siteStack.length > 0) {
+      const topSite = agent.siteStack[agent.siteStack.length - 1];
+      const siteDef = state.cardPool[topSite.definitionId as string];
+      if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+    } else {
+      const homesiteNames = agentDef.homesite
+        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      agentSiteName = homesiteNames[0] ?? null;
+    }
+
+    const isAgentAtCompanySite =
+      agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
+    if (!isAgentAtCompanySite) {
+      logDetail(`Agent tap-attack ${agentDef.name}: not at company's site (agent: ${agentSiteName ?? 'unknown'}, company: ${companySiteName ?? 'unknown'}) — skipping`);
+      continue;
+    }
+
+    logDetail(`Agent tap-attack ${agentDef.name}: at company site "${companySiteName}" — offering attack`);
+
+    if (!agent.revealed) {
+      // Face-down: offer one action per home site in deck (reveal at attack)
+      const homesiteNames = agentDef.homesite
+        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const seenHome = new Set<string>();
+      let offeredAny = false;
+      for (const siteInst of hazardPlayer.siteDeck) {
+        const siteDef = state.cardPool[siteInst.definitionId as string];
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (!homesiteNames.includes(siteDef.name)) continue;
+        if (seenHome.has(siteDef.name)) continue;
+        seenHome.add(siteDef.name);
+        logDetail(`Agent tap-attack ${agentDef.name}: face-down, offering with home site "${siteDef.name}"`);
+        actions.push({
+          action: {
+            type: 'agent-tap-attack',
+            player: playerId,
+            agentId: agent.id,
+            homeSiteInstanceId: siteInst.instanceId,
+          } as AgentTapAttackAction,
+          viable: true,
+        });
+        offeredAny = true;
+      }
+      if (!offeredAny) {
+        // No home site in deck — reveal without site, discard at EOT
+        logDetail(`Agent tap-attack ${agentDef.name}: face-down, no home site in deck — offering without site`);
+        actions.push({
+          action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+          viable: true,
+        });
+      }
+    } else {
+      // Face-up: single action
+      actions.push({
+        action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -898,7 +1012,8 @@ function playHazardsActions(
           continue;
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
-        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race);
+        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
+          || siteAllowsCreatureByRace(state, targetCompany, def.race);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -906,7 +1021,7 @@ function playHazardsActions(
           continue;
         }
         if (matches.length === 0 && keyingBypassed) {
-          logDetail(`Creature "${def.name}" keyable via keying-bypass constraint (race "${def.race}")`);
+          logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
           actions.push({
             action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race } },
             viable: true,
@@ -1287,13 +1402,14 @@ function playHazardsActions(
             foundAgent = true;
 
             if (!agent.revealed) {
-              // Face-down: offer one action per available home site in deck.
+              // Face-down: offer one action per available home site card matching the destination.
+              // Only the destination site is valid — other home sites of the agent are irrelevant here.
               const seenHome = new Set<string>();
               let offeredAny = false;
               for (const siteInst of player.siteDeck) {
                 const siteDef = state.cardPool[siteInst.definitionId as string];
                 if (!siteDef || !isSiteCard(siteDef)) continue;
-                if (!homesiteNames.includes(siteDef.name)) continue;
+                if (siteDef.name !== destSiteName) continue;
                 if (seenHome.has(siteDef.name)) continue;
                 seenHome.add(siteDef.name);
                 logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);
@@ -1580,6 +1696,11 @@ function playHazardsActions(
     // Agents with the `agent-tap-influence` effect tap (not as an agent action,
     // not against hazard limit) to make an influence attempt during M/H phase.
     actions.push(...agentInfluenceActions(state, playerId, mhState));
+
+    // --- Agent tap attacks (e.g. The Grimburgoth dm-15) ---
+    // Agents with the `agent-tap-attack` effect tap (not as an agent action,
+    // not against hazard limit) to attack during M/H phase.
+    actions.push(...agentTapAttackActions(state, playerId, mhState));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
@@ -1846,6 +1967,35 @@ function cancelAttacksSiteName(
   return cancels ? siteDef.name : null;
 }
 
+/**
+ * Check whether the target company's effective site (destination if moving,
+ * else current) carries an `allow-creature-by-race` site-rule that matches
+ * the given creature race. When it does, the creature's normal keying check
+ * is bypassed (e.g. Geann a-Lisch: "Any Man hazard creature can be played
+ * at this site.").
+ */
+function siteAllowsCreatureByRace(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  race: string,
+): boolean {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return false;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return false;
+  const siteDef = state.cardPool[siteDefId as unknown as string];
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
+  return siteDef.effects.some(
+    e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
+      && 'race' in e && e.race === race,
+  );
+}
+
 /** Build a human-readable keying requirement string for error messages. */
 function describeKeyingRequirement(def: CreatureCard): string {
   const keyDesc = def.keyedTo.map(k => {
@@ -1952,6 +2102,11 @@ function checkSitePathCondition(
   const ctx: Record<string, unknown> = { sitePath: regionTypeCounts(mhState.resolvedSitePath) };
   if (mhState.destinationSiteType) {
     ctx['destinationSiteType'] = mhState.destinationSiteType;
+  }
+  // Expose the destination region type (the region the destination site sits
+  // in) so play conditions can gate on it (e.g. Choking Shadows Mode B2).
+  if (mhState.resolvedSitePath.length > 0) {
+    ctx['destinationRegionType'] = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
   }
   if (state) {
     const inPlayNames: string[] = [];
