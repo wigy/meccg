@@ -12,6 +12,7 @@
 import type {
   Alignment,
   CardDefinitionId,
+  CardInstanceId,
   Keyword,
   ManifestId,
   RegionType,
@@ -34,6 +35,11 @@ export type PlayableResourceType = ItemSubtype | 'faction' | 'ally' | 'informati
  * Unlike creature hazards (played from hand by the opponent), automatic
  * attacks are built into the site card itself. They must be resolved before
  * any resources can be played at the site.
+ *
+ * The optional `body`, `combatRules`, and `sourceInstanceId` fields are used
+ * only for augmented attacks injected at runtime by `permanent-event-auto-attack`
+ * effects (e.g. Balrog of Moria, Spawn events). Printed site attacks never
+ * carry these fields.
  */
 export interface AutomaticAttack {
   /** The type of creatures guarding the site (e.g. "Orcs", "Undead"). Used for card interactions. */
@@ -42,6 +48,16 @@ export interface AutomaticAttack {
   readonly strikes: number;
   /** Combat strength of each strike. */
   readonly prowess: number;
+  /** Body value for body checks. Absent means no body check (e.g. Balrog of Moria "18/-"). */
+  readonly body?: number;
+  /** Combat rules that modify how this attack plays out (e.g. "attacker-chooses-defenders"). */
+  readonly combatRules?: readonly string[];
+  /**
+   * If this attack originates from a permanent-event in play (not from the
+   * site card itself), the instance ID of that event. Used by finalizeCombat
+   * to trigger `onDefeat` logic (e.g. Balrog of Moria removal from play).
+   */
+  readonly sourceInstanceId?: CardInstanceId;
 }
 
 /**

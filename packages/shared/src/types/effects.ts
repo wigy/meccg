@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, RegionType, SiteType } from './common.js';
 
 // ---- Value Expressions ----
 
@@ -1782,6 +1782,39 @@ export interface DragonAtHomeEffect extends EffectBase {
 }
 
 /**
+ * While this hazard permanent event is in play, the listed sites each gain
+ * an additional automatic-attack with the given stats. Used by Spawn-type
+ * events (e.g. Balrog of Moria, Monstrosity of Diverse Shape) that augment
+ * specific Under-deeps sites regardless of any Dragon manifestation chain.
+ *
+ * When `onDefeat` is `'remove-from-play'`: defeating this augmented attack
+ * removes the permanent-event card from play (it moves to the defeating
+ * player's kill pile, awarding kill MPs). Used by Balrog of Moria TW-12.
+ * Absent for ordinary Spawn augmentations (the event stays in play).
+ */
+export interface PermanentEventAutoAttackEffect extends EffectBase {
+  readonly type: 'permanent-event-auto-attack';
+  /** Site definition IDs whose auto-attack list is augmented while this event is in play. */
+  readonly siteIds: readonly CardDefinitionId[];
+  /** The attack stats contributed to those sites. */
+  readonly attack: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    /** Absent means no body check (e.g. Balrog of Moria "18/-"). */
+    readonly body?: number;
+    readonly combatRules?: readonly string[];
+  };
+  /**
+   * When `'remove-from-play'`, defeating this auto-attack removes the
+   * permanent event from play — the card moves to the defeating player's
+   * kill pile and its kill MPs are awarded to them. Absent for ordinary
+   * Spawn augmentations.
+   */
+  readonly onDefeat?: 'remove-from-play';
+}
+
+/**
  * Triggers the "call the council" endgame transition — the card-based
  * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
  * on the caller, advances the turn, and marks who gets the final last
@@ -2018,4 +2051,5 @@ export type CardEffect =
   | ReduceAttacksToOneEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
-  | CompanyCombatBoostEffect;
+  | CompanyCombatBoostEffect
+  | PermanentEventAutoAttackEffect;

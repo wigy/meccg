@@ -9,6 +9,7 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, 
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
 import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
+import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -2270,6 +2271,46 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };
     }) as unknown as typeof stateAfterCombat.players;
     stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAD };
+  }
+
+  // Handle permanent-event auto-attack onDefeat:'remove-from-play' (e.g. Balrog of Moria TW-12).
+  // When all strikes of a site automatic-attack are defeated and the attack's source
+  // is a permanent-event carrying this flag, remove the event from the hazard player's
+  // cardsInPlay and move it to the defending player's killPile to award kill MPs.
+  if (allDefeated && combat.attackSource.type === 'automatic-attack') {
+    const { siteInstanceId, attackIndex } = combat.attackSource;
+    const siteDefId = resolveInstanceId(state, siteInstanceId);
+    const siteDef = siteDefId ? state.cardPool[siteDefId as string] : undefined;
+    if (siteDef && isSiteCard(siteDef)) {
+      const autoAttacks = getActiveAutoAttacks(state, siteDef);
+      const aa = autoAttacks[attackIndex];
+      const sourceInstId = aa?.sourceInstanceId;
+      if (sourceInstId) {
+        const sourceDefId = resolveInstanceId(state, sourceInstId);
+        const sourceDef = sourceDefId ? state.cardPool[sourceDefId as string] : undefined;
+        const effects = (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+        for (const eff of effects) {
+          if (eff.type !== 'permanent-event-auto-attack') continue;
+          const peaEff = eff;
+          if (peaEff.onDefeat !== 'remove-from-play') continue;
+          const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? '?';
+          const hazardIdx = stateAfterCombat.players.findIndex(p => p.id === combat.attackingPlayerId);
+          const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+          const sourceCard = stateAfterCombat.players[hazardIdx]?.cardsInPlay.find(c => c.instanceId === sourceInstId);
+          if (sourceCard) {
+            const cardRef = { instanceId: sourceCard.instanceId, definitionId: sourceCard.definitionId };
+            const updatedPlayersOD = stateAfterCombat.players.map((p, idx) => {
+              if (idx === hazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === defIdx) return { ...p, killPile: [...p.killPile, cardRef] };
+              return p;
+            }) as unknown as typeof stateAfterCombat.players;
+            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersOD };
+            logDetail(`Permanent-event "${sourceName}" defeated — removed from play, kill MPs awarded to defender`);
+          }
+          break;
+        }
+      }
+    }
   }
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
