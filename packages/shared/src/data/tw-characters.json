@@ -1677,7 +1677,14 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Grey Havens"
+    "homesite": "Grey Havens",
+    "effects": [
+      {
+        "type": "hand-size-modifier",
+        "value": 1
+      }
+    ],
+    "certified": "2026-05-10"
   },
   {
     "cardType": "hero-character",
