@@ -1695,7 +1695,7 @@
     ],
     "nearestHaven": "Rivendell",
     "region": "Arthedain",
-    "playableResources": [],
+    "playableResources": ["information"],
     "automaticAttacks": [
       {
         "creatureType": "Wolves",
@@ -1706,7 +1706,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Wolves — 2 strikes with 6 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-05-11"
   },
   {
     "cardType": "hero-site",
