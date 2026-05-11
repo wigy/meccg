@@ -547,7 +547,10 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "wolves",
-    "keyedTo": []
+    "certified": "2026-05-11",
+    "keyedTo": [
+      { "regionTypes": ["border", "wilderness", "shadow"] }
+    ]
   },
   {
     "cardType": "hazard-creature",
