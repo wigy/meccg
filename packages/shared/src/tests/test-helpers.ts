@@ -773,6 +773,7 @@ export function buildSitePhaseState(opts: {
 }) {
   const state = buildTestState({
     activePlayer: PLAYER_1,
+    recompute: true,
     players: [
       { id: PLAYER_1, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA] },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
