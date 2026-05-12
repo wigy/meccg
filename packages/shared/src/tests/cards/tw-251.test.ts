@@ -5,7 +5,7 @@
  * Type: hero-resource-ally
  * Effects: 1 (grant-action gwaihir-special-movement, cost: discard self)
  *
- * "Unique. Playable at Eagles' Eyrie. If his company's size is two or less,
+ * "Unique. Playable at Eagles’ Eyrie. If his company's size is two or less,
  *  you may discard Gwaihir during the organization phase to allow his company
  *  to move to any site that is not in a Shadow-land, Dark-domain, or
  *  Under-deeps; only hazard creatures keyed to the site may be played on a
@@ -41,7 +41,7 @@ describe('Gwaihir (tw-251)', () => {
   beforeEach(() => resetMint());
 
   test('grant-action available when company size is 2 or less during organization', () => {
-    // Aragorn alone at Eagles' Eyrie with Gwaihir as ally → company size = 1
+    // Aragorn alone at Eagles’ Eyrie with Gwaihir as ally → company size = 1
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -60,7 +60,7 @@ describe('Gwaihir (tw-251)', () => {
   });
 
   test('grant-action available when company size is exactly 2', () => {
-    // Aragorn + Legolas at Eagles' Eyrie with Gwaihir → company size = 2
+    // Aragorn + Legolas at Eagles’ Eyrie with Gwaihir → company size = 2
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -76,7 +76,7 @@ describe('Gwaihir (tw-251)', () => {
   });
 
   test('grant-action NOT available when company size exceeds 2', () => {
-    // Aragorn + Legolas + Gimli at Eagles' Eyrie → company size = 3
+    // Aragorn + Legolas + Gimli at Eagles’ Eyrie → company size = 3
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,

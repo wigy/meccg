@@ -159,7 +159,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const afterTomCombat = runCreatureCombat(afterTom, ARAGORN, 12, null);
 
     const mhAfterTom = afterTomCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfterTom.hazardsEncountered).toContain('Tom (Tuma)');
+    expect(mhAfterTom.hazardsEncountered).toContain('“Tom” (Tûma)');
 
     const afterWilliam = playCreatureHazardAndResolve(afterTomCombat, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterWilliam, ARAGORN, 2, 5);
@@ -222,7 +222,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
     const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.hazardsEncountered).toContain('William (Wuluag)');
+    expect(mhAfter.hazardsEncountered).toContain('“William” (Wûluag)');
   });
 
   test('William alone (no other troll faced) — wound does not discard items', () => {

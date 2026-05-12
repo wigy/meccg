@@ -79,7 +79,7 @@ describe('Adrazar (tw-116)', () => {
   });
 
   test('+1 DI bonus applies when influencing Wood-elves (elf faction)', () => {
-    // Adrazar (dunadan, base DI 1) attempts to influence Wood-elves at Thranduil's Halls.
+    // Adrazar (dunadan, base DI 1) attempts to influence Wood-elves at Thranduil’s Halls.
     // Wood-elves influence number = 8, Elves get +1 check modifier for elf bearers only.
     // Adrazar is dunadan, not elf, so the elf check modifier does NOT apply.
     // With Adrazar's +1 DI bonus vs all factions:

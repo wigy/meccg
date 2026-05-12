@@ -1,7 +1,7 @@
 /**
  * @module le-354.test
  *
- * Card test: Beorn's House (le-354)
+ * Card test: Beorn’s House (le-354)
  * Type: minion-site (free-hold)
  * Effects: 0
  *
@@ -48,7 +48,7 @@ const BEORNS_HOUSE = 'le-354' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 
-describe("Beorn's House (le-354)", () => {
+describe("Beorn’s House (le-354)", () => {
   beforeEach(() => resetMint());
 
   test('reachable from Dol Guldur via starter movement', () => {
@@ -61,10 +61,10 @@ describe("Beorn's House (le-354)", () => {
       .filter(r => r.movementType === 'starter')
       .map(r => r.site.name);
 
-    expect(starterNames).toContain("Beorn's House");
+    expect(starterNames).toContain("Beorn’s House");
   });
 
-  test("starter movement from Beorn's House returns to Dol Guldur", () => {
+  test("starter movement from Beorn’s House returns to Dol Guldur", () => {
     const beornsHouse = pool[BEORNS_HOUSE as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -84,7 +84,7 @@ describe("Beorn's House (le-354)", () => {
 
     const reachable = getReachableSites(movementMap, dolGuldur, allSites);
     const regionEntry = reachable.find(
-      r => r.movementType === 'region' && r.site.name === "Beorn's House",
+      r => r.movementType === 'region' && r.site.name === "Beorn’s House",
     );
 
     expect(regionEntry).toBeDefined();
@@ -93,7 +93,7 @@ describe("Beorn's House (le-354)", () => {
   });
 
   test('not reachable from Minas Morgul via starter movement', () => {
-    // Beorn's House's nearest haven is Dol Guldur, not Minas Morgul
+    // Beorn’s House's nearest haven is Dol Guldur, not Minas Morgul
     const minasMorgul = pool[MINAS_MORGUL as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -103,6 +103,6 @@ describe("Beorn's House (le-354)", () => {
       .filter(r => r.movementType === 'starter')
       .map(r => r.site.name);
 
-    expect(starterNames).not.toContain("Beorn's House");
+    expect(starterNames).not.toContain("Beorn’s House");
   });
 });

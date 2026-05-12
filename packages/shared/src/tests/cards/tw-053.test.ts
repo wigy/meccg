@@ -225,12 +225,10 @@ describe('Lost in Free-domains (tw-53)', () => {
     }
     expect(current.chain).toBeNull();
 
-    // Lost in Free-domains is now in P2's cardsInPlay (no character attachment).
-    const lifdInPlay = current.players[1].cardsInPlay.find(c => c.instanceId === lifdInstance);
-    expect(lifdInPlay).toBeDefined();
-    expect(lifdInPlay!.definitionId).toBe(LOST_IN_FREE_DOMAINS);
-    // Not site-attached either — Lost in Free-domains targets a company, not a site.
-    expect(lifdInPlay!.attachedToSite).toBeUndefined();
+    // Lost in Free-domains is a short event — it is discarded after the chain resolves.
+    const lifdInDiscard = current.players[1].discardPile.find(c => c.instanceId === lifdInstance);
+    expect(lifdInDiscard).toBeDefined();
+    expect(lifdInDiscard!.definitionId).toBe(LOST_IN_FREE_DOMAINS);
 
     // The on-event self-enters-play handler should have added a
     // site-phase-do-nothing constraint targeting the active company.

@@ -147,8 +147,8 @@ describe('Minas Morgul (le-390)', () => {
       .map(r => r.site.name);
 
     // Sites whose nearestHaven is Dol Guldur, not Minas Morgul
-    expect(starterNames).not.toContain("Beorn's House");
-    expect(starterNames).not.toContain("Thranduil's Halls");
+    expect(starterNames).not.toContain("Beorn’s House");
+    expect(starterNames).not.toContain("Thranduil’s Halls");
   });
 
   // ─── Reverse starter movement (Dol Guldur → Minas Morgul) ───────────────────

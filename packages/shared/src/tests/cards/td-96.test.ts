@@ -210,7 +210,7 @@ describe('Adamant Helmet (td-96)', () => {
     expect(aragornAfter.hazards).toHaveLength(0);
     expect(aragornAfter.items.map(i => i.definitionId)).toContain(ADAMANT_HELMET);
 
-    // Dragon's Curse lands in the hazard player's discard pile.
+    // Dragon’s Curse lands in the hazard player's discard pile.
     const hazardDiscardDefs = after.players[HAZARD_PLAYER].discardPile.map(c => c.definitionId);
     expect(hazardDiscardDefs).toContain(DRAGONS_CURSE);
   });
@@ -238,7 +238,7 @@ describe('Adamant Helmet (td-96)', () => {
 
   test('warded bearer discards the dark enchantment played on them during combat', () => {
     // Set up a Dragon attack resolving against Aragorn, who bears the
-    // Helmet. The hazard player plays Dragon's Curse on Aragorn — the
+    // Helmet. The hazard player plays Dragon’s Curse on Aragorn — the
     // ward must cancel the attachment and route the curse to the
     // attacker's discard pile.
     const base = buildTestState({

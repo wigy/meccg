@@ -844,16 +844,10 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
     resultState = { ...resultState, combat: { ...combat, strikeAssignments: newAssignments } };
   }
 
-  // Initiate chain — opponent gets priority to respond. On resolution,
-  // the chain resolver applies the modify-strike effect via resolveChainModifyStrike.
-  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-  if (resultState.chain === null) {
-    resultState = initiateChain(resultState, action.player, handCard, payload);
-  } else {
-    resultState = pushChainEntry(resultState, action.player, handCard, payload);
-  }
-
-  return { state: resultState };
+  // Apply the modify-strike bonuses immediately and return to resolve-strike
+  // so the defender can still choose tap-to-fight or stay-untapped.
+  const finalState = resolveChainModifyStrike(resultState, prowessBonus, bodyPenalty, !!modifyEffect.requiredSkill);
+  return { state: finalState };
 }
 
 /**
@@ -874,22 +868,15 @@ function handlePlayRerollStrike(state: GameState, action: GameAction, combat: Co
 
   // Move card from hand to discard pile. The chain holds a reference to the
   // card instance, so the identity becomes public via accrueRevealedInstances.
-  let resultState = updatePlayer(state, defPlayerIndex, p => ({
+  const resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
     hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
     discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
   }));
 
-  // Initiate chain — opponent gets priority to respond. On resolution,
-  // the chain resolver applies the reroll effect via resolveChainRerollStrike.
-  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-  if (resultState.chain === null) {
-    resultState = initiateChain(resultState, action.player, handCard, payload);
-  } else {
-    resultState = pushChainEntry(resultState, action.player, handCard, payload);
-  }
-
-  return { state: resultState };
+  // Resolve the reroll immediately — two rolls are made and the better
+  // result is used; the strike resolves without waiting for a chain.
+  return resolveChainRerollStrike(resultState);
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */

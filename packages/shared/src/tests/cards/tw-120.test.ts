@@ -65,7 +65,7 @@ describe('Aragorn II (tw-120)', () => {
 
   test('+2 DI bonus does not apply to non-Rangers factions', () => {
     // Aragorn attempting to influence a different faction should NOT get the +2 bonus.
-    // Use Wood-elves (influence number 9, playable at Thranduil's Halls) — but
+    // Use Wood-elves (influence number 9, playable at Thranduil’s Halls) — but
     // we can use Bree with Rangers to compare. Instead, use Legolas (elf, DI 2)
     // attempting Rangers at Bree — Legolas gets no Aragorn-specific bonus.
     const state = buildSitePhaseState({

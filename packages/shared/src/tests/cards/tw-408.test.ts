@@ -141,7 +141,7 @@ describe('Lórien (tw-408)', () => {
     // reach sites in adjacent and nearby regions.
     // Verify some key sites are reachable
     expect(regionNames).toContain('Moria');          // Redhorn Gate (adjacent)
-    expect(regionNames).toContain("Eagles' Eyrie");  // Anduin Vales (adjacent)
+    expect(regionNames).toContain("Eagles’ Eyrie");  // Anduin Vales (adjacent)
     expect(regionNames).toContain('Rivendell');       // Rhudaur (via regions)
   });
 
@@ -163,7 +163,7 @@ describe('Lórien (tw-408)', () => {
     }
 
     // Adjacent regions from Wold & Foothills
-    expect(distMap.get("Eagles' Eyrie")).toBe(2);   // Anduin Vales
+    expect(distMap.get("Eagles’ Eyrie")).toBe(2);   // Anduin Vales
     expect(distMap.get('Moria')).toBe(2);            // Redhorn Gate
     // Farther sites
     expect(distMap.get('Rivendell')).toBe(4);        // Rhudaur (4 regions away)

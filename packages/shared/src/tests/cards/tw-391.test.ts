@@ -1,7 +1,7 @@
 /**
  * @module tw-391.test
  *
- * Card test: Eagles' Eyrie (tw-391)
+ * Card test: Eagles’ Eyrie (tw-391)
  * Type: hero-site (free-hold)
  * Effects: 0
  *
@@ -48,7 +48,7 @@ import type { SiteCard } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe("Eagles' Eyrie (tw-391)", () => {
+describe("Eagles’ Eyrie (tw-391)", () => {
   beforeEach(() => resetMint());
 
   // ─── Data validation ────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ describe("Eagles' Eyrie (tw-391)", () => {
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
-  test('no resources playable at Eagles\' Eyrie', () => {
+  test('no resources playable at Eagles’ Eyrie', () => {
     const state = buildSitePhaseState({ site: EAGLES_EYRIE });
     const viable = viableFor(state, PLAYER_1);
 
@@ -77,7 +77,7 @@ describe("Eagles' Eyrie (tw-391)", () => {
       .filter(r => r.movementType === 'starter')
       .map(r => r.site.name);
 
-    expect(starterNames).toContain("Eagles' Eyrie");
+    expect(starterNames).toContain("Eagles’ Eyrie");
   });
 
   test('reachable from Lórien via region movement', () => {
@@ -87,7 +87,7 @@ describe("Eagles' Eyrie (tw-391)", () => {
 
     const reachable = getReachableSites(movementMap, lorien, allSites);
     const regionEntry = reachable.find(
-      r => r.movementType === 'region' && r.site.name === "Eagles' Eyrie",
+      r => r.movementType === 'region' && r.site.name === "Eagles’ Eyrie",
     );
 
     expect(regionEntry).toBeDefined();
@@ -105,7 +105,7 @@ describe("Eagles' Eyrie (tw-391)", () => {
       .filter(r => r.movementType === 'starter')
       .map(r => r.site.name);
 
-    expect(starterNames).not.toContain("Eagles' Eyrie");
+    expect(starterNames).not.toContain("Eagles’ Eyrie");
   });
 
   // ─── No special effects ───────────────────────────────────────────────────

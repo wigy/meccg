@@ -162,13 +162,12 @@ describe('Rivendell (tw-421)', () => {
     // Rivendell is in Rhudaur. Region movement (max 4 regions) reaches:
     // dist 1 (same region): Ettenmoors (Rhudaur)
     // dist 2 (adjacent): Barrow-downs, Old Forest, The Worthy Hills, Cameth Brin, Ost-in-Edhil, Tharbad (Cardolan), Bree, The White Towers, Weathertop, Ruined Signal Tower (Arthedain), Goblin-gate (High Pass), Carn Dûm, Zarak Dûm (Angmar)
-    // dist 3: Bag End (The Shire), Grey Havens, Himring (Lindon), Moria, The Under-gates, The Under-grottos, The Under-leas, The Under-vaults, The Gem-deeps, The Iron-deeps, The Sulfur-deeps, Dimrill Dale (Redhorn Gate), Eagles' Eyrie, Beorn's House (Anduin Vales), Gondmaeglom, Ovir Hollow, Framsburg (Grey Mountain Narrows), Geann a-Lisch, Hermit's Hill (Imlad Morgul?), Lossadan Camp, Lossadan Cairn, Dunnish Clan-hold, Mount Gram, Mount Gundabad (various)
-    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm), Bandit Lair (Brown Lands), Blue Mountain Dwarf-hold (Númeriador), The Stones, Woodmen-town, Wose Passage-hold, Isles of the Dead that Live, Gladden Fields, Rhosgobel, The Wind Throne
+    // dist 3: Bag End (The Shire), Grey Havens, Himring (Lindon), Moria, The Under-gates, The Under-grottos, The Under-leas, The Under-vaults, The Gem-deeps, The Iron-deeps, The Sulfur-deeps, Dimrill Dale (Redhorn Gate), Eagles’ Eyrie, Beorn’s House (Anduin Vales), Gondmaeglom, Ovir Hollow, Framsburg (Grey Mountain Narrows), Geann a-Lisch, Hermit’s Hill (Imlad Morgul?), Lossadan Camp, Lossadan Cairn, Dunnish Clan-hold, Mount Gram, Mount Gundabad (various)
+    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil’s Halls (Woodland Realm), Bandit Lair (Brown Lands), Blue Mountain Dwarf-hold (Númeriador), The Stones, Woodmen-town, Wose Passage-hold, Isles of the Dead that Live, Gladden Fields, Rhosgobel, The Wind Throne
     expect(regionNames).toEqual([
       'Bag End',
       'Bandit Lair',
       'Barrow-downs',
-      "Beorn's House",
       "Beorn’s House",
       'Blue Mountain Dwarf-hold',
       'Bree',
@@ -177,7 +176,7 @@ describe('Rivendell (tw-421)', () => {
       'Dimrill Dale',
       'Dol Guldur',
       'Dunnish Clan-hold',
-      "Eagles' Eyrie",
+      "Eagles’ Eyrie",
       'Ettenmoors',
       'Framsburg',
       'Geann a-Lisch',
@@ -186,7 +185,7 @@ describe('Rivendell (tw-421)', () => {
       'Goblin-gate',
       'Gondmaeglom',
       'Grey Havens',
-      "Hermit's Hill",
+      "Hermit’s Hill",
       'Himring',
       'Isengard',
       'Isle of the Ulond',
@@ -203,6 +202,7 @@ describe('Rivendell (tw-421)', () => {
       'Rhosgobel',
       'Ruined Signal Tower',
       'Tharbad',
+      'The Drowning-deeps',
       'The Gem-deeps',
       'The Iron-deeps',
       'The Stones',
@@ -213,8 +213,9 @@ describe('Rivendell (tw-421)', () => {
       'The Under-vaults',
       'The White Towers',
       'The Wind Throne',
+      'The Wind-deeps',
       'The Worthy Hills',
-      "Thranduil's Halls",
+      "Thranduil’s Halls",
       'Weathertop',
       'Woodmen-town',
       'Wose Passage-hold',
@@ -254,11 +255,11 @@ describe('Rivendell (tw-421)', () => {
     expect(distMap.get('Bag End')).toBe(3);
     expect(distMap.get('Grey Havens')).toBe(3);
     expect(distMap.get('Dimrill Dale')).toBe(3);
-    expect(distMap.get("Beorn's House")).toBe(3);
+    expect(distMap.get("Beorn’s House")).toBe(3);
     // 4 regions away (max)
     expect(distMap.get('Lórien')).toBe(4);
     expect(distMap.get('Dol Guldur')).toBe(4);
-    expect(distMap.get("Thranduil's Halls")).toBe(4);
+    expect(distMap.get("Thranduil’s Halls")).toBe(4);
     expect(distMap.get('Bandit Lair')).toBe(4);
   });
 });

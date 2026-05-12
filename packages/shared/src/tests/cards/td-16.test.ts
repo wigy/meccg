@@ -1,7 +1,7 @@
 /**
  * @module td-16.test
  *
- * Card test: Dragon's Curse (td-16)
+ * Card test: Dragon’s Curse (td-16)
  * Type: hazard-event (permanent)
  *
  * "Corruption. Dark enchantment. Playable on a non-Wizard character
@@ -55,7 +55,7 @@ const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
 
 /**
  * Build a resolve-strike combat state for a Dragon attack against the
- * given defender character, with Dragon's Curse in the hazard player's
+ * given defender character, with Dragon’s Curse in the hazard player's
  * hand. Minimal scaffolding — the attack source is a synthetic dragon
  * creature whose instance doesn't need to appear in play for
  * legal-action emission to succeed.
@@ -108,10 +108,10 @@ function makeDragonResolveStrikeState(opts: {
   return { state: { ...withHelmet, combat } };
 }
 
-describe("Dragon's Curse (td-16)", () => {
+describe("Dragon’s Curse (td-16)", () => {
   beforeEach(() => resetMint());
 
-  test('attached Dragon\'s Curse adds 2 corruption points to the bearer', () => {
+  test('attached Dragon’s Curse adds 2 corruption points to the bearer', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -130,7 +130,7 @@ describe("Dragon's Curse (td-16)", () => {
   });
 
   test('untap → org transition enqueues a corruption check regardless of site (non-haven)', () => {
-    // Unlike Lure of the Senses (which is haven-gated), Dragon's Curse
+    // Unlike Lure of the Senses (which is haven-gated), Dragon’s Curse
     // fires the untap-end corruption check at any site.
     const base = buildTestState({
       activePlayer: PLAYER_1,
@@ -152,7 +152,7 @@ describe("Dragon's Curse (td-16)", () => {
     expect(pending).toHaveLength(1);
     expect(pending[0].kind.type).toBe('corruption-check');
     if (pending[0].kind.type !== 'corruption-check') return;
-    expect(pending[0].kind.reason).toBe("Dragon's Curse");
+    expect(pending[0].kind.reason).toBe("Dragon’s Curse");
 
     const aragornId = charIdAt(afterPass, RESOURCE_PLAYER);
     expect(pending[0].kind.characterId).toBe(aragornId);
@@ -303,7 +303,7 @@ describe("Dragon's Curse (td-16)", () => {
 
   // ─── Rules 1 & 2: combat-time play + strike prowess -1 ─────────────────────
 
-  test('hazard player can play Dragon\'s Curse on the defender during a Dragon attack resolve-strike', () => {
+  test('hazard player can play Dragon’s Curse on the defender during a Dragon attack resolve-strike', () => {
     const { state } = makeDragonResolveStrikeState({ defender: ARAGORN });
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
 
@@ -376,7 +376,7 @@ describe("Dragon's Curse (td-16)", () => {
 
   test('defender cannot resolve the strike until the attacker passes Step 1 (CoE 3.iv.1)', () => {
     // Regression: game moab9vqb-68zlad seq 337–341. The attacker (p1) had
-    // Dragon's Curse highlighted as playable, but the defender (p2) could
+    // Dragon’s Curse highlighted as playable, but the defender (p2) could
     // resolve the strike concurrently, burning the attacker's window. Per
     // CoE rule 3.iv.1, the hazard player has priority to declare hazards
     // in Strike Sequence Step 1 before the strike resolves.
@@ -385,7 +385,7 @@ describe("Dragon's Curse (td-16)", () => {
     // Attacker's window is open: defender has no legal actions.
     expect(viableFor(state, PLAYER_1)).toHaveLength(0);
 
-    // Attacker sees the Dragon's Curse play + a pass to close Step 1.
+    // Attacker sees the Dragon’s Curse play + a pass to close Step 1.
     const attackerActions = viableFor(state, PLAYER_2);
     const attackerTypes = attackerActions.map(a => a.action.type).sort();
     expect(attackerTypes).toEqual(['pass', 'play-hazard']);
@@ -402,7 +402,7 @@ describe("Dragon's Curse (td-16)", () => {
   test('entering resolve-strike from choose-strike-order resets the attacker Step 1 window', () => {
     // Two strikes, both assigned. The defender picks the order; entering
     // each new strike sequence must re-open the attacker's Step 1 window
-    // so Dragon's Curse remains playable on the chosen target.
+    // so Dragon’s Curse remains playable on the chosen target.
     const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, secondDefender: LEGOLAS });
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
@@ -431,7 +431,7 @@ describe("Dragon's Curse (td-16)", () => {
     expect(afterChoose.combat?.phase).toBe('resolve-strike');
     expect(afterChoose.combat?.attackerStep1Done).toBe(false);
 
-    // Attacker still sees Dragon's Curse playable on the newly resolving
+    // Attacker still sees Dragon’s Curse playable on the newly resolving
     // target (Legolas); defender must wait.
     expect(viableFor(afterChoose, PLAYER_1)).toHaveLength(0);
     const plays = viableActions(afterChoose, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
@@ -439,7 +439,7 @@ describe("Dragon's Curse (td-16)", () => {
   });
 
   test('combat play-window pins the card out of the M/H phase hazard menu', () => {
-    // During movement-hazard phase, Dragon's Curse should not be offered
+    // During movement-hazard phase, Dragon’s Curse should not be offered
     // even though it has a play-target: its play-window ties it to combat.
     const base = buildTestState({
       activePlayer: PLAYER_1,
