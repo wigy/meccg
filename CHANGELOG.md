@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.29.0 — 2026-05-12
+
+Dark Minions Rules
+
+### Game Engine
+
+- Implement under-deeps movement: organization actions, M/H reveal, roll step, and Balrog sites (rules 10.1–10.3)
+- Implement generalized auto-attack system: dynamic second auto-attacks from hand (DM Under-deeps), permanent-event-sourced attacks (Balrog, Spawn), and Nazgûl permanent-event attacks
+- Implement `discard-item` strike effect (dm-43 An Article Missing)
+- Implement `discard-minors-for-major` site rule (dm-32 Hermit's Hill)
+- Implement `cancel-first-attack-if-in-play` effect (dm-38 The Under-gates)
+- Implement short-event `on-event: self-enters-play → add-constraint` for `site-phase-do-nothing` (tw-53 Lost in Free-domains)
+- Fix: faction influence using full DI instead of free DI
+- Fix: under-deeps sites incorrectly offered via region movement
+- Fix: strike-event and reroll-strike cards resolve immediately (no spurious sub-chain)
+- Fix: `play-short-event` routing when both chain and combat are active (hazard chain responses now reach correct handler)
+- Fix: nightly test failures from uncomputed effectiveStats and stale baseline
+- Fix: Unicode hazard name matching in creature DSL conditions (curly quotes, û)
+- Refactor: remove `corruptionModifier` field — replaced by generic `check-modifier` DSL effect
+- Add Roll button and dice feedback UI for under-deeps movement
+- Certify: Lost in Free-domains (tw-53), An Article Missing (dm-43), The Gem-deeps (dm-30), The Iron-deeps (dm-33), The Pûkel-deeps (dm-34), The Sulfur-deeps (dm-35), The Under-courts (dm-36), The Under-gates (dm-38), The Under-grottos (dm-39), The Under-leas (dm-40), The Under-vaults (dm-41), Urlurtsu Nûrn (dm-42), Hermit's Hill (dm-32), Haudh-in-Gwanûr (dm-31), The Dwarves Are upon You! (dm-124)
+- Certify (hazard creatures): Cave Worm (td-8), Giant Spiders (tw-40), Lesser Spiders (td-42), Neeker-breekers (tw-493), Wargs (tw-109), Watcher in the Water (tw-110)
+- Certify (hazard events): Despair of the Heart (tw-27), Full of Froth and Rage (as-30), Cunning Foes (dm-50), The Dwarves Are upon You! (dm-124)
+- Certify (characters): Boromir II (tw-134), Dori (tw-141), Fíli (tw-150), Gimli (tw-159), Glóin (tw-160), Kíli (tw-167), Óin (tw-172), Pallando (tw-175), Thorin II (tw-183), Drór (dm-6), Bill Ferny (dm-3), Wormtongue (dm-27), The Grimburgoth (dm-15), Fori the Beardless (dm-11)
+- Certify (resources): Durin's Axe (tw-212), Iron Hill Dwarves (tw-261), The Old Thrush (tw-346), Not at Home (td-143)
+- Certify (sites, 30+): multiple TW hero sites, AS minion sites, DM sites, TD sites
+
+### Bug Fixes
+
+- Fix: dodge reveal card identity to opponent when played
+- Fix: hide fetched card identity from opponent toast for fetch-from-pile
+- Fix: hazard short event incorrectly placed in cardsInPlay during fetch resolution
+- Fix: bearer-cannot-untap must not block healing at a haven
+- Fix: allow regular items to be stored at Havens
+- Fix: short events not accepted during end-of-turn discard and signal-end steps
+- Fix: wire tap-item-for-strike action to combat UI item click handler
+- Fix: Halfling Strength heal option incorrectly offered outside organization phase
+- Fix: reclassify Alone and Unadvised as hazard-event so Marvels Told can target it
+- Fix: Orc-lieutenant on-guard +4 prowess not applied when site auto-attack already faced
+- Fix: bearer-cannot-untap inverted — blocked healing instead of allowing it
+
 ## 0.28.0 — 2026-05-08
 
 Agent Basics

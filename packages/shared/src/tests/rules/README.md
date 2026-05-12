@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 135 | 174 | 43.7% |
+| 309 | 137 | 172 | 44.3% |
 
 ## Section Breakdown
 
@@ -15,9 +15,9 @@
 | 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 12 | 20.3% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 10 | 76.9% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 20 | 41.7% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 21 | 43.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
-| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 17 | 50.0% |
+| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 18 | 52.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 16 | 38.1% |
@@ -96,7 +96,7 @@
 | 2.04 | Untap Phase | [Uniqueness In Play](02-untap-phase/rule-2.04-uniqueness-in-play.test.ts) | ☑ |
 | 2.05 | Untap Phase | [Avatar Eliminated](02-untap-phase/rule-2.05-avatar-eliminated.test.ts) | ☑ |
 | 2.06 | Untap Phase | [Fw Avatar Leaves Play](02-untap-phase/rule-2.06-fw-avatar-leaves-play.test.ts) | ☐ |
-| 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ☐ |
+| 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ◐ |
 | 2.08 | Untap Phase | [Play Deck Exhaustion](02-untap-phase/rule-2.08-play-deck-exhaustion.test.ts) | ☑ |
 | 2.09 | Untap Phase | [Empty Play Deck And Discard](02-untap-phase/rule-2.09-empty-play-deck-and-discard.test.ts) | ◐ |
 | 2.10 | Untap Phase | [No Mechanical Tracking](02-untap-phase/rule-2.10-no-mechanical-tracking.test.ts) | ☑ |
@@ -147,7 +147,7 @@
 | 3.42 | Organization Phase | [Fw Site Usage](03-organization-phase/rule-3.42-fw-site-usage.test.ts) | ☐ |
 | 3.43 | Organization Phase | [Starter Movement](03-organization-phase/rule-3.43-starter-movement.test.ts) | ☑ |
 | 3.44 | Organization Phase | [Region Movement](03-organization-phase/rule-3.44-region-movement.test.ts) | ☑ |
-| 3.45 | Organization Phase | [Under Deeps Movement](03-organization-phase/rule-3.45-under-deeps-movement.test.ts) | ☐ |
+| 3.45 | Organization Phase | [Under Deeps Movement](03-organization-phase/rule-3.45-under-deeps-movement.test.ts) | ☑ |
 | 3.46 | Organization Phase | [Special Movement](03-organization-phase/rule-3.46-special-movement.test.ts) | ☐ |
 | 3.47 | Organization Phase | [Influence Overflow](03-organization-phase/rule-3.47-influence-overflow.test.ts) | ☐ |
 | 3.48 | Organization Phase | [Fw Discard Stage](03-organization-phase/rule-3.48-fw-discard-stage.test.ts) | ☐ |
@@ -156,7 +156,7 @@
 | 4.03 | Long-Event Phase | [Discard Hazard Long Events](04-long-event-phase/rule-4.03-discard-hazard-long-events.test.ts) | ☑ |
 | 5.01 | Movement/Hazard Phase | [Mh Phase Order](05-movement-hazard-phase/rule-5.01-mh-phase-order.test.ts) | ☑ |
 | 5.02 | Movement/Hazard Phase | [Mh Step1 Reveal Site](05-movement-hazard-phase/rule-5.02-mh-step1-reveal-site.test.ts) | ☑ |
-| 5.03 | Movement/Hazard Phase | [Under Deeps Roll](05-movement-hazard-phase/rule-5.03-under-deeps-roll.test.ts) | ☐ |
+| 5.03 | Movement/Hazard Phase | [Under Deeps Roll](05-movement-hazard-phase/rule-5.03-under-deeps-roll.test.ts) | ☑ |
 | 5.04 | Movement/Hazard Phase | [Illegal Movement](05-movement-hazard-phase/rule-5.04-illegal-movement.test.ts) | ☐ |
 | 5.05 | Movement/Hazard Phase | [Mh Passive Conditions](05-movement-hazard-phase/rule-5.05-mh-passive-conditions.test.ts) | ☐ |
 | 5.06 | Movement/Hazard Phase | [Mh Step2 Site Path](05-movement-hazard-phase/rule-5.06-mh-step2-site-path.test.ts) | ☐ |
@@ -244,7 +244,7 @@
 | 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☐ |
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
-| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ☐ |
+| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
 | 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☐ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☐ |
