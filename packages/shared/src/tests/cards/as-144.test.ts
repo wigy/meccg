@@ -1,7 +1,7 @@
 /**
  * @module as-144.test
  *
- * Card test: Eagles' Eyrie (as-144)
+ * Card test: Eagles’ Eyrie (as-144)
  * Type: minion-site (free-hold) in Anduin Vales
  * Effects: 0 (no special rules beyond standard site data fields)
  *
@@ -32,7 +32,7 @@
  * | 4 | Card draws                 | IMPLEMENTED     | resourceDraws / hazardDraws used       |
  * | 5 | Automatic attacks at site  | NOT IMPLEMENTED | auto-attack trigger stubbed; data only |
  *
- * Note: Eagles' Eyrie also exists as a hero site (tw-391, nearest haven Lórien).
+ * Note: Eagles’ Eyrie also exists as a hero site (tw-391, nearest haven Lórien).
  * The two are distinct minion/hero variants with different haven affiliations.
  *
  * Playable: YES (no special effects; all data fields are routed through
@@ -56,12 +56,12 @@ const EAGLES_EYRIE_AS = 'as-144' as CardDefinitionId;
 const EAGLES_EYRIE_TW = 'tw-391' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
-describe("Eagles' Eyrie (as-144)", () => {
+describe("Eagles’ Eyrie (as-144)", () => {
   beforeEach(() => resetMint());
 
-  // ─── Movement: Dol Guldur → Eagles' Eyrie (AS) ──────────────────────────────
+  // ─── Movement: Dol Guldur → Eagles’ Eyrie (AS) ──────────────────────────────
 
-  test("starter movement from Dol Guldur reaches Eagles' Eyrie (as-144)", () => {
+  test("starter movement from Dol Guldur reaches Eagles’ Eyrie (as-144)", () => {
     const dolGuldur = pool[DOL_GULDUR as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -74,7 +74,7 @@ describe("Eagles' Eyrie (as-144)", () => {
     expect(starterAs144).toBeDefined();
   });
 
-  test("starter movement from Dol Guldur does NOT reach hero Eagles' Eyrie (tw-391)", () => {
+  test("starter movement from Dol Guldur does NOT reach hero Eagles’ Eyrie (tw-391)", () => {
     const dolGuldur = pool[DOL_GULDUR as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -87,7 +87,7 @@ describe("Eagles' Eyrie (as-144)", () => {
     expect(starterTw391).toBeUndefined();
   });
 
-  test("starter movement from Lórien does NOT reach minion Eagles' Eyrie (as-144)", () => {
+  test("starter movement from Lórien does NOT reach minion Eagles’ Eyrie (as-144)", () => {
     const lorien = pool[LORIEN as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -100,9 +100,9 @@ describe("Eagles' Eyrie (as-144)", () => {
     expect(starterAs144).toBeUndefined();
   });
 
-  // ─── Movement: Eagles' Eyrie (AS) → Dol Guldur ──────────────────────────────
+  // ─── Movement: Eagles’ Eyrie (AS) → Dol Guldur ──────────────────────────────
 
-  test("starter movement from Eagles' Eyrie (as-144) reaches Dol Guldur", () => {
+  test("starter movement from Eagles’ Eyrie (as-144) reaches Dol Guldur", () => {
     const eaglesEyrie = pool[EAGLES_EYRIE_AS as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -137,6 +137,6 @@ describe("Eagles' Eyrie (as-144)", () => {
     const havenLinks = buildMovementMap(pool).havenToHaven.get(dolGuldur.name);
 
     expect(havenLinks).toBeDefined();
-    expect(havenLinks!.has("Eagles' Eyrie")).toBe(false);
+    expect(havenLinks!.has("Eagles’ Eyrie")).toBe(false);
   });
 });

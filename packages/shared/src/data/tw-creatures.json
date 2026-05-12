@@ -137,12 +137,12 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "William (Wuluag)"
+                "$includes": "“William” (Wûluag)"
               }
             },
             {
               "company.hazardsEncountered": {
-                "$includes": "Tom (Tuma)"
+                "$includes": "“Tom” (Tûma)"
               }
             }
           ]
@@ -329,7 +329,7 @@
             },
             {
               "company.hazardsEncountered": {
-                "$includes": "William (Wuluag)"
+                "$includes": "“William” (Wûluag)"
               }
             }
           ]
@@ -389,7 +389,7 @@
             },
             {
               "company.hazardsEncountered": {
-                "$includes": "Tom (Tuma)"
+                "$includes": "“Tom” (Tûma)"
               }
             }
           ]

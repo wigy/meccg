@@ -14,7 +14,7 @@
  *
  * Test sites:
  *   - tw-422 (Ruined Signal Tower): hero-site, Spiders — 2 strikes, 8 prowess
- *   - as-144 (Eagles' Eyrie): minion-site, Animals — 2 strikes, 10 prowess
+ *   - as-144 (Eagles’ Eyrie): minion-site, Animals — 2 strikes, 10 prowess
  *   - tw-396 (Gladden Fields): hero-site, Undead — 1 strike, 8 prowess (control)
  *
  * | # | Effect                                    | Status      | Notes                                        |
@@ -46,7 +46,7 @@ import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.j
 const FULL_OF_FROTH_AND_RAGE = 'as-30' as CardDefinitionId;
 // Ruined Signal Tower (tw-422): hero-site, Spiders — 2 strikes, 8 prowess
 const RUINED_SIGNAL_TOWER = 'tw-422' as CardDefinitionId;
-// Eagles' Eyrie (as-144): minion-site, Animals — 2 strikes, 10 prowess
+// Eagles’ Eyrie (as-144): minion-site, Animals — 2 strikes, 10 prowess
 const EAGLES_EYRIE_AS = 'as-144' as CardDefinitionId;
 // Gladden Fields (tw-396): hero-site, Undead — 1 strike, 8 prowess (not Spider/Animal)
 const GLADDEN_FIELDS = 'tw-396' as CardDefinitionId;
@@ -75,7 +75,7 @@ describe('Full of Froth and Rage (as-30)', () => {
   });
 
   test('Animal auto-attack prowess increased by +2 (10 → 12)', () => {
-    // Eagles' Eyrie (as-144): Animals — 2 strikes, 10 prowess
+    // Eagles’ Eyrie (as-144): Animals — 2 strikes, 10 prowess
     // With Full of Froth and Rage: 12 prowess
     const state = setupAutoAttackStep(
       addP2CardsInPlay(buildSitePhaseState({ site: EAGLES_EYRIE_AS }), [frothInPlay]),

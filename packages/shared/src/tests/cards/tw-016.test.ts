@@ -116,7 +116,7 @@ describe('Bert (Burat) (tw-016)', () => {
 
     // Verify William is recorded in hazardsEncountered
     const mhAfterWilliam = phaseStateAs<MovementHazardPhaseState>(afterWilliamCombat);
-    expect(mhAfterWilliam.hazardsEncountered).toContain('William (Wuluag)');
+    expect(mhAfterWilliam.hazardsEncountered).toContain('“William” (Wûluag)');
 
     // Play Bert next
     const afterBert = playCreatureHazardAndResolve(afterWilliamCombat, PLAYER_2, bertId, companyId, SHADOW_KEYING);
@@ -161,7 +161,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterTomCombat = runCreatureCombat(afterTom, ARAGORN, 12, null);
 
     const mhAfterTom = phaseStateAs<MovementHazardPhaseState>(afterTomCombat);
-    expect(mhAfterTom.hazardsEncountered).toContain('Tom (Tuma)');
+    expect(mhAfterTom.hazardsEncountered).toContain('“Tom” (Tûma)');
 
     // Play Bert next — Aragorn is wounded
     const afterBert = playCreatureHazardAndResolve(afterTomCombat, PLAYER_2, bertId, companyId, SHADOW_KEYING);

@@ -663,6 +663,33 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
 }
 
 /**
+ * Fire any `on-event self-enters-play → add-constraint` effects carried by a
+ * resolving hazard short-event (e.g. Lost in Free-domains). The card was
+ * already discarded at play time; this fires the constraint on chain resolution.
+ */
+function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = state.cardPool[card.definitionId as string];
+  if (!def || !('effects' in def) || !def.effects) return state;
+
+  const onEvents = def.effects.filter(
+    (e): e is OnEventEffect =>
+      e.type === 'on-event'
+      && e.event === 'self-enters-play'
+      && e.apply.type === 'add-constraint',
+  );
+  if (onEvents.length === 0) return state;
+
+  let newState = state;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  for (const onEvent of onEvents) {
+    newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
+  }
+  return newState;
+}
+
+/**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
  * region type, and whether Doors of Night is in play — enough for a
@@ -1597,6 +1624,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // short event — no deferred tracking needed.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventArrivalTrigger(current, entry);
+  }
+
+  // Short events with self-enters-play → add-constraint effects (e.g. Lost in
+  // Free-domains): fire the constraint immediately on resolution. The card was
+  // already moved to discard at play time.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyShortEventSelfEntersPlayConstraints(current, entry);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):

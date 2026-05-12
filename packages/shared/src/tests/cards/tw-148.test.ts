@@ -76,7 +76,7 @@ describe('Erkenbrand (tw-148)', () => {
   });
 
   test('+2 DI bonus does not apply to other factions', () => {
-    // Erkenbrand attempts to influence Wood-elves at Thranduil's Halls.
+    // Erkenbrand attempts to influence Wood-elves at Thranduil’s Halls.
     // Wood-elves influence number = 8, standard mod: Men (-1).
     // Erkenbrand is man, so -1 penalty applies. No DI bonus (only for Riders of Rohan).
     // need = 8 - 2 (base DI) - (-1) (men penalty) = 7

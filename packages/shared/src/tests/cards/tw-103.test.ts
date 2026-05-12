@@ -164,7 +164,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterWilliamCombat = runCreatureCombat(afterWilliam, ARAGORN, 12, null);
 
     const mhAfterWilliam = phaseStateAs<MovementHazardPhaseState>(afterWilliamCombat);
-    expect(mhAfterWilliam.hazardsEncountered).toContain('William (Wuluag)');
+    expect(mhAfterWilliam.hazardsEncountered).toContain('“William” (Wûluag)');
 
     // Play Tom next — Aragorn is wounded
     const afterTom = playCreatureHazardAndResolve(afterWilliamCombat, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
@@ -230,7 +230,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
     const mhAfter = phaseStateAs<MovementHazardPhaseState>(afterCombat);
-    expect(mhAfter.hazardsEncountered).toContain('Tom (Tuma)');
+    expect(mhAfter.hazardsEncountered).toContain('“Tom” (Tûma)');
   });
 
   test('Tom alone (no other troll faced) — wound does not discard items', () => {

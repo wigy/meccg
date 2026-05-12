@@ -1,7 +1,7 @@
 /**
  * @module tw-376.test
  *
- * Card test: Beorn's House (tw-376)
+ * Card test: Beorn’s House (tw-376)
  * Type: hero-site (free-hold)
  * Effects: 0
  *

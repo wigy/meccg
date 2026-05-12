@@ -105,7 +105,7 @@ describe('Glorfindel II (tw-161)', () => {
   });
 
   test('+1 DI bonus applies when influencing an elf faction (Wood-elves)', () => {
-    // Glorfindel II (elf, base DI 2) attempts to influence Wood-elves at Thranduil's Halls.
+    // Glorfindel II (elf, base DI 2) attempts to influence Wood-elves at Thranduil’s Halls.
     // Wood-elves influence number = 8, Elves get +1 check modifier from faction card.
     // With Glorfindel's +1 DI bonus vs elves, total modifier = DI 2 + 1 (DI bonus) + 1 (elf check) = 4.
     // Need to roll > 8 - 4 = 4, so roll of 5+ succeeds.

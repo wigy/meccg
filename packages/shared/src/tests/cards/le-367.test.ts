@@ -134,8 +134,8 @@ describe('Dol Guldur (le-367)', () => {
 
     expect(starterSites).toEqual(expectedSites);
     // Verify a few known keyed sites make it through
-    expect(starterSites).toContain("Beorn's House");
-    expect(starterSites).toContain("Thranduil's Halls");
+    expect(starterSites).toContain("Beorn’s House");
+    expect(starterSites).toContain("Thranduil’s Halls");
     expect(starterSites).toContain('Moria');
     expect(starterSites).toContain('The Lonely Mountain');
   });
@@ -203,10 +203,10 @@ describe('Dol Guldur (le-367)', () => {
     }
 
     // Southern Mirkwood neighbors (adjacent regions → distance 2)
-    expect(distMap.get("Beorn's House")).toBe(2);       // Anduin Vales
+    expect(distMap.get("Beorn’s House")).toBe(2);       // Anduin Vales
     expect(distMap.get('Bandit Lair')).toBe(2);          // Brown Lands
     // Two-hop regions → distance 3
-    expect(distMap.get("Thranduil's Halls")).toBe(3);    // Woodland Realm via Heart of Mirkwood
+    expect(distMap.get("Thranduil’s Halls")).toBe(3);    // Woodland Realm via Heart of Mirkwood
     // Southern Mirkwood ↔ Heart of Mirkwood are adjacent → distance 2
     // Any farther site must respect the 4-region cap
     for (const [, dist] of distMap) {

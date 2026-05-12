@@ -74,7 +74,7 @@ describe('Orophin (tw-174)', () => {
 
   test('-1 to influence checks increases need when influencing a faction', () => {
     // Orophin (elf, DI 0) attempts to influence Wood-elves (influence # 8) at
-    // Thranduil's Halls. Wood-elves give Elves +1 check modifier.
+    // Thranduil’s Halls. Wood-elves give Elves +1 check modifier.
     // Without Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 8 - 1 = 7.
     // With Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) + penalty(-1) = 0, need = 8.
     const state = buildSitePhaseState({
@@ -102,7 +102,7 @@ describe('Orophin (tw-174)', () => {
   });
 
   test('-1 influence penalty makes faction checks harder than for a character without the penalty', () => {
-    // Compare Orophin vs Legolas influencing Wood-elves at Thranduil's Halls.
+    // Compare Orophin vs Legolas influencing Wood-elves at Thranduil’s Halls.
     // Legolas (elf, DI 2, +2 DI vs Wood-elves): need = 8 - DI(2) - elfBonus(+1) - diBonus(+2) = 3
     // Orophin (elf, DI 0): need = 8 - DI(0) - elfBonus(+1) - penalty(-1) = 8
     const legolasState = buildSitePhaseState({

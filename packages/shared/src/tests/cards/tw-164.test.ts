@@ -71,7 +71,7 @@ describe('Haldir (tw-164)', () => {
   });
 
   test('-1 to influence checks increases need when influencing a faction', () => {
-    // Haldir (elf, DI 0) attempts to influence Wood-elves (influence # 8) at Thranduil's Halls.
+    // Haldir (elf, DI 0) attempts to influence Wood-elves (influence # 8) at Thranduil’s Halls.
     // Wood-elves give Elves +1 check modifier.
     // Without Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 8 - 1 = 7.
     // With Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) + Haldir penalty(-1) = 0, need = 8 - 0 = 8.

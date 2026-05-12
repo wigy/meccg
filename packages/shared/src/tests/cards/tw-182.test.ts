@@ -74,7 +74,7 @@ describe('Théoden (tw-182)', () => {
   });
 
   test('+2 DI bonus does not apply to other factions', () => {
-    // Théoden attempts to influence Wood-elves at Thranduil's Halls.
+    // Théoden attempts to influence Wood-elves at Thranduil’s Halls.
     // Wood-elves influence number = 8, standard mod: Men (-1).
     // Théoden is man, so -1 penalty applies. No DI bonus (only for Riders of Rohan).
     // need = 8 - 3 (base DI) - (-1) (men penalty) = 6

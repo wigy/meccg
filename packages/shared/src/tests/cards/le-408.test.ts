@@ -1,7 +1,7 @@
 /**
  * @module le-408.test
  *
- * Card test: Thranduil's Halls (le-408)
+ * Card test: Thranduil’s Halls (le-408)
  * Type: minion-site (free-hold) in the Woodland Realm
  * Effects: 0 (no special rules beyond the standard site data fields)
  *
@@ -54,12 +54,12 @@ const THRANDUILS_HALLS_LE = 'le-408' as CardDefinitionId;
 const THRANDUILS_HALLS_TW = 'tw-432' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
-describe("Thranduil's Halls (le-408)", () => {
+describe("Thranduil’s Halls (le-408)", () => {
   beforeEach(() => resetMint());
 
-  // ─── Movement: Dol Guldur → Thranduil's Halls (LE) ──────────────────────────
+  // ─── Movement: Dol Guldur → Thranduil’s Halls (LE) ──────────────────────────
 
-  test("starter movement from Dol Guldur reaches Thranduil's Halls (le-408)", () => {
+  test("starter movement from Dol Guldur reaches Thranduil’s Halls (le-408)", () => {
     const dolGuldur = pool[DOL_GULDUR as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -72,7 +72,7 @@ describe("Thranduil's Halls (le-408)", () => {
     expect(starterLe408).toBeDefined();
   });
 
-  test("starter movement from Dol Guldur does NOT reach hero Thranduil's Halls (tw-432)", () => {
+  test("starter movement from Dol Guldur does NOT reach hero Thranduil’s Halls (tw-432)", () => {
     const dolGuldur = pool[DOL_GULDUR as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -85,7 +85,7 @@ describe("Thranduil's Halls (le-408)", () => {
     expect(starterTw432).toBeUndefined();
   });
 
-  test("starter movement from Lórien does NOT reach minion Thranduil's Halls (le-408)", () => {
+  test("starter movement from Lórien does NOT reach minion Thranduil’s Halls (le-408)", () => {
     const lorien = pool[LORIEN as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -98,9 +98,9 @@ describe("Thranduil's Halls (le-408)", () => {
     expect(starterLe408).toBeUndefined();
   });
 
-  // ─── Movement: Thranduil's Halls → Dol Guldur ───────────────────────────────
+  // ─── Movement: Thranduil’s Halls → Dol Guldur ───────────────────────────────
 
-  test("starter movement from Thranduil's Halls (le-408) reaches Dol Guldur", () => {
+  test("starter movement from Thranduil’s Halls (le-408) reaches Dol Guldur", () => {
     const thranduilsHalls = pool[THRANDUILS_HALLS_LE as string] as SiteCard;
     const allSites = Object.values(pool).filter(isSiteCard);
     const movementMap = buildMovementMap(pool);
@@ -136,6 +136,6 @@ describe("Thranduil's Halls (le-408)", () => {
     const havenLinks = buildMovementMap(pool).havenToHaven.get(dolGuldur.name);
 
     expect(havenLinks).toBeDefined();
-    expect(havenLinks!.has("Thranduil's Halls")).toBe(false);
+    expect(havenLinks!.has("Thranduil’s Halls")).toBe(false);
   });
 });

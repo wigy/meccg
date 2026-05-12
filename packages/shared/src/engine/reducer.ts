@@ -102,7 +102,11 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // handler rather than the site-phase reducer, which cannot accept them
   // while the automatic-attacks step is active.
   const combatActionTypes = ['assign-strike', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'cancel-attack', 'cancel-by-tap', 'cancel-strike', 'play-dodge', 'play-strike-event', 'play-reroll-strike', 'halve-strikes', 'modify-attack', 'tap-item-for-strike', 'modify-attack-from-hand', 'salvage-item', 'play-hazard', 'haven-join-attack', 'play-short-event', 'agent-strike-roll'];
-  if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike')))) {
+  // When a chain is active, play-short-event may be a hazard chain response
+  // (e.g. Searching Eye canceling Concealment). Route these through the phase
+  // handler, which distinguishes resource vs hazard events correctly.
+  const isChainShortEvent = state.chain != null && action.type === 'play-short-event';
+  if (state.combat != null && !isChainShortEvent && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {

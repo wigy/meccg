@@ -1,7 +1,7 @@
 /**
  * @module tw-432.test
  *
- * Card test: Thranduil's Halls (tw-432)
+ * Card test: Thranduil’s Halls (tw-432)
  * Type: hero-site (free-hold)
  * Effects: 0
  *
