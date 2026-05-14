@@ -11,6 +11,7 @@ import {
   CardInstanceId,
   CompanyId,
   RegionType,
+  SiteType,
 } from './common.js';
 import type { CardInstance, ItemInPlay } from './state-cards.js';
 import type { CardEffect } from './effects.js';
@@ -151,6 +152,15 @@ export interface CombatState {
    * creature hazards; automatic attacks leave this empty.
    */
   readonly attackKeying?: readonly RegionType[];
+  /**
+   * The site types this attack is keyed to, flattened from the creature's
+   * `keyedTo` entries. Used by the `no-attack-site-keyed` play-flag to
+   * determine whether an ally is immune to a given creature attack.
+   * Only populated for creature hazards; automatic attacks leave this absent
+   * (since automatic attacks are always "at the site" and the immunity applies
+   * unconditionally for that case).
+   */
+  readonly attackSiteKeyingTypes?: readonly SiteType[];
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */

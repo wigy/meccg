@@ -1508,6 +1508,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackKeying = Array.from(new Set(
     creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
   ));
+  const attackSiteKeyingTypes = Array.from(new Set(
+    creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
+  ));
   // Scan for on-event: creature-attack-begins → offer-char-join-attack
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.
@@ -1523,6 +1526,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     creatureBody: creatureDef.body,
     creatureRace,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
+    attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',

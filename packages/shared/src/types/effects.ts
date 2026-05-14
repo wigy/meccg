@@ -787,8 +787,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   hazard attaches (e.g. Rebel-talk).
  * - `no-attack` — the bearer (typically an ally) may not be assigned strikes
  *   from any attack source (e.g. Goldberry).
+ * - `no-attack-site-keyed` — the bearer may not be assigned strikes from
+ *   automatic-attacks or hazard creatures whose `keyedTo` includes the
+ *   site type of the company's current or destination site (e.g. Quickbeam,
+ *   Treebeard).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
