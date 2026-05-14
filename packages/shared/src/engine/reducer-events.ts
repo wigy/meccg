@@ -750,7 +750,11 @@ function applyPlayOptionAddConstraint(
         const charInPlay = charPlayerIdx >= 0 ? state.players[charPlayerIdx].characters[targetCharacterId as string] : undefined;
         const charDef = charInPlay ? state.cardPool[charInPlay.definitionId as string] : undefined;
         const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
-        constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess } }));
+        const targetCompany = charPlayerIdx >= 0
+          ? state.players[charPlayerIdx].companies.find(c => (c.characters as readonly unknown[]).includes(targetCharacterId))
+          : undefined;
+        const characterCount = targetCompany?.characters.length ?? 1;
+        constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess }, company: { characterCount } }));
       } else if (typeof apply.value === 'number') {
         constraintValue = apply.value;
       } else {

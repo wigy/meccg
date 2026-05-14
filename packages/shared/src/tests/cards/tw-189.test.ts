@@ -1,0 +1,414 @@
+/**
+ * @module tw-189.test
+ *
+ * Card test: A Friend or Three (tw-189)
+ * Type: hero-resource-event (short)
+ * Effects:
+ *   - play-target: character (any)
+ *   - play-option "influence-check-boost": when player.hasFactionInHand,
+ *     add-constraint check-modifier influence, valueExpr company.characterCount
+ *   - play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
+ *     add-constraint check-modifier corruption, valueExpr company.characterCount
+ *
+ * "One influence check or corruption check by a character in a company receives
+ *  a +1 modification for each character in his company."
+ *
+ * Engine support table:
+ * | # | Feature                                             | Status      | Notes                                             |
+ * |---|-----------------------------------------------------|-------------|---------------------------------------------------|
+ * | 1 | Target = any character                              | IMPLEMENTED | play-target character, no filter                  |
+ * | 2 | Influence-check-boost available with faction in hand| IMPLEMENTED | when: player.hasFactionInHand                     |
+ * | 3 | Corruption-check-boost available during CC window   | IMPLEMENTED | when: pending.corruptionCheckTargetsMe            |
+ * | 4 | +1 per character in company (valueExpr)             | IMPLEMENTED | valueExpr: company.characterCount, context added  |
+ * | 5 | Influence constraint modifies influence-attempt need| IMPLEMENTED | reducer-site.ts reads check-modifier constraints  |
+ * | 6 | Corruption constraint modifies corruptionModifier   | IMPLEMENTED | pending.ts reads check-modifier constraints       |
+ * | 7 | Constraint consumed after the check                 | IMPLEMENTED | both sites clear until-cleared on resolution      |
+ * | 8 | Not playable when no faction and no CC pending      | IMPLEMENTED | no eligible options → not-playable                |
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, Phase,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI, BILBO,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
+  MEN_OF_LEBENNIN,
+  handCardId, charIdAt, dispatch,
+  buildSitePhaseState, RESOURCE_PLAYER,
+  expectInDiscardPile,
+} from '../test-helpers.js';
+import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import { addConstraint, enqueueResolution } from '../../engine/pending.js';
+
+const A_FRIEND_OR_THREE = 'tw-189' as CardDefinitionId;
+
+describe('A Friend or Three (tw-189)', () => {
+  beforeEach(() => resetMint());
+
+  // ── influence-check-boost ────────────────────────────────────────────────
+
+  test('influence-check-boost: offered when player has a faction in hand', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    expect(actions.some(a => a.optionId === 'influence-check-boost')).toBe(true);
+  });
+
+  test('influence-check-boost: not offered when no faction in hand', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [A_FRIEND_OR_THREE],
+    });
+
+    const viableActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(viableActions).toHaveLength(0);
+  });
+
+  test('influence-check-boost: constraint value equals company size (solo → +1)', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+    });
+
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+
+    const after = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'influence-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(1);
+    }
+    expect(constraints[0].target.kind).toBe('character');
+    if (constraints[0].target.kind === 'character') {
+      expect(constraints[0].target.characterId).toBe(aragornId);
+    }
+    // Card consumed from hand; faction card remains
+    expect(after.players[0].hand).toHaveLength(1);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+  });
+
+  test('influence-check-boost: constraint value equals company size (3-char company → +3)', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN, LEGOLAS, GIMLI],
+      site: PELARGIR,
+      hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+    });
+
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+
+    const after = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'influence-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(3);
+    }
+  });
+
+  test('influence-check-boost: active constraint reduces influence-attempt need', () => {
+    // Aragorn (DI 3, Dúnedain) solo at Pelargir, Men of Lebennin (inf# 8, Dúnedain +1).
+    // Baseline modifier = DI 3 + Dúnedain +1 = 4 → need = 8 - 4 = 4.
+    // With +1 constraint from A Friend or Three: modifier = 5 → need = 3.
+    const base = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [MEN_OF_LEBENNIN],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+
+    const boosted = addConstraint(base, {
+      source: 'aft-1' as CardInstanceId,
+      sourceDefinitionId: A_FRIEND_OR_THREE,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'check-modifier', check: 'influence', value: 1 },
+    });
+
+    const influenceActions = computeLegalActions(boosted, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const influenceAction = influenceActions[0].action as { need: number };
+    // Baseline need 4, minus +1 constraint = 3
+    expect(influenceAction.need).toBe(3);
+  });
+
+  // ── corruption-check-boost ───────────────────────────────────────────────
+
+  test('corruption-check-boost: offered only while a corruption check is pending for the target', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [A_FRIEND_OR_THREE],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+
+    // No pending check → card not playable
+    const noneActions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(noneActions).toHaveLength(0);
+
+    // Enqueue corruption check on Aragorn → boost option appears
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const boostActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(boostActions.some(a => a.optionId === 'corruption-check-boost')).toBe(true);
+  });
+
+  test('corruption-check-boost: constraint value equals company size (solo → +1)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [A_FRIEND_OR_THREE],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const after = dispatch(withCheck, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'corruption-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(1);
+    }
+    // Card consumed; pending check still queued
+    expect(after.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+    expect(after.pendingResolutions).toHaveLength(1);
+    expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
+  });
+
+  test('corruption-check-boost: constraint value equals company size (3-char company → +3)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [A_FRIEND_OR_THREE],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const after = dispatch(withCheck, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'corruption-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(3);
+    }
+  });
+
+  test('corruption-check-boost: constraint increases corruptionModifier in the pending roll action', () => {
+    // Aragorn has no inherent corruption check modifier, so baseline corruptionModifier = 0.
+    // With +1 constraint (solo company), the corruption-check action carries corruptionModifier = 1.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+
+    const boosted = addConstraint(base, {
+      source: 'aft-1' as CardInstanceId,
+      sourceDefinitionId: A_FRIEND_OR_THREE,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 1 },
+    });
+
+    const withCheck = enqueueResolution(boosted, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const checkActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(checkActions).toHaveLength(1);
+    const checkAction = checkActions[0].action as { corruptionModifier: number };
+    // Aragorn base modifier 0 + constraint +1 = 1
+    expect(checkAction.corruptionModifier).toBe(1);
+  });
+
+  test('corruption-check-boost constraint is consumed after the corruption check resolves', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+
+    const boosted = addConstraint(base, {
+      source: 'aft-1' as CardInstanceId,
+      sourceDefinitionId: A_FRIEND_OR_THREE,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 1 },
+    });
+
+    const withCheck = enqueueResolution(boosted, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    // Force a high roll so the check passes
+    const stateWithCheat = { ...withCheck, cheatRollTotal: 12 };
+
+    const checkActions = computeLegalActions(stateWithCheat, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(checkActions).toHaveLength(1);
+
+    const state = dispatch(stateWithCheat, checkActions[0].action);
+    expect(state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
+  });
+});
