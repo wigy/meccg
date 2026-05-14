@@ -250,6 +250,8 @@ export interface PlayPermanentEventAction {
   readonly targetCharacterId?: CardInstanceId;
   /** For site-targeting permanent events (e.g. Rebuild the Town, The White Tree), the target site definition. */
   readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
+  /** For company-targeting permanent events (e.g. Fellowship), the target company ID. */
+  readonly targetCompanyId?: import('./common.js').CompanyId;
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
 }

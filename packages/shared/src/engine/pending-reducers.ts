@@ -24,7 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -954,6 +954,10 @@ function discardCharacter(
     }
   }
 
+  const affectedCompanies = player.companies
+    .filter(c => c.characters.includes(characterId))
+    .map(c => c.id);
+
   delete newCharacters[characterId as string];
   const newCompanies = player.companies.map(company => {
     if (!company.characters.includes(characterId)) return company;
@@ -973,6 +977,7 @@ function discardCharacter(
 
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
+  result = sweepCompanyMembershipChangedEvents(result, affectedCompanies);
   return result;
 }
 

@@ -397,6 +397,13 @@ export type ChainEntryPayload =
        * specific site location.
        */
       readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
+      /**
+       * For company-targeting permanent events (e.g. Fellowship), the company
+       * ID this card is bound to. The chain resolver sets `companyId` on the
+       * resulting `CardInPlay` entry so `company-modifier` effects are scoped
+       * to that company only.
+       */
+      readonly targetCompanyId?: import('./common.js').CompanyId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

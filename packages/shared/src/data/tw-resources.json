@@ -1022,7 +1022,27 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "target.siteType": "haven" },
+            { "target.memberCount": { "$gte": 4 } }
+          ]
+        }
+      },
+      { "type": "company-modifier", "stat": "prowess", "value": 1 },
+      { "type": "company-modifier", "check": "corruption", "value": 1 },
+      {
+        "type": "on-event",
+        "event": "company-membership-changes",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "certified": "2026-05-14"
   },
   {
     "cardType": "hero-resource-ally",

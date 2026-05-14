@@ -946,9 +946,14 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     // permanent hazards carry their site binding through the chain
     // payload; record it on the CardInPlay entry so the
     // company-arrives-at-site event hook can match arrivals against
-    // the bound site location.
+    // the bound site location. Company-targeting permanent events
+    // (e.g. Fellowship) store the company ID so company-modifier
+    // effects are scoped to that company only.
     const targetSiteDefId = entry.payload.type === 'permanent-event'
       ? entry.payload.targetSiteDefinitionId
+      : undefined;
+    const targetCompanyId = entry.payload.type === 'permanent-event'
+      ? entry.payload.targetCompanyId
       : undefined;
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
@@ -957,10 +962,14 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         definitionId: card.definitionId,
         status: CardStatus.Untapped,
         ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
+        ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
       }],
     };
     if (targetSiteDefId) {
       logDetail(`"${def?.name ?? card.definitionId}" attached to site ${targetSiteDefId as string}`);
+    }
+    if (targetCompanyId) {
+      logDetail(`"${def?.name ?? card.definitionId}" bound to company ${targetCompanyId as string}`);
     }
   }
 

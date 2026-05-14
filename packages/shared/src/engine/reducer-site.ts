@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1384,6 +1384,11 @@ function handleSitePlayHeroResource(
     }
   }
 
+  // When an ally joins, company membership changes — sweep any Fellowship-like events
+  if (isAlly) {
+    afterAttach = sweepCompanyMembershipChangedEvents(afterAttach, [company.id]);
+  }
+
   return { state: afterAttach };
 }
 
@@ -1918,14 +1923,26 @@ export function resolveOpponentInfluenceDefend(
   if (finalResult > attempt.targetMind) {
     // Success — discard target and controlled non-follower cards
     logDetail(`Opponent influence succeeded (${finalResult} > ${attempt.targetMind})`);
+    // Find the company of the influenced target (for membership-change sweep)
+    const opponent2 = state.players[opponentIndex];
+    let influencedCompanyId: import('../index.js').CompanyId | undefined;
+    if (attempt.targetKind === 'ally') {
+      for (const [charId, ch] of Object.entries(opponent2.characters)) {
+        if (ch.allies.some(a => a.instanceId === attempt.targetInstanceId)) {
+          influencedCompanyId = opponent2.companies.find(c => c.characters.includes(charId as import('../index.js').CardInstanceId))?.id;
+          break;
+        }
+      }
+    } else {
+      influencedCompanyId = opponent2.companies.find(c => c.characters.includes(attempt.targetInstanceId))?.id;
+    }
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
 
+    const afterInfluence = cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal });
     return {
-      state: cleanupEmptyCompanies({
-        ...state,
-        players: newPlayers,
-        rng, cheatRollTotal,
-      }),
+      state: influencedCompanyId
+        ? sweepCompanyMembershipChangedEvents(afterInfluence, [influencedCompanyId])
+        : afterInfluence,
       effects: [rollEffect],
     };
   }

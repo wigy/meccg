@@ -1565,6 +1565,7 @@ export function playPermanentEventAndResolve(
   opts?: {
     targetSiteDefinitionId?: CardDefinitionId;
     discardCardInstanceId?: CardInstanceId;
+    targetCompanyId?: CompanyId;
   },
 ): GameState {
   return playAndResolve(state, {

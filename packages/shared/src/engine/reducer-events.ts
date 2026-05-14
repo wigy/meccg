@@ -87,14 +87,14 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   }
 
   // Initiate or push onto chain — card enters play upon resolution.
-  // Forward targetCharacterId (if any) through the payload so that
-  // character-targeting permanent resource events (e.g. Align Palantír,
-  // Rebel-talk) attach to the character on resolution instead of going
-  // into general cardsInPlay.
+  // Forward targetCharacterId / targetSiteDefinitionId / targetCompanyId (if any)
+  // through the payload so that the chain resolver can set the correct binding
+  // on the resulting CardInPlay entry.
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'permanent-event',
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
+    ...(action.targetCompanyId ? { targetCompanyId: action.targetCompanyId } : {}),
   };
   if (newState.chain === null) {
     newState = initiateChain(newState, action.player, handCard, payload);
