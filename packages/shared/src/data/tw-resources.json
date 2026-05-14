@@ -1263,7 +1263,13 @@
     "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      { "site": "Wellinghall" }
+    ],
+    "effects": [
+      { "type": "play-flag", "flag": "no-attack-site-keyed" }
+    ],
+    "certified": "2026-05-14"
   },
   {
     "cardType": "hero-resource-event",

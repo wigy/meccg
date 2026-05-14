@@ -64,6 +64,46 @@ export function findAllyInCompany(
 }
 
 /**
+ * Returns true if an ally's `no-attack-site-keyed` flag protects it from
+ * the current combat's attack. Automatic-attacks are always "at the site"
+ * so the flag applies unconditionally for those. For creature attacks the
+ * flag applies only when the creature's `keyedTo` includes a site-type that
+ * matches the company's effective site (destination during M/H, current
+ * during site phase).
+ */
+function isAllyImmuneToSiteKeyedAttack(
+  state: GameState,
+  ally: AllyInPlay,
+  combat: CombatState,
+): boolean {
+  const allyDef = state.cardPool[ally.definitionId as string];
+  if (!hasPlayFlag(allyDef as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack-site-keyed')) return false;
+
+  if (combat.attackSource.type === 'automatic-attack' || combat.attackSource.type === 'played-auto-attack') {
+    logDetail(`Ally ${ally.instanceId as string} immune to auto-attack (no-attack-site-keyed flag)`);
+    return true;
+  }
+
+  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
+    if (!combat.attackSiteKeyingTypes || combat.attackSiteKeyingTypes.length === 0) return false;
+    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+    const company = defPlayer?.companies.find(c => c.id === combat.companyId);
+    if (!company) return false;
+    const effectiveSite = company.destinationSite ?? company.currentSite;
+    if (!effectiveSite) return false;
+    const siteDef = state.cardPool[effectiveSite.definitionId as string];
+    if (!isSiteCard(siteDef)) return false;
+    const isKeyed = (combat.attackSiteKeyingTypes as readonly string[]).includes(siteDef.siteType);
+    if (isKeyed) {
+      logDetail(`Ally ${ally.instanceId as string} immune to site-keyed creature (no-attack-site-keyed flag, site type ${siteDef.siteType})`);
+    }
+    return isKeyed;
+  }
+
+  return false;
+}
+
+/**
  * Compute legal actions for the current combat sub-phase.
  * Only returns actions for the player whose turn it is to act.
  */
@@ -262,6 +302,10 @@ function assignStrikeActions(
           logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from defender strike assignment`);
           continue;
         }
+        if (isAllyImmuneToSiteKeyedAttack(state, ally, combat)) {
+          logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from defender strike assignment`);
+          continue;
+        }
         if (ally.status !== CardStatus.Untapped) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
@@ -319,6 +363,10 @@ function assignStrikeActions(
     for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
       if (hasPlayFlag(state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
         logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
+        continue;
+      }
+      if (isAllyImmuneToSiteKeyedAttack(state, ally, combat)) {
+        logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from attacker assignment pool`);
         continue;
       }
       allCombatantIds.push({ id: ally.instanceId, tapped: ally.status !== CardStatus.Untapped });
