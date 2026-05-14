@@ -160,10 +160,14 @@ Modifies marshalling points conditionally.
 
 ### 4. `company-modifier`
 
-Applies a stat modifier to every character in the bearer's company.
+Applies a stat or check modifier to every character in the company the
+permanent event was played on. Use `stat` for prowess/body/direct-influence/
+corruption-points modifiers, or `check` for check roll modifiers (e.g.
+corruption checks).
 
 ```json
 { "type": "company-modifier", "stat": "corruption-points", "value": 1 }
+{ "type": "company-modifier", "check": "corruption", "value": 1 }
 ```
 
 ### 5. `enemy-modifier`

@@ -591,6 +591,58 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
   return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
 }
 
+/**
+ * Fires the `company-membership-changes` event against every company-targeted
+ * permanent event (cardsInPlay with a matching `companyId`) that carries an
+ * `on-event: company-membership-changes` + `discard-self` effect. Used by
+ * Fellowship, which must be discarded whenever any character or ally joins or
+ * leaves the company it was played on.
+ *
+ * Call after any action that changes a company's character or ally roster,
+ * passing every affected company ID.
+ */
+export function sweepCompanyMembershipChangedEvents(
+  state: GameState,
+  affectedCompanyIds: readonly CompanyId[],
+): GameState {
+  if (affectedCompanyIds.length === 0) return state;
+  const affected = new Set(affectedCompanyIds.map(id => id as string));
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const toDiscard: CardInstanceId[] = [];
+    for (const card of player.cardsInPlay) {
+      if (!affected.has(card.companyId as string)) continue;
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'company-membership-changes') continue;
+        if (effect.apply?.type !== 'move') continue;
+        if (effect.apply.select !== 'self') continue;
+        if (effect.apply.to !== 'discard') continue;
+        logDetail(`company-membership-changes: discarding "${def.name}" (company ${card.companyId as string})`);
+        toDiscard.push(card.instanceId);
+        break;
+      }
+    }
+    if (toDiscard.length > 0) {
+      changed = true;
+      const discardSet = new Set(toDiscard as string[]);
+      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
+      newPlayers[pi] = {
+        ...newPlayers[pi],
+        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
+        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
+      };
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
 // ---- Character placement handler ----
 
 /**

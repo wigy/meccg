@@ -180,6 +180,26 @@ export interface MpModifierEffect extends EffectBase {
 }
 
 /**
+ * Applies a stat or check-roll modifier to every character in the company that
+ * this permanent event is associated with (identified by `CardInPlay.companyId`).
+ *
+ * Use `stat` for prowess/body/direct-influence/corruption-points modifiers and
+ * `check` for 2d6 check-roll bonuses (e.g. "+1 to all corruption checks").
+ *
+ * Example: Fellowship grants +1 prowess and +1 corruption-check bonus to every
+ * character in the company it was played on.
+ */
+export interface CompanyModifierEffect extends EffectBase {
+  readonly type: 'company-modifier';
+  /** Which stat to modify (mutually exclusive with `check`). */
+  readonly stat?: 'prowess' | 'body' | 'direct-influence' | 'corruption-points';
+  /** Which check kind to modify (mutually exclusive with `stat`). */
+  readonly check?: import('./common.js').CheckKind;
+  /** The modifier value (positive to boost, negative to penalise). */
+  readonly value: number;
+}
+
+/**
  * Modifies the enemy's stats during combat.
  *
  * Example: Éowyn halves (rounded up) a Nazgûl's body.
@@ -2058,6 +2078,7 @@ export type CardEffect =
   | StatModifierEffect
   | CheckModifierEffect
   | MpModifierEffect
+  | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect

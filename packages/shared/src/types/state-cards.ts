@@ -125,6 +125,13 @@ export interface CardInPlay {
    * so DoN-blocking effects do not suppress the paired resource's abilities.
    */
   readonly assumeNotInPlay?: readonly string[];
+  /**
+   * For company-targeting permanent events (e.g. Fellowship), the ID of the
+   * company this card is bound to. Effects on this card that use
+   * `company-modifier` are scoped to characters in this company only.
+   * The card is discarded when the company's membership changes.
+   */
+  readonly companyId?: import('./common.js').CompanyId;
 }
 
 /**

@@ -167,6 +167,45 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       continue;
     }
 
+    // play-target DSL: company-targeting permanent events get one action per qualifying company
+    if (playTarget?.target === 'company') {
+      let anyTarget = false;
+      for (const company of player.companies) {
+        if (!company.currentSite) continue;
+        const siteDef = state.cardPool[company.currentSite.definitionId as string];
+        if (!siteDef || !('siteType' in siteDef)) continue;
+        const siteType = (siteDef as { siteType: string }).siteType;
+        // Count members: characters + allies attached to all characters
+        const allyCount = company.characters.reduce((sum, cId) => {
+          const ch = player.characters[cId as string];
+          return sum + (ch ? ch.allies.length : 0);
+        }, 0);
+        const memberCount = company.characters.length + allyCount;
+        if (playTarget.filter) {
+          const ctx = { target: { siteType, memberCount } };
+          if (!matchesCondition(playTarget.filter, ctx)) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount})`);
+            continue;
+          }
+        }
+        anyTarget = true;
+        logDetail(`Permanent event ${def.name}: playable on company ${company.id as string} (siteType=${siteType}, memberCount=${memberCount})`);
+        actions.push({
+          action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetCompanyId: company.id },
+          viable: true,
+        });
+      }
+      if (!anyTarget) {
+        logDetail(`Permanent event ${def.name}: no valid company target`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} requires a qualifying company`,
+        });
+      }
+      continue;
+    }
+
     logDetail(`Permanent event ${def.name}: playable`);
     actions.push({
       action: { type: 'play-permanent-event', player: playerId, cardInstanceId },

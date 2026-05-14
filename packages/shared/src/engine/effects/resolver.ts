@@ -24,6 +24,8 @@ import type {
   CardDefinition,
   CardEffect,
   StatModifierEffect,
+  CheckModifierEffect,
+  CompanyModifierEffect,
   CardInstanceId,
   SiteCard,
 } from '../../index.js';
@@ -283,12 +285,83 @@ export function collectCharacterEffects(
   const companyConstraints = collectCompanyStatModifierEffects(state, char);
   results.push(...companyConstraints);
 
+  // Company-targeting permanent events (e.g. Fellowship) bound to the
+  // character's company via CardInPlay.companyId. Their `company-modifier`
+  // effects are synthesised into stat-modifier / check-modifier entries
+  // so they flow through the normal resolution pipeline.
+  const permanentEventEffects = collectCompanyPermanentEventEffects(state, char, context);
+  results.push(...permanentEventEffects);
+
   // Character-scoped stat boosts applied via active constraints (e.g.
   // Vilya grants +4 prowess / +2 body / +6 direct-influence to Elrond
   // for the turn). Synthesise equivalent stat-modifier effects.
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  return results;
+}
+
+/**
+ * Collects `company-modifier` effects from permanent events in `cardsInPlay`
+ * that are bound to the same company as `char` (via `CardInPlay.companyId`).
+ *
+ * Synthesises each effect into either a {@link StatModifierEffect} (for `stat`
+ * variants like prowess) or a {@link CheckModifierEffect} (for `check` variants
+ * like corruption-check bonuses), so they flow through the standard resolver
+ * pipeline alongside item and constraint-based modifiers.
+ *
+ * Used by Fellowship (tw-240) and similar company-bound permanent events.
+ */
+function collectCompanyPermanentEventEffects(
+  state: GameState,
+  char: CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const baseCtx = context as unknown as Record<string, unknown>;
+
+  // Identify which company this character belongs to
+  let charCompanyId: string | undefined;
+  for (const player of state.players) {
+    for (const company of player.companies) {
+      if (company.characters.includes(char.instanceId)) {
+        charCompanyId = company.id as string;
+        break;
+      }
+    }
+    if (charCompanyId) break;
+  }
+  if (!charCompanyId) return results;
+
+  // Scan both players' cardsInPlay for company-bound events
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if ((card.companyId as string | undefined) !== charCompanyId) continue;
+      const def = resolveDef(state, card.instanceId);
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects as CompanyModifierEffect[]) {
+        if (effect.type !== 'company-modifier') continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        if (effect.stat) {
+          // Synthesise a stat-modifier so caps and overrides work normally
+          const synthesized: StatModifierEffect = {
+            type: 'stat-modifier',
+            stat: effect.stat,
+            value: effect.value,
+          };
+          results.push({ effect: synthesized, sourceDef: def, sourceInstance: card.instanceId });
+        } else if (effect.check) {
+          // Synthesise a check-modifier for corruption/influence check bonuses
+          const synthesized: CheckModifierEffect = {
+            type: 'check-modifier',
+            check: effect.check,
+            value: effect.value,
+          };
+          results.push({ effect: synthesized, sourceDef: def, sourceInstance: card.instanceId });
+        }
+      }
+    }
+  }
   return results;
 }
 
