@@ -1091,7 +1091,8 @@ export type SiteRuleEffect =
   | AllowCreatureByRaceSiteRule
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
-  | CancelFirstAttackIfInPlaySiteRule;
+  | CancelFirstAttackIfInPlaySiteRule
+  | StolenKnowledgeSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -1374,6 +1375,27 @@ export interface CancelFirstAttackIfInPlaySiteRule extends EffectBase {
   readonly rule: 'cancel-first-attack-if-in-play';
   /** Definition ID of the card that, when in play, causes the first attack to be canceled. */
   readonly definitionId: CardDefinitionId;
+}
+
+/**
+ * Declares that this site earns marshalling points when it would normally be
+ * discarded to the site discard pile. Instead of going to the discard pile, the
+ * site is placed in the player's out-of-play pile (marshalling points pile) and
+ * counts as the specified number of miscellaneous marshalling points.
+ *
+ * Example — The Under-galleries (dm-37): "When Under-galleries would be placed
+ * in your discard pile, place it in your marshalling points pile instead for 3
+ * marshalling points — this card is considered stored."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "stolen-knowledge", "marshallingPoints": 3 }
+ * ```
+ */
+export interface StolenKnowledgeSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'stolen-knowledge';
+  /** Miscellaneous marshalling points awarded when the site is stored. */
+  readonly marshallingPoints: number;
 }
 
 /**

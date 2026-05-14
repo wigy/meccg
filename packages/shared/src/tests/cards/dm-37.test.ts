@@ -22,39 +22,43 @@
  * | 2 | sitePath          | OK     | [] — under-deeps sites have no surface path                |
  * | 3 | nearestHaven      | OK     | "" — under-deeps sites have no nearest haven               |
  * | 4 | region            | OK     | "Ûdun"                                                     |
- * | 5 | playableResources | FIXED  | ["minor", "major", "greater"] (was empty, now corrected)   |
+ * | 5 | playableResources | OK     | ["minor", "major", "greater"]                              |
  * | 6 | automaticAttacks  | OK     | 1st: Trolls 4/9, 2nd: dynamic (shadow-hold keyed)         |
  * | 7 | resourceDraws     | OK     | 1                                                          |
  * | 8 | hazardDraws       | OK     | 4                                                          |
  *
  * Engine Support:
- * | # | Feature                                  | Status          | Notes                                |
- * |---|------------------------------------------|-----------------|--------------------------------------|
- * | 1 | Site phase flow                          | IMPLEMENTED     | select-company, enter-or-skip, etc.  |
- * | 2 | First auto-attack (Trolls 4 str / 9 p)   | IMPLEMENTED     | passes through as data               |
- * | 3 | Item playability (minor, major, greater)  | IMPLEMENTED     | playableResources gate               |
- * | 4 | Gold-ring NOT playable                   | IMPLEMENTED     | not in playableResources             |
- * | 5 | 2nd auto-attack (shadow-hold keyed)      | IMPLEMENTED     | dynamic-auto-attack site-rule        |
- * | 6 | Stolen Knowledge (site→MP pile, 3 MPs)   | NOT IMPLEMENTED | no engine mechanism for site→discard |
+ * | # | Feature                                  | Status      | Notes                                          |
+ * |---|------------------------------------------|-------------|------------------------------------------------|
+ * | 1 | Site phase flow                          | IMPLEMENTED | select-company, enter-or-skip, etc.            |
+ * | 2 | First auto-attack (Trolls 4 str / 9 p)   | IMPLEMENTED | passes through as data                         |
+ * | 3 | Item playability (minor, major, greater)  | IMPLEMENTED | playableResources gate                         |
+ * | 4 | Gold-ring NOT playable                   | IMPLEMENTED | not in playableResources                       |
+ * | 5 | 2nd auto-attack (shadow-hold keyed)      | IMPLEMENTED | dynamic-auto-attack site-rule                  |
+ * | 6 | Stolen Knowledge (site→MP pile, 3 MPs)   | IMPLEMENTED | stolen-knowledge site-rule, outOfPlayPile      |
  *
- * Playable: PARTIALLY (Stolen Knowledge unimplemented — engine lacks hero-site-discard mechanism)
- * NOT CERTIFIED
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
+  ARAGORN, LEGOLAS,
   GLAMDRING, DAGGER_OF_WESTERNESSE, THE_MITHRIL_COAT, PRECIOUS_GOLD_RING,
   CAVE_DRAKE, ORC_WARBAND, BERT_BURAT,
-  buildSitePhaseState, buildDualHandSitePhaseState,
+  buildSitePhaseState, buildDualHandSitePhaseState, buildTestState,
   setupAutoAttackStep,
   dispatch, viableActions,
-  resetMint,
+  resetMint, makeMHState,
+  Phase,
+  LORIEN,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlaySiteAutoAttackAction } from '../../index.js';
+import { CardStatus } from '../../index.js';
+import type { CardDefinitionId, PlaySiteAutoAttackAction, GameState } from '../../index.js';
 
 const THE_UNDER_GALLERIES = 'dm-37' as CardDefinitionId;
+const THE_UNDER_COURTS = 'dm-36' as CardDefinitionId;
 
 describe('The Under-galleries (dm-37)', () => {
   beforeEach(() => resetMint());
@@ -144,5 +148,162 @@ describe('The Under-galleries (dm-37)', () => {
     });
     const actions = viableActions(state, PLAYER_2, 'play-site-auto-attack');
     expect(actions).toHaveLength(0);
+  });
+
+  // ─── Stolen Knowledge: site goes to outOfPlayPile for 3 misc MPs ─────────────
+
+  test('Stolen Knowledge: tapped Under-galleries goes to out-of-play pile (not site discard) on departure', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: THE_UNDER_GALLERIES, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [THE_UNDER_COURTS],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = built.players[RESOURCE_PLAYER].companies[0];
+    const destSite = built.players[RESOURCE_PLAYER].siteDeck.find(
+      c => c.definitionId === THE_UNDER_COURTS,
+    )!;
+    const originInstanceId = company.currentSite!.instanceId;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[RESOURCE_PLAYER],
+          companies: [{
+            ...company,
+            currentSite: { ...company.currentSite!, status: CardStatus.Tapped },
+            siteCardOwned: true,
+            destinationSite: { instanceId: destSite.instanceId, definitionId: destSite.definitionId, status: CardStatus.Untapped },
+            siteOfOrigin: originInstanceId,
+          }],
+        },
+        built.players[HAZARD_PLAYER],
+      ],
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[RESOURCE_PLAYER];
+    expect(p1.siteDiscardPile.some(c => c.instanceId === originInstanceId)).toBe(false);
+    expect(p1.outOfPlayPile.some(c => c.instanceId === originInstanceId)).toBe(true);
+  });
+
+  test('Stolen Knowledge: player earns 3 misc marshalling points when Under-galleries is stored', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: THE_UNDER_GALLERIES, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [THE_UNDER_COURTS],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = built.players[RESOURCE_PLAYER].companies[0];
+    const destSite = built.players[RESOURCE_PLAYER].siteDeck.find(
+      c => c.definitionId === THE_UNDER_COURTS,
+    )!;
+    const originInstanceId = company.currentSite!.instanceId;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[RESOURCE_PLAYER],
+          companies: [{
+            ...company,
+            currentSite: { ...company.currentSite!, status: CardStatus.Tapped },
+            siteCardOwned: true,
+            destinationSite: { instanceId: destSite.instanceId, definitionId: destSite.definitionId, status: CardStatus.Untapped },
+            siteOfOrigin: originInstanceId,
+          }],
+        },
+        built.players[HAZARD_PLAYER],
+      ],
+    };
+
+    const beforeMiscMp = state.players[RESOURCE_PLAYER].marshallingPoints.misc;
+    const afterBothPass = dispatch(dispatch(state, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+
+    expect(afterBothPass.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(beforeMiscMp + 3);
+  });
+
+  test('Stolen Knowledge does NOT trigger when Under-galleries is untapped (returns to deck normally)', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: THE_UNDER_GALLERIES, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [THE_UNDER_COURTS],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = built.players[RESOURCE_PLAYER].companies[0];
+    const destSite = built.players[RESOURCE_PLAYER].siteDeck.find(
+      c => c.definitionId === THE_UNDER_COURTS,
+    )!;
+    const originInstanceId = company.currentSite!.instanceId;
+
+    // Site is untapped — should return to deck, not trigger Stolen Knowledge
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[RESOURCE_PLAYER],
+          companies: [{
+            ...company,
+            currentSite: { ...company.currentSite!, status: CardStatus.Untapped },
+            siteCardOwned: true,
+            destinationSite: { instanceId: destSite.instanceId, definitionId: destSite.definitionId, status: CardStatus.Untapped },
+            siteOfOrigin: originInstanceId,
+          }],
+        },
+        built.players[HAZARD_PLAYER],
+      ],
+    };
+
+    const afterBothPass = dispatch(dispatch(state, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[RESOURCE_PLAYER];
+    // Untapped site returns to site deck, not out-of-play or site discard
+    expect(p1.siteDiscardPile.some(c => c.instanceId === originInstanceId)).toBe(false);
+    expect(p1.outOfPlayPile.some(c => c.instanceId === originInstanceId)).toBe(false);
+    expect(p1.siteDeck.some(c => c.instanceId === originInstanceId)).toBe(true);
+    // No extra misc MPs
+    expect(p1.marshallingPoints.misc).toBe(state.players[RESOURCE_PLAYER].marshallingPoints.misc);
   });
 });
