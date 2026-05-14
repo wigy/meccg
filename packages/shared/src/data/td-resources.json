@@ -199,7 +199,13 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "play-window", "phase": "site" },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "unlock-hoard-bounty" } }
+    ],
+    "certified": "2026-05-14"
   },
   {
     "cardType": "hero-resource-event",

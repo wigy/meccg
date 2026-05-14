@@ -374,6 +374,10 @@ export interface TriggeredAction {
    *   so that all characters make a corruption check before defenders are selected.
    *   Uses `check` (must be `"corruption"`) and optional `modifier`.
    * - `offer-char-join-attack` — offer a haven character the option to join the attack.
+   * - `unlock-hoard-bounty` — under `on-event: self-enters-play`, sets
+   *   `SitePhaseState.hoardBountyAvailable = true`, allowing one additional minor
+   *   or major item to be played at the current tapped hoard site. Only fires during
+   *   the site phase. Used by *Bounty of the Hoard* (td-101).
    * (Other types documented inline on their respective fields.)
    */
   readonly type: string;

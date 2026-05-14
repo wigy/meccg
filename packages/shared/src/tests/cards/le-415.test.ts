@@ -76,6 +76,7 @@ const basePlayResourcesPhaseState = (): SitePhaseState => ({
   siteEntered: true,
   resourcePlayed: false,
   minorItemAvailable: false,
+  hoardBountyAvailable: false,
   declaredAgentAttack: null,
   automaticAttacksResolved: 0,
   awaitingOnGuardReveal: false,

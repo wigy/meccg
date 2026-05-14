@@ -129,6 +129,7 @@ describe('Rebuild the Town (dm-155)', () => {
       siteEntered: false,
       resourcePlayed: false,
       minorItemAvailable: false,
+      hoardBountyAvailable: false,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,

@@ -117,6 +117,7 @@ function handleSiteSelectCompany(
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
+        hoardBountyAvailable: false,
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
@@ -1336,12 +1337,27 @@ function handleSitePlayHeroResource(
       ? false
       : siteState.minorItemAvailable;
 
+  // Bounty of the Hoard: if played, one minor or major item may be played at
+  // a tapped hoard site. Consume the flag when such an item is played.
+  const siteWasTapped = siteInPlay.status === CardStatus.Tapped;
+  const siteDef = state.cardPool[siteInPlay.definitionId as string];
+  const siteIsHoard = siteDef && 'keywords' in siteDef
+    ? ((siteDef as { keywords?: readonly string[] }).keywords ?? []).includes('hoard')
+    : false;
+  const itemSubtypeForBounty = isItem && 'subtype' in def
+    ? (def as { subtype?: string }).subtype
+    : undefined;
+  const usingHoardBounty = siteWasTapped && siteState.hoardBountyAvailable && siteIsHoard
+    && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major');
+  const nextHoardBountyAvailable = usingHoardBounty ? false : siteState.hoardBountyAvailable;
+
   let afterAttach: GameState = {
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
     phaseState: {
       ...siteState,
       resourcePlayed: true,
       minorItemAvailable: nextMinorItemAvailable,
+      hoardBountyAvailable: nextHoardBountyAvailable,
     },
   };
 
@@ -2237,6 +2253,7 @@ function advanceSiteToNextCompany(
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
+        hoardBountyAvailable: false,
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
