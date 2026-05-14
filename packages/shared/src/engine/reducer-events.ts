@@ -854,6 +854,30 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // set-character-status: untap/tap/wound the target character (e.g. Hundreds of Butterflies).
+    if (onEvent.apply.type === 'set-character-status') {
+      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!characterId) {
+        logDetail(`"${def.name}": set-character-status — no target character — fizzle`);
+        continue;
+      }
+      const targetChar = state.players[playerIndex].characters[characterId as string];
+      if (!targetChar) {
+        logDetail(`"${def.name}": set-character-status — target character not found — fizzle`);
+        continue;
+      }
+      const nextStatus = onEvent.apply.status;
+      const statusEnum = nextStatus === 'untapped' ? CardStatus.Untapped
+        : nextStatus === 'tapped' ? CardStatus.Tapped
+          : CardStatus.Inverted;
+      logDetail(`"${def.name}" played — set ${characterId as string} status → ${nextStatus ?? 'unknown'}`);
+      state = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        characters: { ...p.characters, [characterId as string]: { ...targetChar, status: statusEnum } },
+      }));
+      continue;
+    }
+
     if (onEvent.apply.type === 'add-constraint') {
       const constraintKind = onEvent.apply.constraint;
       const scopeName = onEvent.apply.scope;
@@ -883,10 +907,13 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
-      // Company-targeting constraints: resolve the target company from the scout.
-      const targetCharId = action.type === 'play-short-event' ? action.targetScoutInstanceId : undefined;
+      // Company-targeting constraints: resolve the target company from the scout or
+      // from the direct character target (for cards without a tap cost, e.g. Hundreds of Butterflies).
+      const targetCharId = action.type === 'play-short-event'
+        ? (action.targetScoutInstanceId ?? action.targetCharacterId)
+        : undefined;
       if (!targetCharId) {
-        logDetail(`add-constraint(${constraintKind}): no target scout — fizzle`);
+        logDetail(`add-constraint(${constraintKind}): no target character — fizzle`);
         continue;
       }
 
@@ -930,6 +957,14 @@ function applyShortEventOnEntersPlay(
         case 'deny-scout-resources':
           kind = { type: 'deny-scout-resources' };
           break;
+        case 'hazard-limit-modifier': {
+          if (typeof onEvent.apply.value !== 'number') {
+            logDetail(`add-constraint(hazard-limit-modifier): missing numeric value — fizzle`);
+            continue;
+          }
+          kind = { type: 'hazard-limit-modifier', value: onEvent.apply.value };
+          break;
+        }
         case 'granted-action': {
           const payload = onEvent.apply.grantedAction;
           if (!payload) {
