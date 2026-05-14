@@ -5,9 +5,8 @@
     "rootDir": "./src/browser",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
-    "paths": {
-      "@meccg/shared": ["../shared/src/index.ts"]
-    }
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/browser/tsconfig.browser.tsbuildinfo"
   },
   "include": ["src/browser"],
   "references": [

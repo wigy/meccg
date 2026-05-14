@@ -3,9 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "paths": {
-      "@meccg/shared": ["../shared/src/index.ts"]
-    }
+    "composite": true
   },
   "include": ["src"],
   "exclude": ["src/browser"],
