@@ -148,7 +148,17 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-05-14",
+    "effects": [
+      { "type": "play-window", "phase": "movement-hazard" },
+      { "type": "play-target", "target": "character" },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "set-character-status", "status": "untapped" } },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase", "value": 1 } }
+    ]
   },
   {
     "cardType": "hero-resource-event",
