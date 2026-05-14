@@ -842,6 +842,18 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    if (onEvent.apply.type === 'unlock-hoard-bounty') {
+      // Set hoardBountyAvailable in SitePhaseState, allowing one additional
+      // minor or major item at a tapped hoard site this site phase.
+      if (state.phaseState.phase !== Phase.Site) {
+        logDetail(`"${def.name}": unlock-hoard-bounty played outside site phase — no effect`);
+        continue;
+      }
+      logDetail(`"${def.name}" played — hoardBountyAvailable set`);
+      state = { ...state, phaseState: { ...state.phaseState, hoardBountyAvailable: true } };
+      continue;
+    }
+
     if (onEvent.apply.type === 'add-constraint') {
       const constraintKind = onEvent.apply.constraint;
       const scopeName = onEvent.apply.scope;

@@ -593,6 +593,12 @@ export interface SitePhaseState {
    */
   readonly minorItemAvailable: boolean;
   /**
+   * Whether a "Bounty of the Hoard" event has been played this site phase,
+   * allowing one additional minor or major item to be played at the tapped
+   * hoard site. Cleared after the item is played.
+   */
+  readonly hoardBountyAvailable: boolean;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

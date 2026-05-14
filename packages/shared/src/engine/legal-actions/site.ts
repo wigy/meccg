@@ -936,7 +936,15 @@ function playResourcesActions(
       const allowWhenTapped = siteDef && isSiteCard(siteDef)
         && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'allow-items-when-tapped');
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped) {
+      // Bounty of the Hoard: event sets hoardBountyAvailable, allowing one minor or major item
+      // at a tapped hoard site.
+      const siteIsHoard = siteDef && 'keywords' in siteDef
+        ? ((siteDef as { keywords?: readonly string[] }).keywords ?? []).includes('hoard')
+        : false;
+      const hoardBountyBonus = siteState.hoardBountyAvailable && siteIsHoard
+        && (itemDef.subtype === 'minor' || itemDef.subtype === 'major');
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
