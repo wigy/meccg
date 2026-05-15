@@ -1724,6 +1724,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
   const prowessModifier = effect.prowessModifier ?? 0;
   const bodyModifier = effect.bodyModifier ?? 0;
+  const strikesModifier = effect.strikesModifier ?? 0;
   const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
 
   const shouldDiscard = effect.discardIfBearerNot
@@ -1738,7 +1739,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
       items: charData.items.filter((_, i) => i !== itemIndex),
     };
   } else {
-    logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier})`);
+    logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}, strikes ${strikesModifier >= 0 ? '+' : ''}${strikesModifier})`);
     updatedChar = {
       ...charData,
       items: charData.items.map((it, i) =>
@@ -1768,7 +1769,10 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
   const newStrikeProwess = combat.strikeProwess + prowessModifier;
   const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
-  logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+  const newStrikesTotal = strikesModifier !== 0
+    ? Math.max(1, combat.strikesTotal + strikesModifier)
+    : combat.strikesTotal;
+  logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
 
   return {
     state: {
@@ -1778,6 +1782,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
         ...combat,
         strikeProwess: newStrikeProwess,
         creatureBody: newCreatureBody,
+        strikesTotal: newStrikesTotal,
       },
     },
   };

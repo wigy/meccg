@@ -148,8 +148,20 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "modify-attack",
+        "cost": { "tap": "self" },
+        "strikesModifier": -1,
+        "when": {
+          "$and": [
+            { "bearer.skills": { "$includes": "warrior" } },
+            { "attack.source": "creature" }
+          ]
+        }
       }
     ],
+    "certified": "2026-05-15",
     "text": "Unique. Hoard item. Warrior only: tap bow to reduce the number of strikes from one hazard creature attack not keyed to a site by one (to a minimum of one)."
   },
   {

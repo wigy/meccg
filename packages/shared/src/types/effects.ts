@@ -1621,6 +1621,11 @@ export interface ModifyAttackEffect extends EffectBase {
   /** Amount added to the creature's body value for the creature body check (usually negative). */
   readonly bodyModifier?: number;
   /**
+   * Amount added to the attack's total strike count (usually negative).
+   * The result is clamped to a minimum of 1.
+   */
+  readonly strikesModifier?: number;
+  /**
    * When set, the item is discarded instead of tapped if the bearer's
    * race is NOT in `race`. The modifier still applies.
    */
