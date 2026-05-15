@@ -1193,6 +1193,7 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-05-15",
     "effects": [
       {
         "type": "play-window",
