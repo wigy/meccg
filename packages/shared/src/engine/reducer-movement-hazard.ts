@@ -2979,6 +2979,15 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
     logDetail(`draw-modifier: resource draws ${before} → ${resourceDrawMax} (adjustment ${resourceMod.adjustment}, min ${resourceMod.min})`);
   }
 
+  // Apply hazard-draw-multiplier constraints (e.g. Great-road doubles opponent draws).
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'hazard-draw-multiplier') continue;
+    if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
+    const before = hazardDrawMax;
+    hazardDrawMax = Math.round(hazardDrawMax * c.kind.multiplier);
+    logDetail(`hazard-draw-multiplier: hazard draws ${before} → ${hazardDrawMax} (×${c.kind.multiplier} from ${c.sourceDefinitionId as string})`);
+  }
+
   logDetail(`Movement/Hazard: order-effects done → draw-cards (resource max: ${resourceDrawMax}, hazard max: ${hazardDrawMax}, site: ${drawSite && isSiteCard(drawSite) ? drawSite.name : '?'})`);
 
   return {

@@ -1152,6 +1152,25 @@
         "type": "play-target",
         "target": "company",
         "filter": { "company.atHaven": true }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-draw-multiplier",
+          "scope": "company-mh-phase",
+          "value": 2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "haven-return-option",
+          "scope": "turn"
+        }
       }
     ]
   },

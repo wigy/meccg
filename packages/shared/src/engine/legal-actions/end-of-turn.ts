@@ -93,6 +93,10 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
     for (const ea of grantActions) {
       actions.push(ea.action);
     }
+    // Great-road: offer haven-return for any eligible company
+    for (const a of havenReturnActions(state, playerId)) {
+      actions.push(a);
+    }
     // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
     if (allowStoreEot(state, playerIndex)) {
       logDetail(`End-of-Turn discard: allow-store-eot in play for ${player.name} — adding store-item actions`);
@@ -189,6 +193,11 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
     }
   }
 
+  // Great-road: offer haven-return for any eligible company
+  for (const a of havenReturnActions(state, playerId)) {
+    actions.push(a);
+  }
+
   // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
   if (allowStoreEot(state, playerIndex)) {
     logDetail(`End-of-Turn signal-end: allow-store-eot in play for ${player.name} — adding store-item actions`);
@@ -199,6 +208,27 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 
   actions.push({ type: 'pass', player: playerId });
   logDetail(`End-of-Turn signal-end: resource player ${playerId as string} may pass to end turn`);
+  return actions;
+}
+
+/**
+ * Generate `haven-return` actions for companies whose `haven-return-option`
+ * constraint (placed by Great-road) is still active. Only the resource player
+ * may use this option.
+ */
+function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] {
+  if (state.activePlayer !== playerId) return [];
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const actions: GameAction[] = [];
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'haven-return-option') continue;
+    if (c.target.kind !== 'company') continue;
+    const { companyId } = c.target;
+    if (!player.companies.some(co => co.id === companyId)) continue;
+    logDetail(`End-of-Turn: offering haven-return for company ${companyId as string} (origin haven ${c.kind.originHavenDefinitionId as string})`);
+    actions.push({ type: 'haven-return', player: playerId, companyId });
+  }
   return actions;
 }
 

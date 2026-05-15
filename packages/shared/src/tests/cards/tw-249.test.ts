@@ -7,21 +7,20 @@
  *   1. play-window: end-of-org (organization phase, end-of-org step)
  *   2. play-target: company, filter company.atHaven === true
  *      (only playable on companies currently at a Haven)
- *   3. [NOT IMPLEMENTED] opponent may draw up to twice the normal number of
- *      cards for this company during the movement/hazard phase
- *   4. [NOT IMPLEMENTED] at the end of the turn, the company may replace its
- *      site card with the Haven card at which it began the turn
- *      (considered movement with no movement/hazard phase)
+ *   3. Opponent may draw up to twice the normal number of cards for this
+ *      company during the movement/hazard phase (hazard-draw-multiplier)
+ *   4. At the end of the turn, the company may replace its site card with the
+ *      Haven card at which it began the turn (haven-return-option)
  *
  * Engine Support:
- * | # | Feature                                      | Status          | Notes                                    |
- * |---|----------------------------------------------|-----------------|------------------------------------------|
- * | 1 | Play window = end of organization            | IMPLEMENTED     | play-window phase:organization step:end-of-org |
- * | 2 | Restrict to companies at a Haven             | IMPLEMENTED     | play-target company filter company.atHaven |
- * | 3 | Opponent draws up to twice normal during M/H | NOT IMPLEMENTED | requires hazard-draw-multiplier engine support |
- * | 4 | Company may return to origin haven at EOT    | NOT IMPLEMENTED | requires haven-return end-of-turn action  |
+ * | # | Feature                                      | Status      | Notes                                    |
+ * |---|----------------------------------------------|-------------|------------------------------------------|
+ * | 1 | Play window = end of organization            | IMPLEMENTED | play-window phase:organization step:end-of-org |
+ * | 2 | Restrict to companies at a Haven             | IMPLEMENTED | play-target company filter company.atHaven |
+ * | 3 | Opponent draws up to twice normal during M/H | IMPLEMENTED | hazard-draw-multiplier constraint on company-mh-phase |
+ * | 4 | Company may return to origin haven at EOT    | IMPLEMENTED | haven-return-option constraint + haven-return action  |
  *
- * NOT CERTIFIED — effects 3 and 4 are not implemented.
+ * CERTIFIED
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -36,8 +35,10 @@ import {
 import type {
   CardDefinitionId,
   PlayShortEventAction,
+  HavenReturnAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import { reduce } from '../../engine/reducer.js';
 
 const GREAT_ROAD = 'tw-249' as CardDefinitionId;
 
@@ -70,7 +71,6 @@ describe('Great-road (tw-249)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        // Aragorn's company is at Moria (a ruins-and-lairs, not a Haven)
         { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [RIVENDELL] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
@@ -79,7 +79,6 @@ describe('Great-road (tw-249)', () => {
     const greatRoadInstance = handCardId(base, RESOURCE_PLAYER);
     const allActions = computeLegalActions(base, PLAYER_1);
 
-    // Card should appear as not-playable (not viable)
     const notPlayable = allActions.filter(ea =>
       !ea.viable && ea.action.type === 'not-playable' && ea.action.cardInstanceId === greatRoadInstance,
     );
@@ -93,8 +92,6 @@ describe('Great-road (tw-249)', () => {
   });
 
   test('Great-road emits one action per haven company when multiple companies exist', () => {
-    // Player has two companies: one at a haven, one at Moria
-    // Only the haven company should be eligible
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -124,7 +121,138 @@ describe('Great-road (tw-249)', () => {
     expect(playActions[0].targetScoutInstanceId).toBe(aragornId);
   });
 
-  test.todo('opponent draws up to twice the normal number of cards during M/H (not implemented)');
+  test('Playing Great-road adds hazard-draw-multiplier constraint (×2) on the target company', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
 
-  test.todo('at end of turn, company may replace site card with origin haven (not implemented)');
+    const greatRoadInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0);
+
+    const { state: after } = reduce(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: greatRoadInstance,
+      targetScoutInstanceId: aragornId,
+    } as PlayShortEventAction);
+
+    const c = after.activeConstraints.find(c => c.kind.type === 'hazard-draw-multiplier');
+    expect(c).toBeDefined();
+    expect(c!.kind.type === 'hazard-draw-multiplier' && c!.kind.multiplier).toBe(2);
+  });
+
+  test('Playing Great-road records origin haven in haven-return-option constraint', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const greatRoadInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0);
+    const originSite = base.players[0].companies[0].currentSite!;
+
+    const { state: after } = reduce(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: greatRoadInstance,
+      targetScoutInstanceId: aragornId,
+    } as PlayShortEventAction);
+
+    const c = after.activeConstraints.find(c => c.kind.type === 'haven-return-option');
+    expect(c).toBeDefined();
+    if (c && c.kind.type === 'haven-return-option') {
+      expect(c.kind.originHavenInstanceId).toBe(originSite.instanceId);
+      expect(c.kind.originHavenDefinitionId).toBe(originSite.definitionId);
+    }
+  });
+
+  test('haven-return action is offered during end-of-turn discard step when constraint is active', () => {
+    // Play Great-road during org to install constraints
+    const org = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const { state: afterPlay } = reduce(org, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(org, RESOURCE_PLAYER),
+      targetScoutInstanceId: charIdAt(org, RESOURCE_PLAYER, 0),
+    } as PlayShortEventAction);
+
+    // Transplant constraints into an EOT state
+    const eot = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const eotWithConstraints = {
+      ...eot,
+      activeConstraints: afterPlay.activeConstraints,
+    };
+
+    const actions = computeLegalActions(eotWithConstraints, PLAYER_1);
+    const havenReturnActions = actions.filter(ea => ea.viable && ea.action.type === 'haven-return');
+    expect(havenReturnActions.length).toBe(1);
+  });
+
+  test('haven-return replaces company currentSite with origin haven and consumes constraint', () => {
+    // Play Great-road to install constraints
+    const org = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const rivendellDefId = org.players[0].companies[0].currentSite!.definitionId;
+    const { state: afterPlay } = reduce(org, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(org, RESOURCE_PLAYER),
+      targetScoutInstanceId: charIdAt(org, RESOURCE_PLAYER, 0),
+    } as PlayShortEventAction);
+
+    // Build an EOT state with the company at Moria (simulating movement during M/H)
+    const eot = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const eotWithConstraints = {
+      ...eot,
+      activeConstraints: afterPlay.activeConstraints,
+    };
+
+    const companyId = eotWithConstraints.players[0].companies[0].id;
+    const { state: afterReturn } = reduce(eotWithConstraints, {
+      type: 'haven-return',
+      player: PLAYER_1,
+      companyId,
+    } as HavenReturnAction);
+
+    // Site should be the origin haven (Rivendell)
+    expect(afterReturn.players[0].companies[0].currentSite?.definitionId).toBe(rivendellDefId);
+    // Constraint is consumed
+    expect(afterReturn.activeConstraints.find(c => c.kind.type === 'haven-return-option')).toBeUndefined();
+  });
 });

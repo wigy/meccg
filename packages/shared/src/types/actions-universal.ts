@@ -9,7 +9,7 @@
  * acknowledgement, and the not-playable placeholder.
  */
 
-import type { PlayerId, CardInstanceId } from './common.js';
+import type { PlayerId, CardInstanceId, CompanyId } from './common.js';
 
 /**
  * Tap a character to support another character's corruption check.
@@ -300,4 +300,19 @@ export interface FinishedAction {
   readonly type: 'finished';
   /** The player acknowledging the result. */
   readonly player: PlayerId;
+}
+
+/**
+ * Return a company to the haven where it began the turn (Great-road effect).
+ *
+ * Offered during the end-of-turn phase when a `haven-return-option` constraint
+ * is active for the company. The company's `currentSite` is replaced with the
+ * recorded origin haven; no M/H phase is triggered.
+ */
+export interface HavenReturnAction {
+  readonly type: 'haven-return';
+  /** The resource player exercising the option. */
+  readonly player: PlayerId;
+  /** The company returning to its origin haven. */
+  readonly companyId: CompanyId;
 }
