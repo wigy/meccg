@@ -982,6 +982,24 @@ function applyShortEventOnEntersPlay(
           };
           break;
         }
+        case 'hazard-draw-multiplier': {
+          const multiplier = typeof onEvent.apply.value === 'number' ? onEvent.apply.value : 2;
+          kind = { type: 'hazard-draw-multiplier', multiplier };
+          break;
+        }
+        case 'haven-return-option': {
+          if (!company.currentSite) {
+            logDetail(`add-constraint(haven-return-option): company has no current site — fizzle`);
+            continue;
+          }
+          kind = {
+            type: 'haven-return-option',
+            originHavenInstanceId: company.currentSite.instanceId,
+            originHavenDefinitionId: company.currentSite.definitionId,
+            originHavenStatus: company.currentSite.status,
+          };
+          break;
+        }
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
           continue;

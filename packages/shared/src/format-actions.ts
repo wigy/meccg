@@ -445,6 +445,8 @@ export function describeAction(
       return `Agent rolls for strike`;
     case 'under-deeps-roll':
       return `${action.player as string} rolls for Under-deeps movement`;
+    case 'haven-return':
+      return `${action.player as string} returns company to origin haven`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

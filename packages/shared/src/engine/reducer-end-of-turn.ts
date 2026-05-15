@@ -14,7 +14,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
-import { sweepExpired } from './pending.js';
+import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
@@ -128,6 +128,10 @@ function handleEndOfTurnDiscard(
   // NOT mark the player done for the discard step.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  if (action.type === 'haven-return') {
+    return handleHavenReturn(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -323,7 +327,49 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     return handlePlayResourceShortEvent(state, action);
   }
 
+  if (action.type === 'haven-return') {
+    return handleHavenReturn(state, action);
+  }
+
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
+}
+
+/**
+ * Execute a Great-road haven-return: replace the company's current site with
+ * the origin haven recorded in the `haven-return-option` constraint, then
+ * consume the constraint so the option cannot be exercised twice.
+ */
+function handleHavenReturn(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'haven-return') return { state, error: `handleHavenReturn called with ${action.type}` };
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx === -1) {
+    return { state, error: `haven-return: company ${action.companyId as string} not found for player ${action.player as string}` };
+  }
+
+  const constraint = state.activeConstraints.find(
+    c => c.kind.type === 'haven-return-option'
+      && c.target.kind === 'company'
+      && c.target.companyId === action.companyId,
+  );
+  if (!constraint || constraint.kind.type !== 'haven-return-option') {
+    return { state, error: `haven-return: no haven-return-option constraint for company ${action.companyId as string}` };
+  }
+
+  const { originHavenInstanceId, originHavenDefinitionId, originHavenStatus } = constraint.kind;
+  const originHaven = { instanceId: originHavenInstanceId, definitionId: originHavenDefinitionId, status: originHavenStatus };
+
+  logDetail(`haven-return: company ${action.companyId as string} returns to haven ${originHavenDefinitionId as string} (instance ${originHavenInstanceId as string})`);
+
+  const updatedState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    companies: p.companies.map((c, i) =>
+      i === companyIdx ? { ...c, currentSite: originHaven } : c,
+    ),
+  }));
+
+  return { state: removeConstraint(updatedState, constraint.id) };
 }
 
 /**

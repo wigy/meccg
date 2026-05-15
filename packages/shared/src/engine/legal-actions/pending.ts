@@ -1007,6 +1007,14 @@ function applyOneConstraint(
       // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
       // to allow major and hoard items — no broad legal-action filtering here.
       return base;
+    case 'hazard-draw-multiplier':
+      // Applied in `transitionToDrawCards` when computing hazardDrawMax —
+      // no broad legal-action filtering needed here.
+      return base;
+    case 'haven-return-option':
+      // Consumed by `havenReturnActions` in `legal-actions/end-of-turn.ts` —
+      // no broad legal-action filtering needed here.
+      return base;
   }
 }
 
