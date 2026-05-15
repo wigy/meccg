@@ -941,7 +941,7 @@ export function resolveCombatProwessBonus(
  *
  * Collects `enemy-modifier` effects from a character and their items
  * that match the combat context, and applies them to the enemy's body value.
- * Currently supports the `halve-round-up` operation.
+ * Supports the `halve-round-up` and `subtract` operations.
  *
  * @param state - The full game state.
  * @param char - The character fighting the enemy.
@@ -978,6 +978,8 @@ export function resolveEnemyBody(
     if (effect.type === 'enemy-modifier' && effect.stat === 'body') {
       if (effect.op === 'halve-round-up') {
         body = Math.ceil(body / 2);
+      } else if (effect.op === 'subtract' && typeof effect.value === 'number') {
+        body = Math.max(0, body - effect.value);
       }
     }
   }

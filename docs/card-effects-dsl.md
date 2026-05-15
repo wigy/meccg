@@ -177,11 +177,15 @@ Modifies the enemy's stats during combat. The resolver collects
 evaluates conditions against the combat context (including `enemy.race`),
 and applies operations to the enemy's stat.
 
-Operations: `halve-round-up` — divide by 2, round up.
+Operations:
+- `halve-round-up` — divide by 2, round up.
+- `subtract` — subtract `value` from the stat (minimum 0). Requires a `value` field.
 
 ```json
 { "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",
   "when": { "reason": "combat", "enemy.race": "nazgul" } }
+{ "type": "enemy-modifier", "stat": "body", "op": "subtract", "value": 2,
+  "when": { "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }] } }
 ```
 
 ### 6. `hand-size-modifier`

@@ -653,6 +653,35 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 9,
+        "id": "wormsbane-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "max": 12,
+        "overrides": "wormsbane-prowess",
+        "when": {
+          "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }]
+        }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "subtract",
+        "value": 2,
+        "when": {
+          "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }]
+        }
+      }
+    ],
+    "certified": "2026-05-15"
   }
 ]
