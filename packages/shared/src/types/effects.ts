@@ -1016,8 +1016,8 @@ export interface PlayWindowEffect extends EffectBase {
   readonly type: 'play-window';
   /** The phase in which this card may be played. */
   readonly phase: string;
-  /** The sub-step within the phase. */
-  readonly step: string;
+  /** The sub-step within the phase. Absent when the card is playable throughout the phase. */
+  readonly step?: string;
   /**
    * Optional site-type restriction: when present, the card may only be played
    * when the company's current site has one of these types. Checked alongside

@@ -863,20 +863,49 @@ export function endOfOrgEligibility(
     return { eligible: true, reason: '', eligibleTargets: [] };
   }
 
-  // Company targeting: each untapped character across all companies is an
-  // eligible "tapper". The constraint is placed on their company.
+  // Company targeting: collect eligible character IDs per qualifying company.
+  // When a `filter` is present it is evaluated against a company-level context
+  // (currently exposes `company.atHaven`).  When a tap cost is declared the
+  // eligible targets are all untapped characters in qualifying companies (one
+  // action per character, representing the tapper choice).  When there is no
+  // tap cost, one representative character per qualifying company is returned so
+  // the player can distinguish between multiple valid companies.
   if (playTarget.target === 'company') {
     const eligibleTargets: CardInstanceId[] = [];
     for (const company of player.companies) {
-      for (const charInstId of company.characters) {
-        const char = player.characters[charInstId as string];
-        if (!char) continue;
-        if (playTarget.cost?.tap === 'character' && char.status !== CardStatus.Untapped) continue;
-        eligibleTargets.push(charInstId);
+      // Evaluate optional company-level filter (e.g. company.atHaven for Great-road).
+      if (playTarget.filter) {
+        const siteDef = company.currentSite
+          ? state.cardPool[company.currentSite.definitionId as string]
+          : undefined;
+        const siteType = siteDef && 'siteType' in siteDef
+          ? (siteDef as { siteType: string }).siteType
+          : '';
+        const companyFilterCtx = { company: { atHaven: siteType === 'haven' } };
+        if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
+      }
+      if (playTarget.cost?.tap === 'character') {
+        // Tap-cost: emit one action per untapped character (player chooses tapper).
+        for (const charInstId of company.characters) {
+          const char = player.characters[charInstId as string];
+          if (!char || char.status !== CardStatus.Untapped) continue;
+          eligibleTargets.push(charInstId);
+        }
+      } else {
+        // No tap cost: use the first character as a company representative so
+        // the emitter can generate one action per qualifying company.
+        const firstChar = company.characters[0];
+        if (firstChar) eligibleTargets.push(firstChar);
       }
     }
     if (eligibleTargets.length === 0) {
-      return { eligible: false, reason: `${def.name} requires an untapped character in a company`, eligibleTargets: [] };
+      return {
+        eligible: false,
+        reason: playTarget.cost?.tap === 'character'
+          ? `${def.name} requires an untapped character in a company`
+          : `${def.name} requires a company at the required location`,
+        eligibleTargets: [],
+      };
     }
     return { eligible: true, reason: '', eligibleTargets };
   }
@@ -1226,10 +1255,14 @@ export function playResourceShortEventActions(
 
       // If the card has a play-target with a tap cost (e.g. Stealth taps a
       // scout), emit one play action per eligible target so the chosen
-      // target can be tapped when the action is reduced. Otherwise emit
-      // a single action with no target.
+      // target can be tapped when the action is reduced. Company-targeting
+      // without a tap cost (e.g. Great-road) also emits one action per
+      // eligible company (represented by its first character) so the player
+      // can choose which company to play the card on. Otherwise emit a
+      // single action with no target.
       const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eoTarget.cost?.tap === 'character' && eligibility.eligibleTargets.length > 0) {
+      if (eoTarget && eligibility.eligibleTargets.length > 0
+          && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'company')) {
         for (const targetId of eligibility.eligibleTargets) {
           logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({

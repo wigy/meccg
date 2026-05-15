@@ -681,6 +681,34 @@ export interface ActiveConstraint {
          * the company's site phase ends.
          */
         readonly type: 'major-item-unlocked';
+      }
+    | {
+        /**
+         * Great-road (tw-249): the hazard player may draw up to twice the
+         * normal number of cards during this company's M/H phase. The
+         * multiplier is applied in `transitionToDrawCards` after the base
+         * `hazardDrawMax` is computed from the site and character modifiers.
+         * Scoped to `company-mh-phase` so it is swept when the company's
+         * M/H sub-phase ends.
+         */
+        readonly type: 'hazard-draw-multiplier';
+        /** Factor to multiply the base hazard draw count by (e.g. 2). */
+        readonly multiplier: number;
+      }
+    | {
+        /**
+         * Great-road (tw-249): at the end of the turn the company may
+         * return to the haven where it began the turn without triggering
+         * a new M/H phase. The constraint records the origin haven so the
+         * EOT legal-action layer can offer the option and the reducer can
+         * execute the site swap. Scoped to `turn` — swept at turn-end if
+         * the player chooses not to use it.
+         */
+        readonly type: 'haven-return-option';
+        /** Full SiteInPlay snapshot of the haven at time of play. */
+        readonly originHavenInstanceId: CardInstanceId;
+        readonly originHavenDefinitionId: import('./common.js').CardDefinitionId;
+        readonly originHavenStatus: import('./common.js').CardStatus;
       };
 }
 
