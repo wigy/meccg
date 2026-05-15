@@ -864,6 +864,28 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
 }
 
 /**
+ * Deck-search-and-attack effect for Lucky Search (tw-269).
+ *
+ * When this short event resolves, the engine automatically reveals cards from
+ * the active player's play deck one at a time until a valid non-special item
+ * is found (or the deck is exhausted). The scout (from `play-target`) then
+ * faces a single uncancelable strike with prowess = `baseProwess` + number
+ * of cards revealed. After combat:
+ * - If the scout is not wounded: the found item is attached to the scout.
+ * - If the scout is wounded: the found item is discarded.
+ * - All revealed non-item cards are shuffled back into the deck.
+ */
+export interface DeckSearchAttackEffect extends EffectBase {
+  readonly type: 'deck-search-attack';
+  /** Base prowess added to the number of cards revealed. */
+  readonly baseProwess: number;
+  /** Number of strikes (always 1 for Lucky Search). */
+  readonly strikes: number;
+  /** Whether this attack cannot be canceled. */
+  readonly uncancelable: boolean;
+}
+
+/**
  * Tap an agent of the specified skill at the target company's current site,
  * triggering an agent attack during the movement/hazard phase (rule 9.06).
  *
@@ -996,6 +1018,12 @@ export interface PlayWindowEffect extends EffectBase {
   readonly phase: string;
   /** The sub-step within the phase. Absent when the card is playable throughout the phase. */
   readonly step?: string;
+  /**
+   * Optional site-type restriction: when present, the card may only be played
+   * when the company's current site has one of these types. Checked alongside
+   * the phase restriction; both must be satisfied. Uses {@link SiteType} values.
+   */
+  readonly siteTypes?: readonly string[];
 }
 
 /**
@@ -2125,6 +2153,7 @@ export type CardEffect =
   | WoundTargetCharacterEffect
   | AutoAttackRaceDuplicateEffect
   | TriggerAttackOnPlayEffect
+  | DeckSearchAttackEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect

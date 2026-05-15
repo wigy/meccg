@@ -1043,6 +1043,7 @@ export function buildPlayOptionContext(
   );
   let inAvatarCompany = false;
   let hasFactionInHand = false;
+  let companySiteType: string | null = null;
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -1052,6 +1053,11 @@ export function buildPlayOptionContext(
       }
     }
     hasFactionInHand = player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string]));
+    const charCompany = player.companies.find(c => c.characters.includes(char.instanceId));
+    if (charCompany?.currentSite) {
+      const siteDef = state.cardPool[charCompany.currentSite.definitionId as string];
+      if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
+    }
   }
   return {
     target: {
@@ -1061,6 +1067,9 @@ export function buildPlayOptionContext(
       name: def.name,
       mind: def.mind,
       inAvatarCompany,
+    },
+    company: {
+      siteType: companySiteType,
     },
     pending: {
       corruptionCheckTargetsMe,
