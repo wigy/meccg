@@ -1018,7 +1018,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills } }`, so there are no
+`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills, siteType } }`, so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 
@@ -2208,6 +2208,21 @@ emitter skips cards whose `play-window.phase` is not
 `"movement-hazard"`, so a combat-tagged hazard is not accidentally
 offered during the M/H phase.
 
+Resource short-events may also declare `play-window` with `phase:
+"site"` and `step: "play-resources"` to restrict play to the site
+phase. An optional `siteTypes` array further restricts the card to
+companies whose current site is one of the listed types:
+
+```json
+{ "type": "play-window", "phase": "site", "step": "play-resources",
+  "siteTypes": ["shadow-hold", "dark-hold"] }
+```
+
+The site phase legal-action emitter in `engine/legal-actions/site.ts`
+evaluates `siteTypes` against the active company's current site type
+(via `company.siteType` in the `play-target` filter context). Used by
+Lucky Search (tw-269).
+
 ### 33. `combat-protection`
 
 Protects the bearing card (typically an ally) from being assigned
@@ -2489,3 +2504,49 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
   "discardAfterUse": true
 }
 ```
+
+### 42. `deck-search-attack`
+
+Used by hero resource short-events whose text reads "turn over cards
+from your play deck one at a time until you reveal a non-special item
+(not a unique item already in play) or reach the end, then the acting
+character faces a single-strike attack."
+
+When the card is played, `handlePlayResourceShortEvent` in
+`engine/reducer-events.ts`:
+
+1. Scans the acting player's `playDeck` for the first eligible item
+   (non-special, non-duplicate unique).
+2. Computes `strikeProwess = baseProwess + revealedCount`.
+3. Sets `state.combat` to a `CombatState` with `attackSource.type:
+   "lucky-search-attack"`, recording the scout's instance ID, the
+   found item's instance ID (or `null`), and the revealed card IDs.
+   Revealed cards remain in `playDeck` during combat so no instance
+   ever disappears from state.
+
+After combat resolves, `finalizeCombat` in `engine/reducer-combat.ts`
+handles the `lucky-search-attack` source:
+
+- If the scout was **not** wounded and an item was found, attaches the
+  item to the scout's `items` list.
+- If the scout was **wounded** and an item was found, moves the item to
+  the player's `discardPile`.
+- Reshuffles all non-item revealed cards (and any remaining deck cards)
+  back into `playDeck` via `shuffle()`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `baseProwess` | yes | Base prowess before the revealed-card bonus. |
+| `strikes` | yes | Number of strikes (typically `1`). |
+| `uncancelable` | yes | Whether the attack/strike can be canceled. |
+
+```json
+{
+  "type": "deck-search-attack",
+  "baseProwess": 3,
+  "strikes": 1,
+  "uncancelable": true
+}
+```
+
+Used by Lucky Search (tw-269).

@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle } from '../index.js';
 import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -2465,6 +2465,58 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         },
       });
     }
+  }
+
+  // lucky-search-attack finalization (Lucky Search tw-269):
+  // After combat, move the found item to the scout or discard it if the scout
+  // was wounded. Reshuffle all non-item revealed cards back into the play deck.
+  if (combat.attackSource.type === 'lucky-search-attack') {
+    const { scoutInstanceId, foundItemInstanceId, revealedCardInstanceIds } = combat.attackSource;
+    const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+
+    const scoutWounded = combat.strikeAssignments.some(
+      a => a.characterId === scoutInstanceId && a.result === 'wounded',
+    );
+
+    // Partition the deck: revealed cards vs remainder
+    const revealedSet = new Set(revealedCardInstanceIds.map(id => id as string));
+    const allRevealedCards = stateAfterCombat.players[defIdx].playDeck.filter(
+      c => revealedSet.has(c.instanceId as string),
+    );
+    const remainingDeck = stateAfterCombat.players[defIdx].playDeck.filter(
+      c => !revealedSet.has(c.instanceId as string),
+    );
+
+    const foundCard = foundItemInstanceId
+      ? allRevealedCards.find(c => c.instanceId === foundItemInstanceId)
+      : null;
+    const nonItemRevealed = foundCard
+      ? allRevealedCards.filter(c => c.instanceId !== foundItemInstanceId)
+      : allRevealedCards;
+
+    if (foundCard && !scoutWounded) {
+      // Scout takes control: attach item to scout
+      logDetail(`Lucky Search: scout not wounded — ${String(foundCard.definitionId)} attached to scout ${String(scoutInstanceId)}`);
+      stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p =>
+        updateCharacter(p, scoutInstanceId as string, ch => ({
+          ...ch,
+          items: [...ch.items, { instanceId: foundCard.instanceId, definitionId: foundCard.definitionId, status: CardStatus.Untapped }],
+        })),
+      );
+    } else if (foundCard && scoutWounded) {
+      logDetail(`Lucky Search: scout wounded — discarding found item ${String(foundCard.definitionId)}`);
+      stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => ({
+        ...p,
+        discardPile: [...p.discardPile, { instanceId: foundCard.instanceId, definitionId: foundCard.definitionId }],
+      }));
+    } else {
+      logDetail(`Lucky Search: no item found in deck`);
+    }
+
+    // Reshuffle non-item revealed cards back into the remaining deck
+    const [reshuffled, newRng] = shuffle([...nonItemRevealed, ...remainingDeck], stateAfterCombat.rng);
+    logDetail(`Lucky Search: reshuffling ${nonItemRevealed.length} revealed card(s) back into deck (${remainingDeck.length} remaining)`);
+    stateAfterCombat = { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng };
   }
 
   // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers

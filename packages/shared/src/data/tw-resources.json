@@ -1243,12 +1243,21 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "site" },
+      { "type": "play-window", "phase": "site", "siteTypes": ["shadow-hold", "dark-hold"] },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "scout" } },
+        "filter": {
+          "target.skills": { "$includes": "scout" },
+          "company.siteType": { "$in": ["shadow-hold", "dark-hold"] }
+        },
         "cost": { "tap": "character" }
+      },
+      {
+        "type": "deck-search-attack",
+        "baseProwess": 3,
+        "strikes": 1,
+        "uncancelable": true
       }
     ]
   },

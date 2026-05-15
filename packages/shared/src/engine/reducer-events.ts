@@ -22,6 +22,7 @@ import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../index.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
+import { buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -673,6 +674,91 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         pendingEffects: [...withCardInPlay.pendingEffects, ...interactiveEffects],
       },
     };
+  }
+
+  // deck-search-attack (Lucky Search tw-269): reveal cards from the play deck
+  // one at a time until a valid non-special item is found or the deck ends,
+  // then create an uncancelable attack against the scout. Post-combat
+  // handling (item assignment + reshuffle) is done in finalizeCombat.
+  const deckSearchEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').DeckSearchAttackEffect => e.type === 'deck-search-attack',
+  );
+  if (deckSearchEffect) {
+    const scoutId = action.targetScoutInstanceId!;
+    const deck = newState.players[playerIndex].playDeck;
+    const inPlayNames = buildInPlayNames(newState);
+
+    // Scan deck for first non-special item whose uniqueness constraint is met
+    let foundIdx = -1;
+    for (let i = 0; i < deck.length; i++) {
+      const cardDef = newState.cardPool[deck[i].definitionId as string];
+      if (!cardDef || !('cardType' in cardDef)) continue;
+      const ct = (cardDef as { cardType: string }).cardType;
+      if (!ct.endsWith('-item')) continue;
+      if ('subtype' in cardDef && (cardDef as { subtype: string }).subtype === 'special') continue;
+      if ('unique' in cardDef && (cardDef as { unique: boolean }).unique) {
+        const itemName = (cardDef as { name: string }).name;
+        // Skip if a copy is already in play (attached to any character)
+        const alreadyInPlay = newState.players.some(p =>
+          Object.values(p.characters).some(ch =>
+            ch.items.some(item => {
+              const iDef = newState.cardPool[item.definitionId as string];
+              return iDef && iDef.name === itemName;
+            }),
+          ),
+        );
+        if (alreadyInPlay) continue;
+        // Also check inPlayNames for permanent-event items
+        if (inPlayNames.includes(itemName)) continue;
+      }
+      foundIdx = i;
+      break;
+    }
+
+    const revealedCount = foundIdx >= 0 ? foundIdx + 1 : deck.length;
+    const revealedCardInstanceIds = deck.slice(0, revealedCount).map(c => c.instanceId);
+    const foundItemInstanceId = foundIdx >= 0 ? deck[foundIdx].instanceId : null;
+    const prowess = deckSearchEffect.baseProwess + revealedCount;
+
+    logDetail(
+      `${def.name}: revealed ${revealedCount} card(s), found item: ${foundItemInstanceId ? String(foundItemInstanceId) : 'none'}, ` +
+      `attack prowess = ${prowess} (${deckSearchEffect.baseProwess} + ${revealedCount})`,
+    );
+
+    // Short event goes to discard; attack is created immediately
+    const stateWithDiscard = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    const defPlayer = stateWithDiscard.players[playerIndex];
+    const atkPlayerIndex = stateWithDiscard.players.findIndex((_, i) => i !== playerIndex);
+    const atkPlayer = stateWithDiscard.players[atkPlayerIndex];
+    const company = defPlayer.companies.find(c => c.characters.includes(scoutId));
+    if (!company) return { state: stateWithDiscard, error: `${def.name}: scout not in any company` };
+
+    const combat: import('../types/state-combat.js').CombatState = {
+      attackSource: {
+        type: 'lucky-search-attack',
+        scoutInstanceId: scoutId,
+        foundItemInstanceId,
+        revealedCardInstanceIds,
+      },
+      companyId: company.id,
+      defendingPlayerId: defPlayer.id,
+      attackingPlayerId: atkPlayer.id,
+      strikesTotal: deckSearchEffect.strikes,
+      strikeProwess: prowess,
+      creatureBody: null,
+      strikeAssignments: [],
+      currentStrikeIndex: 0,
+      phase: 'assign-strikes',
+      assignmentPhase: 'defender',
+      bodyCheckTarget: null,
+      detainment: false,
+      uncancelable: deckSearchEffect.uncancelable,
+    };
+    return { state: { ...stateWithDiscard, combat } };
   }
 
   // No interactive effects: discard immediately

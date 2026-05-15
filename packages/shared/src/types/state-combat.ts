@@ -48,7 +48,24 @@ export type AttackSource =
    * `bearerCharacterId` is absent because the bearer is unknown until after
    * the attack resolves.
    */
-  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId };
+  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId }
+  /**
+   * Triggered by Lucky Search (tw-269) via the `deck-search-attack` DSL effect.
+   * After the scout taps, cards are auto-revealed from the deck; the prowess
+   * equals `baseProwess` + number of cards revealed. After combat:
+   * - Scout not wounded + item found → item attached to scout.
+   * - Scout wounded + item found → item discarded.
+   * - Revealed non-item cards → shuffled back into the deck.
+   */
+  | {
+      readonly type: 'lucky-search-attack';
+      /** The scout character that tapped to play the event. */
+      readonly scoutInstanceId: CardInstanceId;
+      /** Instance ID of the non-special item found in the deck, or null. */
+      readonly foundItemInstanceId: CardInstanceId | null;
+      /** Instance IDs of ALL cards revealed (including found item). */
+      readonly revealedCardInstanceIds: readonly CardInstanceId[];
+    };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.
