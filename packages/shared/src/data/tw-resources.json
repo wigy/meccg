@@ -1253,9 +1253,22 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 6,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Shrel-Kain"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": { "bearer.race": "man" }
+      }
+    ],
+    "certified": "2026-05-14"
   },
   {
     "cardType": "hero-resource-event",
