@@ -64,6 +64,28 @@ export function findAllyInCompany(
 }
 
 /**
+ * Check whether a given instance ID belongs to an item attached to any
+ * character in the defending company.
+ * Returns the item and its host character instance ID if found, or undefined.
+ */
+export function findItemInCompany(
+  player: PlayerState,
+  companyCharacters: readonly CardInstanceId[],
+  itemInstanceId: CardInstanceId,
+): { item: import('../../types/state-cards.js').ItemInPlay; hostCharId: CardInstanceId } | undefined {
+  for (const charId of companyCharacters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const item of charData.items) {
+      if (item.instanceId === itemInstanceId) {
+        return { item, hostCharId: charId };
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
  * Returns true if an ally's `no-attack-site-keyed` flag protects it from
  * the current combat's attack. Automatic-attacks are always "at the site"
  * so the flag applies unconditionally for those. For creature attacks the
@@ -1229,6 +1251,44 @@ function cancelAttackActions(
       },
       viable: true,
     });
+  }
+
+  // In-play items attached to characters in the defending company with a
+  // cancel-attack effect and cost "self-and-bearer" (e.g. Torque of Hues:
+  // tap item AND its bearer to cancel an attack).
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    if (charData.status !== CardStatus.Untapped) {
+      logDetail(`Cancel-attack: bearer ${charId as string} is tapped, cannot activate item cancel`);
+      continue;
+    }
+    for (const item of charData.items) {
+      const itemDef = state.cardPool[item.definitionId as string];
+      if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
+      const cancelEffect = itemDef.effects.find(
+        (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+      );
+      if (!cancelEffect) continue;
+      if (cancelEffect.cost?.tap !== 'self-and-bearer') continue;
+      if (item.status !== CardStatus.Untapped) {
+        logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: item tapped, cannot activate`);
+        continue;
+      }
+      if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+        logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: when condition not met`);
+        continue;
+      }
+      logDetail(`Cancel-attack available: tap ${(itemDef as { name?: string }).name ?? item.definitionId as string} and bearer (in-play item)`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: item.instanceId,
+        },
+        viable: true,
+      });
+    }
   }
 
   for (const handCard of player.hand) {

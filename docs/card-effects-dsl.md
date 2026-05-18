@@ -594,6 +594,13 @@ company (e.g. The Warg-king's "tap to cancel a Wolf or Animal attack").
 Activating taps the ally and cancels the attack immediately — no chain
 entry is created.
 
+When the effect is declared on an in-play **item** with
+`cost: { "tap": "self-and-bearer" }`, both the item AND its bearer must
+be untapped. Activating taps both the item and the bearer, then cancels
+the attack immediately (no chain entry). If `"enqueueCorruptionCheck": true`
+is also set on the effect, a corruption check is enqueued on the bearer
+after cancellation. Used by *Torque of Hues* (tw-351).
+
 A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 
@@ -612,10 +619,9 @@ combat context that includes:
   Ringwraith).
 
 The effect may be declared on in-play sources too: an ally attached
-to a company character (e.g. The Warg-king) or the character card
-itself (e.g. Adûnaphel the Ringwraith). For in-play sources the cost
-must be `cost: { "tap": "self" }` and the source must be untapped
-when activated.
+to a company character (e.g. The Warg-king), the character card
+itself (e.g. Adûnaphel the Ringwraith), or an item with
+`cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
 
 ```json
 { "type": "cancel-attack",
@@ -641,6 +647,9 @@ when activated.
   "when": { "$and": [
     { "bearer.atHaven": true },
     { "attack.source": "creature" } ] } }
+{ "type": "cancel-attack",
+  "cost": { "tap": "self-and-bearer" },
+  "enqueueCorruptionCheck": true }
 ```
 
 ### 9a. `wound-target-character`

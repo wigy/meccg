@@ -14,7 +14,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { findAllyInCompany } from './legal-actions/combat.js';
+import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
@@ -1289,6 +1289,79 @@ function handleCancelAttackByInPlayCharacter(
   return { state: resolveCancelAttackEntry(tappedState) };
 }
 
+/**
+ * Handle cancel-attack sourced from an in-play item with cost "self-and-bearer"
+ * (e.g. Torque of Hues: tap item AND its bearer to cancel an attack; bearer
+ * makes a corruption check afterward).
+ */
+function handleCancelAttackByInPlayItem(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company) return { state, error: 'Defending company not found' };
+
+  const found = findItemInCompany(defPlayer, company.characters, action.cardInstanceId);
+  if (!found) return { state, error: 'Cancel-attack source item not found in defending company' };
+
+  const { item, hostCharId } = found;
+  if (item.status !== CardStatus.Untapped) {
+    return { state, error: 'Item must be untapped to cancel attack' };
+  }
+
+  const bearerData = defPlayer.characters[hostCharId as string];
+  if (!bearerData) return { state, error: 'Bearer character not found' };
+  if (bearerData.status !== CardStatus.Untapped) {
+    return { state, error: 'Bearer must be untapped to cancel attack with this item' };
+  }
+
+  const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const itemName = itemDef?.name ?? (item.definitionId as string);
+  const cancelEffect = itemDef?.effects?.find(
+    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+  );
+
+  logDetail(`Cancel-attack declared: tapping item ${itemName} and bearer ${hostCharId as string} to cancel ${combat.creatureRace ?? 'attack'}`);
+
+  // Tap the item and its bearer.
+  let tappedState = updatePlayer(state, defPlayerIndex, p =>
+    updateCharacter(p, hostCharId, c => ({
+      ...c,
+      status: CardStatus.Tapped,
+      items: c.items.map(i =>
+        i.instanceId === item.instanceId ? { ...i, status: CardStatus.Tapped } : i,
+      ),
+    })),
+  );
+
+  // Cancel the attack immediately (items, like allies, don't push a chain entry).
+  tappedState = resolveCancelAttackEntry(tappedState);
+
+  // Enqueue corruption check on bearer if effect declares it.
+  if (cancelEffect?.enqueueCorruptionCheck) {
+    const phase = state.phaseState.phase;
+    const companyId = company.id;
+    const scope = phase === Phase.MovementHazard
+      ? ({ kind: 'company-mh-subphase' as const, companyId })
+      : ({ kind: 'company-site-subphase' as const, companyId });
+    logDetail(`Cancel-attack: enqueuing corruption check on bearer ${hostCharId as string} (${itemName})`);
+    tappedState = enqueueCorruptionCheck(tappedState, {
+      source: item.instanceId,
+      actor: action.player,
+      scope,
+      characterId: hostCharId,
+      reason: itemName,
+    });
+  }
+
+  return { state: tappedState };
+}
+
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
@@ -1298,9 +1371,15 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIndex < 0) {
     // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
-    // the Ringwraith's Darkhaven tap) or an in-play ally (e.g. The Warg-king).
+    // the Ringwraith's Darkhaven tap), an in-play ally (e.g. The Warg-king),
+    // or an in-play item with self-and-bearer cost (e.g. Torque of Hues).
     if (defPlayer.characters[action.cardInstanceId as string]) {
       return handleCancelAttackByInPlayCharacter(state, action, combat);
+    }
+    // Check items before falling through to ally handler.
+    const defCompany = defPlayer.companies.find(c => c.id === combat.companyId);
+    if (defCompany && findItemInCompany(defPlayer, defCompany.characters, action.cardInstanceId)) {
+      return handleCancelAttackByInPlayItem(state, action, combat);
     }
     return handleCancelAttackByInPlayAlly(state, action, combat);
   }
