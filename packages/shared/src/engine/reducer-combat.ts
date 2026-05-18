@@ -717,8 +717,11 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
       updateCharacter(p, action.cancellerInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
     );
   } else {
-    // The canceller may be an item attached to the struck character (e.g.
-    // Enruned Shield taps to cancel a strike against its Warrior bearer).
+    // The canceller may be an item or ally attached to the struck character (e.g.
+    // Enruned Shield taps to cancel a strike against its Warrior bearer, or
+    // Noble Steed taps to cancel a non-auto-attack strike against its bearer).
+
+    // Try items first.
     let hostCharId: string | null = null;
     let itemIndex = -1;
     for (const [charKey, ch] of Object.entries(defPlayer.characters)) {
@@ -729,20 +732,46 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
         break;
       }
     }
-    if (hostCharId === null || itemIndex < 0) {
-      return { state, error: 'Canceller not found as character or item' };
-    }
-    const hostChar = defPlayer.characters[hostCharId];
-    const item = hostChar.items[itemIndex];
-    const itemDef = state.cardPool[item.definitionId as string];
-    const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
-    logDetail(`${itemName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
-    const newItems = [...hostChar.items];
-    newItems[itemIndex] = { ...item, status: CardStatus.Tapped };
-    nextState = updatePlayer(state, defPlayerIndex, p =>
-      updateCharacter(p, hostCharId, c => ({ ...c, items: newItems })),
-    );
+    if (hostCharId !== null && itemIndex >= 0) {
+      const hostChar = defPlayer.characters[hostCharId];
+      const item = hostChar.items[itemIndex];
+      const itemDef = state.cardPool[item.definitionId as string];
+      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+      logDetail(`${itemName} taps to cancel strike against ${currentStrike.characterId as string}`);
+
+      const newItems = [...hostChar.items];
+      newItems[itemIndex] = { ...item, status: CardStatus.Tapped };
+      nextState = updatePlayer(state, defPlayerIndex, p =>
+        updateCharacter(p, hostCharId, c => ({ ...c, items: newItems })),
+      );
+    } else {
+      // Try allies.
+      let allyHostCharId: string | null = null;
+      let allyIndex = -1;
+      for (const [charKey, ch] of Object.entries(defPlayer.characters)) {
+        const idx = ch.allies.findIndex(a => a.instanceId === action.cancellerInstanceId);
+        if (idx >= 0) {
+          allyHostCharId = charKey;
+          allyIndex = idx;
+          break;
+        }
+      }
+      if (allyHostCharId === null || allyIndex < 0) {
+        return { state, error: 'Canceller not found as character, item, or ally' };
+      }
+      const allyHostChar = defPlayer.characters[allyHostCharId];
+      const ally = allyHostChar.allies[allyIndex];
+      const allyDef = state.cardPool[ally.definitionId as string];
+      const allyName = allyDef && 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
+      logDetail(`${allyName} taps to cancel strike against ${currentStrike.characterId as string}`);
+
+      const newAllies = [...allyHostChar.allies];
+      newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
+      nextState = updatePlayer(state, defPlayerIndex, p =>
+        updateCharacter(p, allyHostCharId, c => ({ ...c, allies: newAllies })),
+      );
+    }
   }
 
   const newAssignments = [...combat.strikeAssignments];

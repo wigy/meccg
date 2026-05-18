@@ -818,8 +818,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   automatic-attacks or hazard creatures whose `keyedTo` includes the
  *   site type of the company's current or destination site (e.g. Quickbeam,
  *   Treebeard).
+ * - `playable-at-tapped-site` — the ally may be played at a site that is
+ *   already tapped (overrides the default "allies require untapped site" rule).
+ *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
+ *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -2169,4 +2173,28 @@ export type CardEffect =
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
-  | PermanentEventAutoAttackEffect;
+  | PermanentEventAutoAttackEffect
+  | PassiveMovementBonusEffect;
+
+/**
+ * Passive movement bonus carried by an ally: when every character in the
+ * bearer's company controls an ally whose name is in {@link allyNames}, the
+ * company may move up to {@link value} additional regions this turn.
+ *
+ * The bonus is applied once per company regardless of how many qualifying
+ * allies are present. The engine evaluates this at movement-plan time in
+ * `organization-companies.ts`.
+ *
+ * Used by Noble Steed: +2 regions when each character has Noble Steed,
+ * Bill the Pony, or Shadowfax.
+ */
+export interface PassiveMovementBonusEffect extends EffectBase {
+  readonly type: 'passive-movement-bonus';
+  /** Additional region distance granted when the condition is met. */
+  readonly value: number;
+  /**
+   * Each character in the company must control at least one ally whose card
+   * name appears in this list for the bonus to apply.
+   */
+  readonly allyNames: readonly string[];
+}
