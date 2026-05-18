@@ -197,7 +197,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Thranduil's Halls if the influence check is greater than 8. Standard Modifications: Men (-1), Elves (+1), Dwarves (-2)."
+    "text": "Unique. Playable at Thranduil's Halls if the influence check is greater than 8. Standard Modifications: Men (-1), Elves (+1), Dwarves (-2).",
+    "certified": "2026-05-18"
   },
   {
     "cardType": "hero-resource-faction",
