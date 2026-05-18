@@ -3,11 +3,14 @@ set -eo pipefail
 
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   cat <<'EOF'
-Usage: bin/run-ai
+Usage: bin/run-ai [<n>]
 
 Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
+
+Arguments:
+  <n>             Optional maximum number of requests to handle, then exit.
 
 Environment:
   MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
@@ -19,6 +22,13 @@ Options:
 EOF
   exit 0
 fi
+
+MAX_ITERATIONS=""
+if [ $# -ge 1 ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+  MAX_ITERATIONS="$1"
+fi
+
+iterations=0
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
@@ -84,11 +94,19 @@ while true; do
   fi
 
   idle_index=0
-  echo "=== Handling $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"
+  iterations=$((iterations + 1))
+  echo "=== Handling $MSG_ID at $(date -Iseconds) (iteration $iterations) ===" | tee -a "$LOG_FILE"
+  if ! "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"; then
+    echo "=== FATAL: handle-mail failed for $MSG_ID at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
+    exit 3
+  fi
   echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   echo
   echo
   echo
+  if [ -n "$MAX_ITERATIONS" ] && [ "$iterations" -ge "$MAX_ITERATIONS" ]; then
+    echo "=== Reached max iterations ($MAX_ITERATIONS) at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
+    exit 0
+  fi
   sleep 10
 done
