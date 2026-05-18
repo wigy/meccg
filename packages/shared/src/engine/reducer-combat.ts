@@ -2237,6 +2237,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       ) {
         const filter = woundEvent.apply.filter;
         stateAfterCombat = discardWoundedItems(stateAfterCombat, combat, woundedCharIds, sourceName, filter);
+      } else if (woundEvent.apply.type === 'discard-character') {
+        stateAfterCombat = discardWoundedCharacters(stateAfterCombat, combat, woundedCharIds, sourceName, woundEvent.when);
       }
     }
   }
@@ -2764,6 +2766,67 @@ function discardWoundedItems(
   };
 
   return { ...state, players: cloned };
+}
+
+/**
+ * Discard wounded characters to the defending player's discard pile when the
+ * per-character condition (evaluated against `{ target: { race } }`) is met.
+ * Implements the `discard-character` apply type for `character-wounded-by-self`.
+ * Used by Abductor (tw-1): discards every non-Wizard/non-Ringwraith character it wounds.
+ */
+function discardWoundedCharacters(
+  state: GameState,
+  combat: CombatState,
+  woundedCharIds: readonly CardInstanceId[],
+  sourceName: string,
+  when: import('../types/effects.js').Condition | undefined,
+): GameState {
+  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  let stateOut = state;
+
+  for (const charId of woundedCharIds) {
+    const player = stateOut.players[defIdx];
+    const charData = player?.characters[charId as string];
+    if (!charData) continue;
+
+    const charDefId = resolveInstanceId(stateOut, charId);
+    const charDef = charDefId ? stateOut.cardPool[charDefId as string] : undefined;
+    const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
+    const perCharContext: Record<string, unknown> = { target: { race: charRace } };
+
+    if (when && !matchesCondition(when, perCharContext)) {
+      logDetail(`${sourceName}: discard-character excluded for ${charId as string} (race ${String(charRace)})`);
+      continue;
+    }
+
+    logDetail(`${sourceName}: discarding wounded character ${charId as string} to discard pile`);
+    const cloned = clonePlayers(stateOut);
+    const newPlayerData = { ...cloned[defIdx] };
+
+    newPlayerData.companies = newPlayerData.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(ch => ch !== charId),
+    }));
+    newPlayerData.discardPile = [
+      ...newPlayerData.discardPile,
+      { instanceId: charId, definitionId: charDefId! },
+    ];
+    for (const ally of charData.allies) {
+      logDetail(`${sourceName}: discarding ally ${ally.instanceId as string} from discarded character`);
+      newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+    }
+    for (const item of charData.items) {
+      logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);
+      newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }];
+    }
+    const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
+    newPlayerData.characters = remainingChars;
+
+    cloned[defIdx] = newPlayerData;
+    stateOut = { ...stateOut, players: cloned };
+  }
+
+  return stateOut;
 }
 
 /**
