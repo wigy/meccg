@@ -715,8 +715,15 @@ function buildGrantActionContext(
     playDeckSize: player.playDeck.length,
   } : null;
   const siteName = siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : '';
+  const siteIsTapped = company?.currentSite?.status === CardStatus.Tapped;
+  const hasDragonAutoAttack = siteDef && 'automaticAttacks' in siteDef
+    ? ((siteDef as { automaticAttacks?: readonly { creatureType: string }[] }).automaticAttacks ?? [])
+        .some(a => a.creatureType === 'Dragon')
+    : false;
   const siteCtx = siteName ? {
     hasOneRing: siteHasItemNamed(state, siteName, 'The One Ring'),
+    isTapped: siteIsTapped,
+    hasDragonAutoAttack,
   } : null;
   return { bearer, company: companyCtx, player: playerCtx, site: siteCtx };
 }
