@@ -20,8 +20,143 @@
  * While taken prisoner, a character does not cost influence to control, cannot take any actions including healing or untapping, cannot be affected except by cards that specifically affect prisoners, and is worth negative marshalling points to its player (and continues to be worth negative marshalling points if eliminated while prisoner).
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import { CardStatus, Phase, CardDefinitionId, CardInstanceId } from '../../../index.js';
+import type { PlayerState } from '../../../index.js';
+import {
+  ARAGORN, BILBO, LEGOLAS, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
+  buildTestState, attachHazardToChar, attachItemToChar, findCharInstanceId,
+  companyIdAt, PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, resetMint,
+  dispatch, viableActions, makeShadowMHState,
+} from '../../test-helpers.js';
+
+const FLIES_AND_SPIDERS = 'dm-58' as CardDefinitionId;
+const DAGGER = 'tw-095' as CardDefinitionId; // Dagger of Westernesse (minor item)
 
 describe('Rule 8.35 — Prisoners', () => {
-  test.todo('Hazard hosts take characters prisoner at rescue site; followers revert to GI; prisoner cannot act; worth negative MP');
+  beforeEach(() => resetMint());
+
+  test('Hazard hosts take characters prisoner at rescue site; followers revert to GI; prisoner cannot act; worth negative MP', () => {
+    // Build state with Aragorn facing a resolved strike from Flies and Spiders.
+    // Aragorn has a Dagger equipped; hazard player has Bandit Lair (ruins-and-lairs) in site deck.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }],
+          hand: [],
+          siteDeck: [RIVENDELL, MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [BANDIT_LAIR],
+        },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
+
+    // Attach a Dagger to Aragorn (will be discarded when taken prisoner).
+    const withDagger = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, DAGGER);
+
+    // Attach Flies and Spiders as a hazard to Aragorn (owned by hazard player).
+    const withHazard = attachHazardToChar(withDagger, RESOURCE_PLAYER, ARAGORN, FLIES_AND_SPIDERS, HAZARD_PLAYER);
+
+    // Set Bilbo as a follower under Aragorn's direct influence.
+    const withFollower = {
+      ...withHazard,
+      players: withHazard.players.map((p, i) => {
+        if (i !== RESOURCE_PLAYER) return p;
+        return {
+          ...p,
+          characters: {
+            ...p.characters,
+            [aragornId as string]: {
+              ...p.characters[aragornId as string],
+              followers: [bilboId],
+            },
+            [bilboId as string]: {
+              ...p.characters[bilboId as string],
+              controlledBy: aragornId,
+            },
+          },
+        };
+      }) as unknown as readonly [PlayerState, PlayerState],
+    };
+
+    // Build combat state at resolve-strike phase with Aragorn facing Spider attack.
+    const companyId = companyIdAt(withFollower, RESOURCE_PLAYER);
+    const combat = {
+      attackSource: { type: 'creature' as const, instanceId: 'fake-spider' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 99, // Guaranteed win for creature
+      creatureBody: null,
+      creatureRace: 'Spider',
+      strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike' as const,
+      assignmentPhase: 'done' as const,
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+
+    // Force lowest roll (2) so creature wins.
+    const combatState = {
+      ...withFollower,
+      combat,
+      phaseState: makeShadowMHState(),
+      cheatRollTotal: 2,
+    };
+
+    const resolveActions = viableActions(combatState, PLAYER_1, 'resolve-strike');
+    const tapAction = resolveActions.find(a => (a.action as { tapToFight?: boolean }).tapToFight === true) ?? resolveActions[0];
+    const afterStrike = dispatch(combatState, tapAction.action);
+
+    // Assert: hazardHosts has one entry.
+    expect(afterStrike.hazardHosts).toHaveLength(1);
+    const host = afterStrike.hazardHosts[0];
+    expect(host.ownedBy).toBe(PLAYER_2);
+    expect(host.prisoners).toContain(aragornId);
+
+    // Assert: Aragorn has character-is-prisoner constraint.
+    const prisonerConstraint = afterStrike.activeConstraints.find(
+      c => c.target.kind === 'character'
+        && c.target.characterId === aragornId
+        && c.kind.type === 'character-is-prisoner',
+    );
+    expect(prisonerConstraint).toBeDefined();
+
+    // Assert: Dagger is in discard pile (non-ring item discarded by prisoner rule).
+    const aragornPlayer = afterStrike.players[RESOURCE_PLAYER];
+    const aragornChar = aragornPlayer.characters[aragornId as string];
+    expect(aragornChar.items).toHaveLength(0);
+    expect(aragornPlayer.discardPile.some(c => c.definitionId === DAGGER)).toBe(true);
+
+    // Assert: Aragorn is not wounded — prisoner rule prevents wound.
+    expect(aragornChar.status).toBe(CardStatus.Untapped);
+
+    // Assert: Bilbo reverted to general influence.
+    expect(aragornPlayer.characters[bilboId as string]?.controlledBy).toBe('general');
+
+    // Assert: rescue site removed from hazard player's location deck.
+    const hazardPlayer = afterStrike.players[HAZARD_PLAYER];
+    expect(hazardPlayer.siteDeck.some(s => s.definitionId === BANDIT_LAIR)).toBe(false);
+    expect(host.rescueSiteCard.definitionId).toBe(BANDIT_LAIR);
+
+    // Assert: prisoner worth negative MP.
+    expect(aragornPlayer.marshallingPoints.character).toBeLessThan(0);
+
+    // Assert: prisoner costs 0 GI — Aragorn's mind (6) not counted.
+    // Bilbo (mind 5) is now under GI so GI used = 5.
+    expect(aragornPlayer.generalInfluenceUsed).toBe(5);
+  });
 });

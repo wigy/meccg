@@ -2201,7 +2201,10 @@ export type CardEffect =
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
-  | PassiveMovementBonusEffect;
+  | PassiveMovementBonusEffect
+  | TakePrisonerEffect
+  | StrikeShieldEffect
+  | CancelPrisonerTakingEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2224,4 +2227,101 @@ export interface PassiveMovementBonusEffect extends EffectBase {
    * name appears in this list for the bonus to apply.
    */
   readonly allyNames: readonly string[];
+}
+
+// ---- Rescue attack shape (used by TakePrisonerEffect) ----
+
+/**
+ * A single rescue-attack that must be faced before rescuing prisoners from
+ * a hazard host. Rescue-attacks are not automatic-attacks and do not count
+ * against the hazard limit.
+ */
+export interface RescueAttack {
+  /** Race of the rescuing creature (e.g. "Spider"). */
+  readonly race: string;
+  /** Number of strikes in the rescue-attack. */
+  readonly strikes: number;
+  /** Prowess of the rescue-attack. */
+  readonly prowess: number;
+}
+
+/**
+ * Marks a hazard permanent-event as a **hazard host** (CoE rule 8.35).
+ *
+ * When the strike the host is played on succeeds (creature wins), the
+ * targeted character is taken prisoner at a rescue site drawn from the
+ * hazard player's location deck instead of being wounded. The host card
+ * stays in play attached to the prisoner character until the prisoners are
+ * rescued or the host is discarded.
+ *
+ * Playability gate: the hazard player must have a site of a matching type
+ * in their location deck that is geographically reachable given the
+ * company's movement.
+ *
+ * Used by Flies and Spiders (dm-58).
+ */
+export interface TakePrisonerEffect extends EffectBase {
+  readonly type: 'take-prisoner';
+  /**
+   * Site types that are valid rescue sites (e.g. `["ruins-and-lairs"]`).
+   * The hazard player must have a matching site available in their location
+   * deck and it must be geographically reachable.
+   */
+  readonly rescueSiteTypes: readonly string[];
+  /**
+   * Rescue-attacks that must be faced before rescuing (rule 8.36).
+   * These are not automatic-attacks and do not count against the hazard limit.
+   */
+  readonly rescueAttacks: readonly RescueAttack[];
+  /**
+   * Optional auto-rescue mechanic checked during the prisoner's untap phase.
+   * If present, a body check (modified by `bodyCheckModifier`) is made;
+   * then if the character survives, a roll + body is compared to
+   * `autoRescueThreshold` — if greater, the prisoner escapes automatically.
+   */
+  readonly autoRescue?: {
+    readonly bodyCheckModifier: number;
+    readonly autoRescueThreshold: number;
+  };
+}
+
+/**
+ * Forces the carrier to receive at least one strike before any strike may be
+ * assigned to its controlling character (CoE rule 8.35 allied protection).
+ *
+ * If `alwaysCountsAsUntapped` is true, the carrier is treated as untapped
+ * for the purpose of being assigned strikes even when tapped or wounded
+ * (so the protection is never voided by the ally's status).
+ *
+ * Used by Noble Hound (dm-179).
+ */
+export interface StrikeShieldEffect extends EffectBase {
+  readonly type: 'strike-shield';
+  /**
+   * Which entity is shielded: `"controlling-character"` means the character
+   * who controls this ally.
+   */
+  readonly scope: 'controlling-character';
+  /**
+   * When true the carrier always counts as untapped for strike assignment
+   * even if it is tapped or wounded, ensuring the shield is never bypassed
+   * by the ally's combat status.
+   */
+  readonly alwaysCountsAsUntapped?: boolean;
+}
+
+/**
+ * When the bearer's controlling character would be taken prisoner, the
+ * player may discard this card to cancel that prisoner-taking (the character
+ * is instead resolved normally — wounded or tapped per combat result).
+ *
+ * Used by Noble Hound (dm-179) with `scope: "controlling-character"`.
+ */
+export interface CancelPrisonerTakingEffect extends EffectBase {
+  readonly type: 'cancel-prisoner-taking';
+  /**
+   * `"controlling-character"`: only protects the character who controls
+   * this ally, not other characters in the company.
+   */
+  readonly scope: 'controlling-character' | 'company';
 }

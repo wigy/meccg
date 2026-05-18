@@ -181,11 +181,18 @@ function performUntap(state: GameState): GameState {
     }
   }
 
-  // Collect characters with a bearer-cannot-untap constraint so we can
-  // skip them during normal untap processing.
+  // Collect characters with a bearer-cannot-untap or character-is-prisoner
+  // constraint so we can skip them during normal untap processing.
+  // Prisoners are fully locked — they cannot untap or heal (rule 8.35).
   const cannotUntapIds = new Set<string>();
+  const prisonerIds = new Set<string>();
   for (const c of state.activeConstraints) {
-    if (c.kind.type === 'bearer-cannot-untap' && c.target.kind === 'character') {
+    if (c.target.kind !== 'character') continue;
+    if (c.kind.type === 'bearer-cannot-untap') {
+      cannotUntapIds.add(c.target.characterId as string);
+    }
+    if (c.kind.type === 'character-is-prisoner') {
+      prisonerIds.add(c.target.characterId as string);
       cannotUntapIds.add(c.target.characterId as string);
     }
   }
@@ -203,7 +210,11 @@ function performUntap(state: GameState): GameState {
       ally.status === CardStatus.Tapped ? { ...ally, status: CardStatus.Untapped } : ally,
     );
     let newStatus = ch.status;
-    if (cannotUntapIds.has(key)) {
+    if (prisonerIds.has(key)) {
+      // Prisoners cannot untap or heal (CoE rule 8.35: cannot take any actions
+      // including healing or untapping).
+      logDetail(`Untap: skipping ${key} — character is a prisoner`);
+    } else if (cannotUntapIds.has(key)) {
       // bearer-cannot-untap blocks tapped→untapped only; healing (inverted→tapped)
       // at a haven is a separate operation and must still proceed (CoE rule 2.I.1).
       if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {

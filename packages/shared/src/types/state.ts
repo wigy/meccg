@@ -36,6 +36,31 @@ import type { PhaseState } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
 import type { PendingResolution, ActiveConstraint } from './pending.js';
 
+// ---- Hazard Hosts (Rule 8.35 — Prisoners) ----
+
+/**
+ * A hazard host is a hazard permanent-event with a `take-prisoner` effect.
+ * When the strike it is played on succeeds, the targeted character is taken
+ * prisoner at the rescue site drawn from the hazard player's location deck.
+ *
+ * The host card and rescue site card remain as part of this record for the
+ * lifetime of the imprisonment. Prisoner characters stay in
+ * `player.characters` (the "no card disappears" invariant is preserved) and
+ * gain a `character-is-prisoner` active constraint pointing back here.
+ *
+ * Rule 8.35 / 8.36 — CoE Rules.
+ */
+export interface HazardHost {
+  /** The hazard permanent-event card instance (stays here — does not disappear). */
+  readonly hostCard: import('./state-cards.js').CardInstance;
+  /** The rescue site card instance (drawn from the hazard player's location deck). */
+  readonly rescueSiteCard: import('./state-cards.js').CardInstance;
+  /** Instance IDs of characters currently held prisoner by this host. */
+  readonly prisoners: readonly CardInstanceId[];
+  /** PlayerId of the hazard player who controls this host. */
+  readonly ownedBy: PlayerId;
+}
+
 // ---- RNG ----
 
 /**
@@ -112,6 +137,16 @@ export interface GameState {
    * future modal-restriction cards.
    */
   readonly activeConstraints: readonly ActiveConstraint[];
+  /**
+   * Active hazard hosts — hazard permanent-events with a `take-prisoner`
+   * effect that are currently holding one or more characters prisoner.
+   * Each entry records the host card, the rescue site, and the prisoner
+   * character instance IDs. Prisoners remain in `player.characters` for
+   * the invariant that no card instance ever disappears.
+   *
+   * Rule 8.35 / 8.36 — CoE Rules.
+   */
+  readonly hazardHosts: readonly HazardHost[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

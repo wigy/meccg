@@ -729,6 +729,24 @@ export interface ActiveConstraint {
         readonly originHavenInstanceId: CardInstanceId;
         readonly originHavenDefinitionId: import('./common.js').CardDefinitionId;
         readonly originHavenStatus: import('./common.js').CardStatus;
+      }
+    | {
+        /**
+         * Marks a character as a prisoner of a hazard host (CoE rule 8.35).
+         *
+         * While this constraint is active:
+         * - The character cannot take any actions (including healing / untapping).
+         * - The character costs 0 GI to control.
+         * - The character is worth negative marshalling points.
+         * - The character cannot be targeted by cards that do not specifically
+         *   affect prisoners.
+         *
+         * Scoped to `game` (never auto-swept; removed explicitly when the
+         * prisoner is rescued or the host is discarded).
+         */
+        readonly type: 'character-is-prisoner';
+        /** Instance ID of the hazard host's card — locates the HazardHost record. */
+        readonly hostInstanceId: CardInstanceId;
       };
 }
 

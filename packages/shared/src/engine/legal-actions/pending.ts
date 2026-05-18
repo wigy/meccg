@@ -1067,6 +1067,11 @@ function applyOneConstraint(
       // Consumed by `havenReturnActions` in `legal-actions/end-of-turn.ts` —
       // no broad legal-action filtering needed here.
       return base;
+    case 'character-is-prisoner':
+      // Enforced by `reducer-untap.ts` (blocks untap/heal), `recompute-derived.ts`
+      // (negative MP, 0 GI), and checked by any action computer that requires
+      // the acting character to be free — no broad legal-action filtering here.
+      return base;
   }
 }
 

@@ -229,6 +229,24 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "siteType": "border-hold" },
+        "requireTapped": false
+      },
+      {
+        "type": "strike-shield",
+        "scope": "controlling-character",
+        "alwaysCountsAsUntapped": true
+      },
+      {
+        "type": "cancel-prisoner-taking",
+        "scope": "controlling-character"
+      }
+    ],
+    "certified": "2026-05-18"
   }
 ]

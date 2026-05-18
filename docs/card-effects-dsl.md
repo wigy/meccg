@@ -2568,3 +2568,92 @@ handles the `lucky-search-attack` source:
 ```
 
 Used by Lucky Search (tw-269).
+
+
+### 43. `take-prisoner`
+
+Marks a hazard permanent-event as a **hazard host** (CoE rule 8.35).
+Played during the `resolve-strike` combat window on a character facing
+a matching attack. If the strike succeeds (creature wins), instead of
+wounding the character:
+
+1. The rescue site is drawn from the hazard player's location deck
+   (first site matching `rescueSiteTypes`).
+2. All non-ring items on the prisoner are discarded immediately.
+3. Followers revert to general influence.
+4. A `character-is-prisoner` active constraint is added to the prisoner.
+5. A `HazardHost` record is created in `state.hazardHosts`.
+
+Playability gate (checked in `combatHazardPermanentPlays`): the hazard
+player must have at least one matching rescue site in their location
+deck.
+
+The card must also carry `play-window { phase: "combat", step:
+"resolve-strike" }` and a `play-target` effect with a filter matching
+the attack's race (e.g. `{ "attack.race": "Spider" }`).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `rescueSiteTypes` | yes | Array of site type strings (e.g. `["ruins-and-lairs"]`). |
+| `rescueAttacks` | yes | Rescue-attack list (shape: `{ race, strikes, prowess }`). |
+| `autoRescue` | no | Auto-rescue spec: `{ bodyCheckModifier, autoRescueThreshold }`. |
+
+```json
+{
+  "type": "take-prisoner",
+  "rescueSiteTypes": ["ruins-and-lairs"],
+  "rescueAttacks": [{ "race": "Spider", "strikes": 3, "prowess": 9 }],
+  "autoRescue": { "bodyCheckModifier": 1, "autoRescueThreshold": 15 }
+}
+```
+
+Used by Flies and Spiders (dm-58).
+
+---
+
+### 44. `strike-shield`
+
+Forces the carrier to receive at least one strike before any strike
+may be assigned to its `controlling-character`. Enforced in
+`assignStrikeActions` (defender phase) in `legal-actions/combat.ts`.
+
+If `alwaysCountsAsUntapped` is true, the carrier is treated as untapped
+for strike assignment even when tapped or wounded, ensuring the shield
+is never bypassed by the ally's combat status.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `scope` | yes | `"controlling-character"` — the character controlling this ally. |
+| `alwaysCountsAsUntapped` | no | When true, the carrier is always assignable regardless of status. |
+
+```json
+{
+  "type": "strike-shield",
+  "scope": "controlling-character",
+  "alwaysCountsAsUntapped": true
+}
+```
+
+Used by Noble Hound (dm-179).
+
+---
+
+### 45. `cancel-prisoner-taking`
+
+When the bearer's controlling character would be taken prisoner, the
+player may discard this card to cancel that prisoner-taking outcome.
+The character is then resolved normally (wounded or tapped per combat
+result). Does not protect other characters in the company.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `scope` | yes | `"controlling-character"` or `"company"`. |
+
+```json
+{
+  "type": "cancel-prisoner-taking",
+  "scope": "controlling-character"
+}
+```
+
+Used by Noble Hound (dm-179).
