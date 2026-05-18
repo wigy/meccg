@@ -203,13 +203,16 @@ export interface CompanyModifierEffect extends EffectBase {
  * Modifies the enemy's stats during combat.
  *
  * Example: Éowyn halves (rounded up) a Nazgûl's body.
+ * Example: Wormsbane subtracts 2 from a Dragon/Drake's body.
  */
 export interface EnemyModifierEffect extends EffectBase {
   readonly type: 'enemy-modifier';
   /** Which enemy stat to modify. */
   readonly stat: 'prowess' | 'body';
-  /** The operation to apply (e.g. halve-round-up). */
-  readonly op: 'halve-round-up';
+  /** The operation to apply. */
+  readonly op: 'halve-round-up' | 'subtract';
+  /** Amount to subtract when op is 'subtract'. */
+  readonly value?: number;
 }
 
 /**
