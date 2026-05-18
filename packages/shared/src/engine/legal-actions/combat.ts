@@ -266,6 +266,24 @@ function assignStrikeActions(
       .filter(id => !assignedCharIds.has(id as string));
     const restrictToForced = unassignedForced.length > 0;
 
+    // Build a set of character IDs that are shielded by an ally with
+    // "must-take-strike-before-controller": the ally must take a strike before
+    // its controller. A shielded character is withheld from the strike menu
+    // while any eligible, unassigned shielding ally remains on it.
+    const shieldedCharIds = new Set<string>();
+    for (const { ally, hostCharId } of findCompanyAllies(player, company.characters)) {
+      if (assignedCharIds.has(ally.instanceId as string)) continue;
+      const allyPool = state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+      if (!hasPlayFlag(allyPool, 'must-take-strike-before-controller')) continue;
+      if (hasPlayFlag(allyPool, 'no-attack')) continue;
+      if (isAllyImmuneToSiteKeyedAttack(state, ally, combat)) continue;
+      // Ally is eligible if untapped or has "always-available-for-strike"
+      const alwaysAvailable = hasPlayFlag(allyPool, 'always-available-for-strike');
+      if (ally.status !== CardStatus.Untapped && !alwaysAvailable) continue;
+      shieldedCharIds.add(hostCharId as string);
+      logDetail(`Character ${hostCharId as string} is shielded by ally ${ally.instanceId as string} (must-take-strike-before-controller)`);
+    }
+
     // Offer untapped characters that don't already have a strike
     for (const charId of company.characters) {
       if (assignedCharIds.has(charId as string)) continue;
@@ -274,6 +292,11 @@ function assignStrikeActions(
       if (!charData) continue;
       if (charData.status !== CardStatus.Untapped) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
+        continue;
+      }
+      // Character is shielded by a "must-take-strike-before-controller" ally
+      if (shieldedCharIds.has(charId as string)) {
+        logDetail(`Character ${charId as string} is shielded — ally must receive a strike first`);
         continue;
       }
       if (combat.excludeAvatarStrikes) {
@@ -298,7 +321,8 @@ function assignStrikeActions(
     if (!restrictToForced) {
       for (const { ally } of findCompanyAllies(player, company.characters)) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
-        if (hasPlayFlag(state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+        const allyDef = state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+        if (hasPlayFlag(allyDef, 'no-attack')) {
           logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from defender strike assignment`);
           continue;
         }
@@ -306,11 +330,16 @@ function assignStrikeActions(
           logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from defender strike assignment`);
           continue;
         }
-        if (ally.status !== CardStatus.Untapped) {
+        // play-flag: "always-available-for-strike" — bypass tapped/wounded status check
+        const alwaysAvailableForStrike = hasPlayFlag(allyDef, 'always-available-for-strike');
+        if (ally.status !== CardStatus.Untapped && !alwaysAvailableForStrike) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
         }
-        logDetail(`Defender can assign strike to ally ${ally.instanceId as string} (untapped)`);
+        if (alwaysAvailableForStrike && ally.status !== CardStatus.Untapped) {
+          logDetail(`Ally ${ally.instanceId as string} is ${ally.status} but always-available-for-strike — including in assignment`);
+        }
+        logDetail(`Defender can assign strike to ally ${ally.instanceId as string}`);
         actions.push({
           action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
           viable: true,
@@ -361,7 +390,8 @@ function assignStrikeActions(
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
     for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
-      if (hasPlayFlag(state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+      const attackerAllyDef = state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+      if (hasPlayFlag(attackerAllyDef, 'no-attack')) {
         logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
         continue;
       }
@@ -369,7 +399,10 @@ function assignStrikeActions(
         logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from attacker assignment pool`);
         continue;
       }
-      allCombatantIds.push({ id: ally.instanceId, tapped: ally.status !== CardStatus.Untapped });
+      // play-flag: "always-available-for-strike" — treat ally as untapped for strike assignment
+      const allyAlwaysAvail = hasPlayFlag(attackerAllyDef, 'always-available-for-strike');
+      const allyTapped = allyAlwaysAvail ? false : ally.status !== CardStatus.Untapped;
+      allCombatantIds.push({ id: ally.instanceId, tapped: allyTapped });
     }
 
     const unassigned = allCombatantIds.filter(c => !assignedCharIds.has(c.id as string));

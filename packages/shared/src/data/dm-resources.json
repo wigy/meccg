@@ -229,6 +229,13 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      { "siteType": "border-hold" }
+    ],
+    "effects": [
+      { "type": "play-flag", "flag": "allow-when-site-tapped" },
+      { "type": "play-flag", "flag": "always-available-for-strike" },
+      { "type": "play-flag", "flag": "must-take-strike-before-controller" }
+    ]
   }
 ]

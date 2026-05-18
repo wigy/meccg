@@ -1124,7 +1124,9 @@ function playResourcesActions(
       const allyDef = def;
       evaluatedInstances.add(cardInstanceId as string);
 
-      if (siteIsTapped) {
+      // play-flag: "allow-when-site-tapped" — ally may be played even when site is tapped
+      const allowWhenTappedAlly = hasPlayFlag(allyDef, 'allow-when-site-tapped');
+      if (siteIsTapped && !allowWhenTappedAlly) {
         logDetail(`Ally ${allyDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1132,6 +1134,9 @@ function playResourcesActions(
           reason: `${allyDef.name}: site is already tapped`,
         });
         continue;
+      }
+      if (siteIsTapped && allowWhenTappedAlly) {
+        logDetail(`Ally ${allyDef.name}: site is tapped but allow-when-site-tapped flag present — proceeding`);
       }
 
       // Check ally is playable at this site

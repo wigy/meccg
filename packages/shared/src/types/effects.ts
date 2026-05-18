@@ -818,8 +818,25 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   automatic-attacks or hazard creatures whose `keyedTo` includes the
  *   site type of the company's current or destination site (e.g. Quickbeam,
  *   Treebeard).
+ * - `allow-when-site-tapped` — this ally may be played even when the current
+ *   site is tapped. Normally ally plays require an untapped site; this flag
+ *   bypasses that restriction. The site still taps when the ally resolves
+ *   (used by Noble Hound — "Playable at any tapped or untapped Border-hold").
+ * - `always-available-for-strike` — this ally may be assigned strikes
+ *   regardless of its current status (tapped or wounded). Normally only
+ *   untapped allies may receive strikes; this flag overrides that check
+ *   (used by Noble Hound — "If Noble Hound is tapped or wounded, treat it
+ *   as though it were untapped for the purposes of assigning strikes").
+ * - `must-take-strike-before-controller` — no strike may be assigned to
+ *   the controlling character until this ally has been assigned a strike
+ *   (or becomes ineligible to receive strikes). Implemented in the
+ *   defender strike-assignment loop: while an unassigned, eligible ally
+ *   with this flag exists on a character, that character is withheld from
+ *   the strike-assignment menu (used by Noble Hound — "Noble Hound must
+ *   be assigned a strike before any strike can be assigned to its
+ *   controlling character").
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'allow-when-site-tapped' | 'always-available-for-strike' | 'must-take-strike-before-controller';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

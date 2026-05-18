@@ -2567,4 +2567,52 @@ handles the `lucky-search-attack` source:
 }
 ```
 
+### Ally combat play-flags
+
+Three `play-flag` values that modify how an ally participates in combat or
+when it can be played. All three are declared on ally cards as
+`{ "type": "play-flag", "flag": "<value>" }` with no additional fields.
+
+- `allow-when-site-tapped` — this ally may be played during the site phase
+  even when the current site is already tapped. Normally ally plays require an
+  untapped site (the same gate that blocks item plays after the site is tapped);
+  this flag bypasses that check. The site still taps when the ally resolves.
+  Implemented in `engine/legal-actions/site.ts` (ally play step).
+  Used by *Noble Hound* (dm-179) — "Playable at any tapped or untapped
+  Border-hold."
+
+  ```json
+  { "type": "play-flag", "flag": "allow-when-site-tapped" }
+  ```
+
+- `always-available-for-strike` — this ally may be assigned strikes by both
+  the defending and attacking players regardless of its current status (tapped
+  or wounded). Normally only untapped allies appear in the strike-assignment
+  pool; this flag overrides that status check. The ally's status still affects
+  prowess (tapped −1, wounded −2) per the normal strike-resolution rules.
+  Implemented in `engine/legal-actions/combat.ts` (both defender-assigns and
+  attacker-assigns loops). Used by *Noble Hound* (dm-179) — "If Noble Hound is
+  tapped or wounded, treat it as though it were untapped for the purposes of
+  assigning strikes."
+
+  ```json
+  { "type": "play-flag", "flag": "always-available-for-strike" }
+  ```
+
+- `must-take-strike-before-controller` — the controlling character (the one
+  bearing this ally) may not be assigned a strike until this ally has already
+  been assigned one. While the ally is unassigned and eligible to receive a
+  strike (not in `assignedCharIds`, not `no-attack`, not immune, and either
+  untapped or carrying `always-available-for-strike`), the character is withheld
+  from the defender's strike-assignment menu. Once the ally is assigned, or
+  becomes ineligible (e.g. excluded by `no-attack` or immunity), the character
+  is offered normally. Implemented in `engine/legal-actions/combat.ts`
+  (defender-assigns loop, `shieldedCharIds` pre-computation).
+  Used by *Noble Hound* (dm-179) — "In all cases, Noble Hound must be assigned
+  a strike before any strike can be assigned to its controlling character."
+
+  ```json
+  { "type": "play-flag", "flag": "must-take-strike-before-controller" }
+  ```
+
 Used by Lucky Search (tw-269).
