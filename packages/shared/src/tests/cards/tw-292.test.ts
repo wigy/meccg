@@ -1,0 +1,308 @@
+/**
+ * @module tw-292.test
+ *
+ * Card test: New Friendship (tw-292)
+ * Type: hero-resource-event (short)
+ * Effects:
+ *   - play-target: character, filter diplomat
+ *   - play-option "influence-check-boost": when player.hasFactionInHand,
+ *     add-constraint check-modifier influence value 3
+ *   - play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
+ *     add-constraint check-modifier corruption value 2
+ *
+ * "Diplomat only. +3 to any one influence check by a diplomat. Alternatively,
+ *  +2 to a corruption check by a character in a diplomat's company."
+ *
+ * Engine support table:
+ * | # | Feature                                                          | Status          | Notes                                                  |
+ * |---|------------------------------------------------------------------|-----------------|--------------------------------------------------------|
+ * | 1 | "Diplomat only" — play-target filter diplomat skill              | IMPLEMENTED     | play-target filter target.skills diplomat              |
+ * | 2 | +3 influence check boost                                         | IMPLEMENTED     | play-option add-constraint check-modifier influence 3  |
+ * | 3 | +2 corruption check boost (diplomat's own check)                 | IMPLEMENTED     | play-option add-constraint check-modifier corruption 2 |
+ * | 4 | +2 to any company member's corruption check (broader rule)       | NOT IMPLEMENTED | DSL cannot express "character is in a diplomat's co."  |
+ *
+ * NOT CERTIFIED — rule 4 is unimplemented: the corruption option only fires
+ * when the play-target diplomat themselves has the pending check. The card text
+ * allows boosting any character in a diplomat's company, including non-diplomats.
+ * The DSL lacks a condition like "company.containsDiplomat" to express this.
+ * See as-90 (Join With That Power) for the same engine limitation.
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, Phase,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
+  MEN_OF_LEBENNIN,
+  handCardId, charIdAt, dispatch,
+  buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
+  expectInDiscardPile,
+} from '../test-helpers.js';
+import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import { addConstraint, enqueueResolution } from '../../engine/pending.js';
+
+const NEW_FRIENDSHIP = 'tw-292' as CardDefinitionId;
+
+describe('New Friendship (tw-292)', () => {
+  beforeEach(() => resetMint());
+
+  // ── influence-check-boost ─────────────────────────────────────────────────
+
+  test('influence-check-boost: offered when diplomat is present and faction is in hand', () => {
+    const state = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    expect(actions.some(a => a.optionId === 'influence-check-boost')).toBe(true);
+  });
+
+  test('influence-check-boost: NOT offered when no faction in hand', () => {
+    const state = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [NEW_FRIENDSHIP],
+    });
+
+    const viableActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(viableActions).toHaveLength(0);
+  });
+
+  test('influence-check-boost: NOT offered when no diplomat in company', () => {
+    // Aragorn is a warrior/scout/ranger but not a diplomat
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+    });
+
+    const viableActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(viableActions).toHaveLength(0);
+  });
+
+  test('influence-check-boost: playing adds +3 check-modifier influence constraint on the diplomat', () => {
+    const state = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+    });
+
+    const legolasId = charIdAt(state, RESOURCE_PLAYER);
+    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+
+    const after = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: legolasId,
+      optionId: 'influence-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(3);
+    }
+    expect(constraints[0].target.kind).toBe('character');
+    if (constraints[0].target.kind === 'character') {
+      expect(constraints[0].target.characterId).toBe(legolasId);
+    }
+    // Card consumed; faction card remains
+    expect(after.players[0].hand).toHaveLength(1);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+  });
+
+  test('influence-check-boost: active +3 constraint reduces influence-attempt need', () => {
+    // Legolas (DI 2, elf) at Pelargir; Men of Lebennin (inf# 8, no elf bonus).
+    // Baseline modifier = DI 2 → need = 8 - 2 = 6.
+    // With +3 constraint: modifier = 5 → need = 3.
+    const base = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [MEN_OF_LEBENNIN],
+    });
+
+    const legolasId = findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS);
+
+    const boosted = addConstraint(base, {
+      source: 'nf-1' as CardInstanceId,
+      sourceDefinitionId: NEW_FRIENDSHIP,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: legolasId },
+      kind: { type: 'check-modifier', check: 'influence', value: 3 },
+    });
+
+    const influenceActions = computeLegalActions(boosted, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const attempt = influenceActions[0].action as { need: number };
+    // Legolas DI 2, no racial modifier, +3 constraint → need = 8 - 2 - 3 = 3
+    expect(attempt.need).toBe(3);
+  });
+
+  // ── corruption-check-boost ────────────────────────────────────────────────
+
+  test('corruption-check-boost: offered when diplomat has a pending corruption check', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [NEW_FRIENDSHIP],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const legolasId = charIdAt(base, RESOURCE_PLAYER);
+
+    // No pending check → not offered
+    const noneActions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(noneActions).toHaveLength(0);
+
+    // Enqueue corruption check on Legolas → boost option appears
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: legolasId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const boostActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(boostActions.some(a => a.optionId === 'corruption-check-boost')).toBe(true);
+  });
+
+  test('corruption-check-boost: playing adds +2 check-modifier corruption constraint', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [NEW_FRIENDSHIP],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const legolasId = charIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: legolasId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const after = dispatch(withCheck, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: legolasId,
+      optionId: 'corruption-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(2);
+    }
+    // Card consumed; pending check still queued
+    expect(after.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+    expect(after.pendingResolutions).toHaveLength(1);
+    expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
+  });
+
+  test('corruption-check-boost: +2 constraint increases corruptionModifier in the roll action', () => {
+    // Legolas has no inherent corruption modifier, so baseline = 0.
+    // With +2 constraint the roll action should show corruptionModifier = 2.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const legolasId = charIdAt(base, RESOURCE_PLAYER);
+
+    const boosted = addConstraint(base, {
+      source: 'nf-1' as CardInstanceId,
+      sourceDefinitionId: NEW_FRIENDSHIP,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: legolasId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 2 },
+    });
+
+    const withCheck = enqueueResolution(boosted, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: legolasId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const checkActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(checkActions).toHaveLength(1);
+    const checkAction = checkActions[0].action as { corruptionModifier: number };
+    expect(checkAction.corruptionModifier).toBe(2);
+  });
+
+  // ── NOT IMPLEMENTED: broader corruption rule ──────────────────────────────
+
+  test.todo(
+    'corruption-check-boost: offered when a NON-diplomat character in a diplomat\'s company has a pending check ' +
+    '(requires DSL support for "target is in a company containing a diplomat")',
+  );
+});
