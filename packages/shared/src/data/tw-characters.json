@@ -1844,6 +1844,18 @@
     "directInfluence": 3,
     "marshallingPoints": 3,
     "marshallingCategory": "character",
-    "homesite": "Thranduil’s Halls"
+    "homesite": "Thranduil’s Halls",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Wood-elves"
+        }
+      }
+    ],
+    "certified": "2026-05-18"
   }
 ]
