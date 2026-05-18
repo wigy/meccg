@@ -800,5 +800,24 @@
     "killMarshallingPoints": 1,
     "race": "pûkel-creature",
     "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-39",
+    "name": "Giant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Giant.jpg",
+    "text": "Giant. One strike.",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "giant",
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "wilderness"]
+      }
+    ],
+    "certified": "2026-05-19"
   }
 ]

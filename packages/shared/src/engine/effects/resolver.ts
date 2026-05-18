@@ -712,6 +712,7 @@ const CREATURE_TYPE_TO_RACE: Record<string, string> = {
   spiders: 'spider',
   dragon: 'dragon',
   dragons: 'dragon',
+  giants: 'giant',
   hobbits: 'hobbit',
   'dúnedain': 'dunadan',
   elves: 'elf',
