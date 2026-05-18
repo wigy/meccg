@@ -226,6 +226,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Flattery attempt (td-116 Flatter a Foe): a resource short event has
+         * resolved against a creature attack. The defending player rolls 2d6;
+         * total = roll + unusedDI (+ diplomatBonus if the character is a diplomat).
+         * If total > threshold, the attack is cancelled and the hazard limit
+         * for the company is decreased by `hazardLimitReduction`.
+         */
+        readonly type: 'flattery-attempt';
+        /** The character making the flattery check. */
+        readonly characterInstanceId: CardInstanceId;
+        /** Race of the attacking creature. */
+        readonly creatureRace: string;
+        /** Roll + modifiers must exceed this for success. */
+        readonly threshold: number;
+        /** Bonus added when the character has the diplomat skill. */
+        readonly diplomatBonus: number;
+        /** Reduction to the company hazard limit on success. */
+        readonly hazardLimitReduction: number;
+      }
+    | {
+        /**
          * Seized by Terror roll: a hazard short event has resolved against a
          * character moving through Shadow-land or Dark-domain. The character's
          * player rolls 2d6 and adds the character's mind. If roll + mind < 12,

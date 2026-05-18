@@ -217,7 +217,20 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-05-18",
+    "effects": [
+      {
+        "type": "flattery-cancel-attack",
+        "diplomatBonus": 2,
+        "hazardLimitReduction": 2,
+        "thresholds": [
+          { "races": ["dragon"], "threshold": 10 },
+          { "races": ["men", "drake"], "threshold": 11 },
+          { "races": ["troll", "orc", "elves", "giants"], "threshold": 12 }
+        ]
+      }
+    ]
   },
   {
     "cardType": "hero-resource-faction",

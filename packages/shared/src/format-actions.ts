@@ -393,6 +393,8 @@ export function describeAction(
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     case 'muster-roll':
       return `Muster check for ${instName(action.factionInstanceId)}: need ${action.need}`;
+    case 'flattery-attempt':
+      return `Flattery attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'call-of-home-roll':
       return `Roll for Call of Home on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'seized-by-terror-roll':

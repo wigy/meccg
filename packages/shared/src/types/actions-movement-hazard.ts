@@ -520,6 +520,27 @@ export interface CallOfHomeRollAction {
 }
 
 /**
+ * Execute the dice roll for a flattery attempt (td-116 Flatter a Foe).
+ *
+ * Created by the pending-resolution system after Flatter a Foe's chain
+ * entry resolves. The defending player rolls 2d6; total = roll + unusedDI
+ * (+ diplomat bonus). If total > threshold, the attack is cancelled and
+ * the hazard limit decreases.
+ */
+export interface FlateryAttemptRollAction {
+  /** Action discriminant. */
+  readonly type: 'flattery-attempt';
+  /** The defending player (who rolls). */
+  readonly player: PlayerId;
+  /** The character making the flattery attempt. */
+  readonly characterInstanceId: CardInstanceId;
+  /** roll >= need means success (already accounts for DI and diplomat bonus). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
+
+/**
  * Execute the dice roll for a single body check queued by a
  * `mass-body-check` hazard effect (e.g. Veils Flung Away).
  *

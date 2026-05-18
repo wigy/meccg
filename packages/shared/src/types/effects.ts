@@ -1499,6 +1499,32 @@ export interface CancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Flattery attempt: the bearer's company is facing a creature attack and
+ * a character in the company makes an influence check to cancel the attack.
+ *
+ * Used by Flatter a Foe (td-116). The defending player selects a character
+ * to make the attempt; the roll is 2d6 + unused DI (+ diplomatBonus if the
+ * character has the diplomat skill). Success if total > threshold for the
+ * attacker's race. On success the attack is cancelled and the hazard limit
+ * is decreased by `hazardLimitReduction`.
+ */
+export interface FlatteryCancelAttackEffect extends EffectBase {
+  readonly type: 'flattery-cancel-attack';
+  /**
+   * Race-to-threshold mappings. The threshold for the facing creature's
+   * race is looked up at play time. Success requires roll > threshold.
+   */
+  readonly thresholds: ReadonlyArray<{
+    readonly races: ReadonlyArray<string>;
+    readonly threshold: number;
+  }>;
+  /** Bonus added to the roll when the making character has the diplomat skill. */
+  readonly diplomatBonus: number;
+  /** Amount to reduce the company's hazard limit on a successful attempt. */
+  readonly hazardLimitReduction: number;
+}
+
+/**
  * Wounds the character targeted by a {@link PlayTargetEffect} on the same
  * card, without requiring a body check. Applied after the attack is
  * cancelled. Used by Escape (tw-229): the targeted unwounded character is
@@ -2122,6 +2148,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | FlatteryCancelAttackEffect
   | CancelInfluenceEffect
   | DodgeStrikeEffect
   | ModifyStrikeEffect

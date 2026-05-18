@@ -22,7 +22,7 @@ import type {
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -34,6 +34,8 @@ import {
   executeDeferredSiteAction,
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
+import { availableDI } from './legal-actions/organization.js';
+import { resolveCancelAttackEntry } from './reducer-combat.js';
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -64,6 +66,8 @@ export function applyResolution(
       return applyFactionInfluenceRollResolution(state, action, top);
     case 'muster-roll':
       return applyMusterRollResolution(state, action, top);
+    case 'flattery-attempt':
+      return applyFlateryAttemptResolution(state, action, top);
     case 'call-of-home-roll':
       return applyCallOfHomeRollResolution(state, action, top);
     case 'seized-by-terror-roll':
@@ -734,6 +738,86 @@ function applyMusterRollResolution(
     state: postRoll,
     effects: [rollEffect],
   };
+}
+
+/**
+ * Resolve a queued `flattery-attempt` resolution (Flatter a Foe, td-116).
+ * The defending player rolls 2d6; total = roll + unusedDI + diplomatBonus (if
+ * the character has the diplomat skill). Success if total > threshold: cancel
+ * the current attack and decrease the company's hazard limit by
+ * `hazardLimitReduction`.
+ */
+function applyFlateryAttemptResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'flattery-attempt') {
+    return { state, error: `Pending flattery-attempt requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'flattery-attempt') return null;
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending flattery-attempt' };
+  }
+
+  const { characterInstanceId, creatureRace, threshold, diplomatBonus, hazardLimitReduction } = top.kind;
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[characterInstanceId as string];
+  if (!charInPlay) {
+    return { state, error: `Flattery-attempt: character ${characterInstanceId as string} not found` };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
+  const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
+  const bonus = isDiplomat ? diplomatBonus : 0;
+  const unusedDI = availableDI(state, characterInstanceId, player);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + unusedDI + bonus;
+  const success = total > threshold;
+
+  logDetail(`Flattery attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + DI ${unusedDI}${isDiplomat ? ` + diplomat ${bonus}` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Flattery attempt: ${charName} vs ${creatureRace}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
+
+  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  if (success) {
+    logDetail(`Flattery attempt succeeded: cancelling attack and reducing hazard limit by ${hazardLimitReduction}`);
+    postRoll = resolveCancelAttackEntry(postRoll);
+
+    // Decrease hazard limit snapshot if in the M/H phase
+    if (postRoll.phaseState.phase === Phase.MovementHazard) {
+      const mh = postRoll.phaseState;
+      const current = mh.hazardLimitAtReveal;
+      postRoll = {
+        ...postRoll,
+        phaseState: {
+          ...mh,
+          hazardLimitAtReveal: Math.max(0, current - hazardLimitReduction),
+        },
+      };
+      logDetail(`Flattery attempt: hazard limit reduced from ${current} to ${postRoll.phaseState.phase === Phase.MovementHazard ? (postRoll.phaseState).hazardLimitAtReveal : '?'}`);
+    }
+  } else {
+    logDetail(`Flattery attempt failed: combat continues`);
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**

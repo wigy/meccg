@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
@@ -1273,6 +1273,46 @@ function cancelAttackActions(
           viable: true,
         });
       }
+    }
+  }
+
+  // Flattery-cancel-attack: hand cards with a `flattery-cancel-attack` effect
+  // (e.g. Flatter a Foe). Only offered when the attacking creature's race has
+  // a threshold entry in the effect. One `cancel-attack` action is emitted per
+  // character in the defending company (the player selects who makes the attempt).
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const flatEffect = cardWithEffects.effects.find(
+      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
+    );
+    if (!flatEffect) continue;
+
+    if (!combat.creatureRace) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: no creature race — skipping`);
+      continue;
+    }
+    const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    if (!matchedEntry) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      continue;
+    }
+
+    // One action per character in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
     }
   }
 
