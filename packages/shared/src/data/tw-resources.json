@@ -1411,12 +1411,12 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "diplomat" } }
+        "filter": { "company.containsDiplomat": true }
       },
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": { "$and": [{ "target.skills": { "$includes": "diplomat" } }, { "player.hasFactionInHand": true }] },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1437,7 +1437,8 @@
           "value": 2
         }
       }
-    ]
+    ],
+    "certified": "2026-05-18"
   },
   {
     "cardType": "hero-resource-ally",

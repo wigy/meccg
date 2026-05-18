@@ -4,8 +4,8 @@
  * Card test: New Friendship (tw-292)
  * Type: hero-resource-event (short)
  * Effects:
- *   - play-target: character, filter diplomat
- *   - play-option "influence-check-boost": when player.hasFactionInHand,
+ *   - play-target: character, filter company.containsDiplomat
+ *   - play-option "influence-check-boost": when target is diplomat AND player.hasFactionInHand,
  *     add-constraint check-modifier influence value 3
  *   - play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
  *     add-constraint check-modifier corruption value 2
@@ -14,18 +14,12 @@
  *  +2 to a corruption check by a character in a diplomat's company."
  *
  * Engine support table:
- * | # | Feature                                                          | Status          | Notes                                                  |
- * |---|------------------------------------------------------------------|-----------------|--------------------------------------------------------|
- * | 1 | "Diplomat only" — play-target filter diplomat skill              | IMPLEMENTED     | play-target filter target.skills diplomat              |
- * | 2 | +3 influence check boost                                         | IMPLEMENTED     | play-option add-constraint check-modifier influence 3  |
- * | 3 | +2 corruption check boost (diplomat's own check)                 | IMPLEMENTED     | play-option add-constraint check-modifier corruption 2 |
- * | 4 | +2 to any company member's corruption check (broader rule)       | NOT IMPLEMENTED | DSL cannot express "character is in a diplomat's co."  |
- *
- * NOT CERTIFIED — rule 4 is unimplemented: the corruption option only fires
- * when the play-target diplomat themselves has the pending check. The card text
- * allows boosting any character in a diplomat's company, including non-diplomats.
- * The DSL lacks a condition like "company.containsDiplomat" to express this.
- * See as-90 (Join With That Power) for the same engine limitation.
+ * | # | Feature                                                          | Status      | Notes                                                           |
+ * |---|------------------------------------------------------------------|-------------|-----------------------------------------------------------------|
+ * | 1 | "Diplomat only" — play-target: company must contain a diplomat   | IMPLEMENTED | play-target filter company.containsDiplomat                     |
+ * | 2 | +3 influence check boost (diplomat target, faction in hand)      | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand      |
+ * | 3 | +2 corruption check boost for diplomat themselves                | IMPLEMENTED | play-option when pending.corruptionCheckTargetsMe               |
+ * | 4 | +2 to any company member's corruption check (non-diplomat too)   | IMPLEMENTED | company.containsDiplomat in context; play-target relaxed        |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -299,10 +293,57 @@ describe('New Friendship (tw-292)', () => {
     expect(checkAction.corruptionModifier).toBe(2);
   });
 
-  // ── NOT IMPLEMENTED: broader corruption rule ──────────────────────────────
+  // ── broader corruption rule: non-diplomat in diplomat's company ──────────
 
-  test.todo(
-    'corruption-check-boost: offered when a NON-diplomat character in a diplomat\'s company has a pending check ' +
-    '(requires DSL support for "target is in a company containing a diplomat")',
-  );
+  test('corruption-check-boost: offered targeting non-diplomat when diplomat is in the same company', () => {
+    // Company: Legolas (diplomat) + Aragorn (non-diplomat).
+    // Corruption check is on Aragorn. New Friendship should offer
+    // corruption-check-boost targeting Aragorn, because Aragorn is in
+    // a company that contains a diplomat (Legolas).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS, ARAGORN] }],
+          hand: [NEW_FRIENDSHIP],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const boostActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    // corruption-check-boost offered targeting Aragorn (non-diplomat in diplomat company)
+    const aragornCorruption = boostActions.filter(
+      a => a.optionId === 'corruption-check-boost' && a.targetCharacterId === aragornId,
+    );
+    expect(aragornCorruption).toHaveLength(1);
+
+    // influence-check-boost NOT offered targeting Aragorn (not a diplomat)
+    const aragornInfluence = boostActions.filter(
+      a => a.optionId === 'influence-check-boost' && a.targetCharacterId === aragornId,
+    );
+    expect(aragornInfluence).toHaveLength(0);
+  });
 });

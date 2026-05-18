@@ -1024,6 +1024,10 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
+ *  - `company.containsDiplomat` — `true` iff the character's company
+ *    contains at least one character with the `diplomat` skill.
+ *    Enables cards like New Friendship to offer a corruption-check boost
+ *    to any character in a diplomat's company, not just the diplomat.
  *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
  *    corruption-check resolution exists whose `characterId` matches
  *    the candidate. Enables reactive plays like Halfling Strength's
@@ -1051,6 +1055,7 @@ export function buildPlayOptionContext(
   let inAvatarCompany = false;
   let hasFactionInHand = false;
   let companySiteType: string | null = null;
+  let containsDiplomat = false;
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -1065,6 +1070,14 @@ export function buildPlayOptionContext(
       const siteDef = state.cardPool[charCompany.currentSite.definitionId as string];
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
     }
+    if (charCompany) {
+      containsDiplomat = charCompany.characters.some(memberId => {
+        const memberChar = player.characters[memberId as string];
+        if (!memberChar) return false;
+        const memberDef = state.cardPool[memberChar.definitionId as string];
+        return isCharacterCard(memberDef) && (memberDef.skills as readonly string[] ?? []).includes('diplomat');
+      });
+    }
   }
   return {
     target: {
@@ -1077,6 +1090,7 @@ export function buildPlayOptionContext(
     },
     company: {
       siteType: companySiteType,
+      containsDiplomat,
     },
     pending: {
       corruptionCheckTargetsMe,
