@@ -27,12 +27,12 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE, Skill } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext } from './organization.js';
+import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -67,6 +67,8 @@ export function resolutionLegalActions(
       return factionInfluenceRollActions(state, actor, top);
     case 'muster-roll':
       return musterRollActions(state, actor, top);
+    case 'flattery-attempt':
+      return flateryAttemptRollActions(state, actor, top);
     case 'call-of-home-roll':
       return callOfHomeRollActions(state, actor, top);
     case 'seized-by-terror-roll':
@@ -430,6 +432,56 @@ function musterRollActions(
       factionInstanceId,
       need,
       explanation: `Muster check for ${def.name}: roll + unused GI (${unusedGI}) must be >= ${threshold} (need roll >= ${need})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single flattery-attempt action for a queued `flattery-attempt`
+ * resolution. The defending player rolls 2d6; total = roll + unused DI
+ * (+ diplomatBonus if the character has the diplomat skill). Success if
+ * total > threshold (the roll threshold varies by creature race).
+ */
+function flateryAttemptRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'flattery-attempt') return [];
+  const { characterInstanceId, creatureRace, threshold, diplomatBonus } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[characterInstanceId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
+  const bonus = isDiplomat ? diplomatBonus : 0;
+  const unusedDI = availableDI(state, characterInstanceId, player);
+  const totalModifier = unusedDI + bonus;
+
+  // Success requires: roll + unusedDI + bonus > threshold, i.e. roll > threshold - totalModifier
+  // need = threshold - totalModifier + 1 (roll >= need means success)
+  const need = threshold - totalModifier + 1;
+
+  const parts: string[] = [`threshold ${threshold}`, `unused DI ${unusedDI}`];
+  if (isDiplomat) parts.push(`+${diplomatBonus} diplomat`);
+  parts.push(`→ need roll >= ${need}`);
+
+  logDetail(`Pending flattery-attempt by ${charName} vs "${creatureRace}": ${parts.join(', ')}`);
+
+  return [{
+    action: {
+      type: 'flattery-attempt' as const,
+      player: playerId,
+      characterInstanceId,
+      need,
+      explanation: `${charName} flattery vs ${creatureRace}: ${parts.join(', ')}`,
     },
     viable: true,
   }];
