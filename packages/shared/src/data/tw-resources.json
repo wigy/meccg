@@ -1291,7 +1291,8 @@
         "strikes": 1,
         "uncancelable": true
       }
-    ]
+    ],
+    "certified": "2026-05-15"
   },
   {
     "cardType": "hero-resource-faction",
