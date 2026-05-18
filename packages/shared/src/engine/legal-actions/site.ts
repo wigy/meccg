@@ -23,14 +23,19 @@ import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
- * Matches by exact site name (`site`) or by site type (`siteType`),
- * plus an optional `when` condition evaluated against a site context
- * exposing `site.name`, `site.siteType`, and `site.autoAttack.race`
- * (the array of normalized races across the site's automatic-attacks,
- * e.g. `["wolf", "troll"]`). Enables DSL entries like
- * `{ "siteType": "ruins-and-lairs", "when": { "site.autoAttack.race": "wolf" } }`.
+ * Matches by exact site name (`site`), site type (`siteType`), or region
+ * name (`region`). The `region` variant matches any non-haven site in the
+ * named region (haven sites are never valid for region-keyed allies like
+ * Noble Steed). An optional `when` condition on `site`/`siteType` entries
+ * is evaluated against a context exposing `site.name`, `site.siteType`,
+ * and `site.autoAttack.race`.
  */
 function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
+  if ('region' in entry) {
+    // Region entries match any non-haven site in the named region.
+    if (siteDef.siteType === 'haven') return false;
+    return siteDef.region === entry.region;
+  }
   const baseMatches = 'site' in entry
     ? siteDef.name === entry.site
     : siteDef.siteType === entry.siteType;
@@ -1124,7 +1129,7 @@ function playResourcesActions(
       const allyDef = def;
       evaluatedInstances.add(cardInstanceId as string);
 
-      if (siteIsTapped) {
+      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
         logDetail(`Ally ${allyDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1137,7 +1142,7 @@ function playResourcesActions(
       // Check ally is playable at this site
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       if (!siteDefForAlly || !allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry))) {
-        const allowedSites = allyDef.playableAt.map(e => 'site' in e ? e.site : e.siteType).join(', ');
+        const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1215,7 +1220,7 @@ function playResourcesActions(
       // Check faction is playable at this site
       const siteDefForFaction = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry))) {
-        const allowedSites = factionDef.playableAt.map(e => 'site' in e ? e.site : e.siteType).join(', ');
+        const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },

@@ -818,8 +818,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   automatic-attacks or hazard creatures whose `keyedTo` includes the
  *   site type of the company's current or destination site (e.g. Quickbeam,
  *   Treebeard).
+ * - `playable-at-tapped-site` — the ally may be played at a site that is
+ *   already tapped (overrides the default "allies require untapped site" rule).
+ *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
+ *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1499,6 +1503,32 @@ export interface CancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Flattery attempt: the bearer's company is facing a creature attack and
+ * a character in the company makes an influence check to cancel the attack.
+ *
+ * Used by Flatter a Foe (td-116). The defending player selects a character
+ * to make the attempt; the roll is 2d6 + unused DI (+ diplomatBonus if the
+ * character has the diplomat skill). Success if total > threshold for the
+ * attacker's race. On success the attack is cancelled and the hazard limit
+ * is decreased by `hazardLimitReduction`.
+ */
+export interface FlatteryCancelAttackEffect extends EffectBase {
+  readonly type: 'flattery-cancel-attack';
+  /**
+   * Race-to-threshold mappings. The threshold for the facing creature's
+   * race is looked up at play time. Success requires roll > threshold.
+   */
+  readonly thresholds: ReadonlyArray<{
+    readonly races: ReadonlyArray<string>;
+    readonly threshold: number;
+  }>;
+  /** Bonus added to the roll when the making character has the diplomat skill. */
+  readonly diplomatBonus: number;
+  /** Amount to reduce the company's hazard limit on a successful attempt. */
+  readonly hazardLimitReduction: number;
+}
+
+/**
  * Wounds the character targeted by a {@link PlayTargetEffect} on the same
  * card, without requiring a body check. Applied after the attack is
  * cancelled. Used by Escape (tw-229): the targeted unwounded character is
@@ -2122,6 +2152,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | FlatteryCancelAttackEffect
   | CancelInfluenceEffect
   | DodgeStrikeEffect
   | ModifyStrikeEffect
@@ -2169,4 +2200,28 @@ export type CardEffect =
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
-  | PermanentEventAutoAttackEffect;
+  | PermanentEventAutoAttackEffect
+  | PassiveMovementBonusEffect;
+
+/**
+ * Passive movement bonus carried by an ally: when every character in the
+ * bearer's company controls an ally whose name is in {@link allyNames}, the
+ * company may move up to {@link value} additional regions this turn.
+ *
+ * The bonus is applied once per company regardless of how many qualifying
+ * allies are present. The engine evaluates this at movement-plan time in
+ * `organization-companies.ts`.
+ *
+ * Used by Noble Steed: +2 regions when each character has Noble Steed,
+ * Bill the Pony, or Shadowfax.
+ */
+export interface PassiveMovementBonusEffect extends EffectBase {
+  readonly type: 'passive-movement-bonus';
+  /** Additional region distance granted when the condition is met. */
+  readonly value: number;
+  /**
+   * Each character in the company must control at least one ally whose card
+   * name appears in this list for the bonus to apply.
+   */
+  readonly allyNames: readonly string[];
+}

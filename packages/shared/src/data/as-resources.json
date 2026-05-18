@@ -155,9 +155,16 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      { "site": "Easterling Camp" }
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": -5, "when": { "bearer.race": "wizard" } },
+      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "dunadan" } }
+    ],
+    "certified": "2026-05-18"
   },
   {
     "cardType": "minion-resource-faction",

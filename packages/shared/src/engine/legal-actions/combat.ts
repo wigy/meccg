@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
@@ -752,13 +752,25 @@ function resolveStrikeActions(
     }
   }
 
-  // Cancel-strike: scan items attached to the struck character for cancel-strike
-  // effects with `cost: { tap: "self" }` and `target` absent or "self" (item
-  // taps to protect its bearer — e.g. Enruned Shield's Warrior-only tap).
+  // Cancel-strike: scan items and allies attached to the struck character for
+  // cancel-strike effects with `cost: { tap: "self" }` and `target` absent or
+  // "self" (item/ally taps to protect its bearer — e.g. Enruned Shield's
+  // Warrior-only tap, or Noble Steed's "not from an automatic-attack" cancel).
   if (charData && charDef && isCharacterCard(charDef)) {
     const bearerSkills = charDef.skills ?? [];
     const bearerRace = charDef.race;
     const bearerName = charDef.name;
+
+    // Build the cancel-strike condition context once (shared by item and ally scans).
+    const buildCancelCtx = (): Record<string, unknown> => {
+      const ctx: Record<string, unknown> = {
+        bearer: { skills: bearerSkills, race: bearerRace, name: bearerName },
+        attack: { source: combat.attackSource.type },
+      };
+      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      return ctx;
+    };
+
     for (const item of charData.items) {
       if (item.status !== CardStatus.Untapped) continue;
       const itemDef = state.cardPool[item.definitionId as string];
@@ -772,16 +784,9 @@ function resolveStrikeActions(
 
         const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
 
-        // Evaluate `when` against a context carrying bearer + enemy facts.
-        if (csEff.when) {
-          const ctx: Record<string, unknown> = {
-            bearer: { skills: bearerSkills, race: bearerRace, name: bearerName },
-          };
-          if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
-          if (!matchesCondition(csEff.when, ctx)) {
-            logDetail(`Cancel-strike ${itemName}: when condition not met for bearer ${bearerName}`);
-            continue;
-          }
+        if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
+          logDetail(`Cancel-strike ${itemName}: when condition not met for bearer ${bearerName}`);
+          continue;
         }
 
         logDetail(`Cancel-strike available: ${itemName} can tap to cancel strike against ${charName}`);
@@ -790,6 +795,38 @@ function resolveStrikeActions(
             type: 'cancel-strike',
             player: playerId,
             cancellerInstanceId: item.instanceId,
+            targetCharacterId: currentStrike.characterId,
+          },
+          viable: true,
+        });
+      }
+    }
+
+    // Also scan allies on the bearer for cancel-strike effects (e.g. Noble Steed).
+    for (const ally of charData.allies) {
+      if (ally.status !== CardStatus.Untapped) continue;
+      const allyDef = state.cardPool[ally.definitionId as string];
+      if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
+
+      for (const eff of allyDef.effects) {
+        if (eff.type !== 'cancel-strike') continue;
+        const csEff = eff;
+        if (csEff.cost?.tap !== 'self') continue;
+        if (csEff.target && csEff.target !== 'self') continue;
+
+        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
+
+        if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
+          logDetail(`Cancel-strike ${allyName}: when condition not met for bearer ${bearerName}`);
+          continue;
+        }
+
+        logDetail(`Cancel-strike available: ${allyName} can tap to cancel strike against ${charName}`);
+        actions.push({
+          action: {
+            type: 'cancel-strike',
+            player: playerId,
+            cancellerInstanceId: ally.instanceId,
             targetCharacterId: currentStrike.characterId,
           },
           viable: true,
@@ -1273,6 +1310,46 @@ function cancelAttackActions(
           viable: true,
         });
       }
+    }
+  }
+
+  // Flattery-cancel-attack: hand cards with a `flattery-cancel-attack` effect
+  // (e.g. Flatter a Foe). Only offered when the attacking creature's race has
+  // a threshold entry in the effect. One `cancel-attack` action is emitted per
+  // character in the defending company (the player selects who makes the attempt).
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const flatEffect = cardWithEffects.effects.find(
+      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
+    );
+    if (!flatEffect) continue;
+
+    if (!combat.creatureRace) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: no creature race — skipping`);
+      continue;
+    }
+    const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    if (!matchedEntry) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      continue;
+    }
+
+    // One action per character in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
     }
   }
 

@@ -35,15 +35,21 @@ export interface PlayableAtSiteType {
   readonly when?: Condition;
 }
 
+/** Any non-haven site located in a named region (e.g. "Rohan"). */
+export interface PlayableAtRegion {
+  readonly region: string;
+}
+
 /**
  * Describes a location where an ally or faction can be played.
  *
  * Most allies and factions are playable at a single named site, but
- * future cards may allow play at any site of a given type.
+ * some allow play at any site of a given type or in a named region
+ * (e.g. Noble Steed, playable at any non-Haven site in Rohan, etc.).
  * Entries may carry an optional `when` condition for extra constraints
  * (e.g. "Ruins & Lairs with a Wolf automatic-attack").
  */
-export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType;
+export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRegion;
 
 // ---- Item subtype ----
 

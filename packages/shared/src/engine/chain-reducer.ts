@@ -14,7 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1651,6 +1651,48 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and queue the pending effects so the player can pick cards to fetch.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = queueFetchToDecEffects(current, entry);
+  }
+
+  // Flattery-cancel-attack (e.g. Flatter a Foe): when the chain entry resolves
+  // un-negated, create a flattery-attempt pending resolution for the defending
+  // player to roll 2d6. The roll determines whether the attack is cancelled and
+  // the hazard limit reduced. Do NOT immediately cancel the attack here.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.combat) {
+    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const flatEffect = cardDef && 'effects' in cardDef
+      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
+      )
+      : undefined;
+    if (flatEffect) {
+      const creatureRace = current.combat.creatureRace ?? '';
+      const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(creatureRace));
+      if (matchedEntry) {
+        const defPlayerId = current.combat.defendingPlayerId;
+        const companyId = current.combat.companyId;
+        const phaseState = current.phaseState;
+        const scopeKind = phaseState.phase === Phase.Site ? 'company-site-subphase' as const : 'company-mh-subphase' as const;
+        logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: defPlayerId,
+          scope: { kind: scopeKind, companyId },
+          kind: {
+            type: 'flattery-attempt',
+            characterInstanceId: entry.payload.targetCharacterId,
+            creatureRace,
+            threshold: matchedEntry.threshold,
+            diplomatBonus: flatEffect.diplomatBonus,
+            hazardLimitReduction: flatEffect.hazardLimitReduction,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
   }
 
   // Short events that cancel the current attack (e.g. Concealment, Dark
