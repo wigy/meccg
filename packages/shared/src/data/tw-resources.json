@@ -569,6 +569,34 @@
     "text": "Hobbit only. The Hobbit may untap or he may move from wounded status to well and untapped during his organization phase or he may receive a +4 modification to one corruption check."
   },
   {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-257",
+    "name": "Hillmen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hillmen.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Cameth Brin"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Cameth Brin if the influence check is greater than 9. Standard Modifications: Men (+1)."
+  },
+  {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
     "id": "tw-190",
