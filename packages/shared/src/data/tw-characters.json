@@ -1591,7 +1591,19 @@
     "directInfluence": 1,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Cameth Brin"
+    "homesite": "Cameth Brin",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Hillmen"
+        }
+      }
+    ],
+    "certified": "2026-05-18"
   },
   {
     "cardType": "hero-character",
