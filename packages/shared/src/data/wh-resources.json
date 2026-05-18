@@ -112,6 +112,30 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      { "region": "Rohan" },
+      { "region": "Southern Rhovanion" },
+      { "region": "Khand" },
+      { "region": "Dorwinion" },
+      { "region": "Horse Plains" },
+      { "region": "Harondor" }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "passive-movement-bonus",
+        "value": 2,
+        "allyNames": ["Noble Steed", "Bill the Pony", "Shadowfax"]
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": { "$not": { "attack.source": { "$in": ["automatic-attack", "played-auto-attack"] } } }
+      }
+    ],
+    "certified": "2026-05-18"
   }
 ]

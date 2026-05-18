@@ -13,6 +13,8 @@ import type {
   CardInstanceId,
   GameAction,
   SiteCard,
+  PlayerState,
+  CardEffect,
 } from '../../index.js';
 import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
 import { logDetail } from './log.js';
@@ -90,6 +92,55 @@ function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, cand
     }
   }
   return results;
+}
+
+/**
+ * Returns the total passive movement bonus (extra regions) granted to a company
+ * by allies carrying a `passive-movement-bonus` effect whose condition is met.
+ *
+ * The bonus applies when every character in the company has at least one ally
+ * whose name is in the effect's `allyNames` list. Duplicate effects (same value
+ * + same allyNames) are de-duplicated; the result is the max unique bonus found.
+ */
+function collectPassiveMovementBonus(
+  state: GameState,
+  characterIds: readonly CardInstanceId[],
+  player: PlayerState,
+): number {
+  const seenKeys = new Set<string>();
+  let bonus = 0;
+
+  for (const charId of characterIds) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+
+    for (const ally of char.allies) {
+      const allyDef = state.cardPool[ally.definitionId as string] as { effects?: readonly CardEffect[] } | undefined;
+      if (!allyDef?.effects) continue;
+
+      for (const eff of allyDef.effects) {
+        if (eff.type !== 'passive-movement-bonus') continue;
+        const key = `${eff.value}:${eff.allyNames.slice().sort().join(',')}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        const allQualify = characterIds.every(cId => {
+          const c = player.characters[cId as string];
+          return c?.allies.some(a => {
+            const aDef = state.cardPool[a.definitionId as string] as { name?: string } | undefined;
+            return aDef?.name !== undefined && eff.allyNames.includes(aDef.name);
+          });
+        });
+
+        if (allQualify) {
+          logDetail(`Passive movement bonus +${eff.value} regions: all company characters have a qualifying ally`);
+          bonus = Math.max(bonus, eff.value);
+        }
+      }
+    }
+  }
+
+  return bonus;
 }
 
 /**
@@ -197,7 +248,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
-    const effectiveMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
+    const effectiveMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0) + collectPassiveMovementBonus(state, company.characters, player);
     const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
     // regular starter/region movement. When already at an under-deeps site, regular movement
