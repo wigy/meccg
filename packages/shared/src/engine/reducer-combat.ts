@@ -5,11 +5,11 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
@@ -498,6 +498,14 @@ function resolveStrikeCore(
     bodyCheckTarget = null;
   }
 
+  // take-prisoner (e.g. Flies and Spiders dm-58): if the strike succeeds
+  // against a character (not an ally) who has a hazard with a take-prisoner
+  // effect, the character is taken prisoner instead of wounded.
+  // Rule 8.35: allies cannot be taken prisoner — this only fires for characters.
+  const takePrisonerResult = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && charData
+    ? findTakePrisonerHazard(state, defPlayerIndex, charData.hazards)
+    : null;
+
   // Whether the combatant taps on a non-wounded outcome:
   //  - tap:    always (success or tie)
   //  - reroll: always (same as tap)
@@ -547,27 +555,49 @@ function resolveStrikeCore(
       newCharacters[allyMatch.hostCharId as string] = { ...hostChar, allies: newAllies };
     }
   } else {
-    if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
-      newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
-    }
-    if (result === 'wounded' && !combat.detainment) {
-      newCharacters[strike.characterId as string] = {
-        ...(newCharacters[strike.characterId as string] ?? charData),
-        status: CardStatus.Inverted,
-      };
-    } else if (result === 'wounded' && combat.detainment) {
-      newCharacters[strike.characterId as string] = {
-        ...(newCharacters[strike.characterId as string] ?? charData),
-        status: CardStatus.Tapped,
-      };
+    if (takePrisonerResult) {
+      // take-prisoner: character is not wounded; instead they become a prisoner.
+      // Status stays as-is (not tapped, not wounded). Rule 8.35.
+      logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${takePrisonerResult.hostCard.instanceId as string}`);
+    } else {
+      if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
+        newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
+      }
+      if (result === 'wounded' && !combat.detainment) {
+        newCharacters[strike.characterId as string] = {
+          ...(newCharacters[strike.characterId as string] ?? charData),
+          status: CardStatus.Inverted,
+        };
+      } else if (result === 'wounded' && combat.detainment) {
+        newCharacters[strike.characterId as string] = {
+          ...(newCharacters[strike.characterId as string] ?? charData),
+          status: CardStatus.Tapped,
+        };
+      }
     }
   }
   newPlayers[defPlayerIndex] = { ...workingDefender, characters: newCharacters, lastDiceRoll: roll };
+
+  // Apply prisoner-taking: discard non-ring items, revert followers to GI,
+  // add character-is-prisoner constraint, create HazardHost record.
+  let postPrisonerState: GameState = { ...state, players: newPlayers, rng, cheatRollTotal };
+
+  if (takePrisonerResult && charData) {
+    postPrisonerState = applyTakePrisoner(
+      postPrisonerState,
+      defPlayerIndex,
+      strike.characterId,
+      takePrisonerResult,
+    );
+    // Override result and bodyCheckTarget: prisoner-taking skips wound/body-check
+    bodyCheckTarget = null;
+  }
 
   // Advance combat: body check, next strike, or finalize
   let newCombat: CombatState;
   if (bodyCheckTarget) {
     newCombat = { ...combat, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
+    return { state: { ...postPrisonerState, combat: newCombat }, effects };
   } else {
     const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
 
@@ -582,20 +612,20 @@ function resolveStrikeCore(
       if (allItems.length > 0) {
         logDetail(`Entering discard-item-from-company phase: ${allItems.length} item(s) available`);
         newCombat = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
-        return { state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat }, effects };
+        return { state: { ...postPrisonerState, combat: newCombat }, effects };
       }
       logDetail('An Article Missing: no items in company — discard-item effect skipped');
     }
 
     const next = nextStrikePhase(combatWithAssignments);
     if (!next) {
-      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: combatWithAssignments }, effects);
+      return finalizeCombat({ ...postPrisonerState, combat: combatWithAssignments }, effects);
     }
     newCombat = { ...combatWithAssignments, ...next };
   }
 
   return {
-    state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat },
+    state: { ...postPrisonerState, combat: newCombat },
     effects,
   };
 }
@@ -2880,4 +2910,145 @@ function handleCombatPlayHazard(
   }
 
   return { state: newState };
+}
+
+// ---- Prisoner-taking helpers (Rule 8.35) ----
+
+/**
+ * Search `hazards` for a hazard card that carries a `take-prisoner` effect.
+ * Returns the host card instance and the effect, or null if not found.
+ */
+function findTakePrisonerHazard(
+  state: GameState,
+  _defPlayerIndex: number,
+  hazards: readonly import('../types/state-cards.js').CardInPlay[],
+): { hostCard: import('../types/state-cards.js').CardInstance; effect: TakePrisonerEffect } | null {
+  for (const h of hazards) {
+    const def = state.cardPool[h.definitionId as string];
+    if (!def || !('effects' in def) || !def.effects) continue;
+    const eff = (def.effects).find(
+      (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
+    );
+    if (eff) return { hostCard: { instanceId: h.instanceId, definitionId: h.definitionId }, effect: eff };
+  }
+  return null;
+}
+
+/**
+ * Apply the prisoner-taking outcome for a character (CoE rule 8.35):
+ *
+ * 1. Draw the rescue site card from the hazard player's location deck
+ *    (first matching site type found).
+ * 2. Discard all non-ring items from the prisoner immediately.
+ * 3. Revert followers to general influence (mind subtraction deferred
+ *    to the next org phase — tracked by the constraint).
+ * 4. Add `character-is-prisoner` active constraint on the character.
+ * 5. Add the HazardHost record to `state.hazardHosts`.
+ * 6. Remove the host card from the character's `hazards` list
+ *    (it now lives in the HazardHost record).
+ */
+function applyTakePrisoner(
+  state: GameState,
+  defPlayerIndex: number,
+  charInstanceId: CardInstanceId,
+  takePrisonerResult: { hostCard: import('../types/state-cards.js').CardInstance; effect: TakePrisonerEffect },
+): GameState {
+  const { hostCard, effect } = takePrisonerResult;
+  const hazardPlayerIndex = 1 - defPlayerIndex;
+  const hazardPlayer = state.players[hazardPlayerIndex];
+
+  // Find the rescue site card in the hazard player's location deck.
+  const rescueSiteIdx = hazardPlayer.siteDeck.findIndex(site => {
+    const siteDef = state.cardPool[site.definitionId as string];
+    if (!siteDef || !('siteType' in siteDef)) return false;
+    return effect.rescueSiteTypes.includes((siteDef as { siteType: string }).siteType);
+  });
+  if (rescueSiteIdx === -1) {
+    // No rescue site available — this shouldn't happen if legal-action checks passed,
+    // but handle gracefully by skipping prisoner-taking.
+    logDetail(`take-prisoner: no rescue site found in hazard player's location deck — skipping`);
+    return state;
+  }
+
+  const rescueSiteCard = hazardPlayer.siteDeck[rescueSiteIdx];
+  logDetail(`take-prisoner: rescue site is ${rescueSiteCard.definitionId as string} (drawn from hazard player's location deck)`);
+
+  // Remove rescue site from hazard player's location deck.
+  const newHazardSiteDeck = [
+    ...hazardPlayer.siteDeck.slice(0, rescueSiteIdx),
+    ...hazardPlayer.siteDeck.slice(rescueSiteIdx + 1),
+  ];
+
+  const defPlayer = state.players[defPlayerIndex];
+  const charData = defPlayer.characters[charInstanceId as string];
+  if (!charData) return state;
+
+  // Discard all non-ring items from the prisoner (rule 8.35).
+  const retainedItems = charData.items.filter(item => {
+    const itemDef = state.cardPool[item.definitionId as string];
+    return itemDef && 'cardType' in itemDef
+      && typeof (itemDef as { cardType: string }).cardType === 'string'
+      && (itemDef as { cardType: string }).cardType.includes('ring-item');
+  });
+  const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
+  if (discardedItems.length > 0) {
+    logDetail(`take-prisoner: discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
+  }
+
+  // Remove host card from the character's hazards list (it moves to HazardHost record).
+  const updatedHazards = charData.hazards.filter(h => h.instanceId !== hostCard.instanceId);
+
+  // Revert followers to general influence (rule 8.35).
+  // Followers are referenced by CardInstanceId in charData.followers; their
+  // controlledBy is updated on their own CharacterInPlay entries.
+  const followerIds = charData.followers;
+
+  // Update the prisoner character.
+  const newCharData = {
+    ...charData,
+    items: retainedItems,
+    hazards: updatedHazards,
+    controlledBy: 'general' as const,
+  };
+
+  let newState = updatePlayer(state, defPlayerIndex, p => {
+    // Revert each follower to general influence.
+    const updatedChars = { ...p.characters, [charInstanceId as string]: newCharData };
+    for (const followerId of followerIds) {
+      const follower = updatedChars[followerId as string];
+      if (follower && follower.controlledBy === charInstanceId) {
+        updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+    return {
+      ...p,
+      characters: updatedChars,
+      discardPile: [...p.discardPile, ...discardedItems.map(i => ({ instanceId: i.instanceId, definitionId: i.definitionId }))],
+    };
+  });
+  newState = updatePlayer(newState, hazardPlayerIndex, p => ({
+    ...p,
+    siteDeck: newHazardSiteDeck,
+  }));
+
+  // Add character-is-prisoner active constraint.
+  newState = addConstraint(newState, {
+    source: hostCard.instanceId,
+    sourceDefinitionId: hostCard.definitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: charInstanceId },
+    kind: { type: 'character-is-prisoner', hostInstanceId: hostCard.instanceId },
+  });
+
+  // Create HazardHost record.
+  const newHost: HazardHost = {
+    hostCard,
+    rescueSiteCard: { instanceId: rescueSiteCard.instanceId, definitionId: rescueSiteCard.definitionId },
+    prisoners: [charInstanceId],
+    ownedBy: hazardPlayer.id,
+  };
+  newState = { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
+
+  logDetail(`take-prisoner: ${charInstanceId as string} is now a prisoner of ${hostCard.instanceId as string} at rescue site ${rescueSiteCard.definitionId as string}`);
+  return newState;
 }

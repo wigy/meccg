@@ -266,12 +266,37 @@ function assignStrikeActions(
       .filter(id => !assignedCharIds.has(id as string));
     const restrictToForced = unassignedForced.length > 0;
 
+    // strike-shield (Noble Hound dm-179): collect characters whose controlling
+    // strike-shield ally has NOT yet been assigned a strike. Those characters
+    // may not be assigned a strike while their ally is unassigned.
+    const strikeShieldBlockedChars = new Set<string>();
+    for (const charId of company.characters) {
+      const charData = player.characters[charId as string];
+      if (!charData) continue;
+      for (const ally of charData.allies) {
+        if (assignedCharIds.has(ally.instanceId as string)) continue;
+        const allyDef = state.cardPool[ally.definitionId as string];
+        if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
+        const shieldEff = (allyDef.effects).find(
+          (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
+        );
+        if (shieldEff) {
+          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
+          strikeShieldBlockedChars.add(charId as string);
+        }
+      }
+    }
+
     // Offer untapped characters that don't already have a strike
     for (const charId of company.characters) {
       if (assignedCharIds.has(charId as string)) continue;
       if (restrictToForced && !unassignedForced.includes(charId)) continue;
       const charData = player.characters[charId as string];
       if (!charData) continue;
+      if (strikeShieldBlockedChars.has(charId as string)) {
+        logDetail(`Character ${charId as string} shielded — must assign strike to ally first`);
+        continue;
+      }
       if (charData.status !== CardStatus.Untapped) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
@@ -293,6 +318,8 @@ function assignStrikeActions(
 
     // Per CoE rule 2.V.2.2: Allies are treated as characters for combat purposes
     // (facing strikes, tapping in support, etc.). Offer untapped allies as strike targets.
+    // Allies with `alwaysCountsAsUntapped` (e.g. Noble Hound) are offered even when
+    // tapped or wounded — their status is irrelevant for assignability.
     // Skip entirely while a forced-strike target is still unassigned — the
     // forced target takes priority.
     if (!restrictToForced) {
@@ -306,11 +333,18 @@ function assignStrikeActions(
           logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from defender strike assignment`);
           continue;
         }
-        if (ally.status !== CardStatus.Untapped) {
+        // Noble Hound and similar allies with `alwaysCountsAsUntapped` are always assignable.
+        const allyDef = state.cardPool[ally.definitionId as string];
+        const alwaysUntapped = allyDef && 'effects' in allyDef && allyDef.effects
+          ? (allyDef.effects).some(
+              e => e.type === 'strike-shield' && (e).alwaysCountsAsUntapped,
+            )
+          : false;
+        if (!alwaysUntapped && ally.status !== CardStatus.Untapped) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
         }
-        logDetail(`Defender can assign strike to ally ${ally.instanceId as string} (untapped)`);
+        logDetail(`Defender can assign strike to ally ${ally.instanceId as string}${alwaysUntapped ? ' (alwaysCountsAsUntapped)' : ''}`);
         actions.push({
           action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
           viable: true,
@@ -1905,6 +1939,7 @@ function combatHazardPermanentPlays(
         const iDef = state.cardPool[item.definitionId as string];
         return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
       });
+      // Include `attack` in context so filters like `{ "attack.race": "Spider" }` work.
       const ctx = {
         target: {
           race: targetDef.race,
@@ -1914,9 +1949,30 @@ function combatHazardPermanentPlays(
           possessions: possessionNames,
           itemKeywords,
         },
+        attack: {
+          race: combat.creatureRace ?? null,
+        },
       };
       if (!matchesCondition(playTarget.filter, ctx)) {
         logDetail(`Combat play-hazard "${def.name}" filter excludes ${targetDef.name}`);
+        continue;
+      }
+    }
+
+    // take-prisoner: require a valid rescue site in the hazard player's location deck.
+    const takePrisonerEff = def.effects.find(
+      (e): e is import('../../types/effects.js').TakePrisonerEffect => e.type === 'take-prisoner',
+    );
+    if (takePrisonerEff) {
+      const hasRescueSite = attacker.siteDeck.some(site => {
+        const siteDef = state.cardPool[site.definitionId as string];
+        if (!siteDef || !('siteType' in siteDef)) return false;
+        const siteType = (siteDef as { siteType: string }).siteType;
+        return takePrisonerEff.rescueSiteTypes.includes(siteType);
+      });
+      if (!hasRescueSite) {
+        const needed = takePrisonerEff.rescueSiteTypes.join(' or ');
+        logDetail(`Combat play-hazard "${def.name}": no ${needed} rescue site in hazard location deck — not playable`);
         continue;
       }
     }

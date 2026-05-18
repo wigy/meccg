@@ -21,4 +21,6 @@ import { describe, test } from 'vitest';
 
 describe('Rule 8.36 — Rescuing Prisoners', () => {
   test.todo('Company enters rescue site, faces rescue-attacks, taps character to rescue all prisoners from host; may play minor item');
+  test.todo('Allies cannot be taken prisoner; ally facing prisoner-taking attack is neither tapped nor wounded');
+  test.todo('If hazard host is discarded, prisoner is rescued and forms a new company at the rescue site');
 });

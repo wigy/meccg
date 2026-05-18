@@ -228,13 +228,26 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
-    // General influence: only characters under GI count
-    if (char.controlledBy === 'general' && charDef.mind !== null) {
+    // Prisoners cost 0 GI and are worth negative MPs (CoE rule 8.35).
+    const isPrisoner = state.activeConstraints.some(
+      c => c.target.kind === 'character'
+        && c.target.characterId === char.instanceId
+        && c.kind.type === 'character-is-prisoner',
+    );
+
+    // General influence: prisoners cost 0 GI; others under GI count normally
+    if (!isPrisoner && char.controlledBy === 'general' && charDef.mind !== null) {
       generalInfluenceUsed += charDef.mind;
     }
 
-    // Character MPs
-    mp = addMP(mp, charDef);
+    // Character MPs: prisoners contribute negative MPs
+    if (isPrisoner) {
+      const charMp = charDef.marshallingPoints ?? 0;
+      const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
+      mp = { ...mp, [cat]: mp[cat] - charMp };
+    } else {
+      mp = addMP(mp, charDef);
+    }
 
     // Item MPs
     for (const item of char.items) {
