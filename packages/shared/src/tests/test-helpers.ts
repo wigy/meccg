@@ -1041,6 +1041,22 @@ export function makeShadowMHState(
 }
 
 /**
+ * MH state describing arrival at a Border-hold via a Border region.
+ * For creatures keyed to border-land {b} (e.g. Brigands).
+ */
+export function makeBorderMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Border],
+    resolvedSitePathNames: ['Andrast'],
+    destinationSiteType: SiteType.BorderHold,
+    destinationSiteName: 'Pelargir',
+    ...overrides,
+  });
+}
+
+/**
  * MH state describing arrival at Ruins-and-Lairs "Moria" via a Rhudaur
  * wilderness region.
  */

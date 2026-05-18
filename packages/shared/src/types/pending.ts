@@ -343,6 +343,17 @@ export interface PendingResolution {
         readonly cardInstanceId: CardInstanceId;
         /** The company whose characters are eligible to be the bearer. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * Brigands-style wound effect: the defending company must discard
+         * one item of the defender's choice. Fires once per Brigands attack
+         * in which at least one character was wounded. The defender picks
+         * any one item from any character in the company.
+         */
+        readonly type: 'discard-one-company-item';
+        /** The company whose items are candidates for discard. */
+        readonly companyId: CompanyId;
       };
 }
 

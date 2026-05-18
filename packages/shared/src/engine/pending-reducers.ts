@@ -82,6 +82,8 @@ export function applyResolution(
       return applyWizardSearchOnStoreResolution(state, action, top);
     case 'select-card-bearer':
       return applySelectCardBearerResolution(state, action, top);
+    case 'discard-one-company-item':
+      return applyDiscardOneCompanyItemResolution(state, action, top);
   }
 }
 
@@ -1727,4 +1729,62 @@ function applySelectCardBearerResolution(
   });
 
   return { state: dequeueResolution(s, top.id) };
+}
+
+/**
+ * Resolve a `discard-one-company-item` pending resolution.
+ *
+ * The defending player selects one item from any character in the company
+ * via a `discard-item-from-company` action. The item is removed from its
+ * bearer and moved to the defending player's discard pile.
+ */
+function applyDiscardOneCompanyItemResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'discard-one-company-item') return null;
+  if (action.type !== 'discard-item-from-company') {
+    return { state, error: `Pending discard-one-company-item requires discard-item-from-company, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for discard-one-company-item' };
+  }
+
+  const { itemInstanceId } = action;
+  const { companyId } = top.kind;
+
+  const defIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
+  if (defIdx < 0) return { state, error: `Company ${companyId as string} not found` };
+  const defPlayer = state.players[defIdx];
+
+  const newCharacters = { ...defPlayer.characters };
+  let itemRemoved = false;
+  let removedItem: { instanceId: import('../types/common.js').CardInstanceId; definitionId: import('../types/common.js').CardDefinitionId } | null = null;
+  for (const [charId, charData] of Object.entries(newCharacters)) {
+    const idx = charData.items.findIndex(it => it.instanceId === itemInstanceId);
+    if (idx >= 0) {
+      const item = charData.items[idx];
+      removedItem = { instanceId: item.instanceId, definitionId: item.definitionId };
+      newCharacters[charId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
+      itemRemoved = true;
+      break;
+    }
+  }
+  if (!itemRemoved || !removedItem) {
+    return { state, error: `Item ${itemInstanceId as string} not found in company ${companyId as string}` };
+  }
+
+  const itemDef = state.cardPool[removedItem.definitionId as string];
+  const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (itemInstanceId as string);
+  logDetail(`discard-one-company-item: defender discards "${itemName}"`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[defIdx] = {
+    ...defPlayer,
+    characters: newCharacters,
+    discardPile: [...defPlayer.discardPile, removedItem],
+  };
+
+  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
 }

@@ -600,7 +600,21 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["border", "wilderness"]
+      }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-discard-one-company-item"
+        }
+      }
+    ],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hazard-creature",
