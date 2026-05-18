@@ -794,11 +794,25 @@ modifier still applies).
   "bodyModifier": -1,
   "when": { "bearer.skills": { "$includes": "warrior" } },
   "discardIfBearerNot": { "race": ["man", "dunadan"] } }
+{ "type": "modify-attack",
+  "cost": { "tap": "self" },
+  "strikesModifier": -1,
+  "when": { "$and": [
+    { "bearer.skills": { "$includes": "warrior" } },
+    { "attack.source": "creature" }
+  ] } }
 ```
 
 Example: Black Arrow (tw-494) — Warrior only, tap to give -1 prowess and
 -1 body to one attack against the bearer's company; discard the arrow if
 the bearer is not a Man.
+
+Example: Bow of Dragon-horn (td-102) — Warrior only, tap to reduce the
+strike count of one hazard creature attack (not keyed to a site) by 1,
+minimum 1. Uses `strikesModifier: -1`; result clamped to minimum 1.
+
+- `strikesModifier` — amount added to `strikesTotal` (usually negative);
+  clamped so result is never below 1.
 
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`).
