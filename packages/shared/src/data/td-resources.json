@@ -253,7 +253,8 @@
           "bearer.race": "dwarf"
         }
       }
-    ]
+    ],
+    "certified": "2026-05-18"
   },
   {
     "cardType": "hero-resource-event",
