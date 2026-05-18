@@ -1405,6 +1405,14 @@ function modifyAttackActions(
         if (combat.attackKeying && combat.attackKeying.length > 0) {
           attackCtx['keying'] = combat.attackKeying;
         }
+        // A creature attack is "keyed to a site" when it has site-type keying
+        // but no regional keying — i.e. it can only be played at companies
+        // located at specific site types, not anywhere in a region.
+        const isSiteKeyedCreature = (
+          combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
+        ) && !(combat.attackKeying && combat.attackKeying.length > 0)
+          && !!(combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0);
+        attackCtx['siteKeyed'] = isSiteKeyedCreature;
         ctx['attack'] = attackCtx;
         if (!matchesCondition(effect.when, ctx)) {
           const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;

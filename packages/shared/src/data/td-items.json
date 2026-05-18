@@ -156,7 +156,8 @@
         "when": {
           "$and": [
             { "bearer.skills": { "$includes": "warrior" } },
-            { "attack.source": "creature" }
+            { "attack.source": "creature" },
+            { "attack.siteKeyed": false }
           ]
         }
       }
