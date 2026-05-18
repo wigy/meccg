@@ -235,8 +235,40 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Forochel",
+          "Angmar",
+          "Gundabad"
+        ],
+        "strikes": 4,
+        "prowess": 10,
+        "body": 7,
+        "race": "dragon",
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ],
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Númeriador",
+            "Arthedain",
+            "Rhudaur"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Forochel, Angmar, and/or Gundabad faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 10/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Númeriador, Arthedain, and Rhudaur.",
+    "certified": "2026-05-18",
     "manifestId": "td-63"
   },
   {
