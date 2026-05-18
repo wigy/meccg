@@ -1625,7 +1625,20 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Edoras"
+    "homesite": "Edoras",
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1
+      }
+    ],
+    "certified": "2026-05-18"
   },
   {
     "cardType": "hero-character",
