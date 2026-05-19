@@ -32,7 +32,6 @@ The Balrog Rules
 UNSORTED
 --------
 
-(C) Dwarven Quest
 (D) Bargain between Friends
 (E) Return of the King
 (F) Spies and Traitors
