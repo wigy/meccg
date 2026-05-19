@@ -178,6 +178,7 @@ evaluates conditions against the combat context (including `enemy.race`),
 and applies operations to the enemy's stat.
 
 Operations:
+
 - `halve-round-up` — divide by 2, round up.
 - `subtract` — subtract `value` from the stat (minimum 0). Requires a `value` field.
 
@@ -2580,7 +2581,6 @@ handles the `lucky-search-attack` source:
 
 Used by Lucky Search (tw-269).
 
-
 ### 43. `take-prisoner`
 
 Marks a hazard permanent-event as a **hazard host** (CoE rule 8.35).
@@ -2669,7 +2669,6 @@ result). Does not protect other characters in the company.
 
 Used by Noble Hound (dm-179).
 
-
 ### 46. `event-play-site`
 
 Restricts a short-event resource card to companies whose current site
@@ -2706,3 +2705,67 @@ permanent-event is discarded.
 Used by Glamour of Surpassing Excellance (as-49). The `removalNumber`
 field on hazard permanent-event card data sets each hazard's threshold;
 cards without this field default to 8.
+
+### 48. `hazard-maintenance`
+
+A hazard permanent-event that requires the hazard player to pay an upkeep
+cost at the end of the resource player's long-event phase. When the
+resource player passes the long-event phase, the engine scans all
+`cardsInPlay` for `hazard-maintenance` effects and enqueues one
+`hazard-event-maintenance` pending resolution per card found.
+
+The hazard player resolves each pending resolution by choosing one of:
+
+- **`discard-self`** — discard the permanent event from `cardsInPlay`.
+- **`discard-from-hand`** — discard a hand card that matches `handCardFilter`.
+
+If no matching hand card is available, only the `discard-self` option is offered.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `trigger` | yes | When this maintenance fires. Currently only `"opponent-long-event-end"`. |
+| `handCardFilter` | yes | DSL condition evaluated against hand card definitions. Matching cards may be discarded as payment alternatives. |
+
+```json
+{
+  "type": "hazard-maintenance",
+  "trigger": "opponent-long-event-end",
+  "handCardFilter": { "cardType": "hazard-creature", "race": "men" }
+}
+```
+
+Used by Thrice Outnumbered (le-142).
+
+### `on-event` — `actor` field
+
+The `on-event` effect type supports an optional `actor` field that controls
+which player(s) the event fires for. This is currently used for `end-of-turn`
+events only.
+
+| Value | Description |
+|-------|-------------|
+| `"both"` | The effect fires once per player — one pending effect per player is enqueued. |
+| `"hazard"` | The effect fires only for the hazard (non-active) player. |
+| `"resource"` | The effect fires only for the resource (active) player. |
+
+When absent, the effect fires for the source card's owner only.
+
+```json
+{
+  "type": "on-event",
+  "event": "end-of-turn",
+  "actor": "both",
+  "apply": {
+    "type": "move",
+    "select": "target",
+    "from": "discard",
+    "to": "deck",
+    "shuffleAfter": true,
+    "filter": { "cardType": "hazard-creature", "race": "men" },
+    "count": 1
+  }
+}
+```
+
+Used by Thrice Outnumbered (le-142) to let both players fetch a Man
+hazard creature from their own discard pile at the end of each turn.

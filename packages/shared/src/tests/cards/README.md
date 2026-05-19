@@ -411,5 +411,6 @@
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | wh-33 | Noble Steed | — | 9 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
+
 ---
 *Legend: ☐ = todo, ☑ = certified, ◐ = partial*

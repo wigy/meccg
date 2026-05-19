@@ -451,6 +451,8 @@ export function describeAction(
       return `${action.player as string} rolls for Under-deeps movement`;
     case 'haven-return':
       return `${action.player as string} returns company to origin haven`;
+    case 'pay-hazard-event-maintenance':
+      return `${action.player as string} pays hazard event maintenance (${action.paymentType})`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

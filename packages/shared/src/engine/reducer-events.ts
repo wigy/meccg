@@ -200,6 +200,30 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       discardPile: [...p.discardPile, ...discardedEvents],
     }));
 
+    // Check for hazard-maintenance effects in remaining cardsInPlay.
+    // Fire once per permanent hazard event that has a hazard-maintenance effect
+    // with trigger: 'opponent-long-event-end'. The hazard player (non-active)
+    // must pay the maintenance cost (discard self or matching hand card).
+    for (const card of afterPass.players[hazardPlayerIndex].cardsInPlay) {
+      const def = afterPass.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'hazard-maintenance') continue;
+        if (effect.trigger !== 'opponent-long-event-end') continue;
+        logDetail(`Long-event exit: queuing hazard-event-maintenance for "${def.name}" (${card.instanceId as string})`);
+        afterPass = enqueueResolution(afterPass, {
+          source: card.instanceId,
+          actor: afterPass.players[hazardPlayerIndex].id,
+          scope: { kind: 'phase', phase: Phase.LongEvent },
+          kind: {
+            type: 'hazard-event-maintenance',
+            sourceInstanceId: card.instanceId,
+            sourceDefinitionId: card.definitionId,
+          },
+        });
+      }
+    }
+
     // Reset moved flags on the active player's companies for the new M/H phase
     const activeIndex = getPlayerIndex(state, activePlayer);
     afterPass = updatePlayer(afterPass, activeIndex, p => ({

@@ -371,6 +371,26 @@ export interface PendingResolution {
         readonly type: 'discard-one-company-item';
         /** The company whose items are candidates for discard. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * Hazard permanent-event maintenance cost: fired at the end of the
+         * resource player's long-event phase for each in-play hazard permanent
+         * event that carries a `hazard-maintenance` effect.
+         *
+         * The hazard player must choose one of:
+         * - `discard-self` — discard the permanent event from cardsInPlay.
+         * - `discard-from-hand` — discard a matching hand card (see
+         *   {@link HazardMaintenanceEffect.handCardFilter}).
+         *
+         * Resolved by a `pay-hazard-event-maintenance` action.
+         *
+         * Used by *Thrice Outnumbered* (le-142).
+         */
+        readonly type: 'hazard-event-maintenance';
+        /** The permanent event card requiring maintenance payment. */
+        readonly sourceInstanceId: CardInstanceId;
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 

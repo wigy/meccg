@@ -36,6 +36,7 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -86,6 +87,8 @@ export function applyResolution(
       return applyGlamourHazardRollResolution(state, action, top);
     case 'discard-one-company-item':
       return applyDiscardOneCompanyItemResolution(state, action, top);
+    case 'hazard-event-maintenance':
+      return applyHazardEventMaintenanceResolution(state, action, top);
   }
 }
 
@@ -1866,6 +1869,95 @@ function applyDiscardOneCompanyItemResolution(
     characters: newCharacters,
     discardPile: [...defPlayer.discardPile, removedItem],
   };
+
+  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/**
+ * Resolve a `hazard-event-maintenance` pending resolution.
+ *
+ * The hazard player pays the maintenance cost for a permanent event with a
+ * `hazard-maintenance` effect by dispatching a `pay-hazard-event-maintenance`
+ * action. Two payment options are possible:
+ *
+ * - `discard-self`: the permanent event is removed from cardsInPlay and moved
+ *   to the hazard player's discard pile.
+ * - `discard-from-hand`: the chosen hand card is moved to the hazard player's
+ *   discard pile; the permanent event remains in play.
+ *
+ * Used by *Thrice Outnumbered* (le-142).
+ */
+function applyHazardEventMaintenanceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'hazard-event-maintenance') return null;
+  if (action.type !== 'pay-hazard-event-maintenance') {
+    return { state, error: `Pending hazard-event-maintenance requires pay-hazard-event-maintenance, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for hazard-event-maintenance' };
+  }
+  if (action.sourceInstanceId !== top.kind.sourceInstanceId) {
+    return { state, error: 'Wrong source instance for hazard-event-maintenance' };
+  }
+
+  const actorIdx = state.players.findIndex(p => p.id === action.player);
+  if (actorIdx < 0) return { state, error: 'Player not found for hazard-event-maintenance' };
+  const actorPlayer = state.players[actorIdx];
+
+  const newPlayers = clonePlayers(state);
+
+  if (action.paymentType === 'discard-self') {
+    // Remove permanent event from cardsInPlay, add to discard pile
+    const cardIdx = actorPlayer.cardsInPlay.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (cardIdx < 0) {
+      return { state, error: `Permanent event ${action.cardInstanceId as string} not found in cardsInPlay` };
+    }
+    const card = actorPlayer.cardsInPlay[cardIdx];
+    const def = state.cardPool[card.definitionId as string];
+    const cardName = def && 'name' in def ? (def as { name: string }).name : (card.definitionId as string);
+    logDetail(`hazard-event-maintenance: hazard player discards "${cardName}" (discard-self)`);
+
+    const newCardsInPlay = actorPlayer.cardsInPlay.filter((_, i) => i !== cardIdx);
+    newPlayers[actorIdx] = {
+      ...actorPlayer,
+      cardsInPlay: newCardsInPlay,
+      discardPile: [...actorPlayer.discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
+    };
+  } else {
+    // discard-from-hand: validate and verify the hand card matches the filter
+    const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (handIdx < 0) {
+      return { state, error: `Hand card ${action.cardInstanceId as string} not found in hand` };
+    }
+    const handCard = actorPlayer.hand[handIdx];
+
+    // Verify the card matches the handCardFilter from the source effect
+    const sourceDef = state.cardPool[top.kind.sourceDefinitionId as string];
+    if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
+      for (const eff of sourceDef.effects) {
+        if (eff.type !== 'hazard-maintenance' || eff.trigger !== 'opponent-long-event-end') continue;
+        const handDef = state.cardPool[handCard.definitionId as string];
+        if (!handDef || !matchesCondition(eff.handCardFilter, handDef as unknown as Record<string, unknown>)) {
+          return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
+        }
+        break;
+      }
+    }
+
+    const def = state.cardPool[handCard.definitionId as string];
+    const cardName = def && 'name' in def ? (def as { name: string }).name : (handCard.definitionId as string);
+    logDetail(`hazard-event-maintenance: hazard player discards "${cardName}" from hand (discard-from-hand)`);
+
+    const newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
+    newPlayers[actorIdx] = {
+      ...actorPlayer,
+      hand: newHand,
+      discardPile: [...actorPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+    };
+  }
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
 }
