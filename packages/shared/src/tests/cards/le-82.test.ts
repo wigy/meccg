@@ -88,7 +88,7 @@ describe('Lawless Men (le-82)', () => {
     expect(after.combat).not.toBeNull();
     expect(after.combat!.strikesTotal).toBe(2);
     expect(after.combat!.strikeProwess).toBe(9);
-    expect(after.combat!.creatureRace).toBe('men');
+    expect(after.combat!.creatureRace).toBe('man');
     expect(after.combat!.creatureBody).toBeNull();
   });
 
