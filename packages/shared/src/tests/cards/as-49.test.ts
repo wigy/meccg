@@ -44,6 +44,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
   dispatch,
   HENNETH_ANNUN,
+  addCardInPlay,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -61,7 +62,7 @@ const GLAMOUR = 'as-49' as CardDefinitionId;
  * MORIA = tw-413 (shadow-hold) — not allowed
  * LURE_OF_THE_SENSES = tw-60, removalNumber: 6 → threshold 6
  * ALONE_AND_UNADVISED = as-24, removalNumber: 6 → threshold 6
- * DOORS_OF_NIGHT = tw-28, no removalNumber → threshold 8
+ * DOORS_OF_NIGHT = tw-28, hazard environment — goes in cardsInPlay, not on a character
  */
 
 describe('Glamour of Surpassing Excellance (as-49)', () => {
@@ -183,12 +184,12 @@ describe('Glamour of Surpassing Excellance (as-49)', () => {
     expect(getHazardsOn(afterRoll, RESOURCE_PLAYER, ARAGORN)).toHaveLength(1);
   });
 
-  test('default threshold 8 used for hazards without removalNumber (Doors of Night)', () => {
-    // Doors of Night (tw-28) is a hazard permanent-event with no removalNumber → threshold 8.
+  test('environment in cardsInPlay (Doors of Night) is not targeted — Glamour only hits hazards on characters', () => {
+    // Doors of Night is a hazard environment that enters cardsInPlay, not a character-attached event.
+    // Glamour targets "hazard permanent-event on characters"; DoN is not on a character,
+    // so playing Glamour produces zero pending rolls even with DoN in play.
     const base = buildSitePhaseState({ site: MINAS_TIRITH, hand: [GLAMOUR] });
-    // Doors of Night is typically an environment in cardsInPlay, but can be
-    // attached to a character via the test helper to simulate the roll mechanic.
-    const withDoors = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DOORS_OF_NIGHT, HAZARD_PLAYER);
+    const withDoors = addCardInPlay(base, HAZARD_PLAYER, DOORS_OF_NIGHT);
 
     const cardId = handCardId(withDoors, RESOURCE_PLAYER);
     const playAction = computeLegalActions(withDoors, PLAYER_1)
@@ -198,36 +199,7 @@ describe('Glamour of Surpassing Excellance (as-49)', () => {
 
     const afterPlay = dispatch(withDoors, playAction!.action);
     const pending = afterPlay.pendingResolutions.filter(r => r.kind.type === 'glamour-hazard-roll');
-    expect(pending).toHaveLength(1);
-
-    if (pending[0].kind.type === 'glamour-hazard-roll') {
-      expect(pending[0].kind.removalThreshold).toBe(8);
-    }
-
-    // Roll 9 > 8 → discard
-    const withCheatRoll = { ...afterPlay, cheatRollTotal: 9 };
-    const rollActions = computeLegalActions(withCheatRoll, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'glamour-hazard-roll');
-    const afterRoll = dispatch(withCheatRoll, rollActions[0].action);
-    expect(getHazardsOn(afterRoll, RESOURCE_PLAYER, ARAGORN)).toHaveLength(0);
-  });
-
-  test('roll 8 does not discard when default threshold 8 (roll must be strictly greater)', () => {
-    const base = buildSitePhaseState({ site: MINAS_TIRITH, hand: [GLAMOUR] });
-    const withDoors = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DOORS_OF_NIGHT, HAZARD_PLAYER);
-
-    const cardId = handCardId(withDoors, RESOURCE_PLAYER);
-    const playAction = computeLegalActions(withDoors, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-short-event' &&
-        (a.action).cardInstanceId === cardId);
-    expect(playAction).toBeDefined();
-
-    const afterPlay = dispatch(withDoors, playAction!.action);
-    const withCheatRoll = { ...afterPlay, cheatRollTotal: 8 };
-    const rollActions = computeLegalActions(withCheatRoll, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'glamour-hazard-roll');
-    const afterRoll = dispatch(withCheatRoll, rollActions[0].action);
-    expect(getHazardsOn(afterRoll, RESOURCE_PLAYER, ARAGORN)).toHaveLength(1);
+    expect(pending).toHaveLength(0);
   });
 
   test('rolls proceed sequentially for multiple hazards', () => {
