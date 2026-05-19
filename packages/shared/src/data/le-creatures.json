@@ -289,6 +289,7 @@
     "id": "le-89",
     "name": "Sellswords Between Charters",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SellswordsBetweenCharters.jpg",
+    "certified": "2026-05-19",
     "text": "Men. Two strikes.",
     "unique": false,
     "strikes": 2,
@@ -296,7 +297,7 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [{ "siteTypes": ["border-hold", "shadow-hold"] }]
   },
   {
     "cardType": "hazard-creature",
