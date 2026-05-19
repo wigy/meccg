@@ -83,6 +83,8 @@ export function resolutionLegalActions(
       return wizardSearchOnStoreActions(state, actor, top);
     case 'select-card-bearer':
       return selectCardBearerActions(state, actor, top);
+    case 'glamour-hazard-roll':
+      return glamourHazardRollActions(state, actor, top);
   }
 }
 
@@ -612,6 +614,38 @@ function goldRingTestActions(
       goldRingInstanceId,
       rollModifier,
       explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${modSign}${rollModifier}`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single glamour-hazard-roll action for a queued
+ * `glamour-hazard-roll` resolution (Glamour of Surpassing Excellance, as-49).
+ * The resource player rolls 2d6; if the result exceeds the hazard's
+ * removalThreshold, the hazard permanent-event is discarded.
+ */
+function glamourHazardRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'glamour-hazard-roll') return [];
+  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
+
+  const hazDef = state.cardPool[hazardDefinitionId as string];
+  const hazName = hazDef?.name ?? '?';
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  logDetail(`Pending glamour-hazard-roll for ${hazName} (threshold >${removalThreshold}) from ${sourceName}`);
+
+  return [{
+    action: {
+      type: 'glamour-hazard-roll' as const,
+      player: playerId,
+      hazardInstanceId,
+      explanation: `${hazName}: roll 2d6, discard if result > ${removalThreshold} (${sourceName})`,
     },
     viable: true,
   }];

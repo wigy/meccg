@@ -125,7 +125,12 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "event-play-site", "siteTypes": ["border-hold", "free-hold"] },
+      { "type": "roll-remove-hazard-events" }
+    ],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hero-resource-event",

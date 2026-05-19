@@ -15,7 +15,7 @@ import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import { addConstraint, enqueueCorruptionCheck } from './pending.js';
+import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -548,6 +548,42 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
+  // roll-remove-hazard-events (Glamour of Surpassing Excellance, as-49): enqueue one
+  // glamour-hazard-roll pending resolution per hazard permanent-event found on characters
+  // in the active company. The player rolls for each; a roll exceeding the hazard's
+  // removalThreshold (removalNumber on the card, or 8 by default) discards it.
+  const rollRemoveEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').RollRemoveHazardEventsEffect => e.type === 'roll-remove-hazard-events',
+  );
+  if (rollRemoveEffect && newState.phaseState.phase === Phase.Site) {
+    const sitePhaseState = newState.phaseState as { activeCompanyIndex: number };
+    const company = newState.players[playerIndex].companies[sitePhaseState.activeCompanyIndex];
+    if (company) {
+      for (const charId of company.characters) {
+        const char = newState.players[playerIndex].characters[charId as string];
+        if (!char) continue;
+        for (const hazard of char.hazards) {
+          const hazDef = newState.cardPool[hazard.definitionId as string];
+          if (!hazDef || !('eventType' in hazDef) || (hazDef as { eventType?: string }).eventType !== 'permanent') continue;
+          const removalThreshold = (hazDef as { removalNumber?: number }).removalNumber ?? 8;
+          logDetail(`${def.name}: enqueueing glamour-hazard-roll for ${hazDef.name} (threshold ${removalThreshold})`);
+          newState = enqueueResolution(newState, {
+            source: handCard.instanceId,
+            actor: action.player,
+            scope: { kind: 'company-site-subphase', companyId: company.id },
+            kind: {
+              type: 'glamour-hazard-roll',
+              hazardInstanceId: hazard.instanceId,
+              hazardDefinitionId: hazard.definitionId,
+              removalThreshold,
+              sourceDefinitionId: handCard.definitionId,
+            },
+          });
+        }
+      }
+    }
+  }
+
   // Handle bounce-to-opponent-hand move (e.g. Wizard Uncloaked):
   // return all hazards matching filter on characters in the target
   // wizard's company to the opponent's hand, then enqueue a corruption
@@ -761,7 +797,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: { ...stateWithDiscard, combat } };
   }
 
-  // No interactive effects: discard immediately
+  // Discard the card and return. If glamour-hazard-roll resolutions were
+  // enqueued, the legal-action system will automatically surface only roll
+  // actions until all resolutions are cleared.
   return {
     state: updatePlayer(newState, playerIndex, p => ({
       ...p,

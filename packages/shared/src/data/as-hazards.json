@@ -6,7 +6,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/AloneandUnadvised.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["corruption"],
+    "keywords": [
+      "corruption"
+    ],
     "effects": [
       {
         "type": "play-target",
@@ -74,9 +76,9 @@
         "event": "company-composition-changed",
         "apply": {
           "type": "move",
-            "select": "self",
-            "from": "self-location",
-            "to": "discard"
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "company.characterCount": {
@@ -86,7 +88,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character.",
-    "certified": "2026-04-14"
+    "certified": "2026-04-14",
+    "removalNumber": 6
   },
   {
     "cardType": "hazard-event",
@@ -113,15 +116,27 @@
         "value": 2,
         "target": "all-attacks",
         "when": {
-          "enemy.race": { "$in": ["spider", "animal"] }
+          "enemy.race": {
+            "$in": [
+              "spider",
+              "animal"
+            ]
+          }
         }
       },
       {
         "type": "on-event",
         "event": "attack-defeated",
-        "apply": { "type": "discard-self" },
+        "apply": {
+          "type": "discard-self"
+        },
         "when": {
-          "enemy.race": { "$in": ["spider", "animal"] }
+          "enemy.race": {
+            "$in": [
+              "spider",
+              "animal"
+            ]
+          }
         }
       },
       {

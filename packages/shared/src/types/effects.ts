@@ -1846,6 +1846,33 @@ export interface MassBodyCheckEffect extends EffectBase {
 }
 
 /**
+ * Restricts a resource short-event to companies whose current site is one of
+ * the listed site types. Checked during legal-action computation for site and
+ * organization phases; the event is not-playable unless the active company
+ * (site phase) or any company (organization phase) is at a matching site.
+ *
+ * Used by Glamour of Surpassing Excellence (as-49): Border-hold or Free-hold.
+ */
+export interface EventPlaySiteEffect extends EffectBase {
+  readonly type: 'event-play-site';
+  /** Site types at which the event may be played (e.g. ["border-hold", "free-hold"]). */
+  readonly siteTypes: readonly string[];
+}
+
+/**
+ * When this resource short-event resolves on a company, roll 2d6 for each
+ * hazard permanent-event attached to characters in that company. If the roll
+ * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
+ * discarded. One {@link PendingResolution} of kind `glamour-hazard-roll` is
+ * enqueued per hazard permanent-event found.
+ *
+ * Used by Glamour of Surpassing Excellence (as-49).
+ */
+export interface RollRemoveHazardEventsEffect extends EffectBase {
+  readonly type: 'roll-remove-hazard-events';
+}
+
+/**
  * A hazard short-event check targeting a character moving through Shadow-land
  * or Dark-domain. The character's player rolls 2d6 and adds the character's
  * mind. If the result is less than the threshold (12), the character splits
@@ -2182,6 +2209,8 @@ export type CardEffect =
   | CallOfHomeCheckEffect
   | MassBodyCheckEffect
   | SeizedByTerrorCheckEffect
+  | EventPlaySiteEffect
+  | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
   | AhuntAttackEffect

@@ -82,6 +82,8 @@ export function applyResolution(
       return applyWizardSearchOnStoreResolution(state, action, top);
     case 'select-card-bearer':
       return applySelectCardBearerResolution(state, action, top);
+    case 'glamour-hazard-roll':
+      return applyGlamourHazardRollResolution(state, action, top);
   }
 }
 
@@ -1727,4 +1729,83 @@ function applySelectCardBearerResolution(
   });
 
   return { state: dequeueResolution(s, top.id) };
+}
+
+/**
+ * Resolve a queued `glamour-hazard-roll` resolution (Glamour of Surpassing
+ * Excellance, as-49). The resource player rolls 2d6. If the result strictly
+ * exceeds `removalThreshold` (the hazard's `removalNumber` or 8 by default),
+ * the hazard permanent-event is discarded from the character it is attached to.
+ */
+function applyGlamourHazardRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'glamour-hazard-roll') {
+    return { state, error: `Pending glamour-hazard-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'glamour-hazard-roll') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending glamour-hazard-roll' };
+  }
+
+  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+
+  const hazDef = state.cardPool[hazardDefinitionId as string];
+  const hazName = hazDef?.name ?? '?';
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const discarded = rollTotal > removalThreshold;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `${sourceName}: ${hazName} (need > ${removalThreshold})`,
+  };
+  logDetail(`${sourceName} glamour roll for ${hazName}: roll ${rollTotal} vs threshold >${removalThreshold} → ${discarded ? 'DISCARD' : 'KEEP'}`);
+
+  let postRoll = dequeueResolution({ ...state, rng, cheatRollTotal }, top.id);
+  postRoll = updatePlayer(postRoll, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
+
+  if (discarded) {
+    // Find the hazard instance attached to any character on either player
+    let foundOwnerIdx = -1;
+    let foundCharId: string | null = null;
+    let foundHazardIdx = -1;
+    for (let oi = 0; oi < postRoll.players.length; oi++) {
+      const chars = postRoll.players[oi].characters;
+      for (const charId of Object.keys(chars)) {
+        const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === hazardInstanceId);
+        if (hIdx !== -1) { foundOwnerIdx = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
+      }
+      if (foundOwnerIdx !== -1) break;
+    }
+
+    if (foundOwnerIdx !== -1 && foundCharId !== null) {
+      const haz = postRoll.players[foundOwnerIdx].characters[foundCharId].hazards[foundHazardIdx];
+      const newHazards = postRoll.players[foundOwnerIdx].characters[foundCharId].hazards.filter((_, i) => i !== foundHazardIdx);
+      postRoll = updatePlayer(postRoll, foundOwnerIdx, p =>
+        updateCharacter(p, foundCharId, c => ({ ...c, hazards: newHazards })),
+      );
+      // Discard to hazard owner's discard pile (owner resolved by instance ID prefix in production)
+      const hazOwner = (haz.instanceId as string).split('-')[0];
+      let hazOwnerIdx = postRoll.players.findIndex(p => (p.id as string) === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = (actorIndex + 1) % postRoll.players.length;
+      postRoll = updatePlayer(postRoll, hazOwnerIdx, p => ({
+        ...p,
+        discardPile: [...p.discardPile, { instanceId: haz.instanceId, definitionId: haz.definitionId }],
+      }));
+      logDetail(`${sourceName}: ${hazName} discarded from ${foundCharId}`);
+    }
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
 }

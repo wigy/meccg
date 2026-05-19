@@ -200,7 +200,8 @@
         }
       }
     ],
-    "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
+    "removalNumber": 7
   },
   {
     "cardType": "hazard-event",
@@ -251,7 +252,8 @@
       }
     ],
     "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "removalNumber": 7
   },
   {
     "cardType": "hazard-event",
@@ -363,7 +365,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-23"
+    "certified": "2026-04-23",
+    "removalNumber": 4
   },
   {
     "cardType": "hazard-event",
@@ -421,7 +424,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven [{H}].During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-08"
+    "certified": "2026-04-08",
+    "removalNumber": 6
   },
   {
     "cardType": "hazard-event",
@@ -487,7 +491,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-25"
+    "certified": "2026-04-25",
+    "removalNumber": 5
   },
   {
     "cardType": "hazard-event",
@@ -539,7 +544,8 @@
         }
       }
     ],
-    "certified": "2026-04-26"
+    "certified": "2026-04-26",
+    "removalNumber": 5
   },
   {
     "cardType": "hazard-event",

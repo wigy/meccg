@@ -403,6 +403,8 @@ export function describeAction(
       return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
     case 'body-check-company-roll':
       return `Body check (${action.explanation})`;
+    case 'glamour-hazard-roll':
+      return `Glamour roll: ${action.explanation}`;
     case 'haven-join-attack':
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':

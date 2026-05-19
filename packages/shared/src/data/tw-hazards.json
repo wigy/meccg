@@ -561,7 +561,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-08"
+    "certified": "2026-04-08",
+    "removalNumber": 6
   },
   {
     "cardType": "hazard-event",
@@ -635,7 +636,8 @@
         }
       }
     ],
-    "certified": "2026-05-11"
+    "certified": "2026-05-11",
+    "removalNumber": 4
   },
   {
     "cardType": "hazard-event",

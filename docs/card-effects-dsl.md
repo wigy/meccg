@@ -2657,3 +2657,41 @@ result). Does not protect other characters in the company.
 ```
 
 Used by Noble Hound (dm-179).
+
+
+### 46. `event-play-site`
+
+Restricts a short-event resource card to companies whose current site
+type matches one of the listed types. If the active company is not at
+a matching site type during the site phase, the card cannot be played.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteTypes` | yes | Array of site-type strings. Allowed values: `"haven"`, `"free-hold"`, `"border-hold"`, `"ruins-and-lairs"`, `"shadow-hold"`, `"dark-hold"`. |
+
+```json
+{ "type": "event-play-site", "siteTypes": ["border-hold", "free-hold"] }
+```
+
+Used by Glamour of Surpassing Excellance (as-49).
+
+### 47. `roll-remove-hazard-events`
+
+When this short-event resource card is played at a matching site, the
+engine enqueues one `glamour-hazard-roll` pending resolution per hazard
+permanent-event attached to any character in the active company. For
+each roll, the player rolls 2d6; if the result strictly exceeds the
+hazard's `removalNumber` (or 8 if the field is absent), the hazard
+permanent-event is discarded.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| *(none)* | — | No additional fields. |
+
+```json
+{ "type": "roll-remove-hazard-events" }
+```
+
+Used by Glamour of Surpassing Excellance (as-49). The `removalNumber`
+field on hazard permanent-event card data sets each hazard's threshold;
+cards without this field default to 8.
