@@ -2316,6 +2316,32 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       ) {
         const filter = woundEvent.apply.filter;
         stateAfterCombat = discardWoundedItems(stateAfterCombat, combat, woundedCharIds, sourceName, filter);
+      } else if (woundEvent.apply.type === 'force-discard-one-company-item') {
+        // Brigands: fires once per attack (not per wound). Company must discard one item.
+        const actor = combat.defendingPlayerId;
+        const companyId = combat.companyId;
+        const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
+        const defPlayer = stateAfterCombat.players[actorIndex];
+        const company = defPlayer?.companies.find(c => c.id === companyId);
+        const hasItems = (company?.characters ?? []).some(charId => {
+          const ch = defPlayer.characters[charId as string];
+          return ch && ch.items.length > 0;
+        });
+        if (hasItems) {
+          const scope = state.phaseState.phase === Phase.MovementHazard
+            ? ({ kind: 'company-mh-subphase' as const, companyId })
+            : ({ kind: 'company-site-subphase' as const, companyId });
+          const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
+          logDetail(`${sourceName}: wound triggers discard-one-company-item for company ${companyId as string}`);
+          stateAfterCombat = enqueueResolution(stateAfterCombat, {
+            source,
+            actor,
+            scope,
+            kind: { type: 'discard-one-company-item', companyId },
+          });
+        } else {
+          logDetail(`${sourceName}: discard-one-company-item triggered but company has no items — skipping`);
+        }
       } else if (woundEvent.apply.type === 'discard-character') {
         stateAfterCombat = discardWoundedCharacters(stateAfterCombat, combat, woundedCharIds, sourceName, woundEvent.when);
       }

@@ -83,6 +83,8 @@ export function resolutionLegalActions(
       return wizardSearchOnStoreActions(state, actor, top);
     case 'select-card-bearer':
       return selectCardBearerActions(state, actor, top);
+    case 'discard-one-company-item':
+      return discardOneCompanyItemActions(state, actor, top);
   }
 }
 
@@ -1378,6 +1380,48 @@ function selectCardBearerActions(
 
   // Always offer a pass so the player can decline and discard the card
   actions.push({ action: { type: 'pass', player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Legal actions while a `discard-one-company-item` resolution is pending.
+ *
+ * The defending player must choose one item from any character in their
+ * company to discard. One `discard-item-from-company` action is emitted
+ * per available item.
+ */
+function discardOneCompanyItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'discard-one-company-item') return [];
+  const { companyId } = top.kind;
+
+  const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  if (!defPlayer) return [];
+  const company = defPlayer.companies.find(co => co.id === companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const ch = defPlayer.characters[charId as string];
+    if (!ch) continue;
+    for (const item of ch.items) {
+      const itemDef = state.cardPool[item.definitionId as string];
+      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      logDetail(`discard-one-company-item: offering ${itemName}`);
+      actions.push({
+        action: {
+          type: 'discard-item-from-company' as const,
+          player: actor,
+          itemInstanceId: item.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
 
   return actions;
 }
