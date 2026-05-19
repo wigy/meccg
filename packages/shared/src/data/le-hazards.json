@@ -616,7 +616,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThriceOutnumbered.jpg",
     "text": "Each player may take one Man hazard creature from his discard pile and shuffle it into his play deck at the end of each turn. Discard this card or a Man hazard creature from your hand at the end of opponent’s long-event phase. Discard when any play deck is exhausted. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } }
+    ]
   },
   {
     "cardType": "hazard-event",

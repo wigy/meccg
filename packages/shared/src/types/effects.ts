@@ -334,9 +334,11 @@ export interface ActionCost {
    * untapped sage in the bearer's company; "sage-and-scout-in-company" taps one
    * untapped sage AND one untapped scout in the bearer's company (The Worthy Hills
    * as-142 special rule — the action carries sage as `characterId` and scout as
-   * `secondCharacterId`).
+   * `secondCharacterId`); "self-and-bearer" taps BOTH the source item AND its
+   * bearer character (used by Torque of Hues — requires both item and bearer
+   * to be untapped).
    */
-  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company';
+  readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-and-scout-in-company' | 'self-and-bearer';
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use.
@@ -1500,6 +1502,12 @@ export interface CancelAttackEffect extends EffectBase {
   readonly requiredSkill?: string;
   /** The race required on the character who pays the cost (e.g. "wizard" for Vanishment). */
   readonly requiredRace?: string;
+  /**
+   * When true, a corruption check is enqueued on the bearer immediately after
+   * the attack is cancelled. Used by in-play items like Torque of Hues
+   * ("Bearer makes a corruption check").
+   */
+  readonly enqueueCorruptionCheck?: true;
 }
 
 /**
@@ -1753,12 +1761,19 @@ export interface StorableAtEffect extends EffectBase {
  *   current combat (e.g. Dragon's Curse requires `race: "dragon"`).
  *   Only offered when combat is active; otherwise the card is
  *   non-playable.
+ * - `target-company` — the company being targeted by a hazard creature.
+ *   The condition is evaluated against
+ *   `{ company: { homeSites: string[] } }` where `homeSites` is the flat
+ *   list of all individual site names from every character's `homesite`
+ *   field (comma-separated entries are split). Used for restrictions like
+ *   "May not be played against a company containing a character with
+ *   Edoras as a home site" (Horse-lords).
  *
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
