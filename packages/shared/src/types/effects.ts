@@ -1753,12 +1753,19 @@ export interface StorableAtEffect extends EffectBase {
  *   current combat (e.g. Dragon's Curse requires `race: "dragon"`).
  *   Only offered when combat is active; otherwise the card is
  *   non-playable.
+ * - `target-company` — the company being targeted by a hazard creature.
+ *   The condition is evaluated against
+ *   `{ company: { homeSites: string[] } }` where `homeSites` is the flat
+ *   list of all individual site names from every character's `homesite`
+ *   field (comma-separated entries are split). Used for restrictions like
+ *   "May not be played against a company containing a character with
+ *   Edoras as a home site" (Horse-lords).
  *
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be

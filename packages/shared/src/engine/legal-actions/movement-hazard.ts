@@ -1040,6 +1040,19 @@ function playHazardsActions(
           actions.push({ action, viable: false, reason: keyError });
           continue;
         }
+        // Check play-condition: target-company (e.g. Horse-lords — not playable
+        // against a company containing a character with Edoras as a home site).
+        const targetCompanyCond = def.effects?.find(
+          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'target-company',
+        );
+        if (targetCompanyCond?.condition) {
+          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany);
+          if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
+            logDetail(`Creature "${def.name}": target-company play-condition not met — not playable against this company`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against this company' });
+            continue;
+          }
+        }
         if (matches.length === 0 && keyingBypassed) {
           logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
           actions.push({
@@ -1960,6 +1973,31 @@ function findCreatureKeyingMatches(
   }
 
   return matches;
+}
+
+/**
+ * Builds the condition-matcher context for `play-condition` effects with
+ * `requires: 'target-company'`. Exposes the flat list of all individual
+ * home-site names from every character in the target company so that
+ * card-level restrictions like "may not be played against a company
+ * containing a character with Edoras as a home site" can be expressed
+ * in the DSL without per-card engine branches.
+ */
+function buildTargetCompanyConditionContext(
+  state: GameState,
+  company: { readonly characters: readonly CardInstanceId[] },
+): Record<string, unknown> {
+  const homeSites: string[] = [];
+  for (const charInstId of company.characters) {
+    const defId = resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = state.cardPool[defId as string];
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    if (charDef.homesite) {
+      homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
+    }
+  }
+  return { company: { homeSites } };
 }
 
 /**
