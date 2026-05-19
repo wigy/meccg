@@ -533,7 +533,18 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["border"], "siteTypes": ["border-hold"] }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "discard-character" },
+        "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } }
+      }
+    ],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hazard-creature",
@@ -800,5 +811,24 @@
     "killMarshallingPoints": 1,
     "race": "pûkel-creature",
     "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-39",
+    "name": "Giant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Giant.jpg",
+    "text": "Giant. One strike.",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "giant",
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "wilderness"]
+      }
+    ],
+    "certified": "2026-05-19"
   }
 ]

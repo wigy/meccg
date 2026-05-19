@@ -11,6 +11,37 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Old Pûkel-land",
+          "Old Pûkel Gap",
+          "Andrast",
+          "Anfalas",
+          "Lamedon",
+          "Belfalas",
+          "Lebennin",
+          "Anórien",
+          "Rohan"
+        ]
+      }
+    ],
+    "certified": "2026-05-19",
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            {
+              "$and": [
+                { "defender.alignment": "fallen-wizard" },
+                { "defender.covert": true }
+              ]
+            }
+          ]
+        }
+      }
+    ]
   }
 ]
