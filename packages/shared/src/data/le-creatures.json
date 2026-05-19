@@ -276,7 +276,13 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["border", "wilderness", "shadow"]
+      }
+    ],
+    "effects": [],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hazard-creature",
