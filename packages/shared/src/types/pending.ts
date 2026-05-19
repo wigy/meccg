@@ -346,6 +346,23 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Glamour of Surpassing Excellence (as-49): roll 2d6 for one hazard
+         * permanent-event. If the result exceeds `removalThreshold`, the hazard
+         * is discarded. One resolution is enqueued per hazard permanent-event
+         * found on the company's characters.
+         */
+        readonly type: 'glamour-hazard-roll';
+        /** The hazard permanent-event instance being rolled for. */
+        readonly hazardInstanceId: CardInstanceId;
+        /** Definition ID of the hazard (for look-up and UI). */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Roll must exceed this value to discard the hazard (from removalNumber, or 8). */
+        readonly removalThreshold: number;
+        /** Definition ID of the source resource event (for UI / logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Brigands-style wound effect: the defending company must discard
          * one item of the defender's choice. Fires once per Brigands attack
          * in which at least one character was wounded. The defender picks

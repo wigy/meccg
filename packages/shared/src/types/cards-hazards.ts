@@ -145,6 +145,13 @@ export interface HazardEventCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
   readonly text: string;
+  /**
+   * For hazard permanent-events that have a standard removal mechanic ("Make a
+   * roll—if the result is greater than N, discard this card"), this is the
+   * threshold N. Cards without this field default to 8 when targeted by effects
+   * like Glamour of Surpassing Excellence that roll to remove hazard permanent-events.
+   */
+  readonly removalNumber?: number;
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
   readonly certified?: string;
 }

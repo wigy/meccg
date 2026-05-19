@@ -95,7 +95,8 @@
       }
     ],
     "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
-    "certified": "2026-04-06"
+    "certified": "2026-04-06",
+    "removalNumber": 7
   },
   {
     "cardType": "hazard-event",
@@ -642,6 +643,7 @@
       }
     ],
     "text": "Corruption. Dark enchantment. Playable on a non-Wizard character facing a strike from a Dragon hazard creature attack. The strike's prowess is modified by -1. The character receives 2 corruption points. The target character makes a corruption check at the end of his untap phase. Cannot be duplicated on a given character. During his organization phase, a sage in the target character's company may tap to attempt to remove this card. Make a roll: if this result is greater than 6, discard this card.",
-    "certified": "2026-04-22"
+    "certified": "2026-04-22",
+    "removalNumber": 6
   }
 ]

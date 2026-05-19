@@ -24,7 +24,7 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from '../../index.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, EventPlaySiteEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
@@ -1326,6 +1326,35 @@ export function playResourceShortEventActions(
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
       continue;
+    }
+
+    // event-play-site: restrict event to specific site types (e.g. Glamour of Surpassing Excellance
+    // requires Border-hold or Free-hold). Only meaningful during the site phase.
+    const eventPlaySite = def.effects?.find(
+      (e): e is EventPlaySiteEffect => e.type === 'event-play-site',
+    );
+    if (eventPlaySite) {
+      let activeSiteType: string | null = null;
+      if (currentPhase === 'site') {
+        const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+        const activePlayerState = state.players.find(p => p.id === state.activePlayer);
+        const company = activePlayerState?.companies[sitePhaseState.activeCompanyIndex];
+        if (company?.currentSite) {
+          const siteDef = state.cardPool[company.currentSite.definitionId as string];
+          if (siteDef && 'siteType' in siteDef) {
+            activeSiteType = (siteDef as { siteType: string }).siteType;
+          }
+        }
+      }
+      if (!activeSiteType || !eventPlaySite.siteTypes.includes(activeSiteType)) {
+        logDetail(`${def.name}: event-play-site requires [${eventPlaySite.siteTypes.join(', ')}], active site type: ${activeSiteType ?? 'none'}`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} can only be played at: ${eventPlaySite.siteTypes.map(t => t.replace(/-/g, ' ')).join(' or ')}`,
+        });
+        continue;
+      }
     }
 
     // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
