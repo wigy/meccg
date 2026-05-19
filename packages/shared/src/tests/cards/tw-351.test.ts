@@ -95,7 +95,7 @@ describe('Torque of Hues (tw-351)', () => {
           },
         },
       ),
-    } as typeof withItem;
+    } as unknown as typeof withItem;
 
     const state = makeCancelWindowCombat(tappedItem, { creatureRace: 'orc' });
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
