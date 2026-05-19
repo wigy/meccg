@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 137 | 309 | 44.3% |
-| Card tests | 332 | 351 | 94.6% |
-| Cards created | 694 | 1683 | 41.2% |
-| Cards certified | 334 | 694 | 48.1% |
-| **Total** | **1497** | **3037** | **49.3%** |
+| Rule tests | 139 | 309 | 45.0% |
+| Card tests | 369 | 387 | 95.3% |
+| Cards created | 697 | 1683 | 41.4% |
+| Cards certified | 372 | 697 | 53.4% |
+| **Total** | **1577** | **3076** | **51.3%** |
 
 ### Deck Catalog
 
@@ -31,21 +31,21 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 |:-----|:----------|------:|---------------:|----------:|
 | (A) Stewards of Gondor | hero | 119 | 119 (100.0%) | 119 (100.0%) |
 | (B) Release the Prisoners | hero | 119 | 119 (100.0%) | 119 (100.0%) |
-| (C) Dwarven Quest | hero | 119 | 119 (100.0%) | 106 (89.1%) |
-| (D) Bargain between Friends | hero | 119 | 119 (100.0%) | 76 (63.9%) |
-| (E) Return of the King | hero | 119 | 119 (100.0%) | 83 (69.7%) |
+| (C) Dwarven Quest | hero | 119 | 119 (100.0%) | 119 (100.0%) |
+| (D) Bargain between Friends | hero | 119 | 119 (100.0%) | 115 (96.6%) |
+| (E) Return of the King | hero | 119 | 119 (100.0%) | 89 (74.8%) |
 | (F) Spies and Traitors | minion | 119 | 118 (99.2%) | 80 (67.2%) |
 | (G) Marauding Brood of Uglies | minion | 119 | 119 (100.0%) | 46 (38.7%) |
 | (H) Stealthy Tribe | minion | 119 | 119 (100.0%) | 52 (43.7%) |
 | (I) Morgul Rallying Cry | minion | 119 | 119 (100.0%) | 45 (37.8%) |
-| (J) Seducing Nations of Men | minion | 119 | 119 (100.0%) | 56 (47.1%) |
-| Agents (Development only) | hero | 139 | 139 (100.0%) | 138 (99.3%) |
+| (J) Seducing Nations of Men | minion | 119 | 119 (100.0%) | 57 (47.9%) |
+| Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 20 (66.7%) |
 | Dragons (Development only) | hero | 64 | 64 (100.0%) | 64 (100.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 27 (77.1%) |
+| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 29 (82.9%) |
 | Hero (Development only) | hero | 69 | 69 (100.0%) | 69 (100.0%) |
 | Minion (Development only) | minion | 51 | 51 (100.0%) | 51 (100.0%) |
-| All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 96 (99.0%) |
+| All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 97 (100.0%) |
 
 ## Getting Started
 

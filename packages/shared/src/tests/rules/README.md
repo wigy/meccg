@@ -6,21 +6,21 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 137 | 172 | 44.3% |
+| 309 | 139 | 170 | 45.0% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 12 | 20.3% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 13 | 22.0% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 10 | 76.9% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 21 | 43.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 18 | 52.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 16 | 38.1% |
+| 08 | [Combat](08-combat/) | 42 | 17 | 40.5% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 20 | 64.5% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 19 | 35.8% |
 
@@ -83,7 +83,7 @@
 | 1.50 | Deck Construction & Setup | [Fw Starting Site](01-deck-construction/rule-1.50-fw-starting-site.test.ts) | ☐ |
 | 1.51 | Deck Construction & Setup | [Balrog Starting Sites](01-deck-construction/rule-1.51-balrog-starting-sites.test.ts) | ☑ |
 | 1.52 | Deck Construction & Setup | [Starting Hands](01-deck-construction/rule-1.52-starting-hands.test.ts) | ☑ |
-| 1.53 | Deck Construction & Setup | [Hand Size Modifications](01-deck-construction/rule-1.53-hand-size-modifications.test.ts) | ☐ |
+| 1.53 | Deck Construction & Setup | [Hand Size Modifications](01-deck-construction/rule-1.53-hand-size-modifications.test.ts) | ☑ |
 | 1.54 | Deck Construction & Setup | [Starting General Influence](01-deck-construction/rule-1.54-starting-general-influence.test.ts) | ☑ |
 | 1.55 | Deck Construction & Setup | [Minion Extra Gi](01-deck-construction/rule-1.55-minion-extra-gi.test.ts) | ☐ |
 | 1.56 | Deck Construction & Setup | [Balrog Extra Gi](01-deck-construction/rule-1.56-balrog-extra-gi.test.ts) | ☐ |
@@ -245,7 +245,7 @@
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
 | 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
-| 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☐ |
+| 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☑ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☐ |
 | 8.38 | Combat | [Cvcc Rules](08-combat/rule-8.38-cvcc-rules.test.ts) | ☐ |

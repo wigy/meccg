@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.30.0 — 2026-05-19
+
+Challenge Deck C
+
+### Card Certification
+
+- Certify (hazard creatures): Abductor (tw-1), Brigands (tw-17), Lawless Men (le-82), Stout Men of Gondor (as-21), Sellswords Between Charters (le-89), Rank upon Rank (dm-80), Horse-lords (le-78), Thrice Outnumbered (le-142), Wain-easterlings (as-60)
+- Certify (hazard events): Glamour of Surpassing Excellance (as-49)
+- Certify (resources): Bow of the Galadhrim (as-68), Torque of Hues (tw-351), Beornings (tw-197), Easterlings (tw-222), New Friendship (tw-292), A Friend or Three (tw-189), Men of Dorwinion (tw-278), Hundreds of Butterflies (dm-142), Fellowship (tw-240), Quickbeam (tw-307), Thranduil (tw-184), Halbarad (tw-162), Háma (tw-165), Beorn (tw-126)
+- Certify (items): Noble Steed (wh-33), Bow of Dragon-horn (td-102), Thrór's Map (td-158), Wormsbane (td-172), Bounty of the Hoard (td-101), Lucky Search (tw-269), Great-road (tw-249), Flatter a Foe (td-116), Men of Dale (td-138)
+- Certify (hazard/event): The Under-galleries (dm-37)
+
+### Game Engine
+
+- Implement `force-discard-one-company-item` effect (Brigands tw-17)
+- Implement `discard-on-wound` engine support (Abductor tw-1)
+- Implement `cancel-attack` for items with self-and-bearer cost (Torque of Hues tw-351)
+- Implement `cancel-strike` for mounts (Noble Steed wh-33)
+- Implement `check-modifier` for Dúnedain influence (Easterlings tw-222)
+- Implement `no-attack-site-keyed` flag (Quickbeam tw-307)
+- Implement `deck-search-attack` engine (Lucky Search tw-269)
+- Implement `ahunt-attack` effect (Scorba Ahunt td-64)
+- Implement `flattery-cancel-attack` mechanic (Flatter a Foe td-116)
+- Implement `stolen-knowledge` site rule (The Under-galleries dm-37)
+- Implement `discard` on Thrór's Map to untap Dragon lair site
+- Implement `company-modifier` and membership-change discard (Fellowship tw-240)
+- Implement `hoard-bounty` site-phase event (Bounty of the Hoard td-101)
+- Implement taking-prisoner rules (CoE 8.35/8.36), certify Flies and Spiders hazards (dm-58, dm-179)
+- Implement `company.containsDiplomat` for New Friendship (tw-292)
+- Implement `subtract` op for `enemy-modifier` (Wormsbane td-172)
+- Implement `strikesModifier` on `modify-attack` (Bow of Dragon-horn td-102)
+- Implement `end-of-org` haven restriction and movement bonus (Great-road tw-249)
+- Implement rule 1.53 hand-size-modification tests
+- Fix: `players` field changed to tuple — fix type error
+- Fix: `perf` incremental TypeScript build cache (5s → 0.4s on no-op)
+- Fix: creatureRace test assertions normalized to 'man' for Men creature cards
+
+### Infrastructure
+
+- `run-ai`: add `max-iterations` argument and fail-fast on handle-mail error
+
 ## 0.29.0 — 2026-05-12
 
 Dark Minions Rules
