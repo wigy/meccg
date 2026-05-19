@@ -109,7 +109,7 @@ describe('Stout Men of Gondor (as-21)', () => {
     expect(afterChain.combat!.strikesTotal).toBe(6);
     expect(afterChain.combat!.strikeProwess).toBe(7);
     expect(afterChain.combat!.creatureBody).toBe(null);
-    expect(afterChain.combat!.creatureRace).toBe('men');
+    expect(afterChain.combat!.creatureRace).toBe('man');
     expect(afterChain.combat!.detainment).toBe(true);
   });
 
