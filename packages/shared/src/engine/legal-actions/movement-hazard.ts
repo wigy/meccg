@@ -12,6 +12,7 @@ import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils
 import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
+import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1473,6 +1474,23 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
           }
           continue;
+        }
+
+        // play-restriction: only-at-site-with-auto-attack (Tidings of Bold Spies)
+        // Only offer when the target company's destination site has ≥1 auto-attack.
+        const requiresAutoAttackSite = def.effects?.some(
+          (e): boolean => (e as { type: string; rule?: string }).type === 'play-restriction'
+            && (e as { type: string; rule?: string }).rule === 'only-at-site-with-auto-attack',
+        );
+        if (requiresAutoAttackSite) {
+          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
+          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef).length === 0) {
+            logDetail(`Hazard short-event "${def.name}" requires a destination site with automatic-attacks`);
+            actions.push({ action, viable: false, reason: 'Destination site has no automatic attacks' });
+            continue;
+          }
         }
 
         logDetail(`Hazard short-event "${def.name}" is playable`);

@@ -2769,3 +2769,30 @@ When absent, the effect fires for the source card's owner only.
 
 Used by Thrice Outnumbered (le-142) to let both players fetch a Man
 hazard creature from their own discard pile at the end of each turn.
+
+### 49. `duplicate-site-auto-attacks`
+
+A hazard short-event effect that creates immediate M/H-phase combat attacks
+mirroring every automatic-attack at the target company's destination site.
+Used by Tidings of Bold Spies (le-143).
+
+**Play restriction**: The card also declares `{ "type": "play-restriction", "rule": "only-at-site-with-auto-attack" }` in its effects array. The M/H legal-action emitter (`movement-hazard.ts`) reads this annotation and only offers the card when the destination site has at least one auto-attack (via `getActiveAutoAttacks`).
+
+**Combat creation**: When the chain resolves, `chain-reducer.ts` finds the `duplicate-site-auto-attacks` effect, reads all auto-attacks from the destination site, creates `CombatState` for the first attack (using `attackSource: { type: 'tidings-attack', ... }`), and stores remaining attacks in a `tidings-attacks-queue` active constraint scoped to the company's M/H subphase. After each combat ends, `finalizeCombat` in `reducer-combat.ts` detects the constraint and initiates the next attack.
+
+**Key property**: The attacks use `attackSource.type === 'tidings-attack'` — they are NOT `automatic-attack`. This means:
+- Auto-attack modifiers (e.g. `auto-attack.prowess` attribute-modifiers) do NOT apply.
+- The attacks do not trigger site-phase auto-attack flow.
+- Kill-MP and on-defeat effects do not fire (no creature card exists to move).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| *(none)* | — | All parameters are derived from the destination site at resolution time. |
+
+```json
+{
+  "type": "duplicate-site-auto-attacks"
+}
+```
+
+Used by Tidings of Bold Spies (le-143).

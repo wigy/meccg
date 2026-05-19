@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
 import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -19,9 +19,10 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
-import { resolveEnemyBody, isWardedAgainst } from './effects/index.js';
+import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
+import { isDetainmentAttack } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
@@ -2694,6 +2695,76 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers
   // from short events like "The Dwarves Are upon You!").
   stateAfterCombat = sweepExpired(stateAfterCombat, { kind: 'attack-end' });
+
+  // Tidings of Bold Spies (le-143): if the company being attacked has a
+  // tidings-attacks-queue constraint with remaining attacks, initiate the next
+  // combat immediately. Each queued attack mirrors the site's auto-attack stats
+  // but is NOT itself an automatic-attack.
+  const tidingsConstraint = stateAfterCombat.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === combat.companyId
+      && c.kind.type === 'tidings-attacks-queue',
+  );
+  if (tidingsConstraint && tidingsConstraint.kind.type === 'tidings-attacks-queue') {
+    const { attacks, attackIndex } = tidingsConstraint.kind;
+    if (attackIndex < attacks.length) {
+      const aa = attacks[attackIndex];
+      const race = normalizeCreatureRace(aa.creatureType);
+      const inPlayNames2 = buildInPlayNames(stateAfterCombat);
+      const activeIdx2 = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const siteDef2 = (() => {
+        const company2 = activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].companies.find(c => c.id === combat.companyId) : undefined;
+        const destInst2 = company2?.destinationSite ?? company2?.currentSite ?? null;
+        const destDefId2 = destInst2 ? resolveInstanceId(stateAfterCombat, destInst2.instanceId) : null;
+        const def2 = destDefId2 ? stateAfterCombat.cardPool[destDefId2 as string] : undefined;
+        return def2 && isSiteCard(def2) ? def2 : undefined;
+      })();
+      const prowess2 = resolveAttackProwess(stateAfterCombat, aa.prowess, inPlayNames2, race, true, undefined, { companyId: combat.companyId });
+      const strikes2 = resolveAttackStrikes(stateAfterCombat, aa.strikes, inPlayNames2, race, { companyId: combat.companyId });
+      const aaAttackerChooses2 = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
+      logDetail(`Tidings of Bold Spies: initiating attack ${attackIndex + 1}/${attacks.length}: ${aa.creatureType} (${strikes2} strikes, ${prowess2} prowess)`);
+      const nextCombat: CombatState = {
+        attackSource: { type: 'tidings-attack', eventInstanceId: tidingsConstraint.source, attackIndex },
+        companyId: combat.companyId,
+        defendingPlayerId: combat.defendingPlayerId,
+        attackingPlayerId: combat.attackingPlayerId,
+        strikesTotal: strikes2,
+        strikeProwess: prowess2,
+        creatureBody: aa.body ?? null,
+        creatureRace: race,
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+        phase: 'assign-strikes',
+        assignmentPhase: aaAttackerChooses2 ? 'cancel-window' : 'defender',
+        bodyCheckTarget: null,
+        detainment: isDetainmentAttack({
+          attackEffects: siteDef2?.effects,
+          attackRace: race as import('../index.js').Race | null,
+          defendingAlignment: activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].alignment : Alignment.Wizard,
+          defendingSiteEffects: siteDef2?.effects,
+        }),
+        ...(aaAttackerChooses2 ? { attackerChoosesDefenders: true } : {}),
+      };
+      // Update the queue constraint to point to the next attack.
+      stateAfterCombat = removeConstraint(stateAfterCombat, tidingsConstraint.id);
+      if (attackIndex + 1 < attacks.length) {
+        stateAfterCombat = addConstraint(stateAfterCombat, {
+          source: tidingsConstraint.source,
+          sourceDefinitionId: tidingsConstraint.sourceDefinitionId,
+          scope: { kind: 'company-mh-phase', companyId: combat.companyId },
+          target: { kind: 'company', companyId: combat.companyId },
+          kind: {
+            type: 'tidings-attacks-queue',
+            attacks,
+            attackIndex: attackIndex + 1,
+          },
+        });
+      }
+      return { state: { ...stateAfterCombat, combat: nextCombat }, effects };
+    }
+    // Queue exhausted — remove the constraint.
+    stateAfterCombat = removeConstraint(stateAfterCombat, tidingsConstraint.id);
+  }
 
   return {
     state: stateAfterCombat,

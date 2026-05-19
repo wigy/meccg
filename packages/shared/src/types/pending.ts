@@ -795,6 +795,21 @@ export interface ActiveConstraint {
         readonly type: 'character-is-prisoner';
         /** Instance ID of the hazard host's card — locates the HazardHost record. */
         readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Tidings of Bold Spies (le-143): queued M/H-phase combat attacks that
+         * duplicate the destination site's automatic-attacks. One attack per entry
+         * in `attacks`; `attackIndex` is the index of the NEXT attack to initiate.
+         * When `attackIndex >= attacks.length` the queue is exhausted and the
+         * constraint is removed by `finalizeCombat`. Scoped to
+         * `company-mh-phase` so it is always swept if combat is somehow skipped.
+         */
+        readonly type: 'tidings-attacks-queue';
+        /** Full list of auto-attack specs copied from the destination site at play time. */
+        readonly attacks: readonly import('./cards-sites.js').AutomaticAttack[];
+        /** Index of the next attack to initiate (0 = first attack was already started). */
+        readonly attackIndex: number;
       };
 }
 

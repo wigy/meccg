@@ -650,6 +650,7 @@
     "text": "Playable on a company moving to a site with an automatic-attack. This card creates one or more attacks on the company, the total of which duplicates exactly (including modifications) all automatic-attacks at the site. These attacks must be faced immediately and are not considered automatic-attacks.",
     "unique": false,
     "eventType": "short",
+    "certified": "2026-05-19",
     "effects": [
       {
         "type": "play-restriction",

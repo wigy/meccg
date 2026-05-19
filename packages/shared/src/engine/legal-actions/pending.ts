@@ -1110,6 +1110,11 @@ function applyOneConstraint(
       // (negative MP, 0 GI), and checked by any action computer that requires
       // the acting character to be free — no broad legal-action filtering here.
       return base;
+    case 'tidings-attacks-queue':
+      // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
+      // chain successive Tidings of Bold Spies attacks — no broad legal-action
+      // filtering needed here.
+      return base;
   }
 }
 

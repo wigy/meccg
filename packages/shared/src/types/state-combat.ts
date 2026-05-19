@@ -65,7 +65,15 @@ export type AttackSource =
       readonly foundItemInstanceId: CardInstanceId | null;
       /** Instance IDs of ALL cards revealed (including found item). */
       readonly revealedCardInstanceIds: readonly CardInstanceId[];
-    };
+    }
+  /**
+   * Triggered by Tidings of Bold Spies (le-143): a hazard short-event that
+   * duplicates all automatic-attacks of the destination site as immediate
+   * M/H-phase combat. `attackIndex` identifies which auto-attack is being
+   * mirrored (0-based). These attacks are NOT automatic-attacks — auto-attack
+   * modifiers do not apply.
+   */
+  | { readonly type: 'tidings-attack'; readonly eventInstanceId: CardInstanceId; readonly attackIndex: number };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

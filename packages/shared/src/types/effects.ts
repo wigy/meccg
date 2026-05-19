@@ -2257,7 +2257,8 @@ export type CardEffect =
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
-  | HazardMaintenanceEffect;
+  | HazardMaintenanceEffect
+  | DuplicateSiteAutoAttacksEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2401,4 +2402,15 @@ export interface HazardMaintenanceEffect extends EffectBase {
    * of discarding the source card itself.
    */
   readonly handCardFilter: Condition;
+}
+
+/**
+ * Tidings of Bold Spies (le-143): when this hazard short event resolves
+ * against a company moving to a site with automatic-attacks, it creates
+ * one attack per auto-attack at the destination site, duplicating each
+ * exactly (strikes, prowess, body, combat rules). The created attacks are
+ * NOT automatic-attacks and must be faced immediately during M/H phase.
+ */
+export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
+  readonly type: 'duplicate-site-auto-attacks';
 }
