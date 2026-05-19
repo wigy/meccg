@@ -2370,6 +2370,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const attackCtx = {
       enemy: { race: combat.creatureRace },
       attack: { isolated: combat.isolated ?? false },
+      inPlay: buildInPlayNames(stateAfterCombat),
     };
     const updatedPlayersAD = stateAfterCombat.players.map(player => {
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];

@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -1477,7 +1477,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     : { type: 'creature' as const, instanceId: entry.card!.instanceId };
 
   const inPlayNames = buildInPlayNames(state);
-  const creatureRace = creatureDef.race;
+  const creatureRace = normalizeCreatureRace(creatureDef.race);
   const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : deriveSiteFacedRaces(state);
@@ -1545,7 +1545,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
-      attackRace: creatureRace,
+      attackRace: creatureRace as Race,
       attackKeyedTo: creatureDef.keyedTo,
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,

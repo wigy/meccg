@@ -226,8 +226,8 @@
         "hazardLimitReduction": 2,
         "thresholds": [
           { "races": ["dragon"], "threshold": 10 },
-          { "races": ["men", "drake"], "threshold": 11 },
-          { "races": ["troll", "orc", "elves", "giants"], "threshold": 12 }
+          { "races": ["man", "drake"], "threshold": 11 },
+          { "races": ["troll", "orc", "elf", "giant"], "threshold": 12 }
         ]
       }
     ]
