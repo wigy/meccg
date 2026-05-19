@@ -209,7 +209,49 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RankuponRank.jpg",
     "text": "All non-agent Man attacks receive +1 prowess and +1 strikes. If Doors of Night is in play, all Giant attacks also receive these bonuses. Discard this card when such an affected attack (automatic, hazard creature, or otherwise) is defeated. Cannot be duplicated.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "man" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "man" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": { "type": "discard-self" },
+        "when": { "$or": [{ "enemy.race": "man" }, { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }] }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hazard-event",

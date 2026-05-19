@@ -135,7 +135,7 @@ describe('Corsairs of Umbar (tw-24)', () => {
     expect(afterChain.combat!.strikesTotal).toBe(5);
     expect(afterChain.combat!.strikeProwess).toBe(9);
     expect(afterChain.combat!.creatureBody).toBe(null);
-    expect(afterChain.combat!.creatureRace).toBe('men');
+    expect(afterChain.combat!.creatureRace).toBe('man');
   });
 
   // ─── Base keying: coastal region type ────────────────────────────────

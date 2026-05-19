@@ -69,7 +69,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'men' });
+    const state = makeCancelWindowCombat(base, { creatureRace: 'man' });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -126,7 +126,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'spiders' });
+    const state = makeCancelWindowCombat(base, { creatureRace: 'spider' });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(

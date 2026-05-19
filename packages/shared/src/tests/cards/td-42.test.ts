@@ -98,7 +98,7 @@ describe('Lesser Spiders (td-42)', () => {
     expect(after.combat).not.toBeNull();
     expect(after.combat!.strikesTotal).toBe(4);
     expect(after.combat!.strikeProwess).toBe(7);
-    expect(after.combat!.creatureRace).toBe('spiders');
+    expect(after.combat!.creatureRace).toBe('spider');
     expect(after.combat!.creatureBody).toBeNull();
   });
 
