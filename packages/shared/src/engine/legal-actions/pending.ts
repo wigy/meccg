@@ -87,6 +87,8 @@ export function resolutionLegalActions(
       return glamourHazardRollActions(state, actor, top);
     case 'discard-one-company-item':
       return discardOneCompanyItemActions(state, actor, top);
+    case 'hazard-event-maintenance':
+      return hazardEventMaintenanceActions(state, actor, top);
   }
 }
 
@@ -1108,6 +1110,11 @@ function applyOneConstraint(
       // (negative MP, 0 GI), and checked by any action computer that requires
       // the acting character to be free — no broad legal-action filtering here.
       return base;
+    case 'tidings-attacks-queue':
+      // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
+      // chain successive Tidings of Bold Spies attacks — no broad legal-action
+      // filtering needed here.
+      return base;
   }
 }
 
@@ -1454,6 +1461,76 @@ function discardOneCompanyItemActions(
         },
         viable: true,
       });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Legal actions for a `hazard-event-maintenance` pending resolution.
+ *
+ * The hazard player must choose one of:
+ * 1. Discard the permanent event itself from cardsInPlay (`discard-self`).
+ * 2. Discard any matching card from hand (`discard-from-hand`), if available.
+ *
+ * At minimum, option 1 is always offered. Options 2 are offered for each
+ * qualifying hand card that matches the effect's `handCardFilter`.
+ */
+function hazardEventMaintenanceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'hazard-event-maintenance') return [];
+  const { sourceInstanceId, sourceDefinitionId } = top.kind;
+
+  // Look up the source effect's handCardFilter
+  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  let handCardFilter: import('../../types/effects.js').Condition | undefined;
+  if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
+    for (const eff of sourceDef.effects) {
+      if (eff.type === 'hazard-maintenance' && eff.trigger === 'opponent-long-event-end') {
+        handCardFilter = eff.handCardFilter;
+        break;
+      }
+    }
+  }
+
+  const actions: EvaluatedAction[] = [];
+
+  // Option 1: always offer discard-self
+  actions.push({
+    action: {
+      type: 'pay-hazard-event-maintenance' as const,
+      player: actor,
+      paymentType: 'discard-self' as const,
+      cardInstanceId: sourceInstanceId,
+      sourceInstanceId,
+    },
+    viable: true,
+  });
+
+  // Option 2: offer each matching hand card as a payment alternative
+  if (handCardFilter !== undefined) {
+    const actorPlayer = state.players.find(p => p.id === actor);
+    if (actorPlayer) {
+      for (const handCard of actorPlayer.hand) {
+        const handDef = state.cardPool[handCard.definitionId as string];
+        if (!handDef) continue;
+        if (!matchesCondition(handCardFilter, handDef as unknown as Record<string, unknown>)) continue;
+        logDetail(`hazard-event-maintenance: offering hand card ${handCard.definitionId as string} as payment`);
+        actions.push({
+          action: {
+            type: 'pay-hazard-event-maintenance' as const,
+            player: actor,
+            paymentType: 'discard-from-hand' as const,
+            cardInstanceId: handCard.instanceId,
+            sourceInstanceId,
+          },
+          viable: true,
+        });
+      }
     }
   }
 

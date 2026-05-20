@@ -18,12 +18,14 @@ from the hazard player's location deck.
 **Playability:** A hazard host may only be played if a valid rescue site is
 available from the hazard player's location deck, and the rescue site is
 geographically reachable:
+
 - **Starter movement:** rescue site must be in the region of origin or new site.
 - **Region movement:** rescue site must be in a traversed or adjacent region.
 - **Stationary company:** rescue site must be in the same region.
 - **Under-deeps adjacency:** the adjacent Under-deeps site is always valid.
 
 **When taken prisoner:**
+
 - Followers revert to general influence (mind not subtracted until next org phase).
 - All other non-ring cards on the prisoner are discarded immediately.
 - The prisoner costs 0 GI to control (removed from GI accounting).
@@ -100,6 +102,7 @@ invariant is preserved). They gain an `activeConstraints` entry of type
 ```
 
 The constraint enforcer (in the legal-action computer and reducer) gates:
+
 - Untapping the character.
 - The character taking any action.
 - Non-prisoner-specific cards targeting the character.
@@ -305,43 +308,43 @@ export interface StrikeShieldEffect extends EffectBase {
 
 ### Phase 2 — Prisoner Constraints in Legal Actions
 
-6. **Untap phase** — Skip untap for characters with `character-is-prisoner` (unless auto-rescue fires).
-7. **All action computers** — Gate any action that requires the acting character to not be a prisoner.
-8. **Hazard targeting** — Cards that do not specifically target prisoners may not target prisoner characters.
+1. **Untap phase** — Skip untap for characters with `character-is-prisoner` (unless auto-rescue fires).
+2. **All action computers** — Gate any action that requires the acting character to not be a prisoner.
+3. **Hazard targeting** — Cards that do not specifically target prisoners may not target prisoner characters.
 
 ### Phase 3 — `take-prisoner` DSL Effect (Hazard Host Mechanic)
 
-9. **`effects.ts`** — Add `TakePrisonerEffect` interface.
-10. **`types/cards-hazards.ts`** card data** — `HazardEventCard.effects` already accepts `CardEffect[]`; no type change needed.
-11. **Legal actions (M/H phase)** — When computing playable hazard events, check `take-prisoner` cards: verify a valid rescue site exists in the hazard player's location deck and is geographically reachable. If not, card is not legal to play.
-12. **Strike resolution** — When a `take-prisoner` hazard event is attached to a character and that character's strike is successful:
+1. **`effects.ts`** — Add `TakePrisonerEffect` interface.
+2. **`types/cards-hazards.ts`** card data** — `HazardEventCard.effects` already accepts `CardEffect[]`; no type change needed.
+3. **Legal actions (M/H phase)** — When computing playable hazard events, check `take-prisoner` cards: verify a valid rescue site exists in the hazard player's location deck and is geographically reachable. If not, card is not legal to play.
+4. **Strike resolution** — When a `take-prisoner` hazard event is attached to a character and that character's strike is successful:
     - Skip the normal wound/tap outcome.
     - Draw the rescue site card from the hazard player's location deck.
     - Create a new `HazardHost` entry with the host card, rescue site, and prisoner.
     - Add `character-is-prisoner` constraint to the prisoner character.
     - Discard all non-ring items from the prisoner.
     - Revert followers to GI (mind not subtracted until next org phase — use a deferred `pending` marker).
-13. **Auto-rescue (Flies and Spiders special)** — During the untap phase, for each prisoner with `autoRescue` on its host card:
+5. **Auto-rescue (Flies and Spiders special)** — During the untap phase, for each prisoner with `autoRescue` on its host card:
     - Trigger a body check modified by `bodyCheckModifier`.
     - If the character survives: trigger a dice roll; if `roll + body > autoRescueThreshold`, auto-rescue (remove from host, form new company at rescue site).
 
 ### Phase 4 — Rescue Mechanics (Rule 8.36)
 
-14. **Site phase legal actions** — When a company successfully enters the rescue site of an active `HazardHost`:
+1. **Site phase legal actions** — When a company successfully enters the rescue site of an active `HazardHost`:
     - Present rescue-attacks (from `rescueAttacks` on the host's `take-prisoner` effect). These are not automatic-attacks.
     - After rescue-attacks, if any character is untapped: offer a `tap-to-rescue` action.
-15. **`tap-to-rescue` action** — Tap one character; move all prisoners out of the host's `prisoners` list; add them to the rescuing company under general influence; remove their `character-is-prisoner` constraints. Tap the rescue site if untapped. Offer play-minor-item as the next declared resource action.
-16. **Host discard** — When a hazard host card is discarded by any means, rescue all prisoners and form a new company at the rescue site instead of discarding the prisoner characters.
+2. **`tap-to-rescue` action** — Tap one character; move all prisoners out of the host's `prisoners` list; add them to the rescuing company under general influence; remove their `character-is-prisoner` constraints. Tap the rescue site if untapped. Offer play-minor-item as the next declared resource action.
+3. **Host discard** — When a hazard host card is discarded by any means, rescue all prisoners and form a new company at the rescue site instead of discarding the prisoner characters.
 
 ### Phase 5 — Noble Hound Certification
 
-17. **`effects.ts`** — Add `StrikeShieldEffect` interface.
-18. **`effects.ts`** — Add `CancelPrisonerTakingEffect` interface.
-19. **`docs/card-effects-dsl.md`** — Document `strike-shield`, `cancel-prisoner-taking`, and `take-prisoner` in the DSL reference.
-20. **Assign-strikes legal-action computer** — When a company with an ally carrying `strike-shield` is being assigned strikes, enforce that the ally receives at least one strike before its controlling character can be assigned.
-21. **Strike resolution (cancel window)** — When a `take-prisoner` hit resolves and the prisoner character's controller has an ally with `cancel-prisoner-taking` in play, offer a reactive discard option. If accepted: discard the ally; cancel the prisoner-taking outcome (character is instead handled normally — wounded or tapped per standard combat result).
-22. **`dm-resources.json`** — Add `effects` array to `dm-179` (Noble Hound).
-23. **`dm-hazards.json`** — Add `dm-58` (Flies and Spiders) card entry.
+1. **`effects.ts`** — Add `StrikeShieldEffect` interface.
+2. **`effects.ts`** — Add `CancelPrisonerTakingEffect` interface.
+3. **`docs/card-effects-dsl.md`** — Document `strike-shield`, `cancel-prisoner-taking`, and `take-prisoner` in the DSL reference.
+4. **Assign-strikes legal-action computer** — When a company with an ally carrying `strike-shield` is being assigned strikes, enforce that the ally receives at least one strike before its controlling character can be assigned.
+5. **Strike resolution (cancel window)** — When a `take-prisoner` hit resolves and the prisoner character's controller has an ally with `cancel-prisoner-taking` in play, offer a reactive discard option. If accepted: discard the ally; cancel the prisoner-taking outcome (character is instead handled normally — wounded or tapped per standard combat result).
+6. **`dm-resources.json`** — Add `effects` array to `dm-179` (Noble Hound).
+7. **`dm-hazards.json`** — Add `dm-58` (Flies and Spiders) card entry.
 
 ---
 

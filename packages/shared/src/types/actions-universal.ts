@@ -316,3 +316,30 @@ export interface HavenReturnAction {
   /** The company returning to its origin haven. */
   readonly companyId: CompanyId;
 }
+
+/**
+ * Pay the maintenance cost for a hazard permanent event that requires upkeep
+ * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
+ *
+ * The hazard player must either discard the event itself or discard a qualifying
+ * card from their hand. Resolves the `hazard-event-maintenance` pending resolution.
+ */
+export interface PayHazardEventMaintenanceAction {
+  readonly type: 'pay-hazard-event-maintenance';
+  /** The hazard player paying the maintenance cost. */
+  readonly player: PlayerId;
+  /**
+   * How to pay:
+   * - `'discard-self'` — discard the permanent event from cardsInPlay.
+   * - `'discard-from-hand'` — discard a qualifying card from hand.
+   */
+  readonly paymentType: 'discard-self' | 'discard-from-hand';
+  /**
+   * The card instance to discard.
+   * For `discard-self`: the permanent event's instance ID.
+   * For `discard-from-hand`: the hand card's instance ID.
+   */
+  readonly cardInstanceId: CardInstanceId;
+  /** The pending resolution's source (the permanent event instance ID). */
+  readonly sourceInstanceId: CardInstanceId;
+}

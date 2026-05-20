@@ -377,6 +377,14 @@ export interface OnEventEffect extends EffectBase {
   /** Who the triggered effect targets. Omit for effects that target implicitly (e.g. all opposing environments). */
   readonly target?: string;
   /**
+   * For `end-of-turn` events: which player(s) the effect fires for.
+   *  - `'both'` — fires once per player (enqueues one pending effect per player).
+   *  - `'hazard'` — fires only for the hazard (non-active) player.
+   *  - `'resource'` — fires only for the resource (active) player.
+   * When absent, the effect fires for the source card's owner only.
+   */
+  readonly actor?: 'both' | 'hazard' | 'resource';
+  /**
    * For `end-of-company-mh` + `force-check` applies: restrict the
    * per-region iteration to regions whose type appears in this array.
    * When omitted the apply fires once per region in the resolved site
@@ -2248,7 +2256,9 @@ export type CardEffect =
   | PassiveMovementBonusEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
-  | CancelPrisonerTakingEffect;
+  | CancelPrisonerTakingEffect
+  | HazardMaintenanceEffect
+  | DuplicateSiteAutoAttacksEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2368,4 +2378,39 @@ export interface CancelPrisonerTakingEffect extends EffectBase {
    * this ally, not other characters in the company.
    */
   readonly scope: 'controlling-character' | 'company';
+}
+
+/**
+ * Hazard permanent-event maintenance cost paid at the end of the resource
+ * player's long-event phase.
+ *
+ * The hazard player (who played the event) must pay the cost every turn:
+ * either discard this card from cardsInPlay, or discard a matching card
+ * from their hand. If no matching card is in hand, they must discard this
+ * card.
+ *
+ * Used by *Thrice Outnumbered* (le-142): "Discard this card or a Man
+ * hazard creature from your hand at the end of opponent's long-event phase."
+ */
+export interface HazardMaintenanceEffect extends EffectBase {
+  readonly type: 'hazard-maintenance';
+  /** When this maintenance fires. */
+  readonly trigger: 'opponent-long-event-end';
+  /**
+   * Filter condition evaluated against card definitions in the hazard
+   * player's hand. Matching cards may be discarded as payment instead
+   * of discarding the source card itself.
+   */
+  readonly handCardFilter: Condition;
+}
+
+/**
+ * Tidings of Bold Spies (le-143): when this hazard short event resolves
+ * against a company moving to a site with automatic-attacks, it creates
+ * one attack per auto-attack at the destination site, duplicating each
+ * exactly (strikes, prowess, body, combat rules). The created attacks are
+ * NOT automatic-attacks and must be faced immediately during M/H phase.
+ */
+export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
+  readonly type: 'duplicate-site-auto-attacks';
 }

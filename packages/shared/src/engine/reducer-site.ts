@@ -24,6 +24,9 @@ import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionChe
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
+import { moveToFetchToDeckPayload } from './reducer-move.js';
+import type { MoveEffect } from '../types/effects.js';
+import type { PendingEffect } from '../types/state-combat.js';
 
 
 /**
@@ -65,7 +68,8 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   }
 
   logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
-  const withChecks = fireEndOfTurnCorruptionChecks(state);
+  const withFetch = fireEndOfTurnFetchEffects(state);
+  const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
   return {
     state: {
       ...withChecks,
@@ -2176,6 +2180,57 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
  * for each check is the negative corruption-point value of that item.
  * Used by *Covetous Thoughts* (le-107).
  */
+
+/**
+ * Scan all cardsInPlay for permanent hazard events with an
+ * `on-event: end-of-turn, actor: "both"` + move-to-deck apply shape.
+ * For each found effect, enqueue one fetch-to-deck pending effect per player
+ * (both players can optionally fetch from their own discard pile).
+ *
+ * Used by *Thrice Outnumbered* (le-142): "Each player may take one Man
+ * hazard creature from his discard pile and shuffle it into his play deck
+ * at the end of each turn."
+ */
+function fireEndOfTurnFetchEffects(state: GameState): GameState {
+  let newState = state;
+
+  // Scan both players' cardsInPlay for matching permanent events.
+  for (const player of newState.players) {
+    for (const card of player.cardsInPlay) {
+      const def = newState.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'end-of-turn') continue;
+        if (effect.actor !== 'both') continue;
+        if (effect.apply.type !== 'move') continue;
+        const payload = moveToFetchToDeckPayload(effect.apply as unknown as MoveEffect);
+        if (!payload) continue;
+
+        logDetail(`end-of-turn: "${def.name}" — firing fetch-to-deck for both players`);
+
+        // Enqueue one pending fetch effect per player (resource player first)
+        for (const targetPlayer of newState.players) {
+          const pendingEffect: PendingEffect = {
+            type: 'card-effect',
+            cardInstanceId: card.instanceId,
+            effect: payload,
+            actor: targetPlayer.id,
+            skipDiscard: true,
+          };
+          newState = {
+            ...newState,
+            pendingEffects: [...newState.pendingEffects, pendingEffect],
+          };
+          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def.name}"`);
+        }
+      }
+    }
+  }
+
+  return newState;
+}
+
 function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const resourcePlayer = state.players[activeIndex];
@@ -2249,7 +2304,8 @@ function advanceSiteToNextCompany(
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
     // Return remaining on-guard cards to hazard player's hand
     const cleanedState = returnOnGuardCardsToHand(sweptState);
-    const withChecks = fireEndOfTurnCorruptionChecks(cleanedState);
+    const withFetch = fireEndOfTurnFetchEffects(cleanedState);
+    const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
     return {
       state: cleanupEmptyCompanies({
         ...withChecks,

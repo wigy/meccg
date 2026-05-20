@@ -371,6 +371,26 @@ export interface PendingResolution {
         readonly type: 'discard-one-company-item';
         /** The company whose items are candidates for discard. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * Hazard permanent-event maintenance cost: fired at the end of the
+         * resource player's long-event phase for each in-play hazard permanent
+         * event that carries a `hazard-maintenance` effect.
+         *
+         * The hazard player must choose one of:
+         * - `discard-self` — discard the permanent event from cardsInPlay.
+         * - `discard-from-hand` — discard a matching hand card (see
+         *   {@link HazardMaintenanceEffect.handCardFilter}).
+         *
+         * Resolved by a `pay-hazard-event-maintenance` action.
+         *
+         * Used by *Thrice Outnumbered* (le-142).
+         */
+        readonly type: 'hazard-event-maintenance';
+        /** The permanent event card requiring maintenance payment. */
+        readonly sourceInstanceId: CardInstanceId;
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 
@@ -775,6 +795,21 @@ export interface ActiveConstraint {
         readonly type: 'character-is-prisoner';
         /** Instance ID of the hazard host's card — locates the HazardHost record. */
         readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Tidings of Bold Spies (le-143): queued M/H-phase combat attacks that
+         * duplicate the destination site's automatic-attacks. One attack per entry
+         * in `attacks`; `attackIndex` is the index of the NEXT attack to initiate.
+         * When `attackIndex >= attacks.length` the queue is exhausted and the
+         * constraint is removed by `finalizeCombat`. Scoped to
+         * `company-mh-phase` so it is always swept if combat is somehow skipped.
+         */
+        readonly type: 'tidings-attacks-queue';
+        /** Full list of auto-attack specs copied from the destination site at play time. */
+        readonly attacks: readonly import('./cards-sites.js').AutomaticAttack[];
+        /** Index of the next attack to initiate (0 = first attack was already started). */
+        readonly attackIndex: number;
       };
 }
 

@@ -1814,6 +1814,84 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Tidings of Bold Spies (le-143): duplicate-site-auto-attacks — hazard short
+  // event that creates immediate M/H-phase combat attacks mirroring every
+  // automatic-attack at the destination site. The first attack is initiated now;
+  // remaining attacks are stored in a `tidings-attacks-queue` constraint and
+  // each subsequent attack is initiated by finalizeCombat after the previous one
+  // completes. The created attacks are NOT automatic-attacks.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const tadCardDef = current.cardPool[entry.card.definitionId as string];
+    const dupEffect = tadCardDef && 'effects' in tadCardDef
+      ? (tadCardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is import('../index.js').DuplicateSiteAutoAttacksEffect => e.type === 'duplicate-site-auto-attacks',
+      )
+      : undefined;
+    if (dupEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = current.players.findIndex(p => p.id === activePlayerId);
+      const company = current.players[activeIndex]?.companies[current.phaseState.activeCompanyIndex];
+      const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+      const destSiteDefId = destSiteInst ? resolveInstanceId(current, destSiteInst.instanceId) : null;
+      const destSiteDef = destSiteDefId ? current.cardPool[destSiteDefId as string] : undefined;
+      if (company && destSiteDef && isSiteCard(destSiteDef)) {
+        const autoAttacks = getActiveAutoAttacks(current, destSiteDef);
+        if (autoAttacks.length > 0) {
+          const hazardPlayerId = current.players.find(p => p.id !== activePlayerId)!.id;
+          const inPlayNames = buildInPlayNames(current);
+          const aa0 = autoAttacks[0];
+          const race0 = normalizeCreatureRace(aa0.creatureType);
+          const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, { companyId: company.id });
+          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, { companyId: company.id });
+          const aaAttackerChooses0 = aa0.combatRules?.includes('attacker-chooses-defenders') ?? false;
+          logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
+          const combat0: import('../types/state-combat.js').CombatState = {
+            attackSource: { type: 'tidings-attack', eventInstanceId: entry.card.instanceId, attackIndex: 0 },
+            companyId: company.id,
+            defendingPlayerId: activePlayerId,
+            attackingPlayerId: hazardPlayerId,
+            strikesTotal: strikes0,
+            strikeProwess: prowess0,
+            creatureBody: aa0.body ?? null,
+            creatureRace: race0,
+            strikeAssignments: [],
+            currentStrikeIndex: 0,
+            phase: 'assign-strikes',
+            assignmentPhase: aaAttackerChooses0 ? 'cancel-window' : 'defender',
+            bodyCheckTarget: null,
+            detainment: isDetainmentAttack({
+              attackEffects: destSiteDef.effects,
+              attackRace: race0 as import('../index.js').Race | null,
+              defendingAlignment: current.players[activeIndex].alignment,
+              defendingSiteEffects: destSiteDef.effects,
+            }),
+            ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
+          };
+          current = { ...current, combat: combat0 };
+          // If more attacks follow, queue them in a constraint on the company.
+          if (autoAttacks.length > 1) {
+            current = addConstraint(current, {
+              source: entry.card.instanceId,
+              sourceDefinitionId: entry.card.definitionId,
+              scope: { kind: 'company-mh-phase', companyId: company.id },
+              target: { kind: 'company', companyId: company.id },
+              kind: {
+                type: 'tidings-attacks-queue',
+                attacks: autoAttacks,
+                attackIndex: 1,
+              },
+            });
+          }
+        } else {
+          logDetail(`Tidings of Bold Spies: destination site "${destSiteDef.name}" has no auto-attacks — fizzle`);
+        }
+      }
+    }
+  }
+
   // Veils Flung Away / mass-body-check: hazard short event targeting the whole
   // company. Enqueue one body-check-company pending resolution per character in
   // the active M/H company so each character rolls 2d6 against their body.

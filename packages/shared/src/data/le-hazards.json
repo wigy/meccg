@@ -619,8 +619,28 @@
     "eventType": "permanent",
     "effects": [
       { "type": "duplication-limit", "scope": "game", "max": 1 },
-      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } }
-    ]
+      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "actor": "both",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "deck",
+          "shuffleAfter": true,
+          "filter": { "cardType": "hazard-creature", "race": "men" },
+          "count": 1
+        }
+      },
+      {
+        "type": "hazard-maintenance",
+        "trigger": "opponent-long-event-end",
+        "handCardFilter": { "cardType": "hazard-creature", "race": "men" }
+      }
+    ],
+    "certified": "2026-05-19"
   },
   {
     "cardType": "hazard-event",
@@ -629,7 +649,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TidingsofBoldSpies.jpg",
     "text": "Playable on a company moving to a site with an automatic-attack. This card creates one or more attacks on the company, the total of which duplicates exactly (including modifications) all automatic-attacks at the site. These attacks must be faced immediately and are not considered automatic-attacks.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "certified": "2026-05-19",
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "only-at-site-with-auto-attack"
+      },
+      {
+        "type": "duplicate-site-auto-attacks"
+      }
+    ]
   },
   {
     "cardType": "hazard-event",
