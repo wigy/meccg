@@ -207,8 +207,12 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
  * Score a destination site for movement-planning.
  *
  * Combines:
- * - The number of hand resources that become playable at the destination
- *   (×10 — by far the dominant term, this is the whole point of moving).
+ * - The marshalling-point value of hand resources playable at the destination
+ *   (MP × 10, minimum 1 per card — the dominant term, since the whole point
+ *   of moving is to score MPs). Using actual MP values ensures high-value cards
+ *   like factions (3 MP → 30 pts) and major items (2 MP → 20 pts) strongly
+ *   outweigh the pass score, while 0-MP minor items still contribute a small
+ *   amount (10 pts) to motivate movement toward sites where they can be played.
  * - Resource-draw count printed on the site (×2).
  * - Penalties for the danger of the site type and traversed regions.
  *
@@ -219,10 +223,14 @@ export function scoreDestinationSite(
   pool: Readonly<Record<string, CardDefinition>>,
   destSite: AnySiteCard,
 ): number {
-  let playableCount = 0;
+  let playableScore = 0;
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
-    if (def && resourcePlayableAt(def, destSite)) playableCount++;
+    if (def && resourcePlayableAt(def, destSite)) {
+      // Weight by MP value so high-value cards strongly motivate movement.
+      // Use at least 1 so even 0-MP minor items contribute.
+      playableScore += Math.max(1, mpValue(def)) * 10;
+    }
   }
 
   const resourceDraws = 'resourceDraws' in destSite ? destSite.resourceDraws : 0;
@@ -237,9 +245,9 @@ export function scoreDestinationSite(
   // Never move to a site where we have nothing to play — aimless travel
   // wastes turns and exposes the company to hazards for no gain. Resource
   // draws alone are not worth the risk.
-  if (playableCount === 0) return 0;
+  if (playableScore === 0) return 0;
 
-  return Math.max(0, playableCount * 10 + resourceDraws * 2 - siteDanger - regionDanger);
+  return Math.max(0, playableScore + resourceDraws * 2 - siteDanger - regionDanger);
 }
 
 /**
