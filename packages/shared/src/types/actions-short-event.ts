@@ -9,7 +9,7 @@
  * costs and effects in one step.
  */
 
-import type { PlayerId, CardInstanceId } from './common.js';
+import type { PlayerId, CardInstanceId, CompanyId } from './common.js';
 
 /**
  * Play a short-event card as a resource to cancel and discard an environment.
@@ -50,6 +50,12 @@ export interface PlayShortEventAction {
    * matching option's `apply` clause via the generic DSL handlers.
    */
   readonly optionId?: string;
+  /**
+   * For end-of-org cards with `play-target: company` and no tap cost
+   * (e.g. Great-road), the company the short event is played on.
+   * One legal action is generated per eligible company.
+   */
+  readonly targetCompanyId?: CompanyId;
   /**
    * For cards with a `discard-in-play` effect (e.g. Marvels Told), the
    * in-play card instance to discard. One legal action is emitted per

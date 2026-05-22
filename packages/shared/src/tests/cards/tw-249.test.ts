@@ -29,7 +29,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA,
-  handCardId, charIdAt,
+  handCardId,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
@@ -62,8 +62,8 @@ describe('Great-road (tw-249)', () => {
     const grActions = playActions.filter(a => a.cardInstanceId === greatRoadInstance);
 
     expect(grActions.length).toBeGreaterThan(0);
-    // targetScoutInstanceId carries the representative character for the company
-    expect(grActions[0].targetScoutInstanceId).toBeDefined();
+    // targetCompanyId identifies the company being targeted
+    expect(grActions[0].targetCompanyId).toBeDefined();
   });
 
   test('Great-road is NOT playable when company is not at a Haven', () => {
@@ -117,8 +117,8 @@ describe('Great-road (tw-249)', () => {
 
     // Only one action: for the haven company (Rivendell), not the Moria company
     expect(playActions.length).toBe(1);
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0);
-    expect(playActions[0].targetScoutInstanceId).toBe(aragornId);
+    const havenCompanyId = base.players[0].companies[0].id;
+    expect(playActions[0].targetCompanyId).toBe(havenCompanyId);
   });
 
   test('Playing Great-road adds hazard-draw-multiplier constraint (×2) on the target company', () => {
@@ -132,13 +132,13 @@ describe('Great-road (tw-249)', () => {
     });
 
     const greatRoadInstance = handCardId(base, RESOURCE_PLAYER);
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0);
+    const companyId = base.players[0].companies[0].id;
 
     const { state: after } = reduce(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: greatRoadInstance,
-      targetScoutInstanceId: aragornId,
+      targetCompanyId: companyId,
     } as PlayShortEventAction);
 
     const c = after.activeConstraints.find(c => c.kind.type === 'hazard-draw-multiplier');
@@ -157,14 +157,14 @@ describe('Great-road (tw-249)', () => {
     });
 
     const greatRoadInstance = handCardId(base, RESOURCE_PLAYER);
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0);
+    const companyId = base.players[0].companies[0].id;
     const originSite = base.players[0].companies[0].currentSite!;
 
     const { state: after } = reduce(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: greatRoadInstance,
-      targetScoutInstanceId: aragornId,
+      targetCompanyId: companyId,
     } as PlayShortEventAction);
 
     const c = after.activeConstraints.find(c => c.kind.type === 'haven-return-option');
@@ -189,7 +189,7 @@ describe('Great-road (tw-249)', () => {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: handCardId(org, RESOURCE_PLAYER),
-      targetScoutInstanceId: charIdAt(org, RESOURCE_PLAYER, 0),
+      targetCompanyId: org.players[0].companies[0].id,
     } as PlayShortEventAction);
 
     // Transplant constraints into an EOT state
@@ -226,7 +226,7 @@ describe('Great-road (tw-249)', () => {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: handCardId(org, RESOURCE_PLAYER),
-      targetScoutInstanceId: charIdAt(org, RESOURCE_PLAYER, 0),
+      targetCompanyId: org.players[0].companies[0].id,
     } as PlayShortEventAction);
 
     // Build an EOT state with the company at Moria (simulating movement during M/H)
