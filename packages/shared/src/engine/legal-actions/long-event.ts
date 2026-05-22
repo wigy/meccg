@@ -16,9 +16,9 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
-import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.js';
+import { matchesCondition, CardStatus, isResourceEventCard, isSiteCard } from '../../index.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
@@ -170,7 +170,8 @@ export function heroResourceShortEventActions(
 
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as
+      { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
     if (playWindow && playWindow.phase !== currentPhase) {
       const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
       logDetail(`${def.name}: play-window restricts it to ${where}, not playable in ${currentPhase} phase`);
@@ -180,6 +181,29 @@ export function heroResourceShortEventActions(
         reason: `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`,
       });
       continue;
+    }
+
+    // When play-window declares a site-type restriction, enforce it against
+    // the active company's current site. Only applies during the site phase
+    // after a company has been selected (i.e. not the select-company step,
+    // where activeCompanyIndex still refers to the previously-handled company).
+    if (playWindow?.siteTypes && playWindow.siteTypes.length > 0 && currentPhase === 'site') {
+      const siteState = state.phaseState as SitePhaseState | null;
+      if (siteState && siteState.step !== 'select-company') {
+        const activeCompany = player.companies[siteState.activeCompanyIndex];
+        const siteDef = activeCompany?.currentSite
+          ? state.cardPool[activeCompany.currentSite.definitionId as string]
+          : undefined;
+        if (siteDef && isSiteCard(siteDef) && !playWindow.siteTypes.includes(siteDef.siteType)) {
+          logDetail(`${def.name}: active company at ${siteDef.siteType} (${siteDef.name}), play-window requires [${playWindow.siteTypes.join(', ')}] — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${def.name} can only be played at ${playWindow.siteTypes.join(' or ')}`,
+          });
+          continue;
+        }
+      }
     }
 
     // Skip short events whose effects are only usable during combat

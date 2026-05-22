@@ -131,16 +131,55 @@ describe('Lucky Search (tw-269)', () => {
 
   // ── Site-type restriction ─────────────────────────────────────────────────
 
-  test('not offered when company is at a haven (not shadow-hold or dark-hold)', () => {
-    // RIVENDELL is a Haven — Lucky Search requires shadow-hold or dark-hold.
-    const state = buildTestState({
-      phase: Phase.Site,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [LUCKY_SEARCH], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+  test('not offered when active company is at a haven (not shadow-hold or dark-hold)', () => {
+    // RIVENDELL is a Haven — Lucky Search play-window requires shadow-hold or dark-hold.
+    // The active company (index 0) is at Rivendell, so Lucky Search must be blocked
+    // even though Aragorn has the scout skill.
+    const state = {
+      ...buildTestState({
+        phase: Phase.Site,
+        activePlayer: PLAYER_1,
+        players: [
+          { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [LUCKY_SEARCH], siteDeck: [MORIA] },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        ],
+      }),
+      phaseState: makeSitePhase({ step: 'enter-or-skip', siteEntered: false, activeCompanyIndex: 0 }),
+    };
+
+    const luckySearchId = handCardId(state, RESOURCE_PLAYER);
+    const actions = computeLegalActions(state, PLAYER_1);
+    const shortEvents = actions.filter(
+      a => a.viable && a.action.type === 'play-short-event'
+        && (a.action).cardInstanceId === luckySearchId,
+    );
+
+    expect(shortEvents).toHaveLength(0);
+  });
+
+  test('not offered for active company at haven even when another company has scouts at shadow-hold', () => {
+    // Reproduces the game-log bug: one company at haven (active, index 1),
+    // another company at shadow-hold (index 0) with a scout. Lucky Search
+    // must NOT be offered during the haven company's enter-or-skip step.
+    const state = {
+      ...buildTestState({
+        phase: Phase.Site,
+        activePlayer: PLAYER_1,
+        players: [
+          {
+            id: PLAYER_1,
+            companies: [
+              { site: MORIA, characters: [ARAGORN] },
+              { site: RIVENDELL, characters: [FRODO] },
+            ],
+            hand: [LUCKY_SEARCH],
+            siteDeck: [MINAS_TIRITH],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        ],
+      }),
+      phaseState: makeSitePhase({ step: 'enter-or-skip', siteEntered: false, activeCompanyIndex: 1 }),
+    };
 
     const luckySearchId = handCardId(state, RESOURCE_PLAYER);
     const actions = computeLegalActions(state, PLAYER_1);
