@@ -5,7 +5,7 @@
  * Type: hero-resource-event (short)
  * Effects:
  *   1. play-window movement-hazard — only playable during M/H phase
- *   2. play-target character — targets any character in the moving company
+ *   2. play-target character filter company.moving — targets characters only in the active moving company
  *   3. on-event self-enters-play → set-character-status untapped — untaps the target
  *   4. on-event self-enters-play → add-constraint hazard-limit-modifier +1 (company-mh-phase)
  *
@@ -75,7 +75,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ELROND] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(2);
@@ -84,6 +84,54 @@ describe('Hundreds of Butterflies (dm-142)', () => {
       expect(a.targetCharacterId).toBeDefined();
       expect(a.optionId).toBeUndefined();
     }
+  });
+
+  test('not offered when the active company is not moving (stationary)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [HUNDREDS_OF_BUTTERFLIES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // destinationSiteName: null means the active company is not moving
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: null }) };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions.filter(a => a.viable)).toHaveLength(0);
+  });
+
+  test('only targets characters in the active moving company, not characters in other companies', () => {
+    // Regression test: bug where all characters across all companies were offered
+    // (game mpgyr5l9-3xcf53, seq 362 — company-p1-1 moving to Rivendell but
+    //  characters from the stationary company-p1-0 were also offered as targets).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN, LEGOLAS] },  // company 0 — stationary
+            { site: LORIEN, characters: [ELROND] },            // company 1 — moving
+          ],
+          hand: [HUNDREDS_OF_BUTTERFLIES],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    // Active company is index 1 (ELROND's company), moving to Minas Tirith
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 1, destinationSiteName: 'Minas Tirith' }) };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    // Only ELROND (in the moving company) should be a valid target
+    expect(playActions).toHaveLength(1);
+    const a = playActions[0].action as PlayShortEventAction;
+    expect(a.targetCharacterId).toBeDefined();
   });
 
   // ── Untap effect ───────────────────────────────────────────────────────────
@@ -98,7 +146,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
 
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
@@ -119,7 +167,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
 
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
@@ -141,7 +189,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
@@ -175,7 +223,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     const after = dispatch(state, playActions[0].action);

@@ -152,7 +152,7 @@
     "certified": "2026-05-14",
     "effects": [
       { "type": "play-window", "phase": "movement-hazard" },
-      { "type": "play-target", "target": "character" },
+      { "type": "play-target", "target": "character", "filter": { "company.moving": true } },
       { "type": "on-event", "event": "self-enters-play",
         "apply": { "type": "set-character-status", "status": "untapped" } },
       { "type": "on-event", "event": "self-enters-play",
