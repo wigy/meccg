@@ -16,7 +16,7 @@ import type { GameAction } from '@meccg/shared';
 import { computeTournamentScore } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { lookupDef, isCharacter } from './common.js';
+import { lookupDef, isCharacter, storeItemMpGain } from './common.js';
 
 export const endOfTurnEvaluator: ActionEvaluator = {
   phases: ['end-of-turn', 'long-event', 'free-council', 'game-over'],
@@ -64,6 +64,13 @@ export const endOfTurnEvaluator: ActionEvaluator = {
         else probability = 0.05 + (lead - 4) * (0.95 / 16);
 
         return Math.random() < probability ? 1_000_000 : 0;
+      }
+
+      case 'store-item': {
+        const char = view.self.characters[action.characterId];
+        const item = char?.items.find(i => i.instanceId === action.itemInstanceId);
+        const gain = storeItemMpGain(pool, item?.definitionId);
+        return gain > 0 ? gain * 10 : 0;
       }
 
       case 'deck-exhaust':

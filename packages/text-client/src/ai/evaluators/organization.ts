@@ -21,6 +21,7 @@ import {
   woundedCharactersInCompany,
   isHealingSite,
   hasHealingAvailable,
+  storeItemMpGain,
 } from './common.js';
 
 export const organizationEvaluator: ActionEvaluator = {
@@ -126,6 +127,14 @@ export const organizationEvaluator: ActionEvaluator = {
 
       case 'move-to-influence':
         return 2;
+
+      case 'store-item': {
+        // Only store when it yields additional marshalling points.
+        const char = view.self.characters[action.characterId];
+        const item = char?.items.find(i => i.instanceId === action.itemInstanceId);
+        const gain = storeItemMpGain(pool, item?.definitionId);
+        return gain > 0 ? gain * 10 : 0;
+      }
 
       case 'transfer-item':
         // Never shuffle items around — the AI lacks the tactical depth to

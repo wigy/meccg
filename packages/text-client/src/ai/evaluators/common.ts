@@ -388,6 +388,32 @@ export function handHasNoTapPlayableAt(
 }
 
 /**
+ * Net MP gain from storing an item vs. keeping it on the character.
+ *
+ * Returns `storedMp - equippedMp`.  A positive value means storing
+ * increases the player's score; zero or negative means no benefit.
+ *
+ * Regular items stored at havens earn 0 MP in the out-of-play pile
+ * (they have no `storable-at` effect to credit them).  Items that
+ * carry a `storable-at` override earn that value; items with the
+ * effect but no override earn the same base MP as when carried.
+ */
+export function storeItemMpGain(
+  pool: Readonly<Record<string, CardDefinition>>,
+  itemDefinitionId: string | undefined,
+): number {
+  if (!itemDefinitionId) return 0;
+  const def = pool[itemDefinitionId];
+  if (!def) return 0;
+  const baseMp = mpValue(def);
+  const effects = (def as { effects?: readonly { type: string; marshallingPoints?: number }[] }).effects;
+  const storableEffect = effects?.find(e => e.type === 'storable-at');
+  if (!storableEffect) return -baseMp; // regular item: stored MP = 0
+  const storedMp = storableEffect.marshallingPoints ?? baseMp; // override or same as base
+  return storedMp - baseMp;
+}
+
+/**
  * Resolve a site `CardInstanceId` (from a `plan-movement` action) to its
  * static {@link AnySiteCard} definition by searching the player's site deck
  * and any in-play sites.
