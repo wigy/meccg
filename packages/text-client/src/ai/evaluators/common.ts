@@ -242,6 +242,23 @@ export function scoreDestinationSite(
   return Math.max(0, playableCount * 10 + resourceDraws * 2 - siteDanger - regionDanger);
 }
 
+/**
+ * Free direct influence of a character: total DI minus the sum of mind costs
+ * of all characters they directly control via their followers list.
+ */
+export function freeDi(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  char: CharacterInPlay,
+): number {
+  let used = 0;
+  for (const followerId of char.followers) {
+    const follower = view.opponent.characters[followerId] ?? view.self.characters[followerId];
+    if (follower) used += mindCost(lookupDef(pool, follower.definitionId));
+  }
+  return char.effectiveStats.directInfluence - used;
+}
+
 /** Whether this character is wounded (inverted). */
 export function isWounded(character: CharacterInPlay): boolean {
   return character.status === CardStatus.Inverted;

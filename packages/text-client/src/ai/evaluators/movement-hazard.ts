@@ -19,6 +19,7 @@ import {
   isCreature,
   isCorruption,
   isHazardEvent,
+  freeDi,
 } from './common.js';
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -70,7 +71,12 @@ export const movementHazardEvaluator: ActionEvaluator = {
           return Math.max(1, creatureThreat(def, defenderProwess));
         }
         if (isCorruption(def)) {
-          // Pile corruption on heavy carriers; bonus when characterId is given.
+          // Foolish Words: target the character with the most free DI so the
+          // threat of losing them to corruption is greatest.
+          if (def.id === 'td-25' && action.targetCharacterId) {
+            const target = view.opponent.characters[action.targetCharacterId];
+            if (target) return 8 + freeDi(view, pool, target);
+          }
           return 8;
         }
         if (isHazardEvent(def)) {
