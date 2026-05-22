@@ -34,7 +34,6 @@ import {
 } from '../test-helpers.js';
 import type {
   CardDefinitionId,
-  CompanyId,
   PlayShortEventAction,
   HavenReturnAction,
 } from '../../index.js';
