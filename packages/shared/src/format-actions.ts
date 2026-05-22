@@ -238,13 +238,15 @@ export function describeAction(
       if (action.targetInstanceId) {
         return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
       }
-      const onChar = action.targetScoutInstanceId
-        ? ` on ${instName(action.targetScoutInstanceId)}`
-        : '';
+      const targetTag = action.targetCompanyId
+        ? ` on ${compName(action.targetCompanyId)}`
+        : action.targetScoutInstanceId
+          ? ` on ${instName(action.targetScoutInstanceId)}`
+          : '';
       const discardTag = action.discardTargetInstanceId
         ? `, discard ${instName(action.discardTargetInstanceId)}`
         : '';
-      return `Play short-event ${instName(action.cardInstanceId)}${onChar}${discardTag}`;
+      return `Play short-event ${instName(action.cardInstanceId)}${targetTag}${discardTag}`;
     }
     case 'play-hazard': {
       const target = action.targetCharacterId

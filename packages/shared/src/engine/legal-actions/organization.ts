@@ -1277,21 +1277,38 @@ export function playResourceShortEventActions(
       // If the card has a play-target with a tap cost (e.g. Stealth taps a
       // scout), emit one play action per eligible target so the chosen
       // target can be tapped when the action is reduced. Company-targeting
-      // without a tap cost (e.g. Great-road) also emits one action per
-      // eligible company (represented by its first character) so the player
-      // can choose which company to play the card on. Otherwise emit a
-      // single action with no target.
+      // without a tap cost (e.g. Great-road) emits one action per eligible
+      // company identified by targetCompanyId. Otherwise emit a single
+      // action with no target.
       const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0
-          && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'company')) {
+      if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.cost?.tap === 'character') {
+        // Tap-cost: one action per untapped character (tapper choice).
         for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+          logDetail(`Resource short-event playable (end-of-org, tap ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
             action: {
               type: 'play-short-event',
               player: playerId,
               cardInstanceId: handCard.instanceId,
               targetScoutInstanceId: targetId,
+            },
+            viable: true,
+          });
+        }
+      } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
+        // Company target without tap cost: one action per eligible company.
+        // eligibleTargets[i] is the first character of the i-th eligible company,
+        // used here only to look up the company so we can emit targetCompanyId.
+        for (const repCharId of eligibility.eligibleTargets) {
+          const company = player.companies.find(c => c.characters.includes(repCharId));
+          if (!company) continue;
+          logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetCompanyId: company.id,
             },
             viable: true,
           });

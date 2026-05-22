@@ -1055,21 +1055,30 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
-      // Company-targeting constraints: resolve the target company from the scout or
-      // from the direct character target (for cards without a tap cost, e.g. Hundreds of Butterflies).
-      const targetCharId = action.type === 'play-short-event'
-        ? (action.targetScoutInstanceId ?? action.targetCharacterId)
-        : undefined;
-      if (!targetCharId) {
-        logDetail(`add-constraint(${constraintKind}): no target character — fizzle`);
-        continue;
-      }
-
+      // Company-targeting constraints: resolve the target company from targetCompanyId
+      // (company-targeted events, e.g. Great-road) or from the scout/character instance
+      // (tap-cost events, e.g. Stealth, or filter-character events, e.g. Hundreds of Butterflies).
       const player = state.players[playerIndex];
-      const company = player.companies.find(c => c.characters.includes(targetCharId));
-      if (!company) {
-        logDetail(`add-constraint(${constraintKind}): scout ${targetCharId as string} not in any company — fizzle`);
-        continue;
+      let company: import('../types/state-cards.js').Company | undefined;
+      if (action.type === 'play-short-event' && action.targetCompanyId) {
+        company = player.companies.find(c => c.id === action.targetCompanyId);
+        if (!company) {
+          logDetail(`add-constraint(${constraintKind}): company ${action.targetCompanyId as string} not found — fizzle`);
+          continue;
+        }
+      } else {
+        const targetCharId = action.type === 'play-short-event'
+          ? (action.targetScoutInstanceId ?? action.targetCharacterId)
+          : undefined;
+        if (!targetCharId) {
+          logDetail(`add-constraint(${constraintKind}): no target character — fizzle`);
+          continue;
+        }
+        company = player.companies.find(c => c.characters.includes(targetCharId));
+        if (!company) {
+          logDetail(`add-constraint(${constraintKind}): scout ${targetCharId as string} not in any company — fizzle`);
+          continue;
+        }
       }
 
       // Map scope name to ConstraintScope
