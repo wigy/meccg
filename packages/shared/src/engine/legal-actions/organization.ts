@@ -20,6 +20,7 @@ import type {
   CharacterCard,
   ResourceEventCard,
   OrganizationPhaseState,
+  MovementHazardPhaseState,
   GameAction,
   PlayerState,
 } from '../../index.js';
@@ -1056,6 +1057,7 @@ export function buildPlayOptionContext(
   let hasFactionInHand = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
+  let companyMoving = false;
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -1078,6 +1080,13 @@ export function buildPlayOptionContext(
         return isCharacterCard(memberDef) && (memberDef.skills as readonly string[] ?? []).includes('diplomat');
       });
     }
+    // A character is "moving" when it belongs to the active company during the
+    // M/H phase and that company has declared movement (destinationSiteName set).
+    const ps = state.phaseState as MovementHazardPhaseState;
+    if (ps.phase === 'movement-hazard' && ps.destinationSiteName !== null && charCompany) {
+      const activeCompany = player.companies[ps.activeCompanyIndex];
+      companyMoving = activeCompany?.id === charCompany.id;
+    }
   }
   return {
     target: {
@@ -1091,6 +1100,7 @@ export function buildPlayOptionContext(
     company: {
       siteType: companySiteType,
       containsDiplomat,
+      moving: companyMoving,
     },
     pending: {
       corruptionCheckTargetsMe,
