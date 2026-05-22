@@ -191,12 +191,18 @@ export function heroResourceShortEventActions(
     // cancel-attack (e.g. Escape: target an unwounded character, cancel the
     // attack, wound the character). They don't represent independent non-combat
     // effects, so they don't prevent the card from being treated as combat-only.
+    // duplication-limit is a companion to company-combat-boost (e.g. The Dwarves
+    // Are upon You!): it describes per-attack duplication rules and does not
+    // represent an independent non-combat effect.
     const hasEffects = def.effects && def.effects.length > 0;
     const hasCancelAttack = hasEffects && def.effects.some(e => e.type === 'cancel-attack');
+    const hasCompanyCombatBoost = hasEffects && def.effects.some(e => e.type === 'company-combat-boost');
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatOnlyTypes.has(e.type)) return true;
+      if (e.type === 'company-combat-boost') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
       if (hasCancelAttack && (e.type === 'play-target' || e.type === 'wound-target-character')) return true;
+      if (hasCompanyCombatBoost && e.type === 'duplication-limit') return true;
       return false;
     });
     if (allCombatOnly) {

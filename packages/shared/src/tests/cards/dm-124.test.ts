@@ -36,6 +36,7 @@ import {
   buildTestState, resetMint,
   makeMHState,
   playCreatureHazardAndResolve,
+  resolveChain,
   viableActions, handCardId, companyIdAt, dispatch,
   findCharInstanceId,
 } from '../test-helpers.js';
@@ -220,6 +221,34 @@ describe('The Dwarves Are upon You! (dm-124)', () => {
         expect(c.kind.characterId).toBe(gimliId);
       }
     }
+  });
+
+  // ── Regression: not offered as a chain response before combat starts ─────
+
+  test('NOT offered during chain response window before combat begins', () => {
+    // Put the creature on the chain without resolving — Dwarves Are upon You!
+    // must not be offered here, only after the chain resolves and combat starts.
+    const state = buildMHState([GIMLI]);
+    const orcId = handCardId(state, HAZARD_PLAYER);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const afterHazardPlayed = dispatch(state, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'region-type', value: 'wilderness' },
+    });
+    expect(afterHazardPlayed.chain).not.toBeNull();
+
+    // Card must NOT be offered as a chain response (combat hasn't started).
+    const chainActions = viableActions(afterHazardPlayed, PLAYER_1, 'play-short-event');
+    expect(chainActions).toHaveLength(0);
+
+    // After the chain resolves, combat starts and the card MUST be offered.
+    const combatState = resolveChain(afterHazardPlayed);
+    expect(combatState.combat).not.toBeNull();
+    const combatActions = viableActions(combatState, PLAYER_1, 'play-short-event');
+    expect(combatActions.length).toBeGreaterThan(0);
   });
 
   // ── Rule 5: Cannot be duplicated against a given attack ──────────────────
