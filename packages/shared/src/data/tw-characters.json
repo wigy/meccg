@@ -1170,7 +1170,8 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Edhellond"
+    "homesite": "Edhellond",
+    "certified": "2026-05-22"
   },
   {
     "cardType": "hero-character",
