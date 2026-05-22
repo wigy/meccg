@@ -2781,6 +2781,7 @@ Used by Tidings of Bold Spies (le-143).
 **Combat creation**: When the chain resolves, `chain-reducer.ts` finds the `duplicate-site-auto-attacks` effect, reads all auto-attacks from the destination site, creates `CombatState` for the first attack (using `attackSource: { type: 'tidings-attack', ... }`), and stores remaining attacks in a `tidings-attacks-queue` active constraint scoped to the company's M/H subphase. After each combat ends, `finalizeCombat` in `reducer-combat.ts` detects the constraint and initiates the next attack.
 
 **Key property**: The attacks use `attackSource.type === 'tidings-attack'` — they are NOT `automatic-attack`. This means:
+
 - Auto-attack modifiers (e.g. `auto-attack.prowess` attribute-modifiers) do NOT apply.
 - The attacks do not trigger site-phase auto-attack flow.
 - Kill-MP and on-defeat effects do not fire (no creature card exists to move).
