@@ -34,9 +34,11 @@ import {
 } from '../test-helpers.js';
 import type {
   CardDefinitionId,
+  CardInstanceId,
   PlayShortEventAction,
   HavenReturnAction,
 } from '../../index.js';
+import { CardStatus } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { reduce } from '../../engine/reducer.js';
 
@@ -238,9 +240,24 @@ describe('Great-road (tw-249)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
+    // Align the site deck's Rivendell instance with the origin haven captured in the constraint,
+    // so removeById can find and remove it (same invariant as the real game where the haven
+    // instance goes back to the deck when the company moves away from it).
+    const originHavenInstId = (afterPlay.activeConstraints.find(
+      c => c.kind.type === 'haven-return-option',
+    )!.kind as { originHavenInstanceId: CardInstanceId }).originHavenInstanceId;
+    const moraInstId = eot.players[0].companies[0].currentSite!.instanceId;
     const eotWithConstraints = {
       ...eot,
       activeConstraints: afterPlay.activeConstraints,
+      players: eot.players.map((p, i) => i !== 0 ? p : {
+        ...p,
+        siteDeck: p.siteDeck.map(c =>
+          c.definitionId === RIVENDELL
+            ? { ...c, instanceId: originHavenInstId }
+            : c,
+        ),
+      }) as unknown as typeof eot.players,
     };
 
     const companyId = eotWithConstraints.players[0].companies[0].id;
@@ -250,9 +267,73 @@ describe('Great-road (tw-249)', () => {
       companyId,
     } as HavenReturnAction);
 
-    // Site should be the origin haven (Rivendell)
+    // Company is now at the origin haven (Rivendell)
     expect(afterReturn.players[0].companies[0].currentSite?.definitionId).toBe(rivendellDefId);
+    expect(afterReturn.players[0].companies[0].siteCardOwned).toBe(true);
+    // Rivendell removed from site deck (it became the current site)
+    expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === originHavenInstId)).toBe(false);
+    // Moria returned to site deck (untapped departure site)
+    expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === moraInstId)).toBe(true);
     // Constraint is consumed
     expect(afterReturn.activeConstraints.find(c => c.kind.type === 'haven-return-option')).toBeUndefined();
+  });
+
+  test('haven-return discards departure site when it is tapped', () => {
+    const org = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const { state: afterPlay } = reduce(org, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(org, RESOURCE_PLAYER),
+      targetScoutInstanceId: charIdAt(org, RESOURCE_PLAYER, 0),
+    } as PlayShortEventAction);
+
+    const eot = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const originHavenInstId = (afterPlay.activeConstraints.find(
+      c => c.kind.type === 'haven-return-option',
+    )!.kind as { originHavenInstanceId: CardInstanceId }).originHavenInstanceId;
+    const moraInstId = eot.players[0].companies[0].currentSite!.instanceId;
+    // Mark the current site (Moria) as tapped — company entered the site
+    const eotWithTappedSite = {
+      ...eot,
+      activeConstraints: afterPlay.activeConstraints,
+      players: eot.players.map((p, i) => i !== 0 ? p : {
+        ...p,
+        siteDeck: p.siteDeck.map(c =>
+          c.definitionId === RIVENDELL ? { ...c, instanceId: originHavenInstId } : c,
+        ),
+        companies: p.companies.map((c, ci) => ci === 0
+          ? { ...c, currentSite: { ...c.currentSite!, status: CardStatus.Tapped } }
+          : c),
+      }) as unknown as typeof eot.players,
+    };
+
+    const companyId = eotWithTappedSite.players[0].companies[0].id;
+    const { state: afterReturn } = reduce(eotWithTappedSite, {
+      type: 'haven-return',
+      player: PLAYER_1,
+      companyId,
+    } as HavenReturnAction);
+
+    // Tapped Moria goes to site discard pile
+    expect(afterReturn.players[0].siteDiscardPile.some(c => c.instanceId === moraInstId)).toBe(true);
+    expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === moraInstId)).toBe(false);
+    // Rivendell removed from site deck
+    expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === originHavenInstId)).toBe(false);
+    // Company is at Rivendell
+    expect(afterReturn.players[0].companies[0].currentSite?.definitionId).toBe(RIVENDELL);
   });
 });

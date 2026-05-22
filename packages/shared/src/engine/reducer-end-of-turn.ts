@@ -7,12 +7,12 @@
  */
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
-import { Phase, getPlayerIndex } from '../index.js';
+import { Phase, CardStatus, isSiteCard, getPlayerIndex } from '../index.js';
 import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer } from './reducer-utils.js';
+import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, removeById } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
@@ -335,9 +335,18 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
 }
 
 /**
- * Execute a Great-road haven-return: replace the company's current site with
- * the origin haven recorded in the `haven-return-option` constraint, then
- * consume the constraint so the option cannot be exercised twice.
+ * Execute a Great-road haven-return: move the company back to the origin haven
+ * recorded in the `haven-return-option` constraint. Per the card text, "This is
+ * considered movement with no movement/hazard phase", so site card lifecycle
+ * rules apply (CoE 2.IV.viii):
+ *
+ * 1. The company's current (departure) site is returned to the location deck if
+ *    untapped or a haven, or discarded if tapped — provided `siteCardOwned` is
+ *    true (otherwise a sibling company still holds the card).
+ * 2. The origin haven is pulled from the location deck (removed) and becomes the
+ *    company's new `currentSite`. If another company is already at the origin
+ *    haven, the haven is shared and `siteCardOwned` is set to `false`.
+ * 3. The constraint is consumed so the option cannot be exercised twice.
  */
 function handleHavenReturn(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'haven-return') return { state, error: `handleHavenReturn called with ${action.type}` };
@@ -362,12 +371,52 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
 
   logDetail(`haven-return: company ${action.companyId as string} returns to haven ${originHavenDefinitionId as string} (instance ${originHavenInstanceId as string})`);
 
-  const updatedState = updatePlayer(state, playerIndex, p => ({
-    ...p,
-    companies: p.companies.map((c, i) =>
-      i === companyIdx ? { ...c, currentSite: originHaven } : c,
-    ),
-  }));
+  const company = player.companies[companyIdx];
+  const currentSite = company.currentSite;
+
+  // Check whether another of this player's companies is already at the origin haven.
+  const havenAlreadyInPlay = player.companies.some(
+    (c, i) => i !== companyIdx && c.currentSite?.instanceId === originHavenInstanceId,
+  );
+
+  const updatedState = updatePlayer(state, playerIndex, p => {
+    let siteDeck = p.siteDeck;
+    let siteDiscardPile = p.siteDiscardPile;
+
+    // Step 1: handle departure from the current site (CoE 2.IV.viii).
+    if (currentSite && company.siteCardOwned) {
+      const departureDef = state.cardPool[currentSite.definitionId as string];
+      const departureIsHaven = departureDef && isSiteCard(departureDef) && departureDef.siteType === 'haven';
+      const departureEntry = { instanceId: currentSite.instanceId, definitionId: currentSite.definitionId };
+      if (!departureIsHaven && currentSite.status === CardStatus.Tapped) {
+        logDetail(`haven-return: departure site ${currentSite.definitionId as string} is tapped — discarding to site discard pile`);
+        siteDiscardPile = [...siteDiscardPile, departureEntry];
+      } else {
+        logDetail(`haven-return: departure site ${currentSite.definitionId as string} is ${departureIsHaven ? 'a haven' : 'untapped'} — returning to location deck`);
+        siteDeck = [...siteDeck, departureEntry];
+      }
+    }
+
+    // Step 2: remove the origin haven from the location deck so it becomes the
+    // company's current site (same invariant as plan-movement → endCompanyMH).
+    if (!havenAlreadyInPlay) {
+      logDetail(`haven-return: removing origin haven ${originHavenInstanceId as string} from location deck`);
+      siteDeck = removeById(siteDeck, originHavenInstanceId);
+    } else {
+      logDetail(`haven-return: origin haven already in play at a sibling company — sharing site (siteCardOwned=false)`);
+    }
+
+    return {
+      ...p,
+      siteDeck,
+      siteDiscardPile,
+      companies: p.companies.map((c, i) =>
+        i === companyIdx
+          ? { ...c, currentSite: originHaven, siteCardOwned: !havenAlreadyInPlay }
+          : c,
+      ),
+    };
+  });
 
   return { state: removeConstraint(updatedState, constraint.id) };
 }
