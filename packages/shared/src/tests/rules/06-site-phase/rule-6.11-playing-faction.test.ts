@@ -16,10 +16,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildSitePhaseState, resetMint, viableActions,
-  PLAYER_1,
+  PLAYER_1, RESOURCE_PLAYER,
   ARAGORN, RANGERS_OF_THE_NORTH,
   BREE,
   CardStatus,
+  handCardId, charIdAt,
 } from '../../test-helpers.js';
 import type { InfluenceAttemptAction } from '../../../types/actions-site.js';
 
@@ -39,8 +40,8 @@ describe('Rule 6.11 — Playing a Faction', () => {
     const attempts = viableActions(state, PLAYER_1, 'influence-attempt') as { action: InfluenceAttemptAction }[];
     expect(attempts.length).toBeGreaterThan(0);
 
-    const factionInstId = state.players[0].hand[0].instanceId;
-    const aragornInstId = state.players[0].companies[0].characters[0];
+    const factionInstId = handCardId(state, RESOURCE_PLAYER);
+    const aragornInstId = charIdAt(state, RESOURCE_PLAYER);
     const attempt = attempts.find(a =>
       a.action.factionInstanceId === factionInstId &&
       a.action.influencingCharacterId === aragornInstId,

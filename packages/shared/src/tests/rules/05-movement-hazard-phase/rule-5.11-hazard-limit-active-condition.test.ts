@@ -67,7 +67,7 @@ describe('Rule 5.11 — Hazard Limit as Active Condition', () => {
     // Eye of Sauron must be listed but not viable (limit reached)
     const allActions = computeLegalActions(state, PLAYER_2);
     const nonViable = nonViableOfType(allActions, 'play-hazard');
-    const eyeInst = state.players[1].hand[0].instanceId;
+    const eyeInst = handCardId(state, HAZARD_PLAYER);
     expect(nonViable.some(a => 'cardInstanceId' in a.action && a.action.cardInstanceId === eyeInst)).toBe(true);
   });
 

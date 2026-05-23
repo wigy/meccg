@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -86,16 +86,6 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
  * that were returned to their site of origin during M/H are automatically
  * skipped (CoE line 336).
  */
-
-
-/**
- * Handle the 'select-company' action in the site phase: resource player
- * picks which company resolves its site phase next.
- *
- * After selection, the company advances to 'enter-or-skip'. Companies
- * that were returned to their site of origin during M/H are automatically
- * skipped (CoE line 336).
- */
 function handleSiteSelectCompany(
   state: GameState,
   action: GameAction,
@@ -129,17 +119,6 @@ function handleSiteSelectCompany(
     },
   };
 }
-
-/**
- * Handle the 'enter-or-skip' step: resource player decides whether to
- * enter the site or do nothing.
- *
- * - `enter-site`: advances to reveal-on-guard-attacks (if auto-attacks
- *   exist) or directly to play-resources.
- * - `pass`: the company does nothing; its site phase ends immediately
- *   and we advance to the next company (CoE lines 341–343).
- */
-
 
 /**
  * Handle the 'enter-or-skip' step: resource player decides whether to
@@ -234,15 +213,6 @@ function handleSiteEnterOrSkip(
     },
   };
 }
-
-/**
- * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
- *
- * The hazard player (non-active) may reveal on-guard creatures keyed to
- * the site, marking them as revealed in the company's onGuardCards.
- * Passing advances to the 'automatic-attacks' step.
- */
-
 
 /**
  * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
@@ -390,17 +360,6 @@ function handleForewarnedSelectAttack(
  * tracks progress. When all auto-attacks are resolved, advances to
  * 'declare-agent-attack'.
  */
-
-
-/**
- * Handle the 'automatic-attacks' step: initiate combat for each automatic
- * attack listed on the site card, one at a time.
- *
- * When entering this step, if no combat is active, the next unresolved
- * automatic attack initiates combat. The `automaticAttacksResolved` counter
- * tracks progress. When all auto-attacks are resolved, advances to
- * 'declare-agent-attack'.
- */
 function handleSiteAutomaticAttacks(
   state: GameState,
   action: GameAction,
@@ -425,20 +384,14 @@ function handleSiteAutomaticAttacks(
     : attackIndex >= autoAttacks.length;
 
   if (allAttacksDone) {
-    // Check for auto-attack-race-duplicate effects from permanent events in play
-    // (The Moon Is Dead). Each Undead auto-attack at the site must be faced
-    // a second time. duplicatesRun = attackIndex - autoAttacks.length counts
-    // how many race-based duplicates have already been initiated this site phase.
+    // Check for auto-attack-race-duplicate constraints (The Moon Is Dead).
+    // Each matching auto-attack at the site must be faced a second time.
+    // duplicatesRun = attackIndex - autoAttacks.length counts how many
+    // race-based duplicates have already been initiated this site phase.
     const raceDupRaces = new Set<string>();
-    for (const player of state.players) {
-      for (const card of player.cardsInPlay) {
-        const def = state.cardPool[card.definitionId as string];
-        if (!def || !('effects' in def) || !def.effects) continue;
-        for (const effect of def.effects) {
-          if (effect.type === 'auto-attack-race-duplicate') {
-            raceDupRaces.add(effect.race.toLowerCase());
-          }
-        }
+    for (const c of state.activeConstraints) {
+      if (c.kind.type === 'auto-attack-race-duplicate') {
+        raceDupRaces.add(c.kind.race.toLowerCase());
       }
     }
     if (raceDupRaces.size > 0) {
@@ -901,23 +854,6 @@ function handleSitePlaySiteAutoAttack(
 }
 
 /**
- * Handle the on-guard reveal window during resource play (CoE rule 2.V.6).
- *
- * The hazard player may reveal an on-guard hazard event in response to a
- * resource that would tap the site. The revealed card initiates a nested
- * chain. Passing clears the window and executes the pending resource action.
- */
-/**
- * Handle the 'resolve-attacks' step (CoE Step 4, 2.V.iv).
- *
- * Declared on-guard creature attacks are initiated one at a time via the
- * chain of effects. Each creature enters the chain (allowing responses),
- * then combat starts when the chain resolves. When all declared attacks
- * are resolved, advances to 'play-resources'.
- */
-
-
-/**
  * Handle the 'resolve-attacks' step (CoE Step 4, 2.V.iv).
  *
  * Declared on-guard creature attacks are initiated one at a time via the
@@ -975,8 +911,6 @@ function handleSiteResolveAttacks(
     },
   };
 }
-
-
 
 /**
  * Apply a hazard player's `reveal-on-guard` action during the on-guard
@@ -1042,17 +976,6 @@ export function executeDeferredSiteAction(
   }
   return handleSitePlayHeroResource(state, deferredAction, state.phaseState as SitePhaseState);
 }
-
-/**
- * Handle the 'play-resources' step: resource player plays items or
- * permanent events, or passes to end the company's site phase.
- *
- * - `play-hero-resource`: play an item at the site. Taps the carrying
- *   character. The item is attached to the character.
- * - `play-permanent-event`: delegated to the existing org-phase handler.
- * - `pass`: ends this company's site phase, advances to next company.
- */
-
 
 /**
  * Handle the Hermit's Hill (dm-32) special site grant-action: the company
@@ -1433,14 +1356,11 @@ function fireCharacterGainsItemChecks(
     const char = player.characters[charId as string];
     if (!char) continue;
     for (const hazard of char.hazards) {
-      const hDef = newState.cardPool[hazard.definitionId as string];
-      if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-      for (const effect of hDef.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'character-gains-item') continue;
+      const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      for (const effect of getOnEventEffects(hDef, 'character-gains-item')) {
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
-        logDetail(`character-gains-item: "${hDef.name}" triggers corruption check for character ${charId as string}`);
+        logDetail(`character-gains-item: "${hDef?.name}" triggers corruption check for character ${charId as string}`);
         const possessions = [
           ...char.items.map(i => i.instanceId),
           ...char.allies.map(a => a.instanceId),
@@ -1451,7 +1371,7 @@ function fireCharacterGainsItemChecks(
           actor: player.id,
           scope: { kind: 'phase', phase: Phase.Site },
           characterId: charId,
-          reason: `${hDef.name} (item gained)`,
+          reason: `${hDef?.name} (item gained)`,
           possessions,
         });
       }
@@ -1460,28 +1380,6 @@ function fireCharacterGainsItemChecks(
   return newState;
 }
 
-/**
- * Handle an influence attempt on a faction card during the site phase.
- *
- * Validates the faction is in hand and playable at this site, the
- * influencing character is untapped and in the company, then taps
- * the character, taps the site, and adds the faction to cardsInPlay.
- *
- * Note: The influence roll is not yet implemented — for now, the
- * faction is automatically played successfully.
- */
-
-
-/**
- * Handle an influence attempt on a faction card during the site phase.
- *
- * Validates the faction is in hand and playable at this site, the
- * influencing character is untapped and in the company, then taps
- * the character, taps the site, and adds the faction to cardsInPlay.
- *
- * Note: The influence roll is not yet implemented — for now, the
- * faction is automatically played successfully.
- */
 /**
  * Handle the declaration of a faction influence attempt.
  *
@@ -1707,18 +1605,6 @@ export function resolveInfluenceAttemptRoll(
  *
  * CoE rules 10.10–10.12 step 1.
  */
-
-
-/**
- * Handle an opponent influence attempt (resource player declares + rolls).
- *
- * Validates the influencing character is untapped and in the active company,
- * the target exists at the same site and is not avatar-controlled, then
- * taps the influencer, rolls 2d6, and transitions to awaiting the
- * hazard player's defensive roll.
- *
- * CoE rules 10.10–10.12 step 1.
- */
 function handleOpponentInfluenceAttempt(
   state: GameState,
   action: GameAction,
@@ -1887,17 +1773,6 @@ function handleOpponentInfluenceAttempt(
 }
 
 /**
- * Handle the hazard player's defensive roll for an opponent influence attempt.
- *
- * Rolls 2d6 for the defender, calculates the final result, and resolves
- * the influence attempt: on success, the target and its controlled non-follower
- * cards are discarded; on failure, only the influencer was tapped.
- *
- * CoE rules 10.12 steps 2–6.
- */
-
-
-/**
  * Resolve an opponent influence attempt: roll the defender's 2d6, compute
  * the final result, and apply the consequences (discard the target on
  * success, discard the revealed card on failure).
@@ -1990,15 +1865,6 @@ export function resolveOpponentInfluenceDefend(
     effects: [rollEffect],
   };
 }
-
-/**
- * Discard a card that was successfully influenced away from the opponent.
- *
- * For characters: moves the character, their items, allies to the discard pile.
- * Followers of the discarded character fall to GI if room, otherwise are discarded.
- * For allies: just moves the ally to the discard pile.
- */
-
 
 /**
  * Discard a card that was successfully influenced away from the opponent.
@@ -2174,7 +2040,7 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
 /**
  * Scans the active player's characters for attached hazards with
- * `on-event: end-of-turn` + `apply.type: force-check-per-others-item`.
+ * `on-event: end-of-turn` + `apply.type: force-check, perOthersItem: true`.
  * For each match, enqueues one corruption-check pending resolution per
  * item in the bearer's company that the bearer does NOT bear. The modifier
  * for each check is the negative corruption-point value of that item.
@@ -2197,17 +2063,14 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
   // Scan both players' cardsInPlay for matching permanent events.
   for (const player of newState.players) {
     for (const card of player.cardsInPlay) {
-      const def = newState.cardPool[card.definitionId as string];
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'end-of-turn') continue;
+      const def = newState.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      for (const effect of getOnEventEffects(def, 'end-of-turn')) {
         if (effect.actor !== 'both') continue;
         if (effect.apply.type !== 'move') continue;
         const payload = moveToFetchToDeckPayload(effect.apply as unknown as MoveEffect);
         if (!payload) continue;
 
-        logDetail(`end-of-turn: "${def.name}" — firing fetch-to-deck for both players`);
+        logDetail(`end-of-turn: "${def?.name}" — firing fetch-to-deck for both players`);
 
         // Enqueue one pending fetch effect per player (resource player first)
         for (const targetPlayer of newState.players) {
@@ -2222,7 +2085,7 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
             ...newState,
             pendingEffects: [...newState.pendingEffects, pendingEffect],
           };
-          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def.name}"`);
+          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def?.name}"`);
         }
       }
     }
@@ -2241,12 +2104,9 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
       const bearer = resourcePlayer.characters[charId as string];
       if (!bearer) continue;
       for (const hazard of bearer.hazards) {
-        const hDef = newState.cardPool[hazard.definitionId as string];
-        if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-        for (const effect of hDef.effects) {
-          if (effect.type !== 'on-event') continue;
-          if (effect.event !== 'end-of-turn') continue;
-          if (effect.apply.type !== 'force-check-per-others-item') continue;
+        const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        for (const effect of getOnEventEffects(hDef, 'end-of-turn')) {
+          if (effect.apply.type !== 'force-check' || !effect.apply.perOthersItem) continue;
           if (effect.apply.check !== 'corruption') continue;
 
           const otherItems = company.characters
@@ -2254,11 +2114,11 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
             .flatMap(oid => resourcePlayer.characters[oid as string]?.items ?? []);
 
           if (otherItems.length === 0) {
-            logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — no other-company items, skipping`);
+            logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — no other-company items, skipping`);
             continue;
           }
 
-          logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
+          logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
           const possessions = [
             ...bearer.items.map(i => i.instanceId),
             ...bearer.allies.map(a => a.instanceId),
@@ -2275,7 +2135,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
               scope: { kind: 'phase', phase: Phase.EndOfTurn },
               characterId: charId,
               modifier,
-              reason: `${hDef.name} (${itemDef?.name ?? item.definitionId as string})`,
+              reason: `${hDef?.name} (${itemDef?.name ?? item.definitionId as string})`,
               possessions,
             });
           }

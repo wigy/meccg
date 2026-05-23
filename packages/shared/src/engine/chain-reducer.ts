@@ -14,7 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, MassBodyCheckEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -806,6 +806,11 @@ function buildConstraintKind(
     }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
+    case 'auto-attack-race-duplicate': {
+      const race = (onEvent.apply as { race?: string }).race;
+      if (!race) return null;
+      return { type: 'auto-attack-race-duplicate', race };
+    }
     case 'granted-action': {
       const payload = onEvent.apply.grantedAction;
       if (!payload) return null;
@@ -1725,9 +1730,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
-  // wound-target-character (e.g. Escape): when the cancel-attack resolves,
-  // wound the targeted character without a body check. The targetCharacterId
-  // was captured on the chain entry at declaration time.
+  // set-character-status{inverted, target-character} (e.g. Escape): when the
+  // cancel-attack resolves, wound the targeted character without a body check.
+  // The targetCharacterId was captured on the chain entry at declaration time.
   if (
     entry.payload.type === 'short-event' &&
     !entry.negated &&
@@ -1735,11 +1740,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     entry.payload.targetCharacterId
   ) {
     const def = current.cardPool[entry.card.definitionId as string];
-    if (def && 'effects' in def && def.effects?.some(e => e.type === 'wound-target-character')) {
+    if (def && 'effects' in def && def.effects?.some(e => e.type === 'set-character-status' && e.status === 'inverted' && e.target === 'target-character')) {
       const targetId = entry.payload.targetCharacterId;
       for (let pi = 0; pi < current.players.length; pi++) {
         if (current.players[pi].characters[targetId as string]) {
-          logDetail(`wound-target-character: wounding ${targetId as string} (no body check)`);
+          logDetail(`set-character-status{inverted}: wounding ${targetId as string} (no body check)`);
           current = updatePlayer(current, pi, p =>
             updateCharacter(p, targetId, c => ({ ...c, status: CardStatus.Inverted })),
           );
@@ -1892,7 +1897,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
-  // Veils Flung Away / mass-body-check: hazard short event targeting the whole
+  // Veils Flung Away / force-check-all-company{body}: hazard short event targeting the whole
   // company. Enqueue one body-check-company pending resolution per character in
   // the active M/H company so each character rolls 2d6 against their body.
   if (entry.payload.type === 'short-event'
@@ -1900,17 +1905,18 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = current.cardPool[entry.card.definitionId as string];
-    const mbcEffect = cardDef && 'effects' in cardDef
+    const fcacEffect = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is MassBodyCheckEffect => e.type === 'mass-body-check',
+        (e): e is ForceCheckAllCompanyTopEffect =>
+          e.type === 'force-check-all-company' && (e as { check?: string }).check === 'body',
       )
       : undefined;
-    if (mbcEffect && current.phaseState.phase === Phase.MovementHazard) {
+    if (fcacEffect && current.phaseState.phase === Phase.MovementHazard) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = current.players[0].id === activePlayerId ? 0 : 1;
       const targetCompany = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       if (targetCompany) {
-        logDetail(`mass-body-check "${(cardDef as { name?: string }).name ?? '?'}": enqueuing body checks (modifier ${mbcEffect.modifier}) for ${targetCompany.characters.length} characters`);
+        logDetail(`force-check-all-company (body) "${(cardDef as { name?: string }).name ?? '?'}": enqueuing body checks (modifier ${fcacEffect.modifier ?? 0}) for ${targetCompany.characters.length} characters`);
         for (const charId of targetCompany.characters) {
           current = enqueueResolution(current, {
             source: entry.card.instanceId,
@@ -1919,7 +1925,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             kind: {
               type: 'body-check-company',
               characterId: charId,
-              modifier: mbcEffect.modifier,
+              modifier: fcacEffect.modifier ?? 0,
               sourceDefinitionId: entry.card.definitionId,
             },
           });

@@ -25,7 +25,7 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from '../../index.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, EventPlaySiteEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
@@ -1341,15 +1341,16 @@ export function playResourceShortEventActions(
 
     // Skip short events whose effects are only usable during combat
     // (e.g. Concealment's cancel-attack). These require an active attack.
-    // Supporting effects like play-target and wound-target-character do not
+    // Supporting effects like play-target and set-character-status do not
     // confer non-combat playability on their own — they merely describe how
     // the combat effect is applied (e.g. Escape: pick a character, cancel the
-    // attack, wound them). A move (discard-in-play) effect whose `when` gate
-    // IS currently met represents a genuine non-combat mode and does allow
-    // the card to be played outside combat (e.g. The Cock Crows' GoM discard
-    // mode). A play-option effect with a met `when` also represents a
-    // non-combat mode (e.g. Many Turns and Doublings' hazard-limit reduction).
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'play-target', 'wound-target-character']);
+    // attack, wound them via set-character-status{inverted}). A move
+    // (discard-in-play) effect whose `when` gate IS currently met represents a
+    // genuine non-combat mode and does allow the card to be played outside
+    // combat (e.g. The Cock Crows' GoM discard mode). A play-option effect
+    // with a met `when` also represents a non-combat mode (e.g. Many Turns
+    // and Doublings' hazard-limit reduction).
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'play-target', 'set-character-status']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;
@@ -1361,12 +1362,12 @@ export function playResourceShortEventActions(
       continue;
     }
 
-    // event-play-site: restrict event to specific site types (e.g. Glamour of Surpassing Excellance
+    // play-condition requires: "site-type" (e.g. Glamour of Surpassing Excellence:
     // requires Border-hold or Free-hold). Only meaningful during the site phase.
-    const eventPlaySite = def.effects?.find(
-      (e): e is EventPlaySiteEffect => e.type === 'event-play-site',
+    const siteTypeCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-type',
     );
-    if (eventPlaySite) {
+    if (siteTypeCondition) {
       let activeSiteType: string | null = null;
       if (currentPhase === 'site') {
         const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
@@ -1379,12 +1380,12 @@ export function playResourceShortEventActions(
           }
         }
       }
-      if (!activeSiteType || !eventPlaySite.siteTypes.includes(activeSiteType)) {
-        logDetail(`${def.name}: event-play-site requires [${eventPlaySite.siteTypes.join(', ')}], active site type: ${activeSiteType ?? 'none'}`);
+      if (!activeSiteType || !siteTypeCondition.siteTypes?.includes(activeSiteType)) {
+        logDetail(`${def.name}: play-condition site-type requires [${siteTypeCondition.siteTypes?.join(', ') ?? '?'}], active site type: ${activeSiteType ?? 'none'}`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
           viable: false,
-          reason: `${def.name} can only be played at: ${eventPlaySite.siteTypes.map(t => t.replace(/-/g, ' ')).join(' or ')}`,
+          reason: `${def.name} can only be played at: ${(siteTypeCondition.siteTypes ?? []).map((t: string) => t.replace(/-/g, ' ')).join(' or ')}`,
         });
         continue;
       }

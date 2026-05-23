@@ -32,15 +32,16 @@ import {
   CardStatus, dispatch, phaseStateAs,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING, RESOURCE_PLAYER, HAZARD_PLAYER,
+  expectCharStatus, expectCharInPlay, expectCharNotInPlay, getCharacter,
+  expectInDiscardPile, expectNotInHand,
 } from '../../test-helpers.js';
 import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.12 — Resolving an Influence Attempt', () => {
   test('attacker roll taps the influencing character', () => {
     const state = buildResolutionState();
-    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const { state: afterAttempt } = attemptInfluence(state);
-    expect(afterAttempt.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(afterAttempt, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
   });
 
   test('attacker roll emits a dice-roll effect', () => {
@@ -98,8 +99,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const { state: afterDefend } = defendInfluence(defState);
 
     const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
-    expect(afterDefend.players[1].characters[legolasId as string]).toBeUndefined();
-    expect(afterDefend.players[1].discardPile.some(c => c.instanceId === legolasId)).toBe(true);
+    expectCharNotInPlay(afterDefend, HAZARD_PLAYER, legolasId);
+    expectInDiscardPile(afterDefend, HAZARD_PLAYER, legolasId);
   });
 
   test('failed influence leaves target in play', () => {
@@ -111,7 +112,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const { state: afterDefend } = defendInfluence(defState);
 
     const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
-    expect(afterDefend.players[1].characters[legolasId as string]).toBeDefined();
+    expectCharInPlay(afterDefend, HAZARD_PLAYER, legolasId);
   });
 
   test('controller DI is subtracted when target is under DI (follower)', () => {
@@ -172,9 +173,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
     const revealAction = actions.find(a => a.action.revealedCardInstanceId !== undefined)!;
 
-    const handBefore = state.players[0].hand.length;
     const nextState = dispatch(state, revealAction.action);
-    expect(nextState.players[0].hand.length).toBe(handBefore - 1);
+    expectNotInHand(nextState, RESOURCE_PLAYER, revealAction.action.revealedCardInstanceId!);
   });
 
   test('revealed card goes to discard on failed influence', () => {
@@ -188,9 +188,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const { state: afterDefend } = defendInfluence(defState);
 
     // Revealed card should be in attacker's discard
-    expect(afterDefend.players[0].discardPile.some(
-      c => c.instanceId === revealAction.action.revealedCardInstanceId,
-    )).toBe(true);
+    expectInDiscardPile(afterDefend, RESOURCE_PLAYER, revealAction.action.revealedCardInstanceId!);
   });
 
   test('defend action includes explanation with attacker roll and modifier breakdown', () => {
@@ -223,7 +221,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const eowynId = findCharInstanceId(state, HAZARD_PLAYER, EOWYN);
 
     // Verify Eowyn is a follower of Aragorn
-    expect(state.players[1].characters[eowynId as string].controlledBy).toBe(aragornId);
+    expect(getCharacter(state, HAZARD_PLAYER, EOWYN).controlledBy).toBe(aragornId);
 
     // Attempt influence on Aragorn and force success
     const { state: afterAttempt } = attemptInfluence(state, ARAGORN);
@@ -231,11 +229,11 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const { state: afterDefend } = defendInfluence(defState);
 
     // Aragorn should be discarded
-    expect(afterDefend.players[1].characters[aragornId as string]).toBeUndefined();
-    expect(afterDefend.players[1].discardPile.some(c => c.instanceId === aragornId)).toBe(true);
+    expectCharNotInPlay(afterDefend, HAZARD_PLAYER, aragornId);
+    expectInDiscardPile(afterDefend, HAZARD_PLAYER, aragornId);
 
     // Eowyn should still be in play, now under GI
-    expect(afterDefend.players[1].characters[eowynId as string]).toBeDefined();
-    expect(afterDefend.players[1].characters[eowynId as string].controlledBy).toBe('general');
+    expectCharInPlay(afterDefend, HAZARD_PLAYER, eowynId);
+    expect(getCharacter(afterDefend, HAZARD_PLAYER, EOWYN).controlledBy).toBe('general');
   });
 });

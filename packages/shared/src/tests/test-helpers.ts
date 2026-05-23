@@ -2192,6 +2192,33 @@ export function expectInDiscardPile(
   expectInPile(state, playerIdx, 'discardPile', idOrDefId);
 }
 
+/**
+ * Assert a card is NOT in the given pile for the player, matched by either
+ * definition or instance ID.
+ */
+export function expectNotInPile(
+  state: GameState,
+  playerIdx: number,
+  pile: PileKey,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  const found = findInPile(state, playerIdx, pile, idOrDefId);
+  expect(found).toBeUndefined();
+}
+
+/**
+ * Assert a card is NOT in the player's discard pile, matched by either
+ * definition or instance ID. Short-hand for the most common
+ * {@link expectNotInPile} call.
+ */
+export function expectNotInDiscardPile(
+  state: GameState,
+  playerIdx: number,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  expectNotInPile(state, playerIdx, 'discardPile', idOrDefId);
+}
+
 // ─── Convenience state mutations ───────────────────────────────────────────
 
 /**
@@ -2476,6 +2503,30 @@ export function constraintsFromSource(
   source: CardInstanceId,
 ): readonly ActiveConstraint[] {
   return state.activeConstraints.filter(c => c.source === source);
+}
+
+/**
+ * Add an `auto-attack-race-duplicate` constraint for the given source card and race.
+ * Mirrors the constraint added by the `self-enters-play → add-constraint` DSL path
+ * when a permanent event like The Moon Is Dead enters play.
+ *
+ * Use this in test fixtures that pre-place a permanent event in `cardsInPlay`
+ * without going through the play chain, so the duplication logic still fires.
+ */
+export function addRaceDuplicateConstraint<T extends GameState>(
+  state: T,
+  source: CardInstanceId,
+  sourceDefinitionId: CardDefinitionId,
+  race: string,
+  playerId: PlayerId,
+): T {
+  return addConstraint(state, {
+    source,
+    sourceDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'player', playerId },
+    kind: { type: 'auto-attack-race-duplicate', race: race.toLowerCase() },
+  }) as T;
 }
 
 // ─── Single-character combat scaffolding ────────────────────────────────────

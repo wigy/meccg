@@ -127,7 +127,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "event-play-site", "siteTypes": ["border-hold", "free-hold"] },
+      { "type": "play-condition", "requires": "site-type", "siteTypes": ["border-hold", "free-hold"] },
       { "type": "roll-remove-hazard-events" }
     ],
     "certified": "2026-05-19"

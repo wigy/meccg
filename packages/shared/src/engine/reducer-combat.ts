@@ -9,7 +9,7 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, 
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -180,14 +180,6 @@ function handleHavenJoinAttack(state: GameState, action: GameAction, combat: Com
  * If exactly one remains, auto-selects it and goes to resolve-strike.
  * Returns null if all strikes are resolved (caller should finalize combat).
  */
-
-
-/**
- * Compute the next combat phase after all strikes are assigned or a strike finishes resolving.
- * If multiple unresolved strikes remain, enters choose-strike-order so the defender picks.
- * If exactly one remains, auto-selects it and goes to resolve-strike.
- * Returns null if all strikes are resolved (caller should finalize combat).
- */
 function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
   const unresolvedIndices: number[] = [];
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -204,8 +196,6 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
 }
 
 /** Handle the defender choosing which strike to resolve next. */
-
-
 function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'choose-strike-order') return wrongActionType(state, action, 'choose-strike-order');
 
@@ -218,8 +208,6 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 }
 
 /** Assign a strike to a defending character. */
-
-
 function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'assign-strike') return wrongActionType(state, action, 'assign-strike');
 
@@ -675,8 +663,6 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
 }
 
 /** Tap a supporting character for +1 prowess on the current strike. */
-
-
 function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'support-strike') return wrongActionType(state, action, 'support-strike');
 
@@ -940,8 +926,6 @@ function handlePlayRerollStrike(state: GameState, action: GameAction, combat: Co
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */
-
-
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
@@ -1137,9 +1121,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     // the body check roll exactly equals (not exceeds) the character's body.
     if (effectiveRoll === body && charData && !allyMatch) {
       const sourceCard = getAttackSourceCard(stateWithRoll, combat);
-      const equalsBodyEvent = (sourceCard?.effects ?? []).find(
-        (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-body-check-equals-body',
-      );
+      const equalsBodyEvent = getOnEventEffects(sourceCard, 'character-body-check-equals-body')[0];
       if (equalsBodyEvent) {
         const targetCharDef = stateWithRoll.cardPool[targetDefId as string];
         const targetRace = isCharacterCard(targetCharDef) ? targetCharDef.race : undefined;
@@ -2133,15 +2115,6 @@ function handleDiscardItemFromCompany(state: GameState, action: GameAction, comb
 }
 
 /**
- * Finalize combat after all strikes are resolved.
- *
- * If all strikes were defeated (result === 'success'), the creature card
- * moves from the hazard player's discard pile to the defending player's
- * marshalling point pile. Otherwise it stays in discard.
- */
-
-
-/**
  * Remove a card-triggered-attack card from cardsInPlay and send it to the
  * defending player's discard pile. Used when no untapped characters survive
  * the attack (or the attack is cancelled) so the card cannot be assigned.
@@ -2275,9 +2248,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   ) {
     const sourceCard = getAttackSourceCard(state, combat);
     const sourceName = (sourceCard as { name?: string } | undefined)?.name ?? 'Wound';
-    const woundEvents = (sourceCard?.effects ?? []).filter(
-      (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-wounded-by-self',
-    );
+    const woundEvents = getOnEventEffects(sourceCard, 'character-wounded-by-self');
     for (const woundEvent of woundEvents) {
       const conditionContext = buildOnEventContext(state);
       if (woundEvent.when && !matchesCondition(woundEvent.when, conditionContext)) {
@@ -2373,9 +2344,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           const hazardDef = stateAfterCombat.cardPool[hazard.definitionId as string] as
             { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
           if (!hazardDef) continue;
-          const companyMemberWoundedEvents = (hazardDef.effects ?? []).filter(
-            (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'company-member-wounded',
-          );
+          const companyMemberWoundedEvents = getOnEventEffects(hazardDef, 'company-member-wounded');
           for (const evt of companyMemberWoundedEvents) {
             if (evt.apply.type === 'force-check') {
               const modifier = evt.apply.modifier ?? 0;
@@ -2401,9 +2370,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // event, apply its constraint to the defending company.
   if (!allDefeated) {
     const sourceCardForNotDefeated = getAttackSourceCard(state, combat);
-    const notDefeatedEvents = (sourceCardForNotDefeated?.effects ?? []).filter(
-      (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'attack-not-defeated',
-    );
+    const notDefeatedEvents = getOnEventEffects(sourceCardForNotDefeated, 'attack-not-defeated');
     for (const nde of notDefeatedEvents) {
       if (nde.apply.type === 'add-constraint' && nde.apply.constraint === 'deny-scout-resources') {
         const creatureSource =
@@ -2433,9 +2400,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // All resolved combats were by definition not canceled (cancellation prevents
   // combat resolution entirely), so this fires unconditionally after any attack.
   const sourceCardForNotCanceled = getAttackSourceCard(state, combat);
-  const notCanceledEvents = (sourceCardForNotCanceled?.effects ?? []).filter(
-    (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'attack-not-canceled',
-  );
+  const notCanceledEvents = getOnEventEffects(sourceCardForNotCanceled, 'attack-not-canceled');
   for (const nce of notCanceledEvents) {
     if (nce.apply.type === 'add-constraint' && nce.apply.constraint === 'creature-attack-boost') {
       const creatureSource =
@@ -2478,16 +2443,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       attack: { isolated: combat.isolated ?? false },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
+    const allDiscardedIds = new Set<string>();
     const updatedPlayersAD = stateAfterCombat.players.map(player => {
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
       const remaining: import('../types/state-cards.js').CardInPlay[] = [];
       for (const card of player.cardsInPlay) {
-        const def = stateAfterCombat.cardPool[card.definitionId as string];
-        if (!def || !('effects' in def) || !def.effects) { remaining.push(card); continue; }
-        const defeatedEvents = def.effects.filter(
-          (e): e is import('../types/effects.js').OnEventEffect =>
-            e.type === 'on-event' && e.event === 'attack-defeated',
-        );
+        const def = stateAfterCombat.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const defeatedEvents = getOnEventEffects(def, 'attack-defeated');
         let shouldDiscard = false;
         for (const ev of defeatedEvents) {
           if (!ev.when || matchesCondition(ev.when, attackCtx as unknown as Record<string, unknown>)) {
@@ -2502,12 +2464,22 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       if (toDiscard.length === 0) return player;
       const discarded = toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
       for (const c of toDiscard) {
+        allDiscardedIds.add(c.instanceId as string);
         const defName = (stateAfterCombat.cardPool[c.definitionId as string] as { name?: string })?.name ?? '?';
         logDetail(`Attack-defeated: discarding "${defName}" from cardsInPlay (on-event: attack-defeated)`);
       }
       return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };
     }) as unknown as typeof stateAfterCombat.players;
     stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAD };
+    // Remove constraints sourced from discarded permanent events
+    if (allDiscardedIds.size > 0) {
+      stateAfterCombat = {
+        ...stateAfterCombat,
+        activeConstraints: stateAfterCombat.activeConstraints.filter(
+          c => !allDiscardedIds.has(c.source as string),
+        ),
+      };
+    }
   }
 
   // Handle permanent-event auto-attack onDefeat:'remove-from-play' (e.g. Balrog of Moria TW-12).
@@ -3132,9 +3104,8 @@ function handleCombatPlayHazard(
   // The bonus is added to the defender's effective prowess (a -1 to
   // the attacker's strike prowess is equivalent to +1 to the defender),
   // so the data carries a negative `value` and the reducer flips sign.
-  if ('effects' in def && def.effects) {
-    for (const eff of def.effects) {
-      if (eff.type !== 'on-event' || eff.event !== 'self-enters-play-combat') continue;
+  {
+    for (const eff of getOnEventEffects(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'self-enters-play-combat')) {
       if (eff.apply.type === 'modify-current-strike-prowess') {
         const strikeDelta = eff.apply.value ?? 0;
         const defenderProwessDelta = -strikeDelta;

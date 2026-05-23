@@ -22,7 +22,7 @@ import {
   GLAMDRING, DAGGER_OF_WESTERNESSE, THE_MITHRIL_COAT,
   MORIA,
   companyIdAt, charIdAt, handCardId,
-  dispatch,
+  dispatch, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { SitePhaseState } from '../../../index.js';
 
@@ -55,9 +55,9 @@ describe('Rule 6.13 — Additional Minor Item', () => {
       hand: [THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE],
     });
 
-    const companyId = companyIdAt(state, 0);
-    const aragornId = charIdAt(state, 0, 0, 0);
-    const mithrilCoatId = handCardId(state, 0, 0);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const mithrilCoatId = handCardId(state, RESOURCE_PLAYER);
 
     const after = dispatch(state, {
       type: 'play-hero-resource',
@@ -87,11 +87,11 @@ describe('Rule 6.13 — Additional Minor Item', () => {
       hand: [THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
     });
 
-    const companyId = companyIdAt(state, 0);
-    const aragornId = charIdAt(state, 0, 0, 0);
-    const bilboId = charIdAt(state, 0, 0, 1);
-    const mithrilCoatId = handCardId(state, 0, 0);
-    const firstDaggerId = handCardId(state, 0, 1);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const bilboId = charIdAt(state, RESOURCE_PLAYER, 0, 1);
+    const mithrilCoatId = handCardId(state, RESOURCE_PLAYER);
+    const firstDaggerId = handCardId(state, RESOURCE_PLAYER, 1);
 
     const afterMain = dispatch(state, {
       type: 'play-hero-resource',
@@ -128,9 +128,9 @@ describe('Rule 6.13 — Additional Minor Item', () => {
       hand: [GLAMDRING, THE_MITHRIL_COAT],
     });
 
-    const companyId = companyIdAt(state, 0);
-    const aragornId = charIdAt(state, 0, 0, 0);
-    const glamdringId = handCardId(state, 0, 0);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const glamdringId = handCardId(state, RESOURCE_PLAYER);
 
     const after = dispatch(state, {
       type: 'play-hero-resource',

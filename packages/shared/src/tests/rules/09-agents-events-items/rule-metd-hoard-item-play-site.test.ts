@@ -16,9 +16,10 @@ import {
   buildSitePhaseState,
   resetMint,
   viableActions,
-  PLAYER_1,
+  PLAYER_1, RESOURCE_PLAYER,
   BILBO,
   MORIA,
+  handCardId,
 } from '../../test-helpers.js';
 
 const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
@@ -35,7 +36,7 @@ describe('METD §3 — Hoard item play-site gating', () => {
     });
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays).toHaveLength(0);
-    const handInst = state.players[0].hand[0].instanceId;
+    const handInst = handCardId(state, RESOURCE_PLAYER);
     const tooltip = computeLegalActions(state, PLAYER_1).find(
       ea => !ea.viable
         && ea.action.type === 'not-playable'
