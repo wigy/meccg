@@ -33,7 +33,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI, BILBO,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN,
-  handCardId, charIdAt, dispatch,
+  handCardId, charIdAt, dispatch, findHandCardId,
   buildSitePhaseState, RESOURCE_PLAYER,
   expectInDiscardPile,
 } from '../test-helpers.js';
@@ -161,6 +161,38 @@ describe('A Friend or Three (tw-189)', () => {
     const influenceAction = influenceActions[0].action as { need: number };
     // Baseline need 4, minus +1 constraint = 3
     expect(influenceAction.need).toBe(3);
+  });
+
+  test('influence-check-boost: offered during chain after faction card has left hand', () => {
+    // Regression: when the influence attempt is declared, the faction card moves from
+    // hand into the chain. hasFactionInHand must also be true while that chain entry
+    // is live so A Friend or Three remains playable as a boost event.
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+    });
+
+    // Declare the influence attempt — Men of Lebennin moves from hand into the chain
+    const influenceActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const afterDeclare = dispatch(state, influenceActions[0].action);
+
+    // Faction card is no longer in p1's hand
+    const factionId = findHandCardId(state, RESOURCE_PLAYER, MEN_OF_LEBENNIN);
+    expect(afterDeclare.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === factionId)).toBe(false);
+    expect(afterDeclare.chain).not.toBeNull();
+
+    // Hazard player (p2) passes priority to p1
+    const afterP2Pass = dispatch(afterDeclare, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(afterP2Pass.chain?.priority).toBe(PLAYER_1);
+
+    // p1 must be offered influence-check-boost even though faction is now in the chain
+    const p1Actions = computeLegalActions(afterP2Pass, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(p1Actions.some(a => a.optionId === 'influence-check-boost')).toBe(true);
   });
 
   // ── corruption-check-boost ───────────────────────────────────────────────

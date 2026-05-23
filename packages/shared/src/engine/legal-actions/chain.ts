@@ -292,9 +292,33 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
  * out combat-only cards and evaluates play-option `when` conditions.
  */
 function resourceEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.phaseState.phase !== Phase.MovementHazard) return [];
-  if (state.activePlayer !== playerId) return [];
-  return heroResourceShortEventActions(state, playerId, 'movement-hazard');
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    if (state.activePlayer !== playerId) return [];
+    return heroResourceShortEventActions(state, playerId, 'movement-hazard');
+  }
+  if (state.phaseState.phase === Phase.Site) {
+    return siteInfluenceChainResourceEventActions(state, playerId);
+  }
+  return [];
+}
+
+/**
+ * During site-phase chain declaring for an influence-attempt, the player
+ * who declared the attempt may play resource short events to boost the
+ * influence check (e.g. A Friend or Three, CoE rule 8.3 step 6).
+ *
+ * The faction card is already in the chain (removed from hand upon declaration),
+ * so this is the correct window for boost events.
+ */
+function siteInfluenceChainResourceEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain!;
+  const infEntry = chain.entries.find(
+    e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt',
+  );
+  if (!infEntry) return [];
+  // Only the player who declared the influence attempt may respond with resource events
+  if (infEntry.declaredBy !== playerId) return [];
+  return heroResourceShortEventActions(state, playerId, 'site');
 }
 
 /**
