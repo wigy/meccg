@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1362,14 +1362,11 @@ function fireCharacterGainsItemChecks(
     const char = player.characters[charId as string];
     if (!char) continue;
     for (const hazard of char.hazards) {
-      const hDef = newState.cardPool[hazard.definitionId as string];
-      if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-      for (const effect of hDef.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'character-gains-item') continue;
+      const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      for (const effect of getOnEventEffects(hDef, 'character-gains-item')) {
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
-        logDetail(`character-gains-item: "${hDef.name}" triggers corruption check for character ${charId as string}`);
+        logDetail(`character-gains-item: "${hDef?.name}" triggers corruption check for character ${charId as string}`);
         const possessions = [
           ...char.items.map(i => i.instanceId),
           ...char.allies.map(a => a.instanceId),
@@ -1380,7 +1377,7 @@ function fireCharacterGainsItemChecks(
           actor: player.id,
           scope: { kind: 'phase', phase: Phase.Site },
           characterId: charId,
-          reason: `${hDef.name} (item gained)`,
+          reason: `${hDef?.name} (item gained)`,
           possessions,
         });
       }
@@ -2072,17 +2069,14 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
   // Scan both players' cardsInPlay for matching permanent events.
   for (const player of newState.players) {
     for (const card of player.cardsInPlay) {
-      const def = newState.cardPool[card.definitionId as string];
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'end-of-turn') continue;
+      const def = newState.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      for (const effect of getOnEventEffects(def, 'end-of-turn')) {
         if (effect.actor !== 'both') continue;
         if (effect.apply.type !== 'move') continue;
         const payload = moveToFetchToDeckPayload(effect.apply as unknown as MoveEffect);
         if (!payload) continue;
 
-        logDetail(`end-of-turn: "${def.name}" — firing fetch-to-deck for both players`);
+        logDetail(`end-of-turn: "${def?.name}" — firing fetch-to-deck for both players`);
 
         // Enqueue one pending fetch effect per player (resource player first)
         for (const targetPlayer of newState.players) {
@@ -2097,7 +2091,7 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
             ...newState,
             pendingEffects: [...newState.pendingEffects, pendingEffect],
           };
-          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def.name}"`);
+          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def?.name}"`);
         }
       }
     }
@@ -2116,11 +2110,8 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
       const bearer = resourcePlayer.characters[charId as string];
       if (!bearer) continue;
       for (const hazard of bearer.hazards) {
-        const hDef = newState.cardPool[hazard.definitionId as string];
-        if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-        for (const effect of hDef.effects) {
-          if (effect.type !== 'on-event') continue;
-          if (effect.event !== 'end-of-turn') continue;
+        const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        for (const effect of getOnEventEffects(hDef, 'end-of-turn')) {
           if (effect.apply.type !== 'force-check-per-others-item') continue;
           if (effect.apply.check !== 'corruption') continue;
 
@@ -2129,11 +2120,11 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
             .flatMap(oid => resourcePlayer.characters[oid as string]?.items ?? []);
 
           if (otherItems.length === 0) {
-            logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — no other-company items, skipping`);
+            logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — no other-company items, skipping`);
             continue;
           }
 
-          logDetail(`end-of-turn: "${hDef.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
+          logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
           const possessions = [
             ...bearer.items.map(i => i.instanceId),
             ...bearer.allies.map(a => a.instanceId),
@@ -2150,7 +2141,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
               scope: { kind: 'phase', phase: Phase.EndOfTurn },
               characterId: charId,
               modifier,
-              reason: `${hDef.name} (${itemDef?.name ?? item.definitionId as string})`,
+              reason: `${hDef?.name} (${itemDef?.name ?? item.definitionId as string})`,
               possessions,
             });
           }
