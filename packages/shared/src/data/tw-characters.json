@@ -1194,7 +1194,19 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Rivendell"
+    "homesite": "Rivendell",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 7,
+        "when": {
+          "reason": "influence-check",
+          "target.name": "Aragorn II"
+        }
+      }
+    ],
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-character",
