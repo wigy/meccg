@@ -35,15 +35,6 @@ export interface ReducerResult {
  *
  * Returns the roll, updated RNG, and the new cheatRollTotal (null after use).
  */
-
-
-/**
- * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
- * set on the state, produces dice that sum to that total (using RNG to pick
- * the split) and clears the cheat field. Otherwise uses normal RNG.
- *
- * Returns the roll, updated RNG, and the new cheatRollTotal (null after use).
- */
 export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state.rng; cheatRollTotal: number | null } {
   let rng = state.rng;
   let d1: DieRoll;
@@ -72,8 +63,6 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
 }
 
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
-
-
 export function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
 }
@@ -238,30 +227,6 @@ export function filterSideboardByDef(
 }
 
 /**
- * Handles deck exhaustion for a player when their play deck runs empty.
- *
- * Per CoE rules §10:
- * 1. Return discarded site cards to the location deck
- * 2. (TODO: sideboard exchange — player may swap up to 5 cards between
- *    discard pile and sideboard. This is an interactive step to be added later.)
- * 3. Shuffle the discard pile into a new play deck
- * 4. Increment `deckExhaustionCount`
- *
- * This function is called immediately after drawing the last card from the
- * play deck. It is idempotent — calling it when the discard pile is empty
- * results in an empty play deck (no-op reshuffle).
- *
- * @param state - Current game state (player's playDeck should be empty).
- * @param playerIndex - Index (0 or 1) of the player whose deck is exhausted.
- * @returns Updated game state with reshuffled deck and incremented exhaustion count.
- */
-/**
- * Enter the deck exhaustion sub-flow: return site cards to location deck,
- * set deckExhaustPending so the player can exchange cards with the sideboard.
- */
-
-
-/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */
@@ -281,12 +246,6 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
 
   return { ...state, players: newPlayers };
 }
-
-/**
- * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
- * increment exhaustion count, and clear the pending flag.
- */
-
 
 /**
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
@@ -348,12 +307,6 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
  * Handle exchange-sideboard during deck exhaustion sub-flow.
  * Swaps one card between discard pile and sideboard.
  */
-
-
-/**
- * Handle exchange-sideboard during deck exhaustion sub-flow.
- * Swaps one card between discard pile and sideboard.
- */
 export function handleExchangeSideboard(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'exchange-sideboard') return { state, error: 'Expected exchange-sideboard action' };
 
@@ -392,23 +345,6 @@ export function handleExchangeSideboard(state: GameState, action: GameAction): R
 
   return { state: { ...state, players: newPlayers } };
 }
-
-/**
- * Result of applying a {@link GameAction} to a {@link GameState}.
- * If `error` is present, `state` is returned unchanged.
- */
-export interface ReducerResult {
-  readonly state: GameState;
-  /** Human-readable error message if the action was rejected. */
-  readonly error?: string;
-  /** Visual effects to broadcast to clients (dice rolls, etc.). */
-  readonly effects?: readonly GameEffect[];
-}
-
-// ---- Setup phase handler ----
-
-/** Dispatches setup phase actions to the appropriate step handler. */
-
 
 /**
  * Auto-joins the active player's companies that end up at the same
@@ -643,14 +579,6 @@ export function sweepCompanyMembershipChangedEvents(
   return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
 }
 
-// ---- Character placement handler ----
-
-/**
- * Handles the character placement step where players distribute their
- * characters between starting companies (only when 2 sites were selected).
- */
-
-
 /**
  * Generate a unique company ID for a player by finding the highest existing
  * index among their companies and incrementing it. This avoids ID collisions
@@ -664,22 +592,6 @@ export function nextCompanyId(player: PlayerState): CompanyId {
   }, -1);
   return `company-${player.id as string}-${maxIdx + 1}` as CompanyId;
 }
-
-/**
- * Compute the effective company size, accounting for hobbits and orc scouts
- * each counting as half a character (rounded up for the total).
- *
- * Per CoE rules: "The number of characters in a company, with each Hobbit
- * or Orc scout character only counting as half of a character (rounded up)."
- */
-
-
-/**
- * Handle playing a permanent-event resource card.
- * Removes the card from hand, places it on the chain, and initiates/pushes
- * a chain of effects. The card enters play upon resolution (see chain-reducer).
- */
-
 
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
   const player = state.players[playerIndex];
@@ -696,13 +608,6 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
     players: newPlayers,
   };
 }
-
-/**
- * Handle playing a resource long-event card during the long-event phase.
- * Removes the card from hand, places it on the chain, and initiates/pushes
- * a chain of effects. The card enters play upon resolution (see chain-reducer).
- */
-
 
 /**
  * Resolve (skip) the current pending effect and advance to the next one.
@@ -736,9 +641,6 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   }
   return { state: newState };
 }
-
-/** Move a card from cardsInPlay to the specified player's discard pile. */
-
 
 /**
  * Handle fetching a card from sideboard or discard pile into the play deck.
@@ -828,8 +730,3 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   }
   return { state: newState };
 }
-
-/**
- * Resolve (skip) the current pending effect and advance to the next one.
- * If no more effects remain, move the event card from cardsInPlay to discard.
- */
