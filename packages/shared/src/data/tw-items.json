@@ -682,6 +682,13 @@
     "playableAt": [],
     "keywords": [
       "ring"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      }
     ]
   },
   {
