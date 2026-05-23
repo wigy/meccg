@@ -2192,6 +2192,33 @@ export function expectInDiscardPile(
   expectInPile(state, playerIdx, 'discardPile', idOrDefId);
 }
 
+/**
+ * Assert a card is NOT in the given pile for the player, matched by either
+ * definition or instance ID.
+ */
+export function expectNotInPile(
+  state: GameState,
+  playerIdx: number,
+  pile: PileKey,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  const found = findInPile(state, playerIdx, pile, idOrDefId);
+  expect(found).toBeUndefined();
+}
+
+/**
+ * Assert a card is NOT in the player's discard pile, matched by either
+ * definition or instance ID. Short-hand for the most common
+ * {@link expectNotInPile} call.
+ */
+export function expectNotInDiscardPile(
+  state: GameState,
+  playerIdx: number,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  expectNotInPile(state, playerIdx, 'discardPile', idOrDefId);
+}
+
 // ─── Convenience state mutations ───────────────────────────────────────────
 
 /**

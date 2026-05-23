@@ -74,7 +74,7 @@ describe('Rule 8.14 — Strike Step 3: -3 to Stay Untapped', () => {
     const afterChain = resolveChain(afterPlay);
 
     // Assign the single strike to Aragorn
-    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER);
     const afterAssign = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,

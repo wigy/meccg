@@ -22,7 +22,7 @@ import {
   ARAGORN, BILBO, LEGOLAS,
   DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  CardStatus, Phase,
+  CardStatus, Phase, handCardId, charIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import type { NotPlayableAction, PlayHeroResourceAction } from '../../../index.js';
@@ -43,8 +43,8 @@ describe('Rule 6.09 — Playing Resources at a Site', () => {
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays.length).toBe(1);
     const action = actionAs<PlayHeroResourceAction>(plays[0].action);
-    expect(action.cardInstanceId).toBe(state.players[0].hand[0].instanceId);
-    expect(action.attachToCharacterId).toBe(state.players[0].companies[0].characters[0]);
+    expect(action.cardInstanceId).toBe(handCardId(state, RESOURCE_PLAYER));
+    expect(action.attachToCharacterId).toBe(charIdAt(state, RESOURCE_PLAYER));
   });
 
   test('item is NOT playable when the site is already tapped', () => {
@@ -60,7 +60,7 @@ describe('Rule 6.09 — Playing Resources at a Site', () => {
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays).toHaveLength(0);
 
-    const handInst = state.players[0].hand[0].instanceId;
+    const handInst = handCardId(state, RESOURCE_PLAYER);
     const tooltip = computeLegalActions(state, PLAYER_1).find(
       ea => !ea.viable && ea.action.type === 'not-playable'
         && actionAs<NotPlayableAction>(ea.action).cardInstanceId === handInst,
