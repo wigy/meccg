@@ -578,7 +578,56 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NothingtoEatorDrink.jpg",
     "text": "Playable on a minion company at or moving to a Free-hold [{F}] or Border-hold [{B}] , or playable on a hero company at or moving to a Shadow-hold [{S}] or Dark-hold [{D}]. The prowess and body of each character in the company is modified by -1. Discard this card during its organization phase if the company is at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company.",
     "unique": false,
-    "eventType": "permanent"
+    "certified": "2026-05-24",
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            {
+              "$and": [
+                { "company.alignment": { "$in": ["ringwraith", "fallen-wizard", "balrog"] } },
+                { "company.destinationSiteType": { "$in": ["free-hold", "border-hold"] } }
+              ]
+            },
+            {
+              "$and": [
+                { "company.alignment": "wizard" },
+                { "company.destinationSiteType": { "$in": ["shadow-hold", "dark-hold"] } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "company-modifier",
+        "stat": "prowess",
+        "value": -1
+      },
+      {
+        "type": "company-modifier",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-begins",
+        "when": { "company.atHaven": true },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

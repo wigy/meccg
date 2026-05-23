@@ -1704,6 +1704,47 @@ function playHazardsActions(
           }
         }
       } else {
+        // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
+
+        // Company-scope duplication-limit: one copy per target company.
+        const companyDupLimit = def.effects?.find(
+          (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+        );
+        if (companyDupLimit) {
+          const existingCopies = state.players.reduce((count, p) =>
+            count + p.cardsInPlay.filter(c => {
+              const cDef = state.cardPool[c.definitionId as string];
+              return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompany.id as string);
+            }).length, 0,
+          );
+          if (existingCopies >= companyDupLimit.max) {
+            logDetail(`Hazard event "${def.name}" already bound to target company (${existingCopies}/${companyDupLimit.max})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
+            continue;
+          }
+        }
+
+        // Play-target filter for company-targeting events: check company.alignment
+        // and company.destinationSiteType (e.g. Nothing to Eat or Drink — minion
+        // company at free/border-hold, or hero company at shadow/dark-hold).
+        if (playTarget?.filter) {
+          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
+          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteType = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.siteType : undefined;
+          const companyCtx = {
+            company: {
+              alignment: resourcePlayer.alignment,
+              destinationSiteType: destSiteType,
+            },
+          };
+          if (!matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+            logDetail(`Hazard event "${def.name}" company filter not met (alignment=${resourcePlayer.alignment}, siteType=${destSiteType ?? 'unknown'})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be played against this company at this site` });
+            continue;
+          }
+        }
+
         logDetail(`Hazard event "${def.name}" is playable`);
         actions.push({ action, viable: true });
       }

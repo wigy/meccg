@@ -9,9 +9,10 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, updatePlayer, wrongActionType, getOnEventEffects, toCardInstance } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
+import type { CardInstanceId } from '../index.js';
 
 
 /**
@@ -389,6 +390,54 @@ function advanceToOrganization(state: GameState): ReducerResult {
           reason: def?.name ?? 'Untap-phase-end',
         });
       }
+    }
+  }
+
+  // Sweep company-bound permanent events for `organization-phase-begins` +
+  // discard-self apply. Fires when the company is at a Haven/Darkhaven
+  // (e.g. Nothing to Eat or Drink — discards at the start of org phase
+  // if the company is at a haven). Scans both players because either
+  // player's company may carry an opponent's hazard.
+  for (let pi = 0; pi < 2; pi++) {
+    const scanPlayer = advanced.players[pi];
+    const toDiscard: CardInstanceId[] = [];
+    for (const card of scanPlayer.cardsInPlay) {
+      if (!card.companyId) continue;
+      const def = state.cardPool[card.definitionId as string];
+      const effects = (def && 'effects' in def
+        ? (def as { effects?: readonly CardEffect[] }).effects
+        : undefined) ?? [];
+      const orgBegin = getOnEventEffects({ effects }, 'organization-phase-begins').find(
+        e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
+      );
+      if (!orgBegin) continue;
+      // Resolve the company's current site to check atHaven.
+      let atHaven = false;
+      for (const p of advanced.players) {
+        for (const company of p.companies) {
+          if ((company.id as string) !== (card.companyId as string)) continue;
+          const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
+          atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+          break;
+        }
+      }
+      const ctx = { company: { atHaven } };
+      if (orgBegin.when && !matchesCondition(orgBegin.when, ctx as unknown as Record<string, unknown>)) {
+        logDetail(`organization-phase-begins: skipping "${def?.name ?? '?'}" on company ${card.companyId as string} (atHaven=${atHaven})`);
+        continue;
+      }
+      logDetail(`organization-phase-begins: discarding "${def?.name ?? '?'}" from company ${card.companyId as string} (atHaven=${atHaven})`);
+      toDiscard.push(card.instanceId);
+    }
+    if (toDiscard.length > 0) {
+      const discardSet = new Set(toDiscard as string[]);
+      const discarded = scanPlayer.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
+      const remaining = scanPlayer.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string));
+      advanced = updatePlayer(advanced, pi, p => ({
+        ...p,
+        cardsInPlay: remaining,
+        discardPile: [...p.discardPile, ...discarded.map(toCardInstance)],
+      }));
     }
   }
 
