@@ -1254,8 +1254,8 @@ function cancelAttackActions(
   }
 
   // In-play items attached to characters in the defending company with a
-  // cancel-attack effect and cost "self-and-bearer" (e.g. Torque of Hues:
-  // tap item AND its bearer to cancel an attack).
+  // cancel-attack effect and cost "self-and-bearer" (tap item AND bearer,
+  // e.g. Torque of Hues) or cost "bearer" (tap bearer only, e.g. Star-glass).
   for (const charId of company.characters) {
     const charData = player.characters[charId as string];
     if (!charData) continue;
@@ -1270,8 +1270,9 @@ function cancelAttackActions(
         (e): e is CancelAttackEffect => e.type === 'cancel-attack',
       );
       if (!cancelEffect) continue;
-      if (cancelEffect.cost?.tap !== 'self-and-bearer') continue;
-      if (item.status !== CardStatus.Untapped) {
+      const tapCost = cancelEffect.cost?.tap;
+      if (tapCost !== 'self-and-bearer' && tapCost !== 'bearer') continue;
+      if (tapCost === 'self-and-bearer' && item.status !== CardStatus.Untapped) {
         logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: item tapped, cannot activate`);
         continue;
       }
@@ -1279,7 +1280,7 @@ function cancelAttackActions(
         logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: when condition not met`);
         continue;
       }
-      logDetail(`Cancel-attack available: tap ${(itemDef as { name?: string }).name ?? item.definitionId as string} and bearer (in-play item)`);
+      logDetail(`Cancel-attack available: tap ${tapCost === 'bearer' ? 'bearer via' : ''} ${(itemDef as { name?: string }).name ?? item.definitionId as string} (in-play item)`);
       actions.push({
         action: {
           type: 'cancel-attack',
@@ -1556,14 +1557,18 @@ function modifyAttackActions(
     if (!charDef || !isCharacterCard(charDef)) continue;
 
     for (const item of charData.items) {
-      if (item.status !== CardStatus.Untapped) continue;
       const itemDef = state.cardPool[item.definitionId as string];
       if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
       const effect = itemDef.effects.find(
         (e): e is ModifyAttackEffect => e.type === 'modify-attack',
       );
       if (!effect) continue;
-      if (effect.cost?.tap !== 'self') continue;
+      const tapCost = effect.cost?.tap;
+      if (tapCost !== 'self' && tapCost !== 'bearer') continue;
+      // "self" taps the item — item must be untapped.
+      // "bearer" taps the bearer — bearer must be untapped; item status is irrelevant.
+      if (tapCost === 'self' && item.status !== CardStatus.Untapped) continue;
+      if (tapCost === 'bearer' && charData.status !== CardStatus.Untapped) continue;
 
       if (effect.when) {
         const ctx: Record<string, unknown> = {

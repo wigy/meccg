@@ -1274,8 +1274,9 @@ function handleCancelAttackByInPlayCharacter(
 
 /**
  * Handle cancel-attack sourced from an in-play item with cost "self-and-bearer"
- * (e.g. Torque of Hues: tap item AND its bearer to cancel an attack; bearer
- * makes a corruption check afterward).
+ * (tap item AND bearer, e.g. Torque of Hues) or cost "bearer" (tap bearer only,
+ * e.g. Star-glass). Bearer makes a corruption check afterward if the effect
+ * declares `enqueueCorruptionCheck`.
  */
 function handleCancelAttackByInPlayItem(
   state: GameState,
@@ -1293,7 +1294,17 @@ function handleCancelAttackByInPlayItem(
   if (!found) return { state, error: 'Cancel-attack source item not found in defending company' };
 
   const { item, hostCharId } = found;
-  if (item.status !== CardStatus.Untapped) {
+
+  const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const itemName = itemDef?.name ?? (item.definitionId as string);
+  const cancelEffect = itemDef?.effects?.find(
+    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+  );
+
+  const tapCost = cancelEffect?.cost?.tap;
+  const bearerOnly = tapCost === 'bearer';
+
+  if (!bearerOnly && item.status !== CardStatus.Untapped) {
     return { state, error: 'Item must be untapped to cancel attack' };
   }
 
@@ -1303,22 +1314,22 @@ function handleCancelAttackByInPlayItem(
     return { state, error: 'Bearer must be untapped to cancel attack with this item' };
   }
 
-  const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
-  const itemName = itemDef?.name ?? (item.definitionId as string);
-  const cancelEffect = itemDef?.effects?.find(
-    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
-  );
+  if (bearerOnly) {
+    logDetail(`Cancel-attack declared: tapping bearer ${hostCharId as string} via ${itemName} to cancel ${combat.creatureRace ?? 'attack'}`);
+  } else {
+    logDetail(`Cancel-attack declared: tapping item ${itemName} and bearer ${hostCharId as string} to cancel ${combat.creatureRace ?? 'attack'}`);
+  }
 
-  logDetail(`Cancel-attack declared: tapping item ${itemName} and bearer ${hostCharId as string} to cancel ${combat.creatureRace ?? 'attack'}`);
-
-  // Tap the item and its bearer.
+  // Tap the bearer (and the item too if cost is "self-and-bearer").
   let tappedState = updatePlayer(state, defPlayerIndex, p =>
     updateCharacter(p, hostCharId, c => ({
       ...c,
       status: CardStatus.Tapped,
-      items: c.items.map(i =>
-        i.instanceId === item.instanceId ? { ...i, status: CardStatus.Tapped } : i,
-      ),
+      items: bearerOnly
+        ? c.items
+        : c.items.map(i =>
+            i.instanceId === item.instanceId ? { ...i, status: CardStatus.Tapped } : i,
+          ),
     })),
   );
 
@@ -1807,14 +1818,16 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
 
 /**
  * Activate an in-play item's `modify-attack` effect to adjust the
- * current attack's prowess and/or body. The item pays its `tap: "self"`
- * cost by tapping — unless its `discardIfBearerNot` clause fires (bearer
- * race mismatch), in which case the item is discarded instead. The
- * modifiers are applied uniformly: prowess to every strike (via
+ * current attack's prowess and/or body. When cost is `{ tap: "self" }` the
+ * item taps — unless its `discardIfBearerNot` clause fires (bearer race
+ * mismatch), in which case the item is discarded instead. When cost is
+ * `{ tap: "bearer" }` only the bearer taps; the item stays untapped (e.g.
+ * Star-glass). Modifiers apply uniformly: prowess to every strike (via
  * `combat.strikeProwess`) and body to the creature body check (via
- * `combat.creatureBody`).
+ * `combat.creatureBody`). If `enqueueCorruptionCheck` is true, a corruption
+ * check is enqueued on the bearer after the modification.
  *
- * Used by Black Arrow (tw-494).
+ * Used by Black Arrow (tw-494) and Star-glass (tw-330).
  */
 function handleModifyAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'modify-attack') return wrongActionType(state, action, 'modify-attack');
@@ -1831,7 +1844,6 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
   if (itemIndex < 0) return { state, error: 'Item not found on character' };
   const item = charData.items[itemIndex];
-  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
 
   const itemDef = state.cardPool[item.definitionId as string];
   if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
@@ -1839,6 +1851,16 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
     (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack',
   );
   if (!effect) return { state, error: 'Item has no modify-attack effect' };
+
+  const tapCost = effect.cost?.tap;
+  const bearerOnly = tapCost === 'bearer';
+
+  if (!bearerOnly && item.status !== CardStatus.Untapped) {
+    return { state, error: 'Item must be untapped to activate' };
+  }
+  if (bearerOnly && charData.status !== CardStatus.Untapped) {
+    return { state, error: 'Bearer must be untapped to activate this item' };
+  }
 
   const charDef = state.cardPool[charData.definitionId as string];
   if (!charDef || !isCharacterCard(charDef)) return { state, error: 'Bearer is not a character' };
@@ -1848,12 +1870,18 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   const strikesModifier = effect.strikesModifier ?? 0;
   const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
 
-  const shouldDiscard = effect.discardIfBearerNot
+  const shouldDiscard = !bearerOnly && effect.discardIfBearerNot
     ? !effect.discardIfBearerNot.race.includes(charDef.race as string)
     : false;
 
   let updatedChar;
-  if (shouldDiscard) {
+  if (bearerOnly) {
+    logDetail(`Modify-attack: bearer ${charDef.name ?? ''} taps via ${itemName} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier})`);
+    updatedChar = {
+      ...charData,
+      status: CardStatus.Tapped,
+    };
+  } else if (shouldDiscard) {
     logDetail(`Modify-attack: ${itemName} tapped — bearer ${charDef.name ?? ''} is not a ${effect.discardIfBearerNot?.race.join('/') ?? ''}, discarding item`);
     updatedChar = {
       ...charData,
@@ -1895,18 +1923,35 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
     : combat.strikesTotal;
   logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      combat: {
-        ...combat,
-        strikeProwess: newStrikeProwess,
-        creatureBody: newCreatureBody,
-        strikesTotal: newStrikesTotal,
-      },
+  let resultState: GameState = {
+    ...state,
+    players: newPlayers,
+    combat: {
+      ...combat,
+      strikeProwess: newStrikeProwess,
+      creatureBody: newCreatureBody,
+      strikesTotal: newStrikesTotal,
     },
   };
+
+  if (effect.enqueueCorruptionCheck) {
+    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const companyId = company?.id;
+    const phase = state.phaseState.phase;
+    const scope = phase === Phase.MovementHazard
+      ? ({ kind: 'company-mh-subphase' as const, companyId: companyId! })
+      : ({ kind: 'company-site-subphase' as const, companyId: companyId! });
+    logDetail(`Modify-attack: enqueuing corruption check on bearer ${action.characterInstanceId as string} (${itemName})`);
+    resultState = enqueueCorruptionCheck(resultState, {
+      source: item.instanceId,
+      actor: action.player,
+      scope,
+      characterId: action.characterInstanceId,
+      reason: itemName,
+    });
+  }
+
+  return { state: resultState };
 }
 
 /**

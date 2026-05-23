@@ -1663,8 +1663,18 @@ export interface RerollStrikeEffect extends EffectBase {
  */
 export interface ModifyAttackEffect extends EffectBase {
   readonly type: 'modify-attack';
-  /** Cost to activate; for items this is `{ tap: "self" }`. */
+  /**
+   * Cost to activate. `{ tap: "self" }` taps the item (e.g. Black Arrow);
+   * `{ tap: "bearer" }` taps only the item's bearer without tapping the item
+   * itself (e.g. Star-glass).
+   */
   readonly cost: ActionCost;
+  /**
+   * When true, a corruption check is enqueued on the bearer immediately after
+   * the attack is modified. Used by items like Star-glass
+   * ("Bearer makes a corruption check").
+   */
+  readonly enqueueCorruptionCheck?: true;
   /** Amount added to the attack's strike prowess (usually negative). */
   readonly prowessModifier?: number;
   /** Amount added to the creature's body value for the creature body check (usually negative). */

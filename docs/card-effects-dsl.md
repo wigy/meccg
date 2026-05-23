@@ -604,6 +604,11 @@ the attack immediately (no chain entry). If `"enqueueCorruptionCheck": true`
 is also set on the effect, a corruption check is enqueued on the bearer
 after cancellation. Used by *Torque of Hues* (tw-351).
 
+When the item has `cost: { "tap": "bearer" }`, only the bearer must be
+untapped; the item itself does not tap. Used by *Star-glass* (tw-330) —
+bearer taps to cancel an Undead attack. `"enqueueCorruptionCheck": true`
+enqueues a corruption check on the bearer.
+
 A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 
@@ -792,12 +797,14 @@ the item adds `prowessModifier` to the creature's strike prowess and
 `bodyModifier` to its body value, so every strike in the attack and the
 creature body check are affected uniformly.
 
-The cost must be `{ "tap": "self" }` — the item itself pays the cost. The
-`when` clause gates availability (e.g. `bearer.skills` must include
-`"warrior"` for a Warrior-only item). An optional `discardIfBearerNot`
-lists the races whose bearers may tap the item safely; when the bearer's
-race is not in the list the item is discarded instead of tapped (the
-modifier still applies).
+The `cost` is either `{ "tap": "self" }` (the item taps, e.g. Black Arrow)
+or `{ "tap": "bearer" }` (the bearer taps, item stays untapped, e.g.
+Star-glass). The `when` clause gates availability. An optional
+`discardIfBearerNot` lists the races whose bearers may tap a `"self"`-cost
+item safely; when the bearer's race is not in the list the item is discarded
+instead of tapped (the modifier still applies). `"enqueueCorruptionCheck":
+true` enqueues a corruption check on the bearer after the modification (used
+by `"bearer"`-cost items like Star-glass).
 
 ```json
 { "type": "modify-attack",
@@ -813,6 +820,11 @@ modifier still applies).
     { "bearer.skills": { "$includes": "warrior" } },
     { "attack.source": "creature" }
   ] } }
+{ "type": "modify-attack",
+  "cost": { "tap": "bearer" },
+  "prowessModifier": -2,
+  "when": { "enemy.race": { "$in": ["spiders", "animals", "wolves"] } },
+  "enqueueCorruptionCheck": true }
 ```
 
 Example: Black Arrow (tw-494) — Warrior only, tap to give -1 prowess and
@@ -822,6 +834,9 @@ the bearer is not a Man.
 Example: Bow of Dragon-horn (td-102) — Warrior only, tap to reduce the
 strike count of one hazard creature attack (not keyed to a site) by 1,
 minimum 1. Uses `strikesModifier: -1`; result clamped to minimum 1.
+
+Example: Star-glass (tw-330) — tap bearer to give -2 prowess to a Spiders,
+Animals, or Wolves attack; bearer makes a corruption check.
 
 - `strikesModifier` — amount added to `strikesTotal` (usually negative);
   clamped so result is never below 1.
