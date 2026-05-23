@@ -779,6 +779,36 @@ function playResourcesActions(
           }
         }
 
+        // play-condition: card-not-in-play — card is not playable if the named
+        // card is currently in play as a character or in any player's cardsInPlay.
+        const cardNotInPlayCondition = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayConditionEffect =>
+            e.type === 'play-condition' && e.requires === 'card-not-in-play',
+        );
+        if (cardNotInPlayCondition?.cardName) {
+          const blockerName = cardNotInPlayCondition.cardName;
+          const blockerInPlay = state.players.some(p => {
+            const inChars = Object.values(p.characters).some(ch => {
+              const def = state.cardPool[ch.definitionId as string];
+              return def && def.name === blockerName;
+            });
+            const inPlay = p.cardsInPlay.some(c => {
+              const def = state.cardPool[c.definitionId as string];
+              return def && def.name === blockerName;
+            });
+            return inChars || inPlay;
+          });
+          if (blockerInPlay) {
+            logDetail(`Permanent event ${eventDef.name}: blocked because ${blockerName} is in play`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name}: cannot be played while ${blockerName} is in play`,
+            });
+            continue;
+          }
+        }
+
         // Check play-target character filter.
         // When the card also has trigger-attack-on-play, bearer selection happens
         // post-attack (via a select-card-bearer pending resolution), so no

@@ -1540,7 +1540,30 @@
     "unique": true,
     "eventType": "permanent",
     "marshallingPoints": 3,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-05-23",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Aragorn II" }
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": "Minas Tirith" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-not-in-play",
+        "cardName": "Denethor II"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",

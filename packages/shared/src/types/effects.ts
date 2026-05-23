@@ -1781,7 +1781,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1793,6 +1793,10 @@ export interface PlayConditionEffect extends EffectBase {
    * Where to look for the named card.
    * - `character-items` — items on characters at the current site.
    * - `out-of-play-pile` — the player's out-of-play pile (stored items).
+   *
+   * Also used for `requires: 'card-not-in-play'`: the card name that must
+   * NOT be in play (as a character or in any player's cardsInPlay) for the
+   * card to be playable.
    */
   readonly sources?: readonly ('character-items' | 'out-of-play-pile')[];
   /**
