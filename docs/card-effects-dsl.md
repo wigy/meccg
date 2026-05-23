@@ -564,6 +564,36 @@ Apply types:
   override), and `chain-reducer.ts` (`cascadeLinkedDiscards`).
   Used by *Crown of Flowers* (dm-121).
 
+- `unlock-hoard-bounty` -- under `on-event: self-enters-play`, sets
+  `SitePhaseState.hoardBountyAvailable = true`, allowing one additional minor
+  or major item to be played at the current tapped hoard site (a site with the
+  `hoard` keyword). Only fires during the site phase. The flag is cleared after
+  the qualifying item is played. Implemented in `reducer-events.ts`
+  (`applyShortEventOnEntersPlay`) and `reducer-site.ts`
+  (`handleSitePlayHeroResource`). Used by *Bounty of the Hoard* (td-101).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "unlock-hoard-bounty" } }
+  ```
+
+- `unlock-thorough-search` -- under `on-event: self-enters-play`, sets
+  `SitePhaseState.thoroughSearchAvailable = true`, allowing one additional
+  minor, major, or gold ring item to be played without tapping the site.
+  Unlike `unlock-hoard-bounty`, this bonus applies at any site (tapped or
+  untapped); the item must still be normally playable at the site's playable
+  resource types. Only fires during the site phase. The flag is cleared after
+  the qualifying item is played. Playing via this bonus does not count as the
+  "first resource" (no opening minor-item bonus is triggered) and does not tap
+  the site. Implemented in `reducer-events.ts` (`applyShortEventOnEntersPlay`)
+  and `reducer-site.ts` (`handleSitePlayHeroResource`). Used by
+  *Thorough Search* (tw-349).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "unlock-thorough-search" } }
+  ```
+
 ### Pending resolutions
 
 The engine carries two top-level lists alongside `phaseState`:

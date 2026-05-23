@@ -1637,7 +1637,22 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "play-window", "phase": "site" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.skills": { "$includes": "scout" } },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "unlock-thorough-search" }
+      }
+    ],
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-resource-faction",

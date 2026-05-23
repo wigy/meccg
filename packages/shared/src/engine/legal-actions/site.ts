@@ -949,7 +949,12 @@ function playResourcesActions(
       const hoardBountyBonus = siteState.hoardBountyAvailable && siteIsHoard
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major');
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus) {
+      // Thorough Search: event sets thoroughSearchAvailable, allowing one minor, major, or
+      // gold ring item at the site (tapped or untapped) without tapping the site.
+      const thoroughSearchBonus = siteState.thoroughSearchAvailable
+        && (itemDef.subtype === 'minor' || itemDef.subtype === 'major' || itemDef.subtype === 'gold-ring');
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },

@@ -976,6 +976,18 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    if (onEvent.apply.type === 'unlock-thorough-search') {
+      // Set thoroughSearchAvailable in SitePhaseState, allowing one additional
+      // minor, major, or gold ring item without tapping the site this site phase.
+      if (state.phaseState.phase !== Phase.Site) {
+        logDetail(`"${def.name}": unlock-thorough-search played outside site phase — no effect`);
+        continue;
+      }
+      logDetail(`"${def.name}" played — thoroughSearchAvailable set`);
+      state = { ...state, phaseState: { ...state.phaseState, thoroughSearchAvailable: true } };
+      continue;
+    }
+
     // set-character-status: untap/tap/wound the target character (e.g. Hundreds of Butterflies).
     if (onEvent.apply.type === 'set-character-status') {
       const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;

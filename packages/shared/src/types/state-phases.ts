@@ -599,6 +599,12 @@ export interface SitePhaseState {
    */
   readonly hoardBountyAvailable: boolean;
   /**
+   * Whether a "Thorough Search" event has been played this site phase,
+   * allowing one additional minor, major, or gold ring item to be played
+   * without tapping the site. Cleared after the item is played.
+   */
+  readonly thoroughSearchAvailable: boolean;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

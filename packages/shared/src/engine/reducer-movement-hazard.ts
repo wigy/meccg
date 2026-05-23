@@ -2090,6 +2090,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         resourcePlayed: false,
         minorItemAvailable: false,
         hoardBountyAvailable: false,
+        thoroughSearchAvailable: false,
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,

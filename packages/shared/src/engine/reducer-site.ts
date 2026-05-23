@@ -112,6 +112,7 @@ function handleSiteSelectCompany(
         resourcePlayed: false,
         minorItemAvailable: false,
         hoardBountyAvailable: false,
+        thoroughSearchAvailable: false,
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
@@ -1241,28 +1242,18 @@ function handleSitePlayHeroResource(
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
 
   // Tap the site by updating company's currentSite status, unless the
-  // site carries the `never-taps` site-rule (e.g. The Worthy Hills).
+  // site carries the `never-taps` site-rule (e.g. The Worthy Hills) or
+  // Thorough Search is active (see below).
   const neverTaps = siteNeverTaps(state, siteInPlay);
   if (neverTaps) {
     logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
   }
-  const newCompanies = [...player.companies];
-  newCompanies[siteState.activeCompanyIndex] = {
-    ...company,
-    currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
-  };
 
   // Rule 2.V.5: when a resource that taps the site is successfully played,
   // the resource player may attempt one additional minor item as the next
   // action. A `never-taps` site never triggers the bonus. The bonus is
   // consumed when the subsequent minor-item play arrives.
-  const openingBonus = !siteState.resourcePlayed && !neverTaps;
   const consumingBonus = siteState.resourcePlayed && siteState.minorItemAvailable;
-  const nextMinorItemAvailable = openingBonus
-    ? true
-    : consumingBonus
-      ? false
-      : siteState.minorItemAvailable;
 
   // Bounty of the Hoard: if played, one minor or major item may be played at
   // a tapped hoard site. Consume the flag when such an item is played.
@@ -1278,13 +1269,35 @@ function handleSitePlayHeroResource(
     && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major');
   const nextHoardBountyAvailable = usingHoardBounty ? false : siteState.hoardBountyAvailable;
 
+  // Thorough Search: if played, one minor, major, or gold ring item may be played without
+  // tapping the site. Consume the flag when such an item is played.
+  const usingThoroughSearch = siteState.thoroughSearchAvailable
+    && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major' || itemSubtypeForBounty === 'gold-ring');
+  const nextThoroughSearchAvailable = usingThoroughSearch ? false : siteState.thoroughSearchAvailable;
+
+  // Thorough Search prevents site tap and does not count as the "first resource played"
+  // (so the opening minor-item bonus does not fire for it).
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch;
+  const nextMinorItemAvailableActual = openingBonusActual
+    ? true
+    : consumingBonus
+      ? false
+      : siteState.minorItemAvailable;
+
+  const newCompaniesActual = [...player.companies];
+  newCompaniesActual[siteState.activeCompanyIndex] = {
+    ...company,
+    currentSite: (neverTaps || usingThoroughSearch) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
+  };
+
   let afterAttach: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: true,
-      minorItemAvailable: nextMinorItemAvailable,
+      resourcePlayed: usingThoroughSearch ? siteState.resourcePlayed : true,
+      minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
+      thoroughSearchAvailable: nextThoroughSearchAvailable,
     },
   };
 
@@ -2187,6 +2200,7 @@ function advanceSiteToNextCompany(
         resourcePlayed: false,
         minorItemAvailable: false,
         hoardBountyAvailable: false,
+        thoroughSearchAvailable: false,
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
