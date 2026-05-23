@@ -701,6 +701,22 @@
     "playableAt": [],
     "keywords": [
       "ring"
+    ],
+    "effects": [
+      {
+        "type": "grant-skill",
+        "skill": "scout"
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": { "bearer.skills": { "$includes": "scout" } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
     ]
   },
   {

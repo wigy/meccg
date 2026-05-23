@@ -2253,7 +2253,8 @@ export type CardEffect =
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
-  | DuplicateSiteAutoAttacksEffect;
+  | DuplicateSiteAutoAttacksEffect
+  | GrantSkillEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2408,4 +2409,23 @@ export interface HazardMaintenanceEffect extends EffectBase {
  */
 export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
   readonly type: 'duplicate-site-auto-attacks';
+}
+
+/**
+ * Grants a character skill to the item's bearer while the item is in play.
+ *
+ * The bearer counts as having the named skill for all purposes — play-target
+ * filters, sage+scout pair requirements, etc. — exactly as if their card
+ * definition listed the skill. Used by Magic Ring of Stealth to grant scout
+ * skill to any bearer.
+ *
+ * Note: the cancel-strike ability on Magic Ring of Stealth checks whether the
+ * bearer is "already a scout" (natural skill on the character card), so that
+ * ability's `when` condition intentionally reads natural skills and is not
+ * affected by this effect.
+ */
+export interface GrantSkillEffect extends EffectBase {
+  readonly type: 'grant-skill';
+  /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
+  readonly skill: string;
 }

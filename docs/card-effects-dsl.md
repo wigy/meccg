@@ -920,7 +920,25 @@ Shield — Warrior only). The item must be untapped when activated.
   "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
 
-### 12. Combat-rule effects
+### 12. `grant-skill`
+
+Grants an additional skill to the item's bearer while the item is in play.
+The skill is treated as an effective skill in all legal-action contexts
+(play-target filters, company skill checks, Stealth targeting, etc.), but
+it is **not** added to `charDef.skills` — so engine checks that read
+"already a scout" (natural skills only, e.g. the cancel-strike condition on
+Magic Ring of Stealth) correctly ignore it.
+
+```json
+{ "type": "grant-skill", "skill": "scout" }
+{ "type": "grant-skill", "skill": "sage" }
+```
+
+Implemented by `getItemGrantedSkills(state, charData)` in
+`packages/shared/src/engine/effects/resolver.ts`, called wherever effective
+skills are needed (organization, site, organization-events).
+
+### 13. Combat-rule effects
 
 Each combat-mechanics override is a distinct effect type. The chain
 reducer dispatches on the effect's `type`, so adding a new override is a

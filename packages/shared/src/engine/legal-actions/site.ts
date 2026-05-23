@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
@@ -808,7 +808,7 @@ function playResourcesActions(
             const ctx: Record<string, unknown> = {
               target: {
                 race: charDef.race,
-                skills: charDef.skills,
+                skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
                 status: ch.status,
                 name: charDef.name,
               },
@@ -1081,7 +1081,7 @@ function playResourcesActions(
           const bearerCtx: Record<string, unknown> = {
             target: {
               race: charDef.race,
-              skills: charDef.skills,
+              skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
               status: ch.status,
               name: charDef.name,
             },
@@ -1425,13 +1425,17 @@ function sitePhaseGrantActions(
         const char = player.characters[cId as string];
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = state.cardPool[char.definitionId as string];
-        return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('sage') === true;
+        if (!isCharacterCard(def)) return false;
+        const skills = [...(def.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, char)];
+        return skills.includes('sage');
       });
       const scouts = company.characters.filter(cId => {
         const char = player.characters[cId as string];
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = state.cardPool[char.definitionId as string];
-        return isCharacterCard(def) && (def.skills as readonly string[] | undefined)?.includes('scout') === true;
+        if (!isCharacterCard(def)) return false;
+        const skills = [...(def.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, char)];
+        return skills.includes('scout');
       });
 
       if (sages.length === 0 || scouts.length === 0) {

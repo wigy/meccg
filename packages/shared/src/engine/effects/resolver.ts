@@ -28,6 +28,7 @@ import type {
   CompanyModifierEffect,
   CardInstanceId,
   SiteCard,
+  GrantSkillEffect,
 } from '../../index.js';
 import { matchesCondition, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -1055,4 +1056,37 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
   }
 
   return total;
+}
+
+/**
+ * Returns the skills granted to a character by their attached items via
+ * {@link GrantSkillEffect}. Combine with `charDef.skills` to get the full
+ * set of skills the character possesses while those items are borne.
+ *
+ * Used wherever `target.skills` or company skill aggregations are built for
+ * play-target DSL condition evaluation so that items like Magic Ring of Stealth
+ * are correctly counted (e.g. a non-scout bearing the ring counts as a scout
+ * for Stealth card targeting and sage+scout pair checks).
+ *
+ * Note: the cancel-strike ability on Magic Ring of Stealth intentionally
+ * checks only natural skills (`charDef.skills`) because the card text reads
+ * "if the bearer is *already* a scout" — that context is not updated here.
+ */
+export function getItemGrantedSkills(
+  state: GameState,
+  charData: CharacterInPlay,
+): readonly string[] {
+  const granted: string[] = [];
+  for (const item of charData.items) {
+    const itemDef = state.cardPool[item.definitionId as string];
+    if (!itemDef || !('effects' in itemDef)) continue;
+    const effects = (itemDef as { effects?: readonly CardEffect[] }).effects;
+    if (!effects) continue;
+    for (const eff of effects) {
+      if ((eff as GrantSkillEffect).type === 'grant-skill') {
+        granted.push((eff as GrantSkillEffect).skill);
+      }
+    }
+  }
+  return granted;
 }
