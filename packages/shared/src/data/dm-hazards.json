@@ -185,8 +185,14 @@
         "when": { "enemy.race": "undead" }
       },
       {
-        "type": "auto-attack-race-duplicate",
-        "race": "undead"
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-race-duplicate",
+          "race": "undead",
+          "scope": "until-cleared"
+        }
       },
       {
         "type": "on-event",

@@ -615,6 +615,17 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Permanent event (e.g. The Moon Is Dead) that duplicates all automatic-attacks
+         * of the given creature race. Each matching auto-attack must be faced twice.
+         * Added via `on-event: self-enters-play → add-constraint` and persists
+         * `until-cleared`. Removed when the source card leaves play.
+         */
+        readonly type: 'auto-attack-race-duplicate';
+        /** Creature race whose auto-attacks are duplicated (lowercase, e.g. "undead"). */
+        readonly race: string;
+      }
+    | {
+        /**
          * Many Turns and Doublings: the hazard limit for the target
          * company is modified by {@link value}. Applied after the base
          * limit calculation in `computeHazardLimit`. The "no minimum"

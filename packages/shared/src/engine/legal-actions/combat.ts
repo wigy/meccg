@@ -1308,10 +1308,14 @@ function cancelAttackActions(
       continue;
     }
 
-    // Cards with wound-target-character (e.g. Escape): one action per
-    // unwounded character in the defending company — the player chooses
-    // which character to wound when they play the card.
-    const hasWound = cardWithEffects.effects.some(e => e.type === 'wound-target-character');
+    // Cards with set-character-status { status: "inverted", target: "target-character" }
+    // (e.g. Escape): one action per unwounded character in the defending company —
+    // the player chooses which character to wound when they play the card.
+    const hasWound = cardWithEffects.effects.some(
+      e => e.type === 'set-character-status'
+        && e.status === 'inverted'
+        && e.target === 'target-character',
+    );
     if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace && hasWound) {
       for (const charId of company.characters) {
         const charData = player.characters[charId as string];

@@ -1096,7 +1096,7 @@
         "filter": { "target.status": { "$ne": "inverted" } }
       },
       { "type": "cancel-attack" },
-      { "type": "wound-target-character" }
+      { "type": "set-character-status", "status": "inverted", "target": "target-character" }
     ],
     "certified": "2026-04-24"
   },

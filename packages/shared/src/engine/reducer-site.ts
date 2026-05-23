@@ -425,20 +425,14 @@ function handleSiteAutomaticAttacks(
     : attackIndex >= autoAttacks.length;
 
   if (allAttacksDone) {
-    // Check for auto-attack-race-duplicate effects from permanent events in play
-    // (The Moon Is Dead). Each Undead auto-attack at the site must be faced
-    // a second time. duplicatesRun = attackIndex - autoAttacks.length counts
-    // how many race-based duplicates have already been initiated this site phase.
+    // Check for auto-attack-race-duplicate constraints (The Moon Is Dead).
+    // Each matching auto-attack at the site must be faced a second time.
+    // duplicatesRun = attackIndex - autoAttacks.length counts how many
+    // race-based duplicates have already been initiated this site phase.
     const raceDupRaces = new Set<string>();
-    for (const player of state.players) {
-      for (const card of player.cardsInPlay) {
-        const def = state.cardPool[card.definitionId as string];
-        if (!def || !('effects' in def) || !def.effects) continue;
-        for (const effect of def.effects) {
-          if (effect.type === 'auto-attack-race-duplicate') {
-            raceDupRaces.add(effect.race.toLowerCase());
-          }
-        }
+    for (const c of state.activeConstraints) {
+      if (c.kind.type === 'auto-attack-race-duplicate') {
+        raceDupRaces.add(c.kind.race.toLowerCase());
       }
     }
     if (raceDupRaces.size > 0) {
@@ -2174,7 +2168,7 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
 /**
  * Scans the active player's characters for attached hazards with
- * `on-event: end-of-turn` + `apply.type: force-check-per-others-item`.
+ * `on-event: end-of-turn` + `apply.type: force-check, perOthersItem: true`.
  * For each match, enqueues one corruption-check pending resolution per
  * item in the bearer's company that the bearer does NOT bear. The modifier
  * for each check is the negative corruption-point value of that item.
@@ -2246,7 +2240,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
         for (const effect of hDef.effects) {
           if (effect.type !== 'on-event') continue;
           if (effect.event !== 'end-of-turn') continue;
-          if (effect.apply.type !== 'force-check-per-others-item') continue;
+          if (effect.apply.type !== 'force-check' || !effect.apply.perOthersItem) continue;
           if (effect.apply.check !== 'corruption') continue;
 
           const otherItems = company.characters

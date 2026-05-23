@@ -539,8 +539,9 @@
         "type": "on-event",
         "event": "end-of-turn",
         "apply": {
-          "type": "force-check-per-others-item",
-          "check": "corruption"
+          "type": "force-check",
+          "check": "corruption",
+          "perOthersItem": true
         }
       }
     ],
@@ -708,7 +709,8 @@
         }
       },
       {
-        "type": "mass-body-check",
+        "type": "force-check-all-company",
+        "check": "body",
         "modifier": -1
       }
     ]
