@@ -1660,7 +1660,19 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "homesite": "Dol Amroth"
+    "homesite": "Dol Amroth",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Knights of Dol Amroth"
+        }
+      }
+    ],
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-character",
