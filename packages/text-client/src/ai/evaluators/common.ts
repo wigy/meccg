@@ -15,11 +15,6 @@ import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, mat
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
 
-/** Normalize typographic vs straight apostrophes for site-name comparisons. */
-function normalizeName(s: string): string {
-  return s.replace(/[‘’ʼ]/g, "'");
-}
-
 /** Look up a card definition from the pool, returning undefined if missing. */
 export function lookupDef(
   pool: Readonly<Record<string, CardDefinition>>,
@@ -218,8 +213,7 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
     def.cardType === 'minion-resource-ally'
   ) {
     for (const entry of def.playableAt) {
-      // Normalize typographic vs straight apostrophes before comparing site names.
-      if ('site' in entry && normalizeName(entry.site) === normalizeName(site.name)) return true;
+      if ('site' in entry && entry.site === site.name) return true;
       if ('siteType' in entry && entry.siteType === site.siteType) return true;
     }
     return false;

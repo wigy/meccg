@@ -118,7 +118,7 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "homesite": "Thranduil's Halls",
+    "homesite": "Thranduil’s Halls",
     "effects": [
       {
         "type": "stat-modifier",
@@ -371,7 +371,7 @@
     "directInfluence": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "homesite": "Beorn's House",
+    "homesite": "Beorn’s House",
     "effects": [
       {
         "type": "stat-modifier",
