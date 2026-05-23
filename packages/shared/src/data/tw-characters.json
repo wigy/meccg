@@ -627,7 +627,8 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Minas Tirith",
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-character",
