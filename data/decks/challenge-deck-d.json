@@ -280,7 +280,7 @@
     {
       "name": "Edhellond",
       "card": "tw-393",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Gobel Mirlond",
@@ -295,7 +295,7 @@
     {
       "name": "Lorien",
       "card": "tw-408",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Moria",
@@ -315,7 +315,7 @@
     {
       "name": "Rivendell",
       "card": "tw-421",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Shrel-Kain",
@@ -372,12 +372,12 @@
     {
       "name": "Promptings of Wisdom",
       "card": "wh-34",
-      "qty": 1
+      "qty": 2
     },
     {
       "name": "Wain-easterlings",
       "card": "as-60",
-      "qty": 2
+      "qty": 1
     },
     {
       "name": "Wizard's Laughter",

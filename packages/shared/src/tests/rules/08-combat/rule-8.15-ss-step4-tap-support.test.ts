@@ -68,7 +68,7 @@ describe('Rule 8.15 — Strike Step 4: Tapping for +1 Support', () => {
     });
     const afterChain = resolveChain(afterPlay);
 
-    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER);
     const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
     const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
 

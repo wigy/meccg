@@ -153,15 +153,6 @@ function handleOrganizationPlayShortEvent(state: GameState, action: GameAction):
  * adds it to an existing company at the target site or creates a new
  * company (taking the site card from the site deck if needed).
  */
-
-
-/**
- * Handle the play-character action during organization.
- *
- * Removes the character from hand, creates a CharacterInPlay entry,
- * adds it to an existing company at the target site or creates a new
- * company (taking the site card from the site deck if needed).
- */
 function handlePlayCharacter(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-character') return wrongActionType(state, action, 'play-character');
 
@@ -267,15 +258,6 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
  * - To DI: removes from GI, adds as follower of the controller
  * - To GI: removes from controller's followers, sets controlledBy to 'general'
  */
-
-
-/**
- * Handle move-to-influence during organization.
- *
- * Moves a character between general influence and direct influence:
- * - To DI: removes from GI, adds as follower of the controller
- * - To GI: removes from controller's followers, sets controlledBy to 'general'
- */
 function handleMoveToInfluence(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'move-to-influence') return wrongActionType(state, action, 'move-to-influence');
 
@@ -355,15 +337,6 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     },
   };
 }
-
-/**
- * Handle transfer-item during organization.
- *
- * Moves an item from one character to another at the same site.
- * Validates that the item exists on the source character and that
- * both characters are at the same site (not necessarily same company).
- */
-
 
 /**
  * Handle transfer-item during organization.
@@ -641,15 +614,6 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
  * active sub-flow (set by start-sideboard-to-deck/discard). For deck
  * destination, also shuffles and exits the sub-flow.
  */
-
-
-/**
- * Handle fetch-from-sideboard during organization (CoE 2.II.6).
- *
- * Moves a card from the sideboard to the destination determined by the
- * active sub-flow (set by start-sideboard-to-deck/discard). For deck
- * destination, also shuffles and exits the sub-flow.
- */
 function handleFetchFromSideboard(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-from-sideboard') return wrongActionType(state, action, 'fetch-from-sideboard');
 
@@ -717,8 +681,6 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
   return handleGrantActionApply(state, action);
 }
-
-
 
 // handleOrganizationCorruptionCheck moved to engine/pending-reducers.ts
 // (`applyCorruptionCheckResolution`) as part of the unified pending
@@ -1466,15 +1428,6 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
  * out of the source company into a new company at the same site.
  * Validates that the source company retains at least one character.
  */
-
-
-/**
- * Handle split-company during organization.
- *
- * Moves the specified characters (a GI character and their followers)
- * out of the source company into a new company at the same site.
- * Validates that the source company retains at least one character.
- */
 function handleSplitCompany(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'split-company') return wrongActionType(state, action, 'split-company');
 
@@ -1568,15 +1521,6 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
  * existing company at the same site. Validates source won't become empty
  * and both companies are at the same site.
  */
-
-
-/**
- * Handle move-to-company during organization.
- *
- * Moves a GI character (and their followers) from one company to another
- * existing company at the same site. Validates source won't become empty
- * and both companies are at the same site.
- */
 function handleMoveToCompany(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'move-to-company') return wrongActionType(state, action, 'move-to-company');
 
@@ -1652,15 +1596,6 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
  * then removes the source company. Both companies must be at the same site.
  * If the source company owned the site card, ownership transfers to the target.
  */
-
-
-/**
- * Handle merge-companies during organization.
- *
- * Moves all characters from the source company into the target company,
- * then removes the source company. Both companies must be at the same site.
- * If the source company owned the site card, ownership transfers to the target.
- */
 function handleMergeCompanies(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'merge-companies') return wrongActionType(state, action, 'merge-companies');
 
@@ -1717,15 +1652,6 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
     }), [action.sourceCompanyId, action.targetCompanyId]),
   };
 }
-
-/**
- * Handle plan-movement during organization.
- *
- * Sets the company's destination site and movement path, and removes
- * the destination site card from the player's site deck (it will be
- * returned on cancel-movement or discarded after movement resolves).
- */
-
 
 /**
  * Handle plan-movement during organization.
@@ -1813,14 +1739,6 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   return { state: { ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })), reverseActions: [...state.reverseActions, reverseAction] } };
 }
-
-/**
- * Handle cancel-movement during organization.
- *
- * Clears the company's planned destination and returns the destination
- * site card back to the player's site deck.
- */
-
 
 /**
  * Handle cancel-movement during organization.

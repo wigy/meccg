@@ -22,7 +22,7 @@ import {
   buildTestState, resetMint, setCharStatus,
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId,
   dispatchResult, viableActions, viableActionTypes,
-  Phase, companyIdAt, RESOURCE_PLAYER,
+  Phase, companyIdAt, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
 import type { DieRoll, TwoDiceSix } from '../../../index.js';
@@ -74,13 +74,13 @@ describe('Rule 8.28 — Body Check', () => {
 
     // The attacking player's (PLAYER_2, index 1) lastDiceRoll must be
     // updated to the body check roll, NOT the stale {2,2} value.
-    const atkRoll = result.state.players[1].lastDiceRoll;
+    const atkRoll = result.state.players[HAZARD_PLAYER].lastDiceRoll;
     expect(atkRoll).toBeDefined();
     expect(atkRoll!.die1 + atkRoll!.die2).toBe(10);
 
     // The defending player's lastDiceRoll should remain unchanged (stale
     // from the prior strike roll).
-    const defRoll = result.state.players[0].lastDiceRoll;
+    const defRoll = result.state.players[RESOURCE_PLAYER].lastDiceRoll;
     expect(defRoll).toEqual({ die1: 2, die2: 4 });
 
     // A dice-roll effect must be emitted with the body check values

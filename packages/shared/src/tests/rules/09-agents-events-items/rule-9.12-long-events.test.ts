@@ -16,10 +16,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableActions, makeShadowMHState,
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   EYE_OF_SAURON, SUN,
+  handCardId,
   Phase,
 } from '../../test-helpers.js';
 
@@ -44,7 +45,7 @@ describe('Rule 9.12 — Long-Events', () => {
     const plays = viableActions(state, PLAYER_2, 'play-hazard');
     // Eye of Sauron must be offered as viable even though it has no immediate effect now
     expect(plays.length).toBeGreaterThan(0);
-    const eyeInst = state.players[1].hand[0].instanceId;
+    const eyeInst = handCardId(state, HAZARD_PLAYER);
     expect(plays.some(a => a.action.type === 'play-hazard' && 'cardInstanceId' in a.action && a.action.cardInstanceId === eyeInst)).toBe(true);
   });
 
@@ -63,7 +64,7 @@ describe('Rule 9.12 — Long-Events', () => {
 
     const plays = viableActions(state, PLAYER_1, 'play-long-event');
     expect(plays.length).toBeGreaterThan(0);
-    const sunInst = state.players[0].hand[0].instanceId;
+    const sunInst = handCardId(state, RESOURCE_PLAYER);
     expect(plays.some(a => a.action.type === 'play-long-event' && 'cardInstanceId' in a.action && a.action.cardInstanceId === sunInst)).toBe(true);
   });
 
