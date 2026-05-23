@@ -25,7 +25,6 @@ The Lidless eye Rules
 Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
-  Under-deeps movement
 
 UNSORTED
 --------
