@@ -13,7 +13,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -422,11 +422,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // blocking fetch-from-pile resolution with an active pendingResolution.
   // We embed it as `postCorruptionCheck` on the pending effect entry instead.
   const enqueueCorruptionCheckEffect = targetCharId
-    ? (def.effects?.find(e =>
-        e.type === 'on-event'
-        && e.event === 'self-enters-play'
-        && e.apply.type === 'enqueue-corruption-check',
-      ) as import('../types/effects.js').OnEventEffect | undefined)
+    ? getOnEventEffects(def, 'self-enters-play').find(e => e.apply.type === 'enqueue-corruption-check')
     : undefined;
 
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
@@ -940,11 +936,7 @@ function applyShortEventOnEntersPlay(
   playerIndex: number,
   skipEnqueueCorruptionCheck = false,
 ): GameState {
-  if (!def.effects) return state;
-
-  for (const effect of def.effects) {
-    if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
-    const onEvent = effect;
+  for (const onEvent of getOnEventEffects(def, 'self-enters-play')) {
 
     if (onEvent.apply.type === 'enqueue-corruption-check') {
       // When a fetch sub-flow is active, the corruption check is deferred as

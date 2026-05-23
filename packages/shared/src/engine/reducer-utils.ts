@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
-import type { CardEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -191,6 +191,19 @@ export function removeById<T extends { readonly instanceId: CardInstance['instan
 }
 
 /**
+ * Returns all `on-event` effects from a card definition that match `eventName`.
+ * Handles `null`/`undefined` and cards without an `effects` field. Replaces the
+ * verbose triple-check `!def || !('effects' in def) || !def.effects` + manual
+ * `if (effect.type !== 'on-event') continue; if (effect.event !== X) continue;` pattern.
+ */
+export function getOnEventEffects(
+  def: { readonly effects?: readonly CardEffect[] } | null | undefined,
+  eventName: string,
+): readonly OnEventEffect[] {
+  return (def?.effects ?? []).filter((e): e is OnEventEffect => e.type === 'on-event' && e.event === eventName);
+}
+
+/**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
  * whose definition has `mind === null`.
@@ -281,12 +294,9 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     const toDiscard: typeof p.cardsInPlay[0][] = [];
     for (const card of p.cardsInPlay) {
       const def = result.cardPool[card.definitionId as string] as { readonly effects?: readonly CardEffect[] } | undefined;
-      if (!def?.effects) continue;
-      const hasTrigger = def.effects.some(
-        e => e.type === 'on-event' && (e).event === 'play-deck-exhausted'
-          && (e).apply?.type === 'discard-self',
-      );
-      if (hasTrigger) toDiscard.push(card);
+      if (getOnEventEffects(def, 'play-deck-exhausted').some(e => e.apply?.type === 'discard-self')) {
+        toDiscard.push(card);
+      }
     }
     if (toDiscard.length === 0) continue;
     const discardIds = new Set(toDiscard.map(c => c.instanceId));
@@ -486,24 +496,18 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
         if (!char) continue;
         const toDiscard: CardInstanceId[] = [];
         for (const hazard of char.hazards) {
-          const hDef = state.cardPool[hazard.definitionId as string];
-          if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-          for (const effect of hDef.effects) {
-            if (effect.type !== 'on-event') continue;
-            if (effect.event !== 'company-composition-changed') continue;
-            // Match a move effect that discards self (the hazard itself)
-            // to its owner's discard pile. Legacy `discard-self` was
-            // migrated to `{ select: 'self', from: 'self-location', to: 'discard' }`.
-            if (effect.apply?.type !== 'move') continue;
-            if (effect.apply.select !== 'self') continue;
-            if (effect.apply.to !== 'discard') continue;
-            if (!effect.when) continue;
-            const ctx = { company: { characterCount: companyCharCount } };
-            if (matchesCondition(effect.when, ctx)) {
-              logDetail(`discard-self: "${hDef.name}" on ${charId as string} (company size ${companyCharCount})`);
-              toDiscard.push(hazard.instanceId);
-              break;
-            }
+          const hDef = state.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
+          // Match a move effect that discards self (the hazard itself)
+          // to its owner's discard pile. Legacy `discard-self` was
+          // migrated to `{ select: 'self', from: 'self-location', to: 'discard' }`.
+          const ctx = { company: { characterCount: companyCharCount } };
+          const trigger = getOnEventEffects(hDef, 'company-composition-changed').find(
+            e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
+              && !!e.when && matchesCondition(e.when, ctx),
+          );
+          if (trigger) {
+            logDetail(`discard-self: "${hDef?.name}" on ${charId as string} (company size ${companyCharCount})`);
+            toDiscard.push(hazard.instanceId);
           }
         }
         if (toDiscard.length > 0) {
@@ -551,17 +555,13 @@ export function sweepCompanyMembershipChangedEvents(
     const toDiscard: CardInstanceId[] = [];
     for (const card of player.cardsInPlay) {
       if (!affected.has(card.companyId as string)) continue;
-      const def = state.cardPool[card.definitionId as string];
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'company-membership-changes') continue;
-        if (effect.apply?.type !== 'move') continue;
-        if (effect.apply.select !== 'self') continue;
-        if (effect.apply.to !== 'discard') continue;
-        logDetail(`company-membership-changes: discarding "${def.name}" (company ${card.companyId as string})`);
+      const def = state.cardPool[card.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
+      const trigger = getOnEventEffects(def, 'company-membership-changes').find(
+        e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
+      );
+      if (trigger) {
+        logDetail(`company-membership-changes: discarding "${def?.name}" (company ${card.companyId as string})`);
         toDiscard.push(card.instanceId);
-        break;
       }
     }
     if (toDiscard.length > 0) {

@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -1605,12 +1605,8 @@ function fireEndOfCompanyMHCorruptionChecks(
     const char = resourcePlayer.characters[charId as string];
     if (!char) continue;
     for (const hazard of char.hazards) {
-      const hDef = newState.cardPool[hazard.definitionId as string];
-      if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
-      for (const effect of hDef.effects) {
-        if (effect.type !== 'on-event') continue;
-        const onEvent = effect;
-        if (onEvent.event !== 'end-of-company-mh') continue;
+      const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../index.js').CardEffect[] } | undefined;
+      for (const onEvent of getOnEventEffects(hDef, 'end-of-company-mh')) {
         if (onEvent.apply.type !== 'force-check' || onEvent.apply.check !== 'corruption') continue;
 
         const regionIndices = onEvent.regionTypeFilter
@@ -1619,11 +1615,11 @@ function fireEndOfCompanyMHCorruptionChecks(
               .filter(i => i >= 0)
           : sitePath.map((_, i) => i);
         if (regionIndices.length === 0) {
-          logDetail(`end-of-company-mh: "${hDef.name}" skipped for character ${charId as string} — no regions matching filter ${JSON.stringify(onEvent.regionTypeFilter)}`);
+          logDetail(`end-of-company-mh: "${hDef?.name}" skipped for character ${charId as string} — no regions matching filter ${JSON.stringify(onEvent.regionTypeFilter)}`);
           continue;
         }
 
-        logDetail(`end-of-company-mh: "${hDef.name}" triggers ${regionIndices.length} corruption check(s) for character ${charId as string}`);
+        logDetail(`end-of-company-mh: "${hDef?.name}" triggers ${regionIndices.length} corruption check(s) for character ${charId as string}`);
         const possessions = [
           ...char.items.map(i => i.instanceId),
           ...char.allies.map(a => a.instanceId),
@@ -1636,7 +1632,7 @@ function fireEndOfCompanyMHCorruptionChecks(
             actor: state.activePlayer!,
             scope: { kind: 'phase', phase: Phase.MovementHazard },
             characterId: charId,
-            reason: `${hDef.name} (region ${k + 1}/${total})`,
+            reason: `${hDef?.name} (region ${k + 1}/${total})`,
             possessions,
           });
         }
@@ -1786,14 +1782,10 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       const itemsToKeep: import('../index.js').ItemInPlay[] = [];
       const itemsToDiscard: import('../index.js').CardInstance[] = [];
       for (const item of charData.items) {
-        const itemDef = state.cardPool[item.definitionId as string];
-        const hasTrigger = itemDef && 'effects' in itemDef &&
-          (itemDef as { effects?: readonly import('../index.js').CardEffect[] }).effects?.some(
-            e => e.type === 'on-event' && e.event === 'bearer-company-moves' &&
-                 e.apply.type === 'move'
-                 && e.apply.select === 'self'
-                 && e.apply.to === 'discard',
-          );
+        const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../index.js').CardEffect[] } | undefined;
+        const hasTrigger = getOnEventEffects(itemDef, 'bearer-company-moves').some(
+          e => e.apply.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
+        );
         if (hasTrigger) {
           logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
           itemsToDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
@@ -1900,11 +1892,8 @@ function fireCompanyArrivesAtSite(
       if (card.attachedToSite && card.attachedToSite !== arrivalSiteDefId) {
         continue;
       }
-      const def = state.cardPool[card.definitionId as string];
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects) {
-        if (effect.type !== 'on-event') continue;
-        if (effect.event !== 'company-arrives-at-site') continue;
+      const def = state.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../index.js').CardEffect[] } | undefined;
+      for (const effect of getOnEventEffects(def, 'company-arrives-at-site')) {
         if (effect.apply.type !== 'add-constraint') continue;
         const constraintKind = effect.apply.constraint;
         const scopeName = effect.apply.scope;
@@ -1953,7 +1942,7 @@ function fireCompanyArrivesAtSite(
           default:
             continue;
         }
-        logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
+        logDetail(`company-arrives-at-site: "${def?.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
         newState = addConstraint(newState, {
           source: card.instanceId,
           sourceDefinitionId: card.definitionId,
@@ -1996,26 +1985,19 @@ function fireAllyArrivalEffects(
       if (!char) continue;
 
       for (const ally of char.allies) {
-        const def = newState.cardPool[ally.definitionId as string];
-        if (!def || !('effects' in def) || !def.effects) continue;
-        const effects = (def as { effects: readonly import('../types/effects.js').CardEffect[] }).effects;
-        for (const effect of effects) {
-          if (effect.type !== 'on-event') continue;
-          if (effect.event !== 'company-arrives-at-site') continue;
-          if (effect.apply.type !== 'move') continue;
-          if (effect.apply.select !== 'self') continue;
-          if (effect.apply.to !== 'discard') continue;
-
-          const context: Record<string, unknown> = { site: { region: siteRegion } };
-          if (effect.when && !matchesCondition(effect.when, context)) continue;
-
-          logDetail(`company-arrives-at-site: ally "${def.name}" move(self→discard) triggered (site region: ${siteRegion})`);
+        const def = newState.cardPool[ally.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const context: Record<string, unknown> = { site: { region: siteRegion } };
+        const trigger = getOnEventEffects(def, 'company-arrives-at-site').find(
+          e => e.apply.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
+            && (!e.when || matchesCondition(e.when, context)),
+        );
+        if (trigger) {
+          logDetail(`company-arrives-at-site: ally "${def?.name}" move(self→discard) triggered (site region: ${siteRegion})`);
           const updatedAllies = char.allies.filter(a => a.instanceId !== ally.instanceId);
           newState = updatePlayer(newState, pIdx, p => ({
             ...updateCharacter(p, charInstId, c => ({ ...c, allies: updatedAllies })),
             discardPile: [...p.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }],
           }));
-          break;
         }
       }
     }
