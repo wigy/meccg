@@ -9,8 +9,8 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company } from '@meccg/shared';
-import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
@@ -182,9 +182,28 @@ const SITE_DANGER: Record<string, number> = {
 
 /** Whether a hand resource card can be played at the given site. */
 export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
-  // Items: matched by site type.
+  // Items: old-format uses playableAt site-type list; new DSL-format uses item-play-site effect.
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
-    return def.playableAt.includes(site.siteType);
+    // Old format: non-empty playableAt site-type array.
+    if (def.playableAt.length > 0) {
+      return def.playableAt.includes(site.siteType);
+    }
+    // New DSL format: check item-play-site effect first.
+    const itemPlaySite = (def.effects ?? []).find(
+      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+    );
+    if (itemPlaySite) {
+      if (itemPlaySite.sites?.includes(site.name)) return true;
+      if (itemPlaySite.filter) {
+        return matchesCondition(
+          itemPlaySite.filter,
+          { site: site as unknown as Record<string, unknown> },
+        );
+      }
+      return false;
+    }
+    // Fallback: no item-play-site effect — use the site's playableResources list.
+    return (site.playableResources as readonly string[]).includes(def.subtype);
   }
   // Factions / allies: matched by named site or site type.
   if (
@@ -204,6 +223,40 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
 }
 
 /**
+ * Whether any hand resource card can be played at the given site definition.
+ * Used for the intermediate-movement check in {@link scoreDestinationSite}.
+ */
+function anyCardPlayableAt(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  site: AnySiteCard,
+): boolean {
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (def && resourcePlayableAt(def, site)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether any hand resource card can be played at ANY site still in the
+ * player's site deck. Used to detect when the AI has scoring potential but
+ * no directly-reachable playable destination — in that case, moving to a
+ * haven as an intermediate step is better than standing still.
+ */
+function handHasPlayableSiteInDeck(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+): boolean {
+  for (const siteEntry of view.self.siteDeck) {
+    const def = lookupDef(pool, siteEntry.definitionId);
+    if (!isSite(def)) continue;
+    if (anyCardPlayableAt(view, pool, def)) return true;
+  }
+  return false;
+}
+
+/**
  * Score a destination site for movement-planning.
  *
  * Combines:
@@ -215,6 +268,12 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
  *   amount (10 pts) to motivate movement toward sites where they can be played.
  * - Resource-draw count printed on the site (×2).
  * - Penalties for the danger of the site type and traversed regions.
+ *
+ * Intermediate-movement bonus: when the destination itself has nothing to play
+ * but the player has hand cards playable somewhere in their site deck, moving
+ * to a haven (a safe staging point for future turns) earns a small score
+ * rather than zero — this nudges the AI toward productive movement instead
+ * of staying idle every turn.
  *
  * Returns a non-negative integer; 0 means "do not move here".
  */
@@ -242,10 +301,15 @@ export function scoreDestinationSite(
     }
   }
 
-  // Never move to a site where we have nothing to play — aimless travel
-  // wastes turns and exposes the company to hazards for no gain. Resource
-  // draws alone are not worth the risk.
-  if (playableScore === 0) return 0;
+  if (playableScore === 0) {
+    // No cards to play here directly. If the AI has cards playable somewhere
+    // in the deck, score a haven move as an intermediate step toward those
+    // sites. Havens are safe hubs that reset travel options for the next turn.
+    if (destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool)) {
+      return 8;
+    }
+    return 0;
+  }
 
   return Math.max(0, playableScore + resourceDraws * 2 - siteDanger - regionDanger);
 }
