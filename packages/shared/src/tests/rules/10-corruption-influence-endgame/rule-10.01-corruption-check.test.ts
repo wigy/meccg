@@ -16,7 +16,7 @@
  * • If the modified roll is less than two or lower than the character's corruption point total, the character fails the corruption check, it is immediately eliminated, and all of its non-follower cards are immediately discarded.
  */
 
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
