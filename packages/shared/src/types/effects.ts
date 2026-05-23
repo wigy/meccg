@@ -497,6 +497,13 @@ export interface TriggeredAction {
    */
   readonly status?: 'untapped' | 'tapped' | 'inverted';
   /**
+   * For `force-check` with `perOthersItem: true`: enqueue one corruption
+   * check per item borne by other characters in the bearer's company.
+   * The modifier for each check is the negative corruption-point value of
+   * the item. Used by *Covetous Thoughts* (le-107).
+   */
+  readonly perOthersItem?: boolean;
+  /**
    * Selector for which entity the apply acts on. Interpretation is
    * context-specific — for `grant-action` applies, `"bearer"` means the
    * character holding the source card. Absent selectors fall back to
@@ -844,19 +851,6 @@ export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-
 export interface PlayFlagEffect extends EffectBase {
   readonly type: 'play-flag';
   readonly flag: PlayFlag;
-}
-
-/**
- * When present on a permanent hazard event in cardsInPlay, causes all
- * automatic-attacks of the specified race at the active company's site
- * to be duplicated (each faced a second time) after all regular
- * automatic-attacks are resolved. Used by *The Moon Is Dead* to
- * duplicate every Undead automatic-attack at the site.
- */
-export interface AutoAttackRaceDuplicateEffect extends EffectBase {
-  readonly type: 'auto-attack-race-duplicate';
-  /** The creature race whose automatic-attacks should be duplicated (lowercase, e.g. "undead"). */
-  readonly race: string;
 }
 
 /**
@@ -1545,13 +1539,19 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
 }
 
 /**
- * Wounds the character targeted by a {@link PlayTargetEffect} on the same
- * card, without requiring a body check. Applied after the attack is
- * cancelled. Used by Escape (tw-229): the targeted unwounded character is
- * set to the `inverted` (wounded) state as the cost of cancelling the attack.
+ * Sets a character's status to one of the three standard values.
+ *
+ * When `target` is `"target-character"`, applies to the character targeted
+ * by a {@link PlayTargetEffect} on the same card (e.g. Escape: the targeted
+ * unwounded character is set to `inverted` / wounded as the cost of
+ * cancelling the attack). When `target` is absent, applies to the bearer.
+ *
+ * Used instead of the removed `wound-target-character` type.
  */
-export interface WoundTargetCharacterEffect extends EffectBase {
-  readonly type: 'wound-target-character';
+export interface SetCharacterStatusEffect extends EffectBase {
+  readonly type: 'set-character-status';
+  readonly status: 'untapped' | 'tapped' | 'inverted';
+  readonly target?: string;
 }
 
 /**
@@ -1781,7 +1781,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1801,6 +1801,13 @@ export interface PlayConditionEffect extends EffectBase {
    * `creatureRace` does not match, the card is non-playable.
    */
   readonly race?: string;
+  /**
+   * For `requires: 'site-type'`: the site types at which the event may be
+   * played. Only offered when the active company's current site type is in
+   * this list. Used by Glamour of Surpassing Excellence (as-49):
+   * `["border-hold", "free-hold"]`.
+   */
+  readonly siteTypes?: readonly string[];
 }
 
 /**
@@ -1848,9 +1855,10 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
- * Forces a body check on every character in the active company when this
- * hazard short event resolves.
+ * Forces a body or corruption check on every character in the active company
+ * when this hazard short event resolves.
  *
+ * For `check: "body"`:
  * Each character rolls 2d6. The check passes if roll >= (character.body +
  * modifier); it fails if roll < (character.body + modifier).
  *
@@ -1860,26 +1868,15 @@ export interface CallOfHomeCheckEffect extends EffectBase {
  * - All others: a failed check taps an untapped character; a tapped
  *   character suffers no further effect.
  *
- * Used by Veils Flung Away (le-146).
+ * Used by Veils Flung Away (le-146) via `{ "type": "force-check-all-company",
+ * "check": "body", "modifier": -1 }`. Replaces the removed `mass-body-check` type.
  */
-export interface MassBodyCheckEffect extends EffectBase {
-  readonly type: 'mass-body-check';
-  /** Modifier applied to the effective body threshold (typically negative, e.g. -1). */
-  readonly modifier: number;
-}
-
-/**
- * Restricts a resource short-event to companies whose current site is one of
- * the listed site types. Checked during legal-action computation for site and
- * organization phases; the event is not-playable unless the active company
- * (site phase) or any company (organization phase) is at a matching site.
- *
- * Used by Glamour of Surpassing Excellence (as-49): Border-hold or Free-hold.
- */
-export interface EventPlaySiteEffect extends EffectBase {
-  readonly type: 'event-play-site';
-  /** Site types at which the event may be played (e.g. ["border-hold", "free-hold"]). */
-  readonly siteTypes: readonly string[];
+export interface ForceCheckAllCompanyTopEffect extends EffectBase {
+  readonly type: 'force-check-all-company';
+  /** Which check to force for each character in the company (e.g. `"body"`). */
+  readonly check: string;
+  /** Modifier applied to the check threshold (typically negative). */
+  readonly modifier?: number;
 }
 
 /**
@@ -2230,9 +2227,8 @@ export type CardEffect =
   | ItemPlaySiteEffect
   | StorableAtEffect
   | CallOfHomeCheckEffect
-  | MassBodyCheckEffect
+  | ForceCheckAllCompanyTopEffect
   | SeizedByTerrorCheckEffect
-  | EventPlaySiteEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
@@ -2241,8 +2237,7 @@ export type CardEffect =
   | CallCouncilEffect
   | WardBearerEffect
   | MoveEffect
-  | WoundTargetCharacterEffect
-  | AutoAttackRaceDuplicateEffect
+  | SetCharacterStatusEffect
   | TriggerAttackOnPlayEffect
   | DeckSearchAttackEffect
   | TapAgentEffect

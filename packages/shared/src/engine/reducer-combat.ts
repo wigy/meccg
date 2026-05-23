@@ -9,7 +9,7 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, 
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
-import type { ItemTapStrikeBonusEffect, OnEventEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
+import type { ItemTapStrikeBonusEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
@@ -2443,6 +2443,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       attack: { isolated: combat.isolated ?? false },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
+    const allDiscardedIds = new Set<string>();
     const updatedPlayersAD = stateAfterCombat.players.map(player => {
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
       const remaining: import('../types/state-cards.js').CardInPlay[] = [];
@@ -2463,12 +2464,22 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       if (toDiscard.length === 0) return player;
       const discarded = toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
       for (const c of toDiscard) {
+        allDiscardedIds.add(c.instanceId as string);
         const defName = (stateAfterCombat.cardPool[c.definitionId as string] as { name?: string })?.name ?? '?';
         logDetail(`Attack-defeated: discarding "${defName}" from cardsInPlay (on-event: attack-defeated)`);
       }
       return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };
     }) as unknown as typeof stateAfterCombat.players;
     stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAD };
+    // Remove constraints sourced from discarded permanent events
+    if (allDiscardedIds.size > 0) {
+      stateAfterCombat = {
+        ...stateAfterCombat,
+        activeConstraints: stateAfterCombat.activeConstraints.filter(
+          c => !allDiscardedIds.has(c.source as string),
+        ),
+      };
+    }
   }
 
   // Handle permanent-event auto-attack onDefeat:'remove-from-play' (e.g. Balrog of Moria TW-12).

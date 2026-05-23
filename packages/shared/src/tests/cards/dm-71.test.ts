@@ -23,7 +23,7 @@
  * |---|-------------------------------------|-------------|-------------------------------------|
  * | 1 | stat-modifier prowess +1 (Undead)   | IMPLEMENTED | target: all-attacks, collectGlobal  |
  * | 2 | stat-modifier strikes +1 (Undead)   | IMPLEMENTED | target: all-attacks, collectGlobal  |
- * | 3 | auto-attack-race-duplicate (undead) | IMPLEMENTED | scanned from cardsInPlay in site.ts |
+ * | 3 | auto-attack-race-duplicate (undead) | IMPLEMENTED | on-event enters-play → activeConstraints |
  * | 4 | on-event: attack-defeated, discard  | IMPLEMENTED | reducer-combat.ts allDefeated scan  |
  * | 5 | duplication-limit (game, max 1)     | IMPLEMENTED | reducer.ts duplicate-check          |
  *
@@ -44,6 +44,7 @@ import {
   viableActions,
   makeMHState,
   findCharInstanceId,
+  addRaceDuplicateConstraint,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, SitePhaseState, CardDefinitionId } from '../../index.js';
 
@@ -110,8 +111,9 @@ describe('The Moon Is Dead (dm-71)', () => {
     // With The Moon Is Dead in play, after the first attack is initiated
     // (automaticAttacksResolved = 1), the next pass should start a
     // duplicate combat (also Undead race) instead of advancing to declare-agent-attack.
-    const base = setupAutoAttackStep(
-      addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay]),
+    const base = addRaceDuplicateConstraint(
+      setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
     );
     // Simulate that the first auto-attack has been initiated (index 0) and
     // resolved — counter is now 1, same as the site's total.
@@ -133,8 +135,9 @@ describe('The Moon Is Dead (dm-71)', () => {
   test('after both attacks resolved (original + duplicate), advances to declare-agent-attack', () => {
     // automaticAttacksResolved = 2: original ran and duplicate ran.
     // duplicatesRun = 2 - 1 = 1 >= 1 (one Undead attack) — all done.
-    const base = setupAutoAttackStep(
-      addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay]),
+    const base = addRaceDuplicateConstraint(
+      setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
     );
     const stateAfterBoth: typeof base = {
       ...base,
@@ -210,8 +213,9 @@ describe('The Moon Is Dead (dm-71)', () => {
     // Direct verification: the attack-defeated scan conditions on enemy.race = 'undead'.
     // Test the no-discard path via the duplicate test: if Moon Is Dead is in play
     // AFTER a second combat initiation, it means it was not discarded by combat.
-    const base = setupAutoAttackStep(
-      addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay]),
+    const base = addRaceDuplicateConstraint(
+      setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
     );
     const stateAfterFirst: typeof base = {
       ...base,
