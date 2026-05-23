@@ -29,7 +29,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA,
-  handCardId,
+  handCardId, charIdAt,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
