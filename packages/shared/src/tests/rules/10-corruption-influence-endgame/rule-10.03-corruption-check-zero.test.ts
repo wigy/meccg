@@ -18,7 +18,7 @@ import {
   buildTestState, resetMint, viableFor, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MINAS_TIRITH,
+  RIVENDELL, LORIEN, MINAS_TIRITH, charIdAt,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CorruptionCheckAction } from '../../../types/actions-universal.js';
@@ -39,7 +39,7 @@ describe('Rule 10.03 — Corruption Check at Zero', () => {
       ],
     });
 
-    const aragornInstId = base.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const aragornInstId = charIdAt(base, RESOURCE_PLAYER);
 
     const fcState: FreeCouncilPhaseState = {
       phase: Phase.FreeCouncil,

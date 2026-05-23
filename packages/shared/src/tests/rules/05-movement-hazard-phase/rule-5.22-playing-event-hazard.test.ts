@@ -22,10 +22,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, viableActions, makeShadowMHState,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   EYE_OF_SAURON, RIVER,
+  handCardId, companyIdAt,
   Phase,
 } from '../../test-helpers.js';
 import type { MovementHazardPhaseState } from '../../../index.js';
@@ -52,12 +53,12 @@ describe('Rule 5.22 — Playing an Event Hazard', () => {
     };
 
     // Eye of Sauron must be offered as a viable play-hazard action
-    const eyeInstId = state.players[1].hand[0].instanceId;
+    const eyeInstId = handCardId(state, HAZARD_PLAYER);
     const plays = viableActions(state, PLAYER_2, 'play-hazard');
     expect(plays.some(a => 'cardInstanceId' in a.action && a.action.cardInstanceId === eyeInstId)).toBe(true);
 
     // Playing it increments the hazard count by 1
-    const after = dispatch(state, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: eyeInstId, targetCompanyId: state.players[RESOURCE_PLAYER].companies[0].id });
+    const after = dispatch(state, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: eyeInstId, targetCompanyId: companyIdAt(state, RESOURCE_PLAYER) });
     const mhAfter = after.phaseState as MovementHazardPhaseState;
     expect(mhAfter.hazardsPlayedThisCompany).toBe(1);
   });
@@ -85,7 +86,7 @@ describe('Rule 5.22 — Playing an Event Hazard', () => {
     };
 
     // River should be offered as a play-hazard action targeting the destination site
-    const riverInstId = state.players[1].hand[0].instanceId;
+    const riverInstId = handCardId(state, HAZARD_PLAYER);
     const riverPlays = viableActions(state, PLAYER_2, 'play-hazard');
     const riverTargetingActions = riverPlays.filter(
       a => 'cardInstanceId' in a.action && a.action.cardInstanceId === riverInstId

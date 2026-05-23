@@ -22,6 +22,8 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
+  charIdAt, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
+  expectInDiscardPile, expectNotInDiscardPile,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CardInstanceId } from '../../../index.js';
@@ -45,7 +47,7 @@ describe('Rule 10.01 — Corruption Check', () => {
       ],
     });
 
-    const aragornId = base.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
 
     const pendingCheck = {
       characterId: aragornId,
@@ -75,24 +77,24 @@ describe('Rule 10.01 — Corruption Check', () => {
 
     // Case 1: roll > CP (6 > 5) → success: character still in characters
     const afterSuccess = dispatch(buildFcState(6), { type: 'pass', player: PLAYER_1 });
-    expect(afterSuccess.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeDefined();
-    expect(afterSuccess.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(false);
+    expectCharInPlay(afterSuccess, RESOURCE_PLAYER, aragornId);
+    expectNotInDiscardPile(afterSuccess, RESOURCE_PLAYER, aragornId);
 
     // Case 2: roll == CP (5 == 5) → hero fails: character discarded (not eliminated)
     const afterDiscard = dispatch(buildFcState(5), { type: 'pass', player: PLAYER_1 });
-    expect(afterDiscard.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeUndefined();
-    expect(afterDiscard.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(true);
-    expect(afterDiscard.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
+    expectCharNotInPlay(afterDiscard, RESOURCE_PLAYER, aragornId);
+    expectInDiscardPile(afterDiscard, RESOURCE_PLAYER, aragornId);
+    expectNotInPile(afterDiscard, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
 
     // Case 3: roll == CP-1 (4 == 5-1) → hero fails: character discarded
     const afterDiscard2 = dispatch(buildFcState(4), { type: 'pass', player: PLAYER_1 });
-    expect(afterDiscard2.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(true);
-    expect(afterDiscard2.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
+    expectInDiscardPile(afterDiscard2, RESOURCE_PLAYER, aragornId);
+    expectNotInPile(afterDiscard2, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
 
     // Case 4: roll <= CP-2 (3 <= 5-2=3) → eliminated: character in outOfPlayPile
     const afterElim = dispatch(buildFcState(3), { type: 'pass', player: PLAYER_1 });
-    expect(afterElim.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeUndefined();
-    expect(afterElim.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(true);
-    expect(afterElim.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(false);
+    expectCharNotInPlay(afterElim, RESOURCE_PLAYER, aragornId);
+    expectInPile(afterElim, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
+    expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
   });
 });

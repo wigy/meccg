@@ -23,6 +23,7 @@ import {
   SUN, CAVE_DRAKE, SMOKE_RINGS,
   DAGGER_OF_WESTERNESSE,
   Phase, handCardId, eotState, phaseStateAs, actionAs, RESOURCE_PLAYER,
+  HAZARD_PLAYER, expectNotInHand, expectInDiscardPile,
 } from '../../test-helpers.js';
 import type { DiscardCardAction, DrawCardsAction, EndOfTurnPhaseState } from '../../../index.js';
 
@@ -37,16 +38,16 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
 
     const p1Discards = viableActions(state, PLAYER_1, 'discard-card');
     const p1Ids = p1Discards.map(a => actionAs<DiscardCardAction>(a.action).cardInstanceId);
-    expect(p1Ids).toEqual([state.players[0].hand[0].instanceId]);
+    expect(p1Ids).toEqual([handCardId(state, RESOURCE_PLAYER)]);
     expect(viableActions(state, PLAYER_1, 'pass')).toHaveLength(1);
 
     // P2 may also discard their own card during step 1.
     const p2Discards = viableActions(state, PLAYER_2, 'discard-card');
     expect(p2Discards.map(a => actionAs<DiscardCardAction>(a.action).cardInstanceId))
-      .toEqual([state.players[1].hand[0].instanceId]);
+      .toEqual([handCardId(state, HAZARD_PLAYER)]);
 
     // P1 cannot discard P2's hand card.
-    expect(p1Ids).not.toContain(state.players[1].hand[0].instanceId);
+    expect(p1Ids).not.toContain(handCardId(state, HAZARD_PLAYER));
   });
 
   test('Step 2 (reset-hand): a player above hand size must discard, below draws up', () => {
@@ -108,7 +109,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     expect(playActions).toHaveLength(1);
 
     // The same card must also appear as a discard-card option.
-    const smokeRingsId = state.players[0].hand[0].instanceId;
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const discards = viableActions(state, PLAYER_1, 'discard-card');
     expect(discards.some(a => actionAs<DiscardCardAction>(a.action).cardInstanceId === smokeRingsId)).toBe(true);
   });
@@ -120,7 +121,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     const state = eotState({ p1Hand: [SMOKE_RINGS] });
     expect(phaseStateAs<EndOfTurnPhaseState>(state).step).toBe('discard');
 
-    const smokeRingsId = state.players[0].hand[0].instanceId;
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const result = dispatchResult(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
@@ -130,7 +131,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     expect(phaseStateAs<EndOfTurnPhaseState>(result.state).discardDone[0]).toBe(false);
 
     // Smoke Rings is removed from hand (goes to cardsInPlay while fetch resolves).
-    expect(result.state.players[0].hand.some(c => c.instanceId === smokeRingsId)).toBe(false);
+    expectNotInHand(result.state, RESOURCE_PLAYER, smokeRingsId);
   });
 
   test('Step 3 (signal-end): resource player can play a short event before ending the turn', () => {
@@ -150,7 +151,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     const playActions = viableActions(s4, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
 
-    const smokeRingsId = s4.players[0].hand[0].instanceId;
+    const smokeRingsId = handCardId(s4, RESOURCE_PLAYER);
     const result = dispatchResult(s4, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
@@ -159,7 +160,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     expect(phaseStateAs<EndOfTurnPhaseState>(result.state).step).toBe('signal-end');
 
     // Smoke Rings is removed from hand (goes to cardsInPlay while fetch resolves).
-    expect(result.state.players[0].hand.some(c => c.instanceId === smokeRingsId)).toBe(false);
+    expectNotInHand(result.state, RESOURCE_PLAYER, smokeRingsId);
   });
 
   test('Discarding the last card in hand still allows passing the discard step', () => {
@@ -170,7 +171,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     const sunId = handCardId(state, RESOURCE_PLAYER);
 
     const afterDiscard = dispatch(state, { type: 'discard-card', player: PLAYER_1, cardInstanceId: sunId });
-    expect(afterDiscard.players[0].discardPile.some(c => c.instanceId === sunId)).toBe(true);
+    expectInDiscardPile(afterDiscard, RESOURCE_PLAYER, sunId);
 
     // P1 has now acted in step 1 (discardDone[0] = true) and is offered
     // no further actions until P2 passes too.
