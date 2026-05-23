@@ -155,16 +155,6 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
  * the phase advances. Resource short events with fetch-to-deck effects
  * enter a sub-flow for card selection.
  */
-
-
-/**
- * Handle actions during the long-event phase.
- *
- * The resource player may play resource long-events and short-events from
- * hand. On pass, the hazard player's hazard long-events are discarded and
- * the phase advances. Resource short events with fetch-to-deck effects
- * enter a sub-flow for card selection.
- */
 export function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'play-long-event') {
     return handlePlayLongEvent(state, action);
@@ -279,14 +269,6 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
   }
   return { state, error: `Unexpected action '${action.type}' in long-event phase` };
 }
-
-/**
- * Handle playing a resource short-event card during the long-event phase.
- *
- * Removes the card from hand, discards it, and if it has a `fetch-to-deck`
- * effect, sets up the pendingFetch sub-flow on the phase state.
- */
-
 
 /**
  * Handle playing a resource short-event card during the long-event phase.

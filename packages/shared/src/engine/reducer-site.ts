@@ -86,16 +86,6 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
  * that were returned to their site of origin during M/H are automatically
  * skipped (CoE line 336).
  */
-
-
-/**
- * Handle the 'select-company' action in the site phase: resource player
- * picks which company resolves its site phase next.
- *
- * After selection, the company advances to 'enter-or-skip'. Companies
- * that were returned to their site of origin during M/H are automatically
- * skipped (CoE line 336).
- */
 function handleSiteSelectCompany(
   state: GameState,
   action: GameAction,
@@ -129,17 +119,6 @@ function handleSiteSelectCompany(
     },
   };
 }
-
-/**
- * Handle the 'enter-or-skip' step: resource player decides whether to
- * enter the site or do nothing.
- *
- * - `enter-site`: advances to reveal-on-guard-attacks (if auto-attacks
- *   exist) or directly to play-resources.
- * - `pass`: the company does nothing; its site phase ends immediately
- *   and we advance to the next company (CoE lines 341–343).
- */
-
 
 /**
  * Handle the 'enter-or-skip' step: resource player decides whether to
@@ -234,15 +213,6 @@ function handleSiteEnterOrSkip(
     },
   };
 }
-
-/**
- * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
- *
- * The hazard player (non-active) may reveal on-guard creatures keyed to
- * the site, marking them as revealed in the company's onGuardCards.
- * Passing advances to the 'automatic-attacks' step.
- */
-
 
 /**
  * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
@@ -380,17 +350,6 @@ function handleForewarnedSelectAttack(
     },
   };
 }
-
-/**
- * Handle the 'automatic-attacks' step: initiate combat for each automatic
- * attack listed on the site card, one at a time.
- *
- * When entering this step, if no combat is active, the next unresolved
- * automatic attack initiates combat. The `automaticAttacksResolved` counter
- * tracks progress. When all auto-attacks are resolved, advances to
- * 'declare-agent-attack'.
- */
-
 
 /**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
@@ -901,23 +860,6 @@ function handleSitePlaySiteAutoAttack(
 }
 
 /**
- * Handle the on-guard reveal window during resource play (CoE rule 2.V.6).
- *
- * The hazard player may reveal an on-guard hazard event in response to a
- * resource that would tap the site. The revealed card initiates a nested
- * chain. Passing clears the window and executes the pending resource action.
- */
-/**
- * Handle the 'resolve-attacks' step (CoE Step 4, 2.V.iv).
- *
- * Declared on-guard creature attacks are initiated one at a time via the
- * chain of effects. Each creature enters the chain (allowing responses),
- * then combat starts when the chain resolves. When all declared attacks
- * are resolved, advances to 'play-resources'.
- */
-
-
-/**
  * Handle the 'resolve-attacks' step (CoE Step 4, 2.V.iv).
  *
  * Declared on-guard creature attacks are initiated one at a time via the
@@ -975,8 +917,6 @@ function handleSiteResolveAttacks(
     },
   };
 }
-
-
 
 /**
  * Apply a hazard player's `reveal-on-guard` action during the on-guard
@@ -1042,17 +982,6 @@ export function executeDeferredSiteAction(
   }
   return handleSitePlayHeroResource(state, deferredAction, state.phaseState as SitePhaseState);
 }
-
-/**
- * Handle the 'play-resources' step: resource player plays items or
- * permanent events, or passes to end the company's site phase.
- *
- * - `play-hero-resource`: play an item at the site. Taps the carrying
- *   character. The item is attached to the character.
- * - `play-permanent-event`: delegated to the existing org-phase handler.
- * - `pass`: ends this company's site phase, advances to next company.
- */
-
 
 /**
  * Handle the Hermit's Hill (dm-32) special site grant-action: the company
@@ -1461,28 +1390,6 @@ function fireCharacterGainsItemChecks(
 }
 
 /**
- * Handle an influence attempt on a faction card during the site phase.
- *
- * Validates the faction is in hand and playable at this site, the
- * influencing character is untapped and in the company, then taps
- * the character, taps the site, and adds the faction to cardsInPlay.
- *
- * Note: The influence roll is not yet implemented — for now, the
- * faction is automatically played successfully.
- */
-
-
-/**
- * Handle an influence attempt on a faction card during the site phase.
- *
- * Validates the faction is in hand and playable at this site, the
- * influencing character is untapped and in the company, then taps
- * the character, taps the site, and adds the faction to cardsInPlay.
- *
- * Note: The influence roll is not yet implemented — for now, the
- * faction is automatically played successfully.
- */
-/**
  * Handle the declaration of a faction influence attempt.
  *
  * Validates the action, removes the faction card from hand, taps the
@@ -1707,18 +1614,6 @@ export function resolveInfluenceAttemptRoll(
  *
  * CoE rules 10.10–10.12 step 1.
  */
-
-
-/**
- * Handle an opponent influence attempt (resource player declares + rolls).
- *
- * Validates the influencing character is untapped and in the active company,
- * the target exists at the same site and is not avatar-controlled, then
- * taps the influencer, rolls 2d6, and transitions to awaiting the
- * hazard player's defensive roll.
- *
- * CoE rules 10.10–10.12 step 1.
- */
 function handleOpponentInfluenceAttempt(
   state: GameState,
   action: GameAction,
@@ -1887,17 +1782,6 @@ function handleOpponentInfluenceAttempt(
 }
 
 /**
- * Handle the hazard player's defensive roll for an opponent influence attempt.
- *
- * Rolls 2d6 for the defender, calculates the final result, and resolves
- * the influence attempt: on success, the target and its controlled non-follower
- * cards are discarded; on failure, only the influencer was tapped.
- *
- * CoE rules 10.12 steps 2–6.
- */
-
-
-/**
  * Resolve an opponent influence attempt: roll the defender's 2d6, compute
  * the final result, and apply the consequences (discard the target on
  * success, discard the revealed card on failure).
@@ -1990,15 +1874,6 @@ export function resolveOpponentInfluenceDefend(
     effects: [rollEffect],
   };
 }
-
-/**
- * Discard a card that was successfully influenced away from the opponent.
- *
- * For characters: moves the character, their items, allies to the discard pile.
- * Followers of the discarded character fall to GI if room, otherwise are discarded.
- * For allies: just moves the ally to the discard pile.
- */
-
 
 /**
  * Discard a card that was successfully influenced away from the opponent.

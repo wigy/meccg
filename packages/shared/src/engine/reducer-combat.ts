@@ -180,14 +180,6 @@ function handleHavenJoinAttack(state: GameState, action: GameAction, combat: Com
  * If exactly one remains, auto-selects it and goes to resolve-strike.
  * Returns null if all strikes are resolved (caller should finalize combat).
  */
-
-
-/**
- * Compute the next combat phase after all strikes are assigned or a strike finishes resolving.
- * If multiple unresolved strikes remain, enters choose-strike-order so the defender picks.
- * If exactly one remains, auto-selects it and goes to resolve-strike.
- * Returns null if all strikes are resolved (caller should finalize combat).
- */
 function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
   const unresolvedIndices: number[] = [];
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -204,8 +196,6 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
 }
 
 /** Handle the defender choosing which strike to resolve next. */
-
-
 function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'choose-strike-order') return wrongActionType(state, action, 'choose-strike-order');
 
@@ -218,8 +208,6 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 }
 
 /** Assign a strike to a defending character. */
-
-
 function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'assign-strike') return wrongActionType(state, action, 'assign-strike');
 
@@ -675,8 +663,6 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
 }
 
 /** Tap a supporting character for +1 prowess on the current strike. */
-
-
 function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'support-strike') return wrongActionType(state, action, 'support-strike');
 
@@ -940,8 +926,6 @@ function handlePlayRerollStrike(state: GameState, action: GameAction, combat: Co
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */
-
-
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
@@ -2131,15 +2115,6 @@ function handleDiscardItemFromCompany(state: GameState, action: GameAction, comb
   }
   return { state: { ...state, players: newPlayers, combat: { ...cleanCombat, ...next } } };
 }
-
-/**
- * Finalize combat after all strikes are resolved.
- *
- * If all strikes were defeated (result === 'success'), the creature card
- * moves from the hazard player's discard pile to the defending player's
- * marshalling point pile. Otherwise it stays in discard.
- */
-
 
 /**
  * Remove a card-triggered-attack card from cardsInPlay and send it to the

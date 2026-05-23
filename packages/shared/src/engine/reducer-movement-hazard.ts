@@ -105,17 +105,6 @@ function handleOrderEffectsStep(state: GameState, action: GameAction, mhState: M
  * If the hazard player takes an action after the resource player passed,
  * the resource player's pass is reset.
  */
-
-
-/**
- * Handle actions during the play-hazards step (CoE step 7).
- *
- * The hazard player may play hazard long-events (and eventually creatures,
- * short-events, permanent-events, on-guard cards) up to the hazard limit.
- * Both players may pass; the company's M/H phase ends when both have passed.
- * If the hazard player takes an action after the resource player passed,
- * the resource player's pass is reset.
- */
 function handlePlayHazards(
   state: GameState,
   action: GameAction,
@@ -223,17 +212,6 @@ function handlePlayHazards(
 
   return result;
 }
-
-
-/**
- * Play a hazard card from hand during the play-hazards step.
- *
- * Currently supports hazard long-events. Playing a hazard counts as one
- * against the hazard limit. If the resource player had passed, their
- * pass is reset (they may resume taking actions).
- *
- * TODO: creatures, short-events, permanent-events, on-guard cards
- */
 
 
 /**
@@ -1555,14 +1533,6 @@ function handleTapAgentAtSite(
  * allowed). Counts against the hazard limit and resets the resource
  * player's pass.
  */
-
-
-/**
- * Place a card from the hazard player's hand face-down on the active
- * company as an on-guard card. Any card may be placed (bluffing is
- * allowed). Counts against the hazard limit and resets the resource
- * player's pass.
- */
 function handlePlaceOnGuard(
   state: GameState,
   action: GameAction,
@@ -1675,19 +1645,6 @@ function fireEndOfCompanyMHCorruptionChecks(
   }
   return newState;
 }
-
-/**
- * End the current company's M/H phase (CoE step 8).
- *
- * 1. Complete movement: update currentSite, handle site of origin.
- * 2. Draw up to hand size (automatic for both players).
- * 3. If either player exceeds hand size, transition to 'reset-hand' step
- *    for interactive discard. Otherwise advance directly.
- *
- * TODO: passive conditions at end of M/H phase
- * TODO: check if other companies have unresolved movement to site of origin
- */
-
 
 /**
  * End the current company's M/H phase (CoE step 8).
@@ -2071,13 +2028,6 @@ function fireAllyArrivalEffects(
  * Each discard-card action removes one card. Once both players are at or
  * below hand size, advance to the next company or Site phase.
  */
-
-
-/**
- * Handle the reset-hand step: players with hand > HAND_SIZE must discard.
- * Each discard-card action removes one card. Once both players are at or
- * below hand size, advance to the next company or Site phase.
- */
 function handleResetHand(
   state: GameState,
   action: GameAction,
@@ -2254,21 +2204,6 @@ function regionTypesMatch(required: readonly RegionType[], path: readonly Region
   }
   return false;
 }
-
-/**
- * Check whether a creature can be keyed to the current company's site path
- * or destination site (CoE rule 2.IV.vii.2).
- *
- * A creature is keyable if any of its {@link CreatureKeyRestriction} entries
- * match at least one of:
- * - A region type on the company's resolved site path
- * - A region name on the company's resolved site path
- * - The destination site type
- * - The destination site name (TODO: not yet checked)
- *
- * @returns An error string if the creature cannot be keyed, or undefined if legal.
- */
-
 
 /**
  * Check whether a creature can be keyed to the current company's site path
