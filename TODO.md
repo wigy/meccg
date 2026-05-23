@@ -29,7 +29,6 @@ The Balrog Rules
 UNSORTED
 --------
 
-(D) Bargain between Friends
 (E) Return of the King
 (F) Spies and Traitors
 (G) Marauding Brood of Uglies
