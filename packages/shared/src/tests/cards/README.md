@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 387 | 369 | 18 | 95.3% |
+| 388 | 371 | 17 | 95.6% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 19 | 16 | 84.2% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 38 | 97.4% |
-| LE | 67 | 61 | 91.0% |
+| LE | 67 | 62 | 92.5% |
 | TD | 47 | 46 | 97.9% |
-| TW | 211 | 206 | 97.6% |
+| TW | 212 | 207 | 97.6% |
 | WH | 2 | 2 | 100.0% |
 
 ## Detailed Test Matrix
@@ -29,12 +29,12 @@
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 11 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
-| as-39 | Summons from Long Sleep | — | 8 | ☐ |
+| as-39 | Summons from Long Sleep | — | 8 | ◐ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
-| as-68 | Bow of the Galadhrim | — | 2 | ◐ |
-| as-90 | Join With That Power | — | 10 | ☐ |
+| as-68 | Bow of the Galadhrim | — | 2 | ☐ |
+| as-90 | Join With That Power | — | 10 | ◐ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -43,8 +43,8 @@
 | as-142 | The Worthy Hills | — | 12 | ☑ |
 | as-144 | Eagles' Eyrie | — | 6 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
-| ba-2 | Azog | — | 2 | ☐ |
-| ba-4 | Bolg | — | 2 | ☐ |
+| ba-2 | Azog | — | 2 | ◐ |
+| ba-4 | Bolg | — | 2 | ◐ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
 | dm-6 | Drór | — | 4 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
@@ -116,15 +116,16 @@
 | le-132 | Rebel-talk | — | 10 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-142 | Thrice Outnumbered | — | 4 | ☑ |
+| le-143 | Tidings of Bold Spies | — | — | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
-| le-174 | By the Ringwraith's Word | — | 12 | ☐ |
-| le-179 | Deeper Shadow | — | 7 | ☐ |
-| le-212 | Not Slay Needlessly | — | 11 | ☐ |
+| le-174 | By the Ringwraith's Word | — | 12 | ◐ |
+| le-179 | Deeper Shadow | — | 7 | ◐ |
+| le-212 | Not Slay Needlessly | — | 11 | ◐ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
-| le-225 | Ruse | — | 15 | ☐ |
+| le-225 | Ruse | — | 15 | ◐ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
@@ -150,7 +151,7 @@
 | le-408 | Thranduil's Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
-| le-pending-effects-parity | — | — | 1 | ☐ |
+| le-pending-effects-parity | — | — | 1 | ◐ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-16 | Dragon's Curse | — | 17 | ☑ |
@@ -237,9 +238,10 @@
 | tw-116 | Adrazar | — | 3 | ☑ |
 | tw-117 | Alatar | — | 14 | ☑ |
 | tw-118 | Anborn | — | 3 | ☑ |
+| tw-119 | Annalena | — | — | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
-| tw-124 | Bard Bowman | — | 1 | ☐ |
+| tw-124 | Bard Bowman | — | 1 | ◐ |
 | tw-126 | Beorn | — | 4 | ☑ |
 | tw-127 | Beregond | — | 3 | ☑ |
 | tw-128 | Beretar | — | 4 | ☑ |
@@ -253,7 +255,7 @@
 | tw-145 | Elrond | — | 4 | ☑ |
 | tw-147 | Éowyn | — | 7 | ☑ |
 | tw-148 | Erkenbrand | — | 3 | ☑ |
-| tw-149 | Faramir | — | 1 | ☐ |
+| tw-149 | Faramir | — | 1 | ◐ |
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
 | tw-156 | Gandalf | — | 6 | ☑ |
@@ -323,13 +325,13 @@
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 6 | ☑ |
 | tw-332 | Stealth | — | 10 | ☑ |
-| tw-333 | Sting | — | 2 | ☐ |
+| tw-333 | Sting | — | 2 | ◐ |
 | tw-335 | Sun | — | 6 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-342 | The Cock Crows | — | 9 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
-| tw-347 | The One Ring | — | 5 | ☐ |
+| tw-347 | The One Ring | — | 5 | ◐ |
 | tw-348 | The White Tree | — | 11 | ☑ |
 | tw-351 | Torque of Hues | — | 9 | ☑ |
 | tw-353 | Treebeard | — | 4 | ☑ |

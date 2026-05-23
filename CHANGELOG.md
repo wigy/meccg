@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.31.0 — 2026-05-23
+
+Challenge Deck D
+
+### Card Certification
+
+- Certify tw-119 (Annalena): unique elf character with no special effects
+- Certify le-143 (Tidings of Bold Spies): implement duplicate-site-auto-attacks effect
+- Scaffold le-142 (Thrice Outnumbered) and as-68 (Bow of the Galadhrim)
+
+### Game Engine
+
+- Implement duplicate-site-auto-attacks DSL effect (le-143)
+- Fix A Friend or Three to allow DI boost during influence-attempt chain
+- Fix Great-road haven-return to properly handle site card lifecycle
+- Fix Great-road to use `targetCompanyId` for company-targeted short events
+- Fix Hundreds of Butterflies to restrict to characters in the active moving company
+- Fix Dwarves Are upon You! to not be offered as chain response before combat starts
+- Fix Lucky Search: enforce play-window `siteTypes` restriction at haven
+- Generalize 5 single-card DSL effect types into shared primitives (removes ~240 LOC)
+- Extract `getOnEventEffects` helper to eliminate on-event scanning boilerplate
+- Remove duplicate and orphaned JSDoc blocks across engine reducers
+
+### Rules Tests
+
+- Implement rules 1.04 (unique card limits), 1.05 (agent mind limit), 1.57 (dice rolling)
+
+### AI
+
+- Use MP-based scoring in AI movement planner
+- Skip store-item action when it yields no additional marshalling points
+- Improve Foolish Words play strategy (target character with highest free DI)
+
+### Infrastructure
+
+- Fix set haven/darkhaven site qty to 1 in all deck files
+- Restore missing 2nd Promptings of Wisdom in challenge-deck-d sideboard
+- Improve test readability across rules tests
+
 ## 0.30.0 — 2026-05-19
 
 Challenge Deck C
