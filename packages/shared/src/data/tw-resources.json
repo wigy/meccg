@@ -1649,9 +1649,20 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 8,
     "race": "dunadan",
-    "playableAt": []
+    "playableAt": [
+      { "site": "Minas Tirith" }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": { "bearer.race": "dunadan" }
+      }
+    ],
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-resource-event",
