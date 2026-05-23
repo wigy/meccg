@@ -70,12 +70,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Saruman",
-          "card": "tw-181",
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Saruman",
+        "card": "tw-181",
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Bert (Burat)",
@@ -270,7 +270,7 @@
     {
       "name": "Edhellond",
       "card": "tw-393",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Edoras",
@@ -305,7 +305,7 @@
     {
       "name": "Lorien",
       "card": "tw-408",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Minas Tirith",
@@ -325,7 +325,7 @@
     {
       "name": "Rivendell",
       "card": "tw-421",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Tolfalas",
