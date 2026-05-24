@@ -21,17 +21,19 @@
  * | 5 | Constraint consumed after influence check   | IMPLEMENTED | reducer-site.ts consumes on resolution         |
  * | 6 | Not playable when no warrior present        | IMPLEMENTED | no eligible play-target → not-playable         |
  * | 7 | Not playable when no faction in hand        | IMPLEMENTED | when: player.hasFactionInHand                  |
+ * | 8 | Not playable during movement-hazard phase   | IMPLEMENTED | hasFactionInHand restricted to site phase only |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint,
-  PLAYER_1,
-  ARAGORN, BILBO, FARAMIR, BEREGOND,
-  PELARGIR,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, BILBO, FARAMIR, BEREGOND, LEGOLAS, GIMLI,
+  PELARGIR, MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch, resolveChain,
-  buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
+  buildSitePhaseState, buildTestState, findCharInstanceId, RESOURCE_PLAYER, makeMHState,
+  Phase,
 } from '../test-helpers.js';
 import type {
   CardDefinitionId,
@@ -266,5 +268,30 @@ describe('Muster (tw-288)', () => {
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
     );
     expect(remaining).toHaveLength(0);
+  });
+
+  test('influence-boost: NOT offered during movement-hazard phase even with warrior and faction in hand', () => {
+    // Regression: hasFactionInHand was true any time the player held a faction
+    // card, so Muster appeared playable during the movement-hazard phase even
+    // though no influence check was in progress (game ID mpk6t3id-kalubb, seq 218).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [MUSTER, MEN_OF_LEBENNIN],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const mhState = { ...state, phaseState: makeMHState() };
+
+    const viableActions = computeLegalActions(mhState, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event'
+        && ea.action.optionId === 'influence-boost');
+    expect(viableActions).toHaveLength(0);
   });
 });
