@@ -19,6 +19,7 @@
  * | 2 | Playable at already-tapped sites                      | IMPLEMENTED | play-flag: playable-at-tapped-site                 |
  * | 3 | +2 movement when ALL characters control a steed       | IMPLEMENTED | passive-movement-bonus effect, collectPassiveMovementBonus |
  * | 4 | Tap to cancel a strike (not from auto-attack)         | IMPLEMENTED | cancel-strike on ally, extended combat.ts + reducer |
+ * | 5 | Tap to cancel a strike against itself (ally target)   | IMPLEMENTED | ally-as-target scan added to resolveStrikeActions    |
  *
  * Playable: YES
  */
@@ -268,6 +269,45 @@ describe('Noble Steed (wh-33)', () => {
     // Noble Steed should now be tapped
     expect(r3.players[RESOURCE_PLAYER].characters[aragornId as string].allies[0].status).toBe(CardStatus.Tapped);
     // Combat is over (single strike was canceled)
+    expect(r3.combat).toBeNull();
+  });
+
+  test('Noble Steed can tap to cancel a creature strike against itself (ally as strike target)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MOUNT_DOOM] },
+      ],
+    });
+    const withSteed = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_STEED);
+    const withCombat = makeCancelWindowCombat(withSteed, {
+      attackSourceType: 'creature',
+      strikesTotal: 1,
+    });
+
+    const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
+    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    expect(steedInstId).toBeDefined();
+
+    // Defending player assigns the single strike directly to Noble Steed (ally as target)
+    const r2 = dispatch(withCombat, { type: 'assign-strike', player: PLAYER_1, characterId: steedInstId, tapped: false });
+    expect(r2.combat!.phase).toBe('resolve-strike');
+
+    // Noble Steed should offer cancel-strike for itself (strike against itself)
+    const defActions = computeLegalActions(r2, PLAYER_1);
+    const cancelActions = defActions.filter(a => a.viable && a.action.type === 'cancel-strike');
+    expect(cancelActions.length).toBeGreaterThanOrEqual(1);
+
+    const cancelAction = cancelActions.find(
+      a => actionAs<CancelStrikeAction>(a.action).cancellerInstanceId === steedInstId,
+    );
+    expect(cancelAction).toBeDefined();
+    expect(actionAs<CancelStrikeAction>(cancelAction!.action).targetCharacterId).toBe(steedInstId);
+
+    // Execute cancel-strike — combat ends (single strike canceled)
+    const r3 = dispatch(r2, cancelAction!.action);
     expect(r3.combat).toBeNull();
   });
 

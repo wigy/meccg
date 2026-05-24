@@ -891,6 +891,49 @@ function resolveStrikeActions(
     }
   }
 
+  // Cancel-strike: when the strike target is an ally, scan the ally itself for
+  // cancel-strike effects (CoE 2.V.2.2 — allies are treated as characters for
+  // combat; e.g. Noble Steed can tap to cancel a strike against itself).
+  if (allyMatch) {
+    const { ally } = allyMatch;
+    if (ally.status === CardStatus.Untapped) {
+      const allyDef = state.cardPool[ally.definitionId as string];
+      if (allyDef && 'effects' in allyDef && allyDef.effects) {
+        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
+        const cancelCtx = (): Record<string, unknown> => {
+          const ctx: Record<string, unknown> = {
+            attack: { source: combat.attackSource.type },
+          };
+          if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+          return ctx;
+        };
+
+        for (const eff of allyDef.effects) {
+          if (eff.type !== 'cancel-strike') continue;
+          const csEff = eff;
+          if (csEff.cost?.tap !== 'self') continue;
+          if (csEff.target && csEff.target !== 'self') continue;
+
+          if (csEff.when && !matchesCondition(csEff.when, cancelCtx())) {
+            logDetail(`Cancel-strike ${allyName}: when condition not met (ally is strike target)`);
+            continue;
+          }
+
+          logDetail(`Cancel-strike available: ${allyName} can tap to cancel strike against itself`);
+          actions.push({
+            action: {
+              type: 'cancel-strike',
+              player: playerId,
+              cancellerInstanceId: ally.instanceId,
+              targetCharacterId: currentStrike.characterId,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+
   // Item-tap-strike-bonus: scan items on the current strike target for
   // item-tap-strike-bonus effects. The bearer taps the item to add a
   // prowess bonus to this specific strike (e.g. Shield of Iron-bound Ash).
