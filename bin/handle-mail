@@ -208,6 +208,8 @@ run_skill() {
 # Sets SKILL_COST, SKILL_DURATION_MS, SKILL_STATUS (success|error|timeout).
 read_skill_stats() {
   local stats_file="$LOG_DIR/.skill-stats"
+  SKILL_COST=""
+  SKILL_DURATION_MS=""
   SKILL_STATUS=""
   if [ -f "$stats_file" ]; then
     SKILL_COST=$(sed -n '1p' "$stats_file")
