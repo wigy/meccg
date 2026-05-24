@@ -15,6 +15,7 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
   DuplicationLimitEffect,
+  PlayConditionEffect,
 } from '../../index.js';
 import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
 import { logDetail } from './log.js';
@@ -87,6 +88,34 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         reason: `${def.name} can only be played during the site phase`,
       });
       continue;
+    }
+
+    // play-condition: card-not-in-play — blocked if named card is in play
+    const cardNotInPlayCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'card-not-in-play',
+    );
+    if (cardNotInPlayCondition?.cardName) {
+      const blockerName = cardNotInPlayCondition.cardName;
+      const blockerInPlay = state.players.some(p => {
+        const inChars = Object.values(p.characters).some(ch => {
+          const d = state.cardPool[ch.definitionId as string];
+          return d && d.name === blockerName;
+        });
+        const inPlay = p.cardsInPlay.some(c => {
+          const d = state.cardPool[c.definitionId as string];
+          return d && d.name === blockerName;
+        });
+        return inChars || inPlay;
+      });
+      if (blockerInPlay) {
+        logDetail(`Permanent event ${def.name}: blocked because ${blockerName} is in play`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name}: cannot be played while ${blockerName} is in play`,
+        });
+        continue;
+      }
     }
 
     // play-target DSL: character-targeting permanent events get one action per qualifying character
