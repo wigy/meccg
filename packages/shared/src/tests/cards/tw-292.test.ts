@@ -17,7 +17,7 @@
  * | # | Feature                                                          | Status      | Notes                                                           |
  * |---|------------------------------------------------------------------|-------------|-----------------------------------------------------------------|
  * | 1 | "Diplomat only" — play-target: company must contain a diplomat   | IMPLEMENTED | play-target filter company.containsDiplomat                     |
- * | 2 | +3 influence check boost (diplomat target, faction in hand)      | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand      |
+ * | 2 | +3 influence check boost (diplomat target, faction in hand)      | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand (site phase only) |
  * | 3 | +2 corruption check boost for diplomat themselves                | IMPLEMENTED | play-option when pending.corruptionCheckTargetsMe               |
  * | 4 | +2 to any company member's corruption check (non-diplomat too)   | IMPLEMENTED | company.containsDiplomat in context; play-target relaxed        |
  */
@@ -31,7 +31,7 @@ import {
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch,
   buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, makeMHState,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -143,6 +143,31 @@ describe('New Friendship (tw-292)', () => {
     const attempt = influenceActions[0].action as { need: number };
     // Legolas DI 2, no racial modifier, +3 constraint → need = 8 - 2 - 3 = 3
     expect(attempt.need).toBe(3);
+  });
+
+  test('influence-check-boost: NOT offered during movement-hazard phase even with faction in hand', () => {
+    // Regression: hasFactionInHand was true any time the player held a faction
+    // card, so New Friendship appeared playable during the movement-hazard phase
+    // even though no influence check was in progress (game ID mpk6t3id-kalubb, seq 73).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [LEGOLAS] }],
+          hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const mhState = { ...state, phaseState: makeMHState() };
+
+    const viableActions = computeLegalActions(mhState, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event'
+        && ea.action.optionId === 'influence-check-boost');
+    expect(viableActions).toHaveLength(0);
   });
 
   // ── corruption-check-boost ────────────────────────────────────────────────
