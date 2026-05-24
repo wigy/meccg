@@ -28,7 +28,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint,
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, FARAMIR, BEREGOND, LEGOLAS, GIMLI,
+  ARAGORN, BILBO, FARAMIR, BEREGOND, GIMLI,
   PELARGIR, MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch, resolveChain,
