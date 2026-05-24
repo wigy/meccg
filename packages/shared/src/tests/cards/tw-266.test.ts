@@ -5,14 +5,15 @@
  * Type: hero-resource-item (subtype: special)
  * Keywords: ring, lesser-ring
  *
- * "Tap to cancel the effect of one corruption check."
- * (Lesser rings are eligible replacement rings for any gold-ring test result.)
+ * "Lesser Ring. Playable only with a gold ring and after a test indicates
+ *  Lesser Ring. +2 to direct influence."
  *
  * Engine support:
  * | # | Feature                                          | Status      | Notes                                     |
  * |---|--------------------------------------------------|-------------|-------------------------------------------|
- * | 1 | Eligible as replacement for any gold-ring result | IMPLEMENTED | keyword lesser-ring matches null min/max  |
- * | 2 | Tap to cancel corruption check                   | TODO        | not yet implemented                       |
+ * | 1 | +2 to direct influence                           | IMPLEMENTED | stat-modifier effect                      |
+ * | 2 | Eligible as replacement for any gold-ring result | IMPLEMENTED | keyword lesser-ring matches null min/max  |
+ * | 3 | Tap to cancel corruption check                   | TODO        | not yet implemented                       |
  *
  * Fixture alignment: hero (wizard), using Aragorn (tw-173) at Rivendell.
  */
@@ -30,12 +31,33 @@ import {
   RESOURCE_PLAYER,
   enqueueGoldRingTest, addCardToHand,
 } from '../test-helpers.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const LESSER_RING = 'tw-266' as CardDefinitionId;
 const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
 
 describe('Lesser Ring (tw-266)', () => {
   beforeEach(() => resetMint());
+
+  test('bearer gains +2 effective direct influence while ring is held', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const baseDI = base.players[RESOURCE_PLAYER].characters[aragornId as string].effectiveStats.directInfluence;
+
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, LESSER_RING));
+    const ringDI = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].effectiveStats.directInfluence;
+
+    expect(ringDI).toBe(baseDI + 2);
+  });
 
   test('lesser-ring is eligible for any gold-ring test result — offered after any roll total', () => {
     const base = buildTestState({

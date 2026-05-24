@@ -28,7 +28,7 @@ import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from 
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
-import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
+import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { findPlayerAvatar } from '../reducer-utils.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -398,7 +398,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             if (companion.status !== CardStatus.Untapped) continue;
             const companionDef = state.cardPool[companion.definitionId as string];
             if (!companionDef || !isCharacterCard(companionDef)) continue;
-            if (!(companionDef.skills as readonly string[] | undefined)?.includes('sage')) continue;
+            if (![...(companionDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, companion)].includes('sage')) continue;
             logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
             actions.push({
               action: {
@@ -1083,7 +1083,10 @@ export function buildPlayOptionContext(
         const memberChar = player.characters[memberId as string];
         if (!memberChar) return false;
         const memberDef = state.cardPool[memberChar.definitionId as string];
-        return isCharacterCard(memberDef) && (memberDef.skills as readonly string[] ?? []).includes('diplomat');
+        if (!isCharacterCard(memberDef)) return false;
+        const naturalSkills = memberDef.skills as readonly string[] ?? [];
+        const grantedSkills = getItemGrantedSkills(state, memberChar);
+        return naturalSkills.includes('diplomat') || grantedSkills.includes('diplomat');
       });
     }
     // A character is "moving" when it belongs to the active company during the
@@ -1098,7 +1101,7 @@ export function buildPlayOptionContext(
     target: {
       race: def.race,
       status: statusToken(char.status),
-      skills: def.skills,
+      skills: [...(def.skills as readonly string[]), ...getItemGrantedSkills(state, char)],
       name: def.name,
       mind: def.mind,
       inAvatarCompany,
