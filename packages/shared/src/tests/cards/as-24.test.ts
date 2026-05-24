@@ -46,7 +46,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI, ELROND, GLORFINDEL_II,
   ALONE_AND_UNADVISED, MARVELS_TOLD,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  viableActions, CardStatus, dispatch, expectCharStatus, expectInDiscardPile,
+  viableActions, CardStatus, dispatch, dispatchResult, expectCharStatus, expectInDiscardPile,
   makeMHState, handCardId, companyIdAt, findCharInstanceId,
   attachHazardToChar, getCharacter, getHazardsOn, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -355,6 +355,67 @@ describe('Alone and Unadvised (as-24)', () => {
 
     expect(afterRecruit.players[0].companies[0].characters).toHaveLength(4);
     expect(getHazardsOn(afterRecruit, RESOURCE_PLAYER, ARAGORN)).toHaveLength(0);
+  });
+
+  test('remaining corruption checks auto-resolve with pass when bearer is eliminated mid-series', () => {
+    // Regression: when a character bearing Alone and Unadvised fails one of a
+    // multi-region series of corruption checks (and is thereby removed from play),
+    // the remaining pending corruption checks in the queue should be resolvable
+    // via `pass`. Previously the reducer rejected `pass` with an error because it
+    // checked action.type === 'corruption-check' before checking if the character
+    // still existed, causing the game to hang.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // Attach Alone and Unadvised to ARAGORN (solo company → modifier = +1)
+    const withCard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED));
+
+    // Both players pass in play-hazards with 2-region path → 2 corruption checks queued
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resourcePlayerPassed: true,
+    });
+    const afterBothPass = dispatch({ ...withCard, phaseState: mhState }, { type: 'pass', player: PLAYER_2 });
+
+    const pending = afterBothPass.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
+    expect(pending).toHaveLength(2);
+
+    // First corruption check with a low roll: CP=4, modifier=+1 (solo company),
+    // cheatRollTotal=2 → total=3 = CP-1 → wound (ARAGORN removed from characters)
+    const firstCcActions = viableActions(afterBothPass, PLAYER_1, 'corruption-check');
+    expect(firstCcActions).toHaveLength(1);
+    const afterFirstCheck = dispatch(
+      { ...afterBothPass, cheatRollTotal: 2 },
+      firstCcActions[0].action,
+    );
+
+    // ARAGORN should be gone from characters after the wound
+    const p1 = afterFirstCheck.players.find(p => p.id === PLAYER_1)!;
+    const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
+    expect(p1.characters[aragornId as string]).toBeUndefined();
+
+    // One corruption check still pending for the now-gone ARAGORN
+    expect(afterFirstCheck.pendingResolutions.filter(r => r.kind.type === 'corruption-check')).toHaveLength(1);
+
+    // Legal actions for PLAYER_1 must offer `pass` (not `corruption-check`)
+    const legalAfter = computeLegalActions(afterFirstCheck, PLAYER_1);
+    const passAction = legalAfter.find(ea => ea.viable && ea.action.type === 'pass');
+    expect(passAction).toBeDefined();
+    const ccAction = legalAfter.find(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(ccAction).toBeUndefined();
+
+    // Dispatching `pass` must succeed and dequeue the orphaned resolution
+    const result = dispatchResult(afterFirstCheck, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+    expect(result.state.pendingResolutions.filter(r => r.kind.type === 'corruption-check')).toHaveLength(0);
   });
 
   test('Marvels Told can target Alone and Unadvised as a valid discard target', () => {
