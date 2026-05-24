@@ -188,6 +188,29 @@ describe('Goldberry (tw-245)', () => {
 
   // ─── Cancel-attack: keyed to Wilderness ───────────────────────────────────
 
+  test('cancel-attack is NOT offered when Goldberry is in hand (not in play)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [GOLDBERRY], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withCombat = makeCancelWindowCombat(base, {
+      creatureRace: 'orc',
+      attackKeying: [RegionType.Wilderness],
+    });
+
+    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const cancelActions = computeLegalActions(withCombat, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'cancel-attack')
+      .map(ea => ea.action as CancelAttackAction);
+
+    expect(cancelActions.some(a => a.cardInstanceId === goldberryInstanceId)).toBe(false);
+  });
+
   test('cancel-attack IS offered when attack is keyed to Wilderness', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
