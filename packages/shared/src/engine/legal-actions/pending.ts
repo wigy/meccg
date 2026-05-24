@@ -28,7 +28,7 @@ import type {
   CompanyId,
 } from '../../index.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE, Skill } from '../../index.js';
-import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -89,6 +89,8 @@ export function resolutionLegalActions(
       return discardOneCompanyItemActions(state, actor, top);
     case 'hazard-event-maintenance':
       return hazardEventMaintenanceActions(state, actor, top);
+    case 'ring-play-offer':
+      return ringPlayOfferActions(state, actor, top);
   }
 }
 
@@ -1537,4 +1539,60 @@ function hazardEventMaintenanceActions(
   }
 
   return actions;
+}
+
+/**
+ * Compute the legal actions for a queued `ring-play-offer` resolution
+ * (Rule 9.21). The player may play one special ring card from hand whose
+ * category keyword matches an entry in `eligibleCategories`, or pass.
+ *
+ * Alignment must match: wizard gold rings may only be replaced with wizard
+ * rings, and ringwraith gold rings with ringwraith rings. Fallen-wizard
+ * exception is not yet in scope.
+ */
+function ringPlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'ring-play-offer') return [];
+
+  const { eligibleCategories } = top.kind;
+  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
+
+  const playerIndex = state.players.findIndex(p => p.id === actor);
+  if (playerIndex < 0) return actions;
+  const player = state.players[playerIndex];
+
+  for (const card of player.hand) {
+    const def = state.cardPool[card.definitionId as string];
+    if (!def) continue;
+    // Must be a special ring (subtype 'special', keyword 'ring')
+    if (!('subtype' in def) || (def as { subtype?: string }).subtype !== 'special') continue;
+    const keywords: readonly string[] = ('keywords' in def && Array.isArray((def as { keywords?: unknown }).keywords))
+      ? (def as unknown as { keywords: readonly string[] }).keywords
+      : [];
+    if (!keywords.includes('ring')) continue;
+    // Find the ring's category from its keywords
+    const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
+    if (!category) continue;
+    logDetail(`ring-play-offer: offering ${def.name} (${card.instanceId as string}) — category ${category}`);
+    actions.push({
+      action: {
+        type: 'play-ring-after-test' as const,
+        player: actor,
+        ringInstanceId: card.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/** Compute eligible ring categories from a `ring-test-table` effect and a roll total. */
+export function eligibleRingCategories(table: RingTestTableEffect['table'], rollTotal: number): readonly RingCategory[] {
+  return table
+    .filter(row => (row.min === null || rollTotal >= row.min) && (row.max === null || rollTotal <= row.max))
+    .map(row => row.category);
 }

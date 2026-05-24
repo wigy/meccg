@@ -1334,6 +1334,7 @@ function handleSitePlayHeroResource(
             type: 'gold-ring-test',
             goldRingInstanceId: action.cardInstanceId,
             rollModifier: autoTestMod,
+            characterInstanceId: targetCharId,
           },
         }),
       };

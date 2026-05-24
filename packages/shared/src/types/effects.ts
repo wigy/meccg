@@ -2274,7 +2274,9 @@ export type CardEffect =
   | DuplicateSiteAutoAttacksEffect
   | TapForHazardLimitEffect
   | UntapByHazardLimitEffect
-  | NoAutoUntapEffect;
+  | NoAutoUntapEffect
+  | RingTestTableEffect
+  | RingTestSearchEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2460,4 +2462,52 @@ export interface UntapByHazardLimitEffect extends EffectBase {
  */
 export interface NoAutoUntapEffect extends EffectBase {
   readonly type: 'no-auto-untap';
+}
+
+// ---- Gold ring test (Rule 9.21) ----
+
+/**
+ * The ring categories that a gold ring's test table can yield.
+ * Used by {@link RingTestTableEffect} and {@link RingTestSearchEffect}.
+ */
+export type RingCategory =
+  | 'lesser-ring'
+  | 'magic-ring'
+  | 'dwarven-ring'
+  | 'the-one-ring'
+  | 'spirit-ring';
+
+/**
+ * One row in a gold ring's test table: the roll range that makes this
+ * category eligible. `null` means no bound ("any result"), which is
+ * necessary for `lesser-ring` because negative roll modifiers can push
+ * the total below 2.
+ */
+export interface RingTestTableEntry {
+  readonly category: RingCategory;
+  /** Inclusive lower bound on the roll total. null = no lower bound. */
+  readonly min: number | null;
+  /** Inclusive upper bound on the roll total. null = no upper bound. */
+  readonly max: number | null;
+}
+
+/**
+ * Encodes a gold ring item's test table (Rule 9.21). Each entry maps a roll
+ * range to a ring category; multiple entries may match the same result.
+ *
+ * Used by: tw-196, tw-306, le-315, le-311.
+ */
+export interface RingTestTableEffect extends EffectBase {
+  readonly type: 'ring-test-table';
+  readonly table: readonly RingTestTableEntry[];
+}
+
+/**
+ * Gleaming Gold Ring (le-311) special rule: when the test result is eligible
+ * for {@link category}, the player may search their play deck and/or discard
+ * pile for a matching ring card instead of being limited to their hand.
+ */
+export interface RingTestSearchEffect extends EffectBase {
+  readonly type: 'ring-test-search';
+  readonly category: RingCategory;
 }

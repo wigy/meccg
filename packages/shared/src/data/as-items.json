@@ -160,7 +160,8 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ]
   },
   {
@@ -179,7 +180,8 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ]
   },
   {
@@ -267,8 +269,14 @@
         "event": "cvc-combat-pre-strike",
         "when": {
           "$and": [
-            { "bearer.race": "elf" },
-            { "bearer.skills": { "$includes": "warrior" } }
+            {
+              "bearer.race": "elf"
+            },
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            }
           ]
         },
         "apply": {

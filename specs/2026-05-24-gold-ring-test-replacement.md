@@ -17,6 +17,7 @@ the gold ring on the same character; the gold ring is discarded regardless of
 whether a replacement was played.
 
 Playing the special ring via a test:
+
 - Counts as "playing an item."
 - Is **not** restricted to the site phase.
 - Does **not** tap a site.
@@ -189,6 +190,7 @@ readonly characterInstanceId: CardInstanceId;  // NEW
 ```
 
 Update both creation sites:
+
 - `reducer-organization.ts:493` — store-item path (character tapping to store)
 - `reducer-site.ts:1334` — site-phase play path (character that played the ring)
 
@@ -263,6 +265,7 @@ Add a handler in `pending-reducers.ts`:
 ### 8. Update `applyGoldRingTestResolution`
 
 After logging the roll and discarding the gold ring:
+
 1. Look up the discarded ring card's `ring-test-table` effect from `state.cardPool`.
 2. Compute `eligibleCategories` from the table using `rollTotal`.
 3. Compute `searchableCategories` from any `ring-test-search` effects.
@@ -366,12 +369,14 @@ Replace the existing todo with:
 ### tw-266 — `tw-266.test.ts` (PR #637)
 
 Add:
+
 - **Play via gold ring test** — Set up `ring-play-offer` pending with `lesser-ring` eligible; verify `play-ring-after-test` is legal and places ring on character.
 - **Play condition enforced** — Verify Lesser Ring cannot be played via normal site-phase item play.
 
 ### tw-274 — `tw-274.test.ts` (PR #638)
 
 Add:
+
 - **Play via gold ring test** — Set up `ring-play-offer` pending with `magic-ring` eligible; verify `play-ring-after-test` is legal and places ring on character.
 - **Play condition enforced** — Verify Magic Ring of Stealth cannot be played outside a gold ring test context.
 

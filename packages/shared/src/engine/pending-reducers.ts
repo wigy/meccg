@@ -35,6 +35,8 @@ import {
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
+import { eligibleRingCategories } from './legal-actions/pending.js';
+import type { RingTestTableEffect } from '../types/effects.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 
@@ -77,6 +79,8 @@ export function applyResolution(
       return applyGoldRingTestResolution(state, action, top);
     case 'body-check-company':
       return applyBodyCheckCompanyResolution(state, action, top);
+    case 'ring-play-offer':
+      return applyRingPlayOfferResolution(state, action, top);
     case 'resource-play-offer':
       return applyResourcePlayOfferResolution(state, action, top);
     case 'wizard-search-on-store':
@@ -1334,9 +1338,8 @@ function splitCharacterToOrigin(
 /**
  * Resolve a queued `gold-ring-test` resolution (Rule 9.21 / 9.22). The
  * ring's owner rolls 2d6, the site's roll modifier is applied, and the
- * gold-ring item is discarded regardless of the result. Rule 9.21's
- * replacement-with-special-ring step is not yet implemented; the roll is
- * logged so the player can see the final test value.
+ * gold-ring item is discarded regardless of the result. Then a
+ * `ring-play-offer` is enqueued so the player may play a matching special ring.
  */
 function applyGoldRingTestResolution(
   state: GameState,
@@ -1351,7 +1354,7 @@ function applyGoldRingTestResolution(
     return { state, error: 'Wrong player for pending gold-ring-test' };
   }
 
-  const { goldRingInstanceId, rollModifier } = top.kind;
+  const { goldRingInstanceId, rollModifier, characterInstanceId } = top.kind;
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
 
@@ -1362,6 +1365,9 @@ function applyGoldRingTestResolution(
 
   let ringCard: typeof player.outOfPlayPile[0];
   let stateAfterRing: GameState;
+  // True when the ring came from outOfPlayPile — it was stored at a Darkhaven
+  // (Rule 9.22), so the replacement enters play stored rather than attached.
+  let storedPlacement: boolean;
 
   if (ringInOutOfPlay !== -1) {
     ringCard = player.outOfPlayPile[ringInOutOfPlay];
@@ -1372,6 +1378,7 @@ function applyGoldRingTestResolution(
       outOfPlayPile: newOutOfPlay,
       discardPile: [...p.discardPile, ringCard],
     }));
+    storedPlacement = true;
   } else {
     // Site-phase path: find ring in character items.
     let foundCharId: string | null = null;
@@ -1399,6 +1406,7 @@ function applyGoldRingTestResolution(
       },
       discardPile: [...p.discardPile, ringCard],
     }));
+    storedPlacement = false;
   }
 
   const ringDef = state.cardPool[ringCard.definitionId as string];
@@ -1407,7 +1415,7 @@ function applyGoldRingTestResolution(
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + rollModifier;
   const modSign = rollModifier >= 0 ? '+' : '';
-  logDetail(`Gold-ring auto-test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${modSign}${rollModifier} = ${total}; ring discarded`);
+  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${modSign}${rollModifier} = ${total}; ring discarded`);
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -1417,12 +1425,108 @@ function applyGoldRingTestResolution(
     label: `Gold-ring test: ${ringName}`,
   };
 
+  // Compute eligible categories from the gold ring's ring-test-table effect.
+  const effects: readonly unknown[] = ringDef && 'effects' in ringDef
+    ? ((ringDef as unknown as { effects?: readonly unknown[] }).effects ?? [])
+    : [];
+  const tableEffect = effects.find((e): e is RingTestTableEffect => (e as { type?: string }).type === 'ring-test-table');
+  const eligibleCategories = tableEffect ? eligibleRingCategories(tableEffect.table, total) : [];
+  logDetail(`Gold-ring test: roll total ${total} — eligible categories: ${eligibleCategories.join(', ') || 'none'}`);
+
   const postRoll = dequeueResolution(
     { ...updatePlayer(stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
     top.id,
   );
 
-  return { state: postRoll, effects: [rollEffect] };
+  // Always enqueue ring-play-offer so the player can explicitly pass if they
+  // hold no eligible rings or choose not to play one.
+  const postOffer = enqueueResolution(postRoll, {
+    source: goldRingInstanceId,
+    actor: action.player,
+    scope: top.scope,
+    kind: {
+      type: 'ring-play-offer',
+      characterInstanceId,
+      eligibleCategories,
+      rollTotal: total,
+      storedPlacement,
+    },
+  });
+
+  return { state: postOffer, effects: [rollEffect] };
+}
+
+/**
+ * Resolve a queued `ring-play-offer` resolution (Rule 9.21).
+ *
+ * The player either passes (generic `pass` action) or plays a special ring
+ * card from hand (`play-ring-after-test` action). The ring is placed on the
+ * character who bore the gold ring; if `storedPlacement` is true the ring
+ * enters play in stored state (Rule 9.22 Darkhaven path).
+ */
+function applyRingPlayOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'ring-play-offer') return null;
+
+  if (action.type === 'pass') {
+    logDetail(`ring-play-offer: player passes — no replacement ring played`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'play-ring-after-test') {
+    return { state, error: `Pending ring-play-offer requires play-ring-after-test or pass, got '${action.type}'` };
+  }
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending ring-play-offer' };
+  }
+
+  const { characterInstanceId, storedPlacement } = top.kind;
+  const { ringInstanceId } = action;
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // Locate ring in hand
+  const handIdx = player.hand.findIndex(c => c.instanceId === ringInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Ring ${ringInstanceId as string} not found in hand` };
+  }
+  const ringCard = player.hand[handIdx];
+  const ringDef = state.cardPool[ringCard.definitionId as string];
+  const ringName = ringDef?.name ?? (ringCard.definitionId as string);
+
+  // Locate the target character
+  const char = player.characters[characterInstanceId as string];
+  if (!char) {
+    return { state, error: `Character ${characterInstanceId as string} not found for ring placement` };
+  }
+  const charDefId = resolveInstanceId(state, characterInstanceId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  logDetail(`ring-play-offer: playing ${ringName} (${ringInstanceId as string}) onto ${charDef?.name ?? (characterInstanceId as string)}${storedPlacement ? ' (stored)' : ''}`);
+
+  const newHandCards = player.hand.filter((_, i) => i !== handIdx);
+  const newItem: CharacterInPlay['items'][0] = {
+    instanceId: ringCard.instanceId,
+    definitionId: ringCard.definitionId,
+    status: CardStatus.Untapped,
+  };
+
+  const updatedChar: CharacterInPlay = {
+    ...char,
+    items: [...char.items, newItem],
+  };
+
+  const stateAfterPlay = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: newHandCards,
+    characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
+  }));
+
+  return { state: dequeueResolution(stateAfterPlay, top.id) };
 }
 
 /**

@@ -493,6 +493,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
           type: 'gold-ring-test',
           goldRingInstanceId: itemInstId,
           rollModifier: autoTestMod,
+          characterInstanceId: charId,
         },
       }),
     };

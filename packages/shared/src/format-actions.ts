@@ -403,6 +403,8 @@ export function describeAction(
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':
       return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
+    case 'play-ring-after-test':
+      return `Play ${instName(action.ringInstanceId)} as replacement ring after test`;
     case 'body-check-company-roll':
       return `Body check (${action.explanation})`;
     case 'glamour-hazard-roll':
