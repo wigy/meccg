@@ -18,6 +18,7 @@ import type {
   PlayConditionEffect,
 } from '../../index.js';
 import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
+import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -149,7 +150,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const ch = player.characters[cId as string];
           if (!ch) return [];
           const cDef = state.cardPool[ch.definitionId as string];
-          return cDef && isCharacterCard(cDef) ? cDef.skills : [];
+          return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
         });
         for (const charId of company.characters) {
           const charData = player.characters[charId as string];
@@ -162,7 +163,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
             });
             const ctx = {
-              target: { race: charDef.race, skills: charDef.skills, name: charDef.name, itemKeywords },
+              target: {
+                race: charDef.race,
+                skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
+                name: charDef.name,
+                itemKeywords,
+              },
               company: { skills: companySkills },
             };
             if (!matchesCondition(playTarget.filter, ctx)) continue;

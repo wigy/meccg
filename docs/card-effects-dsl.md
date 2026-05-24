@@ -2890,3 +2890,25 @@ normal hand-play offer).
 ```
 
 Used by Gleaming Gold Ring (le-311).
+
+### 52. `grant-skill`
+
+Grants a named character skill to the item's bearer while the item is in play.
+The bearer counts as having the skill for all purposes that read `target.skills`
+in DSL filter conditions — play-target filters, sage+scout pair checks, etc.
+
+**Natural vs. granted skills**: The cancel-strike ability on Magic Ring of Stealth
+reads `bearer.skills.$includes.scout` in its `when` condition. That condition is
+evaluated against the bearer's *natural* skills (from the character card definition),
+not the granted skills. This correctly implements the card text "if the bearer is
+*already* a scout."
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `skill` | yes | The skill name to grant (e.g. `"scout"`, `"sage"`, `"warrior"`). |
+
+```json
+{ "type": "grant-skill", "skill": "scout" }
+```
+
+Used by Magic Ring of Stealth (tw-274).

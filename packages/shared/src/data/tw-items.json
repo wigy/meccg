@@ -738,7 +738,15 @@
     "keywords": [
       "ring",
       "lesser-ring"
-    ]
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      }
+    ],
+    "certified": "2026-05-24"
   },
   {
     "cardType": "hero-resource-item",
@@ -758,7 +766,30 @@
     "keywords": [
       "ring",
       "magic-ring"
-    ]
+    ],
+    "effects": [
+      {
+        "type": "grant-skill",
+        "skill": "scout"
+      },
+      {
+        "type": "cancel-strike",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "scout"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-24"
   },
   {
     "cardType": "hero-resource-item",
