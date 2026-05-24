@@ -2843,3 +2843,50 @@ Used by Tidings of Bold Spies (le-143).
 ```
 
 Used by Tidings of Bold Spies (le-143).
+
+### 50. `ring-test-table`
+
+Declares the roll-result → ring-category mapping for a gold-ring item (Rule 9.21).
+When the gold ring is tested the engine rolls 2d6 + modifier, looks up the total in
+this table, and computes the set of `eligibleCategories` for the `ring-play-offer`
+pending resolution. Each row has an inclusive `min` and/or `max` bound; either may
+be `null` meaning "no lower / upper bound" (`lesser-ring` is always eligible
+regardless of total).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `table` | yes | Array of `{ category, min, max }` rows. |
+
+`category` is one of: `lesser-ring`, `magic-ring`, `dwarven-ring`, `the-one-ring`, `spirit-ring`.
+
+```json
+{
+  "type": "ring-test-table",
+  "table": [
+    { "category": "lesser-ring",  "min": null, "max": null },
+    { "category": "magic-ring",   "min": 1,    "max": 5    },
+    { "category": "dwarven-ring", "min": 8,    "max": null },
+    { "category": "the-one-ring", "min": 10,   "max": null }
+  ]
+}
+```
+
+Used by Precious Gold Ring (tw-306), Beautiful Gold Ring (tw-196), Gleaming Gold Ring (le-311),
+and The One Ring (le-315).
+
+### 51. `ring-test-search`
+
+Supplements a gold-ring card to offer a deck-search step after the ring test.
+Used by Gleaming Gold Ring (le-311) which lets the player search the deck for a
+`lesser-ring` card and immediately play it as the replacement (in addition to the
+normal hand-play offer).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `category` | yes | The ring category to search for (`RingCategory`). |
+
+```json
+{ "type": "ring-test-search", "category": "lesser-ring" }
+```
+
+Used by Gleaming Gold Ring (le-311).

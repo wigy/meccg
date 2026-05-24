@@ -1,0 +1,100 @@
+/**
+ * @module tw-266.test
+ *
+ * Card test: Lesser Ring (tw-266)
+ * Type: hero-resource-item (subtype: special)
+ * Keywords: ring, lesser-ring
+ *
+ * "Tap to cancel the effect of one corruption check."
+ * (Lesser rings are eligible replacement rings for any gold-ring test result.)
+ *
+ * Engine support:
+ * | # | Feature                                          | Status      | Notes                                     |
+ * |---|--------------------------------------------------|-------------|-------------------------------------------|
+ * | 1 | Eligible as replacement for any gold-ring result | IMPLEMENTED | keyword lesser-ring matches null min/max  |
+ * | 2 | Tap to cancel corruption check                   | TODO        | not yet implemented                       |
+ *
+ * Fixture alignment: hero (wizard), using Aragorn (tw-173) at Rivendell.
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../index.js';
+import {
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  Phase,
+  buildTestState, resetMint,
+  findCharInstanceId, viableActions, dispatch,
+  attachItemToChar,
+  RESOURCE_PLAYER,
+  enqueueGoldRingTest, addCardToHand,
+} from '../test-helpers.js';
+
+const LESSER_RING = 'tw-266' as CardDefinitionId;
+const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
+
+describe('Lesser Ring (tw-266)', () => {
+  beforeEach(() => resetMint());
+
+  test('lesser-ring is eligible for any gold-ring test result — offered after any roll total', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
+
+    // Test with a high roll that would exclude magic-ring (1-5) and dwarven-ring (8+) ranges:
+    // tw-306: lesser-ring any, magic-ring 1-5, dwarven-ring 8+, the-one-ring 10+
+    // Roll 7: only lesser-ring eligible
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 7 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+
+    const playActions = viableActions(afterRoll, PLAYER_1, 'play-ring-after-test');
+    expect(playActions).toHaveLength(1);
+    expect((playActions[0].action as { ringInstanceId: string }).ringInstanceId).toBeDefined();
+  });
+
+  test('lesser-ring played: moves from hand onto the character after the test', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
+
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 9 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+
+    const playAction = viableActions(afterRoll, PLAYER_1, 'play-ring-after-test')[0].action;
+    const afterPlay = dispatch(afterRoll, playAction);
+
+    expect(afterPlay.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === LESSER_RING)).toBeUndefined();
+    expect(
+      afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string].items.find(i => i.definitionId === LESSER_RING),
+    ).toBeDefined();
+  });
+
+  test.todo('tap to cancel one corruption check');
+});

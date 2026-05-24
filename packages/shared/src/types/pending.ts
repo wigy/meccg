@@ -266,19 +266,36 @@ export interface PendingResolution {
         /**
          * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
          * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
-         * regardless. Spawned by the `auto-test-gold-ring` site-rule when a
-         * gold-ring item is stored at a site carrying the rule (e.g. a
-         * Darkhaven with a -2 modifier).
-         *
-         * Rule 9.21's replacement-with-special-ring step is not yet
-         * implemented; this kind currently only rolls, logs the result,
-         * and discards the gold ring.
+         * regardless. After the roll, a `ring-play-offer` resolution is
+         * enqueued so the player may immediately play a matching special ring.
          */
         readonly type: 'gold-ring-test';
         /** The gold-ring item instance being tested. */
         readonly goldRingInstanceId: CardInstanceId;
         /** Roll modifier from the producing effect (e.g. Darkhaven -2). */
         readonly rollModifier: number;
+        /** Character who bore the gold ring — receives the replacement ring. */
+        readonly characterInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Ring-play offer (Rule 9.21): enqueued after a gold-ring test roll.
+         * The player may play one special ring card from their hand whose
+         * category keyword matches an entry in `eligibleCategories`, replacing
+         * the (already-discarded) gold ring on the same character.
+         *
+         * The player may also pass (generic `pass` action) if they do not
+         * wish to play any ring.
+         */
+        readonly type: 'ring-play-offer';
+        /** Character who bore the gold ring — receives the replacement ring. */
+        readonly characterInstanceId: CardInstanceId;
+        /** Ring categories eligible according to the test table and roll total. */
+        readonly eligibleCategories: readonly import('../types/effects.js').RingCategory[];
+        /** Roll total (for log display). */
+        readonly rollTotal: number;
+        /** If true, the ring enters play stored rather than attached (Rule 9.22 Darkhaven path). */
+        readonly storedPlacement: boolean;
       }
     | {
         /**

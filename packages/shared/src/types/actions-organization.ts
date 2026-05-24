@@ -172,6 +172,23 @@ export interface GoldRingTestRollAction {
 }
 
 /**
+ * Play a special ring card from hand as the replacement ring after a gold
+ * ring test (Rule 9.21). Resolves a `ring-play-offer` pending resolution.
+ *
+ * The ring is placed on the character who bore the gold ring (or in stored
+ * state if the test was triggered at a Darkhaven). To skip without playing,
+ * the player sends a generic `pass` action instead.
+ */
+export interface PlayRingAfterTestAction {
+  /** Action discriminant. */
+  readonly type: 'play-ring-after-test';
+  /** The ring's owner (who plays). */
+  readonly player: PlayerId;
+  /** The special ring card instance from hand to play. */
+  readonly ringInstanceId: CardInstanceId;
+}
+
+/**
  * Set a company's destination site for this turn.
  *
  * Movement is planned during Organization but resolved during the

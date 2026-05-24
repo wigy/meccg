@@ -145,7 +145,8 @@
     ],
     "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company.",
     "keywords": [
-      "ring"
+      "ring",
+      "the-one-ring"
     ]
   },
   {
@@ -412,7 +413,33 @@
       "free-hold",
       "border-hold"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 5
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 8,
+            "max": null
+          },
+          {
+            "category": "the-one-ring",
+            "min": 10,
+            "max": null
+          }
+        ]
+      }
+    ],
     "text": "Discard Precious Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played: The One Ring (10,11,12+); a Dwarven ring (8,9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result)."
   },
   {
@@ -483,7 +510,33 @@
     "keywords": [
       "ring"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 7
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 10,
+            "max": null
+          },
+          {
+            "category": "the-one-ring",
+            "min": 12,
+            "max": null
+          }
+        ]
+      }
+    ],
     "certified": "2026-05-23"
   },
   {
@@ -683,7 +736,8 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
-      "ring"
+      "ring",
+      "lesser-ring"
     ]
   },
   {
@@ -702,7 +756,8 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
-      "ring"
+      "ring",
+      "magic-ring"
     ]
   },
   {
@@ -830,15 +885,29 @@
     "effects": [
       {
         "type": "cancel-attack",
-        "cost": { "tap": "bearer" },
-        "when": { "enemy.race": "undead" },
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "enemy.race": "undead"
+        },
         "enqueueCorruptionCheck": true
       },
       {
         "type": "modify-attack",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "prowessModifier": -2,
-        "when": { "enemy.race": { "$in": ["spiders", "animals", "wolves"] } },
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "spiders",
+              "animals",
+              "wolves"
+            ]
+          }
+        },
         "enqueueCorruptionCheck": true
       }
     ],
@@ -895,7 +964,9 @@
     "effects": [
       {
         "type": "cancel-attack",
-        "cost": { "tap": "self-and-bearer" },
+        "cost": {
+          "tap": "self-and-bearer"
+        },
         "enqueueCorruptionCheck": true
       }
     ],

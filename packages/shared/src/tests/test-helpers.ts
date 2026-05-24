@@ -1272,6 +1272,48 @@ export function enqueueTransferCorruptionCheck(
 }
 
 /**
+ * Enqueue a `gold-ring-test` pending resolution for the given player,
+ * gold ring instance, and character. Used by ring-test rule tests to set
+ * up the state just before the player rolls.
+ */
+export function enqueueGoldRingTest(
+  state: GameState,
+  playerId: PlayerId,
+  goldRingInstanceId: CardInstanceId,
+  characterInstanceId: CardInstanceId,
+  rollModifier = 0,
+): GameState {
+  return enqueueResolution(state, {
+    source: goldRingInstanceId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'gold-ring-test',
+      goldRingInstanceId,
+      characterInstanceId,
+      rollModifier,
+    },
+  });
+}
+
+/**
+ * Add a card (by definition ID) to a player's hand. Mints a new
+ * instance and appends it. Useful for post-build hand setup when the
+ * card isn't known at `buildTestState` time.
+ */
+export function addCardToHand(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): GameState {
+  const card = { instanceId: mint(), definitionId: defId };
+  const updated = { ...state.players[playerIdx], hand: [...state.players[playerIdx].hand, card] };
+  const p0 = playerIdx === 0 ? updated : state.players[0];
+  const p1 = playerIdx === 1 ? updated : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/**
  * Place an on-guard card on a player's company and return the updated
  * GameState + card. Cards are placed face-down by default; pass
  * `revealed: true` to place a pre-revealed card (e.g. for testing the
