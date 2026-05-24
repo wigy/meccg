@@ -1055,6 +1055,7 @@ export function buildPlayOptionContext(
   );
   let inAvatarCompany = false;
   let hasFactionInHand = false;
+  let hasActiveInfluenceAttempt = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
@@ -1066,13 +1067,10 @@ export function buildPlayOptionContext(
         inAvatarCompany = true;
       }
     }
-    hasFactionInHand = player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string]))
-      // Also true while this player's influence-attempt is live in the chain:
-      // the faction card has already moved from hand to chain, but the check
-      // window is still open for boost events like A Friend or Three.
-      || Boolean(state.chain?.entries.some(
-        e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
-      ));
+    hasFactionInHand = player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string]));
+    hasActiveInfluenceAttempt = Boolean(state.chain?.entries.some(
+      e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
+    ));
     const charCompany = player.companies.find(c => c.characters.includes(char.instanceId));
     if (charCompany?.currentSite) {
       const siteDef = state.cardPool[charCompany.currentSite.definitionId as string];
@@ -1116,6 +1114,7 @@ export function buildPlayOptionContext(
     },
     player: {
       hasFactionInHand,
+      hasActiveInfluenceAttempt,
     },
     inPlay: buildInPlayNames(state),
     ...(currentPhase !== undefined ? { phase: currentPhase } : {}),

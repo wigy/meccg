@@ -998,7 +998,7 @@
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": { "player.hasActiveInfluenceAttempt": true },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1398,7 +1398,7 @@
       {
         "type": "play-option",
         "id": "influence-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": { "player.hasActiveInfluenceAttempt": true },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1430,7 +1430,7 @@
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "$and": [{ "target.skills": { "$includes": "diplomat" } }, { "player.hasFactionInHand": true }] },
+        "when": { "$and": [{ "target.skills": { "$includes": "diplomat" } }, { "player.hasActiveInfluenceAttempt": true }] },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",

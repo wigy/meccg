@@ -5,7 +5,7 @@
  * Type: hero-resource-event (short)
  * Effects:
  *   - play-target: character, filter company.containsDiplomat
- *   - play-option "influence-check-boost": when target is diplomat AND player.hasFactionInHand,
+ *   - play-option "influence-check-boost": when target is diplomat AND player.hasActiveInfluenceAttempt,
  *     add-constraint check-modifier influence value 3
  *   - play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
  *     add-constraint check-modifier corruption value 2
@@ -17,7 +17,7 @@
  * | # | Feature                                                          | Status      | Notes                                                           |
  * |---|------------------------------------------------------------------|-------------|-----------------------------------------------------------------|
  * | 1 | "Diplomat only" — play-target: company must contain a diplomat   | IMPLEMENTED | play-target filter company.containsDiplomat                     |
- * | 2 | +3 influence check boost (diplomat target, faction in hand)      | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand      |
+ * | 2 | +3 influence check boost (diplomat target, active influence attempt) | IMPLEMENTED | play-option when target.skills diplomat + hasActiveInfluenceAttempt |
  * | 3 | +2 corruption check boost for diplomat themselves                | IMPLEMENTED | play-option when pending.corruptionCheckTargetsMe               |
  * | 4 | +2 to any company member's corruption check (non-diplomat too)   | IMPLEMENTED | company.containsDiplomat in context; play-target relaxed        |
  */
@@ -44,21 +44,28 @@ describe('New Friendship (tw-292)', () => {
 
   // ── influence-check-boost ─────────────────────────────────────────────────
 
-  test('influence-check-boost: offered when diplomat is present and faction is in hand', () => {
+  test('influence-check-boost: offered when diplomat is present during active influence-attempt chain', () => {
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: PELARGIR,
       hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1)
+    // Declare the influence attempt — faction moves from hand into the chain
+    const influenceActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const afterDeclare = dispatch(state, influenceActions[0].action);
+    const afterP2Pass = dispatch(afterDeclare, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    const actions = computeLegalActions(afterP2Pass, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
     expect(actions.some(a => a.optionId === 'influence-check-boost')).toBe(true);
   });
 
-  test('influence-check-boost: NOT offered when no faction in hand', () => {
+  test('influence-check-boost: NOT offered when no active influence attempt', () => {
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: PELARGIR,

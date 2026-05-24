@@ -5,7 +5,7 @@
  * Type: hero-resource-event (short)
  * Effects:
  *   - play-target: character (any)
- *   - play-option "influence-check-boost": when player.hasFactionInHand,
+ *   - play-option "influence-check-boost": when player.hasActiveInfluenceAttempt,
  *     add-constraint check-modifier influence, valueExpr company.characterCount
  *   - play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
  *     add-constraint check-modifier corruption, valueExpr company.characterCount
@@ -17,7 +17,7 @@
  * | # | Feature                                             | Status      | Notes                                             |
  * |---|-----------------------------------------------------|-------------|---------------------------------------------------|
  * | 1 | Target = any character                              | IMPLEMENTED | play-target character, no filter                  |
- * | 2 | Influence-check-boost available with faction in hand| IMPLEMENTED | when: player.hasFactionInHand                     |
+ * | 2 | Influence-check-boost during active influence attempt | IMPLEMENTED | when: player.hasActiveInfluenceAttempt              |
  * | 3 | Corruption-check-boost available during CC window   | IMPLEMENTED | when: pending.corruptionCheckTargetsMe            |
  * | 4 | +1 per character in company (valueExpr)             | IMPLEMENTED | valueExpr: company.characterCount, context added  |
  * | 5 | Influence constraint modifies influence-attempt need| IMPLEMENTED | reducer-site.ts reads check-modifier constraints  |
@@ -48,21 +48,28 @@ describe('A Friend or Three (tw-189)', () => {
 
   // ── influence-check-boost ────────────────────────────────────────────────
 
-  test('influence-check-boost: offered when player has a faction in hand', () => {
+  test('influence-check-boost: offered during active influence-attempt chain', () => {
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1)
+    // Declare the influence attempt — faction moves from hand into the chain
+    const influenceActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const afterDeclare = dispatch(state, influenceActions[0].action);
+    const afterP2Pass = dispatch(afterDeclare, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    const actions = computeLegalActions(afterP2Pass, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
     expect(actions.some(a => a.optionId === 'influence-check-boost')).toBe(true);
   });
 
-  test('influence-check-boost: not offered when no faction in hand', () => {
+  test('influence-check-boost: not offered when no active influence attempt', () => {
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
@@ -164,9 +171,9 @@ describe('A Friend or Three (tw-189)', () => {
   });
 
   test('influence-check-boost: offered during chain after faction card has left hand', () => {
-    // Regression: when the influence attempt is declared, the faction card moves from
-    // hand into the chain. hasFactionInHand must also be true while that chain entry
-    // is live so A Friend or Three remains playable as a boost event.
+    // When the influence attempt is declared, the faction card moves from hand into
+    // the chain. hasActiveInfluenceAttempt is true while that chain entry is live,
+    // so A Friend or Three remains playable as a boost event.
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,

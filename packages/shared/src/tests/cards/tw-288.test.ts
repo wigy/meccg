@@ -20,17 +20,17 @@
  * | 4 | Constraint modifies influence-attempt need  | IMPLEMENTED | site.ts collects check-modifier constraints    |
  * | 5 | Constraint consumed after influence check   | IMPLEMENTED | reducer-site.ts consumes on resolution         |
  * | 6 | Not playable when no warrior present        | IMPLEMENTED | no eligible play-target → not-playable         |
- * | 7 | Not playable when no faction in hand        | IMPLEMENTED | when: player.hasFactionInHand                  |
+ * | 7 | Not playable when no active influence attempt | IMPLEMENTED | when: player.hasActiveInfluenceAttempt           |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   resetMint,
-  PLAYER_1,
+  PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, FARAMIR, BEREGOND,
   PELARGIR,
   MEN_OF_LEBENNIN,
-  handCardId, charIdAt, dispatch, resolveChain,
+  handCardId, charIdAt, dispatch, resolveChain, findHandCardId,
   buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
@@ -47,29 +47,57 @@ const MUSTER = 'tw-288' as CardDefinitionId;
 describe('Muster (tw-288)', () => {
   beforeEach(() => resetMint());
 
-  test('offered as viable play-short-event when warrior and faction are in hand', () => {
-    // Muster requires both: a warrior target AND a faction to influence
+  test('offered during active influence-attempt chain for warrior target', () => {
+    // Muster boosts an influence check — it is only playable while an influence attempt is live in the chain
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [MUSTER, MEN_OF_LEBENNIN],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1)
+    // Declare the influence attempt — Men of Lebennin moves from hand into the chain
+    const influenceActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt');
+    expect(influenceActions.length).toBeGreaterThan(0);
+    const afterDeclare = dispatch(state, influenceActions[0].action);
+    expect(afterDeclare.chain).not.toBeNull();
+
+    // Hazard player passes priority back to resource player
+    const afterP2Pass = dispatch(afterDeclare, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    const actions = computeLegalActions(afterP2Pass, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    expect(actions.length).toBeGreaterThanOrEqual(1);
     expect(actions.some(a => a.optionId === 'influence-boost')).toBe(true);
   });
 
-  test('not offered when warrior is present but no faction in hand', () => {
-    // Muster boosts an influence check — if there is no faction to influence, it is unplayable
+  test('not offered when warrior is present but no active influence attempt', () => {
+    // Muster boosts an influence check — if there is no active influence attempt, it is unplayable
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [MUSTER],
     });
+
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(playActions).toHaveLength(0);
+  });
+
+  test('not offered when faction is in hand but no active influence attempt', () => {
+    // Regression: Muster was incorrectly offered as playable when a faction was in hand
+    // but no influence attempt had been declared, e.g. during the M/H phase.
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [MUSTER, MEN_OF_LEBENNIN],
+    });
+
+    // Faction is in hand but no influence attempt declared — Muster must NOT be offered
+    const factionId = findHandCardId(state, RESOURCE_PLAYER, MEN_OF_LEBENNIN);
+    expect(state.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === factionId)).toBe(true);
+    expect(state.chain).toBeNull();
 
     const playActions = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event');
