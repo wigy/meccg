@@ -10,7 +10,8 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPh
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
-import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
+import type { TapAgentEffect, AgentTapAttackEffect, TapForHazardLimitEffect, UntapByHazardLimitEffect } from '../../types/effects.js';
+import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
@@ -945,6 +946,75 @@ function agentTapAttackActions(
 }
 
 /**
+ * Power Built by Waiting (as-34):
+ *
+ * - If the hazard player has an untapped cardsInPlay card with
+ *   `tap-for-hazard-limit`, offer a `tap-hazard-card-for-limit` action.
+ * - If the hazard player has a tapped cardsInPlay card with
+ *   `untap-by-hazard-limit` and the remaining hazard limit is ≥ cost,
+ *   offer a `pay-hazard-limit-to-untap-card` action.
+ */
+function tapHazardCardForLimitActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+  liveLimit: number,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const remainingLimit = liveLimit - mhState.hazardsPlayedThisCompany;
+
+  for (const card of player.cardsInPlay) {
+    const def = state.cardPool[card.definitionId as string];
+    if (!def || !('effects' in def) || !def.effects) continue;
+    const effects = def.effects;
+
+    // Offer tap-for-hazard-limit if card is untapped
+    const tapEffect = effects.find((e): e is TapForHazardLimitEffect => e.type === 'tap-for-hazard-limit');
+    if (tapEffect) {
+      const tapAction: TapHazardCardForLimitAction = {
+        type: 'tap-hazard-card-for-limit',
+        player: playerId,
+        cardInstanceId: card.instanceId,
+        targetCompanyId,
+      };
+      if (card.status === CardStatus.Untapped) {
+        logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${tapEffect.value} hazard limit)`);
+        actions.push({ action: tapAction, viable: true });
+      } else {
+        logDetail(`${def.name}: already tapped — tap-hazard-card-for-limit not available`);
+        actions.push({ action: tapAction, viable: false, reason: `${def.name} is already tapped` });
+      }
+    }
+
+    // Offer pay-hazard-limit-to-untap-card if card is tapped and limit allows
+    const untapEffect = effects.find((e): e is UntapByHazardLimitEffect => e.type === 'untap-by-hazard-limit');
+    if (untapEffect) {
+      const untapAction: PayHazardLimitToUntapCardAction = {
+        type: 'pay-hazard-limit-to-untap-card',
+        player: playerId,
+        cardInstanceId: card.instanceId,
+        targetCompanyId,
+      };
+      if (card.status === CardStatus.Tapped && remainingLimit >= untapEffect.cost) {
+        logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${untapEffect.cost} — offering pay-hazard-limit-to-untap-card`);
+        actions.push({ action: untapAction, viable: true });
+      } else if (card.status !== CardStatus.Tapped) {
+        logDetail(`${def.name}: not tapped — pay-hazard-limit-to-untap-card not available`);
+        actions.push({ action: untapAction, viable: false, reason: `${def.name} is not tapped` });
+      } else {
+        logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${untapEffect.cost}) — pay-hazard-limit-to-untap-card not viable`);
+        actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${untapEffect.cost})` });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -1835,6 +1905,10 @@ function playHazardsActions(
     // Agents with the `agent-tap-attack` effect tap (not as an agent action,
     // not against hazard limit) to attack during M/H phase.
     actions.push(...agentTapAttackActions(state, playerId, mhState));
+
+    // --- Power Built by Waiting (as-34): tap cardsInPlay card for +hazard limit ---
+    // --- Power Built by Waiting (as-34): spend hazard limit to untap cardsInPlay card ---
+    actions.push(...tapHazardCardForLimitActions(state, playerId, mhState, targetCompanyId, liveLimit));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and

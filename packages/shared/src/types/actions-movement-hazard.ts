@@ -842,3 +842,37 @@ export interface AgentTapAttackAction {
    */
   readonly homeSiteInstanceId?: CardInstanceId;
 }
+
+/**
+ * Power Built by Waiting (as-34): the hazard player taps this card from
+ * their cardsInPlay to increase the hazard limit against the current target
+ * company by the card's {@link TapForHazardLimitEffect.value}.
+ *
+ * Does NOT count against the hazard limit itself.
+ */
+export interface TapHazardCardForLimitAction {
+  readonly type: 'tap-hazard-card-for-limit';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The instance ID of the cardsInPlay card to tap. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company whose hazard limit is increased. */
+  readonly targetCompanyId: CompanyId;
+}
+
+/**
+ * Power Built by Waiting (as-34): the hazard player spends hazard limit slots
+ * to untap this card during the M/H phase against the current target company.
+ *
+ * Consumes {@link UntapByHazardLimitEffect.cost} hazard limit slots
+ * (increments hazardsPlayedThisCompany) and sets the card's status to Untapped.
+ */
+export interface PayHazardLimitToUntapCardAction {
+  readonly type: 'pay-hazard-limit-to-untap-card';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The instance ID of the cardsInPlay card to untap. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company whose hazard limit is being spent. */
+  readonly targetCompanyId: CompanyId;
+}

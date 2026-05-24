@@ -2271,7 +2271,10 @@ export type CardEffect =
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
-  | DuplicateSiteAutoAttacksEffect;
+  | DuplicateSiteAutoAttacksEffect
+  | TapForHazardLimitEffect
+  | UntapByHazardLimitEffect
+  | NoAutoUntapEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2426,4 +2429,35 @@ export interface HazardMaintenanceEffect extends EffectBase {
  */
 export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
   readonly type: 'duplicate-site-auto-attacks';
+}
+
+/**
+ * Power Built by Waiting (as-34): during the hazard player's M/H phase, they
+ * may tap this card (from cardsInPlay) to increase the hazard limit against
+ * the current target company by {@link value}.
+ */
+export interface TapForHazardLimitEffect extends EffectBase {
+  readonly type: 'tap-for-hazard-limit';
+  /** Number of hazard limit slots to add when this card is tapped. */
+  readonly value: number;
+}
+
+/**
+ * Power Built by Waiting (as-34): during the hazard player's M/H phase, they
+ * may spend {@link cost} hazard limit slots (incrementing
+ * {@link MovementHazardPhaseState.hazardsPlayedThisCompany}) to untap this card.
+ */
+export interface UntapByHazardLimitEffect extends EffectBase {
+  readonly type: 'untap-by-hazard-limit';
+  /** Number of hazard limit slots consumed to untap this card. */
+  readonly cost: number;
+}
+
+/**
+ * Power Built by Waiting (as-34): prevents this card from being automatically
+ * untapped during the controller's untap phase. The card only untaps via the
+ * {@link UntapByHazardLimitEffect} mechanism.
+ */
+export interface NoAutoUntapEffect extends EffectBase {
+  readonly type: 'no-auto-untap';
 }
