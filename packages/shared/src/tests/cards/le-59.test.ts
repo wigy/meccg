@@ -60,7 +60,7 @@ function makeBorderMHState() {
 function makeFreeMHState() {
   return makeMHState({
     resolvedSitePath: [RegionType.Free],
-    resolvedSitePathNames: ['Anorien'],
+    resolvedSitePathNames: ['Anórien'],
     destinationSiteType: SiteType.FreeHold,
     destinationSiteName: 'Minas Tirith',
   });
@@ -158,7 +158,7 @@ describe('Ambusher (le-59)', () => {
     const state = baseStateWithHazardInHand();
     const mixedMH = makeMHState({
       resolvedSitePath: [RegionType.Border, RegionType.Free],
-      resolvedSitePathNames: ['Cardolan', 'Anorien'],
+      resolvedSitePathNames: ['Cardolan', 'Anórien'],
       destinationSiteType: SiteType.FreeHold,
       destinationSiteName: 'Minas Tirith',
     });

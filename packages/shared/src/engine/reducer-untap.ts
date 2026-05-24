@@ -11,7 +11,7 @@ import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import type { OnEventEffect, CardEffect } from '../types/effects.js';
+import type { OnEventEffect, CardEffect, NoAutoUntapEffect } from '../types/effects.js';
 
 
 /**
@@ -239,9 +239,19 @@ function performUntap(state: GameState): GameState {
   }
 
   // Untap all tapped cards in play (permanent events, factions, etc.)
-  const newCardsInPlay = player.cardsInPlay.map(card =>
-    card.status === CardStatus.Tapped ? { ...card, status: CardStatus.Untapped } : card,
-  );
+  // Skip cards with a `no-auto-untap` effect (e.g. Power Built by Waiting).
+  const newCardsInPlay = player.cardsInPlay.map(card => {
+    if (card.status !== CardStatus.Tapped) return card;
+    const def = state.cardPool[card.definitionId as string];
+    const hasNoAutoUntap = def && 'effects' in def && def.effects?.some(
+      (e): e is NoAutoUntapEffect => e.type === 'no-auto-untap',
+    );
+    if (hasNoAutoUntap) {
+      logDetail(`Untap: skipping ${card.definitionId as string} — no-auto-untap effect`);
+      return card;
+    }
+    return { ...card, status: CardStatus.Untapped };
+  });
 
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
   logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
@@ -390,6 +400,53 @@ function advanceToOrganization(state: GameState): ReducerResult {
         });
       }
     }
+  }
+
+  // Sweep `organization-phase-start` on-event triggers on company-bound permanent events.
+  // Scan all players' cardsInPlay for entries with companyId bound to an active-player company;
+  // evaluate the `when` condition against that company's site context and discard if it matches.
+  const activePlayerCompanyIds = new Set(player.companies.map(c => c.id as string));
+  const companyToSiteType = new Map<string, SiteType | null>();
+  for (const co of player.companies) {
+    const sDef = co.currentSite ? advanced.cardPool[co.currentSite.definitionId] : undefined;
+    const sType = sDef && isSiteCard(sDef) ? sDef.siteType : null;
+    companyToSiteType.set(co.id as string, sType);
+  }
+
+  for (let pi = 0; pi < 2; pi++) {
+    const p = advanced.players[pi];
+    const toDiscard: typeof p.cardsInPlay[0][] = [];
+    for (const card of p.cardsInPlay) {
+      const cid = card.companyId as string | undefined;
+      if (!cid || !activePlayerCompanyIds.has(cid)) continue;
+      const eDef = advanced.cardPool[card.definitionId as string] as { readonly name?: string; readonly effects?: readonly CardEffect[] } | undefined;
+      if (!eDef?.effects) continue;
+      for (const e of eDef.effects) {
+        if (e.type !== 'on-event') continue;
+        const oe = e;
+        if (oe.event !== 'organization-phase-start') continue;
+        if (oe.apply?.type !== 'discard-self') continue;
+        const siteType = companyToSiteType.get(cid) ?? null;
+        const ctx = { company: { siteType, atHaven: siteType === SiteType.Haven } };
+        if (oe.when && !matchesCondition(oe.when, ctx as unknown as Record<string, unknown>)) continue;
+        logDetail(`organization-phase-start: discarding "${eDef.name ?? card.definitionId}" from company ${cid} (siteType=${siteType ?? 'none'})`);
+        toDiscard.push(card);
+        break;
+      }
+    }
+    if (toDiscard.length === 0) continue;
+    const discardIds = new Set(toDiscard.map(c => c.instanceId as string));
+    advanced = {
+      ...advanced,
+      players: advanced.players.map((pl, idx) => {
+        if (idx !== pi) return pl;
+        return {
+          ...pl,
+          cardsInPlay: pl.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+          discardPile: [...pl.discardPile, ...toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))],
+        };
+      }) as unknown as typeof advanced.players,
+    };
   }
 
   return { state: advanced };

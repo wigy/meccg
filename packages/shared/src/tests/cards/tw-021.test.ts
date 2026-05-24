@@ -107,7 +107,7 @@ describe('Choking Shadows (tw-21)', () => {
       ...state,
       phaseState: makeMHState({
         destinationSiteType: SiteType.DarkHold,
-        destinationSiteName: 'Carn Dum',
+        destinationSiteName: 'Carn Dûm',
         resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness, RegionType.Wilderness, RegionType.Shadow],
         resolvedSitePathNames: ['Redhorn Gate', 'Hollin', 'Rhudaur', 'Angmar'],
       }),
@@ -348,7 +348,7 @@ describe('Choking Shadows (tw-21)', () => {
 
     const mh: MovementHazardPhaseState = makeMHState({
       destinationSiteType: SiteType.BorderHold,
-      destinationSiteName: 'Thranduils Halls',
+      destinationSiteName: 'Thranduil\'s Halls',
       resolvedSitePath: [RegionType.Wilderness],
       resolvedSitePathNames: ['Western Mirkwood'],
     });

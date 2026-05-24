@@ -123,7 +123,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     expect(afterBertCombat.combat).toBeNull();
 
     const mhAfterBert = phaseStateAs<MovementHazardPhaseState>(afterBertCombat);
-    expect(mhAfterBert.hazardsEncountered).toContain('Bert (Burat)');
+    expect(mhAfterBert.hazardsEncountered).toContain('“Bert” (Bûrat)');
 
     // Play Tom next — Aragorn is wounded
     const afterTom = playCreatureHazardAndResolve(afterBertCombat, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);

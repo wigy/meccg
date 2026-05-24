@@ -194,7 +194,7 @@ describe('Mount Doom (tw-414)', () => {
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Border, RegionType.Free, RegionType.Wilderness, RegionType.Shadow, RegionType.Dark],
-      resolvedSitePathNames: ['Gorgoroth', 'Noman-lands', 'Anorien', 'Brown Lands', 'Nurn', 'Gorgoroth'],
+      resolvedSitePathNames: ['Gorgoroth', 'Noman-lands', 'Anórien', 'Brown Lands', 'Nurn', 'Gorgoroth'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Mount Doom',
     });
@@ -255,7 +255,7 @@ describe('Mount Doom (tw-414)', () => {
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Border, RegionType.Free, RegionType.Wilderness, RegionType.Shadow, RegionType.Dark],
-      resolvedSitePathNames: ['Gorgoroth', 'Noman-lands', 'Anorien', 'Brown Lands', 'Nurn', 'Gorgoroth'],
+      resolvedSitePathNames: ['Gorgoroth', 'Noman-lands', 'Anórien', 'Brown Lands', 'Nurn', 'Gorgoroth'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Mount Doom',
     });

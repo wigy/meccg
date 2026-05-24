@@ -224,7 +224,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
     const mhAfter = phaseStateAs<MovementHazardPhaseState>(afterCombat);
-    expect(mhAfter.hazardsEncountered).toContain('Bert (Burat)');
+    expect(mhAfter.hazardsEncountered).toContain('“Bert” (Bûrat)');
   });
 
   test('Bert alone (no other troll faced) — wound does not discard items', () => {

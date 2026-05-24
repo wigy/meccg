@@ -171,7 +171,7 @@ describe('Lesser Spiders (td-42)', () => {
       resolvedSitePath: [RegionType.Dark],
       resolvedSitePathNames: ['Gorgoroth'],
       destinationSiteType: SiteType.DarkHold,
-      destinationSiteName: 'Barad-dur',
+      destinationSiteName: 'Barad-dûr',
     });
     const ready: GameState = { ...state, phaseState: darkMH };
 
@@ -190,7 +190,7 @@ describe('Lesser Spiders (td-42)', () => {
     const state = baseStateWithHazardInHand();
     const freeMH = makeMHState({
       resolvedSitePath: [RegionType.Free],
-      resolvedSitePathNames: ['Anorien'],
+      resolvedSitePathNames: ['Anórien'],
       destinationSiteType: SiteType.FreeHold,
       destinationSiteName: 'Minas Tirith',
     });
