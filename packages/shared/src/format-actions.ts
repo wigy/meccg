@@ -455,6 +455,10 @@ export function describeAction(
       return `${action.player as string} returns company to origin haven`;
     case 'pay-hazard-event-maintenance':
       return `${action.player as string} pays hazard event maintenance (${action.paymentType})`;
+    case 'tap-hazard-card-for-limit':
+      return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
+    case 'pay-hazard-limit-to-untap-card':
+      return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
