@@ -1164,7 +1164,15 @@ function playResourcesActions(
       const allyDef = def;
       evaluatedInstances.add(cardInstanceId as string);
 
-      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
+      // A play-target effect with target "site" defines where the ally can be played via a filter
+      // (e.g. Noble Hound: "any tapped or untapped Border-hold"). When requireTapped is false,
+      // the ally may be played at both tapped and untapped sites, overriding the default
+      // untapped-only restriction.
+      const sitePlayTarget = allyDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+      );
+
+      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site') && sitePlayTarget?.requireTapped !== false) {
         logDetail(`Ally ${allyDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1174,9 +1182,12 @@ function playResourcesActions(
         continue;
       }
 
-      // Check ally is playable at this site
+      // Check ally is playable at this site via playableAt entries or a play-target site filter
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
-      if (!siteDefForAlly || !allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry))) {
+      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry));
+      const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
+        && (!sitePlayTarget.filter || matchesCondition(sitePlayTarget.filter, siteDefForAlly as unknown as Record<string, unknown>));
+      if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push({
