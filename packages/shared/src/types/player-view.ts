@@ -120,6 +120,8 @@ export interface OpponentView {
   readonly killPile: readonly ViewCard[];
   /** The opponent's out-of-play pile: eliminated cards and items stored at sites (public information). */
   readonly outOfPlayPile: readonly ViewCard[];
+  /** Cards in the opponent's sideboard (hidden — each has `UNKNOWN_CARD` definition, use `.length` for count). */
+  readonly sideboard: readonly ViewCard[];
   /** The opponent's companies with destination information redacted. */
   readonly companies: readonly OpponentCompanyView[];
   /**

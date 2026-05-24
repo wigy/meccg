@@ -100,7 +100,7 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   if (selfSbEl) fillDeckPile(selfSbEl, view.self.sideboard.length, '/images/card-back.jpg', 'Sideboard', ids(view.self.sideboard));
 
   const oppSbEl = document.getElementById('opponent-sideboard-pile');
-  if (oppSbEl) fillDeckPile(oppSbEl, 0, '/images/card-back.jpg', 'Sideboard');
+  if (oppSbEl) fillDeckPile(oppSbEl, view.opponent.sideboard.length, '/images/card-back.jpg', 'Sideboard', ids(view.opponent.sideboard));
 
   const selfVictory = buildVictoryCards(view.self);
   const oppVictory = buildVictoryCards(view.opponent);
@@ -128,6 +128,7 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedSiteDeck = view.self.siteDeck;
   cachedSelfSideboard = view.self.sideboard;
   cachedSelfDiscard = view.self.discardPile;
+  cachedOppSideboard = view.opponent.sideboard;
   cachedOppDiscard = view.opponent.discardPile;
   cachedSelfPlayDeck = view.self.playDeck;
   cachedOppPlayDeck = view.opponent.playDeck;
@@ -419,6 +420,8 @@ let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
 let cachedSelfSideboard: readonly ViewCard[] = [];
 /** Cached discard pile for the discard pile click handler. */
 let cachedSelfDiscard: readonly ViewCard[] = [];
+/** Cached opponent sideboard as hidden cards for browsing. */
+let cachedOppSideboard: readonly ViewCard[] = [];
 /** Cached opponent discard pile for the discard pile click handler. */
 let cachedOppDiscard: readonly ViewCard[] = [];
 /** Cached self play deck as hidden cards for browsing. */
@@ -476,7 +479,7 @@ function installPileBrowserClickHandlers(): void {
 
   // Opponent piles
   wirePile('opponent-victory-pile', 'Eliminated', () => cachedOppVictoryCards);
-  wirePile('opponent-sideboard-pile', 'Sideboard', () => []);
+  wirePile('opponent-sideboard-pile', 'Sideboard', () => cachedOppSideboard);
   wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
   wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');

@@ -135,6 +135,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),
+    sideboard: hiddenCardPile(player.sideboard),
     companies,
     agents,
     characters: player.characters,
