@@ -808,7 +808,23 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "bearer" },
+        "when": { "enemy.race": "undead" },
+        "enqueueCorruptionCheck": true
+      },
+      {
+        "type": "modify-attack",
+        "cost": { "tap": "bearer" },
+        "prowessModifier": -2,
+        "when": { "enemy.race": { "$in": ["spiders", "animals", "wolves"] } },
+        "enqueueCorruptionCheck": true
+      }
+    ],
+    "certified": "2026-05-23"
   },
   {
     "cardType": "hero-resource-item",
