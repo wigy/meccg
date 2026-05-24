@@ -1515,18 +1515,35 @@ function playHazardsActions(
       if (def.effects) {
         let blocked = false;
         for (const effect of def.effects) {
-          if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-          const copiesInPlay = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = state.cardPool[c.definitionId as string];
-              return cDef && cDef.name === def.name;
-            }).length, 0,
-          );
-          if (copiesInPlay >= effect.max) {
-            logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
-            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
-            blocked = true;
-            break;
+          if (effect.type !== 'duplication-limit') continue;
+          if (effect.scope === 'game') {
+            const copiesInPlay = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name;
+              }).length, 0,
+            );
+            if (copiesInPlay >= effect.max) {
+              logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
+              blocked = true;
+              break;
+            }
+          } else if (effect.scope === 'company') {
+            // One copy per company: check if this card is already in cardsInPlay bound to the target company
+            const targetCompanyId = targetCompany.id;
+            const copiesOnCompany = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompanyId as string);
+              }).length, 0,
+            );
+            if (copiesOnCompany >= effect.max) {
+              logDetail(`Hazard event "${def.name}" cannot be duplicated on company ${targetCompanyId as string} (${copiesOnCompany}/${effect.max} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
+              blocked = true;
+              break;
+            }
           }
         }
         if (blocked) continue;
@@ -1702,6 +1719,31 @@ function playHazardsActions(
               viable: true,
             });
           }
+        }
+      } else if (playTarget?.target === 'company') {
+        // Company-targeting permanent hazard events: filter on alignment + siteType of target company.
+        // Use destination site if the company is moving, otherwise current site.
+        const destSiteInstId = targetCompany.destinationSite?.instanceId ?? targetCompany.currentSite?.instanceId ?? null;
+        let compSiteType: string | null = null;
+        if (destSiteInstId) {
+          const compSiteDefId = resolveInstanceId(state, destSiteInstId);
+          if (compSiteDefId) {
+            const compSiteDef = state.cardPool[compSiteDefId as string];
+            if (compSiteDef && isSiteCard(compSiteDef)) compSiteType = compSiteDef.siteType;
+          }
+        }
+        const allyCount = targetCompany.characters.reduce((sum, cId) => {
+          const ch = resourcePlayer.characters[cId as string];
+          return sum + (ch ? ch.allies.length : 0);
+        }, 0);
+        const memberCount = targetCompany.characters.length + allyCount;
+        const companyCtx = { target: { siteType: compSiteType, alignment: resourcePlayer.alignment, memberCount } };
+        if (playTarget.filter && !matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+          logDetail(`Hazard "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, alignment=${resourcePlayer.alignment})`);
+          actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company` });
+        } else {
+          logDetail(`Hazard "${def.name}" playable on company (siteType=${compSiteType ?? 'none'}, alignment=${resourcePlayer.alignment})`);
+          actions.push({ action, viable: true });
         }
       } else {
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
