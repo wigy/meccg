@@ -9,8 +9,10 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
-import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
+import type { TapAgentEffect, AgentTapAttackEffect, TapForHazardLimitEffect, UntapByHazardLimitEffect } from '../../types/effects.js';
+import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
@@ -945,6 +947,75 @@ function agentTapAttackActions(
 }
 
 /**
+ * Power Built by Waiting (as-34):
+ *
+ * - If the hazard player has an untapped cardsInPlay card with
+ *   `tap-for-hazard-limit`, offer a `tap-hazard-card-for-limit` action.
+ * - If the hazard player has a tapped cardsInPlay card with
+ *   `untap-by-hazard-limit` and the remaining hazard limit is ≥ cost,
+ *   offer a `pay-hazard-limit-to-untap-card` action.
+ */
+function tapHazardCardForLimitActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+  liveLimit: number,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const remainingLimit = liveLimit - mhState.hazardsPlayedThisCompany;
+
+  for (const card of player.cardsInPlay) {
+    const def = state.cardPool[card.definitionId as string];
+    if (!def || !('effects' in def) || !def.effects) continue;
+    const effects = def.effects;
+
+    // Offer tap-for-hazard-limit if card is untapped
+    const tapEffect = effects.find((e): e is TapForHazardLimitEffect => e.type === 'tap-for-hazard-limit');
+    if (tapEffect) {
+      const tapAction: TapHazardCardForLimitAction = {
+        type: 'tap-hazard-card-for-limit',
+        player: playerId,
+        cardInstanceId: card.instanceId,
+        targetCompanyId,
+      };
+      if (card.status === CardStatus.Untapped) {
+        logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${tapEffect.value} hazard limit)`);
+        actions.push({ action: tapAction, viable: true });
+      } else {
+        logDetail(`${def.name}: already tapped — tap-hazard-card-for-limit not available`);
+        actions.push({ action: tapAction, viable: false, reason: `${def.name} is already tapped` });
+      }
+    }
+
+    // Offer pay-hazard-limit-to-untap-card if card is tapped and limit allows
+    const untapEffect = effects.find((e): e is UntapByHazardLimitEffect => e.type === 'untap-by-hazard-limit');
+    if (untapEffect) {
+      const untapAction: PayHazardLimitToUntapCardAction = {
+        type: 'pay-hazard-limit-to-untap-card',
+        player: playerId,
+        cardInstanceId: card.instanceId,
+        targetCompanyId,
+      };
+      if (card.status === CardStatus.Tapped && remainingLimit >= untapEffect.cost) {
+        logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${untapEffect.cost} — offering pay-hazard-limit-to-untap-card`);
+        actions.push({ action: untapAction, viable: true });
+      } else if (card.status !== CardStatus.Tapped) {
+        logDetail(`${def.name}: not tapped — pay-hazard-limit-to-untap-card not available`);
+        actions.push({ action: untapAction, viable: false, reason: `${def.name} is not tapped` });
+      } else {
+        logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${untapEffect.cost}) — pay-hazard-limit-to-untap-card not viable`);
+        actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${untapEffect.cost})` });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -1047,7 +1118,7 @@ function playHazardsActions(
           (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'target-company',
         );
         if (targetCompanyCond?.condition) {
-          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany);
+          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
           if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
             logDetail(`Creature "${def.name}": target-company play-condition not met — not playable against this company`);
             actions.push({ action, viable: false, reason: 'Cannot be played against this company' });
@@ -1515,18 +1586,35 @@ function playHazardsActions(
       if (def.effects) {
         let blocked = false;
         for (const effect of def.effects) {
-          if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-          const copiesInPlay = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = state.cardPool[c.definitionId as string];
-              return cDef && cDef.name === def.name;
-            }).length, 0,
-          );
-          if (copiesInPlay >= effect.max) {
-            logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
-            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
-            blocked = true;
-            break;
+          if (effect.type !== 'duplication-limit') continue;
+          if (effect.scope === 'game') {
+            const copiesInPlay = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name;
+              }).length, 0,
+            );
+            if (copiesInPlay >= effect.max) {
+              logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
+              blocked = true;
+              break;
+            }
+          } else if (effect.scope === 'company') {
+            // One copy per company: check if this card is already in cardsInPlay bound to the target company
+            const targetCompanyId = targetCompany.id;
+            const copiesOnCompany = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompanyId as string);
+              }).length, 0,
+            );
+            if (copiesOnCompany >= effect.max) {
+              logDetail(`Hazard event "${def.name}" cannot be duplicated on company ${targetCompanyId as string} (${copiesOnCompany}/${effect.max} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
+              blocked = true;
+              break;
+            }
           }
         }
         if (blocked) continue;
@@ -1703,7 +1791,73 @@ function playHazardsActions(
             });
           }
         }
+      } else if (playTarget?.target === 'company') {
+        // Company-targeting permanent hazard events: filter on alignment + siteType of target company.
+        // Use destination site if the company is moving, otherwise current site.
+        const destSiteInstId = targetCompany.destinationSite?.instanceId ?? targetCompany.currentSite?.instanceId ?? null;
+        let compSiteType: string | null = null;
+        if (destSiteInstId) {
+          const compSiteDefId = resolveInstanceId(state, destSiteInstId);
+          if (compSiteDefId) {
+            const compSiteDef = state.cardPool[compSiteDefId as string];
+            if (compSiteDef && isSiteCard(compSiteDef)) compSiteType = compSiteDef.siteType;
+          }
+        }
+        const allyCount = targetCompany.characters.reduce((sum, cId) => {
+          const ch = resourcePlayer.characters[cId as string];
+          return sum + (ch ? ch.allies.length : 0);
+        }, 0);
+        const memberCount = targetCompany.characters.length + allyCount;
+        const companyCtx = { target: { siteType: compSiteType, alignment: resourcePlayer.alignment, memberCount } };
+        if (playTarget.filter && !matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+          logDetail(`Hazard "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, alignment=${resourcePlayer.alignment})`);
+          actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company` });
+        } else {
+          logDetail(`Hazard "${def.name}" playable on company (siteType=${compSiteType ?? 'none'}, alignment=${resourcePlayer.alignment})`);
+          actions.push({ action, viable: true });
+        }
       } else {
+        // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
+
+        // Company-scope duplication-limit: one copy per target company.
+        const companyDupLimit = def.effects?.find(
+          (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+        );
+        if (companyDupLimit) {
+          const existingCopies = state.players.reduce((count, p) =>
+            count + p.cardsInPlay.filter(c => {
+              const cDef = state.cardPool[c.definitionId as string];
+              return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompany.id as string);
+            }).length, 0,
+          );
+          if (existingCopies >= companyDupLimit.max) {
+            logDetail(`Hazard event "${def.name}" already bound to target company (${existingCopies}/${companyDupLimit.max})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
+            continue;
+          }
+        }
+
+        // Play-target filter for company-targeting events: check company.alignment
+        // and company.destinationSiteType (e.g. Nothing to Eat or Drink — minion
+        // company at free/border-hold, or hero company at shadow/dark-hold).
+        if (playTarget?.filter) {
+          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
+          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteType = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.siteType : undefined;
+          const companyCtx = {
+            company: {
+              alignment: resourcePlayer.alignment,
+              destinationSiteType: destSiteType,
+            },
+          };
+          if (!matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+            logDetail(`Hazard event "${def.name}" company filter not met (alignment=${resourcePlayer.alignment}, siteType=${destSiteType ?? 'unknown'})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be played against this company at this site` });
+            continue;
+          }
+        }
+
         logDetail(`Hazard event "${def.name}" is playable`);
         actions.push({ action, viable: true });
       }
@@ -1752,6 +1906,10 @@ function playHazardsActions(
     // Agents with the `agent-tap-attack` effect tap (not as an agent action,
     // not against hazard limit) to attack during M/H phase.
     actions.push(...agentTapAttackActions(state, playerId, mhState));
+
+    // --- Power Built by Waiting (as-34): tap cardsInPlay card for +hazard limit ---
+    // --- Power Built by Waiting (as-34): spend hazard limit to untap cardsInPlay card ---
+    actions.push(...tapHazardCardForLimitActions(state, playerId, mhState, targetCompanyId, liveLimit));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
@@ -2004,6 +2162,7 @@ function findCreatureKeyingMatches(
 function buildTargetCompanyConditionContext(
   state: GameState,
   company: { readonly characters: readonly CardInstanceId[] },
+  alignment?: string,
 ): Record<string, unknown> {
   const homeSites: string[] = [];
   for (const charInstId of company.characters) {
@@ -2015,7 +2174,7 @@ function buildTargetCompanyConditionContext(
       homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
     }
   }
-  return { company: { homeSites } };
+  return { company: { homeSites, alignment: alignment ?? null } };
 }
 
 /**

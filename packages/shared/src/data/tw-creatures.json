@@ -824,7 +824,26 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "pûkel-creature",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      },
+      {
+        "regionNames": [
+          "Andrast",
+          "Anfalas",
+          "Anórien",
+          "Dunland",
+          "Enedhwaith",
+          "Gap of Isen",
+          "Lamedon",
+          "Old Pûkel Gap",
+          "Old Pûkel-land",
+          "Rohan"
+        ]
+      }
+    ],
+    "certified": "2026-05-24"
   },
   {
     "cardType": "hazard-creature",

@@ -180,8 +180,42 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Gundabad",
+          "Anduin Vales",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 3,
+        "prowess": 12,
+        "body": 6,
+        "race": "dragon",
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ],
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Northern Rhovanion",
+            "Iron Hills",
+            "Southern Rhovanion",
+            "Angmar"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Gundabad, Anduin Vales, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 12/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Northern Rhovanion, Iron Hills, Southern Rhovanion, and Angmar.",
+    "certified": "2026-05-24",
     "manifestId": "td-3"
   },
   {
@@ -537,7 +571,51 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/InciteDenizens.jpg",
     "text": "Playable on a Ruins & Lairs [{R}]. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack at the site of your choice. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            {
+              "siteType": {
+                "$in": [
+                  "ruins-and-lairs"
+                ]
+              }
+            },
+            {
+              "automaticAttacks.length": {
+                "$gt": 0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-duplicate",
+          "scope": "company-site-phase"
+        },
+        "when": {
+          "company.destinationSiteType": {
+            "$in": [
+              "ruins-and-lairs"
+            ]
+          }
+        }
+      }
+    ],
+    "certified": "2026-05-24"
   },
   {
     "cardType": "hazard-event",

@@ -154,6 +154,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/PowerBuiltbyWaiting.jpg",
     "text": "Tap during a company’s movement/hazard phase to increase the hazard limit against that company by one. This card does not untap during your untap phase. You may use two against a company’s hazard limit to untap this card.",
     "unique": false,
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      { "type": "tap-for-hazard-limit", "value": 1 },
+      { "type": "no-auto-untap" },
+      { "type": "untap-by-hazard-limit", "cost": 2 }
+    ],
+    "certified": "2026-05-24"
   }
 ]
