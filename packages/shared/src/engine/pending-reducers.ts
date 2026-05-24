@@ -132,16 +132,15 @@ function applyCorruptionCheckResolution(
   // resolution stays in queue; the next legal-action cycle re-emits the
   // roll action with any freshly-added constraints factored in.
   if (action.type === 'play-short-event') return null;
-  if (action.type !== 'corruption-check') {
-    return { state, error: `Pending corruption check requires a corruption-check action, got '${action.type}'` };
-  }
   if (top.kind.type !== 'corruption-check') return null;
 
   const { characterId, transferredItemId, reason } = top.kind;
-  if (action.characterId !== characterId) {
-    return { state, error: 'Wrong character for pending corruption check' };
-  }
 
+  // Check if the character still exists BEFORE validating the action type.
+  // When a character is eliminated mid-series (e.g. during a multi-region
+  // corruption check), the legal-action computer offers `pass` instead of
+  // `corruption-check`. Accept `pass` here to dequeue the now-irrelevant
+  // resolution.
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[characterId as string];
@@ -149,6 +148,13 @@ function applyCorruptionCheckResolution(
     // Character was eliminated since the resolution was queued — drop it.
     logDetail(`Corruption check (${reason}): character ${characterId as string} no longer in play — dequeuing`);
     return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'corruption-check') {
+    return { state, error: `Pending corruption check requires a corruption-check action, got '${action.type}'` };
+  }
+  if (action.characterId !== characterId) {
+    return { state, error: 'Wrong character for pending corruption check' };
   }
 
   const charDefId = resolveInstanceId(state, characterId);
