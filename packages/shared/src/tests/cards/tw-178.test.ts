@@ -48,7 +48,7 @@ describe('Radagast (tw-178)', () => {
       destinationSite: EDORAS,
       heroSiteDeck: [],
       pathTypes: [RegionType.Free, RegionType.Border],
-      pathNames: ['Anorien', 'Gap of Isen'],
+      pathNames: ['Anórien', 'Gap of Isen'],
     });
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });

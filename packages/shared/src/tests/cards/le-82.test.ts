@@ -259,7 +259,7 @@ describe('Lawless Men (le-82)', () => {
       ...state,
       phaseState: makeMHState({
         resolvedSitePath: [RegionType.Free],
-        resolvedSitePathNames: ['Anorien'],
+        resolvedSitePathNames: ['Anórien'],
         destinationSiteType: SiteType.FreeHold,
         destinationSiteName: 'Minas Tirith',
       }),

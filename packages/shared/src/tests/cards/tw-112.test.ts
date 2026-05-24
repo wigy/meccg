@@ -120,7 +120,7 @@ describe('William (Wuluag) (tw-112)', () => {
     expect(afterBertCombat.combat).toBeNull();
 
     const mhAfterBert = afterBertCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfterBert.hazardsEncountered).toContain('Bert (Burat)');
+    expect(mhAfterBert.hazardsEncountered).toContain('“Bert” (Bûrat)');
 
     const afterWilliam = playCreatureHazardAndResolve(afterBertCombat, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterWilliam, ARAGORN, 2, 5);

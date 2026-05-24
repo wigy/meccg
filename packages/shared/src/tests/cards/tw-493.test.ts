@@ -366,7 +366,7 @@ describe('Neeker-breekers (tw-493)', () => {
       resolvedSitePath: [RegionType.Dark],
       resolvedSitePathNames: ['Gorgoroth'],
       destinationSiteType: SiteType.DarkHold,
-      destinationSiteName: 'Barad-dur',
+      destinationSiteName: 'Barad-dûr',
     });
     const ready = { ...state, phaseState: mhDark };
     const plays = viableActions(ready, PLAYER_2, 'play-hazard');

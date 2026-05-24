@@ -196,7 +196,7 @@ describe('Marsh-drake (le-84)', () => {
     const state = baseStateWithHazardInHand();
     const freeMH = makeMHState({
       resolvedSitePath: [RegionType.Free],
-      resolvedSitePathNames: ['Anorien'],
+      resolvedSitePathNames: ['Anórien'],
       destinationSiteType: SiteType.FreeHold,
       destinationSiteName: 'Minas Tirith',
     });

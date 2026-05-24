@@ -249,7 +249,7 @@ describe('Ent in Search of the Entwives (le-71)', () => {
     });
     const mhFree = makeMHState({
       resolvedSitePath: [RegionType.Free],
-      resolvedSitePathNames: ['Anorien'],
+      resolvedSitePathNames: ['Anórien'],
       destinationSiteType: SiteType.FreeHold,
       destinationSiteName: 'Minas Tirith',
     });
@@ -448,7 +448,7 @@ describe('Ent in Search of the Entwives (le-71)', () => {
     });
     const mhFree = makeMHState({
       resolvedSitePath: [RegionType.Free],
-      resolvedSitePathNames: ['Anorien'],
+      resolvedSitePathNames: ['Anórien'],
       destinationSiteType: SiteType.FreeHold,
       destinationSiteName: 'Minas Tirith',
     });
