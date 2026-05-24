@@ -1066,10 +1066,14 @@ export function buildPlayOptionContext(
         inAvatarCompany = true;
       }
     }
-    hasFactionInHand = player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string]))
-      // Also true while this player's influence-attempt is live in the chain:
-      // the faction card has already moved from hand to chain, but the check
-      // window is still open for boost events like A Friend or Three.
+    // `hasFactionInHand` is only meaningful when an influence check is actually
+    // possible: during the site phase (player has a faction card available) or
+    // when an influence-attempt is already live in the chain (the faction card
+    // has moved from hand to chain but the boost window is still open).
+    // Restricting hand-based detection to the site phase prevents cards like
+    // New Friendship from appearing as playable during the movement-hazard
+    // phase simply because the player happens to hold a faction card.
+    hasFactionInHand = (currentPhase === 'site' && player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string])))
       || Boolean(state.chain?.entries.some(
         e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
       ));
