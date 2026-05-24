@@ -1070,6 +1070,14 @@ export interface PlayTargetEffect extends EffectBase {
    */
   readonly filter?: Condition;
   /**
+   * When `target` is `"site"` and this is `false`, the card may be played at
+   * both tapped and untapped sites, overriding the default untapped-only
+   * restriction for allies. Absent or `true` means the normal tapped check
+   * applies. Used by cards like Noble Hound: "any tapped or untapped
+   * Border-hold".
+   */
+  readonly requireTapped?: boolean;
+  /**
    * Maximum effective company size for the target's company. When set,
    * the card is only playable if the candidate's company has effective
    * size ≤ this value (hobbits count as half).

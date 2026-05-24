@@ -22,10 +22,11 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardStatus, CardDefinitionId, CardInstanceId } from '../../index.js';
 import type { PlayerState } from '../../index.js';
 import {
-  ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA,
+  ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA, BREE,
   buildTestState, findCharInstanceId, companyIdAt,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   resetMint, viableActions, attachAllyToChar, makeShadowMHState,
+  buildSitePhaseState, viableActionsForHandCard,
 } from '../test-helpers.js';
 
 const NOBLE_HOUND = 'dm-179' as CardDefinitionId;
@@ -209,6 +210,40 @@ describe('dm-179: Noble Hound', () => {
     // Wounded Noble Hound still assignable (alwaysCountsAsUntapped).
     const houndAssign = actions.find(a => (a.action as { characterId?: CardInstanceId }).characterId === houndId);
     expect(houndAssign).toBeDefined();
+  });
+
+  test('Noble Hound is playable at an untapped border-hold via play-target filter', () => {
+    const state = buildSitePhaseState({
+      site: BREE,
+      characters: [ARAGORN],
+      hand: [NOBLE_HOUND],
+    });
+
+    const actions = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, NOBLE_HOUND);
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('Noble Hound is not playable at a non-border-hold site', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [ARAGORN],
+      hand: [NOBLE_HOUND],
+    });
+
+    const actions = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, NOBLE_HOUND);
+    expect(actions.length).toBe(0);
+  });
+
+  test('Noble Hound is playable at a tapped border-hold (requireTapped: false)', () => {
+    const state = buildSitePhaseState({
+      site: BREE,
+      characters: [ARAGORN],
+      hand: [NOBLE_HOUND],
+      siteStatus: CardStatus.Tapped,
+    });
+
+    const actions = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, NOBLE_HOUND);
+    expect(actions.length).toBeGreaterThan(0);
   });
 
   test('After Noble Hound is assigned, controlling character can be assigned', () => {
