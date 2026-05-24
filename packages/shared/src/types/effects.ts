@@ -411,6 +411,10 @@ export interface TriggeredAction {
    *   `SitePhaseState.hoardBountyAvailable = true`, allowing one additional minor
    *   or major item to be played at the current tapped hoard site. Only fires during
    *   the site phase. Used by *Bounty of the Hoard* (td-101).
+   * - `unlock-thorough-search` — under `on-event: self-enters-play`, sets
+   *   `SitePhaseState.thoroughSearchAvailable = true`, allowing one additional
+   *   minor, major, or gold ring item to be played without tapping the site.
+   *   Only fires during the site phase. Used by *Thorough Search* (tw-349).
    * (Other types documented inline on their respective fields.)
    */
   readonly type: string;
