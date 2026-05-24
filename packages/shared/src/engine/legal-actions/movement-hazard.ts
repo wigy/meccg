@@ -1548,14 +1548,21 @@ function playHazardsActions(
         }
 
         // play-restriction: only-at-site-with-auto-attack (Tidings of Bold Spies)
-        // Only offer when the target company's destination site has ≥1 auto-attack.
+        // Card text: "Playable on a company moving to a site with an automatic-attack."
+        // The company must be moving (destinationSite !== null) AND the destination
+        // site must have ≥1 auto-attack. Never fall back to currentSite — a stationary
+        // company does not qualify even if its current site has auto-attacks.
         const requiresAutoAttackSite = def.effects?.some(
           (e): boolean => (e as { type: string; rule?: string }).type === 'play-restriction'
             && (e as { type: string; rule?: string }).rule === 'only-at-site-with-auto-attack',
         );
         if (requiresAutoAttackSite) {
-          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
-          const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
+          if (!targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}" requires a moving company`);
+            actions.push({ action, viable: false, reason: `${def.name} can only be played on a moving company` });
+            continue;
+          }
+          const destSiteDefId = resolveInstanceId(state, targetCompany.destinationSite.instanceId);
           const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
           if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef).length === 0) {
             logDetail(`Hazard short-event "${def.name}" requires a destination site with automatic-attacks`);
