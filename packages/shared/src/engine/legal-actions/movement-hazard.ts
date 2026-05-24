@@ -9,6 +9,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapAgentEffect, AgentTapAttackEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -1047,7 +1048,7 @@ function playHazardsActions(
           (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'target-company',
         );
         if (targetCompanyCond?.condition) {
-          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany);
+          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
           if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
             logDetail(`Creature "${def.name}": target-company play-condition not met — not playable against this company`);
             actions.push({ action, viable: false, reason: 'Cannot be played against this company' });
@@ -2004,6 +2005,7 @@ function findCreatureKeyingMatches(
 function buildTargetCompanyConditionContext(
   state: GameState,
   company: { readonly characters: readonly CardInstanceId[] },
+  alignment?: string,
 ): Record<string, unknown> {
   const homeSites: string[] = [];
   for (const charInstId of company.characters) {
@@ -2015,7 +2017,7 @@ function buildTargetCompanyConditionContext(
       homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
     }
   }
-  return { company: { homeSites } };
+  return { company: { homeSites, alignment: alignment ?? null } };
 }
 
 /**

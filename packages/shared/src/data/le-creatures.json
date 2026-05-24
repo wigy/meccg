@@ -333,6 +333,7 @@
     "id": "le-91",
     "name": "Sons of Kings",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SonsofKings.jpg",
+    "certified": "2026-05-24",
     "text": "Dúnedain. Three strikes (playable only against minion companies).",
     "unique": false,
     "strikes": 3,
@@ -340,7 +341,19 @@
     "body": null,
     "killMarshallingPoints": 2,
     "race": "dúnedain",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["free"] },
+      { "regionTypes": ["border"] },
+      { "siteTypes": ["border-hold"] },
+      { "siteTypes": ["free-hold"] }
+    ],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": { "company.alignment": { "$ne": "hero" } }
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
