@@ -307,16 +307,17 @@ export async function loadDecks(): Promise<void> {
     }
   }
 
-  // Populate AI deck dropdown
+  // Populate AI deck dropdown, preserving the user's current selection
   const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiSelect) {
+    const savedAiDeck = aiSelect.value || 'development-proto-hero';
     aiSelect.innerHTML = '';
     for (const deck of catalog) {
       const opt = document.createElement('option');
       opt.value = deck.id;
       const missing = missingCards(deck);
       opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
-      if (deck.id === 'development-proto-hero') opt.selected = true;
+      if (deck.id === savedAiDeck) opt.selected = true;
       aiSelect.appendChild(opt);
     }
   }
