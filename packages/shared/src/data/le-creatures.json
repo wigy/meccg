@@ -206,7 +206,32 @@
     "body": 8,
     "killMarshallingPoints": 1,
     "race": "awakened plant",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "wilderness", "border", "free"]
+      },
+      {
+        "regionTypes": ["shadow"],
+        "when": { "$not": { "inPlay": "Doors of Night" } }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            {
+              "$and": [
+                { "defender.alignment": "fallen-wizard" },
+                { "defender.covert": true }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-05-24"
   },
   {
     "cardType": "hazard-creature",
