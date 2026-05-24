@@ -88,6 +88,38 @@ describe('Tidings of Bold Spies (le-143)', () => {
     expect(tidingsActions.every(a => !a.viable)).toBe(true);
   });
 
+  test('NOT offered against a stationary company, even if current site has automatic-attacks', () => {
+    // Company at Moria (auto-attacks) but not moving — Tidings requires a *moving* company
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TIDINGS_OF_BOLD_SPIES], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    // Simulate phaseState as the engine sets it for a stationary company in play-hazards:
+    // destinationSiteName is set to the current site name to allow creature keying,
+    // but the company object has no destinationSite.
+    const stateWithMH = {
+      ...state,
+      phaseState: makeMHState({
+        hazardsPlayedThisCompany: 0,
+        hazardLimitAtReveal: 4,
+        destinationSiteName: 'Moria',
+      }),
+    };
+    const allActions = stateWithMH.players[1].hand.map(h => h.instanceId);
+    const la = viableActions(stateWithMH, PLAYER_2, 'play-hazard');
+    const tidingsActions = la.filter(a => {
+      const card = stateWithMH.players[1].hand.find(h => h.instanceId === (a.action as { cardInstanceId?: unknown }).cardInstanceId);
+      return card?.definitionId === TIDINGS_OF_BOLD_SPIES;
+    });
+    // Must be non-viable — card is not playable on a stationary company
+    expect(allActions.length).toBeGreaterThan(0); // confirm Tidings is in hand
+    expect(tidingsActions.every(a => !a.viable)).toBe(true);
+  });
+
   // ─── Combat duplication ───────────────────────────────────────────────────
 
   test('creates combat immediately after resolving against a site with one auto-attack', () => {
