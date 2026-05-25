@@ -45,7 +45,8 @@ The zoom-4 tile grid is 8×8 tiles of 256px each = 2048×2048px total extent. Th
 - lng range: approximately −180 to −60
 
 Conversion formula (computed once at build time, stored as static data):
-```
+
+```text
 x_fraction = (lng - lng_min) / (lng_max - lng_min)
 y_fraction = 1 - (lat - lat_min) / (lat_max - lat_min)   // y flipped: top = high lat
 ```
@@ -130,6 +131,7 @@ Multiple agents at the same site cluster the same way as multiple companies: off
 A compact `<div class="map-radar">` is added to the single-company view, positioned in the bottom-right corner (or top-right corner, to be determined by testing).
 
 **Radar contents:**
+
 - The map background image scaled down to fit within a fixed box (e.g., 160×120 px or CSS-proportional).
 - A **dot** for the current company's site (bright gold if at current site, green if at destination during Organization).
 - A **ring or pulse animation** on the active company dot.
@@ -138,6 +140,7 @@ A compact `<div class="map-radar">` is added to the single-company view, positio
 - No text labels at radar scale — dots and diamonds only.
 
 **Interaction:**
+
 - Clicking the radar opens the full map view (see below).
 - The radar is not shown when the current company has no site (shouldn't occur in normal play, but guard for it).
 
@@ -158,6 +161,7 @@ Clicking the radar opens a full-screen overlay (`<div class="map-fullscreen">`) 
 - A **layer toggle button** (surface / under-deeps) switches between map and Under-deeps schematic.
 
 **Movement context overlay** (during Organization phase, after declaring movement):
+
 - Show a line from the company's current site to its destination.
 - Show the region path as a highlight along the route (approximate polyline connecting region centroids).
 
