@@ -31,6 +31,7 @@ import type {
   CardDefinition,
   Company,
   OpponentCompanyView,
+  AgentInPlay,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
 import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
@@ -162,6 +163,26 @@ export function openFullMap(
     for (const company of view.opponent.companies) {
       const dot = createFullMapDot(company, view, cardPool, 'opponent');
       if (dot) dotsLayer.appendChild(dot);
+    }
+
+    // Own agents — always visible (face-up or face-down)
+    for (const agent of view.self.agents) {
+      const diamond = createFullMapAgentDiamond(agent, view, cardPool);
+      if (diamond) dotsLayer.appendChild(diamond);
+    }
+
+    // TODO: Opponent face-up agents are not shown on the full map because
+    // OpponentAgentView does not carry site information. The site location is
+    // intentionally hidden to prevent the resource player from knowing where
+    // face-down agents are positioned. Only own agents can be rendered.
+
+    // Hidden-agents badge: count opponent face-down agents and show a badge
+    const hiddenAgentCount = view.opponent.agents.filter((a) => !a.revealed).length;
+    if (hiddenAgentCount > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'map-hidden-agents-badge';
+      badge.textContent = `${hiddenAgentCount} hidden agent${hiddenAgentCount === 1 ? '' : 's'}`;
+      mapContainer.appendChild(badge);
     }
   };
 
@@ -341,4 +362,53 @@ function createFullMapDot(
   dot.appendChild(tooltip);
 
   return dot;
+}
+
+/**
+ * Create a diamond marker for one of the player's own agents on the full map.
+ *
+ * Own agents (face-up or face-down) are always shown because the player always
+ * knows where their own agents are positioned. The diamond is larger than the
+ * radar version (via `map-agent--full`) and shows a tooltip with the agent name
+ * when revealed, or "Face-down agent" when hidden.
+ *
+ * No click handler is attached — clicking agent diamonds has no effect in Phase 5.
+ * Agent selection via the map is deferred to a later iteration once
+ * `select-company` targeting covers agents (see spec Phase 5 notes).
+ *
+ * Returns null if the agent has no site stack or if coordinates are unavailable.
+ */
+function createFullMapAgentDiamond(
+  agent: AgentInPlay,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement | null {
+  if (agent.siteStack.length === 0) return null;
+
+  const currentSite = agent.siteStack[agent.siteStack.length - 1];
+  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
+  if (!siteDef) return null;
+
+  const coords = getCoordinates(siteDef.name);
+  if (!coords) return null;
+
+  const [x, y] = coords;
+
+  const diamond = document.createElement('div');
+  const revealedClass = agent.revealed ? 'map-agent--own-revealed' : 'map-agent--own-hidden';
+  diamond.className = `map-agent ${revealedClass} map-agent--full`;
+  diamond.style.left = `${x * 100}%`;
+  diamond.style.top = `${y * 100}%`;
+
+  // Tooltip text: agent name if revealed, else "Face-down agent"
+  const agentName = agent.revealed
+    ? (cardPool[agent.character.definitionId]?.name ?? 'Unknown agent')
+    : 'Face-down agent';
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'map-dot-tooltip';
+  tooltip.textContent = agentName;
+  diamond.appendChild(tooltip);
+
+  return diamond;
 }

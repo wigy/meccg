@@ -293,3 +293,66 @@
   text-align: center;
   width: 100%;
 }
+
+/* --------------------------------------------------------------------------
+   Agent diamond markers (Phase 5)
+   -------------------------------------------------------------------------- */
+
+/* Base diamond shape — a rotated square positioned like company dots */
+.map-agent {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg) translate(-70%, -70%);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Own agent, face-up — red */
+.map-agent--own-revealed {
+  background: #c04040;
+}
+
+/* Own agent, face-down — dark-red, semi-transparent */
+.map-agent--own-hidden {
+  background: #7a1a1a;
+  opacity: 0.7;
+}
+
+/* Opponent face-up agent — orange (not currently rendered; site info unavailable) */
+.map-agent--opponent-revealed {
+  background: #c07830;
+}
+
+/* Larger diamond for the full-map overlay; enables pointer events for tooltip hover */
+.map-agent--full {
+  width: 10px;
+  height: 10px;
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* Show tooltip on hover for full-map agent diamonds */
+.map-agent--full:hover .map-dot-tooltip {
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Hidden-agents badge (Phase 5)
+   Shows a count of opponent face-down agents whose positions are not revealed.
+   -------------------------------------------------------------------------- */
+
+.map-hidden-agents-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #c07830;
+  font-size: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(192, 120, 48, 0.4);
+  pointer-events: none;
+}

@@ -29,6 +29,7 @@ import type {
   CardDefinition,
   Company,
   OpponentCompanyView,
+  AgentInPlay,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
 import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
@@ -100,6 +101,18 @@ export function createRadar(
     if (dot) dotsLayer.appendChild(dot);
   }
 
+  // Render own agents as diamond markers (always visible — face-up and face-down)
+  for (const agent of view.self.agents) {
+    const diamond = createAgentDiamond(agent, view, cardPool);
+    if (diamond) dotsLayer.appendChild(diamond);
+  }
+
+  // TODO: Opponent face-up agents are not shown on the radar because
+  // OpponentAgentView does not carry site information (site is hidden to
+  // prevent leaking the agent's position when face-down). Only the count
+  // of face-down agents is available via siteStackSize, and their positions
+  // are intentionally withheld. See map-fullscreen.ts for the badge instead.
+
   // Clicking the radar fires a custom event
   radar.addEventListener('click', () => {
     radar.dispatchEvent(new CustomEvent('map-radar-click', { bubbles: true }));
@@ -170,6 +183,40 @@ function createCompanyDot(
   dot.title = siteDef.name;
 
   return dot;
+}
+
+/**
+ * Create a diamond marker element for one of the player's own agents on the radar.
+ *
+ * Own agents are always shown (face-up or face-down) because the player always
+ * knows where their own agents are.
+ *
+ * Returns null if the agent has no site stack or if site coordinates are unavailable.
+ */
+function createAgentDiamond(
+  agent: AgentInPlay,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement | null {
+  if (agent.siteStack.length === 0) return null;
+
+  const currentSite = agent.siteStack[agent.siteStack.length - 1];
+  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
+  if (!siteDef) return null;
+
+  const coords = getCoordinates(siteDef.name);
+  if (!coords) return null;
+
+  const [x, y] = coords;
+
+  const diamond = document.createElement('div');
+  const revealedClass = agent.revealed ? 'map-agent--own-revealed' : 'map-agent--own-hidden';
+  diamond.className = `map-agent ${revealedClass}`;
+  diamond.style.left = `${x * 100}%`;
+  diamond.style.top = `${y * 100}%`;
+  diamond.title = siteDef.name;
+
+  return diamond;
 }
 
 /**
