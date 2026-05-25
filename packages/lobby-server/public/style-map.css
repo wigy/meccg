@@ -203,3 +203,93 @@
 .map-dot:hover .map-dot-tooltip {
   display: block;
 }
+
+/* --------------------------------------------------------------------------
+   Layer toggle button (top-left of full-screen overlay)
+   -------------------------------------------------------------------------- */
+
+.map-layer-toggle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.map-layer-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.map-layer-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* --------------------------------------------------------------------------
+   Movement overlay — dashed SVG line layer
+   -------------------------------------------------------------------------- */
+
+/* SVG layer stretched over the full map container to draw movement lines */
+.map-destination-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Under-deeps schematic
+   -------------------------------------------------------------------------- */
+
+/* Container div that holds the Under-deeps SVG */
+.map-underdeeps {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+/* The SVG element itself fills its container */
+.map-underdeeps-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Radar variant: Under-deeps schematic scaled to radar box */
+.map-radar--underdeeps .map-underdeeps {
+  position: absolute;
+  inset: 0;
+}
+
+/* Small layer indicator in the radar corner */
+.map-radar-layer-indicator {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(255, 220, 100, 0.8);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Message shown when Under-deeps coords are not yet loaded */
+.map-underdeeps-unavailable {
+  color: #667;
+  font-size: 13px;
+  padding: 16px;
+  margin: 0;
+  text-align: center;
+  width: 100%;
+}
