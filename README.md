@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 142 | 309 | 46.0% |
-| Card tests | 371 | 388 | 95.6% |
+| Rule tests | 144 | 309 | 46.6% |
+| Card tests | 391 | 409 | 95.6% |
 | Cards created | 697 | 1683 | 41.4% |
-| Cards certified | 375 | 697 | 53.8% |
-| **Total** | **1585** | **3077** | **51.5%** |
+| Cards certified | 396 | 697 | 56.8% |
+| **Total** | **1628** | **3098** | **52.6%** |
 
 ### Deck Catalog
 
@@ -33,16 +33,16 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 | (B) Release the Prisoners | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 109 (99.1%) |
-| (E) Return of the King | hero | 110 | 110 (100.0%) | 83 (75.5%) |
+| (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (F) Spies and Traitors | minion | 113 | 112 (99.1%) | 74 (65.5%) |
 | (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 37 (33.6%) |
-| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 43 (39.1%) |
+| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 44 (40.0%) |
 | (I) Morgul Rallying Cry | minion | 113 | 113 (100.0%) | 39 (34.5%) |
 | (J) Seducing Nations of Men | minion | 113 | 113 (100.0%) | 51 (45.1%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 29 (90.6%) |
+| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 30 (93.8%) |
 | Hero (Development only) | hero | 57 | 57 (100.0%) | 57 (100.0%) |
 | Minion (Development only) | minion | 45 | 45 (100.0%) | 45 (100.0%) |
 | All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 97 (100.0%) |
