@@ -2201,6 +2201,7 @@ h2 {
   flex: 1;
   min-width: 0;
   padding-top: 2.5rem;
+  padding-right: 5.2rem;
 }
 
 #state, #draft, #mh-info, #site-info {
@@ -2238,16 +2239,9 @@ h2 {
 }
 
 #actions {
-  position: fixed;
-  bottom: calc(1rem + 130px + 0.75rem);
-  right: 1rem;
-  z-index: 99;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-width: 220px;
-  max-height: calc(100vh - 130px - 3rem);
-  overflow-y: auto;
 }
 
 #actions button {
@@ -3241,7 +3235,7 @@ h2 {
 #pass-btn {
   position: fixed;
   right: 2rem;
-  bottom: 2rem;
+  bottom: calc(1rem + 130px + 0.75rem);
   z-index: var(--z-panel);
   font-family: 'MedievalSharp', cursive;
   font-size: 1.4rem;
@@ -3263,7 +3257,7 @@ h2 {
 #waiting-indicator {
   position: fixed;
   right: 2rem;
-  bottom: 2.6rem;
+  bottom: calc(1rem + 130px + 0.75rem + 0.6rem);
   z-index: var(--z-panel);
   font-family: 'MedievalSharp', cursive;
   font-size: 1rem;
@@ -3276,7 +3270,7 @@ h2 {
 .enter-site-btn {
   position: fixed;
   right: 2rem;
-  bottom: 5.4rem;
+  bottom: calc(1rem + 130px + 0.75rem + 3.4rem);
   z-index: var(--z-panel);
   font-family: 'MedievalSharp', cursive;
   font-size: 1.4rem;
