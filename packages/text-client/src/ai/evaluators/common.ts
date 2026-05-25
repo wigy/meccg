@@ -287,8 +287,10 @@ export function scoreDestinationSite(
     const def = lookupDef(pool, card.definitionId);
     if (def && resourcePlayableAt(def, destSite)) {
       // Weight by MP value so high-value cards strongly motivate movement.
-      // Use at least 1 so even 0-MP minor items contribute.
-      playableScore += Math.max(1, mpValue(def)) * 10;
+      // Coefficient 20 ensures even a single 2-MP item (score 40) clearly
+      // dominates the org-phase pass score (5), reducing the chance the AI
+      // ignores a site where it has items to play.
+      playableScore += Math.max(10, mpValue(def) * 20);
     }
   }
 
@@ -306,7 +308,7 @@ export function scoreDestinationSite(
     // in the deck, score a haven move as an intermediate step toward those
     // sites. Havens are safe hubs that reset travel options for the next turn.
     if (destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool)) {
-      return 8;
+      return 15;
     }
     return 0;
   }
