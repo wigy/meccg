@@ -8,7 +8,10 @@
    -------------------------------------------------------------------------- */
 
 .map-radar {
-  position: relative;
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 100;
   width: 180px;
   height: 130px;
   border-radius: 6px;
@@ -16,7 +19,6 @@
   overflow: hidden;
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  flex-shrink: 0;
 }
 
 .map-radar:hover {
