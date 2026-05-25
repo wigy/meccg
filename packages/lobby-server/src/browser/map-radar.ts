@@ -52,13 +52,12 @@ export function createRadar(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
   const activeCompany = view.self.companies[activeCompanyIndex];
-  if (!activeCompany?.currentSite) { console.log('[radar] createRadar: no currentSite'); return null; }
+  if (!activeCompany?.currentSite) return null;
 
   const activeSiteDef = resolveCardDef(activeCompany.currentSite.instanceId, view, cardPool);
-  if (!activeSiteDef) { console.log('[radar] createRadar: resolveCardDef null for', activeCompany.currentSite.instanceId); return null; }
+  if (!activeSiteDef) return null;
 
   const activeSiteName = activeSiteDef.name;
-  console.log('[radar] createRadar: site=%s', activeSiteName);
 
   // Check if the active company is at an Under-deeps site
   const isUnderDeeps = getUnderDeepsCoordinates(activeSiteName) !== null;
@@ -70,7 +69,7 @@ export function createRadar(
   // Surface map radar
   const activeCoords = getCoordinates(activeSiteName);
   // Only show radar when we can place the active company on the map
-  if (!activeCoords) { console.log('[radar] createRadar: no coords for', activeSiteName); return null; }
+  if (!activeCoords) return null;
 
   const radar = document.createElement('div');
   radar.className = 'map-radar';
