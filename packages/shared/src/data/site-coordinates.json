@@ -1,0 +1,1706 @@
+{
+  "Andrast": [
+    0.2712,
+    0.1991
+  ],
+  "Tharagrondost": [
+    0.2772,
+    0.2226
+  ],
+  "The Stones": [
+    0.2615,
+    0.1912
+  ],
+  "Andrast Coast": [
+    0.2128,
+    0.2516
+  ],
+  "Isle of the Ulond": [
+    0.2232,
+    0.2334
+  ],
+  "Anduin Vales": [
+    0.4903,
+    0.1001
+  ],
+  "Beorn's House": [
+    0.4896,
+    0.0827
+  ],
+  "Eagles' Eyrie": [
+    0.4554,
+    0.0777
+  ],
+  "Framsburg": [
+    0.4691,
+    0.0715
+  ],
+  "Gladden Fields": [
+    0.476,
+    0.0965
+  ],
+  "Mathlaburg": [
+    0.4816,
+    0.0843
+  ],
+  "The Carrock": [
+    0.4764,
+    0.0777
+  ],
+  "Anfalas": [
+    0.3767,
+    0.192
+  ],
+  "Edhellond": [
+    0.4188,
+    0.1991
+  ],
+  "Lond Galen": [
+    0.3479,
+    0.2038
+  ],
+  "Angmar": [
+    0.3303,
+    0.0628
+  ],
+  "Carn Dûm": [
+    0.3226,
+    0.0581
+  ],
+  "Litash": [
+    0.3753,
+    0.0693
+  ],
+  "Morkai": [
+    0.3148,
+    0.0655
+  ],
+  "Mount Gram": [
+    0.323,
+    0.0676
+  ],
+  "The Iron-deeps": [
+    0.3133,
+    0.0587
+  ],
+  "The Under-vaults": [
+    0.3164,
+    0.0679
+  ],
+  "Zarak Dûm": [
+    0.3369,
+    0.0609
+  ],
+  "Anórien": [
+    0.5224,
+    0.1608
+  ],
+  "Drúadan Forest": [
+    0.522,
+    0.1675
+  ],
+  "Minas Tirith": [
+    0.5419,
+    0.1755
+  ],
+  "Arthedain": [
+    0.2507,
+    0.0825
+  ],
+  "Annúminas": [
+    0.2344,
+    0.0887
+  ],
+  "Bree": [
+    0.2659,
+    0.0985
+  ],
+  "Dead Man's Dike": [
+    0.2603,
+    0.0885
+  ],
+  "Eldanar": [
+    0.2806,
+    0.0698
+  ],
+  "Hostel of the Sisters of Nienna": [
+    0.223,
+    0.0871
+  ],
+  "The White Towers": [
+    0.173,
+    0.1067
+  ],
+  "Tol Lamfirith": [
+    0.1865,
+    0.0904
+  ],
+  "Weathertop": [
+    0.3071,
+    0.0968
+  ],
+  "Arysis": [
+    0.8433,
+    0.452
+  ],
+  "Maresh": [
+    0.8634,
+    0.428
+  ],
+  "Mount Arysis": [
+    0.8626,
+    0.41
+  ],
+  "Azjan": [
+    0.7791,
+    0.0238
+  ],
+  "Grop-Kûlkodar": [
+    0.7509,
+    0.0303
+  ],
+  "Shapôl Udûn": [
+    0.7696,
+    0.0316
+  ],
+  "Tol Ringurthur": [
+    0.8595,
+    0.0219
+  ],
+  "Barl Syrnac": [
+    0.8222,
+    0.0407
+  ],
+  "Hollow Spire": [
+    0.7973,
+    0.0395
+  ],
+  "Mirror Halls": [
+    0.8235,
+    0.0438
+  ],
+  "Ruins of Kheledkhizdín": [
+    0.8388,
+    0.0433
+  ],
+  "The Vaults of Utûmno": [
+    0.8388,
+    0.0467
+  ],
+  "Bay of Belfalas": [
+    0.3506,
+    0.224
+  ],
+  "Coastal Signal Tower": [
+    0.4173,
+    0.2178
+  ],
+  "Bay of Felaya": [
+    0.2831,
+    0.7415
+  ],
+  "Pelican Islands": [
+    0.3133,
+    0.6983
+  ],
+  "Bay of Tulwang": [
+    0.3125,
+    0.9817
+  ],
+  "Belfalas": [
+    0.453,
+    0.1976
+  ],
+  "Dol Amroth": [
+    0.4179,
+    0.2033
+  ],
+  "Linhir": [
+    0.4776,
+    0.1992
+  ],
+  "Bellazen": [
+    0.5083,
+    0.7481
+  ],
+  "Auz Azunan": [
+    0.5325,
+    0.7345
+  ],
+  "Bûr Esmer": [
+    0.5615,
+    0.769
+  ],
+  "Korlea": [
+    0.489,
+    0.7875
+  ],
+  "Bozisha-Miraz": [
+    0.6954,
+    0.8264
+  ],
+  "Bozisha-Dar": [
+    0.6399,
+    0.8028
+  ],
+  "Tresti": [
+    0.7199,
+    0.831
+  ],
+  "Brown Lands": [
+    0.5017,
+    0.1234
+  ],
+  "Bandit Lair": [
+    0.5122,
+    0.1287
+  ],
+  "Cardolan": [
+    0.2532,
+    0.1223
+  ],
+  "Bar-en-Ibûn": [
+    0.1964,
+    0.1372
+  ],
+  "Barrow-downs": [
+    0.2748,
+    0.1052
+  ],
+  "Creb Durga": [
+    0.2426,
+    0.1311
+  ],
+  "Lond Daer": [
+    0.2526,
+    0.143
+  ],
+  "Old Forest": [
+    0.2551,
+    0.1063
+  ],
+  "Tharbad": [
+    0.3036,
+    0.1239
+  ],
+  "The Under-caves": [
+    0.2333,
+    0.1287
+  ],
+  "The Worthy Hills": [
+    0.2105,
+    0.1311
+  ],
+  "Traith Chefudoc": [
+    0.3342,
+    0.1055
+  ],
+  "Chelkar": [
+    0.6401,
+    0.2373
+  ],
+  "Lugarlûr": [
+    0.6527,
+    0.2281
+  ],
+  "Chey Sart": [
+    0.9704,
+    0.2111
+  ],
+  "Chey Goumal": [
+    0.9666,
+    0.2424
+  ],
+  "The Lava-deeps": [
+    0.9625,
+    0.2332
+  ],
+  "Ulk Chey Sart": [
+    0.9594,
+    0.2156
+  ],
+  "Ulk Jey Ama": [
+    0.9729,
+    0.2232
+  ],
+  "Coast of Harad": [
+    0.2735,
+    0.4236
+  ],
+  "Tol Uialgaer": [
+    0.3168,
+    0.4538
+  ],
+  "Dagorlad": [
+    0.5499,
+    0.136
+  ],
+  "Amon Lhaw": [
+    0.5218,
+    0.1488
+  ],
+  "Dead Marshes": [
+    0.54,
+    0.1521
+  ],
+  "Thuringwathost": [
+    0.5475,
+    0.1453
+  ],
+  "Dorwinion": [
+    0.7107,
+    0.0935
+  ],
+  "Riavod": [
+    0.7277,
+    0.1013
+  ],
+  "Shrel-Kain": [
+    0.7099,
+    0.0999
+  ],
+  "Dragon Gap": [
+    0.4646,
+    0.057
+  ],
+  "Deep Cleft": [
+    0.4449,
+    0.0594
+  ],
+  "Dune Sea": [
+    0.6125,
+    0.4945
+  ],
+  "Urud-an-Khibil": [
+    0.5247,
+    0.5564
+  ],
+  "Dunland": [
+    0.3288,
+    0.1314
+  ],
+  "Dunnish Clan-hold": [
+    0.3415,
+    0.1381
+  ],
+  "The Riddle Caves": [
+    0.3566,
+    0.1377
+  ],
+  "Dyr": [
+    0.8981,
+    0.0736
+  ],
+  "Olyavud": [
+    0.8844,
+    0.0606
+  ],
+  "Yjuvït": [
+    0.9254,
+    0.0639
+  ],
+  "East Bay of Forochel": [
+    0.1372,
+    0.0375
+  ],
+  "Jääkylät": [
+    0.1003,
+    0.0371
+  ],
+  "Elven Shores": [
+    0.0542,
+    0.1206
+  ],
+  "Himring": [
+    0.0555,
+    0.069
+  ],
+  "Enedhwaith": [
+    0.2922,
+    0.1442
+  ],
+  "Isildur's Tomb": [
+    0.3475,
+    0.1441
+  ],
+  "Ruined Signal Tower": [
+    0.2555,
+    0.1526
+  ],
+  "Eorstan": [
+    0.7074,
+    0.1205
+  ],
+  "Gaurblog Lug": [
+    0.6929,
+    0.1194
+  ],
+  "Mines of Falek-Dim": [
+    0.6927,
+    0.1229
+  ],
+  "Nurunkhizdín": [
+    0.704,
+    0.1292
+  ],
+  "Ered Harmal": [
+    0.8763,
+    0.2738
+  ],
+  "Arentaurr": [
+    0.8724,
+    0.2358
+  ],
+  "Azagarbhun": [
+    0.8465,
+    0.2466
+  ],
+  "Quarries of Nosharud": [
+    0.8143,
+    0.2671
+  ],
+  "The Limestone-caverns": [
+    0.8259,
+    0.2694
+  ],
+  "Ered Lithui": [
+    0.6749,
+    0.157
+  ],
+  "Oraishapek's Mound": [
+    0.6643,
+    0.1649
+  ],
+  "Eriadoran Coast": [
+    0.1782,
+    0.1763
+  ],
+  "Isles of the Dead That Live": [
+    0.1488,
+    0.1417
+  ],
+  "Erim Póa": [
+    0.8666,
+    0.8503
+  ],
+  "Tûl Póac": [
+    0.8351,
+    0.7802
+  ],
+  "Everdalf": [
+    0.3382,
+    0.044
+  ],
+  "Bernastath": [
+    0.3442,
+    0.049
+  ],
+  "Leiri": [
+    0.2646,
+    0.0483
+  ],
+  "Puolihmisten Satama": [
+    0.2857,
+    0.0492
+  ],
+  "Fangorn": [
+    0.4244,
+    0.1358
+  ],
+  "Lind-or-Burum": [
+    0.4293,
+    0.1321
+  ],
+  "Wellinghall": [
+    0.4115,
+    0.1399
+  ],
+  "Felaya": [
+    0.4418,
+    0.6962
+  ],
+  "Hau Nysrin": [
+    0.4579,
+    0.7402
+  ],
+  "Hazaj Tollin": [
+    0.4478,
+    0.609
+  ],
+  "Nîlûlondê": [
+    0.4712,
+    0.7213
+  ],
+  "Ûrêzâyan": [
+    0.4186,
+    0.7375
+  ],
+  "Forochel": [
+    0.2207,
+    0.0608
+  ],
+  "Gondrings Lair": [
+    0.1678,
+    0.0551
+  ],
+  "Lossadan Cairn": [
+    0.2252,
+    0.0524
+  ],
+  "Lossadan Camp": [
+    0.2445,
+    0.0551
+  ],
+  "Ruskea Vene": [
+    0.2797,
+    0.0517
+  ],
+  "Thaurung": [
+    0.2901,
+    0.0551
+  ],
+  "Kala Dulakurth": [
+    0.5305,
+    0.0555
+  ],
+  "Shab Arch": [
+    0.5731,
+    0.0546
+  ],
+  "The Cobalt-deeps": [
+    0.5387,
+    0.0558
+  ],
+  "Forrhûn": [
+    0.8396,
+    0.082
+  ],
+  "Lar-Huz": [
+    0.8268,
+    0.0916
+  ],
+  "Logath Camp": [
+    0.7779,
+    0.0877
+  ],
+  "Nan Morsereg": [
+    0.8375,
+    0.0714
+  ],
+  "Gap of Isen": [
+    0.3931,
+    0.1442
+  ],
+  "Deep Mines": [
+    0.3695,
+    0.1423
+  ],
+  "Glittering Caves": [
+    0.3891,
+    0.1529
+  ],
+  "Helm's Deep": [
+    0.3867,
+    0.1514
+  ],
+  "Isengard": [
+    0.3827,
+    0.1449
+  ],
+  "The Gem-deeps": [
+    0.3755,
+    0.1529
+  ],
+  "Gondalf": [
+    0.1059,
+    0.0101
+  ],
+  "Achrond": [
+    0.0209,
+    0.0116
+  ],
+  "Ei Missä": [
+    0.0363,
+    0.0075
+  ],
+  "Gorgoroth": [
+    0.6181,
+    0.167
+  ],
+  "Barad-dûr": [
+    0.6206,
+    0.1597
+  ],
+  "Minas Durlith": [
+    0.6467,
+    0.1591
+  ],
+  "Mines of Angûrath": [
+    0.633,
+    0.1588
+  ],
+  "Mount Doom": [
+    0.6032,
+    0.1605
+  ],
+  "The Under-courts": [
+    0.6235,
+    0.1598
+  ],
+  "Grey Mountain Narrows": [
+    0.5821,
+    0.0674
+  ],
+  "Buhr Thurasig": [
+    0.5242,
+    0.0627
+  ],
+  "Gondmaeglom": [
+    0.558,
+    0.0642
+  ],
+  "Ovir Hollow": [
+    0.5317,
+    0.0627
+  ],
+  "The Wind Throne": [
+    0.4954,
+    0.0637
+  ],
+  "The Wind-deeps": [
+    0.5012,
+    0.0637
+  ],
+  "Grey Mountains": [
+    0.5653,
+    0.0599
+  ],
+  "Long Peak": [
+    0.5966,
+    0.0614
+  ],
+  "Norr-dûm": [
+    0.5454,
+    0.0598
+  ],
+  "Steel Fall": [
+    0.5099,
+    0.0586
+  ],
+  "Gundabad": [
+    0.4298,
+    0.0669
+  ],
+  "Mount Gundabad": [
+    0.4405,
+    0.065
+  ],
+  "The Under-leas": [
+    0.4457,
+    0.0648
+  ],
+  "Harondor": [
+    0.5203,
+    0.2321
+  ],
+  "Cairn of the Colruh Hazurbal": [
+    0.5881,
+    0.2246
+  ],
+  "Gobel Mírlond": [
+    0.4979,
+    0.2608
+  ],
+  "Haudh-in-Gwanûr": [
+    0.489,
+    0.2333
+  ],
+  "Southron Oasis": [
+    0.5775,
+    0.2518
+  ],
+  "Harrhûn": [
+    0.8902,
+    0.1279
+  ],
+  "Elgaer": [
+    0.8297,
+    0.1134
+  ],
+  "Mistrand": [
+    0.7804,
+    0.1259
+  ],
+  "Wain-Easterling Camp": [
+    0.8603,
+    0.1251
+  ],
+  "Haruzan": [
+    0.6753,
+    0.3988
+  ],
+  "Amrûn": [
+    0.6664,
+    0.3682
+  ],
+  "The Hospice of Lost Faith": [
+    0.6506,
+    0.3669
+  ],
+  "Heart of Mirkwood": [
+    0.5711,
+    0.0935
+  ],
+  "Cor Angaladh": [
+    0.564,
+    0.1027
+  ],
+  "Mountains of Mirkwood": [
+    0.5845,
+    0.0862
+  ],
+  "Sarn Goriwing": [
+    0.5613,
+    0.0879
+  ],
+  "Heb Aaraan": [
+    0.9246,
+    0.2547
+  ],
+  "Alkyad": [
+    0.9022,
+    0.2488
+  ],
+  "Elanthia": [
+    0.9277,
+    0.2758
+  ],
+  "High Pass": [
+    0.4418,
+    0.0885
+  ],
+  "Giant's Isle": [
+    0.4374,
+    0.0822
+  ],
+  "Goblin-gate": [
+    0.4459,
+    0.0853
+  ],
+  "The Under-grottos": [
+    0.4515,
+    0.0861
+  ],
+  "Hollin": [
+    0.3456,
+    0.1188
+  ],
+  "Ost-in-Edhil": [
+    0.3533,
+    0.1248
+  ],
+  "Osteledan": [
+    0.3384,
+    0.1243
+  ],
+  "Telpëmar": [
+    0.3626,
+    0.1211
+  ],
+  "Horse Plains": [
+    0.7343,
+    0.144
+  ],
+  "Easterling Camp": [
+    0.7619,
+    0.1432
+  ],
+  "Joghul's Shrine": [
+    0.7387,
+    0.1497
+  ],
+  "Raider-hold": [
+    0.736,
+    0.1323
+  ],
+  "Temple of Lokuthor": [
+    0.718,
+    0.1388
+  ],
+  "Hyarmenfalas": [
+    0.5431,
+    0.4025
+  ],
+  "An Karagmir": [
+    0.5464,
+    0.4389
+  ],
+  "Umbar": [
+    0.4952,
+    0.4377
+  ],
+  "Vamag": [
+    0.4507,
+    0.4177
+  ],
+  "Imlad Morgul": [
+    0.5709,
+    0.1674
+  ],
+  "Cirith Ungol": [
+    0.5812,
+    0.1667
+  ],
+  "Minas Morgul": [
+    0.5638,
+    0.169
+  ],
+  "Shelob's Lair": [
+    0.5841,
+    0.1696
+  ],
+  "Iron Hills": [
+    0.6763,
+    0.0728
+  ],
+  "Barak-shathûr": [
+    0.6596,
+    0.0758
+  ],
+  "Iron Hill Dwarf-hold": [
+    0.662,
+    0.0719
+  ],
+  "The Rusted-deeps": [
+    0.6498,
+    0.073
+  ],
+  "Isfahan": [
+    0.7431,
+    0.7481
+  ],
+  "Sud Sicanna": [
+    0.7596,
+    0.6709
+  ],
+  "Ithilien": [
+    0.5491,
+    0.1979
+  ],
+  "Cair Andros": [
+    0.5495,
+    0.1833
+  ],
+  "Henneth Annûn": [
+    0.5508,
+    0.1633
+  ],
+  "Osgiliath": [
+    0.5547,
+    0.1757
+  ],
+  "Kes Arik": [
+    0.5959,
+    0.6869
+  ],
+  "Khibil Ephalak": [
+    0.5591,
+    0.6415
+  ],
+  "Killing Fields": [
+    0.5483,
+    0.7065
+  ],
+  "Khand": [
+    0.7609,
+    0.227
+  ],
+  "Lâorkí": [
+    0.7799,
+    0.2502
+  ],
+  "Sturlurtsa": [
+    0.7978,
+    0.249
+  ],
+  "Variag Camp": [
+    0.707,
+    0.2535
+  ],
+  "Kirmlesra": [
+    1,
+    0.7785
+  ],
+  "Tûl Harar": [
+    0.9843,
+    0.8005
+  ],
+  "Kykurian Kyn": [
+    0.971,
+    0.1201
+  ],
+  "Adan Tomb": [
+    0.9768,
+    0.1134
+  ],
+  "Balchoth Camp": [
+    0.9793,
+    0.1237
+  ],
+  "Lamedon": [
+    0.4274,
+    0.1853
+  ],
+  "Calembel": [
+    0.4439,
+    0.1789
+  ],
+  "Setmaenen": [
+    0.41,
+    0.1785
+  ],
+  "Vale of Erech": [
+    0.4046,
+    0.1736
+  ],
+  "Lebennin": [
+    0.5139,
+    0.1925
+  ],
+  "Lossarnach": [
+    0.5298,
+    0.1849
+  ],
+  "Pelargir": [
+    0.5247,
+    0.1959
+  ],
+  "Lhûgdalf": [
+    0.7799,
+    0.0445
+  ],
+  "Númenórean Tomb": [
+    0.7037,
+    0.0307
+  ],
+  "Lindalf": [
+    0.3556,
+    0.0334
+  ],
+  "Amon Anlug": [
+    0.3247,
+    0.0232
+  ],
+  "Hyvät Kalat": [
+    0.4153,
+    0.0195
+  ],
+  "Ligr Wodaize Berne": [
+    0.4063,
+    0.0224
+  ],
+  "Lindon": [
+    0.1053,
+    0.1027
+  ],
+  "Grey Havens": [
+    0.1442,
+    0.1037
+  ],
+  "Mount Rerir": [
+    0.0995,
+    0.0743
+  ],
+  "Lotan": [
+    0.961,
+    0.0738
+  ],
+  "Elyamû": [
+    0.9755,
+    0.0754
+  ],
+  "Lurmsakûn": [
+    0.7661,
+    0.4177
+  ],
+  "Kref Masar": [
+    0.8081,
+    0.4068
+  ],
+  "Mardruak": [
+    0.4281,
+    0.5462
+  ],
+  "Dûsalan": [
+    0.3761,
+    0.5177
+  ],
+  "Monastery of the True Faith": [
+    0.4677,
+    0.5632
+  ],
+  "Narik-Zadan": [
+    0.3421,
+    0.5634
+  ],
+  "Mardruak Cape": [
+    0.2238,
+    0.5856
+  ],
+  "Tol Glingal": [
+    0.3228,
+    0.5555
+  ],
+  "Minheldolath": [
+    0.1013,
+    0.0239
+  ],
+  "Evermist": [
+    0.2002,
+    0.0081
+  ],
+  "Mirror of Fire": [
+    0.8885,
+    0.6276
+  ],
+  "Fuinur's Well": [
+    0.9894,
+    0.6628
+  ],
+  "The Amber-deeps": [
+    0.9554,
+    0.6939
+  ],
+  "The Great Oasis": [
+    0.8239,
+    0.6542
+  ],
+  "Misty Mountains - Northern Spur": [
+    0.4347,
+    0.078
+  ],
+  "Cirith Helkaloke": [
+    0.3945,
+    0.0687
+  ],
+  "Daeron's Pool": [
+    0.3989,
+    0.0701
+  ],
+  "Misty Mountains - Southern Spur": [
+    0.3858,
+    0.1282
+  ],
+  "Amon Lind": [
+    0.3966,
+    0.1238
+  ],
+  "Turukulon's Lair": [
+    0.3746,
+    0.1273
+  ],
+  "Mouths of the Anduin": [
+    0.4488,
+    0.2424
+  ],
+  "Benish Armon": [
+    0.4776,
+    0.2186
+  ],
+  "Tolfalas": [
+    0.4625,
+    0.2319
+  ],
+  "Mur Fostisyr": [
+    0.9383,
+    0.0476
+  ],
+  "Zayandaur": [
+    0.9196,
+    0.0519
+  ],
+  "Narthalf": [
+    0.2203,
+    0.017
+  ],
+  "Ancient Maze": [
+    0.2105,
+    0.0045
+  ],
+  "Eithel Morgoth": [
+    0.2462,
+    0.011
+  ],
+  "Mornost": [
+    0.2246,
+    0.007
+  ],
+  "Pendrath na-Udûn": [
+    0.219,
+    0.0053
+  ],
+  "The Pits of Angband": [
+    0.1989,
+    0.0044
+  ],
+  "The Under-forges": [
+    0.2404,
+    0.0118
+  ],
+  "Thilgon's Tomb": [
+    0.2424,
+    0.0132
+  ],
+  "Né Tava": [
+    0.9295,
+    0.7858
+  ],
+  "Abandoned Caravansary": [
+    0.857,
+    0.7437
+  ],
+  "Northern Rhovanion": [
+    0.6129,
+    0.082
+  ],
+  "Cave of the Urdharkonur": [
+    0.643,
+    0.0798
+  ],
+  "Dale": [
+    0.5901,
+    0.0725
+  ],
+  "Lake-town": [
+    0.5943,
+    0.0782
+  ],
+  "Long Marshes": [
+    0.5841,
+    0.078
+  ],
+  "The Lonely Mountain": [
+    0.5825,
+    0.0711
+  ],
+  "Númeriador": [
+    0.1471,
+    0.0779
+  ],
+  "Andoloki": [
+    0.1419,
+    0.0681
+  ],
+  "Blue Mountain Dwarf-hold": [
+    0.126,
+    0.0763
+  ],
+  "Remains of Thangorodrim": [
+    0.1268,
+    0.0676
+  ],
+  "Ruins of Belegost": [
+    0.1212,
+    0.0771
+  ],
+  "Ruins of Nogrod": [
+    0.1235,
+    0.0787
+  ],
+  "The Drowning-deeps": [
+    0.1231,
+    0.0726
+  ],
+  "Nûrad": [
+    0.9155,
+    0.2028
+  ],
+  "Medlóshad": [
+    0.9213,
+    0.2197
+  ],
+  "Nennûrad": [
+    0.8809,
+    0.1853
+  ],
+  "Nuriag": [
+    0.8487,
+    0.1695
+  ],
+  "Iorag Camp": [
+    0.7986,
+    0.1601
+  ],
+  "Temple of Kondri Odchi": [
+    0.867,
+    0.165
+  ],
+  "Nurn": [
+    0.6709,
+    0.1791
+  ],
+  "Barad-wath": [
+    0.6245,
+    0.1818
+  ],
+  "Nûrniag Camp": [
+    0.725,
+    0.1788
+  ],
+  "Ostigurth": [
+    0.6579,
+    0.171
+  ],
+  "Urlurtsu Nurn": [
+    0.6471,
+    0.1947
+  ],
+  "Brandy Hall": [
+    0.2524,
+    0.1018
+  ],
+  "The Willow Dingle": [
+    0.2561,
+    0.1019
+  ],
+  "Tom's House": [
+    0.259,
+    0.1041
+  ],
+  "Old Pûkel Gap": [
+    0.3015,
+    0.1726
+  ],
+  "Stone-circle": [
+    0.2922,
+    0.1711
+  ],
+  "Old Pûkel-land": [
+    0.3247,
+    0.1582
+  ],
+  "Geann a-Lisch": [
+    0.2849,
+    0.1621
+  ],
+  "Wose Passage-hold": [
+    0.3322,
+    0.1632
+  ],
+  "Pezarsan": [
+    0.7029,
+    0.3976
+  ],
+  "Korondaj": [
+    0.7321,
+    0.3998
+  ],
+  "Rast Losnaeth": [
+    0.2008,
+    0.03
+  ],
+  "Kylmätalo": [
+    0.2039,
+    0.038
+  ],
+  "Pieni Satama": [
+    0.2072,
+    0.0362
+  ],
+  "Redhorn Gate": [
+    0.4061,
+    0.1115
+  ],
+  "Ancient Deep-hold": [
+    0.3927,
+    0.1189
+  ],
+  "Dimrill Dale": [
+    0.4153,
+    0.1201
+  ],
+  "Durin's Tower": [
+    0.4045,
+    0.1199
+  ],
+  "Moria": [
+    0.4001,
+    0.1149
+  ],
+  "The Under-gates": [
+    0.4144,
+    0.1174
+  ],
+  "Relmether": [
+    0.959,
+    0.1804
+  ],
+  "Relerindú": [
+    0.9594,
+    0.1929
+  ],
+  "Rhudaur": [
+    0.339,
+    0.0866
+  ],
+  "Cameth Brin": [
+    0.3643,
+    0.0883
+  ],
+  "Ettenmoors": [
+    0.3589,
+    0.0821
+  ],
+  "Rivendell": [
+    0.3798,
+    0.1011
+  ],
+  "The Last Bridge": [
+    0.3473,
+    0.0992
+  ],
+  "Rohan": [
+    0.4755,
+    0.149
+  ],
+  "Amon Hen": [
+    0.5106,
+    0.1436
+  ],
+  "Barad Tathren": [
+    0.5085,
+    0.1534
+  ],
+  "Dunharrow": [
+    0.4001,
+    0.1562
+  ],
+  "Edoras": [
+    0.4144,
+    0.1566
+  ],
+  "The Pûkel-deeps": [
+    0.4047,
+    0.1571
+  ],
+  "Sea of Rhûn": [
+    0.7455,
+    0.1113
+  ],
+  "Tol Buruth": [
+    0.7589,
+    0.1106
+  ],
+  "Seznebab": [
+    0.7058,
+    0.9503
+  ],
+  "Adûn-Tarîk": [
+    0.7397,
+    0.9597
+  ],
+  "Bâtan-Urîd": [
+    0.6838,
+    0.9905
+  ],
+  "Siakan": [
+    0.9708,
+    0.4947
+  ],
+  "Ankruz": [
+    0.93,
+    0.4655
+  ],
+  "Southern Mirkwood": [
+    0.5189,
+    0.1167
+  ],
+  "Ceber Fanuin": [
+    0.5526,
+    0.1137
+  ],
+  "Dol Guldur": [
+    0.5099,
+    0.1161
+  ],
+  "Rhosgobel": [
+    0.4998,
+    0.1098
+  ],
+  "The Sulfur-deeps": [
+    0.5122,
+    0.1128
+  ],
+  "Southern Rhovanion": [
+    0.6274,
+    0.1248
+  ],
+  "Buhr Widu": [
+    0.5949,
+    0.1062
+  ],
+  "Gyogorasag Sanctuary": [
+    0.6792,
+    0.1171
+  ],
+  "Strayhold": [
+    0.6044,
+    0.1193
+  ],
+  "Talath Oiohelka": [
+    0.6243,
+    0.0438
+  ],
+  "Celeb-Ost": [
+    0.655,
+    0.0565
+  ],
+  "Collarmount": [
+    0.6235,
+    0.0549
+  ],
+  "Urdic Camp": [
+    0.3995,
+    0.0498
+  ],
+  "Talath Uichel": [
+    0.465,
+    0.0393
+  ],
+  "Vasaran Ahjo": [
+    0.4204,
+    0.0166
+  ],
+  "Taur Rómen": [
+    0.7957,
+    0.0992
+  ],
+  "Rhûbar": [
+    0.7953,
+    0.1056
+  ],
+  "The Shire": [
+    0.1888,
+    0.1018
+  ],
+  "Aden Scarlet's Medical Library": [
+    0.206,
+    0.0991
+  ],
+  "Bag End": [
+    0.2172,
+    0.0999
+  ],
+  "Bywater": [
+    0.2441,
+    0.1005
+  ],
+  "Michel Delving": [
+    0.1956,
+    0.102
+  ],
+  "Sackville": [
+    0.2286,
+    0.1094
+  ],
+  "Tuckburrow": [
+    0.2273,
+    0.1047
+  ],
+  "Thorenaer": [
+    0.4275,
+    0.0064
+  ],
+  "Kanatrass": [
+    0.4001,
+    0.0017
+  ],
+  "Orod Certhas": [
+    0.3993,
+    0.0092
+  ],
+  "Tulwang": [
+    0.5495,
+    0.9559
+  ],
+  "Khorsâj": [
+    0.5607,
+    0.9379
+  ],
+  "Norjadar": [
+    0.5236,
+    1
+  ],
+  "Udûn": [
+    0.5794,
+    0.1531
+  ],
+  "Cirith Gorgor": [
+    0.574,
+    0.1512
+  ],
+  "Durthang": [
+    0.5743,
+    0.1542
+  ],
+  "The Under-galleries": [
+    0.6048,
+    0.1872
+  ],
+  "Ukal Sêj": [
+    0.8728,
+    0.0376
+  ],
+  "Lothragh Camp": [
+    0.8869,
+    0.0423
+  ],
+  "Lugdruong": [
+    0.8595,
+    0.0437
+  ],
+  "Western Mirkwood": [
+    0.5276,
+    0.0921
+  ],
+  "Caras Amarth": [
+    0.5416,
+    0.0861
+  ],
+  "Woodmen-town": [
+    0.5077,
+    0.0962
+  ],
+  "Withered Heath": [
+    0.6693,
+    0.0614
+  ],
+  "Caves of Ûlund": [
+    0.6438,
+    0.0607
+  ],
+  "Dancing Spire": [
+    0.6044,
+    0.0639
+  ],
+  "Dragon's Den": [
+    0.6156,
+    0.062
+  ],
+  "Gold Hill": [
+    0.7099,
+    0.0677
+  ],
+  "Irerock": [
+    0.6276,
+    0.0631
+  ],
+  "Thunder Cleft": [
+    0.6747,
+    0.0671
+  ],
+  "Tower of the Wolf-friend": [
+    0.6305,
+    0.0667
+  ],
+  "Wold & Foothills": [
+    0.4573,
+    0.1287
+  ],
+  "Cerin Amroth": [
+    0.4525,
+    0.1156
+  ],
+  "Hermit's Hill": [
+    0.4412,
+    0.1277
+  ],
+  "Lórien": [
+    0.4327,
+    0.1191
+  ],
+  "Woodland Realm": [
+    0.5334,
+    0.0735
+  ],
+  "Celebannon": [
+    0.5742,
+    0.0787
+  ],
+  "Heart of the Halls": [
+    0.5663,
+    0.0758
+  ],
+  "Thranduil's Halls": [
+    0.5559,
+    0.0751
+  ],
+  "Zajantak": [
+    0.6264,
+    0.9323
+  ],
+  "Mûmakil Cemetery": [
+    0.5982,
+    0.9087
+  ],
+  "Oasis of Fult": [
+    0.5976,
+    0.9694
+  ],
+  "Dor Bendor": [
+    0.2524,
+    0
+  ],
+  "Helloth": [
+    0.2673,
+    0.0005
+  ],
+  "Hûb Uichel": [
+    0.5483,
+    0.0115
+  ],
+  "Shoreless Isles": [
+    0.7207,
+    0.0153
+  ],
+  "Ekkaia": [
+    0.0688,
+    0.0025
+  ],
+  "West Bay of Forochel": [
+    0.0477,
+    0.0258
+  ],
+  "Forovirkain": [
+    0.4961,
+    0.0541
+  ],
+  "Ered Muil": [
+    0.317,
+    0.0149
+  ],
+  "Linnarthurras": [
+    0.3102,
+    0.0182
+  ],
+  "The Sundering Seas": [
+    0.0099,
+    0.0671
+  ],
+  "Tol Fuin": [
+    0.0363,
+    0.0685
+  ],
+  "Tol Morwen": [
+    0,
+    0.0808
+  ],
+  "Helkëar": [
+    0.8508,
+    0.0129
+  ],
+  "Úrcheldor": [
+    0.8272,
+    0.0109
+  ]
+}
