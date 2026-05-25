@@ -58,12 +58,20 @@ import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates } from './map-coordinates.js';
 
+/** Remove the map radar widget from the DOM if it exists. */
+export function removeMapRadar(): void {
+  document.getElementById('map-radar-widget')?.remove();
+}
+
 /** Render a single focused company at full scale. */
 export function renderSingleView(
   container: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
+  // Remove radar from any previous render; it will be re-created below if needed.
+  removeMapRadar();
+
   const lastOnAction = getLastOnAction()!;
   const focusedCompanyId = getFocusedCompanyId();
 
@@ -127,15 +135,17 @@ export function renderSingleView(
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
   single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
-  // Minimap radar — shown when the focused company is one of our own and has a site with known coordinates
+  // Minimap radar — shown when the focused company is one of our own and has a site with known coordinates.
+  // Appended to document.body (not to `single`) so it survives re-renders that clear the board.
   if (owner === 'self') {
     const selfIndex = view.self.companies.findIndex(c => c.id === focusedCompanyId);
     if (selfIndex >= 0) {
-      // Lazy-load coordinates (no-op if already cached) then append radar once ready
       void loadCoordinates().then(() => {
+        removeMapRadar(); // discard radar from any superseded render
         const radar = createRadar(view, selfIndex, cardPool);
         if (radar) {
-          single.appendChild(radar);
+          radar.id = 'map-radar-widget';
+          document.body.appendChild(radar);
           radar.addEventListener('map-radar-click', () => {
             openFullMap(view, selfIndex, cardPool, (idx) => {
               setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
@@ -171,6 +181,8 @@ export function renderAllCompaniesView(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
+  removeMapRadar(); // no radar in the all-companies overview
+
   const lastOnAction = getLastOnAction()!;
   const mergeSourceCompanyId = getMergeSourceCompanyId();
   const companyMoveSourceId = getCompanyMoveSourceId();

@@ -43,7 +43,7 @@ import './company-character.js';
 import './company-modals.js';
 import './company-site.js';
 import './company-view-state.js';
-import './company-views.js';
+import { removeMapRadar } from './company-views.js';
 import './company-actions.js';
 import './flip-animate.js';
 
@@ -155,6 +155,7 @@ export function clearGameBoard(): void {
     pseudoPanel.classList.remove('minimized');
     document.getElementById('pseudo-ai-actions')!.innerHTML = '';
   }
+  removeMapRadar();
   resetCompanyViews();
   clearDice();
 }
