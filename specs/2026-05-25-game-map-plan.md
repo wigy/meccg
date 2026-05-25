@@ -77,7 +77,22 @@ The Under-deeps map has its own Leaflet view (identical Leaflet setup, different
 
 ---
 
-## Agents on the map
+## Companies and agents on the map
+
+### Companies
+
+All companies from both players are shown on the map as **circle** markers.
+
+| State | Marker | Color |
+|-------|--------|-------|
+| Active company (current view) | circle, pulsing ring | gold |
+| Own other company | circle | grey |
+| Opponent company | circle | red |
+| Own company moving (Organization) | circle at destination | green |
+
+Multiple companies at the same site are offset diagonally so markers do not fully overlap.
+
+### Agents
 
 Agents are "virtual companies" (see `specs/2026-04-22-agents-plan.md` §3) that move around the map with their own site. The map must render them alongside normal companies.
 
