@@ -35,6 +35,7 @@ import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { dismissTooltip } from './company-modals.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection } from './render-selection-state.js';
+import { setAllCompaniesOverride, rerender } from './company-view-state.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -128,6 +129,17 @@ export function renderCombatView(
   arena.appendChild(bottomRow);
 
   board.appendChild(arena);
+
+  // Toggle button: switch to all-companies overview while combat is active
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'company-view-toggle';
+  toggleBtn.title = 'Show all companies';
+  toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor"/></svg>';
+  toggleBtn.onclick = () => {
+    setAllCompaniesOverride(true);
+    rerender();
+  };
+  board.appendChild(toggleBtn);
 
   // Render combat action buttons in the bottom-right corner (same area as pass button)
   renderCombatActionButtons(viable, cardPool, onAction);

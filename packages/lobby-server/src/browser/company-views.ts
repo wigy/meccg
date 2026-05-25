@@ -357,30 +357,42 @@ export function renderViewToggle(
   showingSingle: boolean,
   _view: PlayerView,
   _cardPool: Readonly<Record<string, CardDefinition>>,
+  inCombat = false,
 ): void {
   const btn = document.createElement('button');
-  btn.className = 'company-view-toggle';
-  btn.title = showingSingle ? 'Show all companies' : 'Return to focused company';
-  // Grid icon (4 squares) for "show all", crosshair for "focus on one"
-  btn.innerHTML = showingSingle
-    ? '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor"/></svg>'
-    : '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="2" x2="12" y2="7" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="2"/><line x1="17" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></svg>';
 
-  btn.onclick = () => {
-    if (showingSingle) {
-      // Save current focus so we can restore it later
-      setSavedFocusedCompanyId(getFocusedCompanyId());
-      setAllCompaniesOverride(true);
-    } else {
-      // Restore the saved focused company
+  if (inCombat) {
+    // In all-companies view during combat: red sword icon returns to combat view
+    btn.className = 'company-view-toggle company-view-toggle--battle';
+    btn.title = 'Return to battle';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="7" y1="7" x2="11" y2="11"/></svg>';
+    btn.onclick = () => {
       setAllCompaniesOverride(false);
-      const saved = getSavedFocusedCompanyId();
-      if (saved) {
-        setFocusedCompanyId(saved);
+      rerender();
+    };
+  } else {
+    btn.className = 'company-view-toggle';
+    btn.title = showingSingle ? 'Show all companies' : 'Return to focused company';
+    // Grid icon (4 squares) for "show all", crosshair for "focus on one"
+    btn.innerHTML = showingSingle
+      ? '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="2" x2="12" y2="7" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="2"/><line x1="17" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></svg>';
+    btn.onclick = () => {
+      if (showingSingle) {
+        // Save current focus so we can restore it later
+        setSavedFocusedCompanyId(getFocusedCompanyId());
+        setAllCompaniesOverride(true);
+      } else {
+        // Restore the saved focused company
+        setAllCompaniesOverride(false);
+        const saved = getSavedFocusedCompanyId();
+        if (saved) {
+          setFocusedCompanyId(saved);
+        }
       }
-    }
-    rerender();
-  };
+      rerender();
+    };
+  }
 
   container.appendChild(btn);
 }
