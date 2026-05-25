@@ -463,8 +463,8 @@ function handlePileBrowserKey(e: KeyboardEvent): boolean {
 
   if (items.length === 0) {
     // Still swallow keys so no underlying shortcut fires behind the modal.
-    if (e.key === 'Enter' || e.key.startsWith('Arrow')) e.preventDefault();
-    return e.key === 'Enter' || e.key.startsWith('Arrow');
+    if (e.key === 'Enter' || e.key?.startsWith('Arrow')) e.preventDefault();
+    return e.key === 'Enter' || e.key?.startsWith('Arrow') === true;
   }
 
   let marked = getPileBrowserMarker(items);
@@ -639,7 +639,7 @@ export function installKeyboardShortcuts(): void {
     }
 
     if (tabArmed) {
-      if (e.code.startsWith('Key') && e.code.length === 4) {
+      if (e.code?.startsWith('Key') && e.code.length === 4) {
         const letter = String.fromCharCode(e.code.charCodeAt(3) + 32);
         const binding = TAB_PILE_BINDINGS.find(b => b.key === letter);
         if (binding) {
@@ -726,7 +726,7 @@ export function installKeyboardShortcuts(): void {
     const board = getBoardTargets();
 
     // Digits address only hand slots 0..9
-    if (e.code.startsWith('Digit') && e.code.length === 6) {
+    if (e.code?.startsWith('Digit') && e.code.length === 6) {
       const d = e.code.charCodeAt(5) - 48;
       let idx: number;
       if (d >= 1 && d <= 9) idx = d - 1;
@@ -740,7 +740,7 @@ export function installKeyboardShortcuts(): void {
     }
 
     // Letters address hand overflow first, then board targets
-    if (e.code.startsWith('Key') && e.code.length === 4) {
+    if (e.code?.startsWith('Key') && e.code.length === 4) {
       const c = e.code.charCodeAt(3);
       if (c < 65 || c > 90) return;
       const letterIdx = c - 65;

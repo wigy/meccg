@@ -11,14 +11,14 @@
   position: fixed;
   bottom: 1rem;
   right: 1rem;
-  z-index: 9999;
+  z-index: 100;
   width: 180px;
   height: 130px;
   border-radius: 6px;
-  background: rgba(10, 12, 20, 0.9);
+  background: rgba(10, 12, 20, 0.85);
   overflow: hidden;
   cursor: pointer;
-  border: 3px solid rgba(255, 200, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .map-radar:hover {

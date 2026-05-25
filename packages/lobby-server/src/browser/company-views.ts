@@ -56,7 +56,7 @@ import { addOpponentInfluenceTargets } from './company-modals.js';
 import { setTargetingInstruction } from './render.js';
 import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
-import { loadCoordinates } from './map-coordinates.js';
+import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 
 /** Remove the map radar widget from the DOM if it exists. */
 export function removeMapRadar(): void {
@@ -133,16 +133,11 @@ export function renderSingleView(
   single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
   // Minimap radar — shown when the focused company is one of our own and has a site with known coordinates.
-  console.log('[radar] renderSingleView owner=%s focusedId=%s selfCompanies=%d', owner, focusedCompanyId, view.self.companies.length);
   if (owner === 'self') {
     const selfIndex = view.self.companies.findIndex(c => c.id === focusedCompanyId);
-    console.log('[radar] selfIndex=%d', selfIndex);
     if (selfIndex >= 0) {
-      void loadCoordinates().then(() => {
-        console.log('[radar] coords loaded, single.isConnected=%s', single.isConnected);
-        if (!single.isConnected) return; // superseded by a later render
+      const attachRadar = (): void => {
         const radar = createRadar(view, selfIndex, cardPool);
-        console.log('[radar] createRadar result=%s', radar ? 'element' : 'null');
         if (radar) {
           single.appendChild(radar);
           radar.addEventListener('map-radar-click', () => {
@@ -153,9 +148,15 @@ export function renderSingleView(
             });
           });
         }
-      }).catch((err: unknown) => {
-        console.error('[radar] loadCoordinates failed:', err);
-      });
+      };
+
+      if (areCoordinatesLoaded()) {
+        // Coordinates are cached — create radar synchronously (no timing issues)
+        attachRadar();
+      } else {
+        // First render: kick off the fetch, then trigger a re-render once loaded
+        void loadCoordinates().then(() => rerender()).catch(() => {});
+      }
     }
   }
 

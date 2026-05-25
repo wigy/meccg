@@ -59,3 +59,8 @@ export function getCoordinates(siteName: string): [number, number] | null {
   if (coordCache === null) return null;
   return coordCache.get(siteName.toLowerCase()) ?? null;
 }
+
+/** Returns true once {@link loadCoordinates} has successfully completed. */
+export function areCoordinatesLoaded(): boolean {
+  return coordCache !== null;
+}
