@@ -167,7 +167,7 @@ describe('Barad-dûr (tw-374)', () => {
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const result = next.phaseState as MovementHazardPhaseState;
 
-    expect(result.step).toBe('order-effects');
+    expect(result.step).toBe('draw-cards');
     expect(result.hazardLimitAtReveal).toBe(4); // 2 (base) + 2 (site-rule)
   });
 

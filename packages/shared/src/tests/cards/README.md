@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 388 | 371 | 17 | 95.6% |
+| 409 | 391 | 18 | 95.6% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 19 | 16 | 84.2% |
+| AS | 20 | 17 | 85.0% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 38 | 97.4% |
-| LE | 67 | 62 | 92.5% |
-| TD | 47 | 46 | 97.9% |
-| TW | 212 | 207 | 97.6% |
+| LE | 71 | 65 | 91.5% |
+| TD | 49 | 48 | 98.0% |
+| TW | 226 | 221 | 97.8% |
 | WH | 2 | 2 | 100.0% |
 
 ## Detailed Test Matrix
@@ -29,12 +29,13 @@
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 11 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
-| as-39 | Summons from Long Sleep | — | 8 | ◐ |
+| as-34 | Power Built by Waiting | — | 13 | ☑ |
+| as-39 | Summons from Long Sleep | — | 8 | ☐ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
-| as-68 | Bow of the Galadhrim | — | 2 | ☐ |
-| as-90 | Join With That Power | — | 10 | ◐ |
+| as-68 | Bow of the Galadhrim | — | 2 | ◐ |
+| as-90 | Join With That Power | — | 10 | ☐ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -43,8 +44,8 @@
 | as-142 | The Worthy Hills | — | 12 | ☑ |
 | as-144 | Eagles' Eyrie | — | 6 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
-| ba-2 | Azog | — | 2 | ◐ |
-| ba-4 | Bolg | — | 2 | ◐ |
+| ba-2 | Azog | — | 2 | ☐ |
+| ba-4 | Bolg | — | 2 | ☐ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
 | dm-6 | Drór | — | 4 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
@@ -100,12 +101,14 @@
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
+| le-71 | Ent in Search of the Entwives | — | 12 | ☑ |
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
 | le-90 | Slayer | — | 7 | ☑ |
+| le-91 | Sons of Kings | — | 5 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
 | le-97 | Wandering Eldar | — | 11 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
@@ -113,6 +116,7 @@
 | le-115 | Incite Defenders | — | 11 | ☑ |
 | le-122 | Lure of Expedience | — | 11 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
+| le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-132 | Rebel-talk | — | 10 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-142 | Thrice Outnumbered | — | 4 | ☑ |
@@ -121,11 +125,11 @@
 | le-154 | Stinker | — | 16 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
-| le-174 | By the Ringwraith's Word | — | 12 | ◐ |
-| le-179 | Deeper Shadow | — | 7 | ◐ |
-| le-212 | Not Slay Needlessly | — | 11 | ◐ |
+| le-174 | By the Ringwraith's Word | — | 12 | ☐ |
+| le-179 | Deeper Shadow | — | 7 | ☐ |
+| le-212 | Not Slay Needlessly | — | 11 | ☐ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
-| le-225 | Ruse | — | 15 | ◐ |
+| le-225 | Ruse | — | 15 | ☐ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
@@ -151,8 +155,9 @@
 | le-408 | Thranduil's Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
-| le-pending-effects-parity | — | — | 1 | ◐ |
+| le-pending-effects-parity | — | — | 1 | ☐ |
 | td-3 | Bairanax | — | 7 | ☑ |
+| td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-16 | Dragon's Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 6 | ☑ |
@@ -160,6 +165,7 @@
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |
 | td-27 | From the Pits of Angband | — | 11 | ◐ |
+| td-34 | Incite Denizens | — | 10 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
 | td-57 | Rain-drake | — | 10 | ☑ |
@@ -226,6 +232,7 @@
 | tw-074 | Orc-patrol | — | 3 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
+| tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-084 | — | — | 10 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
 | tw-99 | The Ring's Betrayal | — | 6 | ☑ |
@@ -240,11 +247,13 @@
 | tw-118 | Anborn | — | 3 | ☑ |
 | tw-119 | Annalena | — | — | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
+| tw-122 | Arwen | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
-| tw-124 | Bard Bowman | — | 1 | ◐ |
+| tw-124 | Bard Bowman | — | 1 | ☐ |
 | tw-126 | Beorn | — | 4 | ☑ |
 | tw-127 | Beregond | — | 3 | ☑ |
 | tw-128 | Beretar | — | 4 | ☑ |
+| tw-129 | Bergil | — | 3 | ☑ |
 | tw-131 | Bilbo | — | 6 | ☑ |
 | tw-132 | Bofur | — | 5 | ☑ |
 | tw-134 | Boromir II | — | 4 | ☑ |
@@ -255,8 +264,9 @@
 | tw-145 | Elrond | — | 4 | ☑ |
 | tw-147 | Éowyn | — | 7 | ☑ |
 | tw-148 | Erkenbrand | — | 3 | ☑ |
-| tw-149 | Faramir | — | 1 | ◐ |
+| tw-149 | Faramir | — | 1 | ☑ |
 | tw-150 | Fíli | — | 5 | ☑ |
+| tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
 | tw-156 | Gandalf | — | 6 | ☑ |
 | tw-158 | Gildor Inglorion | — | 2 | ☑ |
@@ -266,6 +276,7 @@
 | tw-162 | Halbarad | — | 4 | ☑ |
 | tw-164 | Haldir | — | 3 | ☑ |
 | tw-165 | Háma | — | 3 | ☑ |
+| tw-166 | Imrahil | — | 2 | ☑ |
 | tw-167 | Kíli | — | 5 | ☑ |
 | tw-168 | Legolas | — | 2 | ☑ |
 | tw-172 | Óin | — | 3 | ☑ |
@@ -280,6 +291,7 @@
 | tw-184 | Thranduil | — | 2 | ☑ |
 | tw-189 | A Friend or Three | — | 10 | ☑ |
 | tw-190 | Align Palantír | — | 9 | ☑ |
+| tw-196 | Beautiful Gold Ring | — | 3 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
@@ -289,6 +301,7 @@
 | tw-209 | Dodge | — | 8 | ☑ |
 | tw-212 | Durin's Axe | — | 9 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
+| tw-224 | Elf-stone | — | 6 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
 | tw-240 | Fellowship | — | 10 | ☑ |
 | tw-243 | Gates of Morning | — | 9 | ☑ |
@@ -304,13 +317,16 @@
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
+| tw-266 | Lesser Ring | — | 4 | ◐ |
 | tw-269 | Lucky Search | — | 12 | ☑ |
 | tw-270 | Lucky Strike | — | 8 | ☑ |
+| tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
 | tw-278 | Men of Dorwinion | — | 2 | ☑ |
 | tw-280 | Men of Lebennin | — | 2 | ☑ |
 | tw-288 | Muster | — | 8 | ☑ |
+| tw-289 | Narsil | — | 6 | ☑ |
 | tw-292 | New Friendship | — | 9 | ☑ |
 | tw-295 | Orcrist | — | 5 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
@@ -319,21 +335,25 @@
 | tw-311 | Rangers of the North | — | 2 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-315 | Rescue Prisoners | — | 16 | ☑ |
+| tw-316 | Return of the King | — | 6 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 7 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 6 | ☑ |
+| tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 10 | ☑ |
-| tw-333 | Sting | — | 2 | ◐ |
+| tw-333 | Sting | — | 2 | ☐ |
 | tw-335 | Sun | — | 6 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-342 | The Cock Crows | — | 9 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
-| tw-347 | The One Ring | — | 5 | ◐ |
+| tw-347 | The One Ring | — | 5 | ☐ |
 | tw-348 | The White Tree | — | 11 | ☑ |
+| tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-351 | Torque of Hues | — | 9 | ☑ |
+| tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
 | tw-353 | Treebeard | — | 4 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |

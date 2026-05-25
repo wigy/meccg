@@ -98,7 +98,7 @@
   {
     "cardType": "hazard-creature",
     "id": "tw-016",
-    "name": "Bert (Burat)",
+    "name": "\u201cBert\u201d (Bûrat)",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BertBurat.jpg",
     "unique": true,
     "strikes": 1,
@@ -324,7 +324,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "Bert (Burat)"
+                "$includes": "\u201cBert\u201d (Bûrat)"
               }
             },
             {
@@ -384,7 +384,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "Bert (Burat)"
+                "$includes": "\u201cBert\u201d (Bûrat)"
               }
             },
             {

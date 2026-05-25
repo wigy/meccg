@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.32.0 — 2026-05-25
+
+Challenge Deck E
+
+### Card Certification
+
+- Certify tw-122 (Arwen): +7 DI usable only against Aragorn II
+- Certify tw-129 (Bergil): character with no special effects
+- Certify tw-149 (Faramir): +2 DI against Rangers of Ithilien faction
+- Certify tw-151 (Forlong): check-modifier effects
+- Certify tw-166 (Imrahil): +2 DI against Knights of Dol Amroth
+- Certify tw-196 (Beautiful Gold Ring): fix corruptionPoints, add test
+- Certify tw-224 (Elf-stone): +2 DI vs Elf character/faction, no duplication per character
+- Certify tw-266, tw-274 (grant-skill effect)
+- Certify tw-289 (Narsil): +1 prowess and +1 direct influence, 2 CP
+- Certify tw-316 (Return of the King): Aragorn II only, Minas Tirith, +3 DI, blocked by Denethor II
+- Certify tw-330 (Star-glass): cancel-attack/modify-attack with bearer-tap cost
+- Certify tw-349 (Thorough Search): extra scout item play without site tap
+- Certify tw-352 (Tower Guard of Minas Tirith): +1 DI vs Dúnedain, influenceNumber 8
+- Certify tw-82 (Pûkel-men): base keying {S}{D}, alt keying 10 named Pûkel regions
+- Certify le-71 (Ent in Search of the Entwives): detainment vs hero/covert
+- Certify le-91 (Sons of Kings): playable only against minion companies
+- Certify le-128 (Nothing to Eat or Drink): company-targeting permanent hazard with -1 prowess/body
+- Certify as-34 (Power Built by Waiting): tap for +1 hazard limit, no-auto-untap
+- Certify td-4 (Bairanax Ahunt): ahunt Dragon attack, base regions + Doors of Night extension
+- Certify td-34 (Incite Denizens): duplicate auto-attack at R&L sites
+
+### Game Engine
+
+- Implement grant-skill DSL effect (tw-266, tw-274)
+- Implement gold ring test replacement mechanic (Rules 9.21/9.22)
+- Auto-advance through set-hazard-limit and order-effects steps in MH phase
+- Fix: Muster (tw-288) not playable during movement-hazard phase
+- Fix: game hang when corruption checks queued for eliminated character
+- Fix: Tidings of Bold Spies incorrectly offered against stationary companies
+- Fix: Noble Steed cannot cancel strike when it is itself the strike target
+- Fix: New Friendship shown as playable during movement-hazard phase
+- Fix: Goldberry cancel-attack not offered when card is in hand
+- Fix: ally play-target site filter not evaluated during site phase
+- Fix: correct all straight-apostrophe mismatches in card data
+- Fix: correct card name accents and punctuation (Bert/Tom/William troll trio)
+
+### Web Client
+
+- Toggle between all-companies view and combat arena during battle
+
+### AI
+
+- Recognize DSL-based items as playable at movement destinations
+- Preserve AI deck selection when lobby deck list refreshes
+- Use hero Beorn's House in Radagast challenge deck
+
+### Infrastructure
+
+- Fix: show opponent sideboard count instead of always zero
+- Docs: add game map visualization spec
+
 ## 0.31.0 — 2026-05-23
 
 Challenge Deck D
