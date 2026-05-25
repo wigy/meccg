@@ -180,6 +180,19 @@ function renderPhaseBanner(
     if (def && 'name' in def) attackerRace = (def as { name: string }).name;
   } else if (combat.attackSource.type === 'card-triggered-attack' && combat.creatureRace) {
     attackerRace = combat.creatureRace;
+  } else if (combat.attackSource.type === 'tidings-attack') {
+    const company = findCompany(combat.companyId, view);
+    const destSite = company
+      ? ('destinationSite' in company ? company.destinationSite : company.revealedDestinationSite)
+      : null;
+    if (destSite) {
+      const siteDefId = cachedInstanceLookup(destSite.instanceId);
+      const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
+      if (siteDef && 'automaticAttacks' in siteDef) {
+        const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
+        if (aa) attackerRace = aa.creatureType;
+      }
+    }
   }
   const raceLabel = attackerRace ? formatRace(attackerRace) : '';
   const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
@@ -305,6 +318,40 @@ function renderAttackerRow(
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.cardInstanceId as string);
         container.appendChild(img);
+      }
+    }
+  } else if (combat.attackSource.type === 'tidings-attack') {
+    // Show the destination site card with Tidings of Bold Spies overlaid in the corner
+    const company = findCompany(combat.companyId, view);
+    const destSite = company
+      ? ('destinationSite' in company ? company.destinationSite : company.revealedDestinationSite)
+      : null;
+    if (destSite) {
+      const siteDefId = cachedInstanceLookup(destSite.instanceId);
+      const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
+      if (siteDef) {
+        const siteImgPath = cardImageProxyPath(siteDef);
+        if (siteImgPath) {
+          const siteImg = createCardImage(siteDefId as string, siteDef, siteImgPath, 'combat-card combat-card--attacker', destSite.instanceId as string);
+          const eventDefId = cachedInstanceLookup(combat.attackSource.eventInstanceId);
+          const eventDef = eventDefId ? cardPool[eventDefId as string] : undefined;
+          if (eventDef) {
+            const eventImgPath = cardImageProxyPath(eventDef);
+            if (eventImgPath) {
+              const wrapper = document.createElement('div');
+              wrapper.className = 'agent-attack-wrapper';
+              wrapper.appendChild(siteImg);
+              const thumb = createCardImage(eventDefId as string, eventDef, eventImgPath, 'agent-attack-thumb', combat.attackSource.eventInstanceId as string);
+              thumb.style.setProperty('--agent-thumb-index', '0');
+              wrapper.appendChild(thumb);
+              container.appendChild(wrapper);
+            } else {
+              container.appendChild(siteImg);
+            }
+          } else {
+            container.appendChild(siteImg);
+          }
+        }
       }
     }
   }
