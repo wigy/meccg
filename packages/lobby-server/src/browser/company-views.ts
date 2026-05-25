@@ -152,10 +152,12 @@ export function renderSingleView(
 
       if (areCoordinatesLoaded()) {
         // Coordinates are cached — create radar synchronously (no timing issues)
+        console.log('[radar] sync attach, selfIndex=%d, site=%s', selfIndex, view.self.companies[selfIndex]?.currentSite?.instanceId);
         attachRadar();
       } else {
         // First render: kick off the fetch, then trigger a re-render once loaded
-        void loadCoordinates().then(() => rerender()).catch(() => {});
+        console.log('[radar] fetching coords...');
+        void loadCoordinates().then(() => { console.log('[radar] coords ready, rerendering'); rerender(); }).catch((e: unknown) => { console.error('[radar] fetch failed', e); });
       }
     }
   }
