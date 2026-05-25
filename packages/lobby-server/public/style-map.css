@@ -9,16 +9,16 @@
 
 .map-radar {
   position: fixed;
-  bottom: 1rem;
+  bottom: calc(1rem + 2 * (0.8rem * 1.2 + 0.7rem + 2px) + 0.35rem);
   right: 1rem;
   z-index: 100;
   width: 180px;
   height: 130px;
   border-radius: 6px;
-  background: rgba(10, 12, 20, 0.75);
+  background: rgba(10, 12, 20, 0.4);
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .map-radar:hover {
@@ -32,7 +32,7 @@
   background-image: url('/images/map-middle-earth.svg');
   background-size: cover;
   background-position: center;
-  opacity: 0.85;
+  opacity: 0.6;
 }
 
 /* Dot container — sits on top of the map background */
