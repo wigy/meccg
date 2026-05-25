@@ -94,11 +94,11 @@ describe('Rule 5.03 — Under-Deeps Movement Roll', () => {
     expect(actions.some(a => a.action.movementType === MovementType.UnderDeeps)).toBe(false);
   });
 
-  test('Under-deeps movement with roll 0 (surface to under-deeps) advances directly to set-hazard-limit', () => {
+  test('Under-deeps movement with roll 0 (surface to under-deeps) auto-advances through set-hazard-limit to draw-cards', () => {
     // Moving from Moria (surface) to The Under-gates (under-deeps): The Under-gates lists
     // "Moria: 0" in adjacentSites. Since origin (Moria) is not an under-deeps site, the
-    // required roll is always 0 — no dice roll step is entered; the engine advances
-    // directly to set-hazard-limit with empty resolvedSitePath.
+    // required roll is always 0 — no dice roll step is entered; the engine now auto-advances
+    // through set-hazard-limit and order-effects to draw-cards (empty resolvedSitePath).
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -128,12 +128,12 @@ describe('Rule 5.03 — Under-Deeps Movement Roll', () => {
 
     expect(result.error).toBeUndefined();
     const mhState = result.state.phaseState as MovementHazardPhaseState;
-    expect(mhState.step).toBe('set-hazard-limit');
+    expect(mhState.step).toBe('draw-cards');
     expect(mhState.resolvedSitePath).toHaveLength(0);
     expect(mhState.movementType).toBe(MovementType.UnderDeeps);
   });
 
-  test('Under-deeps roll success (>= required) advances to set-hazard-limit', () => {
+  test('Under-deeps roll success (>= required) auto-advances through set-hazard-limit to draw-cards', () => {
     // Moving from The Under-gates (dm-38, under-deeps) to The Under-grottos (dm-39,
     // under-deeps): The Under-gates lists "The Under-grottos: 8" in adjacentSites,
     // requiring a roll of at least 8. A roll of 8 (the minimum) is a success.
@@ -175,7 +175,7 @@ describe('Rule 5.03 — Under-Deeps Movement Roll', () => {
     );
     expect(afterRoll.error).toBeUndefined();
     const mhState = afterRoll.state.phaseState as MovementHazardPhaseState;
-    expect(mhState.step).toBe('set-hazard-limit');
+    expect(mhState.step).toBe('draw-cards');
     expect(mhState.resolvedSitePath).toHaveLength(0);
     expect(mhState.underDeepsRollRequired).toBeUndefined();
   });

@@ -48,10 +48,11 @@ describe('Rule 5.07 — Non-Moving Company Site Path', () => {
     expect(types).not.toContain('declare-path');
   });
 
-  test('Non-moving company: passing reveal-new-site advances to set-hazard-limit with current site as destination', () => {
-    // When a non-moving company passes through reveal-new-site, the phase state
-    // should advance to set-hazard-limit, with destinationSiteName set to the
-    // company's current site (rule 5.07: current site is both new site and site of origin).
+  test('Non-moving company: passing reveal-new-site auto-advances through set-hazard-limit to play-hazards', () => {
+    // When a non-moving company passes through reveal-new-site, the engine now
+    // auto-advances through set-hazard-limit and order-effects (both skipped as
+    // there are no interactive choices), landing on play-hazards. The current
+    // site (MORIA) is used as both destination and origin (rule 5.07).
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -66,8 +67,9 @@ describe('Rule 5.07 — Non-Moving Company Site Path', () => {
     const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const mhAfter = after.phaseState as MovementHazardPhaseState;
 
-    // Step advances to set-hazard-limit
-    expect(mhAfter.step).toBe('set-hazard-limit');
+    // Auto-advances past set-hazard-limit and order-effects straight to play-hazards
+    // (non-moving company has no destination, so draw-cards is skipped too)
+    expect(mhAfter.step).toBe('play-hazards');
     // Current site (MORIA) is used as both new site and site of origin
     expect(mhAfter.destinationSiteName).toBeTruthy();
   });

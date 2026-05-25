@@ -67,28 +67,50 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
 }
 
 /**
- * Snapshot the hazard limit at site reveal and advance to order-effects.
- * Per METD §5, this snapshot is the locked baseline for the rest of the
- * company's M/H phase; post-reveal modifiers accumulate via
- * currentHazardLimit() rather than mutating it.
+ * Snapshot the hazard limit and immediately process order-effects,
+ * bypassing both the set-hazard-limit and order-effects interactive steps.
+ *
+ * Called from every transition point that previously set step: 'set-hazard-limit'.
+ * The supplied `mhState` must already have all path/site fields populated
+ * (destinationSiteType, destinationSiteName, movementType, resolvedSitePath, etc.);
+ * this function computes hazardLimitAtReveal, sets step to 'order-effects',
+ * and delegates to handleOrderEffects which either initiates ahunt combat or
+ * advances straight to draw-cards.
  */
+function enterSetHazardLimitAndAutoAdvance(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+  const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
+  logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → auto-advancing through set-hazard-limit and order-effects`);
+  const orderEffectsMhState: MovementHazardPhaseState = {
+    ...mhState,
+    step: 'order-effects' as const,
+    hazardLimitAtReveal: limit,
+    preRevealHazardLimitConstraintIds: preRevealConstraintIds,
+  };
+  return handleOrderEffects(state, orderEffectsMhState);
+}
+
+/**
+ * Auto-advance through the order-effects step.
+ *
+ * Called when the state lands on order-effects with no active combat —
+ * specifically after each ahunt combat resolves — to immediately process
+ * the next ahunt or transition to draw-cards without requiring a player pass.
+ * Exported so reducer.ts can apply it as a post-combat-resolution hook.
+ */
+export function autoAdvanceMHOrderEffects(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  logDetail(`Movement/Hazard: auto-advancing through order-effects (post-ahunt or initial entry)`);
+  return handleOrderEffects(state, mhState);
+}
+
+/** @deprecated No longer reachable; set-hazard-limit is now auto-advanced. Kept for step dispatch map. */
 function handleSetHazardLimit(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'set-hazard-limit step');
-  const playerIndex = getPlayerIndex(state, action.player);
-  const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
-  const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
-  logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → advancing to order-effects`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        ...mhState,
-        step: 'order-effects' as const,
-        hazardLimitAtReveal: limit,
-        preRevealHazardLimitConstraintIds: preRevealConstraintIds,
-      },
-    },
-  };
+  return enterSetHazardLimitAndAutoAdvance(state, mhState);
 }
 
 /** Advance from the order-effects step once the hazard player passes. */
@@ -2320,18 +2342,12 @@ function handleRevealNewSite(
     const nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
     const currentSiteDef = nonMovingCompany.currentSite ? state.cardPool[nonMovingCompany.currentSite.definitionId as string] : undefined;
     const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
-    logDetail(`Movement/Hazard: non-moving company → advancing to set-hazard-limit`);
-    return {
-      state: {
-        ...state,
-        phaseState: {
-          ...mhState,
-          step: 'set-hazard-limit' as const,
-          destinationSiteType: currentSite?.siteType ?? null,
-          destinationSiteName: currentSite?.name ?? null,
-        },
-      },
-    };
+    logDetail(`Movement/Hazard: non-moving company → auto-advancing through set-hazard-limit`);
+    return enterSetHazardLimitAndAutoAdvance(state, {
+      ...mhState,
+      destinationSiteType: currentSite?.siteType ?? null,
+      destinationSiteName: currentSite?.name ?? null,
+    });
   }
 
   if (action.type !== 'declare-path') {
@@ -2392,22 +2408,16 @@ function handleRevealNewSite(
     const required = getUnderDeepsRequiredRoll(state, originDef, destDef);
     logDetail(`Under-deeps roll required: ${required}`);
     if (required === 0) {
-      logDetail(`Under-deeps: roll not required (0) — advancing to set-hazard-limit`);
-      return {
-        state: {
-          ...state,
-          phaseState: {
-            ...mhState,
-            step: 'set-hazard-limit' as const,
-            movementType: action.movementType,
-            declaredRegionPath: [],
-            resolvedSitePath: [],
-            resolvedSitePathNames: [],
-            destinationSiteType: destDef.siteType,
-            destinationSiteName: destDef.name,
-          },
-        },
-      };
+      logDetail(`Under-deeps: roll not required (0) — auto-advancing through set-hazard-limit`);
+      return enterSetHazardLimitAndAutoAdvance(state, {
+        ...mhState,
+        movementType: action.movementType,
+        declaredRegionPath: [],
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: destDef.siteType,
+        destinationSiteName: destDef.name,
+      });
     }
     logDetail(`Under-deeps: roll required (>= ${required}) — entering under-deeps-roll step`);
     return {
@@ -2428,22 +2438,16 @@ function handleRevealNewSite(
     };
   }
 
-  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to set-hazard-limit`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        ...mhState,
-        step: 'set-hazard-limit' as const,
-        movementType: action.movementType,
-        declaredRegionPath: action.regionPath ?? [],
-        resolvedSitePath,
-        resolvedSitePathNames,
-        destinationSiteType: destDef.siteType,
-        destinationSiteName: destDef.name,
-      },
-    },
-  };
+  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → auto-advancing through set-hazard-limit`);
+  return enterSetHazardLimitAndAutoAdvance(state, {
+    ...mhState,
+    movementType: action.movementType,
+    declaredRegionPath: action.regionPath ?? [],
+    resolvedSitePath,
+    resolvedSitePathNames,
+    destinationSiteType: destDef.siteType,
+    destinationSiteName: destDef.name,
+  });
 }
 
 /**
@@ -2499,23 +2503,15 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
   };
 
   if (rollTotal >= required) {
-    logDetail(`Under-deeps roll SUCCESS — advancing to set-hazard-limit`);
+    logDetail(`Under-deeps roll SUCCESS — auto-advancing through set-hazard-limit`);
     const successPlayers = clonePlayers(state);
     successPlayers[activeIndex] = { ...successPlayers[activeIndex], lastDiceRoll: roll };
-    return {
-      state: {
-        ...state,
-        rng,
-        cheatRollTotal,
-        players: successPlayers,
-        phaseState: {
-          ...mhState,
-          step: 'set-hazard-limit' as const,
-          underDeepsRollRequired: undefined,
-        },
-      },
-      effects: [rollEffect],
-    };
+    const stateAfterRoll: GameState = { ...state, rng, cheatRollTotal, players: successPlayers };
+    const advResult = enterSetHazardLimitAndAutoAdvance(stateAfterRoll, {
+      ...mhState,
+      underDeepsRollRequired: undefined,
+    });
+    return { ...advResult, effects: [rollEffect, ...(advResult.effects ?? [])] };
   }
 
   logDetail(`Under-deeps roll FAILURE — company stays at ${company.currentSite ? (state.cardPool[company.currentSite.definitionId as string]?.name ?? '?') : '?'}, returning destination to site deck`);

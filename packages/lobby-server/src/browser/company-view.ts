@@ -371,13 +371,14 @@ export function renderCompanyViews(
   const board = $('visual-board');
   board.innerHTML = '';
 
-  // Combat view takes over entirely when combat is active
-  if (view.combat) {
+  // Combat view takes over entirely when combat is active, unless the player
+  // has toggled to the all-companies overview (allCompaniesOverride).
+  if (view.combat && !getAllCompaniesOverride()) {
     renderCombatView(board, view, cardPool, onAction);
     return;
   }
 
-  // Clean up any leftover combat buttons when combat ends
+  // Clean up any leftover combat buttons when not in the combat arena view
   clearCombatButtons();
 
   // Cards in play row (permanent resources, factions, etc.) — always at top
@@ -446,7 +447,7 @@ export function renderCompanyViews(
   }
 
   // Toggle icon on the right edge of the board
-  renderViewToggle(board, showingSingle, view, cardPool);
+  renderViewToggle(board, showingSingle, view, cardPool, view.combat !== null);
 
   // Auto-open sideboard browser when in a sideboard sub-flow (org or untap hazard)
   const viable = viableActions(view.legalActions);

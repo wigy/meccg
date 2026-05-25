@@ -3705,7 +3705,7 @@ body.all-companies-mode:has(#debug-view.hidden) {
   color: rgba(196, 163, 90, 0.8);
   padding: 0.5rem;
   cursor: pointer;
-  z-index: var(--z-board);
+  z-index: var(--z-preview);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3716,6 +3716,17 @@ body.all-companies-mode:has(#debug-view.hidden) {
   background: rgba(50, 45, 30, 0.9);
   border-color: rgba(196, 163, 90, 0.8);
   color: rgba(230, 200, 120, 1);
+}
+
+.company-view-toggle--battle {
+  color: rgba(200, 60, 60, 0.9);
+  border-color: rgba(200, 60, 60, 0.5);
+}
+
+.company-view-toggle--battle:hover {
+  background: rgba(60, 20, 20, 0.9);
+  border-color: rgba(220, 80, 80, 0.8);
+  color: rgba(240, 100, 100, 1);
 }
 
 /* Company block */
