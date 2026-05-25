@@ -29,7 +29,7 @@
 .map-radar .map-bg {
   position: absolute;
   inset: 0;
-  background-image: url('/images/map-middle-earth.svg');
+  background-image: url('/images/map-middle-earth.jpg');
   background-size: cover;
   background-position: center;
   opacity: 0.6;

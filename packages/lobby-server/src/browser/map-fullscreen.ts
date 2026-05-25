@@ -122,7 +122,7 @@ export function openFullMap(
 
     // Background map image
     const mapImg = document.createElement('img');
-    mapImg.src = '/images/map-middle-earth.svg';
+    mapImg.src = '/images/map-middle-earth.jpg';
     mapImg.className = 'map-fullscreen-img';
     mapImg.alt = 'Middle-Earth Map';
     mapContainer.appendChild(mapImg);
