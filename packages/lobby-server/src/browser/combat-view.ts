@@ -887,12 +887,9 @@ function renderCombatActionButtons(
   const parent = passBtn?.parentElement;
   if (!parent) return;
 
-  // Stack buttons above the pass button, each offset upward
-  for (let i = 0; i < buttonActions.length; i++) {
-    const action = buttonActions[i];
+  for (const action of buttonActions) {
     const btn = document.createElement('button');
     btn.className = 'enter-site-btn combat-visual-btn';
-    btn.style.bottom = `${5.4 + i * 3.4}rem`;
     btn.textContent = combatButtonLabel(action);
     btn.addEventListener('click', () => onAction(action));
     parent.appendChild(btn);

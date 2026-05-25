@@ -436,6 +436,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.classList.remove('hidden');
   btn.onclick = () => onAction(passAction);
 
+  const panel = btn.parentElement;
+
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.
   if (passAction.type !== 'pass' && passAction.type !== 'pass-chain-priority') {
@@ -446,31 +448,27 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       passBtn2.className = 'enter-site-btn'; // reuse same styling
       passBtn2.textContent = 'Pass';
       passBtn2.onclick = () => onAction(secondaryPass.action);
-      btn.parentElement?.insertBefore(passBtn2, btn.nextSibling);
+      panel?.appendChild(passBtn2);
     }
   }
 
   // During untap phase, add hazard sideboard buttons for the hazard player
   if (view.phaseState.phase === Phase.Untap && view.activePlayer !== view.self.id) {
-    let hazBtnOffset = 0;
     const toDiscardEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-discard');
     if (toDiscardEval) {
       const toDiscardBtn = document.createElement('button');
       toDiscardBtn.className = 'enter-site-btn hazard-sb-btn';
       toDiscardBtn.textContent = 'Hazards to Discard';
-      toDiscardBtn.style.bottom = `${5.4 + hazBtnOffset * 3.4}rem`;
       toDiscardBtn.onclick = () => onAction(toDiscardEval.action);
-      btn.parentElement?.insertBefore(toDiscardBtn, btn.nextSibling);
-      hazBtnOffset++;
+      panel?.appendChild(toDiscardBtn);
     }
     const toDeckEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-deck');
     if (toDeckEval) {
       const toDeckBtn = document.createElement('button');
       toDeckBtn.className = 'enter-site-btn hazard-sb-btn';
       toDeckBtn.textContent = 'Hazard to Deck';
-      toDeckBtn.style.bottom = `${5.4 + hazBtnOffset * 3.4}rem`;
       toDeckBtn.onclick = () => onAction(toDeckEval.action);
-      btn.parentElement?.insertBefore(toDeckBtn, btn.nextSibling);
+      panel?.appendChild(toDeckBtn);
     }
   }
 
@@ -483,7 +481,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       councilBtn.className = 'enter-site-btn';
       councilBtn.textContent = 'Call Council';
       councilBtn.onclick = () => onAction(councilEval.action);
-      btn.parentElement?.insertBefore(councilBtn, btn);
+      panel?.appendChild(councilBtn);
     }
   }
 
@@ -502,7 +500,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       skipBtn.className = 'enter-site-btn';
       skipBtn.textContent = 'Skip';
       skipBtn.onclick = () => onAction(passAction);
-      btn.parentElement?.insertBefore(skipBtn, btn);
+      panel?.appendChild(skipBtn);
     }
   }
 }
