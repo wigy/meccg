@@ -9,7 +9,7 @@
 
 .map-radar {
   position: fixed;
-  bottom: calc(1rem + 2 * (0.8rem * 1.2 + 0.7rem + 2px) + 0.35rem);
+  bottom: 1rem;
   right: 1rem;
   z-index: 100;
   width: 180px;

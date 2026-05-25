@@ -2201,7 +2201,6 @@ h2 {
   flex: 1;
   min-width: 0;
   padding-top: 2.5rem;
-  padding-right: 5.2rem;
 }
 
 #state, #draft, #mh-info, #site-info {
@@ -2239,9 +2238,16 @@ h2 {
 }
 
 #actions {
+  position: fixed;
+  bottom: calc(1rem + 130px + 0.75rem);
+  right: 1rem;
+  z-index: 99;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  max-width: 220px;
+  max-height: calc(100vh - 130px - 3rem);
+  overflow-y: auto;
 }
 
 #actions button {
