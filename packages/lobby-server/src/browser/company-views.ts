@@ -54,6 +54,9 @@ import {
 import { renderAgentBlock, renderOpponentAgentBlock } from './company-agent.js';
 import { addOpponentInfluenceTargets } from './company-modals.js';
 import { setTargetingInstruction } from './render.js';
+import { createRadar } from './map-radar.js';
+import { openFullMap } from './map-fullscreen.js';
+import { loadCoordinates } from './map-coordinates.js';
 
 /** Render a single focused company at full scale. */
 export function renderSingleView(
@@ -123,6 +126,27 @@ export function renderSingleView(
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
   single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
+
+  // Minimap radar — shown when the focused company is one of our own and has a site with known coordinates
+  if (owner === 'self') {
+    const selfIndex = view.self.companies.findIndex(c => c.id === focusedCompanyId);
+    if (selfIndex >= 0) {
+      // Lazy-load coordinates (no-op if already cached) then append radar once ready
+      void loadCoordinates().then(() => {
+        const radar = createRadar(view, selfIndex, cardPool);
+        if (radar) {
+          single.appendChild(radar);
+          radar.addEventListener('map-radar-click', () => {
+            openFullMap(view, selfIndex, cardPool, (idx) => {
+              setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+              setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+              rerender();
+            });
+          });
+        }
+      });
+    }
+  }
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
