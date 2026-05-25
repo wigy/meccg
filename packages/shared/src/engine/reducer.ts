@@ -51,7 +51,6 @@ import { handleUntap } from './reducer-untap.js';
 import { handleOrganization } from './reducer-organization.js';
 import { handleLongEvent } from './reducer-events.js';
 import { handleMovementHazard, autoAdvanceMHOrderEffects } from './reducer-movement-hazard.js';
-import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { handleSite } from './reducer-site.js';
 import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
 import { handleFreeCouncil } from './reducer-free-council.js';
@@ -116,7 +115,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       // After ahunt combat resolves, auto-advance through order-effects to the
       // next ahunt attack or draw-cards without requiring a player pass.
       if (!finalState.combat && finalState.phaseState.phase === Phase.MovementHazard) {
-        const ps = finalState.phaseState as MovementHazardPhaseState;
+        const ps = finalState.phaseState;
         if (ps.step === 'order-effects') {
           const advResult = autoAdvanceMHOrderEffects(finalState, ps);
           if (!advResult.error) {
