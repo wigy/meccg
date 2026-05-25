@@ -77,6 +77,39 @@ The Under-deeps map has its own Leaflet view (identical Leaflet setup, different
 
 ---
 
+## Agents on the map
+
+Agents are "virtual companies" (see `specs/2026-04-22-agents-plan.md` §3) that move around the map with their own site. The map must render them alongside normal companies.
+
+### Visibility rules
+
+- **Your own agents** (face-down or face-up): you always know their current site. Show them at their site coordinates.
+- **Opponent's face-up agents**: site is revealed — shown at their current site.
+- **Opponent's face-down agents**: site is hidden from you. Do **not** place a dot on the map. Show a count badge (e.g. "2 hidden agents") in a corner of the full map view so the player knows agents exist without leaking positions.
+
+This mirrors the projection in `PlayerView.opponent.agents`: face-down entries carry only `revealed: false` and the stack length, no site name.
+
+### Visual style
+
+Agents use a **diamond** marker instead of a circle, same size as a company dot, to distinguish them at a glance:
+
+| State | Marker | Color |
+|-------|--------|-------|
+| Own agent, face-up | diamond | red |
+| Own agent, face-down | diamond | dark-red, semi-transparent |
+| Opponent face-up agent | diamond | orange |
+| Opponent face-down | (not shown on map) | — |
+
+Multiple agents at the same site cluster the same way as multiple companies: offset diagonally so markers don't fully overlap.
+
+### Interaction
+
+- **Radar**: agents shown as diamonds, same click-to-open-full-map behavior as the radar itself.
+- **Full map hover**: tooltip on an agent diamond shows the agent name (if revealed), current site, and revealed/face-down state.
+- **Full map click**: clicking an agent diamond has no effect in the initial implementation (agents are not navigated to via the map yet). Add agent selection in a later iteration once `select-company` targeting covers agents.
+
+---
+
 ## UI: Radar (minimap) in single-company view
 
 A compact `<div class="map-radar">` is added to the single-company view, positioned in the bottom-right corner (or top-right corner, to be determined by testing).
@@ -86,7 +119,8 @@ A compact `<div class="map-radar">` is added to the single-company view, positio
 - A **dot** for the current company's site (bright gold if at current site, green if at destination during Organization).
 - A **ring or pulse animation** on the active company dot.
 - Other companies' sites shown as smaller grey dots (friendly) or red dots (opponent).
-- No text labels at radar scale — dots only.
+- **Agent diamonds** for all visible agents (own: dark-red; opponent face-up: orange). Opponent face-down agents are not shown.
+- No text labels at radar scale — dots and diamonds only.
 
 **Interaction:**
 - Clicking the radar opens the full map view (see below).
@@ -101,9 +135,10 @@ A compact `<div class="map-radar">` is added to the single-company view, positio
 Clicking the radar opens a full-screen overlay (`<div class="map-fullscreen">`) containing:
 
 - The map image scaled to fill available space (maintain aspect ratio, letter-box).
-- **All company dots** positioned on their sites, same color coding as radar.
-- **Hovering** a dot shows a tooltip: company name, site name, characters.
-- **Clicking** a dot selects that company (same as the left/right navigation in the single-company view) and closes the full map.
+- **All company dots** and **agent diamonds** positioned on their sites, same color coding as radar.
+- **Hovering** a marker shows a tooltip: company/agent name, site name, members (characters for companies; agent name if revealed for agents).
+- **Clicking** a company dot selects that company (same as the left/right navigation in the single-company view) and closes the full map. Clicking an agent diamond has no effect in Phase 3 (deferred to agent UI integration phase).
+- A **hidden-agents badge** in the corner counts opponent face-down agents whose positions are not shown.
 - A **close button** (×) and pressing Escape closes the full map.
 - A **layer toggle button** (surface / under-deeps) switches between map and Under-deeps schematic.
 
@@ -196,10 +231,18 @@ All new files are in the lobby-server browser package:
 - Commit `under-deeps-coordinates.json`.
 - Wire layer toggle to show schematic when active company is underground.
 
-### Phase 5 — Movement overlay (future)
+### Phase 5 — Agent integration (after agents EPIC ships)
+
+- Read `view.self.agents` and `view.opponent.agents` from the player view.
+- Render diamond markers for all visible agents on radar and full map.
+- Show hidden-agents badge for opponent face-down agents.
+- Wire full-map diamond click to agent selection (using `SelectCompanyAction` with the agent's `CompanyId`) once `select-company` targeting covers agents per `2026-04-22-agents-plan.md` §3.2.
+
+### Phase 6 — Movement overlay (future)
 
 - Show planned movement lines in the full map during Organization phase.
 - Draw approximate region-path polylines.
+- Optionally show agent movement trajectory (the face-down site stack as a dotted trail) when revealed.
 
 ---
 
@@ -211,6 +254,7 @@ All new files are in the lobby-server browser package:
 4. **Coordinate gap audit**: After running the conversion script, check which of our sites lack coordinates. Heinrich-Barth's 426 entries cover most official + dream cards; any gaps (expansions not in their database) need manual calibration using the Uvatha `LocList.csv` region centroids as fallback.
 5. **Mobile/small screen**: Radar may be too small to be useful on narrow viewports. Consider hiding it below a breakpoint and showing a dedicated map icon/button instead.
 6. **Heinrich-Barth coordinate name mismatches**: Their keys are lowercase (`"rivendell"`) while our site names use title case (`"Rivendell"`). The conversion script must do case-insensitive matching.
+7. **Agent site-stack trail**: A face-down agent's full site stack is known to its owner. During Phase 6, should the map show a dotted trail of the sites the agent traversed while face-down, or only the current site? Showing the trail leaks the movement route on reveal — probably show only the current site (the stack is visible in the company block fan already per `2026-04-22-agents-plan.md` §3.3).
 
 ## Sources
 
