@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1008,9 +1008,7 @@ function handleDiscardMinorsForMajor(
     const currentPlayer = workingState.players[playerIndex];
     let found = false;
 
-    for (const charId of Object.keys(currentPlayer.characters)) {
-      const char = currentPlayer.characters[charId];
-      if (!char) continue;
+    for (const [charId, char] of characterEntries(currentPlayer)) {
       const itemIdx = char.items.findIndex(i => i.instanceId === itemId);
       if (itemIdx < 0) continue;
 
@@ -1653,13 +1651,13 @@ function handleOpponentInfluenceAttempt(
   } else if (action.targetKind === 'ally') {
     // Find the ally on an opponent character
     let allyFound = false;
-    for (const [oppCharId, oppChar] of Object.entries(opponent.characters)) {
+    for (const [oppCharId, oppChar] of characterEntries(opponent)) {
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
         const allyDef = state.cardPool[allyInst.definitionId as string];
         if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
         targetMind = (allyDef as { mind: number }).mind;
-        controllerDI = availableDI(state, oppCharId as CardInstanceId, opponent);
+        controllerDI = availableDI(state, oppCharId, opponent);
         allyFound = true;
         break;
       }
@@ -1836,9 +1834,9 @@ export function resolveOpponentInfluenceDefend(
     const opponent2 = state.players[opponentIndex];
     let influencedCompanyId: import('../index.js').CompanyId | undefined;
     if (attempt.targetKind === 'ally') {
-      for (const [charId, ch] of Object.entries(opponent2.characters)) {
+      for (const [charId, ch] of characterEntries(opponent2)) {
         if (ch.allies.some(a => a.instanceId === attempt.targetInstanceId)) {
-          influencedCompanyId = opponent2.companies.find(c => c.characters.includes(charId as import('../index.js').CardInstanceId))?.id;
+          influencedCompanyId = opponent2.companies.find(c => c.characters.includes(charId))?.id;
           break;
         }
       }
@@ -1897,7 +1895,7 @@ function discardInfluencedCard(
 
   if (pending.targetKind === 'ally') {
     // Find and remove the ally from its controlling character
-    for (const [charId, charInPlay] of Object.entries(opponent.characters)) {
+    for (const [charId, charInPlay] of characterEntries(opponent)) {
       const allyIdx = charInPlay.allies.findIndex(a => a.instanceId === pending.targetInstanceId);
       if (allyIdx !== -1) {
         const ally = charInPlay.allies[allyIdx];

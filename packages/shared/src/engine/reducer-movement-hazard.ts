@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -901,13 +901,13 @@ function handleAgentInfluenceAttempt(
     }
   } else if (action.targetKind === 'ally') {
     let allyFound = false;
-    for (const [oppCharId, oppChar] of Object.entries(resourcePlayer.characters)) {
+    for (const [oppCharId, oppChar] of characterEntries(resourcePlayer)) {
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
         const allyDef = state.cardPool[allyInst.definitionId as string];
         if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
         targetMind = (allyDef as { mind: number }).mind;
-        controllerDI = availableDI(state, oppCharId as CardInstanceId, resourcePlayer);
+        controllerDI = availableDI(state, oppCharId, resourcePlayer);
 
         // Rule 10.14: shared home site → mind = 0, +2 roll
         const allyHomesites = parseHomesiteNames((allyDef as { homesite?: string }).homesite ?? '');
