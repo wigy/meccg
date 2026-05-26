@@ -13,7 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries } from '../reducer-utils.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -350,8 +350,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     }
   }
 
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
-    const charId = charIdStr as unknown as import('../../index.js').CardInstanceId;
+  for (const [charId, char] of characterEntries(player)) {
     // Character's own grant-actions (e.g. Saruman).
     scanSource(charId, char, charId, char.definitionId);
     // Attached items' grant-actions (e.g. Wizard's Staff).

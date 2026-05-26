@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries } from '../reducer-utils.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -346,9 +346,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
   const actions: EvaluatedAction[] = [];
 
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
-    const charId = charIdStr as unknown as CardInstanceId;
-
+  for (const [charId, char] of characterEntries(player)) {
     // Collect grant-action effects from hazards attached to this character
     for (const hazard of char.hazards) {
       const grantActions = extractGrantActions(state, hazard.definitionId);
@@ -1155,18 +1153,18 @@ function eligiblePlayOptionTargets(
   if (playTarget.target !== 'character') return [];
   const requiresUntapped = playTarget.cost?.tap === 'character';
   const out: CardInstanceId[] = [];
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
+  for (const [charId, char] of characterEntries(player)) {
     const charDef = state.cardPool[char.definitionId as string];
     if (!charDef || !isCharacterCard(charDef)) continue;
     if (requiresUntapped && char.status !== CardStatus.Untapped) {
-      logDetail(`Play-target rejects ${charDef.name} (${charIdStr}): status ${char.status} (tap cost requires untapped)`);
+      logDetail(`Play-target rejects ${charDef.name} (${charId}): status ${char.status} (tap cost requires untapped)`);
       continue;
     }
     if (playTarget.filter
         && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
       continue;
     }
-    out.push(charIdStr as unknown as CardInstanceId);
+    out.push(charId);
   }
   return out;
 }
