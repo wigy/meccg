@@ -9,14 +9,14 @@
  *    of 13 or more. Cannot be duplicated on a given attack."
  *
  * Effects:
- * - `modify-attack-from-hand` (defender): -3 prowess / -3 body, when
+ * - `modify-attack` (defender): -3 prowess / -3 body, when
  *   non-nazgul AND enemy.prowess >= 13
  * - `duplication-limit` scope "attack" max 1: second copy blocked per attack
  *
  * Engine support:
  * | # | Feature                                              | Status      | Notes                                    |
  * |---|------------------------------------------------------|-------------|------------------------------------------|
- * | 1 | modify-attack-from-hand (defender, -3 prowess/body)  | IMPLEMENTED | modifyAttackFromHandActions + reducer     |
+ * | 1 | modify-attack (defender, -3 prowess/body)  | IMPLEMENTED | modifyAttackFromHandActions + reducer     |
  * | 2 | Condition: non-nazgul                                | IMPLEMENTED | enemy.race in context, $not operator     |
  * | 3 | Condition: normal prowess >= 13                      | IMPLEMENTED | enemy.prowess from card def in context   |
  * | 4 | Cannot be duplicated on a given attack               | IMPLEMENTED | duplication-limit scope "attack" + marker|
@@ -34,7 +34,7 @@ import {
   viableActions, dispatch, makeCancelWindowCombat,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CardDefinitionId, ModifyAttackFromHandAction } from '../../index.js';
+import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
 
 const THE_OLD_THRUSH = 'tw-346' as CardDefinitionId;
 /** Daelomin (tw-26): dragon, prowess 13, body 8 — non-nazgul with prowess ≥ 13. */
@@ -64,9 +64,9 @@ describe('The Old Thrush (tw-346)', () => {
       strikeProwess: 13,
     });
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(1);
-    const act = actions[0].action as ModifyAttackFromHandAction;
+    const act = actions[0].action as ModifyAttackAction;
     expect(act.player).toBe(PLAYER_1);
     expect(act.cardInstanceId).toBe(state.players[RESOURCE_PLAYER].hand[0].instanceId);
   });
@@ -85,7 +85,7 @@ describe('The Old Thrush (tw-346)', () => {
     // Default makeCancelWindowCombat uses Orc-patrol (tw-074, prowess 6).
     const state = makeCancelWindowCombat(base, { creatureRace: 'orc', strikeProwess: 6 });
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
   });
 
@@ -107,7 +107,7 @@ describe('The Old Thrush (tw-346)', () => {
       attackSourceType: 'automatic-attack',
     });
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
   });
 
@@ -128,7 +128,7 @@ describe('The Old Thrush (tw-346)', () => {
       strikeProwess: 13,
     });
 
-    const actions = viableActions(state, PLAYER_2, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_2, 'modify-attack');
     expect(actions).toHaveLength(0);
   });
 
@@ -151,7 +151,7 @@ describe('The Old Thrush (tw-346)', () => {
       strikeProwess: 13,
     });
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(1);
 
     const after = dispatch(state, actions[0].action);
@@ -179,7 +179,7 @@ describe('The Old Thrush (tw-346)', () => {
     // Inject body manually (makeCancelWindowCombat sets creatureBody: null).
     const state = { ...stateRaw, combat: { ...stateRaw.combat!, creatureBody: 8 } };
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(1);
 
     const after = dispatch(state, actions[0].action);
@@ -205,7 +205,7 @@ describe('The Old Thrush (tw-346)', () => {
       strikeProwess: 13,
     });
 
-    const actions = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
     const after = dispatch(state, actions[0].action);
 
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
@@ -235,7 +235,7 @@ describe('The Old Thrush (tw-346)', () => {
     });
 
     // Both copies should be offered before the first is played.
-    const before = viableActions(state, PLAYER_1, 'modify-attack-from-hand');
+    const before = viableActions(state, PLAYER_1, 'modify-attack');
     expect(before).toHaveLength(2);
 
     // Play the first copy.
@@ -245,7 +245,7 @@ describe('The Old Thrush (tw-346)', () => {
     expect(after.combat!.strikeProwess).toBe(10);
 
     // Second copy is now suppressed — duplication limit reached.
-    const secondActions = viableActions(after, PLAYER_1, 'modify-attack-from-hand');
+    const secondActions = viableActions(after, PLAYER_1, 'modify-attack');
     expect(secondActions).toHaveLength(0);
   });
 });

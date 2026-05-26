@@ -895,15 +895,16 @@ against one strike.
 Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`)
 and `engine/reducer-combat.ts` (`handleTapItemForStrike`).
 
-### 10e. `modify-attack-from-hand`
+### 10e. `modify-attack` — played from hand (`fromHand: true`)
 
-Played from hand as a short event during combat before strikes are
+When `fromHand: true` is set on a `modify-attack` effect, the card is
+played from hand as a short event during combat before strikes are
 assigned; the card is discarded after use. Modifies the current attack's
-strike prowess and/or creature body uniformly — same math as
-`modify-attack`, but the source is a hand card rather than an in-play
-item.
+strike prowess and/or creature body uniformly — same math as an in-play
+item `modify-attack`, but the source is a hand card.
 
-The `player` field selects which side plays the effect:
+The `player` field (required when `fromHand` is set) selects which side
+plays the effect:
 
 - `"attacker"` — the hazard player plays during their attack's
   pre-assignment window (e.g. Dragon's Desolation Mode A).
@@ -913,7 +914,7 @@ The `when` clause is evaluated against the standard combat context
 (`enemy.race`, `attack.source`, `attack.keying`, `inPlay`).
 
 ```json
-{ "type": "modify-attack-from-hand",
+{ "type": "modify-attack", "fromHand": true,
   "player": "attacker",
   "prowessModifier": 2,
   "when": { "enemy.race": "dragon" } }
@@ -924,9 +925,8 @@ strike prowess to one Dragon attack. Per CRF the card is playable even
 against automatic-attacks and does not count against the hazard limit
 (use `play-flag: no-hazard-limit`).
 
-Implemented in `engine/legal-actions/combat.ts`
-(`modifyAttackFromHandActions`) and `engine/reducer-combat.ts`
-(`handleModifyAttackFromHand`).
+Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
+and `engine/reducer-combat.ts` (`handleModifyAttack`).
 
 ### 11. `cancel-strike`
 

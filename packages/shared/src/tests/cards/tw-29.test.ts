@@ -22,7 +22,7 @@
  * | # | Feature                                            | Status      | Notes                                                   |
  * |---|----------------------------------------------------|-------------|---------------------------------------------------------|
  * | 1 | Play-flag: no-hazard-limit                         | IMPLEMENTED | DD ignores its own hazard-limit slot                    |
- * | 2 | Mode A: +2 strike prowess vs Dragon attack         | IMPLEMENTED | `modify-attack-from-hand` (attacker, enemy.race=dragon) |
+ * | 2 | Mode A: +2 strike prowess vs Dragon attack         | IMPLEMENTED | `modify-attack` (attacker, enemy.race=dragon) |
  * | 3 | Mode B: play-condition on destination + site path  | IMPLEMENTED | `destinationSiteType`/`inPlay`/`sitePath.*` in context  |
  * | 4 | Mode B: fixed-race creature-race-choice (Dragon)   | IMPLEMENTED | `creature-race-choice.fixedRace`                        |
  * | 5 | Mode B: add `creature-keying-bypass` constraint    | IMPLEMENTED | `apply.constraint = creature-keying-bypass`             |
@@ -43,7 +43,7 @@ import {
   HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Alignment, computeLegalActions, Race, RegionType, SiteType } from '../../index.js';
-import type { CardDefinitionId, GameState, MovementHazardPhaseState, ModifyAttackFromHandAction, PlayHazardAction } from '../../index.js';
+import type { CardDefinitionId, GameState, MovementHazardPhaseState, ModifyAttackAction, PlayHazardAction } from '../../index.js';
 
 const DRAGONS_DESOLATION = 'tw-29' as CardDefinitionId;
 const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId;
@@ -85,11 +85,11 @@ describe("Dragon's Desolation (tw-29)", () => {
       strikeProwess: 10,
     });
 
-    const actions = viableActions(combat, PLAYER_2, 'modify-attack-from-hand');
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
     expect(actions).toHaveLength(1);
 
     const ddInstance = combat.players[HAZARD_PLAYER].hand[0].instanceId;
-    const act = actions[0].action as ModifyAttackFromHandAction;
+    const act = actions[0].action as ModifyAttackAction;
     expect(act.cardInstanceId).toBe(ddInstance);
     expect(act.player).toBe(PLAYER_2);
   });
@@ -125,7 +125,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       strikeProwess: 10,
     });
 
-    const actions = viableActions(combat, PLAYER_2, 'modify-attack-from-hand');
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
     expect(actions).toHaveLength(1);
 
     const after = dispatch(combat, actions[0].action);
@@ -172,7 +172,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       strikeProwess: 6,
     });
 
-    const actions = viableActions(combat, PLAYER_2, 'modify-attack-from-hand');
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
     expect(actions).toHaveLength(0);
   });
 
@@ -206,7 +206,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       strikeProwess: 12,
     });
 
-    const actions = viableActions(combat, PLAYER_2, 'modify-attack-from-hand');
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
     expect(actions).toHaveLength(1);
   });
 
@@ -241,7 +241,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       strikeProwess: 10,
     });
 
-    const actions = viableActions(combat, PLAYER_1, 'modify-attack-from-hand');
+    const actions = viableActions(combat, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
   });
 
