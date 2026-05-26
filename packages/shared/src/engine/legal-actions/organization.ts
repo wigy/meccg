@@ -722,7 +722,7 @@ function buildGrantActionContext(
         .some(a => a.creatureType === 'Dragon')
     : false;
   const siteCtx = siteName ? {
-    hasOneRing: siteHasItemNamed(state, siteName, 'The One Ring'),
+    hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
   } : null;
@@ -733,16 +733,15 @@ function buildGrantActionContext(
  * Returns true when any character in any company at the same site
  * (matched by site *name* — so opposing-alignment copies of the same
  * physical location count as co-located) holds an item whose card
- * definition has the given name. Used by grant-action conditions to
- * gate abilities on the presence of a specific named item at the
- * ally's site (e.g. Stinker's ring-discard ability triggers when
- * The One Ring is at the same site, typically in the opposing hero
- * player's company).
+ * definition carries the given keyword. Used by grant-action conditions
+ * to gate abilities on the presence of a specific item at the ally's
+ * site (e.g. Stinker's ring-discard ability triggers when The One Ring,
+ * tagged `the-one-ring`, is at the same site).
  */
-function siteHasItemNamed(
+function siteHasItemWithKeyword(
   state: GameState,
   siteName: string,
-  itemName: string,
+  keyword: string,
 ): boolean {
   for (const p of state.players) {
     for (const company of p.companies) {
@@ -756,7 +755,7 @@ function siteHasItemNamed(
         if (!char) continue;
         for (const item of char.items) {
           const def = state.cardPool[item.definitionId as string];
-          if (def && 'name' in def && (def as { name: string }).name === itemName) return true;
+          if (def && 'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes(keyword)) return true;
         }
       }
     }

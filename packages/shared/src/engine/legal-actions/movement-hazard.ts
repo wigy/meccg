@@ -11,7 +11,7 @@ import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard,
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
-import type { TapAgentEffect, AgentTapAttackEffect, TapForHazardLimitEffect, UntapByHazardLimitEffect } from '../../types/effects.js';
+import type { TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
@@ -972,9 +972,8 @@ function tapHazardCardForLimitActions(
     if (!def || !('effects' in def) || !def.effects) continue;
     const effects = def.effects;
 
-    // Offer tap-for-hazard-limit if card is untapped
-    const tapEffect = effects.find((e): e is TapForHazardLimitEffect => e.type === 'tap-for-hazard-limit');
-    if (tapEffect) {
+    const swapEffect = effects.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+    if (swapEffect) {
       const tapAction: TapHazardCardForLimitAction = {
         type: 'tap-hazard-card-for-limit',
         player: playerId,
@@ -982,32 +981,28 @@ function tapHazardCardForLimitActions(
         targetCompanyId,
       };
       if (card.status === CardStatus.Untapped) {
-        logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${tapEffect.value} hazard limit)`);
+        logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${swapEffect.tapValue} hazard limit)`);
         actions.push({ action: tapAction, viable: true });
       } else {
         logDetail(`${def.name}: already tapped — tap-hazard-card-for-limit not available`);
         actions.push({ action: tapAction, viable: false, reason: `${def.name} is already tapped` });
       }
-    }
 
-    // Offer pay-hazard-limit-to-untap-card if card is tapped and limit allows
-    const untapEffect = effects.find((e): e is UntapByHazardLimitEffect => e.type === 'untap-by-hazard-limit');
-    if (untapEffect) {
       const untapAction: PayHazardLimitToUntapCardAction = {
         type: 'pay-hazard-limit-to-untap-card',
         player: playerId,
         cardInstanceId: card.instanceId,
         targetCompanyId,
       };
-      if (card.status === CardStatus.Tapped && remainingLimit >= untapEffect.cost) {
-        logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${untapEffect.cost} — offering pay-hazard-limit-to-untap-card`);
+      if (card.status === CardStatus.Tapped && remainingLimit >= swapEffect.untapCost) {
+        logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${swapEffect.untapCost} — offering pay-hazard-limit-to-untap-card`);
         actions.push({ action: untapAction, viable: true });
       } else if (card.status !== CardStatus.Tapped) {
         logDetail(`${def.name}: not tapped — pay-hazard-limit-to-untap-card not available`);
         actions.push({ action: untapAction, viable: false, reason: `${def.name} is not tapped` });
       } else {
-        logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${untapEffect.cost}) — pay-hazard-limit-to-untap-card not viable`);
-        actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${untapEffect.cost})` });
+        logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${swapEffect.untapCost}) — pay-hazard-limit-to-untap-card not viable`);
+        actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${swapEffect.untapCost})` });
       }
     }
   }

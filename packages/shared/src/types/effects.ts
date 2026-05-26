@@ -2246,8 +2246,7 @@ export type CardEffect =
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
-  | TapForHazardLimitEffect
-  | UntapByHazardLimitEffect
+  | HazardLimitSwapEffect
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect;
@@ -2408,33 +2407,18 @@ export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
 }
 
 /**
- * Power Built by Waiting (as-34): during the hazard player's M/H phase, they
- * may tap this card (from cardsInPlay) to increase the hazard limit against
- * the current target company by {@link value}.
+ * Power Built by Waiting (as-34): a permanent hazard event that can be tapped
+ * to raise the hazard limit, and untapped by spending hazard limit slots.
+ * Both directions are expressed together because they are two sides of the
+ * same card mechanic and always appear on the same card.
  */
-export interface TapForHazardLimitEffect extends EffectBase {
-  readonly type: 'tap-for-hazard-limit';
-  /** Number of hazard limit slots to add when this card is tapped. */
-  readonly value: number;
+export interface HazardLimitSwapEffect extends EffectBase {
+  readonly type: 'hazard-limit-swap';
+  /** Hazard limit slots added when this card is tapped. */
+  readonly tapValue: number;
+  /** Hazard limit slots consumed to untap this card. */
+  readonly untapCost: number;
 }
-
-/**
- * Power Built by Waiting (as-34): during the hazard player's M/H phase, they
- * may spend {@link cost} hazard limit slots (incrementing
- * {@link MovementHazardPhaseState.hazardsPlayedThisCompany}) to untap this card.
- */
-export interface UntapByHazardLimitEffect extends EffectBase {
-  readonly type: 'untap-by-hazard-limit';
-  /** Number of hazard limit slots consumed to untap this card. */
-  readonly cost: number;
-}
-
-/**
- * Power Built by Waiting (as-34): prevents this card from being automatically
- * untapped during the controller's untap phase. The card only untaps via the
- * {@link UntapByHazardLimitEffect} mechanism.
- * Use `play-flag: 'no-auto-untap'` on permanent event cards.
- */
 
 // ---- Gold ring test (Rule 9.21) ----
 

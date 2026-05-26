@@ -2885,7 +2885,39 @@ normal hand-play offer).
 
 Used by Gleaming Gold Ring (le-311).
 
-### 52. `grant-skill`
+### 52. `hazard-limit-swap`
+
+Marks a permanent hazard event as a bidirectional hazard-limit exchanger: the
+card can be tapped to raise the hazard limit, and hazard limit slots can be
+spent to untap it. Both directions are always present together because the two
+abilities are inherently coupled (the same card oscillates between the tapped
+and untapped states at a hazard-limit cost/gain).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `tapValue` | yes | Hazard limit slots added when the card is tapped. |
+| `untapCost` | yes | Hazard limit slots consumed to untap the card. |
+
+Tapping (`tap-hazard-card-for-limit` action) is offered when the card is
+untapped; does **not** count against the hazard limit itself.
+Untapping (`pay-hazard-limit-to-untap-card` action) is offered when the card
+is tapped and the remaining hazard limit is ≥ `untapCost`; consumes `untapCost`
+slots by incrementing `hazardsPlayedThisCompany`.
+
+Pair with `play-flag: "no-auto-untap"` to prevent the card from being
+automatically untapped during the controller's untap phase.
+
+Implementation: `legal-actions/movement-hazard.ts` `tapHazardCardForLimitActions`;
+`reducer-movement-hazard.ts` `handleTapHazardCardForLimit` /
+`handlePayHazardLimitToUntapCard`.
+
+Used by *Power Built by Waiting* (as-34):
+
+```json
+{ "type": "hazard-limit-swap", "tapValue": 1, "untapCost": 2 }
+```
+
+### 53. `grant-skill`
 
 Grants a named character skill to the item's bearer while the item is in play.
 The bearer counts as having the skill for all purposes that read `target.skills`
