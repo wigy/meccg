@@ -496,9 +496,7 @@ function createFullMapAgentDiamond(
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
 
-  const agentName = agent.revealed
-    ? (cardPool[agent.character.definitionId]?.name ?? 'Unknown agent')
-    : 'Face-down agent';
+  const agentName = cardPool[agent.character.definitionId]?.name ?? 'Unknown agent';
 
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';

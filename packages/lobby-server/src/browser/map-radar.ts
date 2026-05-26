@@ -250,9 +250,7 @@ function createAgentDiamond(
 
   const [x, y] = coords;
 
-  const agentName = agent.revealed
-    ? (cardPool[agent.character.definitionId]?.name ?? 'Unknown agent')
-    : 'Face-down agent';
+  const agentName = cardPool[agent.character.definitionId]?.name ?? 'Unknown agent';
 
   const diamond = document.createElement('div');
   const revealedClass = agent.revealed ? 'map-agent--own-revealed' : 'map-agent--own-hidden';
