@@ -138,13 +138,15 @@ export function openFullMap(
       mapContainer.appendChild(moveLines);
     }
 
+    // Collect all company dots before appending so we can spread overlapping ones.
+    const pendingDots: Array<{ dot: HTMLElement; x: number; y: number }> = [];
+
     // Self companies
     view.self.companies.forEach((company, idx) => {
       const role = idx === activeCompanyIndex ? 'active' : 'own';
       const dot = createFullMapDot(company, view, cardPool, role);
       if (!dot) return;
 
-      // Self company dots are always clickable — clicking selects and closes
       dot.addEventListener('click', (e) => {
         e.stopPropagation();
         document.removeEventListener('keydown', onKeyDown);
@@ -152,9 +154,9 @@ export function openFullMap(
         onSelectCompany(idx);
       });
 
-      dotsLayer.appendChild(dot);
+      const coords = getCoordinates(resolveCardDef(company.currentSite!.instanceId, view, cardPool)!.name)!;
+      pendingDots.push({ dot, x: coords[0], y: coords[1] });
 
-      // Destination dot for this company (if moving)
       const destDot = createDestinationDot(company, view, cardPool);
       if (destDot) dotsLayer.appendChild(destDot);
     });
@@ -162,7 +164,10 @@ export function openFullMap(
     // Opponent companies
     for (const company of view.opponent.companies) {
       const dot = createFullMapDot(company, view, cardPool, 'opponent');
-      if (dot) dotsLayer.appendChild(dot);
+      if (dot) {
+        const coords = getCoordinates(resolveCardDef(company.currentSite!.instanceId, view, cardPool)!.name)!;
+        pendingDots.push({ dot, x: coords[0], y: coords[1] });
+      }
 
       if (company.revealedDestinationSite) {
         const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
@@ -187,6 +192,26 @@ export function openFullMap(
           }
         }
       }
+    }
+
+    // Spread dots that share the same map position radially so all are visible.
+    const groups = new Map<string, typeof pendingDots>();
+    for (const item of pendingDots) {
+      const key = `${Math.round(item.x * 10000)},${Math.round(item.y * 10000)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+    const SPREAD_PX = 12;
+    for (const group of groups.values()) {
+      if (group.length > 1) {
+        group.forEach(({ dot }, i) => {
+          const angle = (i / group.length) * 2 * Math.PI - Math.PI / 2;
+          const dx = Math.cos(angle) * SPREAD_PX;
+          const dy = Math.sin(angle) * SPREAD_PX;
+          dot.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px))`;
+        });
+      }
+      for (const { dot } of group) dotsLayer.appendChild(dot);
     }
 
     // Own agents — always visible (face-up or face-down)
