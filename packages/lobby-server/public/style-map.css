@@ -55,13 +55,13 @@
   pointer-events: none;
 }
 
-/* Currently viewed own company — green pulse */
+/* Currently viewed own company — green dot, gold pulse */
 .map-dot--active {
   background: #3a9c3a;
   width: 10px;
   height: 10px;
   border-color: rgba(58, 156, 58, 0.6);
-  animation: map-pulse 1.8s ease-in-out infinite;
+  animation: map-pulse-gold 1.8s ease-in-out infinite;
   z-index: 2;
 }
 
@@ -77,13 +77,13 @@
   z-index: 1;
 }
 
-/* Currently viewed opponent company — red pulse */
+/* Currently viewed opponent company — red dot, gold pulse */
 .map-dot--opponent-active {
   background: #c04040;
   width: 10px;
   height: 10px;
   border-color: rgba(192, 64, 64, 0.6);
-  animation: map-pulse-opponent 1.8s ease-in-out infinite;
+  animation: map-pulse-gold 1.8s ease-in-out infinite;
   z-index: 2;
 }
 
@@ -99,16 +99,10 @@
   z-index: 1;
 }
 
-@keyframes map-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(58, 156, 58, 0.6); }
-  50%  { box-shadow: 0 0 0 6px rgba(58, 156, 58, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(58, 156, 58, 0); }
-}
-
-@keyframes map-pulse-opponent {
-  0%   { box-shadow: 0 0 0 0 rgba(192, 64, 64, 0.6); }
-  50%  { box-shadow: 0 0 0 6px rgba(192, 64, 64, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(192, 64, 64, 0); }
+@keyframes map-pulse-gold {
+  0%   { box-shadow: 0 0 0 0 rgba(212, 168, 32, 0.7); }
+  50%  { box-shadow: 0 0 0 7px rgba(212, 168, 32, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 168, 32, 0); }
 }
 
 /* --------------------------------------------------------------------------
@@ -317,31 +311,31 @@
    Agent diamond markers (Phase 5)
    -------------------------------------------------------------------------- */
 
-/* Base diamond shape — a rotated square positioned like company dots */
+/* Agent marker — square positioned like company dots */
 .map-agent {
   position: absolute;
   width: 8px;
   height: 8px;
-  transform: rotate(45deg) translate(-70%, -70%);
+  transform: translate(-50%, -50%);
   border: 1px solid rgba(0, 0, 0, 0.5);
   pointer-events: none;
   z-index: 1;
 }
 
-/* Own agent, face-up — red */
+/* Own agent, face-up — green */
 .map-agent--own-revealed {
-  background: #c04040;
+  background: #3a9c3a;
 }
 
-/* Own agent, face-down — dark-red, semi-transparent */
+/* Own agent, face-down — dark green, semi-transparent */
 .map-agent--own-hidden {
-  background: #7a1a1a;
+  background: #1a5a1a;
   opacity: 0.7;
 }
 
-/* Opponent face-up agent — orange (not currently rendered; site info unavailable) */
+/* Opponent face-up agent — red */
 .map-agent--opponent-revealed {
-  background: #c07830;
+  background: #c04040;
 }
 
 /* Larger diamond for the full-map overlay; enables pointer events for tooltip hover */

@@ -127,16 +127,16 @@ export function openFullMap(
     mapImg.alt = 'Middle-Earth Map';
     mapContainer.appendChild(mapImg);
 
-    // Dots layer
-    const dotsLayer = document.createElement('div');
-    dotsLayer.className = 'map-fullscreen-dots';
-    mapContainer.appendChild(dotsLayer);
-
     // Movement lines SVG layer (drawn behind dots)
     const moveLines = buildMovementLinesLayer(view, cardPool);
     if (moveLines) {
       mapContainer.appendChild(moveLines);
     }
+
+    // Dots layer
+    const dotsLayer = document.createElement('div');
+    dotsLayer.className = 'map-fullscreen-dots';
+    mapContainer.appendChild(dotsLayer);
 
     // Collect all company dots before appending so we can spread overlapping ones.
     const pendingDots: Array<{ dot: HTMLElement; x: number; y: number }> = [];
@@ -194,21 +194,21 @@ export function openFullMap(
       }
     }
 
-    // Spread dots that share the same map position radially so all are visible.
+    // Group dots that share the same map position and arrange them side by side,
+    // centred on the site coordinate.
     const groups = new Map<string, typeof pendingDots>();
     for (const item of pendingDots) {
       const key = `${Math.round(item.x * 10000)},${Math.round(item.y * 10000)}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     }
-    const SPREAD_PX = 12;
+    const STEP_PX = 14; // dot width (12px) + 2px gap
     for (const group of groups.values()) {
       if (group.length > 1) {
+        const total = group.length;
         group.forEach(({ dot }, i) => {
-          const angle = (i / group.length) * 2 * Math.PI - Math.PI / 2;
-          const dx = Math.cos(angle) * SPREAD_PX;
-          const dy = Math.sin(angle) * SPREAD_PX;
-          dot.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px))`;
+          const dx = (i - (total - 1) / 2) * STEP_PX;
+          dot.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), -50%)`;
         });
       }
       for (const { dot } of group) dotsLayer.appendChild(dot);
@@ -289,8 +289,11 @@ function checkHasUnderDeepsCompany(
 }
 
 /**
- * Build an SVG layer containing dashed movement lines for all self companies
- * that have a declared `destinationSite`.
+ * Build an SVG layer containing dashed movement lines for all companies
+ * (self and opponent) that have a declared destination site.
+ *
+ * Self companies draw a green line; opponent companies with a revealed
+ * destination draw a red line.
  *
  * The SVG is positioned absolutely over the map container with pointer-events
  * set to none so it does not interfere with dot interactions.
@@ -300,7 +303,7 @@ function buildMovementLinesLayer(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): SVGSVGElement | null {
-  const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  const lines: Array<{ x1: number; y1: number; x2: number; y2: number; stroke: string }> = [];
 
   for (const company of view.self.companies) {
     if (!company.currentSite || !company.destinationSite) continue;
@@ -318,6 +321,27 @@ function buildMovementLinesLayer(
       y1: currentCoords[1] * 100,
       x2: destCoords[0] * 100,
       y2: destCoords[1] * 100,
+      stroke: 'rgba(0, 0, 0, 0.75)',
+    });
+  }
+
+  for (const company of view.opponent.companies) {
+    if (!company.currentSite || !company.revealedDestinationSite) continue;
+
+    const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
+    const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
+    if (!currentDef || !destDef) continue;
+
+    const currentCoords = getCoordinates(currentDef.name);
+    const destCoords = getCoordinates(destDef.name);
+    if (!currentCoords || !destCoords) continue;
+
+    lines.push({
+      x1: currentCoords[0] * 100,
+      y1: currentCoords[1] * 100,
+      x2: destCoords[0] * 100,
+      y2: destCoords[1] * 100,
+      stroke: 'rgba(0, 0, 0, 0.75)',
     });
   }
 
@@ -328,15 +352,14 @@ function buildMovementLinesLayer(
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  for (const { x1, y1, x2, y2 } of lines) {
+  for (const { x1, y1, x2, y2, stroke } of lines) {
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', String(x1));
     line.setAttribute('y1', String(y1));
     line.setAttribute('x2', String(x2));
     line.setAttribute('y2', String(y2));
-    line.setAttribute('stroke', 'rgba(64, 192, 64, 0.6)');
-    line.setAttribute('stroke-width', '0.5');
-    line.setAttribute('stroke-dasharray', '1.5 1.5');
+    line.setAttribute('stroke', stroke);
+    line.setAttribute('stroke-width', '0.4');
     svg.appendChild(line);
   }
 
@@ -476,14 +499,19 @@ function createFullMapAgentDiamond(
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
 
-  // Tooltip text: agent name if revealed, else "Face-down agent"
   const agentName = agent.revealed
     ? (cardPool[agent.character.definitionId]?.name ?? 'Unknown agent')
     : 'Face-down agent';
 
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
-  tooltip.textContent = agentName;
+  const tl1 = document.createElement('div');
+  tl1.textContent = agentName;
+  const tl2 = document.createElement('div');
+  tl2.textContent = siteDef.name;
+  tl2.style.opacity = '0.75';
+  tooltip.appendChild(tl1);
+  tooltip.appendChild(tl2);
   diamond.appendChild(tooltip);
 
   return diamond;

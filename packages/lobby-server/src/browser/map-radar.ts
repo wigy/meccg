@@ -73,15 +73,26 @@ export function createRadar(
   mapBg.className = 'map-bg';
   radar.appendChild(mapBg);
 
+  // Movement lines SVG layer (drawn behind the dots)
+  const moveLines = buildRadarMovementLines(view, cardPool);
+  if (moveLines) radar.appendChild(moveLines);
+
   // Dot container — overlaid on the map background
   const dotsLayer = document.createElement('div');
   dotsLayer.className = 'map-dots';
   radar.appendChild(dotsLayer);
 
+  // Collect company dots before appending so overlapping ones can be spread.
+  const pendingDots: Array<{ dot: HTMLElement; x: number; y: number }> = [];
+
   // Render own companies
   view.self.companies.forEach((company, idx) => {
     const dot = createCompanyDot(company, view, cardPool, idx === activeCompanyIndex ? 'active' : 'own');
-    if (dot) dotsLayer.appendChild(dot);
+    if (dot) {
+      const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
+      const coords = siteDef ? getCoordinates(siteDef.name) : null;
+      if (coords) pendingDots.push({ dot, x: coords[0], y: coords[1] });
+    }
 
     // Destination dot for companies with planned movement
     const destDot = createRadarDestinationDot(company, view, cardPool);
@@ -92,7 +103,11 @@ export function createRadar(
   view.opponent.companies.forEach((company, idx) => {
     const role = idx === activeOpponentIndex ? 'opponent-active' : 'opponent';
     const dot = createCompanyDot(company, view, cardPool, role);
-    if (dot) dotsLayer.appendChild(dot);
+    if (dot) {
+      const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
+      const coords = siteDef ? getCoordinates(siteDef.name) : null;
+      if (coords) pendingDots.push({ dot, x: coords[0], y: coords[1] });
+    }
 
     if (company.revealedDestinationSite) {
       const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
@@ -109,6 +124,25 @@ export function createRadar(
       }
     }
   });
+
+  // Group company dots sharing the same position and arrange them side by side.
+  const groups = new Map<string, typeof pendingDots>();
+  for (const item of pendingDots) {
+    const key = `${Math.round(item.x * 10000)},${Math.round(item.y * 10000)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(item);
+  }
+  const STEP_PX = 10; // dot width (8px) + 2px gap
+  for (const group of groups.values()) {
+    if (group.length > 1) {
+      const total = group.length;
+      group.forEach(({ dot }, i) => {
+        const dx = (i - (total - 1) / 2) * STEP_PX;
+        dot.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), -50%)`;
+      });
+    }
+    for (const { dot } of group) dotsLayer.appendChild(dot);
+  }
 
   // Render own agents as diamond markers (always visible — face-up and face-down)
   for (const agent of view.self.agents) {
@@ -218,12 +252,16 @@ function createAgentDiamond(
 
   const [x, y] = coords;
 
+  const agentName = agent.revealed
+    ? (cardPool[agent.character.definitionId]?.name ?? 'Unknown agent')
+    : 'Face-down agent';
+
   const diamond = document.createElement('div');
   const revealedClass = agent.revealed ? 'map-agent--own-revealed' : 'map-agent--own-hidden';
   diamond.className = `map-agent ${revealedClass}`;
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
-  diamond.title = siteDef.name;
+  diamond.title = `${agentName} — ${siteDef.name}`;
 
   return diamond;
 }
@@ -254,4 +292,60 @@ function createRadarDestinationDot(
   dot.title = `→ ${destDef.name}`;
 
   return dot;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Build a miniature SVG layer for the radar showing dashed movement lines
+ * from each company's current site to its destination site.
+ * Returns null if no companies have a destination.
+ */
+function buildRadarMovementLines(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): SVGSVGElement | null {
+  const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+
+  for (const company of view.self.companies) {
+    if (!company.currentSite || !company.destinationSite) continue;
+    const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
+    const destDef = resolveCardDef(company.destinationSite.instanceId, view, cardPool);
+    if (!currentDef || !destDef) continue;
+    const c = getCoordinates(currentDef.name);
+    const d = getCoordinates(destDef.name);
+    if (!c || !d) continue;
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100 });
+  }
+
+  for (const company of view.opponent.companies) {
+    if (!company.currentSite || !company.revealedDestinationSite) continue;
+    const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
+    const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
+    if (!currentDef || !destDef) continue;
+    const c = getCoordinates(currentDef.name);
+    const d = getCoordinates(destDef.name);
+    if (!c || !d) continue;
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100 });
+  }
+
+  if (lines.length === 0) return null;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'map-destination-line');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  for (const { x1, y1, x2, y2 } of lines) {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', String(x1));
+    line.setAttribute('y1', String(y1));
+    line.setAttribute('x2', String(x2));
+    line.setAttribute('y2', String(y2));
+    line.setAttribute('stroke', 'rgba(0, 0, 0, 0.75)');
+    line.setAttribute('stroke-width', '1');
+    svg.appendChild(line);
+  }
+
+  return svg;
 }

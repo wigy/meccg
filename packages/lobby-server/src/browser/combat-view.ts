@@ -36,6 +36,10 @@ import { createCardImage } from './render-utils.js';
 import { dismissTooltip } from './company-modals.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
+import { createRadar } from './map-radar.js';
+import { openFullMap } from './map-fullscreen.js';
+import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
+import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -140,6 +144,27 @@ export function renderCombatView(
     rerender();
   };
   board.appendChild(toggleBtn);
+
+  // Radar minimap
+  const selfIndex = Math.max(0, view.self.companies.findIndex(c => c.id === getFocusedCompanyId()));
+  const attachRadar = () => {
+    const radar = createRadar(view, selfIndex, cardPool);
+    if (radar) {
+      board.appendChild(radar);
+      radar.addEventListener('map-radar-click', () => {
+        openFullMap(view, selfIndex, cardPool, (idx) => {
+          setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          rerender();
+        });
+      });
+    }
+  };
+  if (areCoordinatesLoaded()) {
+    attachRadar();
+  } else {
+    void loadCoordinates().then(() => rerender()).catch(() => {});
+  }
 
   // Render combat action buttons in the bottom-right corner (same area as pass button)
   renderCombatActionButtons(viable, cardPool, onAction);
