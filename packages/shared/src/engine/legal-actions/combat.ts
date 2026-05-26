@@ -1073,7 +1073,7 @@ function tapItemForStrikeActions(
     if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
 
     const effect = itemDef.effects.find(
-      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e as ModifyAttackEffect).scope === 'current-strike',
+      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
     );
     if (!effect) continue;
     if (effect.cost?.tap !== 'self') continue;

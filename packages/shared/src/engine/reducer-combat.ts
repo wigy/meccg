@@ -1780,7 +1780,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   const itemDef = state.cardPool[item.definitionId as string];
   if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
   const effect = itemDef.effects.find(
-    (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e as ModifyAttackEffect).scope === 'current-strike',
+    (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
   );
   if (!effect) return { state, error: 'Item has no modify-attack(current-strike) effect' };
 
