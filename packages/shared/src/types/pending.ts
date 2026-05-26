@@ -755,10 +755,10 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * Marker placed when a `modify-attack-from-hand` card with
+         * Marker placed when a `modify-attack` (fromHand) card with
          * `duplication-limit scope "attack"` is played. Stored with
          * `scope: { kind: 'attack' }` so it is swept when combat
-         * finalizes. The duplication check in `modifyAttackFromHandActions`
+         * finalizes. The duplication check in `modifyAttackActions`
          * counts constraints of this type from the same source definition
          * to prevent re-play on the same attack.
          *

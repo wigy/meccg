@@ -35,7 +35,7 @@
  *     hinge on knowing whether the defender is covert, so neither mode
  *     can fire correctly today.
  *
- *   - The "otherwise" branch needs `modify-attack-from-hand` with
+ *   - The "otherwise" branch needs `modify-attack` with `fromHand: true`,
  *     `player: "defender"` and `prowessModifier: -2`, gated on
  *     "defender is NOT covert". The effect type and player wiring exist
  *     (used by Dragon's Desolation tw-29 with `player: "attacker"`), but
@@ -60,7 +60,7 @@
  *         { "enemy.race": { "$in": ["elf", "dwarf", "dunadan", "man"] } },
  *         { "defender.covert": true }
  *       ] } },
- *     { "type": "modify-attack-from-hand",
+ *     { "type": "modify-attack", "fromHand": true,
  *       "player": "defender",
  *       "prowessModifier": -2,
  *       "when": { "$and": [

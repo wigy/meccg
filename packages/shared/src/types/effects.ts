@@ -1678,8 +1678,20 @@ export interface ModifyAttackEffect extends EffectBase {
    * Cost to activate. `{ tap: "self" }` taps the item (e.g. Black Arrow,
    * Shield of Iron-bound Ash); `{ tap: "bearer" }` taps only the item's
    * bearer without tapping the item itself (e.g. Star-glass).
+   * Absent when `fromHand` is true (hand cards are discarded, not tapped).
    */
-  readonly cost: ActionCost;
+  readonly cost?: ActionCost;
+  /**
+   * When true, the card is played from hand and discarded — not an in-play item.
+   * Either the `attacker` (hazard player) or the `defender` (resource player)
+   * may play, controlled by the `player` field.
+   */
+  readonly fromHand?: true;
+  /**
+   * Which side plays the card when `fromHand` is true.
+   * `"attacker"` — the hazard player; `"defender"` — the resource player.
+   */
+  readonly player?: 'attacker' | 'defender';
   /**
    * When true, a corruption check is enqueued on the bearer immediately after
    * the attack is modified. Used by items like Star-glass
@@ -1702,32 +1714,6 @@ export interface ModifyAttackEffect extends EffectBase {
   readonly discardIfBearerNot?: {
     readonly race: readonly string[];
   };
-}
-
-/**
- * Played from hand as a short event during combat before strikes are
- * assigned; the card is discarded after use. Modifies the current
- * attack's strike prowess and/or creature body uniformly (same windows
- * and math as {@link ModifyAttackEffect}, but the source is a hand card
- * rather than an in-play item).
- *
- * The `player` field selects who may play the effect — `attacker`
- * (hazard player) or `defender` (resource player). The `when` clause is
- * evaluated against the standard combat context
- * (`enemy.race`, `attack.source`, `attack.keying`, `inPlay`,
- * `company.size`) and gates availability per the card text.
- *
- * Example: Dragon's Desolation (tw-29, Mode A) — hazard short event;
- * attacker plays to give +2 prowess to one Dragon attack.
- */
-export interface ModifyAttackFromHandEffect extends EffectBase {
-  readonly type: 'modify-attack-from-hand';
-  /** Which side plays the card from hand. */
-  readonly player: 'attacker' | 'defender';
-  /** Amount added to the attack's strike prowess. */
-  readonly prowessModifier?: number;
-  /** Amount added to the creature's body value for the creature body check. */
-  readonly bodyModifier?: number;
 }
 
 /**
@@ -2200,7 +2186,6 @@ export type CardEffect =
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
-  | ModifyAttackFromHandEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect

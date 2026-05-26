@@ -736,7 +736,8 @@
         "flag": "no-hazard-limit"
       },
       {
-        "type": "modify-attack-from-hand",
+        "type": "modify-attack",
+        "fromHand": true,
         "player": "attacker",
         "prowessModifier": 2,
         "when": {

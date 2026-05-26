@@ -261,12 +261,15 @@ export interface CancelAttackAction {
 export interface ModifyAttackAction {
   /** Action discriminant. */
   readonly type: 'modify-attack';
-  /** The defending player activating the item. */
+  /** The player activating the card (defending player for items; attacker or defender for hand cards). */
   readonly player: PlayerId;
-  /** The in-play item paying its tap cost (or being discarded). */
+  /** The item or hand card being activated. */
   readonly cardInstanceId: CardInstanceId;
-  /** The character whose item is being activated. */
-  readonly characterInstanceId: CardInstanceId;
+  /**
+   * The character whose item is being activated.
+   * Absent when the card is played from hand (`fromHand` effect flag).
+   */
+  readonly characterInstanceId?: CardInstanceId;
 }
 
 /**
@@ -303,24 +306,6 @@ export interface HalveStrikesAction {
   /** Action discriminant. */
   readonly type: 'halve-strikes';
   /** The defending player playing the card. */
-  readonly player: PlayerId;
-  /** The short event card being played from hand. */
-  readonly cardInstanceId: CardInstanceId;
-}
-
-/**
- * Discard a short event card from hand to modify the current attack's
- * strike prowess and/or creature body. Played by the attacker or
- * defender per the card's `modify-attack-from-hand` effect. Only legal
- * during assign-strikes before any strikes have been assigned.
- *
- * Used by Dragon's Desolation (tw-29) Mode A — hazard player plays to
- * give +2 prowess to a Dragon attack.
- */
-export interface ModifyAttackFromHandAction {
-  /** Action discriminant. */
-  readonly type: 'modify-attack-from-hand';
-  /** The player playing the card from hand. */
   readonly player: PlayerId;
   /** The short event card being played from hand. */
   readonly cardInstanceId: CardInstanceId;

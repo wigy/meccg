@@ -372,11 +372,11 @@ export function describeAction(
     case 'halve-strikes':
       return `Halve strikes: play ${instName(action.cardInstanceId)}`;
     case 'modify-attack':
-      return `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} to modify attack`;
+      return action.characterInstanceId
+        ? `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} to modify attack`
+        : `Play ${instName(action.cardInstanceId)} from hand to modify attack`;
     case 'tap-item-for-strike':
       return `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} — ${action.explanation}`;
-    case 'modify-attack-from-hand':
-      return `Play ${instName(action.cardInstanceId)} from hand to modify attack`;
     case 'cancel-by-tap':
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':

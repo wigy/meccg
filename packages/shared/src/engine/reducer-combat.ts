@@ -64,8 +64,6 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleTapItemForStrike(state, action, combat);
     case 'modify-attack':
       return handleModifyAttack(state, action, combat);
-    case 'modify-attack-from-hand':
-      return handleModifyAttackFromHand(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
     case 'discard-item-from-company':
@@ -1746,12 +1744,67 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   if (action.type !== 'modify-attack') return wrongActionType(state, action, 'modify-attack');
   if (combat.phase !== 'assign-strikes') return { state, error: 'Can only modify attack before strikes are assigned' };
   if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to modify attack' };
-  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can modify attack' };
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
-  const defPlayer = state.players[defPlayerIndex];
+  const playerIndex = state.players.findIndex(p => p.id === action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIndex];
 
-  const charData = defPlayer.characters[action.characterInstanceId as string];
+  // --- From-hand path ---
+  if (action.characterInstanceId === undefined) {
+    const cardIndex = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (cardIndex < 0) return { state, error: 'Card not in hand' };
+    const handCard = player.hand[cardIndex];
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) return { state, error: 'Card has no effects' };
+    const effect = cardDef.effects.find(
+      (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
+    );
+    if (!effect) return { state, error: 'Card has no modify-attack (fromHand) effect' };
+
+    const expectedPlayerId = effect.player === 'attacker'
+      ? combat.attackingPlayerId
+      : combat.defendingPlayerId;
+    if (action.player !== expectedPlayerId) {
+      return { state, error: `Only ${effect.player === 'attacker' ? 'attacking' : 'defending'} player can play this card` };
+    }
+
+    const prowessModifier = effect.prowessModifier ?? 0;
+    const bodyModifier = effect.bodyModifier ?? 0;
+    const newHand = [...player.hand];
+    const [discardedCard] = newHand.splice(cardIndex, 1);
+    const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+    const newStrikeProwess = combat.strikeProwess + prowessModifier;
+    const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
+    const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
+    logDetail(`Modify-attack (from hand): ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+
+    let newState: GameState = {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
+      combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody },
+    };
+
+    const attackDupLimit = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.find(
+      (e): e is import('../types/effects.js').DuplicationLimitEffect =>
+        e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
+    );
+    if (attackDupLimit) {
+      newState = addConstraint(newState, {
+        source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        scope: { kind: 'attack' },
+        target: { kind: 'player', playerId: action.player },
+        kind: { type: 'attack-card-played' },
+      });
+      logDetail(`${cardName}: added attack-card-played marker (duplication-limit scope attack)`);
+    }
+
+    return { state: newState };
+  }
+
+  // --- In-play item path ---
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can modify attack with an item' };
+
+  const charData = player.characters[action.characterInstanceId as string];
   if (!charData) return { state, error: 'Character not found' };
 
   const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
@@ -1761,7 +1814,10 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   const itemDef = state.cardPool[item.definitionId as string];
   if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
   const effect = itemDef.effects.find(
-    (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack',
+    (e): e is import('../types/effects.js').ModifyAttackEffect =>
+      e.type === 'modify-attack' &&
+      !(e).fromHand &&
+      (e).scope !== 'current-strike',
   );
   if (!effect) return { state, error: 'Item has no modify-attack effect' };
 
@@ -1790,65 +1846,44 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   let updatedChar;
   if (bearerOnly) {
     logDetail(`Modify-attack: bearer ${charDef.name ?? ''} taps via ${itemName} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier})`);
-    updatedChar = {
-      ...charData,
-      status: CardStatus.Tapped,
-    };
+    updatedChar = { ...charData, status: CardStatus.Tapped };
   } else if (shouldDiscard) {
     logDetail(`Modify-attack: ${itemName} tapped — bearer ${charDef.name ?? ''} is not a ${effect.discardIfBearerNot?.race.join('/') ?? ''}, discarding item`);
-    updatedChar = {
-      ...charData,
-      items: charData.items.filter((_, i) => i !== itemIndex),
-    };
+    updatedChar = { ...charData, items: charData.items.filter((_, i) => i !== itemIndex) };
   } else {
     logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}, strikes ${strikesModifier >= 0 ? '+' : ''}${strikesModifier})`);
     updatedChar = {
       ...charData,
-      items: charData.items.map((it, i) =>
-        i === itemIndex ? { ...it, status: CardStatus.Tapped } : it,
-      ),
+      items: charData.items.map((it, i) => i === itemIndex ? { ...it, status: CardStatus.Tapped } : it),
     };
   }
 
   const newPlayers = clonePlayers(state);
-  newPlayers[defPlayerIndex] = {
-    ...newPlayers[defPlayerIndex],
-    characters: {
-      ...newPlayers[defPlayerIndex].characters,
-      [action.characterInstanceId as string]: updatedChar,
-    },
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: { ...newPlayers[playerIndex].characters, [action.characterInstanceId as string]: updatedChar },
   };
 
   if (shouldDiscard) {
-    newPlayers[defPlayerIndex] = {
-      ...newPlayers[defPlayerIndex],
-      discardPile: [
-        ...newPlayers[defPlayerIndex].discardPile,
-        { instanceId: item.instanceId, definitionId: item.definitionId },
-      ],
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
     };
   }
 
   const newStrikeProwess = combat.strikeProwess + prowessModifier;
   const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
-  const newStrikesTotal = strikesModifier !== 0
-    ? Math.max(1, combat.strikesTotal + strikesModifier)
-    : combat.strikesTotal;
+  const newStrikesTotal = strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
   logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
 
   let resultState: GameState = {
     ...state,
     players: newPlayers,
-    combat: {
-      ...combat,
-      strikeProwess: newStrikeProwess,
-      creatureBody: newCreatureBody,
-      strikesTotal: newStrikesTotal,
-    },
+    combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody, strikesTotal: newStrikesTotal },
   };
 
   if (effect.enqueueCorruptionCheck) {
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const company = player.companies.find(c => c.id === combat.companyId);
     const companyId = company?.id;
     const phase = state.phaseState.phase;
     const scope = phase === Phase.MovementHazard
@@ -1865,85 +1900,6 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   }
 
   return { state: resultState };
-}
-
-/**
- * Discard a short event card from hand to modify the current attack's
- * strike prowess and/or creature body. Applies the modifiers uniformly:
- * prowess to every strike (via `combat.strikeProwess`) and body to the
- * creature body check (via `combat.creatureBody`). Either the attacker
- * or the defender may play such an event, per the card's effect
- * declaration.
- *
- * Used by Dragon's Desolation (tw-29) Mode A — hazard-side short event
- * that boosts one Dragon attack by +2 prowess.
- */
-function handleModifyAttackFromHand(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'modify-attack-from-hand') return wrongActionType(state, action, 'modify-attack-from-hand');
-  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only modify attack before strikes are assigned' };
-  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to modify attack' };
-
-  const playerIndex = state.players.findIndex(p => p.id === action.player);
-  if (playerIndex < 0) return { state, error: 'Player not found' };
-  const player = state.players[playerIndex];
-
-  const cardIndex = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIndex < 0) return { state, error: 'Card not in hand' };
-
-  const handCard = player.hand[cardIndex];
-  const cardDef = state.cardPool[handCard.definitionId as string];
-  if (!cardDef || !('effects' in cardDef) || !cardDef.effects) return { state, error: 'Card has no effects' };
-  const effect = cardDef.effects.find(
-    (e): e is import('../types/effects.js').ModifyAttackFromHandEffect => e.type === 'modify-attack-from-hand',
-  );
-  if (!effect) return { state, error: 'Card has no modify-attack-from-hand effect' };
-
-  const expectedPlayerId = effect.player === 'attacker'
-    ? combat.attackingPlayerId
-    : combat.defendingPlayerId;
-  if (action.player !== expectedPlayerId) {
-    return { state, error: `Only ${effect.player === 'attacker' ? 'attacking' : 'defending'} player can play this card` };
-  }
-
-  const prowessModifier = effect.prowessModifier ?? 0;
-  const bodyModifier = effect.bodyModifier ?? 0;
-
-  const newHand = [...player.hand];
-  const [discardedCard] = newHand.splice(cardIndex, 1);
-  const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
-
-  const newStrikeProwess = combat.strikeProwess + prowessModifier;
-  const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
-  const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
-  logDetail(`Modify-attack-from-hand: ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
-
-  let newState: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-    combat: {
-      ...combat,
-      strikeProwess: newStrikeProwess,
-      creatureBody: newCreatureBody,
-    },
-  };
-
-  // If the card has a duplication-limit scoped to "attack", record a marker
-  // constraint so the legal-action generator can suppress re-plays.
-  const attackDupLimit = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.find(
-    (e): e is import('../types/effects.js').DuplicationLimitEffect =>
-      e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
-  );
-  if (attackDupLimit) {
-    newState = addConstraint(newState, {
-      source: handCard.instanceId,
-      sourceDefinitionId: handCard.definitionId,
-      scope: { kind: 'attack' },
-      target: { kind: 'player', playerId: action.player },
-      kind: { type: 'attack-card-played' },
-    });
-    logDetail(`${cardName}: added attack-card-played marker (duplication-limit scope attack)`);
-  }
-
-  return { state: newState };
 }
 
 /**
