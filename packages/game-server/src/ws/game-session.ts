@@ -654,16 +654,20 @@ export class GameSession {
     if (playerIdx < 0) return;
     const summoningPlayer = this.state.players[playerIdx];
 
-    // Scan only the summoning player's piles to find the next free counter
-    // for their prefix.
+    // Scan all of the summoning player's card locations (piles, characters in
+    // companies, characters dict, and agents) to find the next free counter.
+    // Omitting any location risks generating an ID that collides with a card
+    // already in play (e.g. a wizard character in a company would be missed
+    // if only flat piles are scanned).
     const prefix = summoningPlayer.id as string;
     const counterRe = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
     let maxCounter = 0;
+    const countId = (id: CardInstanceId) => {
+      const m = counterRe.exec(id as string);
+      if (m) maxCounter = Math.max(maxCounter, parseInt(m[1], 10));
+    };
     const countInstances = (pile: readonly { instanceId: CardInstanceId }[]) => {
-      for (const card of pile) {
-        const m = counterRe.exec(card.instanceId as string);
-        if (m) maxCounter = Math.max(maxCounter, parseInt(m[1], 10));
-      }
+      for (const card of pile) countId(card.instanceId);
     };
     countInstances(summoningPlayer.hand);
     countInstances(summoningPlayer.playDeck);
@@ -673,6 +677,13 @@ export class GameSession {
     countInstances(summoningPlayer.sideboard);
     countInstances(summoningPlayer.killPile);
     countInstances(summoningPlayer.outOfPlayPile);
+    // Also scan characters in companies, the characters dict, and agents —
+    // these are not in flat piles but carry instance IDs that must not collide.
+    for (const company of summoningPlayer.companies) {
+      for (const charId of company.characters) countId(charId as CardInstanceId);
+    }
+    for (const charId of Object.keys(summoningPlayer.characters)) countId(charId as CardInstanceId);
+    for (const agent of summoningPlayer.agents) countId(agent.character.instanceId);
     const newInstanceId = `${prefix}-${maxCounter + 1}` as CardInstanceId;
     const definitionId = matchDefId as CardDefinitionId;
 
