@@ -1712,9 +1712,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       for (const effect of def.effects) {
         if (
           effect.type !== 'cancel-attack' &&
-          effect.type !== 'dodge-strike' &&
-          effect.type !== 'reroll-strike' &&
-          effect.type !== 'modify-strike'
+          effect.type !== 'strike-modifier'
         ) continue;
         logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);

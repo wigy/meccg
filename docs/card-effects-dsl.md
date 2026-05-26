@@ -760,64 +760,58 @@ Subtract variant (e.g. Not at Home — reduces by 2, minimum 1):
   "when": { "inPlay": "Gates of Morning", "attack.source": "automatic-attack" } }
 ```
 
-### 10. `dodge-strike`
+### 10. `strike-modifier`
 
-Played from hand during strike resolution. The target character resolves
-the strike at full prowess without tapping (unless wounded by the strike).
-If wounded, a body penalty applies to the resulting body check.
+Played from hand during strike resolution as a short event. Covers three
+resolution modes driven by flags on the effect:
+
+**Dodge mode** (`"dodge": true`): the target character resolves the strike
+at full prowess without tapping (unless wounded). If wounded, `bodyPenalty`
+applies to the resulting body check. The play goes through the chain so the
+opponent may respond.
 
 ```json
-{ "type": "dodge-strike", "bodyPenalty": -1 }
+{ "type": "strike-modifier", "dodge": true, "bodyPenalty": -1 }
 ```
 
-The `bodyPenalty` modifies the character's body for the body check only
-(negative values reduce body, making elimination more likely).
-
-### 10a. `modify-strike`
-
-Played from hand during strike resolution to modify the current strike's
-prowess and/or body for one strike only. Unlike `dodge-strike`, the
-character still taps normally (tap-to-fight / stay-untapped is
-unaffected). Optionally gated by a skill requirement on the struck
-character (e.g. "Warrior only").
+**Reroll mode** (`"reroll": true`): two 2d6 rolls are made and the better
+total is used; the character taps normally (tap-to-fight). An optional
+`filter` gates availability on the strike target character, evaluated
+against a `target.*` context carrying the target's race, skills, and name.
 
 ```json
-{ "type": "modify-strike",
+{ "type": "strike-modifier", "reroll": true,
+  "filter": { "target.skills": { "$includes": "warrior" } } }
+```
+
+**Default (modifier) mode**: accumulates `prowessBonus` and `bodyPenalty`
+on the current strike immediately. Optionally gated by a `requiredSkill` on
+the struck character (enforces CoE 3.iv.5: only one skill-requiring resource
+per strike).
+
+```json
+{ "type": "strike-modifier",
   "prowessBonus": 3,
   "bodyPenalty": -1,
   "requiredSkill": "warrior" }
 ```
 
+**Fields:**
+
+- `dodge` — if `true`, character resolves without tapping (dodge mode).
+- `reroll` — if `true`, roll twice and use the better result (reroll mode).
 - `prowessBonus` — added to the character's prowess for the strike roll
-  (may be negative). Omit for 0.
+  (may be negative; used in default and dodge modes). Omit for 0.
 - `bodyPenalty` — added to the character's body on the resulting body
   check if wounded (typically negative). Omit for 0.
 - `requiredSkill` — the struck character must carry this skill. Omit to
-  allow any character.
+  allow any character (default mode only).
+- `filter` — condition on the strike target character (reroll mode only).
 
-Implemented in `engine/legal-actions/combat.ts` (emits a
-`play-strike-event` action during resolve-strike) and
-`engine/reducer-combat.ts` (discards the card and accumulates the
-bonuses on the current {@link StrikeAssignment}).
-
-### 10b. `reroll-strike`
-
-Played from hand during strike resolution. Two 2d6 rolls are made and the
-better total is used; the strike otherwise resolves exactly like a normal
-tap-to-fight (full prowess, character taps on success/tie).
-
-An optional `filter` condition gates availability on the strike target
-character. It is evaluated against a `target.*` context carrying the
-target's race, skills, and name (same context shape as `cancel-strike`'s
-`filter`).
-
-```json
-{ "type": "reroll-strike",
-  "filter": { "target.skills": { "$includes": "warrior" } } }
-```
-
-Example: Lucky Strike — warrior only; make two rolls against a strike
-and choose one of the two results to use.
+All modes emit a `play-strike-event` action during resolve-strike and
+discard the card from hand after use. Implemented in
+`engine/legal-actions/combat.ts` (availability scan) and
+`engine/reducer-combat.ts` (`resolveChainStrikeModifier`).
 
 ### 10c. `modify-attack`
 
@@ -1943,7 +1937,7 @@ Reduces opponent draws from Alatar's company's movement by one (floored at zero)
 
 ```json
 "effects": [
-  { "type": "dodge-strike", "bodyPenalty": -1 }
+  { "type": "strike-modifier", "dodge": true, "bodyPenalty": -1 }
 ]
 ```
 

@@ -23,7 +23,7 @@ import type { GameState, PlayerId, CardInstanceId } from '../index.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
-import { resolveCancelAttackEntry, resolveChainDodgeStrike, resolveChainRerollStrike, resolveChainModifyStrike } from './reducer-combat.js';
+import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './reducer-combat.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**
@@ -79,27 +79,12 @@ export function applyEffect(
     logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
     return { state: resolveCancelAttackEntry(state) };
   }
-  if (effect.type === 'dodge-strike') {
-    // Dodge fired from chain resolution (e.g. Dodge card).
-    logDetail(`applyEffect: dodge-strike dispatched (bodyPenalty ${effect.bodyPenalty})`);
-    const result = resolveChainDodgeStrike(state, effect.bodyPenalty);
+  if (effect.type === 'strike-modifier') {
+    const mode = effect.dodge ? 'dodge' : effect.reroll ? 'reroll' : 'modify';
+    logDetail(`applyEffect: strike-modifier dispatched (mode: ${mode})`);
+    const result = resolveChainStrikeModifier(state, effect);
     if (result.error !== undefined) return { error: result.error };
     return { state: result.state, ...(result.effects ? { effects: result.effects } : {}) };
-  }
-  if (effect.type === 'reroll-strike') {
-    // Reroll fired from chain resolution (e.g. Lucky Strike).
-    logDetail(`applyEffect: reroll-strike dispatched`);
-    const result = resolveChainRerollStrike(state);
-    if (result.error !== undefined) return { error: result.error };
-    return { state: result.state, ...(result.effects ? { effects: result.effects } : {}) };
-  }
-  if (effect.type === 'modify-strike') {
-    // Prowess/body modifier fired from chain resolution (e.g. Risky Blow).
-    const prowessBonus = effect.prowessBonus ?? 0;
-    const bodyPenalty = effect.bodyPenalty ?? 0;
-    const requiredSkill = Boolean(effect.requiredSkill);
-    logDetail(`applyEffect: modify-strike dispatched (prowess ${prowessBonus >= 0 ? '+' : ''}${prowessBonus}, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty})`);
-    return { state: resolveChainModifyStrike(state, prowessBonus, bodyPenalty, requiredSkill) };
   }
   // Other effect types are still handled by the bespoke branches in
   // chain-reducer.ts / reducer-events.ts. Phases C–G migrate them

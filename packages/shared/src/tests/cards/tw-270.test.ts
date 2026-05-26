@@ -3,13 +3,13 @@
  *
  * Card test: Lucky Strike (tw-270)
  * Type: hero-resource-event (short)
- * Effects: 1 (reroll-strike, warrior-only filter)
+ * Effects: 1 (strike-modifier, reroll mode, warrior-only filter)
  *
  * "Warrior only. Make two rolls against a strike and choose one of the
  * two results to use."
  *
  * This tests:
- * 1. reroll-strike effect — play-reroll-strike action appears during
+ * 1. strike-modifier effect (reroll mode) — play-strike-event action appears during
  *    resolve-strike when the target character is a warrior
  * 2. Warrior-only filter blocks the action when the target character is
  *    not a warrior
@@ -17,7 +17,7 @@
  *    is used
  * 4. Character taps on success (like normal tap-to-fight)
  * 5. Lucky Strike card is discarded from hand after use
- * 6. play-reroll-strike not available when no Lucky Strike card in hand
+ * 6. play-strike-event not available when no Lucky Strike card in hand
  * 7. Lucky Strike is combat-only — not playable outside combat
  */
 
@@ -35,6 +35,7 @@ import {
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 import type {
   CardDefinitionId,
+  PlayStrikeEventAction,
   PlayShortEventAction,
   NotPlayableAction,
   ResolveStrikeAction,
@@ -44,18 +45,10 @@ import type {
 // single-use IDs stay local to their consumer).
 const LUCKY_STRIKE = 'tw-270' as CardDefinitionId;
 
-type PlayRerollAction = {
-  readonly type: 'play-reroll-strike';
-  readonly player: typeof PLAYER_1;
-  readonly cardInstanceId: ReturnType<typeof handCardId>;
-  readonly need: number;
-  readonly explanation: string;
-};
-
 describe('Lucky Strike (tw-270)', () => {
   beforeEach(() => resetMint());
 
-  test('play-reroll-strike appears when Lucky Strike is in hand and target is a warrior', () => {
+  test('play-strike-event appears when Lucky Strike is in hand and target is a warrior', () => {
     const s0 = setupCombatWithCaveDrake({
       heroChars: [ARAGORN, LEGOLAS],
       creatureDefId: CAVE_DRAKE,
@@ -64,14 +57,14 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-reroll-strike');
+    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(rerollActions.length).toBe(1);
-    expect(actionAs<PlayRerollAction>(rerollActions[0].action).cardInstanceId).toBe(
+    expect(actionAs<PlayStrikeEventAction>(rerollActions[0].action).cardInstanceId).toBe(
       handCardId(s1, RESOURCE_PLAYER),
     );
   });
 
-  test('play-reroll-strike does not appear when target is not a warrior', () => {
+  test('play-strike-event does not appear when target is not a warrior', () => {
     const s0 = setupCombatWithCaveDrake({
       heroChars: [FRODO, LEGOLAS],
       creatureDefId: CAVE_DRAKE,
@@ -80,11 +73,11 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, FRODO);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-reroll-strike');
+    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(rerollActions.length).toBe(0);
   });
 
-  test('play-reroll-strike appears for warrior target even when a non-warrior is in the same company', () => {
+  test('play-strike-event appears for warrior target even when a non-warrior is in the same company', () => {
     const s0 = setupCombatWithCaveDrake({
       heroChars: [FRODO, LEGOLAS],
       creatureDefId: CAVE_DRAKE,
@@ -93,7 +86,7 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, LEGOLAS);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-reroll-strike');
+    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(rerollActions.length).toBe(1);
   });
 
@@ -106,7 +99,7 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const rerollAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-reroll-strike')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
 
     // First roll cheated to 12 — always the better of the two. Aragorn
     // prowess 6 + 12 = 18 > Cave-drake prowess 10 → success.
@@ -156,7 +149,7 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const rerollAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-reroll-strike')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
 
     const result = dispatchResult({ ...s1, cheatRollTotal: 2 }, rerollAction.action);
 
@@ -186,8 +179,8 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const rerollAction = actions.find(a => a.viable && a.action.type === 'play-reroll-strike') as
-      { action: PlayRerollAction } | undefined;
+    const rerollAction = actions.find(a => a.viable && a.action.type === 'play-strike-event') as
+      { action: PlayStrikeEventAction } | undefined;
     const tapAction = actions.find(a => a.viable && a.action.type === 'resolve-strike' &&
       actionAs<ResolveStrikeAction>(a.action).tapToFight === true) as
       { action: { need: number } } | undefined;
@@ -197,7 +190,7 @@ describe('Lucky Strike (tw-270)', () => {
     expect(rerollAction!.action.need).toBe(tapAction!.action.need);
   });
 
-  test('play-reroll-strike not available when Lucky Strike is not in hand', () => {
+  test('play-strike-event not available when Lucky Strike is not in hand', () => {
     const s0 = setupCombatWithCaveDrake({
       heroChars: [ARAGORN, LEGOLAS],
       creatureDefId: CAVE_DRAKE,
@@ -205,7 +198,7 @@ describe('Lucky Strike (tw-270)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-reroll-strike');
+    const rerollActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(rerollActions.length).toBe(0);
   });
 

@@ -404,59 +404,21 @@ export interface CancelStrikeAction {
 }
 
 /**
- * Play a dodge-strike card from hand during resolve-strike to let the
- * target character resolve the strike at full prowess without tapping
- * (unless wounded by the strike).
- */
-export interface PlayDodgeAction {
-  /** Action discriminant. */
-  readonly type: 'play-dodge';
-  /** The defending player playing the dodge card. */
-  readonly player: PlayerId;
-  /** The dodge card instance being played from hand. */
-  readonly cardInstanceId: CardInstanceId;
-  /** The unmodified 2d6 value needed with dodge prowess. */
-  readonly need: number;
-  /** Human-readable breakdown of dodging character's prowess vs creature prowess. */
-  readonly explanation: string;
-}
-
-/**
- * Play a modify-strike short event (e.g. Risky Blow) from hand during
- * resolve-strike. The card is discarded and its prowess bonus /
- * body penalty are accumulated onto the current strike.
+ * Play a strike-modifier short event (Dodge, Risky Blow, Lucky Strike, etc.)
+ * from hand during resolve-strike. The engine consults the card's
+ * `strike-modifier` effect to determine the resolution mode (dodge, reroll,
+ * or prowess/body modifier). All three share the same action shape.
  */
 export interface PlayStrikeEventAction {
   /** Action discriminant. */
   readonly type: 'play-strike-event';
   /** The defending player playing the card. */
   readonly player: PlayerId;
-  /** The short-event card instance being played from hand. */
+  /** The strike-modifier card instance being played from hand. */
   readonly cardInstanceId: CardInstanceId;
-  /** The 2d6 value needed after applying this card's prowess bonus. */
+  /** The 2d6 value needed (tap or dodge prowess, or unmodified need for reroll). */
   readonly need: number;
   /** Human-readable breakdown of the modified prowess vs creature prowess. */
-  readonly explanation: string;
-}
-
-/**
- * Play a reroll-strike card from hand during resolve-strike. The target
- * character resolves the strike normally (tap-to-fight, full prowess)
- * but two 2d6 rolls are made and the better total is used.
- *
- * Example: Lucky Strike — warrior only; make two rolls against a strike
- * and choose one of the two results to use.
- */
-export interface PlayRerollStrikeAction {
-  /** Action discriminant. */
-  readonly type: 'play-reroll-strike';
-  /** The defending player playing the reroll card. */
-  readonly player: PlayerId;
-  /** The reroll card instance being played from hand. */
-  readonly cardInstanceId: CardInstanceId;
-  /** The unmodified 2d6 value needed to defeat the strike (tap prowess). */
-  readonly need: number;
-  /** Human-readable breakdown of character's prowess vs creature prowess. */
   readonly explanation: string;
 }
 

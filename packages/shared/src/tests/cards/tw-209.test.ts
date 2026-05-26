@@ -10,12 +10,12 @@
  * for the resulting body check."
  *
  * This tests:
- * 1. dodge-strike effect — play-dodge action appears during resolve-strike
+ * 1. strike-modifier effect (dodge mode) — play-strike-event action appears during resolve-strike
  * 2. Character does not tap on success when dodging
  * 3. Character gets wounded normally when losing (body -1 on body check)
  * 4. Dodge card is discarded from hand after use
  * 5. Full prowess used (no -3 untapped penalty)
- * 6. play-dodge not available when no dodge card in hand
+ * 6. play-strike-event not available when no dodge card in hand
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -30,21 +30,21 @@ import {
   actionAs, RESOURCE_PLAYER, resolveChain,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
-import type { PlayDodgeAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
+import type { PlayStrikeEventAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
 
 const CAVE_DRAKE_FIGHT = { heroChars: [ARAGORN, LEGOLAS], creatureDefId: CAVE_DRAKE } as const;
 
 describe('Dodge (tw-209)', () => {
   beforeEach(() => resetMint());
 
-  test('play-dodge action appears during resolve-strike when Dodge is in hand', () => {
+  test('play-strike-event action appears during resolve-strike when Dodge is in hand', () => {
     const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
+    const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(dodgeActions.length).toBe(1);
-    expect((dodgeActions[0].action as PlayDodgeAction).cardInstanceId).toBe(
+    expect((dodgeActions[0].action as PlayStrikeEventAction).cardInstanceId).toBe(
       handCardId(s1, RESOURCE_PLAYER),
     );
   });
@@ -54,7 +54,7 @@ describe('Dodge (tw-209)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-dodge')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
 
     // Cheat roll high: Aragorn prowess 6 + 12 = 18 > 10 → success
     const s2raw = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
@@ -73,7 +73,7 @@ describe('Dodge (tw-209)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-dodge')!;
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
 
     // Cheat roll low: Aragorn prowess 6 + 2 = 8 < 10 → wounded
     const s2 = resolveChain(dispatch({ ...s1, cheatRollTotal: 2 }, dodgeAction.action));
@@ -99,8 +99,8 @@ describe('Dodge (tw-209)', () => {
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const dodgeAction = actions.find(a => a.viable && a.action.type === 'play-dodge') as
-      { action: PlayDodgeAction } | undefined;
+    const dodgeAction = actions.find(a => a.viable && a.action.type === 'play-strike-event') as
+      { action: PlayStrikeEventAction } | undefined;
     const tapAction = actions.find(a => a.viable && a.action.type === 'resolve-strike' &&
       actionAs<ResolveStrikeAction>(a.action).tapToFight === true) as
       { action: { need: number } } | undefined;
@@ -111,12 +111,12 @@ describe('Dodge (tw-209)', () => {
     expect(dodgeAction!.action.need).toBe(tapAction!.action.need);
   });
 
-  test('play-dodge not available when no dodge card in hand', () => {
+  test('play-strike-event not available when no dodge card in hand', () => {
     const s0 = setupCombatWithCaveDrake(CAVE_DRAKE_FIGHT);
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
-    const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
+    const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-strike-event');
     expect(dodgeActions.length).toBe(0);
   });
 
@@ -155,13 +155,13 @@ describe('Dodge (tw-209)', () => {
     expect(notPlayable).toBeDefined();
   });
 
-  test('Dodge card identity is revealed to opponent after play-dodge', () => {
+  test('Dodge card identity is revealed to opponent after play-strike-event', () => {
     const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
     const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
-      .find(a => a.viable && a.action.type === 'play-dodge')!;
-    const dodgeInstanceId = (dodgeAction.action as PlayDodgeAction).cardInstanceId;
+      .find(a => a.viable && a.action.type === 'play-strike-event')!;
+    const dodgeInstanceId = (dodgeAction.action as PlayStrikeEventAction).cardInstanceId;
 
     const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
 
