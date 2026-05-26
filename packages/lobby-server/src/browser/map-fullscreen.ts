@@ -175,7 +175,13 @@ export function openFullMap(
             destDot.style.top = `${coords[1] * 100}%`;
             const tooltip = document.createElement('div');
             tooltip.className = 'map-dot-tooltip';
-            tooltip.textContent = `→ ${destDef.name}`;
+            const tl1 = document.createElement('div');
+            tl1.textContent = companyLabel(company, view, cardPool);
+            const tl2 = document.createElement('div');
+            tl2.textContent = `→ ${destDef.name}`;
+            tl2.style.opacity = '0.75';
+            tooltip.appendChild(tl1);
+            tooltip.appendChild(tl2);
             destDot.appendChild(tooltip);
             dotsLayer.appendChild(destDot);
           }
@@ -338,7 +344,13 @@ function createDestinationDot(
 
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
-  tooltip.textContent = `→ ${destDef.name}`;
+  const line1 = document.createElement('div');
+  line1.textContent = companyLabel(company, view, cardPool);
+  const line2 = document.createElement('div');
+  line2.textContent = `→ ${destDef.name}`;
+  line2.style.opacity = '0.75';
+  tooltip.appendChild(line1);
+  tooltip.appendChild(line2);
   dot.appendChild(tooltip);
 
   return dot;
