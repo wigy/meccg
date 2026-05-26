@@ -683,10 +683,10 @@ function buildGrantActionContext(
     : char.status === CardStatus.Tapped ? 'tapped'
     : 'inverted';
 
-  const canUsePalantir = (charDef && hasPlayFlag(charDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }, 'can-use-palantir')) ||
+  const canUsePalantir = hasPlayFlag(charDef, 'can-use-palantir') ||
     char.items.some(item => {
       const itemDef = state.cardPool[item.definitionId as string];
-      return itemDef && 'effects' in itemDef && hasPlayFlag(itemDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }, 'can-use-palantir');
+      return 'effects' in itemDef && hasPlayFlag(itemDef, 'can-use-palantir');
     });
 
   const siteDef = company?.currentSite

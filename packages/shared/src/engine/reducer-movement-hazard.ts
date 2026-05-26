@@ -2605,7 +2605,7 @@ function handleTapHazardCardForLimit(
 
   const def = state.cardPool[card.definitionId as string];
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    ?.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+    .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = def?.name ?? card.definitionId as string;
@@ -2651,7 +2651,7 @@ function handlePayHazardLimitToUntapCard(
 
   const def = state.cardPool[card.definitionId as string];
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    ?.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+    .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = def?.name ?? card.definitionId as string;

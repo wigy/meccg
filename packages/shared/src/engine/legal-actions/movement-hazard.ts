@@ -949,10 +949,12 @@ function agentTapAttackActions(
 /**
  * Power Built by Waiting (as-34):
  *
- * - If the hazard player has an untapped cardsInPlay card with
- *   `tap-for-hazard-limit`, offer a `tap-hazard-card-for-limit` action.
- * - If the hazard player has a tapped cardsInPlay card with
- *   `untap-by-hazard-limit` and the remaining hazard limit is ≥ cost,
+ * For each hazard-player cardsInPlay card carrying a `hazard-limit-swap`
+ * effect:
+ *
+ * - If the card is untapped, offer a `tap-hazard-card-for-limit` action
+ *   (taps the card to raise the hazard limit by `tapValue`).
+ * - If the card is tapped and the remaining hazard limit is ≥ `untapCost`,
  *   offer a `pay-hazard-limit-to-untap-card` action.
  */
 function tapHazardCardForLimitActions(
@@ -973,37 +975,37 @@ function tapHazardCardForLimitActions(
     const effects = def.effects;
 
     const swapEffect = effects.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
-    if (swapEffect) {
-      const tapAction: TapHazardCardForLimitAction = {
-        type: 'tap-hazard-card-for-limit',
-        player: playerId,
-        cardInstanceId: card.instanceId,
-        targetCompanyId,
-      };
-      if (card.status === CardStatus.Untapped) {
-        logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${swapEffect.tapValue} hazard limit)`);
-        actions.push({ action: tapAction, viable: true });
-      } else {
-        logDetail(`${def.name}: already tapped — tap-hazard-card-for-limit not available`);
-        actions.push({ action: tapAction, viable: false, reason: `${def.name} is already tapped` });
-      }
+    if (!swapEffect) continue;
 
-      const untapAction: PayHazardLimitToUntapCardAction = {
-        type: 'pay-hazard-limit-to-untap-card',
-        player: playerId,
-        cardInstanceId: card.instanceId,
-        targetCompanyId,
-      };
-      if (card.status === CardStatus.Tapped && remainingLimit >= swapEffect.untapCost) {
-        logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${swapEffect.untapCost} — offering pay-hazard-limit-to-untap-card`);
-        actions.push({ action: untapAction, viable: true });
-      } else if (card.status !== CardStatus.Tapped) {
-        logDetail(`${def.name}: not tapped — pay-hazard-limit-to-untap-card not available`);
-        actions.push({ action: untapAction, viable: false, reason: `${def.name} is not tapped` });
-      } else {
-        logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${swapEffect.untapCost}) — pay-hazard-limit-to-untap-card not viable`);
-        actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${swapEffect.untapCost})` });
-      }
+    const tapAction: TapHazardCardForLimitAction = {
+      type: 'tap-hazard-card-for-limit',
+      player: playerId,
+      cardInstanceId: card.instanceId,
+      targetCompanyId,
+    };
+    if (card.status === CardStatus.Untapped) {
+      logDetail(`${def.name}: untapped — offering tap-hazard-card-for-limit (+${swapEffect.tapValue} hazard limit)`);
+      actions.push({ action: tapAction, viable: true });
+    } else {
+      logDetail(`${def.name}: already tapped — tap-hazard-card-for-limit not available`);
+      actions.push({ action: tapAction, viable: false, reason: `${def.name} is already tapped` });
+    }
+
+    const untapAction: PayHazardLimitToUntapCardAction = {
+      type: 'pay-hazard-limit-to-untap-card',
+      player: playerId,
+      cardInstanceId: card.instanceId,
+      targetCompanyId,
+    };
+    if (card.status === CardStatus.Tapped && remainingLimit >= swapEffect.untapCost) {
+      logDetail(`${def.name}: tapped, ${remainingLimit} limit remaining ≥ cost ${swapEffect.untapCost} — offering pay-hazard-limit-to-untap-card`);
+      actions.push({ action: untapAction, viable: true });
+    } else if (card.status !== CardStatus.Tapped) {
+      logDetail(`${def.name}: not tapped — pay-hazard-limit-to-untap-card not available`);
+      actions.push({ action: untapAction, viable: false, reason: `${def.name} is not tapped` });
+    } else {
+      logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${swapEffect.untapCost}) — pay-hazard-limit-to-untap-card not viable`);
+      actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${swapEffect.untapCost})` });
     }
   }
 
