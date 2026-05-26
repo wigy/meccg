@@ -135,12 +135,11 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-/* Close button (×) — right side, vertically centred */
+/* Close button (×) — top-right corner */
 .map-fullscreen-close {
   position: absolute;
-  top: 50%;
+  top: 8px;
   right: 8px;
-  transform: translateY(-50%);
   z-index: 10;
   width: 32px;
   height: 32px;
@@ -161,10 +160,11 @@
   color: #fff;
 }
 
-/* Map image container — fills the inner container */
+/* Map image container — fills the inner container, top padding reserves space for controls */
 .map-fullscreen-map {
   position: absolute;
   inset: 0;
+  padding-top: 44px;
 }
 
 /* The actual map image */
@@ -229,9 +229,8 @@
 
 .map-layer-toggle {
   position: absolute;
-  top: 50%;
+  top: 8px;
   left: 8px;
-  transform: translateY(-50%);
   z-index: 10;
   padding: 4px 10px;
   border-radius: 4px;
