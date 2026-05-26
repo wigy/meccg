@@ -344,6 +344,19 @@ function createDestinationDot(
   return dot;
 }
 
+/** Derive a short company label from its first character, e.g. "Gandalf's Company". */
+function companyLabel(
+  company: Company | OpponentCompanyView,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const firstId = company.characters[0];
+  if (!firstId) return 'Company';
+  const def = resolveCardDef(firstId, view, cardPool);
+  if (!def) return 'Company';
+  return def.name.endsWith('s') ? `${def.name}' Company` : `${def.name}'s Company`;
+}
+
 /**
  * Create a positioned dot element for the full map overlay.
  * The dot is larger than the radar dot (12×12px via CSS class `map-dot--full`).
@@ -370,13 +383,15 @@ function createFullMapDot(
   dot.style.left = `${x * 100}%`;
   dot.style.top = `${y * 100}%`;
 
-  // Tooltip
-  dot.title = siteDef.name;
+  const label = companyLabel(company, view, cardPool);
 
-  // Hover tooltip with site name
+  // Tooltip
+  dot.title = `${label} — ${siteDef.name}`;
+
+  // Hover tooltip with company name and site
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
-  tooltip.textContent = siteDef.name;
+  tooltip.textContent = `${label} — ${siteDef.name}`;
   dot.appendChild(tooltip);
 
   return dot;
