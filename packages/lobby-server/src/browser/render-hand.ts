@@ -202,21 +202,8 @@ function findCancelAttackActions(
 }
 
 /**
- * Find all play-dodge actions for a given card instance.
- */
-function findDodgeActions(
-  instanceId: CardInstanceId | null,
-  legalActions: readonly GameAction[],
-): GameAction[] {
-  if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-dodge' && a.cardInstanceId === instanceId,
-  );
-}
-
-/**
- * Find all play-strike-event actions for a given card instance
- * (e.g. Risky Blow: modify the current strike's prowess/body).
+ * Find all play-strike-event actions for a given card instance.
+ * Covers all strike-modifier modes: dodge, reroll, and prowess/body modifier.
  */
 function findStrikeEventActions(
   instanceId: CardInstanceId | null,
@@ -225,20 +212,6 @@ function findStrikeEventActions(
   if (!instanceId) return [];
   return legalActions.filter(
     a => a.type === 'play-strike-event' && a.cardInstanceId === instanceId,
-  );
-}
-
-/**
- * Find all play-reroll-strike actions for a given card instance
- * (e.g. Lucky Strike: reroll the current strike, keep the better result).
- */
-function findRerollStrikeActions(
-  instanceId: CardInstanceId | null,
-  legalActions: readonly GameAction[],
-): GameAction[] {
-  if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-reroll-strike' && a.cardInstanceId === instanceId,
   );
 }
 
@@ -824,16 +797,12 @@ export function renderHand(
     const isInfluence = influenceActions.length > 0;
     const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
     const isCancelAttack = cancelAttackActions.length > 0;
-    const dodgeActions = findDodgeActions(cardInstanceId, viable);
-    const isDodge = dodgeActions.length > 0;
     const strikeEventActions = findStrikeEventActions(cardInstanceId, viable);
     const isStrikeEvent = strikeEventActions.length > 0;
-    const rerollStrikeActions = findRerollStrikeActions(cardInstanceId, viable);
-    const isRerollStrike = rerollStrikeActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !isRerollStrike && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1098,20 +1067,10 @@ export function renderHand(
           });
         }
       }
-    } else if (isDodge) {
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        img.addEventListener('click', () => onAction(dodgeActions[0]));
-      }
     } else if (isStrikeEvent) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', () => onAction(strikeEventActions[0]));
-      }
-    } else if (isRerollStrike) {
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        img.addEventListener('click', () => onAction(rerollStrikeActions[0]));
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';

@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
@@ -596,117 +596,70 @@ function resolveStrikeActions(
     });
   }
 
-  // Dodge: scan hand for cards with dodge-strike effect. The character
-  // resolves the strike at full prowess without tapping (unless wounded).
+  // strike-modifier short events: scan hand once for cards with a `strike-modifier`
+  // effect. Mode is determined by effect flags: dodge (no-tap), reroll (two rolls),
+  // or default (prowess/body accumulator). All three emit `play-strike-event`.
+  const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
   for (const handCard of player0.hand) {
     const cardDef = state.cardPool[handCard.definitionId as string];
     if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[]; name?: string };
     if (!cardWithEffects.effects) continue;
 
-    const dodgeEffect = cardWithEffects.effects.find(
-      (e): e is DodgeStrikeEffect => e.type === 'dodge-strike',
+    const strikeEffect = cardWithEffects.effects.find(
+      (e): e is StrikeModifierEffect => e.type === 'strike-modifier',
     );
-    if (!dodgeEffect) continue;
+    if (!strikeEffect) continue;
 
-    const dodgeExplanation = `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap)`;
-    logDetail(`Dodge available: ${handCard.definitionId as string} for ${charName}`);
-    actions.push({
-      action: {
-        type: 'play-dodge',
-        player: playerId,
-        cardInstanceId: handCard.instanceId,
-        need: tapNeed,
-        explanation: dodgeExplanation,
-      },
-      viable: true,
-    });
-  }
+    let explanation: string;
+    let need: number;
 
-  // Modify-strike short events (e.g. Risky Blow): scan hand for cards
-  // whose `modify-strike` effect's required skill matches the struck
-  // character. The card modifies the current strike's prowess/body when
-  // played.
-  if (charData && charDef && isCharacterCard(charDef)) {
-    const struckSkills = charDef.skills ?? [];
-    for (const handCard of player0.hand) {
-      const cardDef2 = state.cardPool[handCard.definitionId as string];
-      if (!cardDef2 || !('effects' in cardDef2)) continue;
-      const cardWithEffects = cardDef2 as { effects?: readonly import('../../types/effects.js').CardEffect[]; name?: string };
-      if (!cardWithEffects.effects) continue;
-
-      const modifyEffect = cardWithEffects.effects.find(
-        (e): e is ModifyStrikeEffect => e.type === 'modify-strike',
-      );
-      if (!modifyEffect) continue;
-
-      if (modifyEffect.requiredSkill && !struckSkills.some(s => s === modifyEffect.requiredSkill)) {
-        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${modifyEffect.requiredSkill}' — not playable`);
+    if (strikeEffect.dodge) {
+      explanation = `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap)`;
+      need = tapNeed;
+      logDetail(`Dodge available: ${handCard.definitionId as string} for ${charName}`);
+    } else if (strikeEffect.reroll) {
+      if (strikeEffect.filter) {
+        if (!charDef) continue;
+        const targetObj: Record<string, unknown> = {};
+        if ('race' in charDef) targetObj.race = (charDef as { race: string }).race;
+        if ('skills' in charDef) targetObj.skills = (charDef as { skills: readonly string[] }).skills;
+        if ('name' in charDef) targetObj.name = (charDef as { name: string }).name;
+        if (!matchesCondition(strikeEffect.filter, { target: targetObj })) {
+          logDetail(`Reroll strike ${handCard.definitionId as string}: filter not met for ${charName}`);
+          continue;
+        }
+      }
+      explanation = `Reroll: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, better of two rolls)`;
+      need = tapNeed;
+      logDetail(`Reroll strike available: ${handCard.definitionId as string} for ${charName}`);
+    } else {
+      if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
+        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
         continue;
       }
-
-      if (modifyEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
+      if (strikeEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
         logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
         continue;
       }
-
-      const bonus = modifyEffect.prowessBonus ?? 0;
+      const bonus = strikeEffect.prowessBonus ?? 0;
       const modifiedTapProwess = tapProwess + bonus;
       const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);
       const bonusSign = bonus >= 0 ? '+' : '';
-      const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
+      const bodyPenalty = strikeEffect.bodyPenalty ?? 0;
       const bodyNote = bodyPenalty ? `, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}` : '';
-      const explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${bonusSign}${bonus}` : ''}${bodyNote})`;
+      explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${bonusSign}${bonus}` : ''}${bodyNote})`;
+      need = modifiedNeed;
       logDetail(`Strike event available: ${cardWithEffects.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
-      actions.push({
-        action: {
-          type: 'play-strike-event',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          need: modifiedNeed,
-          explanation,
-        },
-        viable: true,
-      });
-    }
-  }
-
-  // Reroll-strike: scan hand for cards with reroll-strike effect (e.g. Lucky
-  // Strike). Two 2d6 rolls are made and the better total is used; the strike
-  // otherwise resolves like a normal tap-to-fight. An optional `filter`
-  // gates availability on the strike target character's race/skills/name.
-  for (const handCard of player0.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
-    if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
-    if (!cardWithEffects.effects) continue;
-
-    const rerollEffect = cardWithEffects.effects.find(
-      (e): e is RerollStrikeEffect => e.type === 'reroll-strike',
-    );
-    if (!rerollEffect) continue;
-
-    if (rerollEffect.filter) {
-      if (!charDef) continue;
-      const targetObj: Record<string, unknown> = {};
-      if ('race' in charDef) targetObj.race = (charDef as { race: string }).race;
-      if ('skills' in charDef) targetObj.skills = (charDef as { skills: readonly string[] }).skills;
-      if ('name' in charDef) targetObj.name = (charDef as { name: string }).name;
-      if (!matchesCondition(rerollEffect.filter, { target: targetObj })) {
-        logDetail(`Reroll-strike ${handCard.definitionId as string}: filter not met for ${charName}`);
-        continue;
-      }
     }
 
-    const rerollExplanation = `Reroll: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, better of two rolls)`;
-    logDetail(`Reroll-strike available: ${handCard.definitionId as string} for ${charName}`);
     actions.push({
       action: {
-        type: 'play-reroll-strike',
+        type: 'play-strike-event',
         player: playerId,
         cardInstanceId: handCard.instanceId,
-        need: tapNeed,
-        explanation: rerollExplanation,
+        need,
+        explanation,
       },
       viable: true,
     });
@@ -1073,7 +1026,7 @@ function tapItemForStrikeActions(
     if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
 
     const effect = itemDef.effects.find(
-      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e as ModifyAttackEffect).scope === 'current-strike',
+      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
     );
     if (!effect) continue;
     if (effect.cost?.tap !== 'self') continue;

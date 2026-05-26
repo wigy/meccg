@@ -435,7 +435,8 @@
     "marshallingCategory": "misc",
     "effects": [
       {
-        "type": "dodge-strike",
+        "type": "strike-modifier",
+        "dodge": true,
         "bodyPenalty": -1
       }
     ],
@@ -1577,7 +1578,7 @@
     "marshallingCategory": "misc",
     "effects": [
       {
-        "type": "modify-strike",
+        "type": "strike-modifier",
         "prowessBonus": 3,
         "bodyPenalty": -1,
         "requiredSkill": "warrior"
@@ -1784,7 +1785,8 @@
     "marshallingCategory": "misc",
     "effects": [
       {
-        "type": "reroll-strike",
+        "type": "strike-modifier",
+        "reroll": true,
         "filter": {
           "target.skills": {
             "$includes": "warrior"

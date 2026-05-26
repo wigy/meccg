@@ -1267,7 +1267,7 @@ export function playResourceShortEventActions(
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike', 'modify-strike', 'reroll-strike']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'strike-modifier']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {

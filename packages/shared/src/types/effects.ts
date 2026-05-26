@@ -1605,55 +1605,38 @@ export interface HalveStrikesEffect extends EffectBase {
 }
 
 /**
- * Played from hand during strike resolution to let the target character
- * resolve the strike at full prowess without tapping (unless wounded).
- * If the character is wounded by the strike, a body penalty applies to
- * the resulting body check.
+ * Played from hand during strike resolution as a short event.
+ * Covers three distinct mechanical modes, selected by `dodge` / `reroll` flags:
  *
- * Example: Dodge — target character does not tap against one strike
- * (unless wounded); if wounded, body is modified by -1.
- */
-export interface DodgeStrikeEffect extends EffectBase {
-  readonly type: 'dodge-strike';
-  /** Body modifier applied if the character is wounded by the strike. */
-  readonly bodyPenalty: number;
-}
-
-/**
- * Played from hand during strike resolution as a short event that
- * modifies the character's prowess and/or body for the current strike
- * only. Unlike `dodge-strike`, the character still taps normally
- * (tap-to-fight / stay-untapped is unaffected).
+ * - **Default** (neither flag): prowess/body modifier. The card accumulates
+ *   `prowessBonus` and `bodyPenalty` on the current strike; the character
+ *   still taps normally. An optional `requiredSkill` gates availability and
+ *   enforces the "one skill-requiring resource per strike" rule (CoE 3.iv.5).
+ *   Example: Risky Blow (tw-319) — Warrior only, +3 prowess and -1 body.
  *
- * Example: Risky Blow — Warrior only against one strike, +3 prowess
- * and -1 body.
+ * - **`dodge: true`**: the character resolves the strike without tapping
+ *   (unless wounded). `bodyPenalty` applies to the body check only if wounded.
+ *   The strike otherwise uses the character's full prowess.
+ *   Example: Dodge (tw-209) — no tap; if wounded, body −1.
+ *
+ * - **`reroll: true`**: the strike is resolved by making two 2d6 rolls and
+ *   using the better result. The character taps normally (tap-to-fight).
+ *   An optional `filter` gates availability on the strike target character.
+ *   Example: Lucky Strike (tw-270) — Warrior only; roll twice, take better.
  */
-export interface ModifyStrikeEffect extends EffectBase {
-  readonly type: 'modify-strike';
-  /** Bonus added to the character's prowess for the strike roll (may be 0 or negative). */
+export interface StrikeModifierEffect extends EffectBase {
+  readonly type: 'strike-modifier';
+  /** If true: character resolves the strike without tapping (dodge mode). */
+  readonly dodge?: true;
+  /** If true: roll twice and use the better result (reroll mode). */
+  readonly reroll?: true;
+  /** Prowess bonus for this strike (+/−). Used in default and dodge modes. */
   readonly prowessBonus?: number;
-  /** Penalty applied to the character's body on the resulting body check (typically negative). */
+  /** Body modifier applied on the body check (typically negative). */
   readonly bodyPenalty?: number;
-  /** Optional skill the struck character must have (e.g. "warrior"). */
+  /** Optional skill the struck character must have (default and reroll modes). */
   readonly requiredSkill?: string;
-}
-
-/**
- * Played from hand during strike resolution. The strike is resolved by
- * making two 2d6 rolls and using the better result. The character taps
- * and resolves the strike like a normal tap-to-fight, but with a
- * re-roll advantage.
- *
- * The optional `filter` restricts which strike targets may play the
- * card — evaluated against a `target.*` context carrying the target
- * character's race, skills, and name.
- *
- * Example: Lucky Strike — warrior only; make two rolls against a
- * strike and choose one of the two results to use.
- */
-export interface RerollStrikeEffect extends EffectBase {
-  readonly type: 'reroll-strike';
-  /** Constraint on the target character facing the strike. */
+  /** Filter condition on the strike target character (reroll mode). */
   readonly filter?: Condition;
 }
 
@@ -2215,9 +2198,7 @@ export type CardEffect =
   | CancelAttackEffect
   | FlatteryCancelAttackEffect
   | CancelInfluenceEffect
-  | DodgeStrikeEffect
-  | ModifyStrikeEffect
-  | RerollStrikeEffect
+  | StrikeModifierEffect
   | ModifyAttackEffect
   | ModifyAttackFromHandEffect
   | HalveStrikesEffect

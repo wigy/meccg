@@ -383,12 +383,8 @@ export function describeAction(
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
     case 'discard-item-from-company':
       return `Discard item ${instName(action.itemInstanceId)} (An Article Missing)`;
-    case 'play-dodge':
-      return `Dodge: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'play-strike-event':
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
-    case 'play-reroll-strike':
-      return `Reroll strike: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
     case 'support-corruption-check':

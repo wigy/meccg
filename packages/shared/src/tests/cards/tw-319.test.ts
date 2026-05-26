@@ -3,7 +3,7 @@
  *
  * Card test: Risky Blow (tw-319)
  * Type: hero-resource-event (short)
- * Effects: 1 (modify-strike: +3 prowess, -1 body, warrior only)
+ * Effects: 1 (strike-modifier: +3 prowess, -1 body, warrior only)
  *
  * "Warrior only against one strike. +3 to prowess and -1 to body."
  *
