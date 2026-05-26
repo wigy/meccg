@@ -20,7 +20,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeCreatureRace } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
@@ -492,8 +492,7 @@ function cascadeLinkedDiscards(stateBefore: GameState, stateAfter: GameState): G
  * it first), this is a no-op — the cancel fizzles.
  */
 function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstanceId, chain: ChainState): GameState {
-  const targetDefId = resolveInstanceId(state, targetInstanceId);
-  const targetDef = targetDefId ? state.cardPool[targetDefId as string] : undefined;
+  const targetDef = resolveDef(state, targetInstanceId);
   const targetName = targetDef?.name ?? (targetInstanceId as string);
 
   // Check if target is on the chain (environment declared earlier in the same chain)
@@ -1500,8 +1499,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   if (oneStrikePerCharacter) {
     if (excludeAvatarStrikes) {
       const nonAvatarCount = company.characters.filter(charId => {
-        const defId = resolveInstanceId(state, charId);
-        const def = defId ? state.cardPool[defId as string] : undefined;
+        const def = resolveDef(state, charId);
         return !isAvatarCharacter(def);
       }).length;
       totalStrikes = nonAvatarCount;

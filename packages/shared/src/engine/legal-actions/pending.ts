@@ -892,8 +892,7 @@ function corruptionCheckActions(
 
   // For transfer checks, also count the transferred item's CP toward the total
   if (transferredItemId) {
-    const transferredDefId = resolveInstanceId(state, transferredItemId);
-    const transferredDef = transferredDefId ? state.cardPool[transferredDefId as string] : undefined;
+    const transferredDef = resolveDef(state, transferredItemId);
     if (transferredDef && 'corruptionPoints' in transferredDef) {
       cp += (transferredDef as { corruptionPoints: number }).corruptionPoints;
     }
@@ -1286,8 +1285,7 @@ function applyNoCreatureHazardsOnCompany(
     // Check whether the played card is a hazard creature
     const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
     if (!cardInstId) return true;
-    const defId = resolveInstanceId(state, cardInstId);
-    const def = defId ? state.cardPool[defId as string] : undefined;
+    const def = resolveDef(state, cardInstId);
     if (!def || def.cardType !== 'hazard-creature') return true;
     // creatures-always-keyed-to-site bypass: if the destination site carries
     // this rule and the creature is keyed to the site by type or name, allow it.
@@ -1367,8 +1365,7 @@ function applyDenyScoutResources(
     if (actionType !== 'play-short-event' && actionType !== 'play-permanent-event') return true;
     const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
     if (!cardInstId) return true;
-    const defId = resolveInstanceId(state, cardInstId);
-    const def = defId ? state.cardPool[defId as string] : undefined;
+    const def = resolveDef(state, cardInstId);
     if (!def || !('effects' in def) || !def.effects) return true;
     if (!requiresScout(def.effects)) return true;
     logDetail(`Constraint ${constraint.id as string} (deny-scout-resources): dropping "${def.name}" — requires scout`);
