@@ -19,7 +19,6 @@ FEATS
 EPICS
 -----
 
-Map
 The Lidless eye Rules
   Company vs Company (2026-04-03-cvcc-plan.md)
 Against the shadow Rules
@@ -35,6 +34,7 @@ UNSORTED
 (H) Stealthy Tribe
 (I) Morgul Rallying Cry
 (J) Seducing Nations of Men
+Winning Codition: The One Ring
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
