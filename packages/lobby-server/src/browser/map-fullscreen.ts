@@ -388,10 +388,16 @@ function createFullMapDot(
   // Tooltip
   dot.title = `${label} — ${siteDef.name}`;
 
-  // Hover tooltip with company name and site
+  // Hover tooltip with company name and site on separate lines
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
-  tooltip.textContent = `${label} — ${siteDef.name}`;
+  const line1 = document.createElement('div');
+  line1.textContent = label;
+  const line2 = document.createElement('div');
+  line2.textContent = siteDef.name;
+  line2.style.opacity = '0.75';
+  tooltip.appendChild(line1);
+  tooltip.appendChild(line2);
   dot.appendChild(tooltip);
 
   return dot;
