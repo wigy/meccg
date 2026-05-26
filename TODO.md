@@ -28,7 +28,6 @@ The Balrog Rules
 UNSORTED
 --------
 
-(E) Return of the King
 (F) Spies and Traitors
 (G) Marauding Brood of Uglies
 (H) Stealthy Tribe
