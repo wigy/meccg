@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import type { CardEffect, OnEventEffect } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
@@ -130,6 +130,22 @@ export function wrongActionType(
  */
 export function toCardInstance(c: { readonly instanceId: CardInstance['instanceId']; readonly definitionId: CardInstance['definitionId'] }): CardInstance {
   return { instanceId: c.instanceId, definitionId: c.definitionId };
+}
+
+/**
+ * Look up a card's display name from the card pool by its definition ID.
+ *
+ * Every {@link CardDefinition} carries a `name`, so the only failure case is
+ * an unknown definition ID. When the card is not in the pool, returns
+ * `fallback` if provided, otherwise the definition ID as a string. Used
+ * throughout the engine for human-readable log labels.
+ */
+export function cardName(
+  state: GameState,
+  definitionId: CardDefinitionId,
+  fallback?: string,
+): string {
+  return state.cardPool[definitionId as string]?.name ?? fallback ?? (definitionId as string);
 }
 
 /**
