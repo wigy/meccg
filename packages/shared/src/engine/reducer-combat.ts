@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -410,7 +410,7 @@ function resolveStrikeCore(
   let rng;
   let cheatRollTotal;
   const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? 'Strike (reroll)' : 'Strike';
-  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
+  const charLabel = charDef?.name ?? (targetDefId as string);
   const effects: GameEffect[] = [];
 
   if (mode === 'reroll') {
@@ -637,8 +637,7 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
 
   // Resolve agent name for the log label
   const agentDefId = resolveInstanceId(state, combat.attackSource.instanceId);
-  const agentDef = agentDefId ? state.cardPool[agentDefId as string] : undefined;
-  const agentName = agentDef && 'name' in agentDef ? (agentDef as { name: string }).name : 'Agent';
+  const agentName = agentDefId ? cardName(state, agentDefId, 'Agent') : 'Agent';
 
   logDetail(`Agent strike roll: ${agentName} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${combat.strikeProwess} = ${agentRollTotal}`);
 
@@ -720,8 +719,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
 
   let nextState: GameState;
   if (cancellerChar) {
-    const cancellerDef = state.cardPool[cancellerChar.definitionId as string];
-    const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
+    const cancellerName = cardName(state, cancellerChar.definitionId, action.cancellerInstanceId as string);
     logDetail(`${cancellerName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
     nextState = updatePlayer(state, defPlayerIndex, p =>
@@ -747,8 +745,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
     if (hostCharId !== null && itemIndex >= 0) {
       const hostChar = defPlayer.characters[hostCharId];
       const item = hostChar.items[itemIndex];
-      const itemDef = state.cardPool[item.definitionId as string];
-      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+      const itemName = cardName(state, item.definitionId);
       logDetail(`${itemName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
       const newItems = [...hostChar.items];
@@ -773,8 +770,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
       }
       const allyHostChar = defPlayer.characters[allyHostCharId];
       const ally = allyHostChar.allies[allyIndex];
-      const allyDef = state.cardPool[ally.definitionId as string];
-      const allyName = allyDef && 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
+      const allyName = cardName(state, ally.definitionId);
       logDetail(`${allyName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
       const newAllies = [...allyHostChar.allies];
@@ -828,8 +824,8 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
     return { state, error: 'Only one resource that requires a skill may be played per strike (CoE 3.iv.5)' };
   }
 
-  const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
-  logDetail(`Playing strike event ${cardName} (mode: ${strikeEffect.dodge ? 'dodge' : strikeEffect.reroll ? 'reroll' : 'modify'})`);
+  const cardLabel = cardName(state, handCard.definitionId);
+  logDetail(`Playing strike event ${cardLabel} (mode: ${strikeEffect.dodge ? 'dodge' : strikeEffect.reroll ? 'reroll' : 'modify'})`);
 
   let resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
@@ -1160,8 +1156,7 @@ function handleCancelAttackByInPlayAlly(
     return { state, error: 'Ally must be untapped to cancel attack' };
   }
 
-  const allyDef = state.cardPool[found.ally.definitionId as string];
-  const allyName = allyDef && 'name' in allyDef ? allyDef.name : String(found.ally.definitionId);
+  const allyName = cardName(state, found.ally.definitionId);
   logDetail(`Cancel-attack declared: tapping ${allyName} to cancel ${combat.creatureRace ?? 'attack'}`);
 
   const tappedState = updatePlayer(state, defPlayerIndex, p =>
@@ -1201,8 +1196,7 @@ function handleCancelAttackByInPlayCharacter(
     return { state, error: 'Character must be untapped to cancel attack' };
   }
 
-  const charDef = state.cardPool[charData.definitionId as string];
-  const charName = charDef && 'name' in charDef ? charDef.name : String(charData.definitionId);
+  const charName = cardName(state, charData.definitionId);
   logDetail(`Cancel-attack declared: tapping ${charName} to cancel ${combat.creatureRace ?? 'attack'}`);
 
   const tappedState = updatePlayer(state, defPlayerIndex, p =>
@@ -1453,15 +1447,13 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         })
       : false;
     const cardDefId = resolveInstanceId(stateWithCancelledPlayers, cardInstanceId);
-    const cardName = cardDefId
-      ? (stateWithCancelledPlayers.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
-      : '?';
+    const cardLabel = cardDefId ? cardName(stateWithCancelledPlayers, cardDefId, '?') : '?';
     if (!anyUntapped) {
-      logDetail(`Card-auto-attack cancelled: no untapped characters — discarding "${cardName}"`);
+      logDetail(`Card-auto-attack cancelled: no untapped characters — discarding "${cardLabel}"`);
       stateWithCancelledPlayers = discardCardTriggeredCard(stateWithCancelledPlayers, cardInstanceId, defIdx);
     } else {
       logDetail(
-        `Card-auto-attack cancelled: untapped characters remain — queuing select-card-bearer for "${cardName}"`,
+        `Card-auto-attack cancelled: untapped characters remain — queuing select-card-bearer for "${cardLabel}"`,
       );
       stateWithCancelledPlayers = enqueueResolution(stateWithCancelledPlayers, {
         source: cardInstanceId,
@@ -1694,7 +1686,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   );
   if (!effect) return { state, error: 'Item has no modify-attack(current-strike) effect' };
 
-  const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+  const itemName = itemDef.name;
   const prowessBonus = effect.prowessModifier ?? 0;
   logDetail(`Tap-item-for-strike: tapping ${itemName} on ${action.characterInstanceId as string} (+${prowessBonus} prowess for current strike)`);
 
@@ -1775,15 +1767,15 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
     const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
-    const cardName = 'name' in cardDef ? (cardDef as { name: string }).name : handCard.definitionId as string;
-    logDetail(`Modify-attack (from hand): ${cardName} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+    const cardLabel = cardDef.name;
+    logDetail(`Modify-attack (from hand): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
 
     let newState: GameState = {
       ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody },
     };
 
-    const attackDupLimit = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.find(
+    const attackDupLimit = cardDef.effects?.find(
       (e): e is import('../types/effects.js').DuplicationLimitEffect =>
         e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
     );
@@ -1795,7 +1787,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
         target: { kind: 'player', playerId: action.player },
         kind: { type: 'attack-card-played' },
       });
-      logDetail(`${cardName}: added attack-card-played marker (duplication-limit scope attack)`);
+      logDetail(`${cardLabel}: added attack-card-played marker (duplication-limit scope attack)`);
     }
 
     return { state: newState };
@@ -1837,7 +1829,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   const prowessModifier = effect.prowessModifier ?? 0;
   const bodyModifier = effect.bodyModifier ?? 0;
   const strikesModifier = effect.strikesModifier ?? 0;
-  const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+  const itemName = itemDef.name;
 
   const shouldDiscard = !bearerOnly && effect.discardIfBearerNot
     ? !effect.discardIfBearerNot.race.includes(charDef.race as string)
@@ -2497,20 +2489,18 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         })
       : false;
     const cardDefId = resolveInstanceId(stateAfterCombat, cardInstanceId);
-    const cardName = cardDefId
-      ? (stateAfterCombat.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
-      : '?';
+    const cardLabel = cardDefId ? cardName(stateAfterCombat, cardDefId, '?') : '?';
 
     if (!anyUntapped) {
       // No untapped characters — discard the card from cardsInPlay
       logDetail(
-        `Card-auto-attack: no untapped characters after combat — discarding "${cardName}" from cardsInPlay`,
+        `Card-auto-attack: no untapped characters after combat — discarding "${cardLabel}" from cardsInPlay`,
       );
       stateAfterCombat = discardCardTriggeredCard(stateAfterCombat, cardInstanceId, defIdx);
     } else {
       // Untapped characters remain — queue bearer selection for the resource player
       logDetail(
-        `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardName}" ` +
+        `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardLabel}" ` +
         `(company ${combat.companyId as string})`,
       );
       stateAfterCombat = enqueueResolution(stateAfterCombat, {
