@@ -32,6 +32,7 @@ import type {
   Company,
   OpponentCompanyView,
   AgentInPlay,
+  OpponentAgentView,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
 import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
@@ -220,10 +221,12 @@ export function openFullMap(
       if (diamond) dotsLayer.appendChild(diamond);
     }
 
-    // TODO: Opponent face-up agents are not shown on the full map because
-    // OpponentAgentView does not carry site information. The site location is
-    // intentionally hidden to prevent the resource player from knowing where
-    // face-down agents are positioned. Only own agents can be rendered.
+    // Revealed opponent agents — shown at their homesite on the full map.
+    for (const agent of view.opponent.agents) {
+      if (!agent.revealed || !agent.characterDefinitionId) continue;
+      const diamond = createFullMapOpponentAgentDiamond(agent, cardPool);
+      if (diamond) dotsLayer.appendChild(diamond);
+    }
 
     // Hidden-agents badge: count opponent face-down agents and show a badge
     const hiddenAgentCount = view.opponent.agents.filter((a) => !a.revealed).length;
@@ -475,20 +478,14 @@ function createFullMapDot(
  * Agent selection via the map is deferred to a later iteration once
  * `select-company` targeting covers agents (see spec Phase 5 notes).
  *
- * Returns null if the agent has no site stack or if coordinates are unavailable.
+ * Returns null if coordinates are unavailable.
  */
 function createFullMapAgentDiamond(
   agent: AgentInPlay,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
-  if (agent.siteStack.length === 0) return null;
-
-  const currentSite = agent.siteStack[agent.siteStack.length - 1];
-  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
-  if (!siteDef) return null;
-
-  const coords = getCoordinates(siteDef.name);
+  const { coords, siteName } = resolveFullMapAgentPosition(agent, view, cardPool);
   if (!coords) return null;
 
   const [x, y] = coords;
@@ -508,11 +505,85 @@ function createFullMapAgentDiamond(
   const tl1 = document.createElement('div');
   tl1.textContent = agentName;
   const tl2 = document.createElement('div');
-  tl2.textContent = siteDef.name;
+  tl2.textContent = siteName;
   tl2.style.opacity = '0.75';
   tooltip.appendChild(tl1);
   tooltip.appendChild(tl2);
   diamond.appendChild(tooltip);
 
   return diamond;
+}
+
+/**
+ * Resolve the map position for an agent on the full-screen map.
+ * Uses the top of the siteStack when deployed; falls back to the first concrete
+ * name in the card's `homesite` field when the agent has not yet been placed.
+ */
+function resolveFullMapAgentPosition(
+  agent: AgentInPlay,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): { coords: [number, number] | null; siteName: string } {
+  if (agent.siteStack.length > 0) {
+    const currentSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
+    if (!siteDef) return { coords: null, siteName: '' };
+    return { coords: getCoordinates(siteDef.name), siteName: siteDef.name };
+  }
+
+  const agentDef = cardPool[agent.character.definitionId];
+  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
+  if (!homesite) return { coords: null, siteName: '' };
+
+  for (const part of homesite.split(',')) {
+    const name = part.trim();
+    if (name.startsWith('Any ') || name === 'None') continue;
+    const coords = getCoordinates(name);
+    if (coords) return { coords, siteName: `${name} (home)` };
+  }
+
+  return { coords: null, siteName: '' };
+}
+
+/**
+ * Create a full-map diamond marker for a revealed opponent agent at its homesite.
+ * Returns null if coordinates are unavailable.
+ */
+function createFullMapOpponentAgentDiamond(
+  agent: OpponentAgentView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement | null {
+  const agentDef = agent.characterDefinitionId ? cardPool[agent.characterDefinitionId as string] : undefined;
+  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
+  if (!homesite) return null;
+
+  for (const part of homesite.split(',')) {
+    const name = part.trim();
+    if (name.startsWith('Any ') || name === 'None') continue;
+    const coords = getCoordinates(name);
+    if (!coords) continue;
+
+    const [x, y] = coords;
+    const agentName = (agentDef as { name?: string }).name ?? 'Agent';
+
+    const diamond = document.createElement('div');
+    diamond.className = 'map-agent map-agent--opponent-revealed map-agent--full';
+    diamond.style.left = `${x * 100}%`;
+    diamond.style.top = `${y * 100}%`;
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'map-dot-tooltip';
+    const tl1 = document.createElement('div');
+    tl1.textContent = agentName;
+    const tl2 = document.createElement('div');
+    tl2.textContent = `${name} (home)`;
+    tl2.style.opacity = '0.75';
+    tooltip.appendChild(tl1);
+    tooltip.appendChild(tl2);
+    diamond.appendChild(tooltip);
+
+    return diamond;
+  }
+
+  return null;
 }

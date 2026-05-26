@@ -30,6 +30,7 @@ import type {
   Company,
   OpponentCompanyView,
   AgentInPlay,
+  OpponentAgentView,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
 import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
@@ -54,7 +55,8 @@ export function createRadar(
 ): HTMLElement | null {
   const activeCompany = view.self.companies[activeCompanyIndex];
   const hasAnySelfSite = view.self.companies.some(c => c.currentSite);
-  if (!activeCompany?.currentSite && !hasAnySelfSite) return null;
+  const hasAnyAgent = view.self.agents.length > 0 || view.opponent.agents.some(a => a.revealed);
+  if (!activeCompany?.currentSite && !hasAnySelfSite && !hasAnyAgent) return null;
 
   // Check if the active self company is at an Under-deeps site
   if (activeCompany?.currentSite) {
@@ -150,11 +152,13 @@ export function createRadar(
     if (diamond) dotsLayer.appendChild(diamond);
   }
 
-  // TODO: Opponent face-up agents are not shown on the radar because
-  // OpponentAgentView does not carry site information (site is hidden to
-  // prevent leaking the agent's position when face-down). Only the count
-  // of face-down agents is available via siteStackSize, and their positions
-  // are intentionally withheld. See map-fullscreen.ts for the badge instead.
+  // Render revealed opponent agents at their homesite (siteStackSize === 0)
+  // or skip if face-down (position unknown to the resource player).
+  for (const agent of view.opponent.agents) {
+    if (!agent.revealed || !agent.characterDefinitionId) continue;
+    const diamond = createOpponentAgentDiamond(agent, cardPool);
+    if (diamond) dotsLayer.appendChild(diamond);
+  }
 
   // Clicking the radar fires a custom event
   radar.addEventListener('click', () => {
@@ -234,20 +238,14 @@ function createCompanyDot(
  * Own agents are always shown (face-up or face-down) because the player always
  * knows where their own agents are.
  *
- * Returns null if the agent has no site stack or if site coordinates are unavailable.
+ * Returns null if coordinates are unavailable.
  */
 function createAgentDiamond(
   agent: AgentInPlay,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
-  if (agent.siteStack.length === 0) return null;
-
-  const currentSite = agent.siteStack[agent.siteStack.length - 1];
-  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
-  if (!siteDef) return null;
-
-  const coords = getCoordinates(siteDef.name);
+  const { coords, siteName } = resolveAgentPosition(agent, view, cardPool);
   if (!coords) return null;
 
   const [x, y] = coords;
@@ -261,9 +259,73 @@ function createAgentDiamond(
   diamond.className = `map-agent ${revealedClass}`;
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
-  diamond.title = `${agentName} — ${siteDef.name}`;
+  diamond.title = `${agentName} — ${siteName}`;
 
   return diamond;
+}
+
+/**
+ * Resolve the map position for an agent.
+ * Uses the top of the siteStack when deployed; falls back to the first concrete
+ * name in the card's `homesite` field when the agent has not yet been placed.
+ */
+function resolveAgentPosition(
+  agent: AgentInPlay,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): { coords: [number, number] | null; siteName: string } {
+  if (agent.siteStack.length > 0) {
+    const currentSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
+    if (!siteDef) return { coords: null, siteName: '' };
+    return { coords: getCoordinates(siteDef.name), siteName: siteDef.name };
+  }
+
+  // Agent not yet deployed — try homesite from card definition
+  const agentDef = cardPool[agent.character.definitionId];
+  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
+  if (!homesite) return { coords: null, siteName: '' };
+
+  for (const part of homesite.split(',')) {
+    const name = part.trim();
+    if (name.startsWith('Any ') || name === 'None') continue;
+    const coords = getCoordinates(name);
+    if (coords) return { coords, siteName: `${name} (home)` };
+  }
+
+  return { coords: null, siteName: '' };
+}
+
+/**
+ * Create a radar diamond marker for a revealed opponent agent.
+ * The agent's homesite is looked up from its card definition.
+ * Returns null if coordinates are unavailable.
+ */
+function createOpponentAgentDiamond(
+  agent: OpponentAgentView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement | null {
+  const agentDef = agent.characterDefinitionId ? cardPool[agent.characterDefinitionId as string] : undefined;
+  const homesite = agentDef && 'homesite' in agentDef ? (agentDef as { homesite: string }).homesite : undefined;
+  if (!homesite) return null;
+
+  for (const part of homesite.split(',')) {
+    const name = part.trim();
+    if (name.startsWith('Any ') || name === 'None') continue;
+    const coords = getCoordinates(name);
+    if (!coords) continue;
+
+    const [x, y] = coords;
+    const agentName = (agentDef as { name?: string }).name ?? 'Agent';
+    const diamond = document.createElement('div');
+    diamond.className = 'map-agent map-agent--opponent-revealed';
+    diamond.style.left = `${x * 100}%`;
+    diamond.style.top = `${y * 100}%`;
+    diamond.title = `${agentName} — ${name} (home)`;
+    return diamond;
+  }
+
+  return null;
 }
 
 /**

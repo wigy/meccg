@@ -308,6 +308,16 @@ export function renderAllCompaniesView(
         setAllCompaniesOverride(false);
         lastOnAction(actions[0]);
       };
+    } else {
+      // Default: clicking a self company focuses it in single-company view
+      const focusId = company.id;
+      block.classList.add('company-block--clickable');
+      block.onclick = (e) => {
+        e.stopPropagation();
+        setFocusedCompanyId(focusId);
+        setAllCompaniesOverride(false);
+        rerender();
+      };
     }
     overview.appendChild(block);
   }

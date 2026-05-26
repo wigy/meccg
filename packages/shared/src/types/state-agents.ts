@@ -14,7 +14,7 @@
  * CoE rules §4 for full agent rules.
  */
 
-import type { CompanyId, CardInstanceId } from './common.js';
+import type { CompanyId, CardInstanceId, CardDefinitionId } from './common.js';
 import type { CharacterInPlay, SiteInPlay } from './state-cards.js';
 
 /**
@@ -33,6 +33,12 @@ export interface OpponentAgentView {
    * (the resource player sees only the card-back).
    */
   readonly characterInstanceId: CardInstanceId | null;
+  /**
+   * The agent character's definition ID. Exposed when the agent is face-up so
+   * the resource player can look up the card's homesite for map rendering.
+   * Null when face-down.
+   */
+  readonly characterDefinitionId: CardDefinitionId | null;
   /** Whether the agent is revealed (face-up). When false, character identity is hidden. */
   readonly revealed: boolean;
   /**

@@ -118,6 +118,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
   const agents: OpponentAgentView[] = player.agents.map(a => ({
     id: a.id,
     characterInstanceId: a.revealed ? a.character.instanceId : null,
+    characterDefinitionId: a.revealed ? a.character.definitionId : null,
     revealed: a.revealed,
     siteStackSize: a.siteStack.length,
     actedThisTurn: a.remainingActions <= 0,
