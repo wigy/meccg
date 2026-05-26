@@ -24,6 +24,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
+import { cardName } from '../reducer-utils.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -61,7 +62,7 @@ export function emitGrantedActionConstraintActions(
   for (const constraint of matchingConstraints) {
     if (constraint.kind.type !== 'granted-action') continue;
     const kind = constraint.kind;
-    const sourceName = state.cardPool[constraint.sourceDefinitionId as string]?.name ?? '?';
+    const sourceName = cardName(state, constraint.sourceDefinitionId, '?');
 
     for (const charInstId of company.characters) {
       const charId: CardInstanceId = charInstId;

@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -2490,7 +2490,7 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
   const activeIndex = getPlayerIndex(state, action.player);
   const player = state.players[activeIndex];
   const company = player.companies[mhState.activeCompanyIndex];
-  const destName = company.destinationSite ? (state.cardPool[company.destinationSite.definitionId as string]?.name ?? '?') : '?';
+  const destName = company.destinationSite ? cardName(state, company.destinationSite.definitionId, '?') : '?';
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -2514,7 +2514,7 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
     return { ...advResult, effects: [rollEffect, ...(advResult.effects ?? [])] };
   }
 
-  logDetail(`Under-deeps roll FAILURE — company stays at ${company.currentSite ? (state.cardPool[company.currentSite.definitionId as string]?.name ?? '?') : '?'}, returning destination to site deck`);
+  logDetail(`Under-deeps roll FAILURE — company stays at ${company.currentSite ? cardName(state, company.currentSite.definitionId, '?') : '?'}, returning destination to site deck`);
 
   // Return destination site to location deck (no "returned" trigger)
   const newPlayers = clonePlayers(state);
@@ -2838,7 +2838,7 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
 
   const { instanceId, effect } = matchingAhunts[mhState.ahuntAttacksResolved];
   const defId = resolveInstanceId(state, instanceId);
-  const defName = defId ? (state.cardPool[defId as string]?.name ?? 'unknown') : 'unknown';
+  const defName = defId ? cardName(state, defId, 'unknown') : 'unknown';
 
   logDetail(`Order-effects: ahunt attack ${mhState.ahuntAttacksResolved + 1}/${matchingAhunts.length} — ${defName}`);
 

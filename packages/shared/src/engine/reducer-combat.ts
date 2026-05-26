@@ -2286,9 +2286,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
                 : null;
         if (creatureSource) {
           const creatureDefId = resolveInstanceId(state, creatureSource);
-          const creatureName = creatureDefId
-            ? (state.cardPool[creatureDefId as string]?.name ?? 'creature')
-            : 'creature';
+          const creatureName = cardName(state, creatureDefId!, 'creature');
           logDetail(`Attack not defeated — ${creatureName} fires deny-scout-resources on company ${combat.companyId as string}`);
           stateAfterCombat = addConstraint(stateAfterCombat, {
             source: creatureSource,
@@ -2316,9 +2314,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
               : null;
       if (creatureSource) {
         const creatureDefId = resolveInstanceId(state, creatureSource);
-        const creatureName = creatureDefId
-          ? (state.cardPool[creatureDefId as string]?.name ?? 'creature')
-          : 'creature';
+        const creatureName = cardName(state, creatureDefId!, 'creature');
         const boostRace = nce.apply.race ?? '';
         const boostStrikes = nce.apply.strikes ?? 0;
         const boostProwess = nce.apply.prowess ?? 0;
@@ -2371,7 +2367,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const discarded = toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
       for (const c of toDiscard) {
         allDiscardedIds.add(c.instanceId as string);
-        const defName = (stateAfterCombat.cardPool[c.definitionId as string] as { name?: string })?.name ?? '?';
+        const defName = cardName(stateAfterCombat, c.definitionId, '?');
         logDetail(`Attack-defeated: discarding "${defName}" from cardsInPlay (on-event: attack-defeated)`);
       }
       return { ...player, cardsInPlay: remaining, discardPile: [...player.discardPile, ...discarded] };

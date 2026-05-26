@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -524,7 +524,7 @@ function handleSiteAutomaticAttacks(
   if (boost.consumedIds.length > 0) {
     for (const id of boost.consumedIds) {
       const src = state.activeConstraints.find(c => c.id === id);
-      if (src) logDetail(`Site: consuming attribute-modifier (auto-attack.prowess +${boost.value - baseEffective}) from "${state.cardPool[src.sourceDefinitionId as string]?.name ?? '?'}"`);
+      if (src) logDetail(`Site: consuming attribute-modifier (auto-attack.prowess +${boost.value - baseEffective}) from "${cardName(state, src.sourceDefinitionId, '?')}"`);
       boostedState = removeConstraint(boostedState, id);
     }
   }
