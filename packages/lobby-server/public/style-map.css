@@ -127,21 +127,20 @@
 
 .map-fullscreen-inner {
   position: relative;
-  width: 96vw;
-  height: 94vh;
-  display: flex;
-  flex-direction: column;
+  width: min(98vw, calc(94vh * 1241 / 1114));
+  height: min(94vh, calc(98vw * 1114 / 1241));
   border-radius: 8px;
   overflow: hidden;
   background: #0b0d12;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-/* Close button (×) */
+/* Close button (×) — right side, vertically centred */
 .map-fullscreen-close {
   position: absolute;
-  top: 8px;
+  top: 50%;
   right: 8px;
+  transform: translateY(-50%);
   z-index: 10;
   width: 32px;
   height: 32px;
@@ -162,11 +161,10 @@
   color: #fff;
 }
 
-/* Map image container — relative so dots can be positioned inside */
+/* Map image container — fills the inner container */
 .map-fullscreen-map {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
 }
 
 /* The actual map image */
@@ -231,8 +229,9 @@
 
 .map-layer-toggle {
   position: absolute;
-  top: 8px;
+  top: 50%;
   left: 8px;
+  transform: translateY(-50%);
   z-index: 10;
   padding: 4px 10px;
   border-radius: 4px;
