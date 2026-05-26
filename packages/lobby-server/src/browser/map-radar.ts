@@ -93,6 +93,21 @@ export function createRadar(
     const role = idx === activeOpponentIndex ? 'opponent-active' : 'opponent';
     const dot = createCompanyDot(company, view, cardPool, role);
     if (dot) dotsLayer.appendChild(dot);
+
+    if (company.revealedDestinationSite) {
+      const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
+      if (destDef) {
+        const coords = getCoordinates(destDef.name);
+        if (coords) {
+          const destDot = document.createElement('div');
+          destDot.className = 'map-dot map-dot--opponent-destination';
+          destDot.style.left = `${coords[0] * 100}%`;
+          destDot.style.top = `${coords[1] * 100}%`;
+          destDot.title = `→ ${destDef.name}`;
+          dotsLayer.appendChild(destDot);
+        }
+      }
+    }
   });
 
   // Render own agents as diamond markers (always visible — face-up and face-down)

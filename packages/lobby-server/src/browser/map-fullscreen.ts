@@ -163,6 +163,24 @@ export function openFullMap(
     for (const company of view.opponent.companies) {
       const dot = createFullMapDot(company, view, cardPool, 'opponent');
       if (dot) dotsLayer.appendChild(dot);
+
+      if (company.revealedDestinationSite) {
+        const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
+        if (destDef) {
+          const coords = getCoordinates(destDef.name);
+          if (coords) {
+            const destDot = document.createElement('div');
+            destDot.className = 'map-dot map-dot--opponent-destination map-dot--full';
+            destDot.style.left = `${coords[0] * 100}%`;
+            destDot.style.top = `${coords[1] * 100}%`;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'map-dot-tooltip';
+            tooltip.textContent = `→ ${destDef.name}`;
+            destDot.appendChild(tooltip);
+            dotsLayer.appendChild(destDot);
+          }
+        }
+      }
     }
 
     // Own agents — always visible (face-up or face-down)
