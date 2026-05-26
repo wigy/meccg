@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus, hasPlayFlag } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -683,10 +683,10 @@ function buildGrantActionContext(
     : char.status === CardStatus.Tapped ? 'tapped'
     : 'inverted';
 
-  const canUsePalantir = charDef?.text?.includes('May tap to use a Palantír') ||
+  const canUsePalantir = (charDef && hasPlayFlag(charDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }, 'can-use-palantir')) ||
     char.items.some(item => {
       const itemDef = state.cardPool[item.definitionId as string];
-      return itemDef && 'name' in itemDef && (itemDef as { name: string }).name === 'Align Palantír';
+      return itemDef && 'effects' in itemDef && hasPlayFlag(itemDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }, 'can-use-palantir');
     });
 
   const siteDef = company?.currentSite
