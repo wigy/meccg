@@ -1466,9 +1466,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   );
   const oneStrikePerCharacter = oneStrikePerCharacterEffect !== undefined;
   const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
-  const defenderProwessFromMind = creatureDef.effects?.some(
-    e => e.type === 'combat-defender-prowess-from-mind',
-  ) ?? false;
+  const defenderProwessFromMind = hasPlayFlag(creatureDef, 'combat-defender-prowess-from-mind');
 
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
   const cancelByTapEffect = creatureDef.effects?.find(

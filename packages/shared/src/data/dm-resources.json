@@ -127,7 +127,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "reduce-attacks-to-one" },
+      { "type": "play-flag", "flag": "reduce-attacks-to-one" },
       {
         "type": "on-event",
         "event": "attack-defeated",

@@ -29,6 +29,7 @@ import type {
   PlayerState,
   SiteCard,
 } from '../index.js';
+import { hasPlayFlag } from '../index.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -224,9 +225,8 @@ export function isReduceAttacksToOneInPlay(state: GameState): boolean {
     for (const card of player.cardsInPlay) {
       const def = state.cardPool[card.definitionId as string];
       if (!def) continue;
-      const effects = (def as { effects?: readonly { type: string }[] }).effects;
-      if (!effects) continue;
-      if (effects.some(e => e.type === 'reduce-attacks-to-one')) return true;
+      if (!('effects' in def)) continue;
+      if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
     }
   }
   return false;
