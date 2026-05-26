@@ -832,6 +832,10 @@
     "certified": "2026-04-14",
     "effects": [
       {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
+      },
+      {
         "type": "grant-action",
         "action": "saruman-fetch-spell",
         "cost": {

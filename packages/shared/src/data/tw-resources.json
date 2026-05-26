@@ -611,6 +611,10 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
