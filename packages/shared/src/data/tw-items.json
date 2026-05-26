@@ -890,11 +890,12 @@
         "max": 8
       },
       {
-        "type": "item-tap-strike-bonus",
+        "type": "modify-attack",
+        "scope": "current-strike",
         "cost": {
           "tap": "self"
         },
-        "prowessBonus": 1
+        "prowessModifier": 1
       }
     ]
   },

@@ -9,7 +9,7 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, 
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
-import type { ItemTapStrikeBonusEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, ModifyStrikeEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
@@ -1780,12 +1780,13 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   const itemDef = state.cardPool[item.definitionId as string];
   if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
   const effect = itemDef.effects.find(
-    (e): e is ItemTapStrikeBonusEffect => e.type === 'item-tap-strike-bonus',
+    (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e as ModifyAttackEffect).scope === 'current-strike',
   );
-  if (!effect) return { state, error: 'Item has no item-tap-strike-bonus effect' };
+  if (!effect) return { state, error: 'Item has no modify-attack(current-strike) effect' };
 
   const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
-  logDetail(`Item-tap-strike-bonus: tapping ${itemName} on ${action.characterInstanceId as string} (+${effect.prowessBonus} prowess for current strike)`);
+  const prowessBonus = effect.prowessModifier ?? 0;
+  logDetail(`Tap-item-for-strike: tapping ${itemName} on ${action.characterInstanceId as string} (+${prowessBonus} prowess for current strike)`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[defPlayerIndex] = {
@@ -1803,7 +1804,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
 
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
-      ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + effect.prowessBonus }
+      ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus }
       : a,
   );
 

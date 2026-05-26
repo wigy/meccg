@@ -1672,7 +1672,7 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "unlock-thorough-search" }
+        "apply": { "type": "set-site-phase-flag", "flag": "thoroughSearchAvailable" }
       }
     ],
     "certified": "2026-05-23"

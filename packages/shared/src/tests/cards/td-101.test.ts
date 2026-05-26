@@ -5,7 +5,7 @@
  * Type: hero-resource-event (short, wizard alignment)
  * Effects:
  *   1. play-window: phase "site" — only playable during the site phase
- *   2. on-event: self-enters-play → unlock-hoard-bounty — sets
+ *   2. on-event: self-enters-play → set-site-phase-flag(hoardBountyAvailable) — sets
  *      SitePhaseState.hoardBountyAvailable, allowing one additional minor or
  *      major item to be played at the tapped hoard site.
  *
@@ -16,7 +16,7 @@
  * | # | Effect Type           | Status      | Notes                                      |
  * |---|-----------------------|-------------|--------------------------------------------|
  * | 1 | play-window site      | IMPLEMENTED | heroResourceShortEventActions + org filter |
- * | 2 | unlock-hoard-bounty   | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site  |
+ * | 2 | set-site-phase-flag   | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site  |
  *
  * Playable: YES
  */

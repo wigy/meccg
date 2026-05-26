@@ -5,7 +5,7 @@
  * Type: hero-resource-item (minor), non-unique, 0 corruption.
  * Effects:
  *   1. stat-modifier: +1 body, max 8
- *   2. item-tap-strike-bonus: tap to gain +1 prowess against one strike
+ *   2. modify-attack(scope: current-strike): tap to gain +1 prowess against one strike
  *
  * "Shield. +1 to body to a maximum of 8. Tap Shield of Iron-bound Ash
  *  to gain +1 prowess against one strike."
