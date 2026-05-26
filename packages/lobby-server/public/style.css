@@ -3235,7 +3235,7 @@ h2 {
 /* Action button panel — fixed above the radar minimap, stacks buttons upward */
 #visual-panel {
   position: fixed;
-  bottom: calc(1rem + 130px + 0.75rem);
+  bottom: calc(1rem + 162px + 0.75rem);
   right: 1rem;
   z-index: var(--z-panel);
   display: flex;
