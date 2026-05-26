@@ -84,21 +84,15 @@ export function openFullMap(
   inner.className = 'map-fullscreen-inner';
   overlay.appendChild(inner);
 
-  // Close button
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'map-fullscreen-close';
-  closeBtn.textContent = '×';
-  closeBtn.title = 'Close map';
-  closeBtn.addEventListener('click', () => {
-    close();
-    document.removeEventListener('keydown', onKeyDown);
-  });
-  inner.appendChild(closeBtn);
+  // Toolbar — holds layer toggle and close button, sits above the map
+  const toolbar = document.createElement('div');
+  toolbar.className = 'map-fullscreen-toolbar';
+  inner.appendChild(toolbar);
 
   // Determine whether any company is at an Under-deeps site
   const hasUnderDeepsCompany = checkHasUnderDeepsCompany(view, cardPool);
 
-  // Layer toggle button (top-left)
+  // Layer toggle button (left side of toolbar)
   let currentLayer: 'surface' | 'under-deeps' = 'surface';
   const toggleBtn = document.createElement('button');
   toggleBtn.className = 'map-layer-toggle';
@@ -109,7 +103,18 @@ export function openFullMap(
   if (!hasUnderDeepsCompany) {
     toggleBtn.disabled = true;
   }
-  inner.appendChild(toggleBtn);
+  toolbar.appendChild(toggleBtn);
+
+  // Close button (right side of toolbar)
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'map-fullscreen-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Close map';
+  closeBtn.addEventListener('click', () => {
+    close();
+    document.removeEventListener('keydown', onKeyDown);
+  });
+  toolbar.appendChild(closeBtn);
 
   // Map image container
   const mapContainer = document.createElement('div');
@@ -127,15 +132,34 @@ export function openFullMap(
     mapImg.alt = 'Middle-Earth Map';
     mapContainer.appendChild(mapImg);
 
-    // Dots layer
+    // Overlay wrapper — sized to the rendered image area after load
+    const imgWrapper = document.createElement('div');
+    imgWrapper.className = 'map-fullscreen-img-overlay';
+    mapContainer.appendChild(imgWrapper);
+
+    // Dots layer — inside wrapper so percentages align with the image
     const dotsLayer = document.createElement('div');
     dotsLayer.className = 'map-fullscreen-dots';
-    mapContainer.appendChild(dotsLayer);
+    imgWrapper.appendChild(dotsLayer);
 
     // Movement lines SVG layer (drawn behind dots)
     const moveLines = buildMovementLinesLayer(view, cardPool);
-    if (moveLines) {
-      mapContainer.appendChild(moveLines);
+    if (moveLines) imgWrapper.appendChild(moveLines);
+
+    // Resize wrapper to match the rendered image bounds
+    const fitOverlay = () => {
+      const r = mapImg.getBoundingClientRect();
+      const cr = mapContainer.getBoundingClientRect();
+      imgWrapper.style.position = 'absolute';
+      imgWrapper.style.left   = `${r.left - cr.left}px`;
+      imgWrapper.style.top    = `${r.top  - cr.top}px`;
+      imgWrapper.style.width  = `${r.width}px`;
+      imgWrapper.style.height = `${r.height}px`;
+    };
+    if (mapImg.complete && mapImg.naturalWidth) {
+      fitOverlay();
+    } else {
+      mapImg.addEventListener('load', fitOverlay);
     }
 
     // Self companies
