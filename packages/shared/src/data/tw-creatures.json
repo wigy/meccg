@@ -807,7 +807,7 @@
     ],
     "effects": [
       { "type": "combat-one-strike-per-character", "excludeAvatars": true },
-      { "type": "combat-defender-prowess-from-mind" },
+      { "type": "play-flag", "flag": "combat-defender-prowess-from-mind" },
       { "type": "combat-detainment" }
     ],
     "certified": "2026-05-11"

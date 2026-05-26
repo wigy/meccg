@@ -775,10 +775,8 @@ export interface CombatOneStrikePerCharacterEffect extends EffectBase {
  * when this effect is paired with `combat-one-strike-per-character:
  * excludeAvatars`. Status modifiers (tapped, wounded) and support bonuses
  * still apply on top of the mind base.
+ * Use `play-flag: 'combat-defender-prowess-from-mind'` on creature cards.
  */
-export interface CombatDefenderProwessFromMindEffect extends EffectBase {
-  readonly type: 'combat-defender-prowess-from-mind';
-}
 
 /**
  * Marks the attack as detainment (see CoE §3.II). A detainment attack
@@ -844,7 +842,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
  *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -2116,12 +2114,8 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
  * cannot be canceled. The event discards itself when that isolated attack
  * is defeated (handled via `on-event: attack-defeated` with
  * `when: { "attack.isolated": true }`).
- *
- * Used by: *Forewarned Is Forearmed* (dm-132).
+ * Use `play-flag: 'reduce-attacks-to-one'` on permanent event cards.
  */
-export interface ReduceAttacksToOneEffect extends EffectBase {
-  readonly type: 'reduce-attacks-to-one';
-}
 
 /**
  * When present on a resource permanent event that carries `storable-at`,
@@ -2239,7 +2233,6 @@ export type CardEffect =
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatOneStrikePerCharacterEffect
-  | CombatDefenderProwessFromMindEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
@@ -2269,7 +2262,6 @@ export type CardEffect =
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | CancelChainReturnToOriginEffect
-  | ReduceAttacksToOneEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
@@ -2282,7 +2274,6 @@ export type CardEffect =
   | DuplicateSiteAutoAttacksEffect
   | TapForHazardLimitEffect
   | UntapByHazardLimitEffect
-  | NoAutoUntapEffect
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect;
@@ -2468,10 +2459,8 @@ export interface UntapByHazardLimitEffect extends EffectBase {
  * Power Built by Waiting (as-34): prevents this card from being automatically
  * untapped during the controller's untap phase. The card only untaps via the
  * {@link UntapByHazardLimitEffect} mechanism.
+ * Use `play-flag: 'no-auto-untap'` on permanent event cards.
  */
-export interface NoAutoUntapEffect extends EffectBase {
-  readonly type: 'no-auto-untap';
-}
 
 // ---- Gold ring test (Rule 9.21) ----
 

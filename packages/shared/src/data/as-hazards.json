@@ -157,7 +157,7 @@
     "eventType": "permanent",
     "effects": [
       { "type": "tap-for-hazard-limit", "value": 1 },
-      { "type": "no-auto-untap" },
+      { "type": "play-flag", "flag": "no-auto-untap" },
       { "type": "untap-by-hazard-limit", "cost": 2 }
     ],
     "certified": "2026-05-24"

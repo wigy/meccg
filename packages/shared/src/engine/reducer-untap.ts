@@ -6,12 +6,12 @@
  */
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import type { OnEventEffect, CardEffect, NoAutoUntapEffect } from '../types/effects.js';
+import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
 /**
@@ -243,9 +243,7 @@ function performUntap(state: GameState): GameState {
   const newCardsInPlay = player.cardsInPlay.map(card => {
     if (card.status !== CardStatus.Tapped) return card;
     const def = state.cardPool[card.definitionId as string];
-    const hasNoAutoUntap = def && 'effects' in def && def.effects?.some(
-      (e): e is NoAutoUntapEffect => e.type === 'no-auto-untap',
-    );
+    const hasNoAutoUntap = def && 'effects' in def && hasPlayFlag(def, 'no-auto-untap');
     if (hasNoAutoUntap) {
       logDetail(`Untap: skipping ${card.definitionId as string} — no-auto-untap effect`);
       return card;
