@@ -18,9 +18,8 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
-import { matchesCondition } from '../../effects/condition-matcher.js';
 
 /**
  * Returns true if the site carries a `deny-character` site-rule that matches
@@ -37,7 +36,7 @@ function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard):
   for (const eff of siteDef.effects) {
     if (eff.type !== 'site-rule' || eff.rule !== 'deny-character') continue;
     if (eff.exceptHomesite && charDef.homesite === siteDef.name) continue;
-    if (matchesCondition(eff.filter, charDef as unknown as Record<string, unknown>)) {
+    if (matchesDefinition(charDef, eff.filter)) {
       return true;
     }
   }

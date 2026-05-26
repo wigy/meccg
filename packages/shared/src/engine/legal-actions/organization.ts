@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition } from '../reducer-utils.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -788,7 +788,7 @@ function enumerateGrantActionTargets(
       for (const item of compChar.items) {
         const itemDef = state.cardPool[item.definitionId as string];
         if (!itemDef) continue;
-        if (targets.filter && !matchesCondition(targets.filter, itemDef as unknown as Record<string, unknown>)) continue;
+        if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
         matches.push({ instanceId: item.instanceId, definitionId: item.definitionId });
       }
     }
@@ -978,7 +978,7 @@ export function collectDiscardInPlayTargets(
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       const cDef = state.cardPool[c.definitionId as string];
-      if (cDef && matchesCondition(filter, cDef as unknown as Record<string, unknown>)) {
+      if (cDef && matchesDefinition(cDef, filter)) {
         targets.push(c.instanceId);
       }
     }
@@ -986,7 +986,7 @@ export function collectDiscardInPlayTargets(
       const char = p.characters[charId];
       for (const haz of char.hazards) {
         const hDef = state.cardPool[haz.definitionId as string];
-        if (hDef && matchesCondition(filter, hDef as unknown as Record<string, unknown>)) {
+        if (hDef && matchesDefinition(hDef, filter)) {
           targets.push(haz.instanceId);
         }
       }

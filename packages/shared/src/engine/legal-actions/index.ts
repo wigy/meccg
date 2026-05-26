@@ -12,7 +12,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
-import { matchesCondition } from '../../index.js';
+import { matchesDefinition } from '../reducer-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -59,7 +59,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
       const def = state.cardPool[card.definitionId as string];
-      if (!def || !matchesCondition(effect.filter, def as unknown as Record<string, unknown>)) continue;
+      if (!def || !matchesDefinition(def, effect.filter)) continue;
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
           { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },

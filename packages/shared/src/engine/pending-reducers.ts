@@ -24,7 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -38,7 +38,6 @@ import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect } from '../types/effects.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -2045,7 +2044,7 @@ function applyHazardEventMaintenanceResolution(
       for (const eff of sourceDef.effects) {
         if (eff.type !== 'hazard-maintenance' || eff.trigger !== 'opponent-long-event-end') continue;
         const handDef = state.cardPool[handCard.definitionId as string];
-        if (!handDef || !matchesCondition(eff.handCardFilter, handDef as unknown as Record<string, unknown>)) {
+        if (!handDef || !matchesDefinition(handDef, eff.handCardFilter)) {
           return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
         }
         break;

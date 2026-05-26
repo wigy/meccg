@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
-import { cardName } from '../reducer-utils.js';
+import { cardName, matchesDefinition } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -1433,7 +1433,7 @@ function playHazardsActions(
               const siteDef = state.cardPool[destSiteDefId as string];
               const siteDefName = siteDef?.name ?? (destSiteDefId as string);
               if (shortPlayTarget.filter && siteDef && isSiteCard(siteDef)) {
-                if (!matchesCondition(shortPlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+                if (!matchesDefinition(siteDef, shortPlayTarget.filter)) {
                   logDetail(`Hazard short-event "${def.name}" site filter excludes ${siteDefName}`);
                   actions.push({
                     action: { ...action, targetSiteDefinitionId: destSiteDefId },
@@ -1779,7 +1779,7 @@ function playHazardsActions(
             const siteDefName = siteDef?.name ?? (destSiteDefId as string);
             // Apply play-target filter (e.g. Incite Defenders: border-hold or free-hold)
             if (playTarget.filter && siteDef && isSiteCard(siteDef)) {
-              if (!matchesCondition(playTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+              if (!matchesDefinition(siteDef, playTarget.filter)) {
                 logDetail(`Hazard "${def.name}" site filter excludes ${siteDefName}`);
                 actions.push({
                   action: { ...action, targetSiteDefinitionId: destSiteDefId },

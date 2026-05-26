@@ -13,7 +13,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -613,7 +613,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         for (const haz of char.hazards) {
           const hazDef = newState.cardPool[haz.definitionId as string];
           const matches = hazDef && bounceEffect.filter
-            ? matchesCondition(bounceEffect.filter, hazDef as unknown as Record<string, unknown>)
+            ? matchesDefinition(hazDef, bounceEffect.filter)
             : !!hazDef;
           if (matches) {
             logDetail(`${def.name}: returning ${hazDef?.name ?? '?'} from ${charId as string} to opponent's hand`);
