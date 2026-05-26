@@ -7,7 +7,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
-import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, TapForHazardLimitEffect, UntapByHazardLimitEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
@@ -2584,7 +2584,7 @@ function getCompanySize(state: GameState, company: Company): number {
 /**
  * Handle tap-hazard-card-for-limit: hazard player taps a cardsInPlay permanent
  * event (e.g. Power Built by Waiting) to increase the hazard limit against the
- * current target company by the card's TapForHazardLimitEffect.value.
+ * current target company by the card's HazardLimitSwapEffect.tapValue.
  *
  * Does NOT count against the hazard limit itself.
  */
@@ -2605,11 +2605,11 @@ function handleTapHazardCardForLimit(
 
   const def = state.cardPool[card.definitionId as string];
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    ?.find((e): e is TapForHazardLimitEffect => e.type === 'tap-for-hazard-limit');
-  if (!effect) return { state, error: `tap-hazard-card-for-limit: no tap-for-hazard-limit effect on ${card.definitionId as string}` };
+    ?.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = def?.name ?? card.definitionId as string;
-  logDetail(`Tap hazard card for limit: "${defName}" taps → +${effect.value} hazard limit against company ${action.targetCompanyId as string}`);
+  logDetail(`Tap hazard card for limit: "${defName}" taps → +${effect.tapValue} hazard limit against company ${action.targetCompanyId as string}`);
 
   // Tap the card
   const newCardsInPlay = player.cardsInPlay.map((c, i) =>
@@ -2622,7 +2622,7 @@ function handleTapHazardCardForLimit(
     source: action.cardInstanceId,
     sourceDefinitionId: card.definitionId,
     target: { kind: 'company', companyId: action.targetCompanyId },
-    kind: { type: 'hazard-limit-modifier', value: effect.value },
+    kind: { type: 'hazard-limit-modifier', value: effect.tapValue },
     scope: { kind: 'company-mh-phase', companyId: action.targetCompanyId },
   });
 
@@ -2651,12 +2651,12 @@ function handlePayHazardLimitToUntapCard(
 
   const def = state.cardPool[card.definitionId as string];
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    ?.find((e): e is UntapByHazardLimitEffect => e.type === 'untap-by-hazard-limit');
-  if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no untap-by-hazard-limit effect on ${card.definitionId as string}` };
+    ?.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = def?.name ?? card.definitionId as string;
-  const newHazardCount = mhState.hazardsPlayedThisCompany + effect.cost;
-  logDetail(`Pay hazard limit to untap: "${defName}" costs ${effect.cost} hazard limit (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → card untaps`);
+  const newHazardCount = mhState.hazardsPlayedThisCompany + effect.untapCost;
+  logDetail(`Pay hazard limit to untap: "${defName}" costs ${effect.untapCost} hazard limit (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → card untaps`);
 
   // Untap the card
   const newCardsInPlay = player.cardsInPlay.map((c, i) =>
