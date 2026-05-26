@@ -32,7 +32,7 @@ import {
   resolveStatModifiers,
   resolveDef,
 } from './effects/index.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
+import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
@@ -261,7 +261,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         const bearerCtx = { bearer: { race: charDef.race } };
         for (const effect of itemEffects) {
           if (effect.type !== 'mp-modifier' || typeof effect.value !== 'number' || !effect.when) continue;
-          if (!matchesCondition(effect.when, bearerCtx as unknown as Record<string, unknown>)) continue;
+          if (!matchesContext(effect.when, bearerCtx)) continue;
           const cat = 'marshallingCategory' in itemDef
             ? (itemDef as { marshallingCategory: MarshallingCategory }).marshallingCategory
             : 'item' as MarshallingCategory;

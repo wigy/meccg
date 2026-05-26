@@ -11,7 +11,7 @@ import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCa
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
-import { matchesCondition } from '../effects/index.js';
+import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
@@ -1501,7 +1501,7 @@ export function resolveInfluenceAttemptRoll(
 
     if (def.effects) {
       for (const effect of def.effects) {
-        if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+        if (effect.when && !matchesContext(effect.when, resolverCtx)) continue;
         charEffects.push({ effect, sourceDef: def, sourceInstance: entry.card.instanceId });
       }
     }

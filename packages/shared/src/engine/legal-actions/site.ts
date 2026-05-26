@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills } from '../effects/index.js';
@@ -1003,10 +1003,7 @@ function playResourcesActions(
           ? siteRestriction.sites.includes(siteName)
           : false;
         const matchesFilter = siteRestriction.filter
-          ? matchesCondition(
-              siteRestriction.filter,
-              { site: siteDef as unknown as Record<string, unknown> },
-            )
+          ? matchesContext(siteRestriction.filter, { site: siteDef })
           : false;
         // Either form satisfies; if both are absent the restriction is
         // empty and trivially fails (a malformed effect).
@@ -1337,7 +1334,7 @@ function playResourcesActions(
           charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
           if (factionDef.effects) {
             for (const effect of factionDef.effects) {
-              if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+              if (effect.when && !matchesContext(effect.when, resolverCtx)) continue;
               charEffects.push({ effect, sourceDef: factionDef, sourceInstance: cardInstanceId });
             }
           }

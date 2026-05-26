@@ -6,7 +6,7 @@
  */
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition, hasPlayFlag } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -382,7 +382,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
         const oe: OnEventEffect = e;
         if (oe.event !== 'untap-phase-end') continue;
         if (oe.apply.type !== 'force-check' || oe.apply.check !== 'corruption') continue;
-        if (oe.when && !matchesCondition(oe.when, bearerCtx as unknown as Record<string, unknown>)) {
+        if (oe.when && !matchesContext(oe.when, bearerCtx)) {
           logDetail(`Untap-phase-end: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when condition not met (siteType=${siteType ?? 'none'})`);
           continue;
         }
@@ -426,7 +426,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (oe.apply?.type !== 'discard-self') continue;
         const siteType = companyToSiteType.get(cid) ?? null;
         const ctx = { company: { siteType, atHaven: siteType === SiteType.Haven } };
-        if (oe.when && !matchesCondition(oe.when, ctx as unknown as Record<string, unknown>)) continue;
+        if (oe.when && !matchesContext(oe.when, ctx)) continue;
         logDetail(`organization-phase-start: discarding "${eDef.name ?? card.definitionId}" from company ${cid} (siteType=${siteType ?? 'none'})`);
         toDiscard.push(card);
         break;

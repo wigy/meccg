@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE, Skill } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -371,7 +371,7 @@ function factionInfluenceRollActions(
 
     if (def.effects) {
       for (const effect of def.effects) {
-        if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+        if (effect.when && !matchesContext(effect.when, resolverCtx)) continue;
         charEffects.push({ effect, sourceDef: def, sourceInstance: factionInstanceId });
       }
     }
