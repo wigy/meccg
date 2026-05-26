@@ -132,10 +132,15 @@ export function renderSingleView(
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
   single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
-  // Minimap radar — always shown; active company index is the focused self company (or 0).
-  const radarSelfIndex = Math.max(0, view.self.companies.findIndex(c => c.id === focusedCompanyId));
+  // Minimap radar — always shown.
+  const radarSelfIndex = owner === 'self'
+    ? view.self.companies.findIndex(c => c.id === focusedCompanyId)
+    : -1;
+  const radarOpponentIndex = owner === 'opponent'
+    ? view.opponent.companies.findIndex(c => c.id === focusedCompanyId)
+    : undefined;
   const attachRadar = (): void => {
-    const radar = createRadar(view, radarSelfIndex, cardPool);
+    const radar = createRadar(view, radarSelfIndex, cardPool, radarOpponentIndex);
     if (radar) {
       single.appendChild(radar);
       radar.addEventListener('map-radar-click', () => {
@@ -365,6 +370,27 @@ export function renderAllCompaniesView(
   }
 
   container.appendChild(overview);
+
+  // Radar in all-companies view — no company is "active", no opponent highlighted
+  const attachAllRadar = (): void => {
+    const radar = createRadar(view, -1, cardPool);
+    if (radar) {
+      container.appendChild(radar);
+      radar.addEventListener('map-radar-click', () => {
+        openFullMap(view, 0, cardPool, (idx) => {
+          setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          setAllCompaniesOverride(false);
+          rerender();
+        });
+      });
+    }
+  };
+  if (areCoordinatesLoaded()) {
+    attachAllRadar();
+  } else {
+    void loadCoordinates().then(() => rerender()).catch(() => {});
+  }
 
   // Shrink companies to fit the viewport if they overflow vertically
   requestAnimationFrame(() => {

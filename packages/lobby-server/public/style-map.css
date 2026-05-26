@@ -77,6 +77,22 @@
   z-index: 1;
 }
 
+/* Currently viewed opponent company — red pulse */
+.map-dot--opponent-active {
+  background: #c04040;
+  width: 10px;
+  height: 10px;
+  border-color: rgba(192, 64, 64, 0.6);
+  animation: map-pulse-opponent 1.8s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes map-pulse-opponent {
+  0%   { box-shadow: 0 0 0 0 rgba(192, 64, 64, 0.6); }
+  50%  { box-shadow: 0 0 0 6px rgba(192, 64, 64, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 64, 64, 0); }
+}
+
 /* Destination marker — green (for Movement/Hazard phase) */
 .map-dot--destination {
   background: #40c040;

@@ -50,26 +50,19 @@ export function createRadar(
   view: PlayerView,
   activeCompanyIndex: number,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  activeOpponentIndex?: number,
 ): HTMLElement | null {
   const activeCompany = view.self.companies[activeCompanyIndex];
-  if (!activeCompany?.currentSite) return null;
+  const hasAnySelfSite = view.self.companies.some(c => c.currentSite);
+  if (!activeCompany?.currentSite && !hasAnySelfSite) return null;
 
-  const activeSiteDef = resolveCardDef(activeCompany.currentSite.instanceId, view, cardPool);
-  if (!activeSiteDef) return null;
-
-  const activeSiteName = activeSiteDef.name;
-
-  // Check if the active company is at an Under-deeps site
-  const isUnderDeeps = getUnderDeepsCoordinates(activeSiteName) !== null;
-
-  if (isUnderDeeps) {
-    return createUnderDeepsRadar(view, cardPool, activeCompanyIndex);
+  // Check if the active self company is at an Under-deeps site
+  if (activeCompany?.currentSite) {
+    const activeSiteDef = resolveCardDef(activeCompany.currentSite.instanceId, view, cardPool);
+    if (activeSiteDef && getUnderDeepsCoordinates(activeSiteDef.name) !== null) {
+      return createUnderDeepsRadar(view, cardPool, activeCompanyIndex);
+    }
   }
-
-  // Surface map radar
-  const activeCoords = getCoordinates(activeSiteName);
-  // Only show radar when we can place the active company on the map
-  if (!activeCoords) return null;
 
   const radar = document.createElement('div');
   radar.className = 'map-radar';
@@ -96,10 +89,11 @@ export function createRadar(
   });
 
   // Render opponent companies
-  for (const company of view.opponent.companies) {
-    const dot = createCompanyDot(company, view, cardPool, 'opponent');
+  view.opponent.companies.forEach((company, idx) => {
+    const role = idx === activeOpponentIndex ? 'opponent-active' : 'opponent';
+    const dot = createCompanyDot(company, view, cardPool, role);
     if (dot) dotsLayer.appendChild(dot);
-  }
+  });
 
   // Render own agents as diamond markers (always visible — face-up and face-down)
   for (const agent of view.self.agents) {
@@ -164,7 +158,7 @@ function createCompanyDot(
   company: Company | OpponentCompanyView,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  role: 'active' | 'own' | 'opponent',
+  role: 'active' | 'own' | 'opponent' | 'opponent-active',
 ): HTMLElement | null {
   if (!company.currentSite) return null;
 
