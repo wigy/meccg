@@ -680,7 +680,7 @@ export class GameSession {
     // Also scan characters in companies, the characters dict, and agents —
     // these are not in flat piles but carry instance IDs that must not collide.
     for (const company of summoningPlayer.companies) {
-      for (const charId of company.characters) countId(charId as CardInstanceId);
+      for (const charId of company.characters) countId(charId);
     }
     for (const charId of Object.keys(summoningPlayer.characters)) countId(charId as CardInstanceId);
     for (const agent of summoningPlayer.agents) countId(agent.character.instanceId);
