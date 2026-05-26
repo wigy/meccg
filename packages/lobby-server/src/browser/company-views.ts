@@ -132,32 +132,25 @@ export function renderSingleView(
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
   single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
 
-  // Minimap radar — shown when the focused company is one of our own and has a site with known coordinates.
-  if (owner === 'self') {
-    const selfIndex = view.self.companies.findIndex(c => c.id === focusedCompanyId);
-    if (selfIndex >= 0) {
-      const attachRadar = (): void => {
-        const radar = createRadar(view, selfIndex, cardPool);
-        if (radar) {
-          single.appendChild(radar);
-          radar.addEventListener('map-radar-click', () => {
-            openFullMap(view, selfIndex, cardPool, (idx) => {
-              setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
-              setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
-              rerender();
-            });
-          });
-        }
-      };
-
-      if (areCoordinatesLoaded()) {
-        // Coordinates are cached — create radar synchronously (no timing issues)
-        attachRadar();
-      } else {
-        // First render: kick off the fetch, then trigger a re-render once loaded
-        void loadCoordinates().then(() => rerender()).catch(() => {});
-      }
+  // Minimap radar — always shown; active company index is the focused self company (or 0).
+  const radarSelfIndex = Math.max(0, view.self.companies.findIndex(c => c.id === focusedCompanyId));
+  const attachRadar = (): void => {
+    const radar = createRadar(view, radarSelfIndex, cardPool);
+    if (radar) {
+      single.appendChild(radar);
+      radar.addEventListener('map-radar-click', () => {
+        openFullMap(view, radarSelfIndex, cardPool, (idx) => {
+          setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          rerender();
+        });
+      });
     }
+  };
+  if (areCoordinatesLoaded()) {
+    attachRadar();
+  } else {
+    void loadCoordinates().then(() => rerender()).catch(() => {});
   }
 
   // Right arrow — next company
