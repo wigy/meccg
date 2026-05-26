@@ -128,8 +128,7 @@
 .map-fullscreen-inner {
   position: relative;
   aspect-ratio: 1241 / 1114;
-  width: 96vw;
-  max-height: 94vh;
+  width: min(96vw, calc(94vh * 1241 / 1114));
   border-radius: 8px;
   overflow: hidden;
   background: #0b0d12;
