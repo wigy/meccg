@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ItemTapStrikeBonusEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, OnEventEffect, RerollStrikeEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
@@ -934,9 +934,8 @@ function resolveStrikeActions(
     }
   }
 
-  // Item-tap-strike-bonus: scan items on the current strike target for
-  // item-tap-strike-bonus effects. The bearer taps the item to add a
-  // prowess bonus to this specific strike (e.g. Shield of Iron-bound Ash).
+  // modify-attack with scope "current-strike": scan items on the current strike
+  // target for tap-to-boost effects scoped to a single strike (e.g. Shield of Iron-bound Ash).
   actions.push(...tapItemForStrikeActions(state, playerId, combat, tapProwess, strikeProwess));
 
   // Rule 3.iv.5: the defending resource player may play resources on the
@@ -1040,8 +1039,8 @@ function shortEventsAffectingStrike(
 /**
  * Generate tap-item-for-strike actions for the defending player during
  * the resolve-strike phase. Scans items on the current strike target
- * character for an `item-tap-strike-bonus` effect whose `when` condition
- * matches. One action is emitted per eligible untapped item.
+ * character for `modify-attack` effects with `scope: "current-strike"`.
+ * One action is emitted per eligible untapped item.
  *
  * Used by Shield of Iron-bound Ash (tw-327).
  */
@@ -1074,7 +1073,7 @@ function tapItemForStrikeActions(
     if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
 
     const effect = itemDef.effects.find(
-      (e): e is ItemTapStrikeBonusEffect => e.type === 'item-tap-strike-bonus',
+      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e as ModifyAttackEffect).scope === 'current-strike',
     );
     if (!effect) continue;
     if (effect.cost?.tap !== 'self') continue;
@@ -1090,18 +1089,18 @@ function tapItemForStrikeActions(
       if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
       if (!matchesCondition(effect.when, ctx)) {
         const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
-        logDetail(`Item-tap-strike-bonus ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
+        logDetail(`Tap-item-for-strike ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
         continue;
       }
     }
 
-    const bonus = effect.prowessBonus;
+    const bonus = effect.prowessModifier ?? 0;
     const modifiedProwess = tapProwess + bonus;
     const modifiedNeed = Math.max(2, strikeProwess - modifiedProwess + 1);
     const bonusSign = bonus >= 0 ? '+' : '';
     const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
     const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${bonusSign}${bonus})`;
-    logDetail(`Item-tap-strike-bonus available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
+    logDetail(`Tap-item-for-strike available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
     actions.push({
       action: {
         type: 'tap-item-for-strike',

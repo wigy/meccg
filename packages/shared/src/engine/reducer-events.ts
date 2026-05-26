@@ -964,27 +964,18 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
-    if (onEvent.apply.type === 'unlock-hoard-bounty') {
-      // Set hoardBountyAvailable in SitePhaseState, allowing one additional
-      // minor or major item at a tapped hoard site this site phase.
-      if (state.phaseState.phase !== Phase.Site) {
-        logDetail(`"${def.name}": unlock-hoard-bounty played outside site phase — no effect`);
+    if (onEvent.apply.type === 'set-site-phase-flag') {
+      const flagName = onEvent.apply.flag;
+      if (!flagName) {
+        logDetail(`"${def.name}": set-site-phase-flag missing flag name — ignored`);
         continue;
       }
-      logDetail(`"${def.name}" played — hoardBountyAvailable set`);
-      state = { ...state, phaseState: { ...state.phaseState, hoardBountyAvailable: true } };
-      continue;
-    }
-
-    if (onEvent.apply.type === 'unlock-thorough-search') {
-      // Set thoroughSearchAvailable in SitePhaseState, allowing one additional
-      // minor, major, or gold ring item without tapping the site this site phase.
       if (state.phaseState.phase !== Phase.Site) {
-        logDetail(`"${def.name}": unlock-thorough-search played outside site phase — no effect`);
+        logDetail(`"${def.name}": set-site-phase-flag(${flagName}) played outside site phase — no effect`);
         continue;
       }
-      logDetail(`"${def.name}" played — thoroughSearchAvailable set`);
-      state = { ...state, phaseState: { ...state.phaseState, thoroughSearchAvailable: true } };
+      logDetail(`"${def.name}" played — ${flagName} set`);
+      state = { ...state, phaseState: { ...state.phaseState, [flagName]: true } };
       continue;
     }
 

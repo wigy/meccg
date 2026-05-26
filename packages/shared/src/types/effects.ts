@@ -407,17 +407,20 @@ export interface TriggeredAction {
    *   so that all characters make a corruption check before defenders are selected.
    *   Uses `check` (must be `"corruption"`) and optional `modifier`.
    * - `offer-char-join-attack` — offer a haven character the option to join the attack.
-   * - `unlock-hoard-bounty` — under `on-event: self-enters-play`, sets
-   *   `SitePhaseState.hoardBountyAvailable = true`, allowing one additional minor
-   *   or major item to be played at the current tapped hoard site. Only fires during
-   *   the site phase. Used by *Bounty of the Hoard* (td-101).
-   * - `unlock-thorough-search` — under `on-event: self-enters-play`, sets
-   *   `SitePhaseState.thoroughSearchAvailable = true`, allowing one additional
-   *   minor, major, or gold ring item to be played without tapping the site.
-   *   Only fires during the site phase. Used by *Thorough Search* (tw-349).
+   * - `set-site-phase-flag` — under `on-event: self-enters-play`, sets a named
+   *   boolean flag in `SitePhaseState` to `true`. Only fires during the site phase.
+   *   The `flag` field names the `SitePhaseState` key to set (e.g.
+   *   `"hoardBountyAvailable"` for *Bounty of the Hoard*, `"thoroughSearchAvailable"`
+   *   for *Thorough Search*). New "unlock-slot" mechanics only need a new flag name —
+   *   no additional handler code required.
    * (Other types documented inline on their respective fields.)
    */
   readonly type: string;
+  /**
+   * For `set-site-phase-flag` type: the `SitePhaseState` boolean key to set to `true`.
+   * Supported values: `"hoardBountyAvailable"`, `"thoroughSearchAvailable"`.
+   */
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
   /**
    * Which check to force (for `force-check` / `force-check-all-company`) or which
    * check's modifiers to sum into a 2d6 roll (for `roll-check`).
@@ -1676,9 +1679,24 @@ export interface RerollStrikeEffect extends EffectBase {
 export interface ModifyAttackEffect extends EffectBase {
   readonly type: 'modify-attack';
   /**
-   * Cost to activate. `{ tap: "self" }` taps the item (e.g. Black Arrow);
-   * `{ tap: "bearer" }` taps only the item's bearer without tapping the item
-   * itself (e.g. Star-glass).
+   * Activation scope.
+   * - Absent (default): whole-attack modifier, available during the
+   *   `assign-strikes` pre-assignment window. Applies `prowessModifier` to
+   *   `CombatState.strikeProwess` (affects every defender) and `bodyModifier`
+   *   to `CombatState.creatureBody`. Used by Black Arrow and Star-glass.
+   * - `"current-strike"`: single-strike modifier, available during the
+   *   `resolve-strike` phase. Applies `prowessModifier` to
+   *   `StrikeAssignment.strikeProwessBonus` for the current strike only,
+   *   benefiting only the one character assigned that strike. The item must
+   *   be untapped and must belong to the current strike target. Activates
+   *   via the `tap-item-for-strike` action type. Used by Shield of Iron-bound
+   *   Ash (tw-327): tap to gain +1 prowess against one strike.
+   */
+  readonly scope?: 'current-strike';
+  /**
+   * Cost to activate. `{ tap: "self" }` taps the item (e.g. Black Arrow,
+   * Shield of Iron-bound Ash); `{ tap: "bearer" }` taps only the item's
+   * bearer without tapping the item itself (e.g. Star-glass).
    */
   readonly cost: ActionCost;
   /**
@@ -1687,46 +1705,22 @@ export interface ModifyAttackEffect extends EffectBase {
    * ("Bearer makes a corruption check").
    */
   readonly enqueueCorruptionCheck?: true;
-  /** Amount added to the attack's strike prowess (usually negative). */
+  /** Amount added to the attack's strike prowess or current-strike prowess bonus. */
   readonly prowessModifier?: number;
-  /** Amount added to the creature's body value for the creature body check (usually negative). */
+  /** Amount added to the creature's body value for the creature body check (whole-attack scope only). */
   readonly bodyModifier?: number;
   /**
-   * Amount added to the attack's total strike count (usually negative).
+   * Amount added to the attack's total strike count (whole-attack scope only, usually negative).
    * The result is clamped to a minimum of 1.
    */
   readonly strikesModifier?: number;
   /**
    * When set, the item is discarded instead of tapped if the bearer's
-   * race is NOT in `race`. The modifier still applies.
+   * race is NOT in `race`. The modifier still applies (whole-attack scope only).
    */
   readonly discardIfBearerNot?: {
     readonly race: readonly string[];
   };
-}
-
-/**
- * Activated ability carried by an in-play item that boosts the bearer's
- * prowess for the one specific strike currently being resolved. Available
- * to the defending player during the `resolve-strike` phase. The item
- * must be untapped; tapping it adds `prowessBonus` to
- * {@link StrikeAssignment.strikeProwessBonus} for the current strike only,
- * benefiting only that one defender (unlike {@link ModifyAttackEffect},
- * which modifies the whole attack and applies to all defenders).
- *
- * The `cost` must be `{ "tap": "self" }`. The optional `when` gate is
- * evaluated against a context exposing `bearer.race`, `bearer.skills`,
- * and `bearer.name`, and `enemy.race`.
- *
- * Example: Shield of Iron-bound Ash (tw-327) — tap to gain +1 prowess
- * against one strike.
- */
-export interface ItemTapStrikeBonusEffect extends EffectBase {
-  readonly type: 'item-tap-strike-bonus';
-  /** Cost to activate; must be `{ tap: "self" }`. */
-  readonly cost: ActionCost;
-  /** Amount added to the bearer's prowess for the current strike only. */
-  readonly prowessBonus: number;
 }
 
 /**
@@ -2231,7 +2225,6 @@ export type CardEffect =
   | ModifyStrikeEffect
   | RerollStrikeEffect
   | ModifyAttackEffect
-  | ItemTapStrikeBonusEffect
   | ModifyAttackFromHandEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect

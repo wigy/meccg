@@ -203,7 +203,7 @@
     "effects": [
       { "type": "play-window", "phase": "site" },
       { "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "unlock-hoard-bounty" } }
+        "apply": { "type": "set-site-phase-flag", "flag": "hoardBountyAvailable" } }
     ],
     "certified": "2026-05-14"
   },

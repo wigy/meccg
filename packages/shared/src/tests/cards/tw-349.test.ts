@@ -7,7 +7,7 @@
  *   1. play-window: phase "site" — only playable during the site phase
  *   2. play-target: character with filter (scout skill) + cost (tap) — targets
  *      an untapped scout; the scout is tapped when played
- *   3. on-event: self-enters-play → unlock-thorough-search — sets
+ *   3. on-event: self-enters-play → set-site-phase-flag(thoroughSearchAvailable) — sets
  *      SitePhaseState.thoroughSearchAvailable, allowing one additional minor,
  *      major, or gold ring item to be played without tapping the site.
  *
@@ -21,7 +21,7 @@
  * |---|---------------------------|-------------|------------------------------------------------|
  * | 1 | play-window site          | IMPLEMENTED | heroResourceShortEventActions + site filter    |
  * | 2 | play-target scout + tap   | IMPLEMENTED | DSL filter + cost via condition-matcher        |
- * | 3 | unlock-thorough-search    | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site      |
+ * | 3 | set-site-phase-flag       | IMPLEMENTED | applyShortEventOnEntersPlay, reducer-site      |
  *
  * Playable: YES
  */
