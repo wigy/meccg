@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
@@ -65,6 +65,18 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
 export function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
+}
+
+/**
+ * Look up a player by their {@link PlayerId}, or `undefined` if no player
+ * matches. Centralizes the ubiquitous `state.players.find(p => p.id === id)`
+ * lookup. A `null`/`undefined` id (e.g. `state.activePlayer` before a player
+ * is active) never matches and yields `undefined`, mirroring the raw `.find`
+ * behavior. Callers that know the id is valid (e.g. it came from a validated
+ * action or phase state) can assert the result with `!`.
+ */
+export function playerById(state: GameState, id: PlayerId | null | undefined): PlayerState | undefined {
+  return state.players.find(p => p.id === id);
 }
 
 /**

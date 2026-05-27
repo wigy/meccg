@@ -18,7 +18,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -188,7 +188,7 @@ export function playCharacterActions(
   playerId: PlayerId,
 ): EvaluatedAction[] {
   const phaseState = state.phaseState as OrganizationPhaseState;
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const results: EvaluatedAction[] = [];
 
   // Rule 2.II.2.2: detect if the player's avatar is in play

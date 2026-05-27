@@ -17,7 +17,7 @@ import { CardStatus } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
-import { characterIds, findCharacterCompany } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany, playerById } from '../reducer-utils.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
@@ -37,7 +37,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     return grantActions;
   }
 
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return grantActions;
 
   // If a corruption check is pending (awaiting support), offer support actions
@@ -105,7 +105,7 @@ function supportActions(
   fcState: FreeCouncilPhaseState,
 ): GameAction[] {
   const pending = fcState.pendingCheck!;
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: GameAction[] = [];
 
   // Find the company containing the character making the check

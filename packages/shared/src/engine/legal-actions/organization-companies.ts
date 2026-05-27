@@ -18,6 +18,7 @@ import type {
 } from '../../index.js';
 import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
 import { logDetail } from './log.js';
+import { playerById } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
@@ -151,7 +152,7 @@ function collectPassiveMovementBonus(
  * Companies that already have a destination planned are skipped.
  */
 export function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
   const movementMap = buildMovementMap(state.cardPool);
 
@@ -340,7 +341,7 @@ function buildRegionTypeMap(state: GameState): Map<string, string> {
  *    maximum general influence.
  */
 export function moveToInfluenceActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const company of player.companies) {
@@ -420,7 +421,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
  * Emits one viable action per valid (item, fromCharacter, toCharacter) triple.
  */
 export function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   // Build a map from site instance ID → list of character instance IDs at that site
@@ -498,7 +499,7 @@ const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
  * Emits one action per valid (item, character) pair.
  */
 export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const company of player.companies) {
@@ -566,7 +567,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
  * move automatically with their host in the reducer.
  */
 export function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const company of player.companies) {
@@ -615,7 +616,7 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
  * Emits one action per valid (character, targetCompany) pair.
  */
 export function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   // Build map from site definition ID → companies at that site
@@ -682,7 +683,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
  * Emits one action per valid (sourceCompany, targetCompany) pair at the same site.
  */
 export function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   // Build map from site instance ID → companies at that site

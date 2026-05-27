@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById, playerById } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -750,7 +750,7 @@ function buildConstraintKind(
       let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
       if (ps.phase === Phase.MovementHazard) {
         // M/H phase: resolve from active company's destination site
-        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const activePlayer = playerById(state, state.activePlayer);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
         if (company?.destinationSite?.instanceId) {
           siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
@@ -767,7 +767,7 @@ function buildConstraintKind(
         }
       } else if (ps.phase === Phase.Site) {
         // Site phase: resolve from active company's current site
-        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const activePlayer = playerById(state, state.activePlayer);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
         if (company?.currentSite) {
           siteDefinitionId = company.currentSite.definitionId;
@@ -827,7 +827,7 @@ function buildConstraintKind(
       const ps = state.phaseState;
       let siteDefId: import('../types/common.js').CardDefinitionId | null = null;
       if (ps.phase === Phase.Site) {
-        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const activePlayer = playerById(state, state.activePlayer);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
         if (company?.currentSite) {
           siteDefId = company.currentSite.definitionId;
@@ -1152,7 +1152,7 @@ function applyAddConstraintFromOnEvent(
   let companyId: import('../types/common.js').CompanyId | null = null;
   const activePlayer = state.activePlayer;
   if (activePlayer !== null) {
-    const activePlayerObj = state.players.find(p => p.id === activePlayer);
+    const activePlayerObj = playerById(state, activePlayer);
     if (activePlayerObj) {
       const ps = state.phaseState;
       let activeCompanyIndex = -1;

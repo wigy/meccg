@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany } from '../reducer-utils.js';
+import { findCharacterCompany, playerById } from '../reducer-utils.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -109,7 +109,7 @@ function isAllyImmuneToSiteKeyedAttack(
 
   if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
     if (!combat.attackSiteKeyingTypes || combat.attackSiteKeyingTypes.length === 0) return false;
-    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+    const defPlayer = playerById(state, combat.defendingPlayerId);
     const company = defPlayer?.companies.find(c => c.id === combat.companyId);
     if (!company) return false;
     const effectiveSite = company.destinationSite ?? company.currentSite;
@@ -1087,7 +1087,7 @@ function bodyCheckActions(
     targetLabel = 'creature';
   } else {
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+    const defPlayer = playerById(state, combat.defendingPlayerId);
     const charData = defPlayer?.characters[strike?.characterId as string];
     const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
@@ -1839,7 +1839,7 @@ function itemSalvageActions(
   // For each available item × each eligible recipient = one action
   for (const item of salvageItems) {
     for (const recipientId of salvageRecipients) {
-      const charData = state.players.find(p => p.id === playerId)?.characters[recipientId as string];
+      const charData = playerById(state, playerId)?.characters[recipientId as string];
       const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
       const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (recipientId as string);
       const itemDef = state.cardPool[item.definitionId as string];

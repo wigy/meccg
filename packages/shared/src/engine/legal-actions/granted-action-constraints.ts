@@ -24,7 +24,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName } from '../reducer-utils.js';
+import { cardName, playerById } from '../reducer-utils.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -56,7 +56,7 @@ export function emitGrantedActionConstraintActions(
 
   if (matchingConstraints.length === 0) return actions;
 
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return actions;
 
   for (const constraint of matchingConstraints) {

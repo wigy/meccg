@@ -34,6 +34,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
+import { playerById } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -81,7 +82,7 @@ export function buildControllerInPlayNames(
   playerId: import('../index.js').PlayerId,
 ): readonly string[] {
   const names: string[] = [];
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return names;
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);
