@@ -17,7 +17,7 @@
  * | # | Feature                                             | Status      | Notes                                             |
  * |---|-----------------------------------------------------|-------------|---------------------------------------------------|
  * | 1 | Target = any character                              | IMPLEMENTED | play-target character, no filter                  |
- * | 2 | Influence-check-boost available with faction in hand| IMPLEMENTED | when: player.hasFactionInHand                     |
+ * | 2 | Influence-check-boost during active influence attempt| IMPLEMENTED | when: player.hasFactionInHand (chain-only)         |
  * | 3 | Corruption-check-boost available during CC window   | IMPLEMENTED | when: pending.corruptionCheckTargetsMe            |
  * | 4 | +1 per character in company (valueExpr)             | IMPLEMENTED | valueExpr: company.characterCount, context added  |
  * | 5 | Influence constraint modifies influence-attempt need| IMPLEMENTED | reducer-site.ts reads check-modifier constraints  |
@@ -34,7 +34,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch, findHandCardId,
-  buildSitePhaseState, RESOURCE_PLAYER,
+  buildSitePhaseState, buildInfluenceAttemptChainState, findCharInstanceId, RESOURCE_PLAYER,
   expectInDiscardPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
@@ -48,11 +48,14 @@ describe('A Friend or Three (tw-189)', () => {
 
   // ── influence-check-boost ────────────────────────────────────────────────
 
-  test('influence-check-boost: offered when player has a faction in hand', () => {
-    const state = buildSitePhaseState({
+  test('influence-check-boost: offered during an active influence attempt', () => {
+    // A Friend or Three must be played in response to an active influence check —
+    // not speculatively before the attempt is declared.
+    const state = buildInfluenceAttemptChainState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
     const actions = computeLegalActions(state, PLAYER_1)
@@ -75,14 +78,16 @@ describe('A Friend or Three (tw-189)', () => {
   });
 
   test('influence-check-boost: constraint value equals company size (solo → +1)', () => {
-    const state = buildSitePhaseState({
+    // Set up an active influence attempt chain so the card is playable
+    const state = buildInfluenceAttemptChainState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const aragornId = charIdAt(state, RESOURCE_PLAYER);
-    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const cardInstance = findHandCardId(state, RESOURCE_PLAYER, A_FRIEND_OR_THREE);
 
     const after = dispatch(state, {
       type: 'play-short-event',
@@ -103,20 +108,21 @@ describe('A Friend or Three (tw-189)', () => {
     if (constraints[0].target.kind === 'character') {
       expect(constraints[0].target.characterId).toBe(aragornId);
     }
-    // Card consumed from hand; faction card remains
-    expect(after.players[0].hand).toHaveLength(1);
+    // Card consumed from hand; faction card is now in the chain
+    expect(after.players[0].hand).toHaveLength(0);
     expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
   });
 
   test('influence-check-boost: constraint value equals company size (3-char company → +3)', () => {
-    const state = buildSitePhaseState({
+    const state = buildInfluenceAttemptChainState({
       characters: [ARAGORN, LEGOLAS, GIMLI],
       site: PELARGIR,
       hand: [A_FRIEND_OR_THREE, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const aragornId = charIdAt(state, RESOURCE_PLAYER);
-    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const cardInstance = findHandCardId(state, RESOURCE_PLAYER, A_FRIEND_OR_THREE);
 
     const after = dispatch(state, {
       type: 'play-short-event',

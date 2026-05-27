@@ -12,16 +12,17 @@
  *  by adding the warrior's prowess to a maximum modifier of +5."
  *
  * Engine support table:
- * | # | Feature                                    | Status      | Notes                                          |
- * |---|--------------------------------------------|-------------|------------------------------------------------|
- * | 1 | Target = warrior (DSL filter)              | IMPLEMENTED | play-target filter target.skills warrior       |
- * | 2 | Prowess bonus capped at +5                 | IMPLEMENTED | valueExpr min(target.baseProwess, 5)           |
- * | 3 | Constraint added with computed value        | IMPLEMENTED | add-constraint check-modifier influence        |
- * | 4 | Constraint modifies influence-attempt need  | IMPLEMENTED | site.ts collects check-modifier constraints    |
- * | 5 | Constraint consumed after influence check   | IMPLEMENTED | reducer-site.ts consumes on resolution         |
- * | 6 | Not playable when no warrior present        | IMPLEMENTED | no eligible play-target → not-playable         |
- * | 7 | Not playable when no faction in hand        | IMPLEMENTED | when: player.hasFactionInHand                  |
- * | 8 | Not playable during movement-hazard phase   | IMPLEMENTED | hasFactionInHand restricted to site phase only |
+ * | # | Feature                                          | Status      | Notes                                                      |
+ * |---|--------------------------------------------------|-------------|------------------------------------------------------------|
+ * | 1 | Target = warrior (DSL filter)                    | IMPLEMENTED | play-target filter target.skills warrior                   |
+ * | 2 | Prowess bonus capped at +5                       | IMPLEMENTED | valueExpr min(target.baseProwess, 5)                       |
+ * | 3 | Constraint added with computed value              | IMPLEMENTED | add-constraint check-modifier influence                    |
+ * | 4 | Constraint modifies influence-attempt need        | IMPLEMENTED | site.ts collects check-modifier constraints                |
+ * | 5 | Constraint consumed after influence check         | IMPLEMENTED | reducer-site.ts consumes on resolution                     |
+ * | 6 | Not playable when no warrior present              | IMPLEMENTED | no eligible play-target → not-playable                     |
+ * | 7 | Not playable when no active influence attempt     | IMPLEMENTED | when: player.hasFactionInHand (chain-only)                 |
+ * | 8 | Not playable during movement-hazard phase         | IMPLEMENTED | hasFactionInHand restricted to active chain only           |
+ * | 9 | Not playable before influence attempt is declared | IMPLEMENTED | hasFactionInHand false when faction only in hand, not chain|
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -31,8 +32,9 @@ import {
   ARAGORN, BILBO, FARAMIR, BEREGOND, GIMLI,
   PELARGIR, MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   MEN_OF_LEBENNIN,
-  handCardId, charIdAt, dispatch, resolveChain,
-  buildSitePhaseState, buildTestState, findCharInstanceId, RESOURCE_PLAYER, makeMHState,
+  dispatch, resolveChain,
+  buildSitePhaseState, buildTestState, buildInfluenceAttemptChainState,
+  findCharInstanceId, findHandCardId, RESOURCE_PLAYER, makeMHState,
   Phase,
 } from '../test-helpers.js';
 import type {
@@ -49,12 +51,15 @@ const MUSTER = 'tw-288' as CardDefinitionId;
 describe('Muster (tw-288)', () => {
   beforeEach(() => resetMint());
 
-  test('offered as viable play-short-event when warrior and faction are in hand', () => {
-    // Muster requires both: a warrior target AND a faction to influence
-    const state = buildSitePhaseState({
+  test('offered as viable play-short-event during an active influence attempt', () => {
+    // Muster must be played in response to an active influence check — not
+    // speculatively before the influence attempt is declared. Set up the chain
+    // by dispatching the influence-attempt first; Muster should then be offered.
+    const state = buildInfluenceAttemptChainState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [MUSTER, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
     const actions = computeLegalActions(state, PLAYER_1)
@@ -63,6 +68,22 @@ describe('Muster (tw-288)', () => {
 
     expect(actions.length).toBeGreaterThanOrEqual(1);
     expect(actions.some(a => a.optionId === 'influence-boost')).toBe(true);
+  });
+
+  test('NOT offered before influence attempt is declared (faction still in hand)', () => {
+    // Regression: hasFactionInHand was true during the site phase whenever the
+    // player had a faction card in hand, causing Muster to appear playable before
+    // any influence check was in progress (game ID mpo1cqve-ltys6m, seq 103).
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+      hand: [MUSTER, MEN_OF_LEBENNIN],
+    });
+
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event'
+        && ea.action.optionId === 'influence-boost');
+    expect(playActions).toHaveLength(0);
   });
 
   test('not offered when warrior is present but no faction in hand', () => {
@@ -92,14 +113,16 @@ describe('Muster (tw-288)', () => {
   });
 
   test('playing Muster on Aragorn (prowess 6) adds influence check-modifier constraint capped at 5', () => {
-    const state = buildSitePhaseState({
+    // Set up an active influence attempt chain so Muster is playable
+    const state = buildInfluenceAttemptChainState({
       characters: [ARAGORN],
       site: PELARGIR,
       hand: [MUSTER, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const aragornId = charIdAt(state, RESOURCE_PLAYER);
-    const musterInstance = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
     const after = dispatch(state, {
       type: 'play-short-event',
@@ -125,20 +148,21 @@ describe('Muster (tw-288)', () => {
       expect(constraint.target.characterId).toBe(aragornId);
     }
 
-    // Muster consumed from hand and discarded; faction card remains
-    expect(after.players[0].hand).toHaveLength(1);
+    // Muster consumed from hand and discarded; faction card is in the chain
+    expect(after.players[0].hand).toHaveLength(0);
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain(musterInstance);
   });
 
   test('playing Muster on Faramir (prowess 5) adds influence check-modifier of 5 (at cap)', () => {
-    const state = buildSitePhaseState({
+    const state = buildInfluenceAttemptChainState({
       characters: [FARAMIR],
       site: PELARGIR,
       hand: [MUSTER, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const faramirId = charIdAt(state, RESOURCE_PLAYER);
-    const musterInstance = handCardId(state, RESOURCE_PLAYER);
+    const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
+    const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
     const after = dispatch(state, {
       type: 'play-short-event',
@@ -158,14 +182,15 @@ describe('Muster (tw-288)', () => {
   });
 
   test('playing Muster on Beregond (prowess 4) adds influence check-modifier of 4 (below cap)', () => {
-    const state = buildSitePhaseState({
+    const state = buildInfluenceAttemptChainState({
       characters: [BEREGOND],
       site: PELARGIR,
       hand: [MUSTER, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const beregondId = charIdAt(state, RESOURCE_PLAYER);
-    const musterInstance = handCardId(state, RESOURCE_PLAYER);
+    const beregondId = findCharInstanceId(state, RESOURCE_PLAYER, BEREGOND);
+    const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
     const after = dispatch(state, {
       type: 'play-short-event',

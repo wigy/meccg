@@ -686,6 +686,41 @@ export function firstFactionInfluenceAttempt(
 }
 
 /**
+ * Build a state in the middle of an influence-attempt chain window, suitable
+ * for testing short events that boost influence checks (Muster, New Friendship,
+ * A Friend or Three). The faction card has moved from hand to the chain, the
+ * opponent has already passed chain priority, and it is now the resource
+ * player's turn to respond — boost events are offered at this point.
+ *
+ * Pass the same opts as {@link buildSitePhaseState}, plus `factionDefId`
+ * to identify which faction in the hand to use for the attempt.
+ */
+export function buildInfluenceAttemptChainState(opts: {
+  characters: readonly CardDefinitionId[];
+  site: CardDefinitionId;
+  hand: CardDefinitionId[];
+  factionDefId: CardDefinitionId;
+}): GameState {
+  const base = buildSitePhaseState({
+    characters: [...opts.characters],
+    site: opts.site,
+    hand: opts.hand,
+  });
+  const factionInstanceId = findHandCardId(base, RESOURCE_PLAYER, opts.factionDefId);
+  const attempt = firstFactionInfluenceAttempt(base, factionInstanceId);
+  if (!attempt) throw new Error(`No viable influence-attempt for faction ${opts.factionDefId as string}`);
+  // After dispatching the influence-attempt, the opponent (PLAYER_2) gets
+  // chain priority first. Pass it so the resource player (PLAYER_1) gets
+  // their response window to play boost events.
+  const afterAttempt = dispatch(base, attempt);
+  const passPriority = computeLegalActions(afterAttempt, PLAYER_2).find(
+    ea => ea.viable && ea.action.type === 'pass-chain-priority',
+  );
+  if (!passPriority) throw new Error('Expected opponent to be able to pass chain priority');
+  return dispatch(afterAttempt, passPriority.action);
+}
+
+/**
  * Return the first viable `opponent-influence-attempt` action that targets
  * the given opponent-controlled instance (character, ally, or faction). The
  * `revealOnly` option filters to the reveal-identical variant.
