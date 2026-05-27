@@ -36,6 +36,7 @@ import {
   buildTestState, resetMint,
   addCardInPlay,
   dispatch,
+  dispatchResult,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   expectInDiscardPile,
   SAPLING_OF_THE_WHITE_TREE,
@@ -276,6 +277,50 @@ describe('Thrice Outnumbered (le-142)', () => {
       c => c.definitionId === MAN_CREATURE,
     );
     expect(inDiscard).toBe(false);
+  });
+
+  test('passing on fetch-to-deck emits a text-notification effect naming the card', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const withEvent = addCardInPlay(base, HAZARD_PLAYER, THRICE_OUTNUMBERED);
+    const inSitePhase = {
+      ...withEvent,
+      phaseState: makeSitePhase({
+        step: 'play-resources',
+        handledCompanyIds: [],
+        activeCompanyIndex: 0,
+        siteEntered: true,
+      }),
+    };
+
+    // Transition to EOT — pending effects are queued
+    const afterTransition = dispatch(inSitePhase, { type: 'pass', player: PLAYER_1 });
+    expect(afterTransition.pendingEffects.length).toBe(2);
+
+    // PLAYER_1 passes (skips fetch) — should emit a text-notification effect
+    const result = dispatchResult(afterTransition, { type: 'pass', player: PLAYER_1 });
+    expect(result.effects).toBeDefined();
+    const notification = result.effects?.find(e => e.effect === 'text-notification');
+    expect(notification).toBeDefined();
+    if (notification && notification.effect === 'text-notification') {
+      expect(notification.message).toContain('Thrice Outnumbered');
+    }
   });
 
   test('at EOT, player can pass (skip fetch) if they have no Man creature in discard', () => {

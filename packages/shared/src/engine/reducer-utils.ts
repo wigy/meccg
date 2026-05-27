@@ -767,7 +767,16 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
       }
     }
   }
-  return { state: newState };
+  // When skipping a fetch-to-deck effect by passing, emit a text notification
+  // so both players see that the optional retrieval was declined.
+  const skipEffects: import('../index.js').GameEffect[] = [];
+  if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
+    const playerName = (state.players.find(p => p.id === effectOwner) as { name: string } | undefined)?.name ?? effectOwner as string;
+    const eventDef = resolveDef(state, current.cardInstanceId) as { name?: string } | undefined;
+    const cardName = eventDef?.name ?? current.cardInstanceId as string;
+    skipEffects.push({ effect: 'text-notification', message: `${playerName} does not retrieve a Man hazard creature (${cardName})` });
+  }
+  return { state: newState, effects: skipEffects.length > 0 ? skipEffects : undefined };
 }
 
 /**

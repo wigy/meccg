@@ -306,8 +306,20 @@ export interface DiceRollEffect {
   readonly label: string;
 }
 
+/**
+ * A text notification broadcast to all clients.
+ * Used to inform players about automatic game events that have no
+ * corresponding interactive action (e.g. a player skipping an optional
+ * fetch-to-deck effect by passing).
+ */
+export interface TextNotificationEffect {
+  readonly effect: 'text-notification';
+  /** Human-readable message describing what happened. */
+  readonly message: string;
+}
+
 /** Union of all visual effect types. */
-export type GameEffect = DiceRollEffect;
+export type GameEffect = DiceRollEffect | TextNotificationEffect;
 
 /**
  * Sent by the server to trigger a visual effect on the client.

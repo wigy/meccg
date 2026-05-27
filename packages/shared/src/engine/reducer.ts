@@ -175,7 +175,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     }
     if (!effectResult.error) {
       const recomputed = postReduce(effectResult.state);
-      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
     }
     return effectResult;
   }
