@@ -14,7 +14,7 @@ import { ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany, companyById } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -662,7 +662,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const defPlayerIndex = newState.players.findIndex(p => p.id === combat.defendingPlayerId);
     if (defPlayerIndex >= 0) {
       const defPlayer = newState.players[defPlayerIndex];
-      const company = defPlayer.companies.find(c => c.id === combat.companyId);
+      const company = companyById(defPlayer.companies, combat.companyId);
       if (company) {
         for (const boostEffect of companyCombatBoosts) {
           for (const charId of company.characters) {
@@ -1038,7 +1038,7 @@ function applyShortEventOnEntersPlay(
       const player = state.players[playerIndex];
       let company: import('../types/state-cards.js').Company | undefined;
       if (action.type === 'play-short-event' && action.targetCompanyId) {
-        company = player.companies.find(c => c.id === action.targetCompanyId);
+        company = companyById(player.companies, action.targetCompanyId);
         if (!company) {
           logDetail(`add-constraint(${constraintKind}): company ${action.targetCompanyId as string} not found — fizzle`);
           continue;

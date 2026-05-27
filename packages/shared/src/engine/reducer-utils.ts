@@ -269,6 +269,19 @@ export function findCharacterCompany(
 }
 
 /**
+ * Returns the company with the given id, or `undefined` if none matches.
+ * Centralizes the ubiquitous `companies.find(c => c.id === companyId)` lookup
+ * used across combat, organization, and pending-resolution handlers to locate a
+ * company by its {@link CompanyId}.
+ */
+export function companyById(
+  companies: readonly Company[],
+  id: CompanyId,
+): Company | undefined {
+  return companies.find(c => c.id === id);
+}
+
+/**
  * Filters a sideboard to the cards whose definitions match `predicate`,
  * returning `{ instanceId, name }` pairs for legal-action generation. Cards
  * whose definitions cannot be resolved from the card pool are skipped.

@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -2007,7 +2007,7 @@ function fireAllyArrivalEffects(
   let newState = state;
   for (let pIdx = 0; pIdx < 2; pIdx++) {
     const player = newState.players[pIdx];
-    const company = player.companies.find(c => c.id === arrivingCompanyId);
+    const company = companyById(player.companies, arrivingCompanyId);
     if (!company) continue;
 
     for (const charInstId of company.characters) {
