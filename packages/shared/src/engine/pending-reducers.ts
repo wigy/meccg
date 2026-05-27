@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -168,13 +168,7 @@ function applyCorruptionCheckResolution(
   const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   logDetail(`Corruption check for ${charName} (${reason}): rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Corruption: ${charName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Corruption: ${charName}`);
 
   // Store the roll on the player
   const playersAfterRoll = clonePlayers(state);
@@ -699,13 +693,7 @@ function applyMusterRollResolution(
 
   logDetail(`Muster roll: ${def.name} — rolled ${roll.die1} + ${roll.die2} + unused GI ${unusedGI} = ${total} vs 11`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: owner.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Muster: ${def.name}`,
-  };
+  const rollEffect = diceRollEffect(owner.name, roll, `Muster: ${def.name}`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[ownerIndex] = { ...newPlayers[ownerIndex], lastDiceRoll: roll };
@@ -798,13 +786,7 @@ function applyFlateryAttemptResolution(
 
   logDetail(`Flattery attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + DI ${unusedDI}${isDiplomat ? ` + diplomat ${bonus}` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Flattery attempt: ${charName} vs ${creatureRace}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Flattery attempt: ${charName} vs ${creatureRace}`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
@@ -870,13 +852,7 @@ function applyCallOfHomeRollResolution(
   const checkValue = total + unusedGI;
   const passed = checkValue >= threshold;
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Call of Home: ${charName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Call of Home: ${charName}`);
   const effects: GameEffect[] = [rollEffect];
   logDetail(`Call of Home on ${charName}: rolled ${total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
 
@@ -1136,13 +1112,7 @@ function applyBodyCheckCompanyResolution(
   const rollTotal = roll.die1 + roll.die2;
   const passed = rollTotal >= effectiveThreshold;
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Body check (${sourceName}): ${charName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Body check (${sourceName}): ${charName}`);
   logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs discard threshold ${discardCheck}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveThreshold} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
 
   const stateAfterRoll = updatePlayer(
@@ -1231,13 +1201,7 @@ function applySeizedByTerrorRollResolution(
   const checkValue = total + mind;
   const passed = checkValue >= threshold;
 
-  const rollEffect: import('../index.js').GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Seized by Terror: ${charName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Seized by Terror: ${charName}`);
   const effects: import('../index.js').GameEffect[] = [rollEffect];
   logDetail(`Seized by Terror on ${charName}: rolled ${total} + mind ${mind} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'SPLITS OFF TO ORIGIN'}`);
 
@@ -1420,13 +1384,7 @@ function applyGoldRingTestResolution(
   const total = roll.die1 + roll.die2 + rollModifier;
   logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)} = ${total}; ring discarded`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Gold-ring test: ${ringName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Gold-ring test: ${ringName}`);
 
   // Compute eligible categories from the gold ring's ring-test-table effect.
   const effects: readonly unknown[] = ringDef && 'effects' in ringDef
@@ -1870,13 +1828,7 @@ function applyGlamourHazardRollResolution(
   const rollTotal = roll.die1 + roll.die2;
   const discarded = rollTotal > removalThreshold;
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `${sourceName}: ${hazName} (need > ${removalThreshold})`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `${sourceName}: ${hazName} (need > ${removalThreshold})`);
   logDetail(`${sourceName} glamour roll for ${hazName}: roll ${rollTotal} vs threshold >${removalThreshold} → ${discarded ? 'DISCARD' : 'KEEP'}`);
 
   let postRoll = dequeueResolution({ ...state, rng, cheatRollTotal }, top.id);

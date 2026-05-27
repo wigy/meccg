@@ -6,7 +6,7 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
@@ -25,7 +25,7 @@ import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-ev
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { roll2d6 } from './reducer-utils.js';
+import { roll2d6, diceRollEffect } from './reducer-utils.js';
 import { availableDI } from './legal-actions/organization.js';
 import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
@@ -956,13 +956,7 @@ function handleAgentInfluenceAttempt(
   const { roll, rng, cheatRollTotal } = roll2d6(newState);
   const attackerRoll = roll.die1 + roll.die2 + rollBonus;
 
-  const rollEffect = {
-    effect: 'dice-roll' as const,
-    playerName: hazardPlayer.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Agent influence: ${agentDef.name}${rollBonus > 0 ? ` (+${rollBonus} bonus)` : ''}`,
-  };
+  const rollEffect = diceRollEffect(hazardPlayer.name, roll, `Agent influence: ${agentDef.name}${rollBonus > 0 ? ` (+${rollBonus} bonus)` : ''}`);
 
   logDetail(`Agent influence: ${agentDef.name} rolls ${roll.die1}+${roll.die2}${rollBonus > 0 ? `+${rollBonus}` : ''}=${attackerRoll} vs target ${targetMind} (DI: ${influencerDI}, GI: ${opponentGI})`);
 
@@ -2492,15 +2486,12 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
   const company = player.companies[mhState.activeCompanyIndex];
   const destName = company.destinationSite ? cardName(state, company.destinationSite.definitionId, '?') : '?';
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: rollTotal >= required
-      ? `Under-deeps movement to ${destName}: ${roll.die1}+${roll.die2}=${rollTotal} (need ${required}) — travels`
-      : `Under-deeps movement to ${destName}: ${roll.die1}+${roll.die2}=${rollTotal} (need ${required}) — stays`,
-  };
+  const outcome = rollTotal >= required ? 'travels' : 'stays';
+  const rollEffect = diceRollEffect(
+    player.name,
+    roll,
+    `Under-deeps movement to ${destName}: ${roll.die1}+${roll.die2}=${rollTotal} (need ${required}) — ${outcome}`,
+  );
 
   if (rollTotal >= required) {
     logDetail(`Under-deeps roll SUCCESS — auto-advancing through set-hazard-limit`);

@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -948,13 +948,7 @@ function runGrantApply(
       logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${total} (${checkName})`);
     }
 
-    const rollEffect: GameEffect = {
-      effect: 'dice-roll',
-      playerName: bearerPlayer.name,
-      die1: roll.die1,
-      die2: roll.die2,
-      label,
-    };
+    const rollEffect = diceRollEffect(bearerPlayer.name, roll, label);
     newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
     return { updatedChar: char, effects: [rollEffect], stateOps: [] };
   }
@@ -1128,13 +1122,7 @@ function runGrantApply(
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2}${modText} = ${total} vs threshold ${apply.threshold}${noTap ? ' (no-tap variant)' : ''}`);
 
     const playerName = newPlayers[ctx.playerIndex].name;
-    const rollEffect: GameEffect = {
-      effect: 'dice-roll',
-      playerName,
-      die1: roll.die1,
-      die2: roll.die2,
-      label: `${ctx.sourceName}: ${ctx.charName}${noTap ? ' (no-tap)' : ''}`,
-    };
+    const rollEffect = diceRollEffect(playerName, roll, `${ctx.sourceName}: ${ctx.charName}${noTap ? ' (no-tap)' : ''}`);
     newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
 
     const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;

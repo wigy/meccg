@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -425,23 +425,14 @@ function resolveStrikeCore(
     rng = r2.rng;
     cheatRollTotal = r2.cheatRollTotal;
     logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
-    effects.push({
-      effect: 'dice-roll', playerName: defPlayer.name,
-      die1: discarded.roll.die1, die2: discarded.roll.die2, label: `${rollLabel} (discarded): ${charLabel}`,
-    });
-    effects.push({
-      effect: 'dice-roll', playerName: defPlayer.name,
-      die1: kept.roll.die1, die2: kept.roll.die2, label: `${rollLabel}: ${charLabel}`,
-    });
+    effects.push(diceRollEffect(defPlayer.name, discarded.roll, `${rollLabel} (discarded): ${charLabel}`));
+    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`));
   } else {
     const single = roll2d6(state);
     roll = single.roll;
     rng = single.rng;
     cheatRollTotal = single.cheatRollTotal;
-    effects.push({
-      effect: 'dice-roll', playerName: defPlayer.name,
-      die1: roll.die1, die2: roll.die2, label: `${rollLabel}: ${charLabel}`,
-    });
+    effects.push(diceRollEffect(defPlayer.name, roll, `${rollLabel}: ${charLabel}`));
   }
 
   const rollTotal = roll.die1 + roll.die2;
@@ -641,13 +632,7 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
 
   logDetail(`Agent strike roll: ${agentName} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${combat.strikeProwess} = ${agentRollTotal}`);
 
-  const effect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: atkPlayer.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Agent Strike: ${agentName}`,
-  };
+  const effect = diceRollEffect(atkPlayer.name, roll, `Agent Strike: ${agentName}`);
 
   return {
     state: { ...state, rng, cheatRollTotal, combat: { ...combat, agentRollTotal } },
@@ -866,10 +851,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
-  const effects: GameEffect[] = [{
-    effect: 'dice-roll', playerName: state.players[atkPlayerIndex].name,
-    die1: roll.die1, die2: roll.die2, label: `Body check: ${combat.bodyCheckTarget}`,
-  }];
+  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
 
   // Update lastDiceRoll on the attacking player
   const stateWithRoll: GameState = {

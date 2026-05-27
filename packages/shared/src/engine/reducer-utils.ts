@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
-import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
+import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -60,6 +60,15 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
   }
 
   return { roll: { die1: d1, die2: d2 }, rng, cheatRollTotal };
+}
+
+/**
+ * Build a `dice-roll` visual effect for a 2d6 result. Centralizes the
+ * repeated `{ effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label }`
+ * object literal used throughout the reducers to broadcast roll animations.
+ */
+export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: string): DiceRollEffect {
+  return { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label };
 }
 
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */

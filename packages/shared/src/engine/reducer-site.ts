@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1539,13 +1539,7 @@ export function resolveInfluenceAttemptRoll(
   const modStr = modifier !== 0 ? ` + ${modifier}` : '';
   logDetail(`Influence attempt: ${charName} rolls ${d1} + ${d2}${modStr} = ${total} vs influence # ${influenceNumber}`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Influence: ${def.name}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Influence: ${def.name}`);
 
   const company = player.companies[siteState.activeCompanyIndex];
   const siteInPlay = company.currentSite;
@@ -1728,13 +1722,7 @@ function handleOpponentInfluenceAttempt(
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const attackerRoll = roll.die1 + roll.die2;
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`);
 
   // Calculate modifiers
   const influencerDI = availableDI(state, charId, player);
@@ -1808,13 +1796,7 @@ export function resolveOpponentInfluenceDefend(
   const opponentIndex = 1 - playerIndex;
   const opponent = state.players[opponentIndex];
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: opponent.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Opponent influence: defense`,
-  };
+  const rollEffect = diceRollEffect(opponent.name, roll, `Opponent influence: defense`);
 
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll

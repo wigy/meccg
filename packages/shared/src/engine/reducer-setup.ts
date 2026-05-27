@@ -7,12 +7,12 @@
  */
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
-import type { TwoDiceSix, GameEffect } from '../index.js';
+import type { TwoDiceSix } from '../index.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -832,13 +832,7 @@ function handleInitiativeRoll(
   const d1 = roll.die1;
   const d2 = roll.die2;
   logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: state.players[playerIndex].name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: 'First turn',
-  };
+  const rollEffect = diceRollEffect(state.players[playerIndex].name, roll, 'First turn');
 
   // Store the roll in the player's state
   const stateWithRoll: GameState = {
