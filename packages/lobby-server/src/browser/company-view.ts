@@ -374,6 +374,7 @@ export function renderCompanyViews(
   // Combat view takes over entirely when combat is active, unless the player
   // has toggled to the all-companies overview (allCompaniesOverride).
   if (view.combat && !getAllCompaniesOverride()) {
+    document.body.classList.remove('all-companies-mode');
     renderCombatView(board, view, cardPool, onAction);
     return;
   }
