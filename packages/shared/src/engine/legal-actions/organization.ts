@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, activePlayerState } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1376,8 +1376,8 @@ export function playResourceShortEventActions(
       let activeSiteType: string | null = null;
       if (currentPhase === 'site') {
         const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
-        const activePlayerState = playerById(state, state.activePlayer);
-        const company = activePlayerState?.companies[sitePhaseState.activeCompanyIndex];
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
         if (company?.currentSite) {
           const siteDef = state.cardPool[company.currentSite.definitionId as string];
           if (siteDef && 'siteType' in siteDef) {

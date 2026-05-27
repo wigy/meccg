@@ -80,6 +80,20 @@ export function playerById(state: GameState, id: PlayerId | null | undefined): P
 }
 
 /**
+ * Look up the active player's state — the player whose id matches
+ * `state.activePlayer`. Centralizes the ubiquitous
+ * `playerById(state, state.activePlayer)` lookup, mirroring {@link hazardPlayer}
+ * for the active side.
+ *
+ * Returns `undefined` when no player is active yet (e.g. before setup assigns
+ * the active player), matching the underlying {@link playerById} behavior.
+ * Callers that need the player must handle the `undefined` case explicitly.
+ */
+export function activePlayerState(state: GameState): PlayerState | undefined {
+  return playerById(state, state.activePlayer);
+}
+
+/**
  * Look up the hazard player — the non-active player in a two-player game.
  * Centralizes the ubiquitous `state.players.find(p => p.id !== state.activePlayer)!`
  * lookup used wherever a hazard/opponent reference is needed (auto-attacks,

@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, playerById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -581,7 +581,7 @@ function applyCancelInfluence(
 
   if (cancelEffect.cost?.check === 'corruption') {
     const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
-    const activePlayer = playerById(state, state.activePlayer);
+    const activePlayer = activePlayerState(state);
     const companyId = activePlayer?.companies[activeCompanyIndex]?.id ?? '' as import('../index.js').CompanyId;
     const charDef = resolveDef(state, action.characterId);
     const reason = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
