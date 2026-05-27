@@ -9,7 +9,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { isCharacterCard, isAvatarCharacter, evaluateAction, CHARACTER_DECK_DRAFT_RULES, getPlayerIndex } from '../../index.js';
+import { isCharacterCard, isAvatarCharacter, evaluateAction, CHARACTER_DECK_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */
@@ -29,10 +29,10 @@ function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
 }
 
 export function characterDeckDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-deck-draft') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const deckDraft = state.phaseState.setupStep.deckDraftState[playerIndex];
+  const ctx = setupStepContext(state, playerId, SetupStep.CharacterDeckDraft);
+  if (!ctx) return [];
+  const { step: setupStep, playerIndex } = ctx;
+  const deckDraft = setupStep.deckDraftState[playerIndex];
 
   if (deckDraft.done) {
     logDetail(`Player already finished adding characters to deck`);

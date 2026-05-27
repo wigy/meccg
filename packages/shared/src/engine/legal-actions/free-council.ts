@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, formatSignedNumber } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
@@ -63,8 +63,8 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     ];
     const ccNeed = cp + 1 - modifier;
     const ccParts = [`CP ${cp}`];
-    if (modifier !== 0) ccParts.push(`modifier ${modifier >= 0 ? '+' : ''}${modifier}`);
-    logDetail(`Corruption check available for '${charDef?.name ?? charId}' (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier})`);
+    if (modifier !== 0) ccParts.push(`modifier ${formatSignedNumber(modifier)}`);
+    logDetail(`Corruption check available for '${charDef?.name ?? charId}' (CP ${cp}, modifier ${formatSignedNumber(modifier)})`);
     actions.push({
       type: 'corruption-check',
       player: playerId,

@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
@@ -1341,14 +1341,14 @@ function playResourcesActions(
           const dslMod = resolveCheckModifier(charEffects, 'influence');
           if (dslMod !== 0) {
             infModifier += dslMod;
-            infParts.push(`check bonus ${dslMod >= 0 ? '+' : ''}${dslMod}`);
+            infParts.push(`check bonus ${formatSignedNumber(dslMod)}`);
           }
 
           // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel +1 DI vs elf factions)
           const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
-            infParts.push(`DI bonus ${dslDI >= 0 ? '+' : ''}${dslDI}`);
+            infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
           }
 
           // One-shot check-modifier constraints for influence (e.g. Muster)
@@ -1358,7 +1358,7 @@ function playResourcesActions(
             if (constraint.target.kind !== 'character') continue;
             if (constraint.target.characterId !== ch.instanceId) continue;
             infModifier += constraint.kind.value;
-            infParts.push(`constraint bonus ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value}`);
+            infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
           }
         }
         const infNeed = factionDef.influenceNumber - infModifier;

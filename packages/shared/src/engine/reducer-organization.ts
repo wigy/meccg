@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -478,7 +478,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const autoTestMod = goldRingAutoTestModifier(state, player.companies, charId, itemSubtype);
   if (autoTestMod !== null) {
     const siteName = goldRingAutoTestSiteName(state, player.companies, charId) ?? '?';
-    logDetail(`Auto-test gold ring ${itemDef?.name ?? '?'} at ${siteName} (modifier ${autoTestMod >= 0 ? '+' : ''}${autoTestMod})`);
+    logDetail(`Auto-test gold ring ${itemDef?.name ?? '?'} at ${siteName} (modifier ${formatSignedNumber(autoTestMod)})`);
     return {
       state: enqueueResolution(stateAfterCheck, {
         source: itemInstId,
@@ -943,7 +943,7 @@ function runGrantApply(
       : ctx.charName;
     const label = `${baseLabel}: ${labelSuffix}`;
     if (modifier !== 0) {
-      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${base}, modifier ${modifier >= 0 ? '+' : ''}${modifier} → ${total} (${checkName})`);
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${base}, modifier ${formatSignedNumber(modifier)} → ${total} (${checkName})`);
     } else {
       logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${total} (${checkName})`);
     }
@@ -1124,7 +1124,7 @@ function runGrantApply(
     const noTap = (ctx.action as { noTap?: true }).noTap === true;
     const modifier = noTap ? -3 : 0;
     const total = roll.die1 + roll.die2 + modifier;
-    const modText = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+    const modText = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2}${modText} = ${total} vs threshold ${apply.threshold}${noTap ? ' (no-tap variant)' : ''}`);
 
     const playerName = newPlayers[ctx.playerIndex].name;

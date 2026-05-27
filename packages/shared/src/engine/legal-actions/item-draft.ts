@@ -6,14 +6,14 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '../../index.js';
+import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const itemDraft = state.phaseState.setupStep.itemDraftState[playerIndex];
+  const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
+  if (!ctx) return [];
+  const { step: setupStep, playerIndex } = ctx;
+  const itemDraft = setupStep.itemDraftState[playerIndex];
 
   if (itemDraft.done) {
     logDetail(`Player already finished item assignment`);

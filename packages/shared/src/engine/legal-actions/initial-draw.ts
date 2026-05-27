@@ -6,14 +6,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { HAND_SIZE, getPlayerIndex } from '../../index.js';
+import { HAND_SIZE, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function initialDrawActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'initial-draw') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const stepState = state.phaseState.setupStep;
+  const ctx = setupStepContext(state, playerId, SetupStep.InitialDraw);
+  if (!ctx) return [];
+  const { step: stepState, playerIndex } = ctx;
 
   if (stepState.drawn[playerIndex]) {
     logDetail(`Player already drew initial hand`);

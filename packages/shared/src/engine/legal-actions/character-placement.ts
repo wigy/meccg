@@ -6,15 +6,14 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { getPlayerIndex } from '../../index.js';
+import { SetupStep, setupStepContext } from '../../index.js';
 import { characterIds } from '../reducer-utils.js';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-placement') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const stepState = state.phaseState.setupStep;
+  const ctx = setupStepContext(state, playerId, SetupStep.CharacterPlacement);
+  if (!ctx) return [];
+  const { step: stepState, playerIndex } = ctx;
 
   if (stepState.placementDone[playerIndex]) {
     logDetail(`Player already finished placement`);

@@ -13,6 +13,7 @@ import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
 import { formatCardName } from './format-cards.js';
+import { formatSignedNumber } from './format-helpers.js';
 import type { InstanceLookup } from './format-helpers.js';
 
 // ---- Company naming ----
@@ -290,7 +291,7 @@ export function describeAction(
       return `Play minor item ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`;
     case 'corruption-check': {
       const mod = action.corruptionModifier;
-      const modStr = mod !== 0 ? `, modifier ${mod >= 0 ? '+' : ''}${mod}` : '';
+      const modStr = mod !== 0 ? `, modifier ${formatSignedNumber(mod)}` : '';
       return `Corruption check for ${instName(action.characterId)} (CP ${action.corruptionPoints}${modStr})`;
     }
     case 'draw-cards':

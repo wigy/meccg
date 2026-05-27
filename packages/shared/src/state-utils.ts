@@ -6,8 +6,8 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { GameState, MarshallingPointTotals, PlayerId, PlayerState } from './types/index.js';
-import { Alignment } from './types/index.js';
+import type { GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState } from './types/index.js';
+import { Alignment, Phase } from './types/index.js';
 import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
 
 /**
@@ -19,6 +19,31 @@ import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
  */
 export function getPlayerIndex(state: GameState, playerId: PlayerId): 0 | 1 {
   return state.players[0].id === playerId ? 0 : 1;
+}
+
+/**
+ * Guard + narrowing for a specific setup step.
+ *
+ * Every setup-step legal-action computer opens with the same preamble:
+ * confirm the game is in the setup phase at the expected step, then look up
+ * the acting player's tuple index. This helper collapses that boilerplate
+ * into a single call and narrows {@link SetupStepState} to the requested
+ * variant so callers can read step-specific fields without a manual cast.
+ *
+ * Returns `null` when the state is not in the requested setup step, letting
+ * the caller bail out early; otherwise returns the narrowed step state
+ * together with the acting player's index.
+ */
+export function setupStepContext<S extends SetupStep>(
+  state: GameState,
+  playerId: PlayerId,
+  step: S,
+): { step: Extract<SetupStepState, { step: S }>; playerIndex: 0 | 1 } | null {
+  if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== step) return null;
+  return {
+    step: state.phaseState.setupStep as Extract<SetupStepState, { step: S }>,
+    playerIndex: getPlayerIndex(state, playerId),
+  };
 }
 
 /**

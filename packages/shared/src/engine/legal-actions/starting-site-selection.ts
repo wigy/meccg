@@ -8,14 +8,14 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, getPlayerIndex } from '../../index.js';
+import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function startingSiteSelectionActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'starting-site-selection') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const siteSelection = state.phaseState.setupStep.siteSelectionState[playerIndex];
+  const ctx = setupStepContext(state, playerId, SetupStep.StartingSiteSelection);
+  if (!ctx) return [];
+  const { step: setupStep, playerIndex } = ctx;
+  const siteSelection = setupStep.siteSelectionState[playerIndex];
 
   if (siteSelection.done) {
     logDetail(`Player already finished site selection`);
