@@ -14,7 +14,7 @@
 import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState } from '../../index.js';
 import { Phase, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
-import { findPlayerAvatar, filterSideboardByDef, playerById } from '../reducer-utils.js';
+import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -27,7 +27,7 @@ const MIN_DECK_SIZE_FOR_HAZARD_TO_DECK = 5;
  * The hazard player can only access their sideboard if this is true.
  */
 function activePlayerHasAvatar(state: GameState): boolean {
-  const activePlayer = playerById(state, state.activePlayer);
+  const activePlayer = activePlayerState(state);
   if (!activePlayer) return false;
   const avatar = findPlayerAvatar(state, activePlayer);
   return avatar !== undefined && avatar.status !== CardStatus.Inverted;

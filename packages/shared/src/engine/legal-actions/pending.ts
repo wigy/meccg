@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, companyById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, companyById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -123,7 +123,7 @@ function onGuardWindowActions(
   if (state.activePlayer === null) {
     return [{ action: { type: 'pass', player: actor }, viable: true }];
   }
-  const activePlayerObj = playerById(state, state.activePlayer);
+  const activePlayerObj = activePlayerState(state);
   if (!activePlayerObj) {
     return [{ action: { type: 'pass', player: actor }, viable: true }];
   }
@@ -1132,14 +1132,14 @@ function activeCompanyId(state: GameState): CompanyId | null {
   if (ps.phase === Phase.Site) {
     const sps = ps;
     if (state.activePlayer === null) return null;
-    const player = playerById(state, state.activePlayer);
+    const player = activePlayerState(state);
     if (!player) return null;
     return player.companies[sps.activeCompanyIndex]?.id ?? null;
   }
   if (ps.phase === Phase.MovementHazard) {
     const mps = ps;
     if (state.activePlayer === null) return null;
-    const player = playerById(state, state.activePlayer);
+    const player = activePlayerState(state);
     if (!player) return null;
     return player.companies[mps.activeCompanyIndex]?.id ?? null;
   }
