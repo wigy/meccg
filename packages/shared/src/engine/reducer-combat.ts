@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1420,7 +1420,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
           : null;
   if (creatureInstanceId) {
-    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
     if (creatureInPlay) {
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
@@ -1572,7 +1572,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
           : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
             : null;
     if (creatureInstanceId) {
-      const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+      const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
       if (creatureInPlay) {
         newPlayers[atkIdx] = {
           ...newPlayers[atkIdx],
@@ -2034,7 +2034,7 @@ function discardCardTriggeredCard(
     state.players[1],
   ];
   for (let pi = 0; pi < 2; pi++) {
-    const inPlay = newPlayers[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+    const inPlay = findById(newPlayers[pi].cardsInPlay, cardInstanceId);
     if (inPlay) {
       newPlayers[pi] = {
         ...newPlayers[pi],
@@ -2091,7 +2091,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
 
     // Remove creature from attacker's cardsInPlay
-    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
     const creatureCard = creatureInPlay
       ? { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }
       : undefined;
@@ -2528,7 +2528,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     );
 
     const foundCard = foundItemInstanceId
-      ? allRevealedCards.find(c => c.instanceId === foundItemInstanceId)
+      ? findById(allRevealedCards, foundItemInstanceId)
       : null;
     const nonItemRevealed = foundCard
       ? allRevealedCards.filter(c => c.instanceId !== foundItemInstanceId)

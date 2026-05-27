@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -161,7 +161,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   const phaseState = state.phaseState as OrganizationPhaseState;
 
   const charInstId = action.characterInstanceId;
-  const handCard = player.hand.find(c => c.instanceId === charInstId)!;
+  const handCard = findById(player.hand, charInstId)!;
   const charDef = state.cardPool[handCard.definitionId as string] as import('../types/cards.js').CharacterCard;
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
@@ -197,7 +197,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     };
   } else {
     const siteInstId = action.atSite;
-    const siteCard = player.siteDeck.find(c => c.instanceId === siteInstId)!;
+    const siteCard = findById(player.siteDeck, siteInstId)!;
     const siteDef = state.cardPool[siteCard.definitionId as string] as import('../types/cards.js').SiteCard;
 
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
@@ -1665,7 +1665,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   const company = player.companies[companyIdx];
   if (company.destinationSite) return { state, error: 'Company already has planned movement' };
 
-  const deckCard = player.siteDeck.find(c => c.instanceId === action.destinationSite);
+  const deckCard = findById(player.siteDeck, action.destinationSite);
   // Rules 3.37 / 3.39: the destination may be another of this player's
   // companies' currentSite or pending destinationSite. In that case the
   // site is not drawn from the site deck.

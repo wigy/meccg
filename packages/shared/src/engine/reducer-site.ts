@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -674,7 +674,7 @@ function handleDeclareAgentAttack(
     const emptyStack = agent.siteStack.length === 0;
 
     if (action.homeSiteInstanceId) {
-      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
       if (!homeSiteCard) {
         return { state, error: `Home site ${action.homeSiteInstanceId} not in hazard player's site deck` };
       }
@@ -1088,7 +1088,7 @@ function handleSitePlayResources(
   // Used by Searching Eye (reveals from on-guard to cancel a scout-skill
   // card during the opponent's site phase).
   if (action.type === 'play-short-event' && company.onGuardCards.length > 0) {
-    const handCard = player.hand.find(c => c.instanceId === action.cardInstanceId);
+    const handCard = findById(player.hand, action.cardInstanceId);
     const shortDef = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
     const shortEffects = shortDef && 'effects' in shortDef
       ? ((shortDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [])
@@ -1664,7 +1664,7 @@ function handleOpponentInfluenceAttempt(
     }
     if (!allyFound) return { state, error: 'Target ally not found' };
   } else if (action.targetKind === 'faction') {
-    const targetFaction = opponent.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+    const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
     if (!targetFaction) return { state, error: 'Target faction not found' };
     const factionDef = state.cardPool[targetFaction.definitionId as string];
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
@@ -1695,7 +1695,7 @@ function handleOpponentInfluenceAttempt(
       const tDef = state.cardPool[opponent.characters[action.targetInstanceId as string]?.definitionId as string];
       targetName = tDef?.name;
     } else if (action.targetKind === 'faction') {
-      const targetFaction = opponent.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+      const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
       const tDef = targetFaction ? state.cardPool[targetFaction.definitionId as string] : undefined;
       targetName = tDef?.name;
     } else {

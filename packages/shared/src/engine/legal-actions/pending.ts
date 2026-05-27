@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -141,7 +141,7 @@ function onGuardWindowActions(
     if (!deferredAction) return undefined;
     if (deferredAction.type !== 'play-short-event' && deferredAction.type !== 'play-hero-resource') return undefined;
     for (const p of state.players) {
-      const handCard = p.hand.find(c => c.instanceId === deferredAction.cardInstanceId);
+      const handCard = findById(p.hand, deferredAction.cardInstanceId);
       if (handCard) return state.cardPool[handCard.definitionId as string];
     }
     return undefined;
@@ -600,7 +600,7 @@ function goldRingTestActions(
 
   // Ring may be in outOfPlayPile (org-phase store path) or in a character's
   // items array (site-phase play path with auto-test-gold-ring).
-  const ringInOutOfPlay = player.outOfPlayPile.find(c => c.instanceId === goldRingInstanceId);
+  const ringInOutOfPlay = findById(player.outOfPlayPile, goldRingInstanceId);
   let ringCardFound = ringInOutOfPlay;
   if (!ringCardFound) {
     for (const char of Object.values(player.characters)) {

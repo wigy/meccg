@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -512,7 +512,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
     const player = state.players[pi];
     if (player.cardsInPlay.some(c => c.instanceId === targetInstanceId)) {
       logDetail(`Environment cancel: removing ${targetName} from player ${pi} cardsInPlay → discard`);
-      const removedCard = player.cardsInPlay.find(c => c.instanceId === targetInstanceId)!;
+      const removedCard = findById(player.cardsInPlay, targetInstanceId)!;
       const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
       newPlayers[pi as 0 | 1] = {
         ...player,

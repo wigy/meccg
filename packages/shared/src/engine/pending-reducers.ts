@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -1293,7 +1293,7 @@ function splitCharacterToOrigin(
   // Find the origin site in play
   let originSite: import('../index.js').SiteInPlay | null = sourceCompany.currentSite;
   if (sourceCompany.currentSite?.instanceId !== originSiteInstanceId) {
-    const deckEntry = state.players[playerIndex].siteDeck.find(s => s.instanceId === originSiteInstanceId);
+    const deckEntry = findById(state.players[playerIndex].siteDeck, originSiteInstanceId);
     if (deckEntry) {
       originSite = { instanceId: deckEntry.instanceId, definitionId: deckEntry.definitionId, status: CardStatus.Untapped };
     }
@@ -1754,7 +1754,7 @@ function applySelectCardBearerResolution(
     let s = state;
     // Remove from any player's cardsInPlay
     for (let pi = 0; pi < 2; pi++) {
-      const inPlay = s.players[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+      const inPlay = findById(s.players[pi].cardsInPlay, cardInstanceId);
       if (inPlay) {
         s = updatePlayer(s, pi, p => ({
           ...p,
@@ -1798,7 +1798,7 @@ function applySelectCardBearerResolution(
   let cardInPlay: import('../types/state-cards.js').CardInPlay | undefined;
   let cardOwnerIdx = -1;
   for (let pi = 0; pi < 2; pi++) {
-    const found = state.players[pi].cardsInPlay.find(c => c.instanceId === cardInstanceId);
+    const found = findById(state.players[pi].cardsInPlay, cardInstanceId);
     if (found) {
       cardInPlay = found;
       cardOwnerIdx = pi;
