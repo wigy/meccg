@@ -9,7 +9,7 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -218,7 +218,20 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
     }
     return false;
   }
-  // Events / characters: not site-specific in this scoring pass.
+  // Resource events with play-target: site — card must be played at the company's current site,
+  // so movement to a matching site unlocks the card.
+  if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
+    const siteTarget = (def.effects ?? []).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+    );
+    if (siteTarget?.filter) {
+      return matchesCondition(
+        siteTarget.filter,
+        site as unknown as Record<string, unknown>,
+      );
+    }
+  }
+  // Other events / characters: not site-specific in this scoring pass.
   return false;
 }
 
