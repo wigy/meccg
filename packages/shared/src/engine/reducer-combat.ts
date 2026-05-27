@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById, companySubphaseScope } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1252,11 +1252,7 @@ function handleCancelAttackByInPlayItem(
 
   // Enqueue corruption check on bearer if effect declares it.
   if (cancelEffect?.enqueueCorruptionCheck) {
-    const phase = state.phaseState.phase;
-    const companyId = company.id;
-    const scope = phase === Phase.MovementHazard
-      ? ({ kind: 'company-mh-subphase' as const, companyId })
-      : ({ kind: 'company-site-subphase' as const, companyId });
+    const scope = companySubphaseScope(state.phaseState.phase, company.id);
     logDetail(`Cancel-attack: enqueuing corruption check on bearer ${hostCharId as string} (${itemName})`);
     tappedState = enqueueCorruptionCheck(tappedState, {
       source: item.instanceId,
@@ -1857,11 +1853,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
   if (effect.enqueueCorruptionCheck) {
     const company = companyById(player.companies, combat.companyId);
-    const companyId = company?.id;
-    const phase = state.phaseState.phase;
-    const scope = phase === Phase.MovementHazard
-      ? ({ kind: 'company-mh-subphase' as const, companyId: companyId! })
-      : ({ kind: 'company-site-subphase' as const, companyId: companyId! });
+    const scope = companySubphaseScope(state.phaseState.phase, company!.id);
     logDetail(`Modify-attack: enqueuing corruption check on bearer ${action.characterInstanceId as string} (${itemName})`);
     resultState = enqueueCorruptionCheck(resultState, {
       source: item.instanceId,
@@ -2152,9 +2144,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const companyId = company?.id;
         logDetail(`Wound corruption checks queued for ${woundedCharIds.length} character(s) (${sourceName}, modifier ${modifier})`);
         if (companyId) {
-          const scope = state.phaseState.phase === Phase.MovementHazard
-            ? ({ kind: 'company-mh-subphase' as const, companyId })
-            : ({ kind: 'company-site-subphase' as const, companyId });
+          const scope = companySubphaseScope(state.phaseState.phase, companyId);
           const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
           for (const characterId of woundedCharIds) {
             stateAfterCombat = enqueueCorruptionCheck(stateAfterCombat, {
@@ -2187,9 +2177,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           return ch && ch.items.length > 0;
         });
         if (hasItems) {
-          const scope = state.phaseState.phase === Phase.MovementHazard
-            ? ({ kind: 'company-mh-subphase' as const, companyId })
-            : ({ kind: 'company-site-subphase' as const, companyId });
+          const scope = companySubphaseScope(state.phaseState.phase, companyId);
           const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
           logDetail(`${sourceName}: wound triggers discard-one-company-item for company ${companyId as string}`);
           stateAfterCombat = enqueueResolution(stateAfterCombat, {
@@ -2220,10 +2208,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const defPlayer = stateAfterCombat.players[defPlayerIdx];
     const company = companyById(defPlayer?.companies ?? [], combat.companyId);
     if (company) {
-      const companyId = company.id;
-      const scope = state.phaseState.phase === Phase.MovementHazard
-        ? ({ kind: 'company-mh-subphase' as const, companyId })
-        : ({ kind: 'company-site-subphase' as const, companyId });
+      const scope = companySubphaseScope(state.phaseState.phase, company.id);
       for (const bearerInstId of company.characters) {
         const bearer = defPlayer.characters[bearerInstId as string];
         if (!bearer) continue;
@@ -2674,9 +2659,7 @@ function applyPostAttackEffects(
     // Corruption check
     if (effect.corruptionCheck && scopeCompanyId) {
       const modifier = effect.corruptionCheck.modifier ?? 0;
-      const scope = stateBeforeFinalize.phaseState.phase === Phase.MovementHazard
-        ? ({ kind: 'company-mh-subphase' as const, companyId: scopeCompanyId })
-        : ({ kind: 'company-site-subphase' as const, companyId: scopeCompanyId });
+      const scope = companySubphaseScope(stateBeforeFinalize.phaseState.phase, scopeCompanyId);
       s = enqueueCorruptionCheck(s, {
         source: null,
         actor: combat.defendingPlayerId,

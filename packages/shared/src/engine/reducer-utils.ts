@@ -9,7 +9,8 @@
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
-import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
+import type { ResolutionScope } from '../types/pending.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -69,6 +70,20 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
  */
 export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: string): DiceRollEffect {
   return { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label };
+}
+
+/**
+ * Build the {@link ResolutionScope} for a corruption check or other resolution
+ * enqueued during a company's combat. Companies resolve hazards in the
+ * movement/hazard phase and automatic attacks in the site phase; each phase
+ * has its own subphase scope so the queue is swept at the correct boundary.
+ * Centralizes the repeated `phase === MovementHazard ? company-mh-subphase :
+ * company-site-subphase` selection used across the combat reducers.
+ */
+export function companySubphaseScope(phase: Phase, companyId: CompanyId): ResolutionScope {
+  return phase === Phase.MovementHazard
+    ? { kind: 'company-mh-subphase', companyId }
+    : { kind: 'company-site-subphase', companyId };
 }
 
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */

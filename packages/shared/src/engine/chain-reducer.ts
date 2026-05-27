@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -1588,9 +1588,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       if (onEvent.event !== 'creature-attack-begins') continue;
       if (onEvent.apply.type !== 'force-check-all-company') continue;
       if (onEvent.apply.check !== 'corruption') continue;
-      const scope = state.phaseState.phase === Phase.MovementHazard
-        ? { kind: 'company-mh-subphase' as const, companyId: company.id }
-        : { kind: 'company-site-subphase' as const, companyId: company.id };
+      const scope = companySubphaseScope(state.phaseState.phase, company.id);
       const modifier = onEvent.apply.modifier ?? 0;
       logDetail(`${creatureDef.name} (creature-attack-begins): enqueueing corruption check for all ${company.characters.length} character(s) in company`);
       for (const charInstanceId of company.characters) {
@@ -1674,14 +1672,12 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(creatureRace));
       if (matchedEntry) {
         const defPlayerId = current.combat.defendingPlayerId;
-        const companyId = current.combat.companyId;
-        const phaseState = current.phaseState;
-        const scopeKind = phaseState.phase === Phase.Site ? 'company-site-subphase' as const : 'company-mh-subphase' as const;
+        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
         logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
         current = enqueueResolution(current, {
           source: entry.card.instanceId,
           actor: defPlayerId,
-          scope: { kind: scopeKind, companyId },
+          scope,
           kind: {
             type: 'flattery-attempt',
             characterInstanceId: entry.payload.targetCharacterId,
