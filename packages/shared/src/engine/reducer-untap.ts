@@ -159,7 +159,7 @@ function performUntap(state: GameState): GameState {
     if (!siteDef || !isSiteCard(siteDef)) continue;
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (!isHaven) {
-      const siteDefId = company.currentSite.definitionId as unknown as string;
+      const siteDefId = company.currentSite.definitionId as string;
       isHaven = state.activeConstraints.some(c => {
         if (c.kind.type !== 'attribute-modifier'
           || c.kind.attribute !== 'site.type'

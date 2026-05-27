@@ -779,7 +779,7 @@ function buildConstraintKind(
         attribute: 'site.type',
         op: 'override',
         value: overrideType,
-        filter: { 'site.definitionId': siteDefinitionId as unknown as string },
+        filter: { 'site.definitionId': siteDefinitionId as string },
       };
     }
     case 'region-type-override': {

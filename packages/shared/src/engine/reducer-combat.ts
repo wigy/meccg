@@ -2776,7 +2776,7 @@ function discardWoundedItems(
   const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const cloned = clonePlayers(state);
   const newCharacters = { ...cloned[defIdx].characters };
-  const discarded: { instanceId: CardInstanceId; definitionId: string }[] = [];
+  const discarded: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
 
   for (const charId of woundedCharIds) {
     const charData = newCharacters[charId as string];
@@ -2795,7 +2795,7 @@ function discardWoundedItems(
     newCharacters[charId as string] = { ...charData, items: remaining };
 
     for (const item of matching) {
-      discarded.push({ instanceId: item.instanceId, definitionId: item.definitionId as string });
+      discarded.push({ instanceId: item.instanceId, definitionId: item.definitionId });
       logDetail(`${sourceName}: discarding item ${item.definitionId as string} from wounded character ${charId as string}`);
     }
   }
@@ -2805,7 +2805,7 @@ function discardWoundedItems(
     characters: newCharacters,
     discardPile: [
       ...cloned[defIdx].discardPile,
-      ...discarded.map(d => ({ instanceId: d.instanceId, definitionId: d.definitionId as unknown as CardDefinitionId })),
+      ...discarded,
     ],
   };
 
