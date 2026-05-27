@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -685,8 +685,7 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   }
 
   // Check if supporter is an ally
-  for (const charId of Object.keys(defPlayer.characters)) {
-    const ch = defPlayer.characters[charId];
+  for (const [charId, ch] of characterEntries(defPlayer)) {
     const allyIndex = ch.allies.findIndex(a => a.instanceId === action.supportingCharacterId);
     if (allyIndex >= 0) {
       const ally = ch.allies[allyIndex];
