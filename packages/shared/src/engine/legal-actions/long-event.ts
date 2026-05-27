@@ -23,6 +23,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
+import { characterEntries } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -449,12 +450,12 @@ function eligibleCharacterTargets(
 ): CardInstanceId[] {
   if (playTarget.target !== 'character') return [];
   const out: CardInstanceId[] = [];
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
+  for (const [charId, char] of characterEntries(player)) {
     if (playTarget.filter
         && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char, player))) {
       continue;
     }
-    out.push(charIdStr as unknown as CardInstanceId);
+    out.push(charId);
   }
   return out;
 }
@@ -470,13 +471,13 @@ function eligibleTapTargets(
 ): CardInstanceId[] {
   if (playTarget.target !== 'character') return [];
   const out: CardInstanceId[] = [];
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
+  for (const [charId, char] of characterEntries(player)) {
     if (char.status !== CardStatus.Untapped) continue;
     if (playTarget.filter
         && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char, player as PlayerState))) {
       continue;
     }
-    out.push(charIdStr as unknown as CardInstanceId);
+    out.push(charId);
   }
   return out;
 }

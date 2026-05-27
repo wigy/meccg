@@ -18,7 +18,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -287,13 +287,13 @@ export function playCharacterActions(
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers.
       const diControllers: { instanceId: CardInstanceId; name: string; availDI: number }[] = [];
-      for (const [key, char] of Object.entries(player.characters)) {
+      for (const [key, char] of characterEntries(player)) {
         if (char.controlledBy !== 'general') continue;
         const ctrlDef = resolveDef(state, char.instanceId);
         if (!isCharacterCard(ctrlDef)) continue;
         const avail = availableDI(state, char.instanceId, player, cardDef);
         if (avail >= charMind) {
-          diControllers.push({ instanceId: key as CardInstanceId, name: ctrlDef.name, availDI: avail });
+          diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });
         }
       }
 

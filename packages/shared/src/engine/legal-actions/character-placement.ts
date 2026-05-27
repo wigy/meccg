@@ -5,8 +5,9 @@
  * their drafted characters to one of their starting companies.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
 import { getPlayerIndex } from '../../index.js';
+import { characterIds } from '../reducer-utils.js';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -28,12 +29,12 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
   const actions: GameAction[] = [];
 
   // For each character, offer placing in any company they're not already in
-  for (const charId of Object.keys(player.characters)) {
+  for (const charId of characterIds(player)) {
     const charInPlay = player.characters[charId];
     const charDef = state.cardPool[charInPlay.definitionId as string];
     const charName = charDef?.name ?? charId;
     const currentCompanyId = player.companies.find(c =>
-      c.characters.includes(charId as CardInstanceId))?.id;
+      c.characters.includes(charId))?.id;
 
     logDetail(`Character '${charName}' currently in company ${currentCompanyId as string ?? 'none'}`);
 
@@ -43,7 +44,7 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
       actions.push({
         type: 'place-character',
         player: playerId,
-        characterInstanceId: charId as CardInstanceId,
+        characterInstanceId: charId,
         companyId: company.id,
       });
     }

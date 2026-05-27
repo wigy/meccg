@@ -249,6 +249,32 @@ export function findPlayerAvatar(
 }
 
 /**
+ * Iterates a player's characters-in-play, yielding each `[instanceId, char]`
+ * pair with the key correctly typed as a {@link CardInstanceId}.
+ *
+ * The characters map is keyed by instance ID, but `Object.entries` types the
+ * keys as plain `string`, forcing callers to cast each key back to a branded
+ * `CardInstanceId`. This helper centralizes that cast so phase handlers can
+ * iterate characters without per-call-site assertions.
+ */
+export function characterEntries(
+  player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
+): [CardInstanceId, CharacterInPlay][] {
+  return Object.entries(player.characters) as [CardInstanceId, CharacterInPlay][];
+}
+
+/**
+ * Returns the instance IDs of a player's characters-in-play, correctly typed
+ * as {@link CardInstanceId}s rather than plain `string`s. See
+ * {@link characterEntries} for why the cast is needed.
+ */
+export function characterIds(
+  player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
+): CardInstanceId[] {
+  return Object.keys(player.characters) as CardInstanceId[];
+}
+
+/**
  * Filters a sideboard to the cards whose definitions match `predicate`,
  * returning `{ instanceId, name }` pairs for legal-action generation. Cards
  * whose definitions cannot be resolved from the card pool are skipped.

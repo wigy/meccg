@@ -28,7 +28,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, PlayerState } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
-import { matchesDefinition } from './reducer-utils.js';
+import { matchesDefinition, characterIds } from './reducer-utils.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -251,7 +251,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
       };
     }
     // attached to any character (items or hazards)
-    for (const charId of Object.keys(player.characters)) {
+    for (const charId of characterIds(player)) {
       const char = player.characters[charId];
       const itemIdx = char.items.findIndex(i => i.instanceId === sourceId);
       if (itemIdx >= 0) {
@@ -260,7 +260,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
           instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
           ownerIndex: pi,
           zone: 'self-location',
-          remove: s => removeFromCharacterItems(s, pi, charId as CardInstanceId, sourceId),
+          remove: s => removeFromCharacterItems(s, pi, charId, sourceId),
         };
       }
       const hazIdx = char.hazards.findIndex(h => h.instanceId === sourceId);
@@ -272,7 +272,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
           instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
           ownerIndex: 1 - pi,
           zone: 'self-location',
-          remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, sourceId),
+          remove: s => removeFromCharacterHazards(s, pi, charId, sourceId),
         };
       }
     }
@@ -330,7 +330,7 @@ function locateInZone(
         // Character-attached hazards and items are also "in play".
         // Hazards route to the opposing (hazard) player's discard; items
         // stay with the character's controller.
-        for (const charId of Object.keys(player.characters)) {
+        for (const charId of characterIds(player)) {
           const char = player.characters[charId];
           const hazIdx = char.hazards.findIndex(h => h.instanceId === instanceId);
           if (hazIdx >= 0) {
@@ -339,7 +339,7 @@ function locateInZone(
               instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
               ownerIndex: 1 - pi,
               zone: 'in-play',
-              remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, instanceId),
+              remove: s => removeFromCharacterHazards(s, pi, charId, instanceId),
             };
           }
           const itemIdx = char.items.findIndex(i => i.instanceId === instanceId);
@@ -349,7 +349,7 @@ function locateInZone(
               instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
               ownerIndex: pi,
               zone: 'in-play',
-              remove: s => removeFromCharacterItems(s, pi, charId as CardInstanceId, instanceId),
+              remove: s => removeFromCharacterItems(s, pi, charId, instanceId),
             };
           }
         }
@@ -408,7 +408,7 @@ function collectFromZone(
             remove: s => removeFromCardsInPlay(s, pi, id),
           });
         }
-        for (const charId of Object.keys(player.characters)) {
+        for (const charId of characterIds(player)) {
           const char = player.characters[charId];
           for (const haz of char.hazards) {
             const inst: CardInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
@@ -418,7 +418,7 @@ function collectFromZone(
               instance: inst,
               ownerIndex: 1 - pi,
               zone: 'in-play',
-              remove: s => removeFromCharacterHazards(s, pi, charId as CardInstanceId, hazId),
+              remove: s => removeFromCharacterHazards(s, pi, charId, hazId),
             });
           }
           for (const item of char.items) {
@@ -429,7 +429,7 @@ function collectFromZone(
               instance: inst,
               ownerIndex: pi,
               zone: 'in-play',
-              remove: s => removeFromCharacterItems(s, pi, charId as CardInstanceId, itemId),
+              remove: s => removeFromCharacterItems(s, pi, charId, itemId),
             });
           }
         }

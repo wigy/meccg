@@ -17,6 +17,7 @@ import { CardStatus } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
+import { characterIds } from '../reducer-utils.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
@@ -48,7 +49,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
   const actions: GameAction[] = [];
 
   // Corruption check for each unchecked character in play
-  for (const charId of Object.keys(player.characters)) {
+  for (const charId of characterIds(player)) {
     if (checked.has(charId)) continue;
     const charInPlay = player.characters[charId];
     const charDef = state.cardPool[charInPlay.definitionId as string];
@@ -67,7 +68,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     actions.push({
       type: 'corruption-check',
       player: playerId,
-      characterId: charId as CardInstanceId,
+      characterId: charId,
       corruptionPoints: cp,
       corruptionModifier: modifier,
       possessions,
