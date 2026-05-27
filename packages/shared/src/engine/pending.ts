@@ -17,10 +17,12 @@ import type {
   PlayerId,
   CompanyId,
   CardInstanceId,
+  CardDefinitionId,
   PendingResolution,
   ResolutionId,
   ActiveConstraint,
   ConstraintId,
+  ConstraintScope,
   ScopeBoundary,
 } from '../index.js';
 
@@ -150,6 +152,27 @@ export function constraintsOnCompany(
   companyId: CompanyId,
 ): readonly ActiveConstraint[] {
   return state.activeConstraints.filter(c => c.target.kind === 'company' && c.target.companyId === companyId);
+}
+
+/**
+ * Count active constraints sourced from the given card definition. Used to
+ * enforce `duplication-limit` effects: each play of the card leaves a
+ * constraint behind, so the active count is how many copies are "in force".
+ *
+ * Pass `scopeKind` to count only constraints with a matching scope (e.g.
+ * `'attack'` for attack-scoped duplication limits); omit it to count every
+ * constraint from the definition regardless of scope.
+ */
+export function countConstraintsFromDefinition(
+  state: GameState,
+  definitionId: CardDefinitionId,
+  scopeKind?: ConstraintScope['kind'],
+): number {
+  return state.activeConstraints.filter(
+    c =>
+      c.sourceDefinitionId === definitionId &&
+      (scopeKind === undefined || c.scope.kind === scopeKind),
+  ).length;
 }
 
 // ---- Sweep ----

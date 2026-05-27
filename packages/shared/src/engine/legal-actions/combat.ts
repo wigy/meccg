@@ -22,7 +22,8 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, companyById } from '../reducer-utils.js';
+import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -110,7 +111,7 @@ function isAllyImmuneToSiteKeyedAttack(
   if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
     if (!combat.attackSiteKeyingTypes || combat.attackSiteKeyingTypes.length === 0) return false;
     const defPlayer = playerById(state, combat.defendingPlayerId);
-    const company = defPlayer?.companies.find(c => c.id === combat.companyId);
+    const company = companyById(defPlayer?.companies ?? [], combat.companyId);
     if (!company) return false;
     const effectiveSite = company.destinationSite ?? company.currentSite;
     if (!effectiveSite) return false;
@@ -271,7 +272,7 @@ function assignStrikeActions(
     // Find characters in the defending company
     const playerIndex = state.players.findIndex(p => p.id === playerId);
     const player = state.players[playerIndex];
-    const company = player.companies.find(c => c.id === combat.companyId);
+    const company = companyById(player.companies, combat.companyId);
     if (!company) return [];
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
@@ -391,7 +392,7 @@ function assignStrikeActions(
     // Attacker assigns remaining strikes to unassigned characters or as excess
     const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = state.players[defPlayerIndex];
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const company = companyById(defPlayer.companies, combat.companyId);
     if (!company) return [];
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
@@ -473,7 +474,7 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
 
   const actions: EvaluatedAction[] = [];
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -529,7 +530,7 @@ function resolveStrikeActions(
   const playerIndex0 = state.players.findIndex(p => p.id === playerId);
   const player0 = state.players[playerIndex0];
   const charData = player0.characters[currentStrike.characterId as string];
-  const company0 = player0.companies.find(c => c.id === combat.companyId);
+  const company0 = companyById(player0.companies, combat.companyId);
 
   // The strike target may be a character or an ally (CoE rule 2.V.2.2)
   const allyMatch = !charData && company0
@@ -669,7 +670,7 @@ function resolveStrikeActions(
   // (CRF: "tap one or more of their untapped characters ... who hasn't been assigned a strike")
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];
-  const company = player.companies.find(c => c.id === combat.companyId);
+  const company = companyById(player.companies, combat.companyId);
   const assignedCharIds = new Set(combat.strikeAssignments.map(sa => sa.characterId as string));
   if (company) {
     for (const charId of company.characters) {
@@ -966,7 +967,7 @@ function shortEventsAffectingStrike(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
     );
     if (turnDupLimit) {
-      const prior = state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length;
+      const prior = countConstraintsFromDefinition(state, def.id);
       if (prior >= turnDupLimit.max) {
         logDetail(`${def.name}: duplication limit reached (${prior}/${turnDupLimit.max}) — not playable`);
         continue;
@@ -1152,7 +1153,7 @@ function cancelAttackActions(
 
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];
-  const company = player.companies.find(c => c.id === combat.companyId);
+  const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -1554,7 +1555,7 @@ function modifyAttackActions(
 
   // --- In-play items (defending player only) ---
   if (playerId === combat.defendingPlayerId) {
-    const company = player.companies.find(c => c.id === combat.companyId);
+    const company = companyById(player.companies, combat.companyId);
     if (company) {
       for (const charId of company.characters) {
         const charData = player.characters[charId as string];
@@ -1635,9 +1636,7 @@ function modifyAttackActions(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
-      const prior = state.activeConstraints.filter(
-        c => c.sourceDefinitionId === handCard.definitionId && c.scope.kind === 'attack',
-      ).length;
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
@@ -1707,7 +1706,7 @@ function companyCombatBoostActions(
   const player = state.players[playerIndex];
 
   // Find the defending company's characters.
-  const company = player.companies.find(c => c.id === combat.companyId);
+  const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -1726,9 +1725,7 @@ function companyCombatBoostActions(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
-      const prior = state.activeConstraints.filter(
-        c => c.sourceDefinitionId === cardDef.id && c.scope.kind === 'attack',
-      ).length;
+      const prior = countConstraintsFromDefinition(state, cardDef.id, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
@@ -1784,7 +1781,7 @@ function cancelByTapActions(
 
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];
-  const company = player.companies.find(c => c.id === combat.companyId);
+  const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
   // The target character is the one all strikes are assigned to

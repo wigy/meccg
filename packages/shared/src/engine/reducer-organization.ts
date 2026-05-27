@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -1522,10 +1522,10 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = player.companies.find(c => c.id === action.sourceCompanyId);
+  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
   if (!sourceCompany) return { state, error: 'Source company not found' };
 
-  const targetCompany = player.companies.find(c => c.id === action.targetCompanyId);
+  const targetCompany = companyById(player.companies, action.targetCompanyId);
   if (!targetCompany) return { state, error: 'Target company not found' };
 
   // Validate same site
@@ -1596,10 +1596,10 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = player.companies.find(c => c.id === action.sourceCompanyId);
+  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
   if (!sourceCompany) return { state, error: 'Source company not found' };
 
-  const targetCompany = player.companies.find(c => c.id === action.targetCompanyId);
+  const targetCompany = companyById(player.companies, action.targetCompanyId);
   if (!targetCompany) return { state, error: 'Target company not found' };
 
   // Validate same site

@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -104,8 +104,8 @@ function handleHavenJoinAttack(state: GameState, action: GameAction, combat: Com
   if (playerIdx < 0) return { state, error: 'Player not found' };
   const player = state.players[playerIdx];
 
-  const originCompany = player.companies.find(c => c.id === offer.originCompanyId);
-  const targetCompany = player.companies.find(c => c.id === offer.targetCompanyId);
+  const originCompany = companyById(player.companies, offer.originCompanyId);
+  const targetCompany = companyById(player.companies, offer.targetCompanyId);
   if (!originCompany || !targetCompany) return { state, error: 'Company not found' };
 
   const charInPlay = player.characters[action.characterId as string];
@@ -368,7 +368,7 @@ function resolveStrikeCore(
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = preAppliedDefender ?? state.players[defPlayerIndex];
   const charData = defPlayer.characters[strike.characterId as string];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
   const allyMatch = !charData && company
     ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
     : undefined;
@@ -917,7 +917,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     const defPlayerIndex = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateWithRoll.players[defPlayerIndex];
     const charData = defPlayer.characters[strike.characterId as string];
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const company = companyById(defPlayer.companies, combat.companyId);
     const allyMatch = !charData && company
       ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
       : undefined;
@@ -1146,7 +1146,7 @@ function handleCancelAttackByInPlayAlly(
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
 
   const found = findAllyInCompany(defPlayer, company.characters, action.cardInstanceId);
@@ -1183,7 +1183,7 @@ function handleCancelAttackByInPlayCharacter(
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
 
   const charData = defPlayer.characters[action.cardInstanceId as string];
@@ -1219,7 +1219,7 @@ function handleCancelAttackByInPlayItem(
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
 
   const found = findItemInCompany(defPlayer, company.characters, action.cardInstanceId);
@@ -1303,7 +1303,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
       return handleCancelAttackByInPlayCharacter(state, action, combat);
     }
     // Check items before falling through to ally handler.
-    const defCompany = defPlayer.companies.find(c => c.id === combat.companyId);
+    const defCompany = companyById(defPlayer.companies, combat.companyId);
     if (defCompany && findItemInCompany(defPlayer, defCompany.characters, action.cardInstanceId)) {
       return handleCancelAttackByInPlayItem(state, action, combat);
     }
@@ -1321,7 +1321,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   // Pay character cost via cost-evaluator: tap or enqueue corruption check.
   let resultState: GameState = state;
   if (action.scoutInstanceId && cancelEffect?.cost) {
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const company = companyById(defPlayer.companies, combat.companyId);
     const companyId = company?.id;
     const scopeKind = state.phaseState.phase === Phase.MovementHazard
       ? 'company-mh-subphase' as const
@@ -1438,7 +1438,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     const { cardInstanceId } = combat.attackSource;
     const defIdx = stateWithCancelledPlayers.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateWithCancelledPlayers.players[defIdx];
-    const company = defPlayer.companies.find(co => co.id === combat.companyId);
+    const company = companyById(defPlayer.companies, combat.companyId);
     const anyUntapped = company
       ? company.characters.some(charId => {
           const ch = defPlayer.characters[charId as string];
@@ -1527,7 +1527,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const company = companyById(defPlayer.companies, combat.companyId);
   if (!company || !company.characters.includes(action.characterId)) {
     return { state, error: 'Character not in defending company' };
   }
@@ -1874,7 +1874,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   };
 
   if (effect.enqueueCorruptionCheck) {
-    const company = player.companies.find(c => c.id === combat.companyId);
+    const company = companyById(player.companies, combat.companyId);
     const companyId = company?.id;
     const phase = state.phaseState.phase;
     const scope = phase === Phase.MovementHazard
@@ -2199,7 +2199,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const companyId = combat.companyId;
         const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
         const defPlayer = stateAfterCombat.players[actorIndex];
-        const company = defPlayer?.companies.find(c => c.id === companyId);
+        const company = companyById(defPlayer?.companies ?? [], companyId);
         const hasItems = (company?.characters ?? []).some(charId => {
           const ch = defPlayer.characters[charId as string];
           return ch && ch.items.length > 0;
@@ -2236,7 +2236,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   ) {
     const defPlayerIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defPlayerIdx];
-    const company = defPlayer?.companies.find(c => c.id === combat.companyId);
+    const company = companyById(defPlayer?.companies ?? [], combat.companyId);
     if (company) {
       const companyId = company.id;
       const scope = state.phaseState.phase === Phase.MovementHazard
@@ -2472,7 +2472,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const { cardInstanceId } = combat.attackSource;
     const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defIdx];
-    const company = defPlayer.companies.find(co => co.id === combat.companyId);
+    const company = companyById(defPlayer.companies, combat.companyId);
     const anyUntapped = company
       ? company.characters.some(charId => {
           const ch = defPlayer.characters[charId as string];
@@ -2580,7 +2580,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const inPlayNames2 = buildInPlayNames(stateAfterCombat);
       const activeIdx2 = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
       const siteDef2 = (() => {
-        const company2 = activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].companies.find(c => c.id === combat.companyId) : undefined;
+        const company2 = activeIdx2 >= 0 ? companyById(stateAfterCombat.players[activeIdx2].companies, combat.companyId) : undefined;
         const destInst2 = company2?.destinationSite ?? company2?.currentSite ?? null;
         const destDefId2 = destInst2 ? resolveInstanceId(stateAfterCombat, destInst2.instanceId) : null;
         const def2 = destDefId2 ? stateAfterCombat.cardPool[destDefId2 as string] : undefined;

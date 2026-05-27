@@ -17,6 +17,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition } from '../reducer-utils.js';
+import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -1198,7 +1199,7 @@ function playHazardsActions(
             // copy still counts as long as it left an active constraint in
             // play (the effect persists past the card's discard).
             const constraintCopies = effect.scope === 'turn'
-              ? state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length
+              ? countConstraintsFromDefinition(state, def.id)
               : 0;
             if (copiesOnChain + copiesInPlay + constraintCopies >= effect.max) {
               logDetail(`Hazard short-event "${def.name}" cannot be duplicated (${copiesOnChain} on chain, ${copiesInPlay} in play, ${constraintCopies} active)`);

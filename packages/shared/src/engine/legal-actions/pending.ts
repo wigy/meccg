@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, companyById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -1169,7 +1169,7 @@ function applyGrantedActionConstraint(
   if (playerIndex === -1) return base;
   const player = state.players[playerIndex];
   const targetCompanyId = constraint.target.companyId;
-  const company = player.companies.find(c => c.id === targetCompanyId);
+  const company = companyById(player.companies, targetCompanyId);
   if (!company) return base;
 
   const kind = constraint.kind;
@@ -1310,7 +1310,7 @@ function isCreatureSiteKeyedBypassed(
   def: import('../../types/cards-hazards.js').CreatureCard,
 ): boolean {
   for (const player of state.players) {
-    const company = player.companies.find(c => c.id === companyId);
+    const company = companyById(player.companies, companyId);
     if (!company) continue;
     const destSite = company.destinationSite;
     if (!destSite) return false;
@@ -1398,7 +1398,7 @@ function selectCardBearerActions(
   );
   if (!defPlayer) return [];
 
-  const company = defPlayer.companies.find(co => co.id === companyId);
+  const company = companyById(defPlayer.companies, companyId);
   if (!company) return [];
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
@@ -1442,7 +1442,7 @@ function discardOneCompanyItemActions(
 
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
   if (!defPlayer) return [];
-  const company = defPlayer.companies.find(co => co.id === companyId);
+  const company = companyById(defPlayer.companies, companyId);
   if (!company) return [];
 
   const actions: EvaluatedAction[] = [];
