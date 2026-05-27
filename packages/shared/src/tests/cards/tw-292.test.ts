@@ -26,15 +26,15 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI,
+  ARAGORN, LEGOLAS, GIMLI, THEODEN, BEREGOND,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN,
-  handCardId, charIdAt, dispatch,
+  handCardId, charIdAt, dispatch, resolveChain,
   buildSitePhaseState, buildInfluenceAttemptChainState, findCharInstanceId, findHandCardId,
   RESOURCE_PLAYER,
   expectInDiscardPile, makeMHState,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayShortEventAction, FactionInfluenceRollAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, enqueueResolution } from '../../engine/pending.js';
 
@@ -374,6 +374,53 @@ describe('New Friendship (tw-292)', () => {
     expect(checkActions).toHaveLength(1);
     const checkAction = checkActions[0].action as { corruptionModifier: number };
     expect(checkAction.corruptionModifier).toBe(2);
+  });
+
+  test('influence-check-boost: faction-influence-roll need uses free DI (not full DI) when influencer has followers (game mpo1cqve-ltys6m seq 584)', () => {
+    // Regression: factionInfluenceRollActions used charDef.directInfluence (full DI)
+    // instead of availableDI (free DI after subtracting follower mind costs).
+    //
+    // Théoden (DI 3, diplomat) controls Beregond (mind 2) as follower → free DI = 1.
+    // Men of Lebennin: influence# 8, no racial bonus (Théoden race "man", not Dúnedain).
+    // +3 New Friendship constraint.
+    //
+    // Correct:  modifier = freeDI(1) + constraint(3) = 4 → need = 8 - 4 = 4
+    // With bug: modifier = fullDI(3) + constraint(3) = 6 → need = 8 - 6 = 2
+    const base = buildSitePhaseState({
+      characters: [{ defId: THEODEN }, { defId: BEREGOND, followerOf: 0 }],
+      site: PELARGIR,
+      hand: [MEN_OF_LEBENNIN],
+    });
+
+    const thodenId = findCharInstanceId(base, RESOURCE_PLAYER, THEODEN);
+    const factionInstance = base.players[0].hand.find(c => c.definitionId === MEN_OF_LEBENNIN)!;
+
+    const boosted = addConstraint(base, {
+      source: 'nf-1' as CardInstanceId,
+      sourceDefinitionId: NEW_FRIENDSHIP,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: thodenId },
+      kind: { type: 'check-modifier', check: 'influence', value: 3 },
+    });
+
+    // Dispatch influence-attempt with Théoden; resolve chain (both players pass)
+    const afterAttempt = dispatch(boosted, {
+      type: 'influence-attempt',
+      player: PLAYER_1,
+      factionInstanceId: factionInstance.instanceId,
+      influencingCharacterId: thodenId,
+      need: 4,
+      explanation: 'test',
+    });
+    const resolved = resolveChain(afterAttempt);
+
+    // The pending faction-influence-roll must use free DI (1), not full DI (3)
+    const rollActions = computeLegalActions(resolved, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')
+      .map(ea => ea.action as FactionInfluenceRollAction);
+    expect(rollActions).toHaveLength(1);
+    // freeDI=1, no racial modifier, +3 constraint → need = 8 - 1 - 3 = 4
+    expect(rollActions[0].need).toBe(4);
   });
 
   // ── broader corruption rule: non-diplomat in diplomat's company ──────────
