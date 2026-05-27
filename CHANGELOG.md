@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.33.0 — 2026-05-27
+
+Map
+
+### Web Client
+
+- Add Middle-Earth map image stitched from Heinrich-Barth tile set
+- Implement radar minimap overlay (fixed bottom-right, matches map aspect ratio)
+- Implement full-screen map overlay with zoom, pan, and keyboard dismiss
+- Show current company locations and destination dots on both radar and full map
+- Show opponent company locations and destinations on full map
+- Show agents on map radar and full-screen overlay
+- Add Under-deeps schematic and movement overlay
+- Add two-line tooltip (company name + site name) on full-map dots
+- Spread overlapping company dots radially
+- Generalize visual-mode action buttons into a panel above the radar
+- Fix radar not appearing; fix keyboard crash on undefined `e.code`
+
+### Game Engine
+
+- Fix: faction-influence-roll free DI not available when follower is present
+- Fix: Muster (and influence-boost events) shown as playable before influence attempt declared
+- Fix: Torque of Hues in hand must not be offered for cancel-attack
+- Fix: summon-card collision — scan characters/agents when minting instance ID
+- Fix: `activeConstraints` not included in faction-influence-roll need calculation
+
+### Infrastructure
+
+- Unify `dodge-strike`, `modify-strike`, `reroll-strike` into `strike-modifier` DSL effect
+- Unify `modify-attack-from-hand` into `modify-attack` with `fromHand` flag
+- Replace hardcoded palantír text/name checks with `can-use-palantir` flag
+- Merge `tap/untap-hazard-limit` into `hazard-limit-swap`; keyword-based One Ring check
+- Fold three zero-field effects into `play-flag`
+- Generalize two single-use DSL types to reduce engine special-cases
+- Add 17 named engine helpers (`defById`, `playerById`, `findById`, `companyById`, `hazardPlayer`, `activePlayerState`, `setupStepContext`, `diceRollEffect`, `companySubphaseScope`, `matchesDefinition`, `matchesContext`, `resolveDef`, `cardName`, `characterEntries`, `characterIds`, `characterEntries`, `countConstraintsFromDefinition`)
+- Remove dead engine exports; simplify redundant double casts on branded IDs
+
+### AI
+
+- Fix: AI scores movement toward sites where resource events can be played
+- Fix: AI movement score boost to fix AI staying idle with playable items
+
 ## 0.32.0 — 2026-05-25
 
 Challenge Deck E
