@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -1320,7 +1320,7 @@ function handleSitePlayHeroResource(
     );
     if (autoTestMod !== null) {
       const siteName = goldRingAutoTestSiteName(afterAttach, afterAttachPlayer.companies, targetCharId) ?? '?';
-      logDetail(`Auto-test gold ring ${def.name} at ${siteName} (modifier ${autoTestMod >= 0 ? '+' : ''}${autoTestMod})`);
+      logDetail(`Auto-test gold ring ${def.name} at ${siteName} (modifier ${formatSignedNumber(autoTestMod)})`);
       return {
         state: enqueueResolution(afterAttach, {
           source: action.cardInstanceId,
@@ -1504,13 +1504,13 @@ export function resolveInfluenceAttemptRoll(
 
     const dslModifier = resolveCheckModifier(charEffects, 'influence');
     if (dslModifier !== 0) {
-      logDetail(`DSL influence check-modifiers: ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
+      logDetail(`DSL influence check-modifiers: ${formatSignedNumber(dslModifier)}`);
     }
     modifier += dslModifier;
 
     const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
-      logDetail(`DSL direct-influence modifiers: ${dslDI >= 0 ? '+' : ''}${dslDI}`);
+      logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
     modifier += dslDI;
 
@@ -1523,7 +1523,7 @@ export function resolveInfluenceAttemptRoll(
       if (constraint.target.characterId !== charId) continue;
       modifier += constraint.kind.value;
       consumedConstraintIds.push(constraint.id as string);
-      logDetail(`Influence one-shot constraint ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from ${constraint.sourceDefinitionId as string} (consumed)`);
+      logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
     }
     if (consumedConstraintIds.length > 0) {
       state = { ...state, activeConstraints: state.activeConstraints.filter(c => !consumedConstraintIds.includes(c.id as string)) };

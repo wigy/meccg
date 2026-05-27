@@ -16,7 +16,7 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId 
 import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -645,10 +645,9 @@ function resolveStrikeActions(
       const bonus = strikeEffect.prowessBonus ?? 0;
       const modifiedTapProwess = tapProwess + bonus;
       const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);
-      const bonusSign = bonus >= 0 ? '+' : '';
       const bodyPenalty = strikeEffect.bodyPenalty ?? 0;
-      const bodyNote = bodyPenalty ? `, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}` : '';
-      explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${bonusSign}${bonus}` : ''}${bodyNote})`;
+      const bodyNote = bodyPenalty ? `, body ${formatSignedNumber(bodyPenalty)}` : '';
+      explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${formatSignedNumber(bonus)}` : ''}${bodyNote})`;
       need = modifiedNeed;
       logDetail(`Strike event available: ${cardWithEffects.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
     }
@@ -1050,9 +1049,8 @@ function tapItemForStrikeActions(
     const bonus = effect.prowessModifier ?? 0;
     const modifiedProwess = tapProwess + bonus;
     const modifiedNeed = Math.max(2, strikeProwess - modifiedProwess + 1);
-    const bonusSign = bonus >= 0 ? '+' : '';
     const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
-    const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${bonusSign}${bonus})`;
+    const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${formatSignedNumber(bonus)})`;
     logDetail(`Tap-item-for-strike available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
     actions.push({
       action: {

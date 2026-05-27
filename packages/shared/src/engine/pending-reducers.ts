@@ -22,7 +22,7 @@ import type {
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState } from './reducer-utils.js';
@@ -165,7 +165,7 @@ function applyCorruptionCheckResolution(
   // Roll 2d6 + modifier
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + modifier;
-  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   logDetail(`Corruption check for ${charName} (${reason}): rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
 
   const rollEffect: GameEffect = {
@@ -189,7 +189,7 @@ function applyCorruptionCheckResolution(
         && constraint.kind.check === 'corruption'
         && constraint.target.kind === 'character'
         && constraint.target.characterId === characterId) {
-      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value})`);
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)})`);
       postRollState = removeConstraint(postRollState, constraint.id);
     }
   }
@@ -1418,8 +1418,7 @@ function applyGoldRingTestResolution(
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + rollModifier;
-  const modSign = rollModifier >= 0 ? '+' : '';
-  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${modSign}${rollModifier} = ${total}; ring discarded`);
+  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)} = ${total}; ring discarded`);
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',

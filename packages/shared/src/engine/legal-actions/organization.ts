@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus, hasPlayFlag } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -145,7 +145,7 @@ export function availableDI(
       const charEffects = collectCharacterEffects(state, controller, resolverCtx);
       const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
       if (conditionalDI !== 0) {
-        logDetail(`  DI bonus from influence-check effects: ${conditionalDI >= 0 ? '+' : ''}${conditionalDI} against ${targetDef.name} (${targetDef.race})`);
+        logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);
       }
       baseDI += conditionalDI;
     }

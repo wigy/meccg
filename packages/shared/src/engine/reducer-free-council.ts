@@ -11,7 +11,7 @@
  */
 
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, GameEffect } from '../index.js';
-import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus } from '../index.js';
+import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -196,7 +196,7 @@ function resolveCorruptionCheck(
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + modifier;
-  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   const supportStr = pending.supportCount > 0 ? ` (includes +${pending.supportCount} support)` : '';
   logDetail(`Free Council corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}${supportStr}`);
 

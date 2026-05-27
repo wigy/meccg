@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, formatSignedNumber } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -399,7 +399,7 @@ function resolveStrikeCore(
   prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
   const modifyStrikeBonus = strike.strikeProwessBonus ?? 0;
   if (modifyStrikeBonus !== 0) {
-    logDetail(`Strike event prowess modifier: ${modifyStrikeBonus >= 0 ? '+' : ''}${modifyStrikeBonus}`);
+    logDetail(`Strike event prowess modifier: ${formatSignedNumber(modifyStrikeBonus)}`);
     prowess += modifyStrikeBonus;
   }
 
@@ -1836,13 +1836,13 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
   let updatedChar;
   if (bearerOnly) {
-    logDetail(`Modify-attack: bearer ${charDef.name ?? ''} taps via ${itemName} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier})`);
+    logDetail(`Modify-attack: bearer ${charDef.name ?? ''} taps via ${itemName} (prowess ${formatSignedNumber(prowessModifier)}, body ${formatSignedNumber(bodyModifier)})`);
     updatedChar = { ...charData, status: CardStatus.Tapped };
   } else if (shouldDiscard) {
     logDetail(`Modify-attack: ${itemName} tapped — bearer ${charDef.name ?? ''} is not a ${effect.discardIfBearerNot?.race.join('/') ?? ''}, discarding item`);
     updatedChar = { ...charData, items: charData.items.filter((_, i) => i !== itemIndex) };
   } else {
-    logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}, strikes ${strikesModifier >= 0 ? '+' : ''}${strikesModifier})`);
+    logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${formatSignedNumber(prowessModifier)}, body ${formatSignedNumber(bodyModifier)}, strikes ${formatSignedNumber(strikesModifier)})`);
     updatedChar = {
       ...charData,
       items: charData.items.map((it, i) => i === itemIndex ? { ...it, status: CardStatus.Tapped } : it),

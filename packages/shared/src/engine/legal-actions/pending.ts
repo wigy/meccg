@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -379,13 +379,13 @@ function factionInfluenceRollActions(
     const dslModifier = resolveCheckModifier(charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
-      parts.push(`check mod ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
+      parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
     const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
-      parts.push(`DI mod ${dslDI >= 0 ? '+' : ''}${dslDI}`);
+      parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
     }
   }
 
@@ -401,7 +401,7 @@ function factionInfluenceRollActions(
       factionInstanceId,
       influencingCharacterId,
       need,
-      explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${modifier >= 0 ? '+' : ''}${modifier}${modStr})`,
+      explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${formatSignedNumber(modifier)}${modStr})`,
     },
     viable: true,
   }];
@@ -611,8 +611,7 @@ function goldRingTestActions(
   const ringCard = ringCardFound;
   const ringDef = ringCard ? state.cardPool[ringCard.definitionId as string] : undefined;
   const ringName = ringDef?.name ?? '?';
-  const modSign = rollModifier >= 0 ? '+' : '';
-  logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${modSign}${rollModifier}`);
+  logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${formatSignedNumber(rollModifier)}`);
 
   return [{
     action: {
@@ -620,7 +619,7 @@ function goldRingTestActions(
       player: playerId,
       goldRingInstanceId,
       rollModifier,
-      explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${modSign}${rollModifier}`,
+      explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${formatSignedNumber(rollModifier)}`,
     },
     viable: true,
   }];
@@ -859,7 +858,7 @@ function corruptionCheckActions(
     if (constraint.target.kind !== 'character') continue;
     if (constraint.target.characterId !== characterId) continue;
     totalModifier += constraint.kind.value;
-    logDetail(`One-shot check-modifier ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from constraint ${constraint.id}`);
+    logDetail(`One-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
   }
 
   // Build the source-card keyword list so item check-modifiers can gate
@@ -878,7 +877,7 @@ function corruptionCheckActions(
   const dslModifier = resolveCheckModifier(allEffects, 'corruption', { company: { characterCount: companyCharCount } });
   if (dslModifier !== 0) {
     totalModifier += dslModifier;
-    logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} (company size: ${companyCharCount}, source keywords: [${sourceKeywords.join(', ')}])`);
+    logDetail(`DSL check-modifier ${formatSignedNumber(dslModifier)} (company size: ${companyCharCount}, source keywords: [${sourceKeywords.join(', ')}])`);
   }
 
   // Build possessions list. For transfer checks, the item physically lives
@@ -900,8 +899,8 @@ function corruptionCheckActions(
 
   const ccNeed = cp + 1 - totalModifier;
   const parts = [`CP ${cp}`];
-  if (totalModifier !== 0) parts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
-  logDetail(`Pending corruption check for ${charName} (${reason}: CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}, ${possessions.length} possession(s))`);
+  if (totalModifier !== 0) parts.push(`modifier ${formatSignedNumber(totalModifier)}`);
+  logDetail(`Pending corruption check for ${charName} (${reason}: CP ${cp}, modifier ${formatSignedNumber(totalModifier)}, ${possessions.length} possession(s))`);
 
   const rollAction: EvaluatedAction = {
     action: {
