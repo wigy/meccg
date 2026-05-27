@@ -74,6 +74,22 @@ describe('New Friendship (tw-292)', () => {
     expect(viableActions).toHaveLength(0);
   });
 
+  test('influence-check-boost: NOT offered before influence attempt is declared (faction in hand)', () => {
+    // Regression: hasFactionInHand was true during the site phase whenever the
+    // player held a faction card in hand, causing New Friendship to appear playable
+    // before any influence check was in progress (game ID mpo1cqve-ltys6m, seq 233).
+    const state = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+    });
+
+    const viableActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event'
+        && ea.action.optionId === 'influence-check-boost');
+    expect(viableActions).toHaveLength(0);
+  });
+
   test('influence-check-boost: NOT offered when no diplomat in company', () => {
     // Aragorn is a warrior/scout/ranger but not a diplomat
     const state = buildSitePhaseState({
