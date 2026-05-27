@@ -198,6 +198,19 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
 }
 
 /**
+ * Look up a card definition from the card pool by its {@link CardDefinitionId}.
+ *
+ * The pool is keyed by plain `string`, so indexing it with a branded
+ * `CardDefinitionId` otherwise requires an `as string` cast at every call site.
+ * This helper centralizes that cast and the intent ("get the definition for this
+ * id"). Returns `undefined` for an unknown definition id. Complements
+ * {@link resolveDef}, which resolves a definition from a {@link CardInstanceId}.
+ */
+export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
+  return state.cardPool[definitionId as string];
+}
+
+/**
  * Look up a card's display name from the card pool by its definition ID.
  *
  * Every {@link CardDefinition} carries a `name`, so the only failure case is
@@ -210,7 +223,7 @@ export function cardName(
   definitionId: CardDefinitionId,
   fallback?: string,
 ): string {
-  return state.cardPool[definitionId as string]?.name ?? fallback ?? (definitionId as string);
+  return defById(state, definitionId)?.name ?? fallback ?? (definitionId as string);
 }
 
 /**

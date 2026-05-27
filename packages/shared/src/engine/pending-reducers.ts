@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState, defById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -200,7 +200,7 @@ function applyCorruptionCheckResolution(
     const ringInstances = action.possessions
       .map(id => {
         const defId = resolveInstanceId(state, id);
-        const def = defId ? state.cardPool[defId as string] : undefined;
+        const def = defId ? defById(state, defId) : undefined;
         const keywords: readonly string[] = def && 'keywords' in def ? (def as { keywords?: readonly string[] }).keywords ?? [] : [];
         return keywords.includes('ring') ? { instanceId: id, definitionId: defId! } : null;
       })
@@ -366,7 +366,7 @@ function tryCancelDeferredOnReveal(
   const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === revealAction.cardInstanceId);
   if (ogIdx < 0) return null;
   const ogCard = company.onGuardCards[ogIdx];
-  const ogDef = state.cardPool[ogCard.definitionId as string];
+  const ogDef = defById(state, ogCard.definitionId);
   if (!ogDef || !('effects' in ogDef)) return null;
   const ogEffects = (ogDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
 
@@ -383,7 +383,7 @@ function tryCancelDeferredOnReveal(
   const handIdx = resourcePlayer.hand.findIndex(c => c.instanceId === deferredAction.cardInstanceId);
   if (handIdx < 0) return null;
   const handCard = resourcePlayer.hand[handIdx];
-  const handDef = state.cardPool[handCard.definitionId as string];
+  const handDef = defById(state, handCard.definitionId);
   if (!handDef || !('effects' in handDef)) return null;
   const handEffects = (handDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
   const hasSkill = handEffects.some(e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill);
@@ -554,7 +554,7 @@ function applyCancelInfluence(
     return { state, error: 'cancel-influence card not found in hand' };
   }
   const [discardedCard] = handCards.splice(cardIndex, 1);
-  const cardDef = state.cardPool[discardedCard.definitionId as string];
+  const cardDef = defById(state, discardedCard.definitionId);
   if (!cardDef) {
     return { state, error: 'cancel-influence card definition not found' };
   }
@@ -682,7 +682,7 @@ function applyMusterRollResolution(
   const ownerIndex = getPlayerIndex(state, factionOwner);
   const owner = state.players[ownerIndex];
 
-  const def = state.cardPool[factionDefinitionId as string];
+  const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) {
     return { state, error: 'Targeted card is not a faction' };
   }
@@ -774,7 +774,7 @@ function applyFlateryAttemptResolution(
     return { state, error: `Flattery-attempt: character ${characterInstanceId as string} not found` };
   }
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
   const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
   const bonus = isDiplomat ? diplomatBonus : 0;
@@ -843,7 +843,7 @@ function applyCallOfHomeRollResolution(
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
   }
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
   const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
 
@@ -927,13 +927,13 @@ function returnCharacterToHand(
   for (const followerId of charInPlay.followers) {
     const follower = newCharacters[followerId as string];
     if (!follower) continue;
-    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
 
     const currentGIUsed = Object.values(newCharacters)
       .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
       .reduce((sum, ch) => {
-        const def = state.cardPool[ch.definitionId as string];
+        const def = defById(state, ch.definitionId);
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
@@ -1011,12 +1011,12 @@ function discardCharacter(
   for (const followerId of charInPlay.followers) {
     const follower = newCharacters[followerId as string];
     if (!follower) continue;
-    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
     const currentGIUsed = Object.values(newCharacters)
       .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
       .reduce((sum, ch) => {
-        const def = state.cardPool[ch.definitionId as string];
+        const def = defById(state, ch.definitionId);
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
     if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
@@ -1090,7 +1090,7 @@ function applyBodyCheckCompanyResolution(
     return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
   }
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
   const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
   const race = isCharacterCard(charDef) ? charDef.race : '';
@@ -1105,7 +1105,7 @@ function applyBodyCheckCompanyResolution(
   const discardCheck = Math.min(...discardValues);
   const effectiveThreshold = discardCheck + modifier;
 
-  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceDef = defById(state, sourceDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -1192,7 +1192,7 @@ function applySeizedByTerrorRollResolution(
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
   }
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
   const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
 
@@ -1377,7 +1377,7 @@ function applyGoldRingTestResolution(
     storedPlacement = false;
   }
 
-  const ringDef = state.cardPool[ringCard.definitionId as string];
+  const ringDef = defById(state, ringCard.definitionId);
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -1457,7 +1457,7 @@ function applyRingPlayOfferResolution(
     return { state, error: `Ring ${ringInstanceId as string} not found in hand` };
   }
   const ringCard = player.hand[handIdx];
-  const ringDef = state.cardPool[ringCard.definitionId as string];
+  const ringDef = defById(state, ringCard.definitionId);
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
   // Locate the target character
@@ -1626,7 +1626,7 @@ function applyWizardSearchOnStoreResolution(
     return { state, error: `Wizard ${wizardDefinitionId as string} not found in ${source}` };
   }
 
-  const wizardDef = state.cardPool[wizardInst.definitionId as string];
+  const wizardDef = defById(state, wizardInst.definitionId);
   const wizardName = wizardDef?.name ?? (wizardDefinitionId as string);
   logDetail(`Wizard-search: playing ${wizardName} from ${source}`);
 
@@ -1819,9 +1819,9 @@ function applyGlamourHazardRollResolution(
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
 
-  const hazDef = state.cardPool[hazardDefinitionId as string];
+  const hazDef = defById(state, hazardDefinitionId);
   const hazName = hazDef?.name ?? '?';
-  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceDef = defById(state, sourceDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -1913,7 +1913,7 @@ function applyDiscardOneCompanyItemResolution(
     return { state, error: `Item ${itemInstanceId as string} not found in company ${companyId as string}` };
   }
 
-  const itemDef = state.cardPool[removedItem.definitionId as string];
+  const itemDef = defById(state, removedItem.definitionId);
   const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (itemInstanceId as string);
   logDetail(`discard-one-company-item: defender discards "${itemName}"`);
 
@@ -1988,11 +1988,11 @@ function applyHazardEventMaintenanceResolution(
     const handCard = actorPlayer.hand[handIdx];
 
     // Verify the card matches the handCardFilter from the source effect
-    const sourceDef = state.cardPool[top.kind.sourceDefinitionId as string];
+    const sourceDef = defById(state, top.kind.sourceDefinitionId);
     if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
       for (const eff of sourceDef.effects) {
         if (eff.type !== 'hazard-maintenance' || eff.trigger !== 'opponent-long-event-end') continue;
-        const handDef = state.cardPool[handCard.definitionId as string];
+        const handDef = defById(state, handCard.definitionId);
         if (!handDef || !matchesDefinition(handDef, eff.handCardFilter)) {
           return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
         }

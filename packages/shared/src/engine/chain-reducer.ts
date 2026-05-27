@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope, defById } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -276,7 +276,7 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
   if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
 
   const revealedCard = company.onGuardCards[ogIdx];
-  const def = state.cardPool[revealedCard.definitionId as string];
+  const def = defById(state, revealedCard.definitionId);
   logDetail(`Chain: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
 
   // Remove from on-guard
@@ -557,7 +557,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card) return state;
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   if (!def || !('effects' in def) || !def.effects) return state;
 
   // Collect all on-event effects for company-arrives-at-site. Each
@@ -669,7 +669,7 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
 function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card) return state;
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   if (!def || !('effects' in def) || !def.effects) return state;
 
   const onEvents = def.effects.filter(
@@ -854,7 +854,7 @@ function buildConstraintKind(
 function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card) return state;
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   if (!def || !('effects' in def) || !def.effects) return state;
 
   const inPlayNames = buildInPlayNames(state);
@@ -894,7 +894,7 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
  */
 function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
 
   logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
@@ -1013,7 +1013,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     const company = newState.players[playerIndex].companies[activeCompanyIndex];
     const siteInPlay = company?.currentSite;
     if (siteInPlay && siteInPlay.status !== CardStatus.Tapped) {
-      const siteDef = newState.cardPool[siteInPlay.definitionId as string];
+      const siteDef = defById(newState, siteInPlay.definitionId);
       const neverTaps = siteDef && isSiteCard(siteDef)
         && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
       if (neverTaps) {
@@ -1225,7 +1225,7 @@ function applyAddConstraintFromOnEvent(
  */
 function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
 
   // CoE rule 2.IV.iii.1: hazard limit active condition — check at resolution.
@@ -1299,7 +1299,7 @@ function deriveSiteFacedRaces(state: GameState): string[] {
   const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
   const company = state.players[activePlayerIndex]?.companies[siteState.activeCompanyIndex];
   if (!company?.currentSite) return [];
-  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  const siteDef = defById(state, company.currentSite.definitionId);
   if (!siteDef || !isSiteCard(siteDef)) return [];
   const autoAttacks = getActiveAutoAttacks(state, siteDef);
   const resolved = Math.min(siteState.automaticAttacksResolved, autoAttacks.length);
@@ -1355,14 +1355,14 @@ function collectHavenJumpOffers(
   for (const company of defendingPlayer.companies) {
     if (company.id === attackedCompanyId) continue;
     const siteDef = company.currentSite
-      ? state.cardPool[company.currentSite.definitionId as string]
+      ? defById(state, company.currentSite.definitionId)
       : undefined;
     const atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
     if (!atHaven) continue;
     for (const charId of company.characters) {
       const charInPlay = defendingPlayer.characters[charId as string];
       if (!charInPlay) continue;
-      const charDef = state.cardPool[charInPlay.definitionId as string];
+      const charDef = defById(state, charInPlay.definitionId);
       const effects = (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
       for (const effect of effects) {
         if (effect.type !== 'on-event') continue;
@@ -1661,7 +1661,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card
     && current.combat) {
-    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cardDef = defById(current, entry.card.definitionId);
     const flatEffect = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
@@ -1700,7 +1700,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // declaration.
   const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
-    const def = current.cardPool[entry.card.definitionId as string];
+    const def = defById(current, entry.card.definitionId);
     if (def && 'effects' in def && def.effects) {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of def.effects) {
@@ -1729,7 +1729,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     entry.card &&
     entry.payload.targetCharacterId
   ) {
-    const def = current.cardPool[entry.card.definitionId as string];
+    const def = defById(current, entry.card.definitionId);
     if (def && 'effects' in def && def.effects?.some(e => e.type === 'set-character-status' && e.status === 'inverted' && e.target === 'target-character')) {
       const targetId = entry.payload.targetCharacterId;
       for (let pi = 0; pi < current.players.length; pi++) {
@@ -1785,7 +1785,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.payload.targetCharacterId
     && !entry.negated
     && entry.card) {
-    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cardDef = defById(current, entry.card.definitionId);
     const cohEffect = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is import('../index.js').CallOfHomeCheckEffect => e.type === 'call-of-home-check',
@@ -1819,7 +1819,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
-    const tadCardDef = current.cardPool[entry.card.definitionId as string];
+    const tadCardDef = defById(current, entry.card.definitionId);
     const dupEffect = tadCardDef && 'effects' in tadCardDef
       ? (tadCardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is import('../index.js').DuplicateSiteAutoAttacksEffect => e.type === 'duplicate-site-auto-attacks',
@@ -1831,7 +1831,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const company = current.players[activeIndex]?.companies[current.phaseState.activeCompanyIndex];
       const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
       const destSiteDefId = destSiteInst ? resolveInstanceId(current, destSiteInst.instanceId) : null;
-      const destSiteDef = destSiteDefId ? current.cardPool[destSiteDefId as string] : undefined;
+      const destSiteDef = destSiteDefId ? defById(current, destSiteDefId) : undefined;
       if (company && destSiteDef && isSiteCard(destSiteDef)) {
         const autoAttacks = getActiveAutoAttacks(current, destSiteDef);
         if (autoAttacks.length > 0) {
@@ -1894,7 +1894,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.payload.targetCharacterId
     && !entry.negated
     && entry.card) {
-    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cardDef = defById(current, entry.card.definitionId);
     const fcacEffect = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is ForceCheckAllCompanyTopEffect =>
@@ -1933,7 +1933,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.payload.targetCharacterId
     && !entry.negated
     && entry.card) {
-    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cardDef = defById(current, entry.card.definitionId);
     const sbtEffect = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is import('../index.js').SeizedByTerrorCheckEffect => e.type === 'seized-by-terror-check',
@@ -1968,7 +1968,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.payload.targetCharacterId
     && !entry.negated
     && entry.card) {
-    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cardDef = defById(current, entry.card.definitionId);
     const playTargetWithCostCorruption = cardDef && 'effects' in cardDef
       ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
         (e): e is PlayTargetEffect => e.type === 'play-target' && e.cost?.check === 'corruption',
@@ -2084,7 +2084,7 @@ function detectTriggeredPassives(state: GameState, resolvedEntry: ChainEntry): D
   // Scan all in-play cards for on-event triggers
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def || !('effects' in def) || !def.effects) continue;
 
       for (const effect of def.effects) {
@@ -2143,7 +2143,7 @@ function completeChain(state: GameState): GameState {
     if (entry.negated && entry.card) {
       const playerIndex = getPlayerIndex(current, entry.declaredBy);
       const player = current.players[playerIndex];
-      const def = current.cardPool[entry.card.definitionId as string];
+      const def = defById(current, entry.card.definitionId);
       logDetail(`Flushing negated card "${def?.name ?? entry.card.definitionId}" to player ${entry.declaredBy as string} discard`);
       const newPlayers: [PlayerState, PlayerState] = [current.players[0], current.players[1]];
       newPlayers[playerIndex] = {

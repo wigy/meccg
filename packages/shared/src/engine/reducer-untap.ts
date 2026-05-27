@@ -9,7 +9,7 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, updatePlayer, wrongActionType, defById } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -82,7 +82,7 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
 
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   const sideboardCard = player.sideboard[cardIdx];
-  const def = state.cardPool[sideboardCard.definitionId as string];
+  const def = defById(state, sideboardCard.definitionId)!;
   const destination = untapState.hazardSideboardDestination!;
 
   const newSideboard = [...player.sideboard];
@@ -242,7 +242,7 @@ function performUntap(state: GameState): GameState {
   // Skip cards with a `no-auto-untap` effect (e.g. Power Built by Waiting).
   const newCardsInPlay = player.cardsInPlay.map(card => {
     if (card.status !== CardStatus.Tapped) return card;
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     const hasNoAutoUntap = def && 'effects' in def && hasPlayFlag(def, 'no-auto-untap');
     if (hasNoAutoUntap) {
       logDetail(`Untap: skipping ${card.definitionId as string} — no-auto-untap effect`);
@@ -260,7 +260,7 @@ function performUntap(state: GameState): GameState {
   // 1 + extra-agent-actions effects in play (e.g. Great Need or Purpose).
   const extraAgentActions = state.players.reduce((sum, p) =>
     p.cardsInPlay.reduce((s, card) => {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def || !('effects' in def) || !def.effects) return s;
       return s + (def.effects as CardEffect[]).reduce((n, e) => e.type === 'extra-agent-actions' ? n + (e as { value: number }).value : n, 0);
     }, sum), 0);
@@ -373,7 +373,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
     // Scan attached hazards, items, allies for matching on-event effects
     const attached = [...char.hazards, ...char.items, ...char.allies];
     for (const card of attached) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       const effects = (def && 'effects' in def
         ? (def as { effects?: readonly CardEffect[] }).effects
         : undefined) ?? [];

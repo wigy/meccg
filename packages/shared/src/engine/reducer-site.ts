@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer, playerById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer, playerById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -157,7 +157,7 @@ function handleSiteEnterOrSkip(
 
   // Enter site — check whether the site has automatic-attacks
   const siteInPlay = company.currentSite;
-  const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
+  const siteDef = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
   const autoAttackCount = siteDef && isSiteCard(siteDef)
     ? getActiveAutoAttacks(state, siteDef).length
     : 0;
@@ -231,7 +231,7 @@ function handleRevealOnGuardAttacks(
     const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
     const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
     const siteDef = company?.currentSite
-      ? state.cardPool[company.currentSite.definitionId as string]
+      ? defById(state, company.currentSite.definitionId)
       : undefined;
     const hasDynamicAutoAttack = siteDef && isSiteCard(siteDef)
       && (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack') ?? false);
@@ -265,7 +265,7 @@ function handleRevealOnGuardAttacks(
     const company = resourcePlayer.companies[siteState.activeCompanyIndex];
     const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
     const revealedCard = company.onGuardCards[ogIdx];
-    const def = state.cardPool[revealedCard.definitionId as string];
+    const def = defById(state, revealedCard.definitionId);
     logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
 
     const isEvent = def && def.cardType === 'hazard-event';
@@ -329,7 +329,7 @@ function handleForewarnedSelectAttack(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company?.currentSite
-    ? state.cardPool[company.currentSite.definitionId as string]
+    ? defById(state, company.currentSite.definitionId)
     : undefined;
   const autoAttacks = siteDef && isSiteCard(siteDef)
     ? getActiveAutoAttacks(state, siteDef)
@@ -607,7 +607,7 @@ function handleDeclareAgentAttack(
 
   const hazardPlayer = state.players[hazardPlayerIndex];
   const agent = hazardPlayer.agents.find(a => a.character.instanceId === action.agentInstanceId)!;
-  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentDef = defById(state, agent.character.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) {
     return { state, error: `Agent character definition not found for ${action.agentInstanceId}` };
   }
@@ -627,11 +627,11 @@ function handleDeclareAgentAttack(
   let currentSiteName: string | undefined;
   if (agent.siteStack.length > 0) {
     const topSite = agent.siteStack[agent.siteStack.length - 1];
-    const topSiteDef = state.cardPool[topSite.definitionId as string];
+    const topSiteDef = defById(state, topSite.definitionId);
     if (topSiteDef && isSiteCard(topSiteDef)) currentSiteName = topSiteDef.name;
   } else if (company?.currentSite) {
     // Empty siteStack: agent is at company's current site (which is one of its home sites)
-    const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
+    const companySiteDef = defById(state, company.currentSite.definitionId);
     if (companySiteDef && isSiteCard(companySiteDef)) currentSiteName = companySiteDef.name;
   }
   const homesiteNames = agentDef.homesite
@@ -764,7 +764,7 @@ function handleSitePlaySiteAutoAttack(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company?.currentSite
-    ? state.cardPool[company.currentSite.definitionId as string]
+    ? defById(state, company.currentSite.definitionId)
     : undefined;
 
   if (action.type === 'pass') {
@@ -789,7 +789,7 @@ function handleSitePlaySiteAutoAttack(
     return { state, error: `Card ${action.cardInstanceId} not in hazard player's hand` };
   }
   const creatureCard = hazardPlayer.hand[creatureIdx];
-  const creatureDef = state.cardPool[creatureCard.definitionId as string];
+  const creatureDef = defById(state, creatureCard.definitionId);
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
     return { state, error: `Card ${action.cardInstanceId} is not a hazard creature` };
   }
@@ -876,12 +876,12 @@ function handleSiteResolveAttacks(
   if (company) {
     const revealedIdx = company.onGuardCards.findIndex(og => {
       if (!og.revealed) return false;
-      const def = state.cardPool[og.definitionId as string];
+      const def = defById(state, og.definitionId);
       return def?.cardType === 'hazard-creature';
     });
     if (revealedIdx !== -1) {
       const attackCard = company.onGuardCards[revealedIdx];
-      const def = state.cardPool[attackCard.definitionId as string];
+      const def = defById(state, attackCard.definitionId);
       logDetail(`Site: initiating on-guard creature attack "${def?.name ?? attackCard.definitionId}" via chain`);
 
       // Remove from onGuardCards
@@ -934,7 +934,7 @@ export function applyOnGuardRevealAtResource(
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
   const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
   const revealedCard = company.onGuardCards[ogIdx];
-  const def = state.cardPool[revealedCard.definitionId as string];
+  const def = defById(state, revealedCard.definitionId);
   logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
 
   // Remove from on-guard
@@ -1086,7 +1086,7 @@ function handleSitePlayResources(
   // card during the opponent's site phase).
   if (action.type === 'play-short-event' && company.onGuardCards.length > 0) {
     const handCard = findById(player.hand, action.cardInstanceId);
-    const shortDef = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
+    const shortDef = handCard ? defById(state, handCard.definitionId) : undefined;
     const shortEffects = shortDef && 'effects' in shortDef
       ? ((shortDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [])
       : [];
@@ -1177,7 +1177,7 @@ function siteNeverTaps(
   site: { readonly definitionId: import('../index.js').CardDefinitionId } | null | undefined,
 ): boolean {
   if (!site) return false;
-  const def = state.cardPool[site.definitionId as string];
+  const def = defById(state, site.definitionId);
   if (!def || !isSiteCard(def)) return false;
   return (def.effects ?? []).some(
     e => e.type === 'site-rule' && e.rule === 'never-taps',
@@ -1204,7 +1204,7 @@ function handleSitePlayHeroResource(
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
+  const def = defById(state, handCard.definitionId)!;
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
 
@@ -1212,7 +1212,7 @@ function handleSitePlayHeroResource(
 
   const targetCharId = action.attachToCharacterId!;
   const charInPlay = player.characters[targetCharId as string];
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? targetCharId;
   logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
 
@@ -1251,7 +1251,7 @@ function handleSitePlayHeroResource(
   // Bounty of the Hoard: if played, one minor or major item may be played at
   // a tapped hoard site. Consume the flag when such an item is played.
   const siteWasTapped = siteInPlay.status === CardStatus.Tapped;
-  const siteDef = state.cardPool[siteInPlay.definitionId as string];
+  const siteDef = defById(state, siteInPlay.definitionId);
   const siteIsHoard = siteDef && 'keywords' in siteDef
     ? ((siteDef as { keywords?: readonly string[] }).keywords ?? []).includes('hoard')
     : false;
@@ -1406,7 +1406,7 @@ function handleInfluenceAttemptDeclare(
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
+  const def = defById(state, handCard.definitionId)!;
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId as string];
@@ -1455,14 +1455,14 @@ export function resolveInfluenceAttemptRoll(
 
   if (!entry.card) return { state, effects: [] };
 
-  const def = state.cardPool[entry.card.definitionId as string];
+  const def = defById(state, entry.card.definitionId);
   if (!def || !isFactionCard(def)) return { state, effects: [] };
 
   const charId = entry.payload.influencingCharacterId;
   const charInPlay = player.characters[charId as string];
   if (!charInPlay) return { state, effects: [] };
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? charId;
 
   // Calculate influence modifier using current state (post-on-guard effects)
@@ -1628,7 +1628,7 @@ function handleOpponentInfluenceAttempt(
   if (action.targetKind === 'character') {
     const targetChar = opponent.characters[action.targetInstanceId as string];
     if (!targetChar) return { state, error: 'Target character not found' };
-    const targetDef = state.cardPool[targetChar.definitionId as string];
+    const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
     if (targetDef.mind === null) return { state, error: 'Cannot influence an avatar' };
     targetMind = targetDef.mind;
@@ -1643,7 +1643,7 @@ function handleOpponentInfluenceAttempt(
     for (const [oppCharId, oppChar] of characterEntries(opponent)) {
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
-        const allyDef = state.cardPool[allyInst.definitionId as string];
+        const allyDef = defById(state, allyInst.definitionId);
         if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
         targetMind = (allyDef as { mind: number }).mind;
         controllerDI = availableDI(state, oppCharId, opponent);
@@ -1655,7 +1655,7 @@ function handleOpponentInfluenceAttempt(
   } else if (action.targetKind === 'faction') {
     const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
     if (!targetFaction) return { state, error: 'Target faction not found' };
-    const factionDef = state.cardPool[targetFaction.definitionId as string];
+    const factionDef = defById(state, targetFaction.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
     // CoE rule 8.3: the comparison value is the in-play influence number.
     // No controller DI for factions (factions are controlled by the player,
@@ -1664,7 +1664,7 @@ function handleOpponentInfluenceAttempt(
     controllerDI = 0;
   }
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? charId;
 
   // Handle identical card reveal (rule 10.11)
@@ -1676,7 +1676,7 @@ function handleOpponentInfluenceAttempt(
     const revealIdx = newHand.findIndex(c => c.instanceId === action.revealedCardInstanceId);
     if (revealIdx === -1) return { state, error: 'Revealed card not in hand' };
     const revealedHandCard = newHand[revealIdx];
-    const revealedDef = state.cardPool[revealedHandCard.definitionId as string];
+    const revealedDef = defById(state, revealedHandCard.definitionId);
 
     // Validate: must be same name as target
     let targetName: string | undefined;
@@ -1685,13 +1685,13 @@ function handleOpponentInfluenceAttempt(
       targetName = tDef?.name;
     } else if (action.targetKind === 'faction') {
       const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
-      const tDef = targetFaction ? state.cardPool[targetFaction.definitionId as string] : undefined;
+      const tDef = targetFaction ? defById(state, targetFaction.definitionId) : undefined;
       targetName = tDef?.name;
     } else {
       for (const ch of Object.values(opponent.characters)) {
         const ally = ch.allies.find(a => a.instanceId === action.targetInstanceId);
         if (ally) {
-          const aDef = state.cardPool[ally.definitionId as string];
+          const aDef = defById(state, ally.definitionId);
           targetName = aDef?.name;
           break;
         }
@@ -1933,14 +1933,14 @@ function discardInfluencedCard(
   for (const followerId of targetChar.followers) {
     const follower = newCharacters[followerId as string];
     if (!follower) continue;
-    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
 
     // Check if there's room under GI
     const currentGIUsed = Object.values(newCharacters)
       .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== pending.targetInstanceId)
       .reduce((sum, ch) => {
-        const def = state.cardPool[ch.definitionId as string];
+        const def = defById(state, ch.definitionId);
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
@@ -2113,7 +2113,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
             ...bearer.hazards.map(h => h.instanceId),
           ];
           for (const item of otherItems) {
-            const itemDef = newState.cardPool[item.definitionId as string];
+            const itemDef = defById(newState, item.definitionId);
             const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
             const modifier = cp > 0 ? -cp : 0;
             logDetail(`end-of-turn: enqueuing check for ${charId as string} — item "${itemDef?.name ?? item.definitionId as string}" cp=${cp} → modifier ${modifier}`);

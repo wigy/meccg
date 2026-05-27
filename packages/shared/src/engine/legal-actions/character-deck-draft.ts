@@ -11,6 +11,7 @@
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import { isCharacterCard, isAvatarCharacter, evaluateAction, CHARACTER_DECK_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
+import { defById } from '../reducer-utils.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */
 const MAX_NON_AVATAR_IN_DECK = 10;
@@ -20,7 +21,7 @@ function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
   const player = state.players[playerIndex];
   let count = 0;
   for (const card of player.playDeck) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (def && isCharacterCard(def) && def.mind !== null) {
       count++;
     }
@@ -45,7 +46,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
   const evaluated: EvaluatedAction[] = [];
 
   for (const charCard of deckDraft.remainingPool) {
-    const def = state.cardPool[charCard.definitionId as string];
+    const def = defById(state, charCard.definitionId);
     const isChar = isCharacterCard(def);
 
     const context = {

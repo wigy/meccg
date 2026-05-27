@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, companyById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, companyById, defById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -142,7 +142,7 @@ function onGuardWindowActions(
     if (deferredAction.type !== 'play-short-event' && deferredAction.type !== 'play-hero-resource') return undefined;
     for (const p of state.players) {
       const handCard = findById(p.hand, deferredAction.cardInstanceId);
-      if (handCard) return state.cardPool[handCard.definitionId as string];
+      if (handCard) return defById(state, handCard.definitionId);
     }
     return undefined;
   })();
@@ -157,7 +157,7 @@ function onGuardWindowActions(
   if (company) {
     for (const ogCard of company.onGuardCards) {
       if (ogCard.revealed) continue;
-      const def = state.cardPool[ogCard.definitionId as string];
+      const def = defById(state, ogCard.definitionId);
       if (!def) continue;
       if (def.cardType !== 'hazard-event') continue;
 
@@ -330,13 +330,13 @@ function factionInfluenceRollActions(
   if (actorIndex === -1) return [];
   const player = state.players[actorIndex];
 
-  const def = state.cardPool[factionDefinitionId as string];
+  const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
 
   const charInPlay = player.characters[influencingCharacterId as string];
   if (!charInPlay) return [];
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
   const factionName = def.name;
 
@@ -425,7 +425,7 @@ function musterRollActions(
   if (actorIndex === -1) return [];
   const player = state.players[actorIndex];
 
-  const def = state.cardPool[factionDefinitionId as string];
+  const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
 
   const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
@@ -467,7 +467,7 @@ function flateryAttemptRollActions(
   const charInPlay = player.characters[characterInstanceId as string];
   if (!charInPlay) return [];
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
   const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
   const bonus = isDiplomat ? diplomatBonus : 0;
@@ -516,9 +516,9 @@ function callOfHomeRollActions(
   const charInPlay = player.characters[targetCharacterId as string];
   if (!charInPlay) return [];
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const hazardDef = state.cardPool[hazardDefinitionId as string];
+  const hazardDef = defById(state, hazardDefinitionId);
   const hazardName = hazardDef?.name ?? '?';
 
   const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
@@ -558,9 +558,9 @@ function seizedByTerrorRollActions(
   const charInPlay = player.characters[targetCharacterId as string];
   if (!charInPlay) return [];
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const hazardDef = state.cardPool[hazardDefinitionId as string];
+  const hazardDef = defById(state, hazardDefinitionId);
   const hazardName = hazardDef?.name ?? '?';
 
   const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
@@ -609,7 +609,7 @@ function goldRingTestActions(
     }
   }
   const ringCard = ringCardFound;
-  const ringDef = ringCard ? state.cardPool[ringCard.definitionId as string] : undefined;
+  const ringDef = ringCard ? defById(state, ringCard.definitionId) : undefined;
   const ringName = ringDef?.name ?? '?';
   logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${formatSignedNumber(rollModifier)}`);
 
@@ -639,9 +639,9 @@ function glamourHazardRollActions(
   if (top.kind.type !== 'glamour-hazard-roll') return [];
   const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
 
-  const hazDef = state.cardPool[hazardDefinitionId as string];
+  const hazDef = defById(state, hazardDefinitionId);
   const hazName = hazDef?.name ?? '?';
-  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceDef = defById(state, sourceDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
   logDetail(`Pending glamour-hazard-roll for ${hazName} (threshold >${removalThreshold}) from ${sourceName}`);
@@ -677,11 +677,11 @@ function bodyCheckCompanyActions(
   const charInPlay = player.characters[characterId as string];
   if (!charInPlay) return [];
 
-  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
   const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
   const effectiveBody = body + modifier;
-  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceDef = defById(state, sourceDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
   logDetail(`Pending body-check-company for ${charName} (body ${body}, modifier ${modifier}, threshold ${effectiveBody}) from ${sourceName}`);
@@ -719,7 +719,7 @@ function resourcePlayOfferActions(
   const cofInstanceId = top.kind.linkToInstanceId;
 
   for (const card of player.hand) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (!def) continue;
     if (
       def.cardType !== 'hero-resource-event' &&
@@ -766,7 +766,7 @@ function wizardSearchOnStoreActions(
   // Gather wizard definition IDs from the play deck (deduplicated)
   const deckWizardDefIds = new Set<string>();
   for (const card of player.playDeck) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (def && isCharacterCard(def) && isAvatarCharacter(def)) {
       deckWizardDefIds.add(card.definitionId as string);
     }
@@ -787,7 +787,7 @@ function wizardSearchOnStoreActions(
 
   // Gather wizard instances from the discard pile
   for (const card of player.discardPile) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (def && isCharacterCard(def) && isAvatarCharacter(def)) {
       logDetail(`Wizard-search: found ${def.name} in discard pile`);
       actions.push({
@@ -960,7 +960,7 @@ function reactiveCorruptionCheckPlays(
   const ctx = buildPlayOptionContext(state, targetChar, player);
 
   for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hero-resource-event') continue;
     const shortDef = def;
     if (shortDef.eventType !== 'short') continue;
@@ -1313,7 +1313,7 @@ function isCreatureSiteKeyedBypassed(
     if (!company) continue;
     const destSite = company.destinationSite;
     if (!destSite) return false;
-    const siteDef = state.cardPool[destSite.definitionId as string];
+    const siteDef = defById(state, destSite.definitionId);
     if (!isSiteCard(siteDef)) return false;
     if (!(siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'creatures-always-keyed-to-site')) return false;
     const siteType = siteDef.siteType;
@@ -1449,7 +1449,7 @@ function discardOneCompanyItemActions(
     const ch = defPlayer.characters[charId as string];
     if (!ch) continue;
     for (const item of ch.items) {
-      const itemDef = state.cardPool[item.definitionId as string];
+      const itemDef = defById(state, item.definitionId);
       const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
       logDetail(`discard-one-company-item: offering ${itemName}`);
       actions.push({
@@ -1485,7 +1485,7 @@ function hazardEventMaintenanceActions(
   const { sourceInstanceId, sourceDefinitionId } = top.kind;
 
   // Look up the source effect's handCardFilter
-  const sourceDef = state.cardPool[sourceDefinitionId as string];
+  const sourceDef = defById(state, sourceDefinitionId);
   let handCardFilter: import('../../types/effects.js').Condition | undefined;
   if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
     for (const eff of sourceDef.effects) {
@@ -1515,7 +1515,7 @@ function hazardEventMaintenanceActions(
     const actorPlayer = playerById(state, actor);
     if (actorPlayer) {
       for (const handCard of actorPlayer.hand) {
-        const handDef = state.cardPool[handCard.definitionId as string];
+        const handDef = defById(state, handCard.definitionId);
         if (!handDef) continue;
         if (!matchesDefinition(handDef, handCardFilter)) continue;
         logDetail(`hazard-event-maintenance: offering hand card ${handCard.definitionId as string} as payment`);
@@ -1560,7 +1560,7 @@ function ringPlayOfferActions(
   const player = state.players[playerIndex];
 
   for (const card of player.hand) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (!def) continue;
     // Must be a special ring (subtype 'special', keyword 'ring')
     if (!('subtype' in def) || (def as { subtype?: string }).subtype !== 'special') continue;

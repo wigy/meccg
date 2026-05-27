@@ -13,6 +13,7 @@ import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
+import { defById } from '../reducer-utils.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.CharacterDraft);
@@ -44,7 +45,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     setupStep.draftState[opponentIndex].drafted.map(card => card.definitionId as string),
   );
   const currentMind = draft.drafted.reduce((sum, card) => {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
   }, 0);
 
@@ -53,7 +54,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const evaluated: EvaluatedAction[] = [];
 
   for (const charCard of draft.pool) {
-    const charDef = state.cardPool[charCard.definitionId as string];
+    const charDef = defById(state, charCard.definitionId);
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
 

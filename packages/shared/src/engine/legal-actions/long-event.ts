@@ -23,7 +23,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById } from '../reducer-utils.js';
+import { characterEntries, playerById, defById } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -56,7 +56,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   // Scan hand for resource events (long and short)
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def)) continue;
 
     if (def.eventType === 'long') {
@@ -85,7 +85,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
           if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
           const copiesInPlay = state.players.reduce((count, p) =>
             count + p.cardsInPlay.filter(c => {
-              const cDef = state.cardPool[c.definitionId as string];
+              const cDef = defById(state, c.definitionId);
               return cDef && cDef.name === def.name;
             }).length, 0,
           );
@@ -166,7 +166,7 @@ export function heroResourceShortEventActions(
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
 
     // Skip cards that declare a play-window restricting them to a
@@ -193,7 +193,7 @@ export function heroResourceShortEventActions(
       if (siteState && siteState.step !== 'select-company') {
         const activeCompany = player.companies[siteState.activeCompanyIndex];
         const siteDef = activeCompany?.currentSite
-          ? state.cardPool[activeCompany.currentSite.definitionId as string]
+          ? defById(state, activeCompany.currentSite.definitionId)
           : undefined;
         if (siteDef && isSiteCard(siteDef) && !playWindow.siteTypes.includes(siteDef.siteType)) {
           logDetail(`${def.name}: active company at ${siteDef.siteType} (${siteDef.name}), play-window requires [${playWindow.siteTypes.join(', ')}] — not playable`);

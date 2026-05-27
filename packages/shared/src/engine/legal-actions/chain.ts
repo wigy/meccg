@@ -17,7 +17,7 @@ import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, Car
 import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
-import { playerById } from '../reducer-utils.js';
+import { playerById, defById } from '../reducer-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
 
@@ -71,7 +71,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
       let hazardCount = 0;
       for (const e of chain.entries) {
         if (e.resolved || e.negated || !e.card) continue;
-        const def = state.cardPool[e.card.definitionId as string];
+        const def = defById(state, e.card.definitionId);
         if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) hazardCount++;
       }
       actions.push(...emitGrantedActionConstraintActions(state, playerId, company, 'movement-hazard', 'chain-declaring', {
@@ -166,7 +166,7 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event') continue;
     const hazDef = def;
     if (hazDef.eventType !== 'short') continue;
@@ -186,7 +186,7 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
     for (const entry of chain.entries) {
       if (entry.resolved || entry.negated || !entry.card) continue;
       if (entry.card.instanceId === handCard.instanceId) continue;
-      const targetDef = state.cardPool[entry.card.definitionId as string];
+      const targetDef = defById(state, entry.card.definitionId);
       if (!targetDef || !('effects' in targetDef)) continue;
       const targetEffects = (targetDef as { effects?: readonly CardEffect[] }).effects ?? [];
       const hasSkill = targetEffects.some(
@@ -233,7 +233,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
   const returnEntries: { instanceId: CardInstanceId; defName: string }[] = [];
   for (const e of chain.entries) {
     if (e.resolved || e.negated || !e.card) continue;
-    const def = state.cardPool[e.card.definitionId as string];
+    const def = defById(state, e.card.definitionId);
     if (!def || !('effects' in def) || !def.effects) continue;
     const hasTag = (def.effects).some(
       (eff): eff is ForceReturnToOriginEffect => eff.type === 'force-return-to-origin',
@@ -254,7 +254,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     const charData = player.characters[charId as string];
     if (!charData) continue;
     for (const ally of charData.allies ?? []) {
-      const allyDef = state.cardPool[ally.definitionId as string];
+      const allyDef = defById(state, ally.definitionId);
       if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
       const hasCancelEffect = (allyDef.effects).some(
         (e): e is CancelChainReturnToOriginEffect => e.type === 'cancel-chain-return-to-origin',
@@ -351,7 +351,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
 
   for (const ogCard of company.onGuardCards) {
     if (ogCard.revealed) continue;
-    const def = state.cardPool[ogCard.definitionId as string];
+    const def = defById(state, ogCard.definitionId);
     if (!def || def.cardType !== 'hazard-event') continue;
 
     // Per CoE rule 2.V.6, only hazard events that directly affect the

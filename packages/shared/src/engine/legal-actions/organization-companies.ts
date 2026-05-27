@@ -18,7 +18,7 @@ import type {
 } from '../../index.js';
 import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
 import { logDetail } from './log.js';
-import { playerById } from '../reducer-utils.js';
+import { playerById, defById } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
@@ -167,7 +167,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const candidateSites: SiteCard[] = [];
     const siteInstMap = new Map<string, CardInstanceId>();
     for (const siteCard of player.siteDeck) {
-      const siteDef = state.cardPool[siteCard.definitionId as string];
+      const siteDef = defById(state, siteCard.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
       candidateSites.push(siteDef);
       siteInstMap.set(siteDef.name, siteCard.instanceId);
@@ -186,7 +186,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       for (const siblingSite of siblingSites) {
         if (!siblingSite) continue;
         if (siblingSite.instanceId === company.currentSite.instanceId) continue;
-        const siblingDef = state.cardPool[siblingSite.definitionId as string];
+        const siblingDef = defById(state, siblingSite.definitionId);
         if (!siblingDef || !isSiteCard(siblingDef)) continue;
         // Deck entries win — if the same site name is already a deck candidate,
         // keep the deck instance as the canonical choice. Likewise, once we've
@@ -448,7 +448,7 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
       const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
       for (const item of char.items) {
-        const itemDef = state.cardPool[item.definitionId as string];
+        const itemDef = defById(state, item.definitionId);
         const itemName = itemDef?.name ?? '?';
 
         for (const targetInstId of charsAtSite) {
@@ -518,7 +518,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
       for (const item of char.items) {
-        const itemDef = state.cardPool[item.definitionId as string];
+        const itemDef = defById(state, item.definitionId);
         if (!itemDef) continue;
 
         const effects = ('effects' in itemDef)

@@ -7,7 +7,7 @@
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
 import { SetupStep, setupStepContext } from '../../index.js';
-import { characterIds } from '../reducer-utils.js';
+import { characterIds, defById } from '../reducer-utils.js';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -30,7 +30,7 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
   // For each character, offer placing in any company they're not already in
   for (const charId of characterIds(player)) {
     const charInPlay = player.characters[charId];
-    const charDef = state.cardPool[charInPlay.definitionId as string];
+    const charDef = defById(state, charInPlay.definitionId);
     const charName = charDef?.name ?? charId;
     const currentCompanyId = player.companies.find(c =>
       c.characters.includes(charId))?.id;

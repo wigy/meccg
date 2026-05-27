@@ -18,7 +18,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -63,7 +63,7 @@ function hasEliminatedAvatar(
   player: { readonly outOfPlayPile: readonly import('../../index.js').CardInstance[] },
 ): boolean {
   return player.outOfPlayPile.some(c => {
-    const def = state.cardPool[c.definitionId as string];
+    const def = defById(state, c.definitionId);
     return isCharacterCard(def) && def.mind === null;
   });
 }
@@ -134,7 +134,7 @@ function findPlayableSites(
     logDetail(`  avatar in play — site deck excluded (rule 2.II.2.2)`);
   }
   for (const siteCard of avatarInPlay ? [] : player.siteDeck) {
-    const siteDef = state.cardPool[siteCard.definitionId as string];
+    const siteDef = defById(state, siteCard.definitionId);
     if (!siteDef || !isSiteCard(siteDef)) continue;
     if (seenSiteNames.has(siteDef.name)) continue;
 
@@ -204,7 +204,7 @@ export function playCharacterActions(
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!isCharacterCard(cardDef)) continue;
 
     const charName = cardDef.name;

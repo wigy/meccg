@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer, defById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -204,7 +204,7 @@ function handlePlayHazards(
   else if (action.type === 'play-short-event') {
     const actingPlayer = playerById(state, action.player);
     const handCard = actingPlayer?.hand.find(c => c.instanceId === action.cardInstanceId);
-    const def = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
+    const def = handCard ? defById(state, handCard.definitionId) : undefined;
     if (isResourceEventCard(def)) {
       result = handlePlayResourceShortEvent(state, action);
     } else {
@@ -278,7 +278,7 @@ function handlePlayAgentHazard(
   const agentHandCard = findById(hazardPlayer.hand, action.agentCardInstanceId);
   if (!agentHandCard) return { state, error: 'Agent card not in hand' };
 
-  const agentDef = state.cardPool[agentHandCard.definitionId as string];
+  const agentDef = defById(state, agentHandCard.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent card definition not found' };
 
   logDetail(`Play agent hazard: "${agentDef.name}" (${agentHandCard.instanceId as string}) — placed face-down, site chosen at reveal (${mhState.hazardsPlayedThisCompany + 1} hazards played)`);
@@ -373,7 +373,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
   const agent = hazardPlayer.agents[agentIdx];
   if (agent.revealed) return { state, error: 'Agent is already revealed' };
 
-  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentDef = defById(state, agent.character.definitionId);
   const agentName = agentDef?.name ?? String(agent.character.definitionId);
 
   // --- No home site available: reveal without site, discard at end of turn (rule 9.04) ---
@@ -398,7 +398,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
   // Pick the home site from the location deck
   const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
   if (!homeSiteCard) return { state, error: 'Home site not in location deck' };
-  const homeSiteDef = state.cardPool[homeSiteCard.definitionId as string];
+  const homeSiteDef = defById(state, homeSiteCard.definitionId);
 
   const homeSiteName = homeSiteDef && isSiteCard(homeSiteDef) ? homeSiteDef.name : String(homeSiteCard.definitionId);
   logDetail(`Reveal agent: ${agentName} (${agent.id as string}) at home site "${homeSiteName}", prior stack length ${agent.siteStack.length}`);
@@ -435,7 +435,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
   // Note: movement TO haven sites is already blocked in agentTurnActions.
   if (movementLegal && agent.siteStack.length > 0) {
     for (const stackEntry of agent.siteStack) {
-      const stackDef = state.cardPool[stackEntry.definitionId as string];
+      const stackDef = defById(state, stackEntry.definitionId);
       if (stackDef && isSiteCard(stackDef) && stackDef.siteType === 'haven') {
         logDetail(`Agent ${agentName}: discarded — moved through Haven site "${stackDef.name}" (rule 9.07)`);
         movementLegal = false;
@@ -516,7 +516,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
 export function countExtraAgentActions(state: GameState): number {
   return state.players.reduce((sum, p) =>
     sum + p.cardsInPlay.reduce((s, card) => {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def || !('effects' in def)) return s;
       return s + (def.effects as readonly { type: string; value?: number }[]).reduce(
         (n, e) => e.type === 'extra-agent-actions' ? n + (e.value ?? 0) : n, 0,
@@ -571,7 +571,7 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
   const destCard = findById(hazardPlayer.siteDeck, action.destinationSiteInstanceId);
   if (!destCard) return { state, error: 'Destination site not in location deck' };
 
-  const destDef = state.cardPool[destCard.definitionId as string];
+  const destDef = defById(state, destCard.definitionId);
   const destName = destDef && isSiteCard(destDef) ? destDef.name : String(destCard.definitionId);
   logDetail(`Agent ${action.agentId as string}: moving to "${destName}"`);
 
@@ -662,7 +662,7 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
     const homeCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
     if (!homeCard) return { state, error: 'Home site not in location deck (required for face-up agent)' };
 
-    const homeDef = state.cardPool[homeCard.definitionId as string];
+    const homeDef = defById(state, homeCard.definitionId);
     const homeName = homeDef && isSiteCard(homeDef) ? homeDef.name : String(homeCard.definitionId);
     logDetail(`Agent ${action.agentId as string}: returning home (face-up) to "${homeName}", returning ${agent.siteStack.length} site(s) to deck`);
 
@@ -843,7 +843,7 @@ function handleAgentInfluenceAttempt(
   if (agentIdx === -1) return { state, error: 'Agent not found' };
 
   const agent = hazardPlayer.agents[agentIdx];
-  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentDef = defById(state, agent.character.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
 
   // Reveal agent, tap agent (not actedThisTurn — rule 10.14)
@@ -859,7 +859,7 @@ function handleAgentInfluenceAttempt(
   let agentSiteName: string | null = null;
   if (agent.siteStack.length > 0) {
     const topSite = agent.siteStack[agent.siteStack.length - 1];
-    const siteDef = state.cardPool[topSite.definitionId as string];
+    const siteDef = defById(state, topSite.definitionId);
     if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
   } else {
     agentSiteName = homesiteNames[0] ?? null;
@@ -883,7 +883,7 @@ function handleAgentInfluenceAttempt(
   if (action.targetKind === 'character') {
     const targetChar = resourcePlayer.characters[action.targetInstanceId as string];
     if (!targetChar) return { state, error: 'Target character not found' };
-    const targetDef = state.cardPool[targetChar.definitionId as string];
+    const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
     targetMind = targetDef.mind ?? 0;
 
@@ -904,7 +904,7 @@ function handleAgentInfluenceAttempt(
     for (const [oppCharId, oppChar] of characterEntries(resourcePlayer)) {
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
-        const allyDef = state.cardPool[allyInst.definitionId as string];
+        const allyDef = defById(state, allyInst.definitionId);
         if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
         targetMind = (allyDef as { mind: number }).mind;
         controllerDI = availableDI(state, oppCharId, resourcePlayer);
@@ -925,7 +925,7 @@ function handleAgentInfluenceAttempt(
   } else if (action.targetKind === 'faction') {
     const targetFaction = findById(resourcePlayer.cardsInPlay, action.targetInstanceId);
     if (!targetFaction) return { state, error: 'Target faction not found' };
-    const factionDef = state.cardPool[targetFaction.definitionId as string];
+    const factionDef = defById(state, targetFaction.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
     targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
 
@@ -1012,7 +1012,7 @@ function handleAgentTapAttack(
   if (agentIdx === -1) return { state, error: 'Agent not found' };
 
   const agent = hazardPlayer.agents[agentIdx];
-  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentDef = defById(state, agent.character.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
 
   const tapAttackEff = (agentDef.effects ?? []).find(
@@ -1026,7 +1026,7 @@ function handleAgentTapAttack(
   const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
   let destSiteName: string | undefined;
   if (destSiteInst) {
-    const destSiteDef = state.cardPool[destSiteInst.definitionId as string];
+    const destSiteDef = defById(state, destSiteInst.definitionId);
     if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
   }
 
@@ -1148,7 +1148,7 @@ function handlePlayHazardCard(
 
   const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = hazardPlayer.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
+  const def = defById(state, handCard.definitionId);
   if (!def) return { state, error: 'Card definition not found' };
 
   // --- Resource-as-hazard (e.g. Sudden Call) with call-council effect ---
@@ -1406,7 +1406,7 @@ function handleTapAgentAtSite(
   const agent = hazardPlayer.agents.find(a => a.character.instanceId === agentInstanceId);
   if (!agent) return { state, error: `Agent ${agentInstanceId as string} not found` };
 
-  const agentDef = state.cardPool[agent.character.definitionId as string];
+  const agentDef = defById(state, agent.character.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) {
     return { state, error: `Agent definition not found for ${agentInstanceId as string}` };
   }
@@ -1417,7 +1417,7 @@ function handleTapAgentAtSite(
   const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
   let destSiteName: string | undefined;
   if (destSiteInst) {
-    const destSiteDef = state.cardPool[destSiteInst.definitionId as string];
+    const destSiteDef = defById(state, destSiteInst.definitionId);
     if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
   }
 
@@ -1729,7 +1729,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       if (siblingStillAtOrigin) {
         logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
       } else {
-        const originDef = state.cardPool[originSite.definitionId as string];
+        const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
         const alwaysReturnToDeck = originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck');
@@ -2332,7 +2332,7 @@ function handleRevealNewSite(
   if (action.type === 'pass') {
     const playerIdx = getPlayerIndex(state, action.player);
     const nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
-    const currentSiteDef = nonMovingCompany.currentSite ? state.cardPool[nonMovingCompany.currentSite.definitionId as string] : undefined;
+    const currentSiteDef = nonMovingCompany.currentSite ? defById(state, nonMovingCompany.currentSite.definitionId) : undefined;
     const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
     logDetail(`Movement/Hazard: non-moving company → auto-advancing through set-hazard-limit`);
     return enterSetHazardLimitAndAutoAdvance(state, {
@@ -2353,9 +2353,9 @@ function handleRevealNewSite(
     return { state, error: `Active company has no destination site` };
   }
 
-  const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
+  const originDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const destDefId = company.destinationSite.definitionId;
-  const destDef = destDefId ? state.cardPool[destDefId as string] : undefined;
+  const destDef = destDefId ? defById(state, destDefId) : undefined;
 
   if (!originDef || !isSiteCard(originDef) || !destDef || !isSiteCard(destDef)) {
     return { state, error: `Could not resolve origin or destination site definitions` };
@@ -2382,7 +2382,7 @@ function handleRevealNewSite(
   } else if (action.movementType === 'region' && action.regionPath) {
     // Region: look up each region's regionType and name
     for (const regionDefId of action.regionPath) {
-      const regionDef = state.cardPool[regionDefId as string];
+      const regionDef = defById(state, regionDefId);
       if (regionDef && regionDef.cardType === 'region') {
         resolvedSitePath.push(regionDef.regionType);
         resolvedSitePathNames.push(regionDef.name);
@@ -2553,7 +2553,7 @@ function getCompanySize(state: GameState, company: Company): number {
   for (const charInstId of company.characters) {
     const charDefId = resolveInstanceId(state, charInstId);
     if (!charDefId) { fullCount++; continue; }
-    const def = state.cardPool[charDefId as string];
+    const def = defById(state, charDefId);
     if (!def || !isCharacterCard(def)) { fullCount++; continue; }
     const isHobbit = def.race === Race.Hobbit;
     const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
@@ -2591,7 +2591,7 @@ function handleTapHazardCardForLimit(
   const card = player.cardsInPlay[cardIdx];
   if (card.status !== CardStatus.Untapped) return { state, error: `tap-hazard-card-for-limit: card ${action.cardInstanceId as string} is already tapped` };
 
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
     .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
@@ -2637,7 +2637,7 @@ function handlePayHazardLimitToUntapCard(
   const card = player.cardsInPlay[cardIdx];
   if (card.status !== CardStatus.Tapped) return { state, error: `pay-hazard-limit-to-untap-card: card ${action.cardInstanceId as string} is not tapped` };
 
-  const def = state.cardPool[card.definitionId as string];
+  const def = defById(state, card.definitionId);
   const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
     .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
@@ -2715,7 +2715,7 @@ function snapshotHazardLimit(
   // Apply site-rule hazard-limit-modifier from the destination site's effects.
   // Only for moving companies ("moving to this site" — non-moving companies stay).
   if (company.destinationSite) {
-    const destDef = state.cardPool[company.destinationSite.definitionId as string];
+    const destDef = defById(state, company.destinationSite.definitionId);
     if (destDef && isSiteCard(destDef)) {
       for (const eff of destDef.effects ?? []) {
         if (eff.type === 'site-rule' && eff.rule === 'hazard-limit-modifier') {
@@ -2779,7 +2779,7 @@ function collectMatchingAhuntAttacks(
 
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def || !('effects' in def) || !def.effects) continue;
 
       for (const effect of def.effects) {
@@ -2914,8 +2914,8 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
 
   // Determine which site card provides draw numbers
   const destDefId2 = company.destinationSite ? company.destinationSite.definitionId : undefined;
-  const destDef = destDefId2 ? state.cardPool[destDefId2 as string] : undefined;
-  const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
+  const destDef = destDefId2 ? defById(state, destDefId2) : undefined;
+  const originDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
 
   // Use new site for non-haven destination, site of origin for haven destination
   const movingToHaven = destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
@@ -2931,7 +2931,7 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
     const hasEligibleCharacter = company.characters.some(charInstId => {
       const cDefId = resolveInstanceId(state, charInstId);
       if (!cDefId) return false;
-      const def = state.cardPool[cDefId as string];
+      const def = defById(state, cDefId);
       if (!def || !isCharacterCard(def)) return false;
       return def.mind === null || def.mind >= 3;
     });

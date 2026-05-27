@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -84,7 +84,7 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   const player = state.players[activeIndex];
   const discardedEvents: CardInstance[] = [];
   const remainingCards = player.cardsInPlay.filter(card => {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
       logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
       discardedEvents.push(toCardInstance(card));
@@ -120,7 +120,7 @@ function handleOrganizationPlayShortEvent(state: GameState, action: GameAction):
   if (action.cardInstanceId) {
     const player = playerById(state, action.player);
     const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
-    const def = card ? state.cardPool[card.definitionId as string] : undefined;
+    const def = card ? defById(state, card.definitionId) : undefined;
     if (isResourceEventCard(def)) {
       endOfOrgPlay = isEndOfOrgPlay(def);
       result = handlePlayResourceShortEvent(state, action);
@@ -428,7 +428,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const char = player.characters[charId as string];
   const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
   const item = char.items[itemIndex];
-  const itemDef = state.cardPool[item.definitionId as string];
+  const itemDef = defById(state, item.definitionId);
   const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
 
@@ -502,7 +502,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   if (fetchWizardEffect) {
     const wizardInPlay = Object.values(stateAfterCheck.players[playerIndex].characters).some(ch => {
       const chDefId = resolveInstanceId(stateAfterCheck, ch.instanceId);
-      const chDef = chDefId ? stateAfterCheck.cardPool[chDefId as string] : undefined;
+      const chDef = chDefId ? defById(stateAfterCheck, chDefId) : undefined;
       return chDef && isCharacterCard(chDef) && isAvatarCharacter(chDef);
     });
     if (!wizardInPlay) {
@@ -547,7 +547,7 @@ export function goldRingAutoTestModifier(
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
-  const siteDef = state.cardPool[siteDefId as string];
+  const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
   const rule = siteDef.effects.find(e => e.type === 'site-rule' && e.rule === 'auto-test-gold-ring');
   if (!rule || rule.type !== 'site-rule' || rule.rule !== 'auto-test-gold-ring') return null;
@@ -564,7 +564,7 @@ export function goldRingAutoTestSiteName(
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
-  const siteDef = state.cardPool[siteDefId as string];
+  const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef)) return null;
   return siteDef.name;
 }
@@ -588,7 +588,7 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
   const avatarKey = action.characterInstanceId as string;
   const avatarChar = state.players[playerIndex].characters[avatarKey];
   if (avatarChar) {
-    const charDef = state.cardPool[avatarChar.definitionId as string];
+    const charDef = defById(state, avatarChar.definitionId);
     logDetail(`Tapping avatar ${charDef?.name ?? '?'} for sideboard access (${destination})`);
   }
   const newState = avatarChar
@@ -623,7 +623,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   const sideboardCard = player.sideboard[cardIdx];
-  const def = state.cardPool[sideboardCard.definitionId as string];
+  const def = defById(state, sideboardCard.definitionId)!;
   const destination = orgState.sideboardFetchDestination;
 
   const newSideboard = [...player.sideboard];
@@ -774,7 +774,7 @@ function runGrantApply(
     const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
       : apply.status === 'tapped' ? CardStatus.Tapped
         : CardStatus.Inverted;
-    const targetDef = state.cardPool[targetChar.definitionId as string];
+    const targetDef = defById(state, targetChar.definitionId);
     const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
     newPlayers[ctx.playerIndex] = {
@@ -930,7 +930,7 @@ function runGrantApply(
         if (!compChar) continue;
         const targetItem = compChar.items.find(i => i.instanceId === ctx.action.targetCardId);
         if (targetItem) {
-          const targetDef = state.cardPool[targetItem.definitionId as string];
+          const targetDef = defById(state, targetItem.definitionId);
           targetName = targetDef?.name ?? '';
           break;
         }
@@ -963,7 +963,7 @@ function runGrantApply(
     for (let i = chain.entries.length - 1; i >= 0; i--) {
       const e = chain.entries[i];
       if (e.resolved || e.negated || !e.card) continue;
-      const def = state.cardPool[e.card.definitionId as string];
+      const def = defById(state, e.card.definitionId);
       if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) {
         entryIndex = i;
         break;
@@ -973,7 +973,7 @@ function runGrantApply(
       return { error: `cancel-chain-entry: no unresolved hazard entry to cancel on ${ctx.sourceName}` };
     }
     const entry = chain.entries[entryIndex];
-    const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
+    const entryDef = entry.card ? defById(state, entry.card.definitionId) : null;
     logDetail(`Grant-action ${ctx.action.actionId}: canceling chain entry ${entryIndex} (${entryDef?.name ?? '?'})`);
     return {
       updatedChar: char,
@@ -1160,7 +1160,7 @@ function runGrantApply(
     if (!siteInstance) {
       return { error: `${ctx.charName}'s company has no current site` };
     }
-    const siteDef = state.cardPool[siteInstance.definitionId as string];
+    const siteDef = defById(state, siteInstance.definitionId);
     const siteName = siteDef?.name ?? '?';
     logDetail(`Grant-action ${ctx.action.actionId}: untapping site ${siteName}`);
     newPlayers[ctx.playerIndex] = {
@@ -1293,7 +1293,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
 
   const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceDef = defById(state, action.sourceCardDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
   // Grant-actions can originate from either:
@@ -1449,7 +1449,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   let newCompanySite: SiteInPlay | null = sourceCompany.currentSite;
   let newCompanySiteCardOwned = false;
   if (sourceCompany.currentSite) {
-    const siteDef = state.cardPool[sourceCompany.currentSite.definitionId as string];
+    const siteDef = defById(state, sourceCompany.currentSite.definitionId);
     if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
       const duplicate = player.siteDeck.find(
         c => c.definitionId === sourceCompany.currentSite!.definitionId,

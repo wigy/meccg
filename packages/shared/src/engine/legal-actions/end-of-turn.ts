@@ -13,7 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition, characterEntries, playerById } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries, playerById, defById } from '../reducer-utils.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -293,7 +293,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     sourceCardId: import('../../index.js').CardInstanceId,
     sourceDefinitionId: import('../../index.js').CardDefinitionId,
   ): void {
-    const sourceDef = state.cardPool[sourceDefinitionId as string];
+    const sourceDef = defById(state, sourceDefinitionId);
     if (!sourceDef || !('effects' in sourceDef)) return;
     const effects = (sourceDef as { effects?: readonly CardEffect[] }).effects;
     if (!effects) return;
@@ -317,7 +317,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
       }
 
       const eligibleCards = player.discardPile.filter(card => {
-        const def = state.cardPool[card.definitionId as string];
+        const def = defById(state, card.definitionId);
         if (!def) return false;
         if (!filter) return true;
         return matchesDefinition(def, filter);
@@ -329,7 +329,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
       }
 
       for (const target of eligibleCards) {
-        const targetDef = state.cardPool[target.definitionId as string];
+        const targetDef = defById(state, target.definitionId);
         logDetail(`Grant-action ${effect.action} available: ${sourceDef.name} can fetch ${targetDef?.name ?? '?'} from discard`);
         actions.push({
           action: {

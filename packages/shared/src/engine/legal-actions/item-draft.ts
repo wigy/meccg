@@ -8,6 +8,7 @@
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
+import { defById } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -32,7 +33,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
   // Emit non-viable entries for already-assigned items (on characters)
   for (const char of Object.values(player.characters)) {
     for (const item of char.items) {
-      const def = state.cardPool[item.definitionId as string];
+      const def = defById(state, item.definitionId);
       if (!def) continue;
       const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: item.definitionId, characterInstanceId: char.instanceId };
       evaluated.push({ action, viable: false, reason: `${def.name} is already assigned` });
@@ -49,7 +50,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
       continue;
     }
     seenDefIds.add(defId as string);
-    const itemDef = state.cardPool[defId as string];
+    const itemDef = defById(state, defId);
     const itemName = itemDef ? itemDef.name : defId as string;
     const isItem = isItemCard(itemDef);
 

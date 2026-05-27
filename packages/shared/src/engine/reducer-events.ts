@@ -14,7 +14,7 @@ import { ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany, companyById } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany, companyById, defById } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -175,7 +175,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     const hazardPlayer = state.players[hazardPlayerIndex];
     const discardedEvents: CardInstance[] = [];
     const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
         discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
@@ -195,7 +195,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     // with trigger: 'opponent-long-event-end'. The hazard player (non-active)
     // must pay the maintenance cost (discard self or matching hand card).
     for (const card of afterPass.players[hazardPlayerIndex].cardsInPlay) {
-      const def = afterPass.cardPool[card.definitionId as string];
+      const def = defById(afterPass, card.definitionId);
       if (!def || !('effects' in def) || !def.effects) continue;
       for (const effect of def.effects) {
         if (effect.type !== 'hazard-maintenance') continue;
@@ -374,7 +374,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         });
         let hasSiteRule = false;
         if (company.currentSite) {
-          const siteDef = state.cardPool[company.currentSite.definitionId as string];
+          const siteDef = defById(state, company.currentSite.definitionId);
           hasSiteRule = !!(siteDef && 'effects' in siteDef &&
             (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
               e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
@@ -412,7 +412,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     for (const p of workingState.players) {
       const company = findCharacterCompany(p.companies, targetCharId);
       if (!company?.currentSite) continue;
-      const siteDef = workingState.cardPool[company.currentSite.definitionId as string];
+      const siteDef = defById(workingState, company.currentSite.definitionId);
       return siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
     }
     return undefined;
@@ -535,7 +535,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         discardPile: [...p.discardPile, targetInstance],
       }));
     }
-    const targetDef = newState.cardPool[targetInstance.definitionId as string];
+    const targetDef = defById(newState, targetInstance.definitionId)!;
     logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
 
     if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
@@ -565,7 +565,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const char = newState.players[playerIndex].characters[charId as string];
         if (!char) continue;
         for (const hazard of char.hazards) {
-          const hazDef = newState.cardPool[hazard.definitionId as string];
+          const hazDef = defById(newState, hazard.definitionId);
           if (!hazDef || !('eventType' in hazDef) || (hazDef as { eventType?: string }).eventType !== 'permanent') continue;
           const removalThreshold = (hazDef as { removalNumber?: number }).removalNumber ?? 8;
           logDetail(`${def.name}: enqueueing glamour-hazard-roll for ${hazDef.name} (threshold ${removalThreshold})`);
@@ -611,7 +611,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         if (!char) continue;
         const remaining: import('../index.js').CardInPlay[] = [];
         for (const haz of char.hazards) {
-          const hazDef = newState.cardPool[haz.definitionId as string];
+          const hazDef = defById(newState, haz.definitionId);
           const matches = hazDef && bounceEffect.filter
             ? matchesDefinition(hazDef, bounceEffect.filter)
             : !!hazDef;
@@ -668,7 +668,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
           for (const charId of company.characters) {
             const char = defPlayer.characters[charId as string];
             if (!char) continue;
-            const charCardDef = newState.cardPool[char.definitionId as string];
+            const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
             if (boostEffect.filter) {
               const ctx = {
@@ -740,7 +740,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const alreadyInPlay = newState.players.some(p =>
           Object.values(p.characters).some(ch =>
             ch.items.some(item => {
-              const iDef = newState.cardPool[item.definitionId as string];
+              const iDef = defById(newState, item.definitionId);
               return iDef && iDef.name === itemName;
             }),
           ),
@@ -874,7 +874,7 @@ function applyPlayOptionAddConstraint(
       if (typeof apply.valueExpr === 'string') {
         const charPlayerIdx = state.players.findIndex(p => targetCharacterId as string in p.characters);
         const charInPlay = charPlayerIdx >= 0 ? state.players[charPlayerIdx].characters[targetCharacterId as string] : undefined;
-        const charDef = charInPlay ? state.cardPool[charInPlay.definitionId as string] : undefined;
+        const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
         const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
         const targetCompany = charPlayerIdx >= 0
           ? findCharacterCompany(state.players[charPlayerIdx].companies, targetCharacterId)

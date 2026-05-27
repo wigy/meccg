@@ -20,7 +20,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById } from '../reducer-utils.js';
+import { playerById, defById } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -40,7 +40,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     if (def.unique) {
       const alreadyInPlay = state.players.some(p =>
         p.cardsInPlay.some(c => {
-          const cDef = state.cardPool[c.definitionId as string];
+          const cDef = defById(state, c.definitionId);
           return cDef && cDef.name === def.name;
         }),
       );
@@ -63,7 +63,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     if (dupLimit) {
       const copiesInPlay = state.players.reduce((count, p) =>
         count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
+          const cDef = defById(state, c.definitionId);
           return cDef && cDef.name === def.name;
         }).length, 0,
       );
@@ -100,11 +100,11 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const blockerName = cardNotInPlayCondition.cardName;
       const blockerInPlay = state.players.some(p => {
         const inChars = Object.values(p.characters).some(ch => {
-          const d = state.cardPool[ch.definitionId as string];
+          const d = defById(state, ch.definitionId);
           return d && d.name === blockerName;
         });
         const inPlay = p.cardsInPlay.some(c => {
-          const d = state.cardPool[c.definitionId as string];
+          const d = defById(state, c.definitionId);
           return d && d.name === blockerName;
         });
         return inChars || inPlay;
@@ -138,7 +138,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const ch = player.characters[cId as string];
             if (!ch) return count;
             return count + ch.items.filter(item => {
-              const iDef = state.cardPool[item.definitionId as string];
+              const iDef = defById(state, item.definitionId);
               return iDef && iDef.name === def.name;
             }).length;
           }, 0);
@@ -150,17 +150,17 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const companySkills = company.characters.flatMap(cId => {
           const ch = player.characters[cId as string];
           if (!ch) return [];
-          const cDef = state.cardPool[ch.definitionId as string];
+          const cDef = defById(state, ch.definitionId);
           return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
         });
         for (const charId of company.characters) {
           const charData = player.characters[charId as string];
           if (!charData) continue;
-          const charDef = state.cardPool[charData.definitionId as string];
+          const charDef = defById(state, charData.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
           if (playTarget.filter) {
             const itemKeywords = charData.items.flatMap(item => {
-              const iDef = state.cardPool[item.definitionId as string];
+              const iDef = defById(state, item.definitionId);
               return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
             });
             const ctx = {
@@ -176,7 +176,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
           if (charDupLimit) {
             const copiesOnChar = charData.items.filter(item => {
-              const iDef = state.cardPool[item.definitionId as string];
+              const iDef = defById(state, item.definitionId);
               return iDef && iDef.name === def.name;
             }).length;
             if (copiesOnChar >= charDupLimit.max) {
@@ -208,7 +208,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       let anyTarget = false;
       for (const company of player.companies) {
         if (!company.currentSite) continue;
-        const siteDef = state.cardPool[company.currentSite.definitionId as string];
+        const siteDef = defById(state, company.currentSite.definitionId);
         if (!siteDef || !('siteType' in siteDef)) continue;
         const siteType = (siteDef as { siteType: string }).siteType;
         // Count members: characters + allies attached to all characters
