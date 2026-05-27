@@ -31,6 +31,7 @@ import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById } from '../reducer-utils.js';
+import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -1445,9 +1446,7 @@ export function playResourceShortEventActions(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
     );
     if (turnDupLimit) {
-      const priorConstraints = state.activeConstraints.filter(
-        c => c.sourceDefinitionId === def.id,
-      ).length;
+      const priorConstraints = countConstraintsFromDefinition(state, def.id);
       if (priorConstraints >= turnDupLimit.max) {
         logDetail(`${def.name}: cannot be duplicated this turn (${priorConstraints} active constraint(s))`);
         actions.push({

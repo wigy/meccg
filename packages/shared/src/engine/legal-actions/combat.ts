@@ -23,6 +23,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
 import { findCharacterCompany, playerById, companyById } from '../reducer-utils.js';
+import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -966,7 +967,7 @@ function shortEventsAffectingStrike(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
     );
     if (turnDupLimit) {
-      const prior = state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length;
+      const prior = countConstraintsFromDefinition(state, def.id);
       if (prior >= turnDupLimit.max) {
         logDetail(`${def.name}: duplication limit reached (${prior}/${turnDupLimit.max}) — not playable`);
         continue;
@@ -1635,9 +1636,7 @@ function modifyAttackActions(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
-      const prior = state.activeConstraints.filter(
-        c => c.sourceDefinitionId === handCard.definitionId && c.scope.kind === 'attack',
-      ).length;
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
@@ -1726,9 +1725,7 @@ function companyCombatBoostActions(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
-      const prior = state.activeConstraints.filter(
-        c => c.sourceDefinitionId === cardDef.id && c.scope.kind === 'attack',
-      ).length;
+      const prior = countConstraintsFromDefinition(state, cardDef.id, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
