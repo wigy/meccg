@@ -12,7 +12,7 @@ import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCa
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -74,7 +74,7 @@ function handleCharacterDraft(
       if (playerDraft.currentPick !== null) {
         return { state, error: 'Waiting for opponent to pick' };
       }
-      const poolCard = playerDraft.pool.find(c => c.instanceId === action.characterInstanceId);
+      const poolCard = findById(playerDraft.pool, action.characterInstanceId);
       if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };
       }
@@ -425,7 +425,7 @@ function handleCharacterDeckDraft(
   }
 
   // Validate character is in remaining pool
-  const poolCard = deckDraft.remainingPool.find(c => c.instanceId === action.characterInstanceId);
+  const poolCard = findById(deckDraft.remainingPool, action.characterInstanceId);
   if (!poolCard) {
     return { state, error: 'Character is not in your remaining pool' };
   }
@@ -524,7 +524,7 @@ function handleStartingSiteSelection(
 
   // Validate site is in player's site deck and not already selected
   const player = state.players[playerIndex];
-  const siteCard = player.siteDeck.find(c => c.instanceId === action.siteInstanceId);
+  const siteCard = findById(player.siteDeck, action.siteInstanceId);
   if (!siteCard) {
     return { state, error: 'Site is not in your site deck' };
   }

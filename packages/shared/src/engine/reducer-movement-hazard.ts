@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -275,7 +275,7 @@ function handlePlayAgentHazard(
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
 
-  const agentHandCard = hazardPlayer.hand.find(c => c.instanceId === action.agentCardInstanceId);
+  const agentHandCard = findById(hazardPlayer.hand, action.agentCardInstanceId);
   if (!agentHandCard) return { state, error: 'Agent card not in hand' };
 
   const agentDef = state.cardPool[agentHandCard.definitionId as string];
@@ -568,7 +568,7 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
   const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
   if (agentIdx === -1) return { state, error: 'Agent not found' };
 
-  const destCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.destinationSiteInstanceId);
+  const destCard = findById(hazardPlayer.siteDeck, action.destinationSiteInstanceId);
   if (!destCard) return { state, error: 'Destination site not in location deck' };
 
   const destDef = state.cardPool[destCard.definitionId as string];
@@ -923,7 +923,7 @@ function handleAgentInfluenceAttempt(
     }
     if (!allyFound) return { state, error: 'Target ally not found' };
   } else if (action.targetKind === 'faction') {
-    const targetFaction = resourcePlayer.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+    const targetFaction = findById(resourcePlayer.cardsInPlay, action.targetInstanceId);
     if (!targetFaction) return { state, error: 'Target faction not found' };
     const factionDef = state.cardPool[targetFaction.definitionId as string];
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
@@ -1063,7 +1063,7 @@ function handleAgentTapAttack(
     const emptyStack = agent.siteStack.length === 0;
 
     if (action.homeSiteInstanceId) {
-      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
       if (!homeSiteCard) {
         return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
       }
@@ -1454,7 +1454,7 @@ function handleTapAgentAtSite(
     const emptyStack = agent.siteStack.length === 0;
 
     if (action.homeSiteInstanceId) {
-      const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+      const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
       if (!homeSiteCard) {
         return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
       }

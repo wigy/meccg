@@ -162,6 +162,19 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Find the first element matching `id` in a read-only array of card-like
+ * objects, or `undefined` if none matches. Centralizes the ubiquitous
+ * `pile.find(c => c.instanceId === id)` lookup used to locate a card instance
+ * within a specific pile/zone. Complements {@link removeById}.
+ */
+export function findById<T extends { readonly instanceId: CardInstance['instanceId'] }>(
+  arr: readonly T[],
+  id: CardInstance['instanceId'],
+): T | undefined {
+  return arr.find(c => c.instanceId === id);
+}
+
+/**
  * Remove the first element matching `id` from a read-only array of card-like
  * objects. Returns the unchanged array reference if no match is found, so
  * callers can short-circuit when nothing changed.
@@ -619,7 +632,7 @@ export function nextCompanyId(player: PlayerState): CompanyId {
 
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
   const player = state.players[playerIndex];
-  const eventCard = player.cardsInPlay.find(c => c.instanceId === cardInstanceId);
+  const eventCard = findById(player.cardsInPlay, cardInstanceId);
   if (!eventCard) return state;
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
