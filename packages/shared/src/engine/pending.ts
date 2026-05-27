@@ -152,14 +152,6 @@ export function constraintsOnCompany(
   return state.activeConstraints.filter(c => c.target.kind === 'company' && c.target.companyId === companyId);
 }
 
-/** All active constraints whose target is the given character. */
-export function constraintsOnCharacter(
-  state: GameState,
-  characterId: CardInstanceId,
-): readonly ActiveConstraint[] {
-  return state.activeConstraints.filter(c => c.target.kind === 'character' && c.target.characterId === characterId);
-}
-
 // ---- Sweep ----
 
 /**
