@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById, playerById } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, hazardPlayer } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -1433,7 +1433,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     return state;
   }
 
-  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+  const hazardPlayerId = hazardPlayer(state).id;
 
   // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake)
   const attackerChooses = creatureDef.effects?.some(
@@ -1839,7 +1839,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       if (company && destSiteDef && isSiteCard(destSiteDef)) {
         const autoAttacks = getActiveAutoAttacks(current, destSiteDef);
         if (autoAttacks.length > 0) {
-          const hazardPlayerId = current.players.find(p => p.id !== activePlayerId)!.id;
+          const hazardPlayerId = hazardPlayer(current, activePlayerId).id;
           const inPlayNames = buildInPlayNames(current);
           const aa0 = autoAttacks[0];
           const race0 = normalizeCreatureRace(aa0.creatureType);

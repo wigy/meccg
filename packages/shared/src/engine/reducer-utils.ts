@@ -80,6 +80,21 @@ export function playerById(state: GameState, id: PlayerId | null | undefined): P
 }
 
 /**
+ * Look up the hazard player — the non-active player in a two-player game.
+ * Centralizes the ubiquitous `state.players.find(p => p.id !== state.activePlayer)!`
+ * lookup used wherever a hazard/opponent reference is needed (auto-attacks,
+ * on-guard reveals, attacker-chosen defenders, etc.).
+ *
+ * `activePlayerId` defaults to `state.activePlayer`, but can be passed
+ * explicitly when the active player is tracked in a local variable rather
+ * than on the state. The result is asserted non-null because every game has
+ * exactly two players and the active player is always one of them.
+ */
+export function hazardPlayer(state: GameState, activePlayerId: PlayerId | null | undefined = state.activePlayer): PlayerState {
+  return state.players.find(p => p.id !== activePlayerId)!;
+}
+
+/**
  * Immutably update a single player's state.
  *
  * Replaces the common 4-line pattern:
