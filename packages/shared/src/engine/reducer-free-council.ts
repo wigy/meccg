@@ -17,7 +17,7 @@ import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany } from './reducer-utils.js';
 
 
 /**
@@ -116,7 +116,7 @@ function handleDeclareCorruptionCheck(
   };
 
   // Check if there are any eligible supporters (untapped characters in same company)
-  const company = player.companies.find(c => c.characters.includes(action.characterId));
+  const company = findCharacterCompany(player.companies, action.characterId);
   let hasEligibleSupporter = false;
   if (company) {
     for (const cid of company.characters) {

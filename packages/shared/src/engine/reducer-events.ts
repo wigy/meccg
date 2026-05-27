@@ -14,7 +14,7 @@ import { ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -364,7 +364,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     // current site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
     const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     if (isHeal) {
-      const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
+      const company = findCharacterCompany(player.companies, action.targetCharacterId);
       if (company) {
         const hasCompanyFlag = company.characters.some(charId => {
           const ch = newCharacters[charId as string];
@@ -410,7 +410,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const targetCharSiteName = (() => {
     if (!targetCharId) return undefined;
     for (const p of workingState.players) {
-      const company = p.companies.find(c => c.characters.includes(targetCharId));
+      const company = findCharacterCompany(p.companies, targetCharId);
       if (!company?.currentSite) continue;
       const siteDef = workingState.cardPool[company.currentSite.definitionId as string];
       return siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
@@ -772,7 +772,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const defPlayer = stateWithDiscard.players[playerIndex];
     const atkPlayerIndex = stateWithDiscard.players.findIndex((_, i) => i !== playerIndex);
     const atkPlayer = stateWithDiscard.players[atkPlayerIndex];
-    const company = defPlayer.companies.find(c => c.characters.includes(scoutId));
+    const company = findCharacterCompany(defPlayer.companies, scoutId);
     if (!company) return { state: stateWithDiscard, error: `${def.name}: scout not in any company` };
 
     const combat: import('../types/state-combat.js').CombatState = {
@@ -838,7 +838,7 @@ function applyPlayOptionAddConstraint(
     if (playerIndex < 0) {
       return { error: `${def.name} option '${option.id}': target character not found` };
     }
-    const company = state.players[playerIndex].companies.find(c => c.characters.includes(targetCharacterId));
+    const company = findCharacterCompany(state.players[playerIndex].companies, targetCharacterId);
     if (!company) {
       return { error: `${def.name} option '${option.id}': target character not in any company` };
     }
@@ -877,7 +877,7 @@ function applyPlayOptionAddConstraint(
         const charDef = charInPlay ? state.cardPool[charInPlay.definitionId as string] : undefined;
         const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
         const targetCompany = charPlayerIdx >= 0
-          ? state.players[charPlayerIdx].companies.find(c => (c.characters as readonly unknown[]).includes(targetCharacterId))
+          ? findCharacterCompany(state.players[charPlayerIdx].companies, targetCharacterId)
           : undefined;
         const characterCount = targetCompany?.characters.length ?? 1;
         constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess }, company: { characterCount } }));
@@ -1051,7 +1051,7 @@ function applyShortEventOnEntersPlay(
           logDetail(`add-constraint(${constraintKind}): no target character — fizzle`);
           continue;
         }
-        company = player.companies.find(c => c.characters.includes(targetCharId));
+        company = findCharacterCompany(player.companies, targetCharId);
         if (!company) {
           logDetail(`add-constraint(${constraintKind}): scout ${targetCharId as string} not in any company — fizzle`);
           continue;
