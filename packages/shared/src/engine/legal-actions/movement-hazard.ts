@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, matchesContext, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
@@ -1814,7 +1814,7 @@ function playHazardsActions(
         }, 0);
         const memberCount = targetCompany.characters.length + allyCount;
         const companyCtx = { target: { siteType: compSiteType, alignment: resourcePlayer.alignment, memberCount } };
-        if (playTarget.filter && !matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+        if (playTarget.filter && !matchesContext(playTarget.filter, companyCtx)) {
           logDetail(`Hazard "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, alignment=${resourcePlayer.alignment})`);
           actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company` });
         } else {
@@ -1856,7 +1856,7 @@ function playHazardsActions(
               destinationSiteType: destSiteType,
             },
           };
-          if (!matchesCondition(playTarget.filter, companyCtx as unknown as Record<string, unknown>)) {
+          if (!matchesContext(playTarget.filter, companyCtx)) {
             logDetail(`Hazard event "${def.name}" company filter not met (alignment=${resourcePlayer.alignment}, siteType=${destSiteType ?? 'unknown'})`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be played against this company at this site` });
             continue;

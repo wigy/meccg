@@ -173,3 +173,17 @@ export function matchesCondition(
   // ConditionMatch — implicit AND over all keys
   return matchesPlainCondition(condition, context);
 }
+
+/**
+ * Evaluates a DSL {@link Condition} against a strongly-typed context object.
+ *
+ * The condition language resolves dot-paths against a plain
+ * `Record<string, unknown>`, but callers throughout the engine hold typed
+ * context objects (resolver contexts, bearer contexts, attack contexts, …).
+ * This helper accepts any such object and performs the structural cast at a
+ * single boundary, so call sites don't repeat
+ * `matchesCondition(cond, ctx as unknown as Record<string, unknown>)`.
+ */
+export function matchesContext(condition: Condition, context: object): boolean {
+  return matchesCondition(condition, context as unknown as Record<string, unknown>);
+}

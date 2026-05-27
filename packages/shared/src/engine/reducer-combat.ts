@@ -11,7 +11,7 @@ import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
+import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
@@ -2354,7 +2354,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const defeatedEvents = getOnEventEffects(def, 'attack-defeated');
         let shouldDiscard = false;
         for (const ev of defeatedEvents) {
-          if (!ev.when || matchesCondition(ev.when, attackCtx as unknown as Record<string, unknown>)) {
+          if (!ev.when || matchesContext(ev.when, attackCtx)) {
             if (ev.apply.type === 'discard-self') {
               shouldDiscard = true;
               break;

@@ -30,7 +30,7 @@ import type {
   SiteCard,
 } from '../../index.js';
 import type { GrantSkillEffect } from '../../types/effects.js';
-import { matchesCondition, HAND_SIZE, isCharacterCard } from '../../index.js';
+import { matchesCondition, matchesContext, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
@@ -118,7 +118,7 @@ function collectFromDef(
 ): void {
   if (!('effects' in def) || !def.effects) return;
   for (const effect of def.effects) {
-    if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
+    if (effect.when && !matchesContext(effect.when, context)) {
       continue;
     }
     results.push({ effect, sourceDef: def, sourceInstance: instanceId });
@@ -823,7 +823,7 @@ export function resolveAttackProwess(
     for (const effect of creatureSelf.effects) {
       if (effect.type !== 'stat-modifier') continue;
       if ('target' in effect && (effect as { target?: string }).target) continue;
-      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
+      if (effect.when && !matchesContext(effect.when, context)) {
         continue;
       }
       globalEffects.push({ effect, sourceDef: {} as CardDefinition, sourceInstance: '' as CardInstanceId });
