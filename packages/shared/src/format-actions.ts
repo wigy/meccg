@@ -453,7 +453,9 @@ export function describeAction(
     case 'haven-return':
       return `${action.player as string} returns company to origin haven`;
     case 'pay-hazard-event-maintenance':
-      return `${action.player as string} pays hazard event maintenance (${action.paymentType})`;
+      return action.paymentType === 'discard-self'
+        ? `Discard ${instName(action.sourceInstanceId)} (hazard event maintenance)`
+        : `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
     case 'tap-hazard-card-for-limit':
       return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':

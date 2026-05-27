@@ -442,6 +442,9 @@ export function connect(name: string): void {
             const variant = playerName === name ? 'black' : 'red';
             rollDice(die1, die2, variant);
           }
+        } else if (msg.effect.effect === 'text-notification') {
+          renderLog(msg.effect.message, cardPool);
+          showNotification(msg.effect.message, { cardPool });
         }
         break;
 
