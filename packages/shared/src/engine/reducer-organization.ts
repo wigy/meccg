@@ -547,7 +547,7 @@ export function goldRingAutoTestModifier(
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
-  const siteDef = state.cardPool[siteDefId as unknown as string];
+  const siteDef = state.cardPool[siteDefId as string];
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
   const rule = siteDef.effects.find(e => e.type === 'site-rule' && e.rule === 'auto-test-gold-ring');
   if (!rule || rule.type !== 'site-rule' || rule.rule !== 'auto-test-gold-ring') return null;
@@ -564,7 +564,7 @@ export function goldRingAutoTestSiteName(
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
-  const siteDef = state.cardPool[siteDefId as unknown as string];
+  const siteDef = state.cardPool[siteDefId as string];
   if (!siteDef || !isSiteCard(siteDef)) return null;
   return siteDef.name;
 }

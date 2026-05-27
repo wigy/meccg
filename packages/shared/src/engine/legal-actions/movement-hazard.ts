@@ -2092,7 +2092,7 @@ function findCreatureKeyingMatches(
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
     const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-    if (destSiteDefId === null || filterSiteDefId !== (destSiteDefId as unknown as string)) continue;
+    if (destSiteDefId === null || filterSiteDefId !== (destSiteDefId as string)) continue;
     const overrideType = c.kind.value as import('../../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) {
       effectiveSiteTypes.push(overrideType);
@@ -2198,7 +2198,7 @@ function cancelAttacksSiteName(
   if (!effectiveSiteInstanceId) return null;
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return null;
-  const siteDef = state.cardPool[siteDefId as unknown as string];
+  const siteDef = state.cardPool[siteDefId as string];
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
   const cancels = siteDef.effects.some(e => e.type === 'site-rule' && e.rule === 'cancel-attacks');
   return cancels ? siteDef.name : null;
@@ -2225,7 +2225,7 @@ function siteAllowsCreatureByRace(
   if (!effectiveSiteInstanceId) return false;
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return false;
-  const siteDef = state.cardPool[siteDefId as unknown as string];
+  const siteDef = state.cardPool[siteDefId as string];
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
   return siteDef.effects.some(
     e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
