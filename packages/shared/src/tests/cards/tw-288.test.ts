@@ -40,6 +40,7 @@ import type {
   CardInstanceId,
   PlayShortEventAction,
   InfluenceAttemptAction,
+  FactionInfluenceRollAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint } from '../../engine/pending.js';
@@ -268,6 +269,48 @@ describe('Muster (tw-288)', () => {
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
     );
     expect(remaining).toHaveLength(0);
+  });
+
+  test('faction-influence-roll need reflects active Muster constraint (game mpo1cqve-ltys6m seq 107)', () => {
+    // Regression: factionInfluenceRollActions used raw DI and ignored activeConstraints,
+    // so the displayed need was computed without the Muster +prowess bonus.
+    const base = buildSitePhaseState({
+      characters: [FARAMIR],
+      site: PELARGIR,
+      hand: [MEN_OF_LEBENNIN],
+    });
+
+    const faramirId = findCharInstanceId(base, RESOURCE_PLAYER, FARAMIR);
+    const factionInstance = base.players[0].hand.find(
+      c => c.definitionId === MEN_OF_LEBENNIN,
+    )!;
+
+    // Baseline need without Muster (DI 1 + Dúnedain check bonus 1 = 2; 8 - 2 = 6)
+    const boosted = addConstraint(base, {
+      source: 'muster-1' as CardInstanceId,
+      sourceDefinitionId: MUSTER,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: faramirId },
+      kind: { type: 'check-modifier', check: 'influence', value: 5 },
+    });
+
+    // Dispatch influence-attempt and resolve chain to reach pending faction-influence-roll
+    const afterAttempt = dispatch(boosted, {
+      type: 'influence-attempt',
+      player: PLAYER_1,
+      factionInstanceId: factionInstance.instanceId,
+      influencingCharacterId: faramirId,
+      need: 1,
+      explanation: 'test',
+    });
+    const afterChain = resolveChain(afterAttempt);
+
+    // The faction-influence-roll legal action must show the Muster-adjusted need (8 - 2 - 5 = 1)
+    const rollActions = computeLegalActions(afterChain, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')
+      .map(ea => ea.action as FactionInfluenceRollAction);
+    expect(rollActions.length).toBeGreaterThan(0);
+    expect(rollActions[0].need).toBe(1);
   });
 
   test('influence-boost: NOT offered during movement-hazard phase even with warrior and faction in hand', () => {

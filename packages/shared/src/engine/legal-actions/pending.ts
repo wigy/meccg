@@ -345,8 +345,9 @@ function factionInfluenceRollActions(
   const parts: string[] = [];
 
   if (charDef && isCharacterCard(charDef)) {
-    modifier += charDef.directInfluence;
-    parts.push(`DI ${charDef.directInfluence}`);
+    const freeDI = availableDI(state, influencingCharacterId, player);
+    modifier += freeDI;
+    parts.push(`DI ${freeDI}`);
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
@@ -386,6 +387,16 @@ function factionInfluenceRollActions(
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
+    }
+
+    // One-shot check-modifier constraints for influence (e.g. Muster): must match the pending roll
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'character') continue;
+      if (constraint.target.characterId !== influencingCharacterId) continue;
+      modifier += constraint.kind.value;
+      parts.push(`constraint ${formatSignedNumber(constraint.kind.value)}`);
     }
   }
 
