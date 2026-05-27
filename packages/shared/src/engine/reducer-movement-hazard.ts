@@ -1620,8 +1620,7 @@ function fireEndOfCompanyMHCorruptionChecks(
   const sitePath = mhState.resolvedSitePath;
   if (sitePath.length === 0) return state;
 
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
+  const resourcePlayer = playerById(state, state.activePlayer)!;
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
 
   let newState = state;
@@ -2289,8 +2288,7 @@ function handleSelectCompany(
     return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
   }
 
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const player = state.players[playerIndex];
+  const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
@@ -2349,8 +2347,7 @@ function handleRevealNewSite(
   }
 
   // Resolve origin and destination sites
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
+  const player = playerById(state, action.player)!;
   const company = player.companies[mhState.activeCompanyIndex];
   if (!company?.destinationSite) {
     return { state, error: `Active company has no destination site` };
@@ -2898,8 +2895,7 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
  * (wizard/ringwraith with mind null) or a character with mind ≥ 3.
  */
 function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const player = state.players[activeIndex];
+  const player = playerById(state, state.activePlayer)!;
   const company = player.companies[mhState.activeCompanyIndex];
 
   // Non-moving company: skip draws entirely

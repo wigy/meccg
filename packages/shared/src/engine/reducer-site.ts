@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer, playerById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -95,8 +95,7 @@ function handleSiteSelectCompany(
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
 
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const player = state.players[playerIndex];
+  const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
 
   logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
@@ -147,8 +146,7 @@ function handleSiteEnterOrSkip(
     return { state, error: `Expected 'enter-site' or 'pass' during enter-or-skip step, got '${action.type}'` };
   }
 
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const player = state.players[playerIndex];
+  const player = playerById(state, state.activePlayer)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
   // Pass = do nothing, company's site phase ends immediately
@@ -1062,8 +1060,7 @@ function handleSitePlayResources(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
+  const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
   // Pass — end this company's site phase
@@ -2087,8 +2084,7 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
 }
 
 function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
+  const resourcePlayer = playerById(state, state.activePlayer)!;
 
   let newState = state;
   for (const company of resourcePlayer.companies) {

@@ -343,8 +343,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
   if (state.phaseState.phase !== Phase.Site) return [];
   const siteState = state.phaseState;
 
-  const activeIndex = getPlayerIndex(state, infEntry.declaredBy);
-  const resourcePlayer = state.players[activeIndex];
+  const resourcePlayer = playerById(state, infEntry.declaredBy)!;
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
   if (!company) return [];
 

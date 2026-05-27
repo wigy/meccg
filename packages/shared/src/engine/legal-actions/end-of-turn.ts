@@ -13,7 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition, characterEntries } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries, playerById } from '../reducer-utils.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -218,8 +218,7 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
  */
 function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.activePlayer !== playerId) return [];
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const actions: GameAction[] = [];
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'haven-return-option') continue;
@@ -279,8 +278,7 @@ function isDiscardToHandMove(apply: TriggeredAction): boolean {
  * Generates one action per eligible card in the discard pile per source.
  */
 function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   /**

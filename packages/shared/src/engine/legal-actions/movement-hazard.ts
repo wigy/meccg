@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -150,8 +150,7 @@ function revealNewSiteActions(
     return [];
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const company = player.companies[mhState.activeCompanyIndex];
   if (!company) {
     logDetail(`No active company at index ${mhState.activeCompanyIndex}`);
@@ -310,8 +309,7 @@ function selectCompanyActions(
     return [];
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const handledSet = new Set(mhState.handledCompanyIds);
 
   const actions: GameAction[] = [];
@@ -352,8 +350,7 @@ function drawCardsActions(
     return [];
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
 
   // Deck exhaust exchange sub-flow: only exchange + pass actions
   if (player.deckExhaustPending) {
@@ -407,8 +404,7 @@ function playAgentHazardActions(
   limitReached: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
 
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string];
@@ -449,8 +445,7 @@ function revealAgentActions(
   state: GameState,
   playerId: PlayerId,
 ): EvaluatedAction[] {
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const agent of player.agents) {
@@ -528,8 +523,7 @@ function agentTurnActions(
   liveLimit: number,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
 
   for (const agent of player.agents) {
     if (!agent.inPlayAtTurnStart) continue;
@@ -967,8 +961,7 @@ function tapHazardCardForLimitActions(
   liveLimit: number,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const remainingLimit = liveLimit - mhState.hazardsPlayedThisCompany;
 
   for (const card of player.cardsInPlay) {
@@ -1149,8 +1142,7 @@ function playHazardsActions(
       // player must be non-Wizard and must meet endgame conditions; per
       // rule 10.41 the caller (the hazard player here) gets the last turn.
       if (isResourceAsHazard && !isShortEvent) {
-        const hazardResourcePlayerIdx = getPlayerIndex(state, playerId);
-        const hazardPlayer = state.players[hazardResourcePlayerIdx];
+        const hazardPlayer = playerById(state, playerId)!;
         const defendingPlayer = resourcePlayer; // the active (resource) player being attacked
         const callEffect = def.effects?.find(
           (e): e is import('../../index.js').CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'self',

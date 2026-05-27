@@ -95,8 +95,7 @@ function handleDeclareCorruptionCheck(
 ): ReducerResult {
   if (action.type !== 'corruption-check') return { state, error: 'Expected corruption-check' };
 
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
+  const player = playerById(state, action.player)!;
   const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
 

@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition } from '../reducer-utils.js';
+import { matchesDefinition, playerById } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -161,8 +161,7 @@ function selectCompanyActions(
     return [];
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const handledSet = new Set(siteState.handledCompanyIds);
 
   const actions: GameAction[] = [];
@@ -197,8 +196,7 @@ function enterOrSkipActions(
     return [];
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
   logDetail(`Company ${company.id}: offering enter-site and pass (do nothing)`);
@@ -228,8 +226,7 @@ function revealOnGuardAttacksActions(
     return [];
   }
 
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
+  const resourcePlayer = playerById(state, state.activePlayer)!;
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
 
   const unrevealedCards = company ? company.onGuardCards.filter(og => !og.revealed) : [];
@@ -379,8 +376,7 @@ function playSiteAutoAttackActions(
     return [];
   }
 
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
+  const resourcePlayer = playerById(state, state.activePlayer)!;
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
   const siteDef = company?.currentSite
     ? state.cardPool[company.currentSite.definitionId as string]
@@ -395,8 +391,7 @@ function playSiteAutoAttackActions(
   if (dynamicRule && dynamicRule.type === 'site-rule' && dynamicRule.rule === 'dynamic-auto-attack') {
     const allowedSiteTypes = new Set(dynamicRule.keying.siteTypes ?? []);
     const allowedRegionTypes = new Set(dynamicRule.keying.regionTypes ?? []);
-    const hazardIndex = getPlayerIndex(state, playerId);
-    const hazardPlayer = state.players[hazardIndex];
+    const hazardPlayer = playerById(state, playerId)!;
 
     for (const card of hazardPlayer.hand) {
       const def = state.cardPool[card.definitionId as string];
@@ -474,8 +469,7 @@ function declareAgentAttackActions(
     return [{ type: 'pass', player: playerId }];
   }
 
-  const hazardPlayerIndex = getPlayerIndex(state, playerId);
-  const hazardPlayer = state.players[hazardPlayerIndex];
+  const hazardPlayer = playerById(state, playerId)!;
 
   const actions: GameAction[] = [];
   for (const agent of hazardPlayer.agents) {
@@ -597,8 +591,7 @@ function playResourcesActions(
     return opposing;
   }
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
   const actions: EvaluatedAction[] = [];
 
@@ -1455,8 +1448,7 @@ function sitePhaseGrantActions(
   );
   if (allGrantEffects.length === 0) return [];
 
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId)!;
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   const actions: EvaluatedAction[] = [];
 
