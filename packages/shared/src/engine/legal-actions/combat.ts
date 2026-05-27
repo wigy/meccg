@@ -1296,11 +1296,13 @@ function cancelAttackActions(
     );
     if (!cancelEffect) continue;
 
-    // A `tap: "self"` cost means the card must be in play to activate — it is
-    // an ally or character ability, not a hand event. The in-play ally/character
-    // sections above already handle this case; skip it here.
-    if (cancelEffect.cost?.tap === 'self') {
-      logDetail(`Cancel-attack ${handCard.definitionId as string}: tap-self cost requires card in play, skipping hand card`);
+    // Any tap cost involving the card itself or its bearer requires the card to
+    // be in play as an equipped item. The in-play items section above already
+    // handles 'self-and-bearer' and 'bearer'; 'self' is for ally/character
+    // abilities also handled above. Skip all of these for hand cards.
+    const tapCost = cancelEffect.cost?.tap;
+    if (tapCost === 'self' || tapCost === 'self-and-bearer' || tapCost === 'bearer') {
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: tap cost "${tapCost}" requires card in play, skipping hand card`);
       continue;
     }
 
