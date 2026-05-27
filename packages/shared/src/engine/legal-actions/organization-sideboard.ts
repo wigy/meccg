@@ -15,7 +15,7 @@ import type {
 } from '../../index.js';
 import { CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
-import { findPlayerAvatar, filterSideboardByDef } from '../reducer-utils.js';
+import { findPlayerAvatar, filterSideboardByDef, playerById } from '../reducer-utils.js';
 
 /** Maximum number of sideboard cards fetchable to the discard pile per avatar tap. */
 const MAX_SIDEBOARD_TO_DISCARD = 5;
@@ -47,7 +47,7 @@ function getEligibleSideboardCards(state: GameState, player: PlayerState) {
  */
 export function fetchFromSideboardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const orgState = state.phaseState as OrganizationPhaseState;
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   // ── Active sub-flow: generate fetch actions ──

@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -123,7 +123,7 @@ function onGuardWindowActions(
   if (state.activePlayer === null) {
     return [{ action: { type: 'pass', player: actor }, viable: true }];
   }
-  const activePlayerObj = state.players.find(p => p.id === state.activePlayer);
+  const activePlayerObj = playerById(state, state.activePlayer);
   if (!activePlayerObj) {
     return [{ action: { type: 'pass', player: actor }, viable: true }];
   }
@@ -1132,14 +1132,14 @@ function activeCompanyId(state: GameState): CompanyId | null {
   if (ps.phase === Phase.Site) {
     const sps = ps;
     if (state.activePlayer === null) return null;
-    const player = state.players.find(p => p.id === state.activePlayer);
+    const player = playerById(state, state.activePlayer);
     if (!player) return null;
     return player.companies[sps.activeCompanyIndex]?.id ?? null;
   }
   if (ps.phase === Phase.MovementHazard) {
     const mps = ps;
     if (state.activePlayer === null) return null;
-    const player = state.players.find(p => p.id === state.activePlayer);
+    const player = playerById(state, state.activePlayer);
     if (!player) return null;
     return player.companies[mps.activeCompanyIndex]?.id ?? null;
   }
@@ -1513,7 +1513,7 @@ function hazardEventMaintenanceActions(
 
   // Option 2: offer each matching hand card as a payment alternative
   if (handCardFilter !== undefined) {
-    const actorPlayer = state.players.find(p => p.id === actor);
+    const actorPlayer = playerById(state, actor);
     if (actorPlayer) {
       for (const handCard of actorPlayer.hand) {
         const handDef = state.cardPool[handCard.definitionId as string];

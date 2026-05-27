@@ -20,6 +20,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
+import { playerById } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -27,7 +28,7 @@ import { logDetail } from './log.js';
  * Unique permanent events cannot be played if one with the same name is already in play.
  */
 export function playPermanentEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
@@ -257,7 +258,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
  * valid (card, target) pair. If no environment is in play the card is not playable.
  */
 export function playShortEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {

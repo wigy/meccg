@@ -29,6 +29,7 @@
 import type { GameState, CardInstance } from '../types/state.js';
 import { Phase } from '../types/state.js';
 import type { CardInstanceId, CardDefinitionId } from '../types/common.js';
+import { playerById } from './reducer-utils.js';
 
 /**
  * Explicitly record one or more instances as publicly known. Use this
@@ -112,7 +113,7 @@ function collectPublicInstanceIds(state: GameState): Record<string, CardDefiniti
   if (state.phaseState.phase === Phase.MovementHazard) {
     const mh = state.phaseState;
     if (mh.siteRevealed && state.activePlayer !== null) {
-      const active = state.players.find(p => p.id === state.activePlayer);
+      const active = playerById(state, state.activePlayer);
       const activeCompany = active?.companies[mh.activeCompanyIndex];
       add(activeCompany?.destinationSite);
     }

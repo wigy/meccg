@@ -17,7 +17,7 @@ import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById } from './reducer-utils.js';
 
 
 /**
@@ -312,7 +312,7 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
   else if (score1 > score0) winner = p1.id;
 
   if (winner) {
-    const winnerName = state.players.find(p => p.id === winner)?.name ?? '?';
+    const winnerName = playerById(state, winner)?.name ?? '?';
     logDetail(`Winner: ${winnerName}`);
   } else {
     logDetail(`Game ended in a tie`);

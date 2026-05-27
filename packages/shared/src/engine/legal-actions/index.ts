@@ -12,7 +12,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
-import { matchesDefinition } from '../reducer-utils.js';
+import { matchesDefinition, playerById } from '../reducer-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -126,7 +126,7 @@ function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
  * evaluated — guarantees every hand card gets a tooltip in the UI.
  */
 function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: EvaluatedAction[]): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return evaluated;
   const covered = referencedInstanceIds(evaluated);
   const extras: EvaluatedAction[] = [];

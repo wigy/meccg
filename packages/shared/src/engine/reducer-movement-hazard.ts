@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -202,7 +202,7 @@ function handlePlayHazards(
   // short-events (e.g. Twilight canceling an environment) go through
   // the chain-initiating hazard handler.
   else if (action.type === 'play-short-event') {
-    const actingPlayer = state.players.find(p => p.id === action.player);
+    const actingPlayer = playerById(state, action.player);
     const handCard = actingPlayer?.hand.find(c => c.instanceId === action.cardInstanceId);
     const def = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
     if (isResourceEventCard(def)) {

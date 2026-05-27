@@ -23,7 +23,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries } from '../reducer-utils.js';
+import { characterEntries, playerById } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -158,7 +158,7 @@ export function heroResourceShortEventActions(
   playerId: PlayerId,
   currentPhase: string,
 ): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
   const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'strike-modifier']);

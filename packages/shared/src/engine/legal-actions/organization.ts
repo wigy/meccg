@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById } from '../reducer-utils.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -160,7 +160,7 @@ export function availableDI(
  * candidates carry a human-readable reason for the client to display.
  */
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return [];
 
   if (state.activePlayer !== playerId) {
@@ -341,7 +341,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
  *   the bearer's company +1 max region distance for movement this turn.
  */
 export function grantedActionActivations(state: GameState, playerId: PlayerId, phaseFilter?: GrantActionPhaseFilter): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -1260,7 +1260,7 @@ export function playResourceShortEventActions(
   alreadyEvaluated: ReadonlySet<string>,
   currentPhase: 'organization' | 'site',
 ): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId);
+  const player = playerById(state, playerId);
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -1375,7 +1375,7 @@ export function playResourceShortEventActions(
       let activeSiteType: string | null = null;
       if (currentPhase === 'site') {
         const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
-        const activePlayerState = state.players.find(p => p.id === state.activePlayer);
+        const activePlayerState = playerById(state, state.activePlayer);
         const company = activePlayerState?.companies[sitePhaseState.activeCompanyIndex];
         if (company?.currentSite) {
           const siteDef = state.cardPool[company.currentSite.definitionId as string];

@@ -17,6 +17,7 @@ import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, Car
 import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
+import { playerById } from '../reducer-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
 
@@ -99,7 +100,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
  * chain entries with the environment keyword.
  */
 function playShortEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
@@ -161,7 +162,7 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
 function playSkillCancelChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const chain = state.chain;
   if (!chain) return [];
-  const player = state.players.find(p => p.id === playerId)!;
+  const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
