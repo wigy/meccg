@@ -32,7 +32,7 @@ import type {
 import { hasPlayFlag } from '../index.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
-import { cardName } from './reducer-utils.js';
+import { cardName, defById } from './reducer-utils.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -54,7 +54,7 @@ export function manifestIdOf(def: CardDefinition | undefined): ManifestId | unde
  */
 function chainCardInPile(state: GameState, m: ManifestId, pile: readonly CardInstance[]): boolean {
   for (const card of pile) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (manifestIdOf(def) === m) return true;
   }
   return false;
@@ -101,7 +101,7 @@ export function applyManifestationCascade(state: GameState): GameState {
   for (const player of state.players) {
     for (const pile of [player.outOfPlayPile, player.killPile]) {
       for (const card of pile) {
-        const def = state.cardPool[card.definitionId as string];
+        const def = defById(state, card.definitionId);
         const m = manifestIdOf(def);
         if (m) removed.add(m as string);
       }
@@ -118,7 +118,7 @@ export function applyManifestationCascade(state: GameState): GameState {
     const p = players[pi];
     const keep: typeof p.cardsInPlay = [];
     for (const card of p.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       const m = manifestIdOf(def);
       if (m && removed.has(m as string)) {
         const owner = ownerOf(card.instanceId) as string;
@@ -209,7 +209,7 @@ export function getActiveAutoAttacks(
 function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (manifestIdOf(def) !== m) continue;
       if ((def as HazardEventCard | undefined)?.eventType === 'long') return true;
     }
@@ -224,7 +224,7 @@ function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
 export function isReduceAttacksToOneInPlay(state: GameState): boolean {
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def) continue;
       if (!('effects' in def)) continue;
       if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
@@ -244,7 +244,7 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
   const out: AutomaticAttack[] = [];
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
       if (!effects) continue;
       for (const e of effects) {
@@ -273,7 +273,7 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
   const out: AutomaticAttack[] = [];
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (manifestIdOf(def) !== m) continue;
       const effects = (def as { effects?: readonly { type: string }[] }).effects;
       if (!effects) continue;

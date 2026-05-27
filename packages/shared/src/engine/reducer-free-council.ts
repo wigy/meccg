@@ -10,14 +10,14 @@
  * `pendingCheck`) → tap supporters → pass to resolve.
  */
 
-import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, GameEffect } from '../index.js';
+import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction } from '../index.js';
 import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById } from './reducer-utils.js';
 
 
 /**
@@ -95,8 +95,7 @@ function handleDeclareCorruptionCheck(
 ): ReducerResult {
   if (action.type !== 'corruption-check') return { state, error: 'Expected corruption-check' };
 
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
+  const player = playerById(state, action.player)!;
   const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
 
@@ -200,13 +199,7 @@ function resolveCorruptionCheck(
   const supportStr = pending.supportCount > 0 ? ` (includes +${pending.supportCount} support)` : '';
   logDetail(`Free Council corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}${supportStr}`);
 
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Corruption: ${charName}`,
-  };
+  const rollEffect = diceRollEffect(player.name, roll, `Corruption: ${charName}`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
@@ -339,7 +332,7 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
 function hasEliminatedAvatar(state: GameState, playerIndex: 0 | 1): boolean {
   const player = state.players[playerIndex];
   for (const card of player.outOfPlayPile) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     if (def && isCharacterCard(def) && (def.race === Race.Wizard || def.race === Race.Ringwraith)) {
       return true;
     }

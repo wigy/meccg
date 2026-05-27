@@ -7,12 +7,12 @@
  */
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
-import type { TwoDiceSix, GameEffect } from '../index.js';
+import type { TwoDiceSix } from '../index.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -81,12 +81,12 @@ function handleCharacterDraft(
       // Resolve definition from instance
       const charDefId = poolCard.definitionId;
       // Check mind constraint
-      const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+      const charDef = charDefId ? defById(state, charDefId) : undefined;
       if (!isCharacterCard(charDef)) {
         return { state, error: 'Invalid character' };
       }
       const currentMind = playerDraft.drafted.reduce((sum, card) => {
-        const def = state.cardPool[card.definitionId as string];
+        const def = defById(state, card.definitionId);
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       if (charDef.mind !== null && currentMind + charDef.mind > 20) {
@@ -210,7 +210,7 @@ function resolveDraftRound(
   for (let i = 0; i < 2; i++) {
     if (!newDraft[i].stopped) {
       const mind = newDraft[i].drafted.reduce((sum, card) => {
-        const def = state.cardPool[card.definitionId as string];
+        const def = defById(state, card.definitionId);
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
@@ -432,13 +432,13 @@ function handleCharacterDeckDraft(
 
   // Resolve definition from draft instance
   const draftDefId = poolCard.definitionId;
-  const def = draftDefId ? state.cardPool[draftDefId as string] : undefined;
+  const def = draftDefId ? defById(state, draftDefId) : undefined;
 
   // Validate non-avatar limit
   if (isCharacterCard(def) && def.mind !== null) {
     let nonAvatarCount = 0;
     for (const card of state.players[playerIndex].playDeck) {
-      const d = state.cardPool[card.definitionId as string];
+      const d = defById(state, card.definitionId);
       if (isCharacterCard(d) && d.mind !== null) nonAvatarCount++;
     }
     if (nonAvatarCount >= 10) {
@@ -832,13 +832,7 @@ function handleInitiativeRoll(
   const d1 = roll.die1;
   const d2 = roll.die2;
   logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: state.players[playerIndex].name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: 'First turn',
-  };
+  const rollEffect = diceRollEffect(state.players[playerIndex].name, roll, 'First turn');
 
   // Store the roll in the player's state
   const stateWithRoll: GameState = {

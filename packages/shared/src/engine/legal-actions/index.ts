@@ -12,7 +12,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
-import { matchesDefinition, playerById } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById } from '../reducer-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -58,7 +58,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
     const pileSource = source === 'sideboard' ? 'sideboard' : 'discard-pile';
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
@@ -85,7 +85,7 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
   const player = state.players[playerIndex];
   const results: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!def || !('effects' in def)) continue;
     const effects = (def as { effects?: readonly import('../../index.js').CardEffect[] }).effects;
     const hasReshuffle = effects?.some(e =>
@@ -132,7 +132,7 @@ function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: Evalua
   const extras: EvaluatedAction[] = [];
   for (const card of player.hand) {
     if (covered.has(card.instanceId as string)) continue;
-    const def = state.cardPool[card.definitionId as string];
+    const def = defById(state, card.definitionId);
     const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : card.definitionId as string;
     extras.push({
       action: { type: 'not-playable', player: playerId, cardInstanceId: card.instanceId },

@@ -28,7 +28,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, PlayerState } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
-import { matchesDefinition, characterIds } from './reducer-utils.js';
+import { matchesDefinition, characterIds, defById } from './reducer-utils.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -157,7 +157,7 @@ export function resolveMoveSource(
     for (const zone of fromZones) {
       const candidates = collectFromZone(state, zone, ctx, undefined);
       for (const c of candidates) {
-        const def = state.cardPool[c.instance.definitionId as string];
+        const def = defById(state, c.instance.definitionId);
         const name = def && 'name' in def ? (def as { name: string }).name : undefined;
         if (name === move.cardName) return { instances: [c] };
       }
@@ -593,7 +593,7 @@ function removeFromCharacterHazards(
 /* ------------------------------------------------------------------ */
 
 function matchesFilter(state: GameState, inst: CardInstance, filter: Condition): boolean {
-  const def = state.cardPool[inst.definitionId as string];
+  const def = defById(state, inst.definitionId);
   if (!def) return false;
   return matchesDefinition(def, filter);
 }

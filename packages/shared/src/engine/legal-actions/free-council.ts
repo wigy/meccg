@@ -17,7 +17,7 @@ import { CardStatus, formatSignedNumber } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
-import { characterIds, findCharacterCompany, playerById } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
@@ -52,7 +52,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
   for (const charId of characterIds(player)) {
     if (checked.has(charId)) continue;
     const charInPlay = player.characters[charId];
-    const charDef = state.cardPool[charInPlay.definitionId as string];
+    const charDef = defById(state, charInPlay.definitionId);
     const cp = charInPlay.effectiveStats.corruptionPoints;
     const checkContext = { reason: 'corruption-check' };
     const modifier = resolveCheckModifier(collectCharacterEffects(state, charInPlay, checkContext), 'corruption');
@@ -117,7 +117,7 @@ function supportActions(
       if (!charInPlay) continue;
       if (charInPlay.status !== CardStatus.Untapped) continue;
 
-      const charDef = state.cardPool[charInPlay.definitionId as string];
+      const charDef = defById(state, charInPlay.definitionId);
       const charName = charDef?.name ?? (charId as string);
       logDetail(`Support available: ${charName} can tap for +1 to corruption check`);
       actions.push({

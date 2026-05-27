@@ -52,6 +52,7 @@ import {
   isSiteCard,
 } from '../index.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { defById } from './reducer-utils.js';
 
 // ---- Config types ----
 
@@ -264,7 +265,7 @@ export function applyDraftResults(
     // its instance ID for the lifetime of the game.
     const minorItems: CardInstance[] = [];
     for (const card of pool) {
-      if (isItemCard(state.cardPool[card.definitionId as string])) {
+      if (isItemCard(defById(state, card.definitionId))) {
         minorItems.push(card);
       }
     }
@@ -274,7 +275,7 @@ export function applyDraftResults(
     const characterInstanceIds: CardInstanceId[] = [];
 
     for (const card of drafted) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = defById(state, card.definitionId);
       if (!isCharacterCard(def)) continue;
       characterInstanceIds.push(card.instanceId);
       characters[card.instanceId as string] = {
@@ -320,8 +321,8 @@ export function applyDraftResults(
   // (items are excluded — already extracted above). Each player keeps the collided instances that
   // originated from their own pick, so every instance remains in exactly one location.
   const remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]] = [
-    [...draftState[0].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside[0]],
-    [...draftState[1].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside[1]],
+    [...draftState[0].pool.filter(card => !isItemCard(defById(state, card.definitionId))), ...setAside[0]],
+    [...draftState[1].pool.filter(card => !isItemCard(defById(state, card.definitionId))), ...setAside[1]],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },

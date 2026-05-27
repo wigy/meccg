@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, companyById } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, companyById, defById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -100,7 +100,7 @@ function isAllyImmuneToSiteKeyedAttack(
   ally: AllyInPlay,
   combat: CombatState,
 ): boolean {
-  const allyDef = state.cardPool[ally.definitionId as string];
+  const allyDef = defById(state, ally.definitionId);
   if (!hasPlayFlag(allyDef as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack-site-keyed')) return false;
 
   if (combat.attackSource.type === 'automatic-attack' || combat.attackSource.type === 'played-auto-attack') {
@@ -115,7 +115,7 @@ function isAllyImmuneToSiteKeyedAttack(
     if (!company) return false;
     const effectiveSite = company.destinationSite ?? company.currentSite;
     if (!effectiveSite) return false;
-    const siteDef = state.cardPool[effectiveSite.definitionId as string];
+    const siteDef = defById(state, effectiveSite.definitionId);
     if (!isSiteCard(siteDef)) return false;
     const isKeyed = (combat.attackSiteKeyingTypes as readonly string[]).includes(siteDef.siteType);
     if (isKeyed) {
@@ -297,7 +297,7 @@ function assignStrikeActions(
       if (!charData) continue;
       for (const ally of charData.allies) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
-        const allyDef = state.cardPool[ally.definitionId as string];
+        const allyDef = defById(state, ally.definitionId);
         if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
         const shieldEff = (allyDef.effects).find(
           (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
@@ -325,7 +325,7 @@ function assignStrikeActions(
       }
       if (combat.excludeAvatarStrikes) {
         const defId = charData.definitionId;
-        const def = defId ? state.cardPool[defId as string] : undefined;
+        const def = defId ? defById(state, defId) : undefined;
         if (isAvatarCharacter(def)) {
           logDetail(`Character ${charId as string} is an avatar — excluded from Neeker-breekers strike assignment`);
           continue;
@@ -356,7 +356,7 @@ function assignStrikeActions(
           continue;
         }
         // Noble Hound and similar allies with `alwaysCountsAsUntapped` are always assignable.
-        const allyDef = state.cardPool[ally.definitionId as string];
+        const allyDef = defById(state, ally.definitionId);
         const alwaysUntapped = allyDef && 'effects' in allyDef && allyDef.effects
           ? (allyDef.effects).some(
               e => e.type === 'strike-shield' && (e).alwaysCountsAsUntapped,
@@ -407,7 +407,7 @@ function assignStrikeActions(
     for (const charId of company.characters) {
       if (combat.excludeAvatarStrikes) {
         const charData = defPlayer.characters[charId as string];
-        const def = charData?.definitionId ? state.cardPool[charData.definitionId as string] : undefined;
+        const def = charData?.definitionId ? defById(state, charData.definitionId) : undefined;
         if (isAvatarCharacter(def)) {
           logDetail(`Character ${charId as string} is an avatar — excluded from attacker assignment pool`);
           continue;
@@ -543,7 +543,7 @@ function resolveStrikeActions(
   // Compute prowess and need for both tap/untap options
   // Must match the reducer's prowess calculation: base effective prowess,
   // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
-  const charDef = state.cardPool[targetDefId as string];
+  const charDef = defById(state, targetDefId);
   const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
   // Recompute prowess with combat context when creature race is known,
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
@@ -601,7 +601,7 @@ function resolveStrikeActions(
   // or default (prowess/body accumulator). All three emit `play-strike-event`.
   const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
   for (const handCard of player0.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef)) continue;
     const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[]; name?: string };
     if (!cardWithEffects.effects) continue;
@@ -718,7 +718,7 @@ function resolveStrikeActions(
       if (compCharId === currentStrike.characterId) continue;
       const compCharData = player0.characters[compCharId as string];
       if (!compCharData || compCharData.status !== CardStatus.Untapped) continue;
-      const compCharDef = state.cardPool[compCharData.definitionId as string];
+      const compCharDef = defById(state, compCharData.definitionId);
       if (!compCharDef || !isCharacterCard(compCharDef)) continue;
       if (!compCharDef.effects) continue;
 
@@ -781,7 +781,7 @@ function resolveStrikeActions(
 
     for (const item of charData.items) {
       if (item.status !== CardStatus.Untapped) continue;
-      const itemDef = state.cardPool[item.definitionId as string];
+      const itemDef = defById(state, item.definitionId);
       if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
 
       for (const eff of itemDef.effects) {
@@ -813,7 +813,7 @@ function resolveStrikeActions(
     // Also scan allies on the bearer for cancel-strike effects (e.g. Noble Steed).
     for (const ally of charData.allies) {
       if (ally.status !== CardStatus.Untapped) continue;
-      const allyDef = state.cardPool[ally.definitionId as string];
+      const allyDef = defById(state, ally.definitionId);
       if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
 
       for (const eff of allyDef.effects) {
@@ -849,7 +849,7 @@ function resolveStrikeActions(
   if (allyMatch) {
     const { ally } = allyMatch;
     if (ally.status === CardStatus.Untapped) {
-      const allyDef = state.cardPool[ally.definitionId as string];
+      const allyDef = defById(state, ally.definitionId);
       if (allyDef && 'effects' in allyDef && allyDef.effects) {
         const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
         const cancelCtx = (): Record<string, unknown> => {
@@ -931,7 +931,7 @@ function shortEventsAffectingStrike(
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of defPlayer.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
     if (!def.effects) continue;
 
@@ -1014,14 +1014,14 @@ function tapItemForStrikeActions(
   const charData = defPlayer.characters[currentStrike.characterId as string];
   if (!charData) return [];
 
-  const charDef = state.cardPool[charData.definitionId as string];
+  const charDef = defById(state, charData.definitionId);
   if (!charDef || !isCharacterCard(charDef)) return [];
 
   const actions: EvaluatedAction[] = [];
 
   for (const item of charData.items) {
     if (item.status !== CardStatus.Untapped) continue;
-    const itemDef = state.cardPool[item.definitionId as string];
+    const itemDef = defById(state, item.definitionId);
     if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
 
     const effect = itemDef.effects.find(
@@ -1088,7 +1088,7 @@ function bodyCheckActions(
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayer = playerById(state, combat.defendingPlayerId);
     const charData = defPlayer?.characters[strike?.characterId as string];
-    const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
+    const charDef = charData ? defById(state, charData.definitionId) : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
     // Dodge body penalty
     if (strike?.dodged && strike.dodgeBodyPenalty) {
@@ -1191,7 +1191,7 @@ function cancelAttackActions(
   for (const charId of company.characters) {
     const charData = player.characters[charId as string];
     if (!charData) continue;
-    const charDef = state.cardPool[charData.definitionId as string];
+    const charDef = defById(state, charData.definitionId);
     if (!charDef || !('effects' in charDef) || !charDef.effects) continue;
     const cancelEffect = charDef.effects.find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
@@ -1220,7 +1220,7 @@ function cancelAttackActions(
   // In-play allies in the defending company with a cancel-attack effect
   // and a "tap self" cost (e.g. The Warg-king).
   for (const { ally } of findCompanyAllies(player, company.characters)) {
-    const allyDef = state.cardPool[ally.definitionId as string];
+    const allyDef = defById(state, ally.definitionId);
     if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
     const cancelEffect = allyDef.effects.find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
@@ -1257,7 +1257,7 @@ function cancelAttackActions(
       continue;
     }
     for (const item of charData.items) {
-      const itemDef = state.cardPool[item.definitionId as string];
+      const itemDef = defById(state, item.definitionId);
       if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
       const cancelEffect = itemDef.effects.find(
         (e): e is CancelAttackEffect => e.type === 'cancel-attack',
@@ -1286,7 +1286,7 @@ function cancelAttackActions(
   }
 
   for (const handCard of player.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef)) continue;
     const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
     if (!cardWithEffects.effects) continue;
@@ -1375,7 +1375,7 @@ function cancelAttackActions(
         if (!charData) continue;
         if (!canPayCost(cancelEffect.cost, charData)) continue;
 
-        const charDef = state.cardPool[charData.definitionId as string];
+        const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (!matchesRequirement(charDef)) continue;
 
@@ -1395,7 +1395,7 @@ function cancelAttackActions(
       const hasMatch = company.characters.some(charId => {
         const charData = player.characters[charId as string];
         if (!charData) return false;
-        const charDef = state.cardPool[charData.definitionId as string];
+        const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) return false;
         return matchesRequirement(charDef);
       });
@@ -1418,7 +1418,7 @@ function cancelAttackActions(
   // a threshold entry in the effect. One `cancel-attack` action is emitted per
   // character in the defending company (the player selects who makes the attempt).
   for (const handCard of player.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef)) continue;
     const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
     if (!cardWithEffects.effects) continue;
@@ -1477,7 +1477,7 @@ function halveStrikesActions(
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef)) continue;
     const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
     if (!cardWithEffects.effects) continue;
@@ -1491,11 +1491,11 @@ function halveStrikesActions(
     if (halveEffect.when) {
       const inPlayNames = [
         ...state.players[0].cardsInPlay.map(c => {
-          const d = state.cardPool[c.definitionId as string];
+          const d = defById(state, c.definitionId);
           return d && 'name' in d ? (d as { name: string }).name : '';
         }),
         ...state.players[1].cardsInPlay.map(c => {
-          const d = state.cardPool[c.definitionId as string];
+          const d = defById(state, c.definitionId);
           return d && 'name' in d ? (d as { name: string }).name : '';
         }),
       ];
@@ -1558,11 +1558,11 @@ function modifyAttackActions(
       for (const charId of company.characters) {
         const charData = player.characters[charId as string];
         if (!charData) continue;
-        const charDef = state.cardPool[charData.definitionId as string];
+        const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
 
         for (const item of charData.items) {
-          const itemDef = state.cardPool[item.definitionId as string];
+          const itemDef = defById(state, item.definitionId);
           if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
           const effect = itemDef.effects.find(
             (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !(e).fromHand && (e).scope !== 'current-strike',
@@ -1607,17 +1607,17 @@ function modifyAttackActions(
   // --- Hand cards (attacker or defender per effect.player) ---
   const inPlayNames = [
     ...state.players[0].cardsInPlay.map(c => {
-      const d = state.cardPool[c.definitionId as string];
+      const d = defById(state, c.definitionId);
       return d && 'name' in d ? (d as { name: string }).name : '';
     }),
     ...state.players[1].cardsInPlay.map(c => {
-      const d = state.cardPool[c.definitionId as string];
+      const d = defById(state, c.definitionId);
       return d && 'name' in d ? (d as { name: string }).name : '';
     }),
   ];
 
   for (const handCard of player.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
     const effect = cardDef.effects.find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
@@ -1650,7 +1650,7 @@ function modifyAttackActions(
             c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
           );
           if (creatureCard) {
-            const cDef = state.cardPool[creatureCard.definitionId as string];
+            const cDef = defById(state, creatureCard.definitionId);
             if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
           }
         }
@@ -1710,7 +1710,7 @@ function companyCombatBoostActions(
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
-    const cardDef = state.cardPool[handCard.definitionId as string];
+    const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
 
     const boostEffects = (cardDef.effects).filter(
@@ -1737,7 +1737,7 @@ function companyCombatBoostActions(
       for (const charId of company.characters) {
         const char = player.characters[charId as string];
         if (!char) continue;
-        const charCardDef = state.cardPool[char.definitionId as string];
+        const charCardDef = defById(state, char.definitionId);
         if (!charCardDef || !('race' in charCardDef)) continue;
         const ctx = { target: { race: (charCardDef as { race?: string }).race ?? '', name: (charCardDef as { name?: string }).name ?? '', skills: (charCardDef as { skills?: readonly string[] }).skills ?? [] } };
         if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
@@ -1835,9 +1835,9 @@ function itemSalvageActions(
   for (const item of salvageItems) {
     for (const recipientId of salvageRecipients) {
       const charData = playerById(state, playerId)?.characters[recipientId as string];
-      const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
+      const charDef = charData ? defById(state, charData.definitionId) : undefined;
       const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (recipientId as string);
-      const itemDef = state.cardPool[item.definitionId as string];
+      const itemDef = defById(state, item.definitionId);
       const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
       logDetail(`Salvage available: ${itemName} → ${charName}`);
       actions.push({
@@ -1880,7 +1880,7 @@ function discardItemFromCompanyActions(
   if (!discardItemOptions || discardItemOptions.length === 0) return [];
 
   return discardItemOptions.map(item => {
-    const itemDef = state.cardPool[item.definitionId as string];
+    const itemDef = defById(state, item.definitionId);
     const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
     logDetail(`Discard-item available: ${itemName}`);
     return {
@@ -1923,12 +1923,12 @@ function combatHazardPermanentPlays(
   const targetCharId = currentStrike.characterId;
   const targetChar = defender.characters[targetCharId as string];
   if (!targetChar) return [];
-  const targetDef = state.cardPool[targetChar.definitionId as string];
+  const targetDef = defById(state, targetChar.definitionId);
   if (!targetDef || !isCharacterCard(targetDef)) return [];
 
   const results: EvaluatedAction[] = [];
   for (const handCard of attacker.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') continue;
     if (!('effects' in def) || !def.effects) continue;
 
@@ -1952,10 +1952,10 @@ function combatHazardPermanentPlays(
     );
     if (playTarget && playTarget.target === 'character' && playTarget.filter) {
       const possessionNames = targetChar.items
-        .map(item => state.cardPool[item.definitionId as string]?.name)
+        .map(item => defById(state, item.definitionId)?.name)
         .filter((n): n is string => n != null);
       const itemKeywords = targetChar.items.flatMap(item => {
-        const iDef = state.cardPool[item.definitionId as string];
+        const iDef = defById(state, item.definitionId);
         return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
       });
       // Include `attack` in context so filters like `{ "attack.race": "Spider" }` work.
@@ -1984,7 +1984,7 @@ function combatHazardPermanentPlays(
     );
     if (takePrisonerEff) {
       const hasRescueSite = attacker.siteDeck.some(site => {
-        const siteDef = state.cardPool[site.definitionId as string];
+        const siteDef = defById(state, site.definitionId);
         if (!siteDef || !('siteType' in siteDef)) return false;
         const siteType = (siteDef as { siteType: string }).siteType;
         return takePrisonerEff.rescueSiteTypes.includes(siteType);
@@ -2003,7 +2003,7 @@ function combatHazardPermanentPlays(
     );
     if (charDupLimit) {
       const copies = targetChar.hazards.filter(h => {
-        const hDef = state.cardPool[h.definitionId as string];
+        const hDef = defById(state, h.definitionId);
         return hDef && hDef.name === def.name;
       }).length;
       if (copies >= charDupLimit.max) {

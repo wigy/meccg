@@ -7,9 +7,10 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
-import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
+import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
-import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
+import type { ResolutionScope } from '../types/pending.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -60,6 +61,29 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
   }
 
   return { roll: { die1: d1, die2: d2 }, rng, cheatRollTotal };
+}
+
+/**
+ * Build a `dice-roll` visual effect for a 2d6 result. Centralizes the
+ * repeated `{ effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label }`
+ * object literal used throughout the reducers to broadcast roll animations.
+ */
+export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: string): DiceRollEffect {
+  return { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label };
+}
+
+/**
+ * Build the {@link ResolutionScope} for a corruption check or other resolution
+ * enqueued during a company's combat. Companies resolve hazards in the
+ * movement/hazard phase and automatic attacks in the site phase; each phase
+ * has its own subphase scope so the queue is swept at the correct boundary.
+ * Centralizes the repeated `phase === MovementHazard ? company-mh-subphase :
+ * company-site-subphase` selection used across the combat reducers.
+ */
+export function companySubphaseScope(phase: Phase, companyId: CompanyId): ResolutionScope {
+  return phase === Phase.MovementHazard
+    ? { kind: 'company-mh-subphase', companyId }
+    : { kind: 'company-site-subphase', companyId };
 }
 
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
@@ -174,6 +198,19 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
 }
 
 /**
+ * Look up a card definition from the card pool by its {@link CardDefinitionId}.
+ *
+ * The pool is keyed by plain `string`, so indexing it with a branded
+ * `CardDefinitionId` otherwise requires an `as string` cast at every call site.
+ * This helper centralizes that cast and the intent ("get the definition for this
+ * id"). Returns `undefined` for an unknown definition id. Complements
+ * {@link resolveDef}, which resolves a definition from a {@link CardInstanceId}.
+ */
+export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
+  return state.cardPool[definitionId as string];
+}
+
+/**
  * Look up a card's display name from the card pool by its definition ID.
  *
  * Every {@link CardDefinition} carries a `name`, so the only failure case is
@@ -186,7 +223,7 @@ export function cardName(
   definitionId: CardDefinitionId,
   fallback?: string,
 ): string {
-  return state.cardPool[definitionId as string]?.name ?? fallback ?? (definitionId as string);
+  return defById(state, definitionId)?.name ?? fallback ?? (definitionId as string);
 }
 
 /**

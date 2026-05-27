@@ -24,7 +24,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, playerById } from '../reducer-utils.js';
+import { cardName, playerById, defById } from '../reducer-utils.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -71,7 +71,7 @@ export function emitGrantedActionConstraintActions(
 
       if (!canPayCost(kind.cost, char)) continue;
 
-      const charDef = state.cardPool[char.definitionId as string];
+      const charDef = defById(state, char.definitionId);
       const actorContext: Record<string, unknown> = {
         status: char.status === CardStatus.Untapped ? 'untapped'
           : char.status === CardStatus.Tapped ? 'tapped'

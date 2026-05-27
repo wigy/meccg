@@ -12,7 +12,7 @@ import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, removeById } from './reducer-utils.js';
+import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, removeById, defById } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
@@ -385,7 +385,7 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
 
     // Step 1: handle departure from the current site (CoE 2.IV.viii).
     if (currentSite && company.siteCardOwned) {
-      const departureDef = state.cardPool[currentSite.definitionId as string];
+      const departureDef = defById(state, currentSite.definitionId);
       const departureIsHaven = departureDef && isSiteCard(departureDef) && departureDef.siteType === 'haven';
       const departureEntry = { instanceId: currentSite.instanceId, definitionId: currentSite.definitionId };
       if (!departureIsHaven && currentSite.status === CardStatus.Tapped) {

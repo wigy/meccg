@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, activePlayerState } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, activePlayerState, defById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -194,7 +194,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     logHeading(`Organization: end-of-org window — only end-of-org plays + pass are legal`);
     const endActions: EvaluatedAction[] = [];
     for (const handCard of player.hand) {
-      const def = state.cardPool[handCard.definitionId as string];
+      const def = defById(state, handCard.definitionId);
       if (!def || def.cardType !== 'hero-resource-event') continue;
       if (!isEndOfOrgPlay(def)) continue;
       const eligibility = endOfOrgEligibility(state, player, def);
@@ -353,7 +353,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
-        const hazardDef = state.cardPool[hazard.definitionId as string];
+        const hazardDef = defById(state, hazard.definitionId);
         // Rule 10.08: only cards that carry the 'corruption' game keyword
         // (or have cardType 'hazard-corruption') qualify for the no-tap −3
         // removal variant. Foolish Words, Rebel-talk etc. use the same
@@ -373,7 +373,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           && c.kind.corruptionInstanceId === hazard.instanceId,
         );
         if (removalLocked) {
-          const charDef = state.cardPool[char.definitionId as string];
+          const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} corruption-removal locked this turn`);
           continue;
         }
@@ -395,7 +395,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             const companion = player.characters[companionId as string];
             if (!companion) continue;
             if (companion.status !== CardStatus.Untapped) continue;
-            const companionDef = state.cardPool[companion.definitionId as string];
+            const companionDef = defById(state, companion.definitionId);
             if (!companionDef || !isCharacterCard(companionDef)) continue;
             if (![...(companionDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, companion)].includes('sage')) continue;
             logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
@@ -421,12 +421,12 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         // Check cost: if tap is "bearer", character must be untapped
         if (!canPayCost(effect.cost, char)) {
-          const charDef = state.cardPool[char.definitionId as string];
+          const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
           // Fall through to consider the no-tap variant below — the
           // character being tapped doesn't block it.
         } else if (effect.when) {
-          const charDefForCtx = state.cardPool[char.definitionId as string];
+          const charDefForCtx = defById(state, char.definitionId);
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
           const company = findCharacterCompany(player.companies, charId);
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
@@ -439,7 +439,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         // Standard tap-and-roll variant — emitted only if the bearer
         // is untapped (cost.tap=bearer satisfied).
         if (canPayCost(effect.cost, char)) {
-          const charDef = state.cardPool[char.definitionId as string];
+          const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
           actions.push({
             action: {
@@ -459,7 +459,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         // corruption-removal grant actions. Available regardless of
         // bearer's tap state; first use locks subsequent attempts.
         if (isCorruptionRemoval) {
-          const charDef = state.cardPool[char.definitionId as string];
+          const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action}-no-tap available: ${charDef?.name ?? '?'} may roll without tapping at -3 (source: ${hazardDef?.name ?? '?'})`);
           actions.push({
             action: {
@@ -479,7 +479,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     }
 
     // Collect grant-action effects from the character card itself
-    const charDef = state.cardPool[char.definitionId as string];
+    const charDef = defById(state, char.definitionId);
     if (charDef && 'effects' in charDef) {
       const charEffects = (charDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
       if (charEffects) {
@@ -502,7 +502,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
               continue;
             }
             for (const target of candidates) {
-              const targetDef = state.cardPool[target.definitionId as string];
+              const targetDef = defById(state, target.definitionId);
               logDetail(`Grant-action ${effect.action} available: ${charDef.name} can tap to target ${targetDef?.name ?? '?'}`);
               actions.push({
                 action: {
@@ -544,20 +544,20 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
-        const charDefForCtx = state.cardPool[char.definitionId as string];
+        const charDefForCtx = defById(state, char.definitionId);
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
-            const def = state.cardPool[ally.definitionId as string];
+            const def = defById(state, ally.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
             continue;
           }
         }
 
-        const charDef = state.cardPool[char.definitionId as string];
-        const def = state.cardPool[ally.definitionId as string];
+        const charDef = defById(state, char.definitionId);
+        const def = defById(state, ally.definitionId);
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
 
         actions.push({
@@ -581,24 +581,24 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         if (!canPayCost(effect.cost, char, item)) {
-          const def = state.cardPool[item.definitionId as string];
+          const def = defById(state, item.definitionId);
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (item or bearer tapped)`);
           continue;
         }
 
-        const charDefForCtx = state.cardPool[char.definitionId as string];
+        const charDefForCtx = defById(state, char.definitionId);
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
-            const def = state.cardPool[item.definitionId as string];
+            const def = defById(state, item.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
             continue;
           }
         }
 
-        const def = state.cardPool[item.definitionId as string];
+        const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
 
         // `heal-company-character` targets a wounded character in the bearer's
@@ -620,7 +620,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             continue;
           }
           for (const target of wounded) {
-            const targetDef = state.cardPool[target.definitionId as string];
+            const targetDef = defById(state, target.definitionId);
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to heal ${targetDef?.name ?? '?'}`);
             actions.push({
               action: {
@@ -684,12 +684,12 @@ function buildGrantActionContext(
 
   const canUsePalantir = hasPlayFlag(charDef, 'can-use-palantir') ||
     char.items.some(item => {
-      const itemDef = state.cardPool[item.definitionId as string];
+      const itemDef = defById(state, item.definitionId)!;
       return 'effects' in itemDef && hasPlayFlag(itemDef, 'can-use-palantir');
     });
 
   const siteDef = company?.currentSite
-    ? state.cardPool[company.currentSite.definitionId as string]
+    ? defById(state, company.currentSite.definitionId)
     : undefined;
   const siteType = siteDef && 'siteType' in siteDef
     ? (siteDef as { siteType: string }).siteType
@@ -745,7 +745,7 @@ function siteHasItemWithKeyword(
   for (const p of state.players) {
     for (const company of p.companies) {
       const compSite = company.currentSite
-        ? state.cardPool[company.currentSite.definitionId as string]
+        ? defById(state, company.currentSite.definitionId)
         : undefined;
       const compSiteName = compSite && 'name' in compSite ? (compSite as { name: string }).name : '';
       if (compSiteName !== siteName) continue;
@@ -753,7 +753,7 @@ function siteHasItemWithKeyword(
         const char = p.characters[charInstId as string];
         if (!char) continue;
         for (const item of char.items) {
-          const def = state.cardPool[item.definitionId as string];
+          const def = defById(state, item.definitionId);
           if (def && 'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes(keyword)) return true;
         }
       }
@@ -785,7 +785,7 @@ function enumerateGrantActionTargets(
       const compChar = player.characters[compCharId as string];
       if (!compChar) continue;
       for (const item of compChar.items) {
-        const itemDef = state.cardPool[item.definitionId as string];
+        const itemDef = defById(state, item.definitionId);
         if (!itemDef) continue;
         if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
         matches.push({ instanceId: item.instanceId, definitionId: item.definitionId });
@@ -800,7 +800,7 @@ function enumerateGrantActionTargets(
  * Extracts grant-action effects from a card definition.
  */
 function extractGrantActions(state: GameState, definitionId: import('../../index.js').CardDefinitionId) {
-  const def = state.cardPool[definitionId as string];
+  const def = defById(state, definitionId);
   if (!def || !('effects' in def)) return [];
   const effects = (def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
   if (!effects) return [];
@@ -882,7 +882,7 @@ export function endOfOrgEligibility(
       // Evaluate optional company-level filter (e.g. company.atHaven for Great-road).
       if (playTarget.filter) {
         const siteDef = company.currentSite
-          ? state.cardPool[company.currentSite.definitionId as string]
+          ? defById(state, company.currentSite.definitionId)
           : undefined;
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
@@ -923,7 +923,7 @@ export function endOfOrgEligibility(
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId as string];
       if (!char) continue;
-      const charDef = state.cardPool[char.definitionId as string];
+      const charDef = defById(state, char.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
       if (playTarget.filter
           && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
@@ -976,7 +976,7 @@ export function collectDiscardInPlayTargets(
   const targets: CardInstanceId[] = [];
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
-      const cDef = state.cardPool[c.definitionId as string];
+      const cDef = defById(state, c.definitionId);
       if (cDef && matchesDefinition(cDef, filter)) {
         targets.push(c.instanceId);
       }
@@ -984,7 +984,7 @@ export function collectDiscardInPlayTargets(
     for (const charId of Object.keys(p.characters)) {
       const char = p.characters[charId];
       for (const haz of char.hazards) {
-        const hDef = state.cardPool[haz.definitionId as string];
+        const hDef = defById(state, haz.definitionId);
         if (hDef && matchesDefinition(hDef, filter)) {
           targets.push(haz.instanceId);
         }
@@ -1044,7 +1044,7 @@ export function buildPlayOptionContext(
   player?: PlayerState,
   currentPhase?: string,
 ): Record<string, unknown> {
-  const def = state.cardPool[char.definitionId as string];
+  const def = defById(state, char.definitionId);
   if (!def || !isCharacterCard(def)) {
     return { target: {}, pending: { corruptionCheckTargetsMe: false } };
   }
@@ -1071,20 +1071,20 @@ export function buildPlayOptionContext(
     // Restricting hand-based detection to the site phase prevents cards like
     // New Friendship from appearing as playable during the movement-hazard
     // phase simply because the player happens to hold a faction card.
-    hasFactionInHand = (currentPhase === 'site' && player.hand.some(c => isFactionCard(state.cardPool[c.definitionId as string])))
+    hasFactionInHand = (currentPhase === 'site' && player.hand.some(c => isFactionCard(defById(state, c.definitionId))))
       || Boolean(state.chain?.entries.some(
         e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
       ));
     const charCompany = findCharacterCompany(player.companies, char.instanceId);
     if (charCompany?.currentSite) {
-      const siteDef = state.cardPool[charCompany.currentSite.definitionId as string];
+      const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
     }
     if (charCompany) {
       containsDiplomat = charCompany.characters.some(memberId => {
         const memberChar = player.characters[memberId as string];
         if (!memberChar) return false;
-        const memberDef = state.cardPool[memberChar.definitionId as string];
+        const memberDef = defById(state, memberChar.definitionId);
         if (!isCharacterCard(memberDef)) return false;
         const naturalSkills = memberDef.skills as readonly string[] ?? [];
         const grantedSkills = getItemGrantedSkills(state, memberChar);
@@ -1155,7 +1155,7 @@ function eligiblePlayOptionTargets(
   const requiresUntapped = playTarget.cost?.tap === 'character';
   const out: CardInstanceId[] = [];
   for (const [charId, char] of characterEntries(player)) {
-    const charDef = state.cardPool[char.definitionId as string];
+    const charDef = defById(state, char.definitionId);
     if (!charDef || !isCharacterCard(charDef)) continue;
     if (requiresUntapped && char.status !== CardStatus.Untapped) {
       logDetail(`Play-target rejects ${charDef.name} (${charId}): status ${char.status} (tap cost requires untapped)`);
@@ -1193,7 +1193,7 @@ function playOptionActionsForCard(
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
     if (!char) continue;
-    const charDef = state.cardPool[char.definitionId as string];
+    const charDef = defById(state, char.definitionId);
     const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
     const ctx = buildTargetContext(state, char, player, currentPhase);
     for (const opt of options) {
@@ -1228,7 +1228,7 @@ function computeCompanySize(state: GameState, company: import('../../index.js').
   for (const charInstId of company.characters) {
     const defId = resolveInstanceId(state, charInstId);
     if (!defId) { fullCount++; continue; }
-    const def = state.cardPool[defId as string];
+    const def = defById(state, defId);
     if (!def || !isCharacterCard(def)) { fullCount++; continue; }
     if (def.race === 'hobbit') {
       halfCount++;
@@ -1269,7 +1269,7 @@ export function playResourceShortEventActions(
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string];
+    const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
@@ -1379,7 +1379,7 @@ export function playResourceShortEventActions(
         const activePlayer = activePlayerState(state);
         const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
         if (company?.currentSite) {
-          const siteDef = state.cardPool[company.currentSite.definitionId as string];
+          const siteDef = defById(state, company.currentSite.definitionId);
           if (siteDef && 'siteType' in siteDef) {
             activeSiteType = (siteDef as { siteType: string }).siteType;
           }
