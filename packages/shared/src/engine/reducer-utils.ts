@@ -320,7 +320,7 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
       if (idx !== pi) return pl;
       const remaining = pl.cardsInPlay.filter(c => !discardIds.has(c.instanceId));
       const discarded = pl.discardPile.concat(toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId })));
-      logDetail(`play-deck-exhausted: discarding ${toDiscard.map(c => result.cardPool[c.definitionId as string]?.name ?? c.definitionId).join(', ')} from player ${pl.name} cardsInPlay`);
+      logDetail(`play-deck-exhausted: discarding ${toDiscard.map(c => cardName(result, c.definitionId)).join(', ')} from player ${pl.name} cardsInPlay`);
       return { ...pl, cardsInPlay: remaining, discardPile: discarded };
     });
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
@@ -357,8 +357,8 @@ export function handleExchangeSideboard(state: GameState, action: GameAction): R
 
   const discardCard = player.discardPile[discardIdx];
   const sideboardCard = player.sideboard[sideboardIdx];
-  const discardName = state.cardPool[discardCard.definitionId as string]?.name ?? '?';
-  const sideboardName = state.cardPool[sideboardCard.definitionId as string]?.name ?? '?';
+  const discardName = cardName(state, discardCard.definitionId, '?');
+  const sideboardName = cardName(state, sideboardCard.definitionId, '?');
   logDetail(`Exchange: ${discardName} (discard → sideboard) ↔ ${sideboardName} (sideboard → discard)`);
 
   const newPlayers = clonePlayers(state);

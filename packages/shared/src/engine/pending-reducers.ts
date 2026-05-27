@@ -24,7 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -1751,10 +1751,8 @@ function applySelectCardBearerResolution(
     if (defIdx < 0) return null;
     logDetail(`select-card-bearer: player declined — discarding card ${cardInstanceId as string}`);
     const cardDefId = resolveInstanceId(state, cardInstanceId);
-    const cardName = cardDefId
-      ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
-      : '?';
-    logDetail(`Discarding "${cardName}" (no bearer chosen)`);
+    const cardLabel = cardName(state, cardDefId!, '?');
+    logDetail(`Discarding "${cardLabel}" (no bearer chosen)`);
 
     let s = state;
     // Remove from any player's cardsInPlay
@@ -1813,11 +1811,9 @@ function applySelectCardBearerResolution(
   if (!cardInPlay) return { state, error: `Card ${cardInstanceId as string} not in cardsInPlay` };
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
-  const cardName = cardDefId
-    ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
-    : '?';
+  const cardLabel = cardName(state, cardDefId!, '?');
   logDetail(
-    `select-card-bearer: "${cardName}" assigned to ${characterId as string} — tapping character, adding constraint`,
+    `select-card-bearer: "${cardLabel}" assigned to ${characterId as string} — tapping character, adding constraint`,
   );
 
   // Remove card from cardsInPlay, attach to character's items, tap character
@@ -2026,9 +2022,8 @@ function applyHazardEventMaintenanceResolution(
       return { state, error: `Permanent event ${action.cardInstanceId as string} not found in cardsInPlay` };
     }
     const card = actorPlayer.cardsInPlay[cardIdx];
-    const def = state.cardPool[card.definitionId as string];
-    const cardName = def && 'name' in def ? (def as { name: string }).name : (card.definitionId as string);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardName}" (discard-self)`);
+    const cardLabel = cardName(state, card.definitionId);
+    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" (discard-self)`);
 
     const newCardsInPlay = actorPlayer.cardsInPlay.filter((_, i) => i !== cardIdx);
     newPlayers[actorIdx] = {
@@ -2057,9 +2052,8 @@ function applyHazardEventMaintenanceResolution(
       }
     }
 
-    const def = state.cardPool[handCard.definitionId as string];
-    const cardName = def && 'name' in def ? (def as { name: string }).name : (handCard.definitionId as string);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardName}" from hand (discard-from-hand)`);
+    const cardLabel = cardName(state, handCard.definitionId);
+    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" from hand (discard-from-hand)`);
 
     const newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
     newPlayers[actorIdx] = {

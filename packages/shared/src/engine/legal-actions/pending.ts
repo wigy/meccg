@@ -36,6 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
+import { cardName } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -1404,14 +1405,12 @@ function selectCardBearerActions(
   if (!company) return [];
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
-  const cardName = cardDefId
-    ? (state.cardPool[cardDefId as string] as { name?: string })?.name ?? '?'
-    : '?';
+  const cardLabel = cardName(state, cardDefId!, '?');
 
   for (const charId of company.characters) {
     const ch = defPlayer.characters[charId as string];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
-    logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardName}"`);
+    logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardLabel}"`);
     actions.push({
       action: {
         type: 'select-card-bearer',

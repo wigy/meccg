@@ -32,6 +32,7 @@ import type {
 import { hasPlayFlag } from '../index.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
+import { cardName } from './reducer-utils.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -191,8 +192,8 @@ export function getActiveAutoAttacks(
       const refInPlay = state.players.some(p => p.cardsInPlay.some(c => c.definitionId === refDefId));
       if (refInPlay && combined.length > 0) {
         combined = combined.slice(1);
-        const cardName = (state.cardPool[refDefId] as { name?: string } | undefined)?.name ?? refDefId;
-        logDetail(`cancel-first-attack-if-in-play: "${cardName}" is in play — first attack at ${siteDef.name} canceled`);
+        const refName = cardName(state, siteEff.definitionId, refDefId);
+        logDetail(`cancel-first-attack-if-in-play: "${refName}" is in play — first attack at ${siteDef.name} canceled`);
       }
       break;
     }

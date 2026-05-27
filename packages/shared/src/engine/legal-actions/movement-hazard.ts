@@ -16,6 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
+import { cardName } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -1717,7 +1718,7 @@ function playHazardsActions(
                 return hDef && hDef.name === def.name;
               }).length;
               if (copiesOnChar >= charDupLimit.max) {
-                const charName = state.cardPool[charData.definitionId as string]?.name ?? (charId as string);
+                const charName = cardName(state, charData.definitionId, charId as string);
                 logDetail(`Hazard "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
                 actions.push({
                   action: { ...action, targetCharacterId: charId },
@@ -1734,7 +1735,7 @@ function playHazardsActions(
             'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true
           );
           if (isCorruptionCard && mhState.corruptionCardsPlayedPerChar[charId as string]) {
-            const charName = state.cardPool[resourcePlayer.characters[charId as string]?.definitionId as string]?.name ?? (charId as string);
+            const charName = cardName(state, resourcePlayer.characters[charId as string]?.definitionId, charId as string);
             logDetail(`Hazard "${def.name}" blocked on ${charName}: corruption card already played this turn (CoE 7.2.1)`);
             actions.push({
               action: { ...action, targetCharacterId: charId },
@@ -1749,7 +1750,7 @@ function playHazardsActions(
           // would cancel it on resolution, so the legal-action computer
           // doesn't offer the character as a target at all.
           if (isWardedAgainst(state, activeIndex, charId, def)) {
-            const charName = state.cardPool[resourcePlayer.characters[charId as string]?.definitionId as string]?.name ?? (charId as string);
+            const charName = cardName(state, resourcePlayer.characters[charId as string]?.definitionId, charId as string);
             logDetail(`Hazard "${def.name}" cancelled by ward on ${charName}`);
             actions.push({
               action: { ...action, targetCharacterId: charId },
