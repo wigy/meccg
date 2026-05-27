@@ -7,14 +7,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { getPlayerIndex } from '../../index.js';
+import { SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function initiativeRollActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'initiative-roll') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const roll = state.phaseState.setupStep.rolls[playerIndex];
+  const ctx = setupStepContext(state, playerId, SetupStep.InitiativeRoll);
+  if (!ctx) return [];
+  const roll = ctx.step.rolls[ctx.playerIndex];
 
   // Already rolled — waiting for opponent or reroll
   if (roll !== null) {

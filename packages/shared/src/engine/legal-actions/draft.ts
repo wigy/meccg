@@ -10,15 +10,15 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, getPlayerIndex } from '../../index.js';
+import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const draft = state.phaseState.setupStep.draftState[playerIndex];
+  const ctx = setupStepContext(state, playerId, SetupStep.CharacterDraft);
+  if (!ctx) return [];
+  const { step: setupStep, playerIndex } = ctx;
+  const draft = setupStep.draftState[playerIndex];
 
   // Phase-level guards — not per-card, stay imperative
   if (draft.stopped) {
@@ -36,16 +36,12 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return [];
   }
 
-  logDetail(`Draft round ${state.phaseState.setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
+  logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
 
   // Pre-compute context values shared across all candidates
   const opponentIndex = 1 - playerIndex;
   const opponentDrafted = new Set(
-    state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft'
-      ? state.phaseState.setupStep.draftState[opponentIndex].drafted.map(
-        card => card.definitionId as string,
-      )
-      : [],
+    setupStep.draftState[opponentIndex].drafted.map(card => card.definitionId as string),
   );
   const currentMind = draft.drafted.reduce((sum, card) => {
     const def = state.cardPool[card.definitionId as string];

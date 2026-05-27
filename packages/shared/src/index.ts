@@ -11,7 +11,7 @@ export type { Rule, RuleSet, EvaluatedAction } from './rules/index.js';
 export { CHARACTER_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, createMovementRules, BASE_MAX_REGION_DISTANCE, AGENT_MAX_REGION_DISTANCE } from './rules/index.js';
 export { getAlignmentRules, crossAlignmentInfluencePenalty } from './alignment-rules.js';
 export type { AlignmentRules } from './alignment-rules.js';
-export { getPlayerIndex, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
+export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
 export { reduce } from './engine/reducer.js';

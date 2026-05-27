@@ -6,14 +6,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { getPlayerIndex } from '../../index.js';
+import { SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function deckShuffleActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'deck-shuffle') return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const stepState = state.phaseState.setupStep;
+  const ctx = setupStepContext(state, playerId, SetupStep.DeckShuffle);
+  if (!ctx) return [];
+  const { step: stepState, playerIndex } = ctx;
 
   if (stepState.shuffled[playerIndex]) {
     logDetail(`Player already shuffled`);
