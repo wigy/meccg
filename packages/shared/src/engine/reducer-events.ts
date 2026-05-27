@@ -10,7 +10,8 @@ import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, Pendin
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
-import { resolveInstanceId, ownerOf } from '../types/state.js';
+import { ownerOf } from '../types/state.js';
+import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition } from './reducer-utils.js';
@@ -122,8 +123,7 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   const handCard = player.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-hazards.js').HazardEventCard;
 
-  const targetDefId = resolveInstanceId(state, action.targetInstanceId!);
-  const targetDef = targetDefId ? state.cardPool[targetDefId as string] : undefined;
+  const targetDef = resolveDef(state, action.targetInstanceId!);
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
 
   // Move short event from hand → discard

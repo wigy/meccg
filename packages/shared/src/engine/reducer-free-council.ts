@@ -15,6 +15,7 @@ import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus } from '../ind
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
+import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter } from './reducer-utils.js';
 
@@ -96,8 +97,7 @@ function handleDeclareCorruptionCheck(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
 
   logDetail(`Free Council: corruption check declared for ${charName}`);
@@ -152,8 +152,7 @@ function handleSupportCorruptionCheck(
   if (action.type !== 'support-corruption-check') return { state, error: 'Expected support-corruption-check' };
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const supporterDefId = resolveInstanceId(state, action.supportingCharacterId);
-  const supporterDef = supporterDefId ? state.cardPool[supporterDefId as string] : undefined;
+  const supporterDef = resolveDef(state, action.supportingCharacterId);
   const supporterName = supporterDef?.name ?? (action.supportingCharacterId as string);
 
   logDetail(`Free Council: ${supporterName} taps to support corruption check — +1`);
@@ -190,8 +189,7 @@ function resolveCorruptionCheck(
   const playerIndex = getPlayerIndex(state, fcState.currentPlayer);
   const player = state.players[playerIndex];
   const char = player.characters[pending.characterId as string];
-  const fcCharDefId = resolveInstanceId(state, pending.characterId);
-  const charDef = fcCharDefId ? state.cardPool[fcCharDefId as string] : undefined;
+  const charDef = resolveDef(state, pending.characterId);
   const charName = charDef?.name ?? '?';
   const cp = pending.corruptionPoints;
   const modifier = pending.corruptionModifier + pending.supportCount;

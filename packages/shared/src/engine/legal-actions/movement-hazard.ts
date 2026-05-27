@@ -15,7 +15,7 @@ import type { TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
-import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
+import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1560,8 +1560,7 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: `${def.name} can only be played on a moving company` });
             continue;
           }
-          const destSiteDefId = resolveInstanceId(state, targetCompany.destinationSite.instanceId);
-          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteDef = resolveDef(state, targetCompany.destinationSite.instanceId);
           if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef).length === 0) {
             logDetail(`Hazard short-event "${def.name}" requires a destination site with automatic-attacks`);
             actions.push({ action, viable: false, reason: 'Destination site has no automatic attacks' });
@@ -1646,8 +1645,7 @@ function playHazardsActions(
           let halfCount = 0;
           let fullCount = 0;
           for (const cId of targetCompany.characters) {
-            const cDefId = resolveInstanceId(state, cId);
-            const cDef = cDefId ? state.cardPool[cDefId as string] : undefined;
+            const cDef = resolveDef(state, cId);
             if (cDef && isCharacterCard(cDef) && cDef.race === 'hobbit') {
               halfCount++;
             } else {
@@ -1847,8 +1845,7 @@ function playHazardsActions(
         // company at free/border-hold, or hero company at shadow/dark-hold).
         if (playTarget?.filter) {
           const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
-          const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
-          const destSiteDef = destSiteDefId ? state.cardPool[destSiteDefId as string] : undefined;
+          const destSiteDef = destSiteInst ? resolveDef(state, destSiteInst.instanceId) : undefined;
           const destSiteType = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.siteType : undefined;
           const companyCtx = {
             company: {

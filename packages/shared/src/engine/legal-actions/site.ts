@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition } from '../reducer-utils.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
@@ -1627,8 +1627,7 @@ function opponentInfluenceActions(
   // Find opponent companies at the same site
   for (const oppCompany of opponent.companies) {
     if (!oppCompany.currentSite) continue;
-    const oppSiteDefId = resolveInstanceId(state, oppCompany.currentSite.instanceId);
-    const oppSiteDef = oppSiteDefId ? state.cardPool[oppSiteDefId as string] : undefined;
+    const oppSiteDef = resolveDef(state, oppCompany.currentSite.instanceId);
     if (!oppSiteDef || !isSiteCard(oppSiteDef) || oppSiteDef.name !== siteDef.name) continue;
 
     logDetail(`Opponent influence: opponent company at same site ${siteDef.name}`);

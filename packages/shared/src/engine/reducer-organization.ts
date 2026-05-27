@@ -16,7 +16,7 @@ import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDis
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveDef } from './effects/index.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
 import { applyCost } from './cost-evaluator.js';
 
@@ -267,8 +267,7 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
   const char = player.characters[charInstId as string];
   if (!char) return { state, error: 'Character not found' };
 
-  const charDefId = resolveInstanceId(state, charInstId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, charInstId);
   const narrowedCharDef = charDef as import('../types/cards.js').CharacterCard;
 
   logDetail(`Move to influence: ${narrowedCharDef.name} → ${action.controlledBy as string}`);
@@ -363,12 +362,9 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
 
   const itemIndex = fromChar.items.findIndex(i => i.instanceId === itemInstId);
   const item = fromChar.items[itemIndex];
-  const itemDefId = resolveInstanceId(state, itemInstId);
-  const itemDef = itemDefId ? state.cardPool[itemDefId as string] : undefined;
-  const fromDefId = resolveInstanceId(state, fromCharId);
-  const fromDef = fromDefId ? state.cardPool[fromDefId as string] : undefined;
-  const toDefId = resolveInstanceId(state, toCharId);
-  const toDef = toDefId ? state.cardPool[toDefId as string] : undefined;
+  const itemDef = resolveDef(state, itemInstId);
+  const fromDef = resolveDef(state, fromCharId);
+  const toDef = resolveDef(state, toCharId);
   logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);
 
   // Move the item
@@ -433,8 +429,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
   const item = char.items[itemIndex];
   const itemDef = state.cardPool[item.definitionId as string];
-  const charDefId = resolveInstanceId(state, charId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
 
   const newCharacters = { ...player.characters };
@@ -1308,8 +1303,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const char = player.characters[action.characterId as string];
   if (!char) return { state, error: 'Character not found' };
 
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
   const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
@@ -1553,8 +1547,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
     return { state, error: 'Source company would become empty' };
   }
 
-  const charDefId2 = resolveInstanceId(state, charInstId);
-  const charDef = charDefId2 ? state.cardPool[charDefId2 as string] : undefined;
+  const charDef = resolveDef(state, charInstId);
   logDetail(`Move to company: ${charDef?.name ?? '?'} (+ ${char.followers.length} followers) from ${sourceCompany.id as string} to ${targetCompany.id as string}`);
 
   // Build the moving character list preserving order from source

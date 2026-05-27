@@ -19,7 +19,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
-import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
+import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
@@ -2390,15 +2390,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // cardsInPlay and move it to the defending player's killPile to award kill MPs.
   if (allDefeated && combat.attackSource.type === 'automatic-attack') {
     const { siteInstanceId, attackIndex } = combat.attackSource;
-    const siteDefId = resolveInstanceId(state, siteInstanceId);
-    const siteDef = siteDefId ? state.cardPool[siteDefId as string] : undefined;
+    const siteDef = resolveDef(state, siteInstanceId);
     if (siteDef && isSiteCard(siteDef)) {
       const autoAttacks = getActiveAutoAttacks(state, siteDef);
       const aa = autoAttacks[attackIndex];
       const sourceInstId = aa?.sourceInstanceId;
       if (sourceInstId) {
-        const sourceDefId = resolveInstanceId(state, sourceInstId);
-        const sourceDef = sourceDefId ? state.cardPool[sourceDefId as string] : undefined;
+        const sourceDef = resolveDef(state, sourceInstId);
         const effects = (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
         for (const eff of effects) {
           if (eff.type !== 'permanent-event-auto-attack') continue;
@@ -2430,15 +2428,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // discard pile. No kill MPs are awarded ("ignore result of defeat").
   if (combat.attackSource.type === 'automatic-attack') {
     const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
-    const dauSiteDefId = resolveInstanceId(state, dauSiteInstId);
-    const dauSiteDef = dauSiteDefId ? state.cardPool[dauSiteDefId as string] : undefined;
+    const dauSiteDef = resolveDef(state, dauSiteInstId);
     if (dauSiteDef && isSiteCard(dauSiteDef)) {
       const dauAttacks = getActiveAutoAttacks(state, dauSiteDef);
       const dauAa = dauAttacks[dauAttackIdx];
       const dauSourceInstId = dauAa?.sourceInstanceId;
       if (dauSourceInstId) {
-        const dauSourceDefId = resolveInstanceId(state, dauSourceInstId);
-        const dauSourceDef = dauSourceDefId ? state.cardPool[dauSourceDefId as string] : undefined;
+        const dauSourceDef = resolveDef(state, dauSourceInstId);
         const dauEffects = (dauSourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
         for (const dauEff of dauEffects) {
           if (dauEff.type !== 'permanent-event-auto-attack') continue;

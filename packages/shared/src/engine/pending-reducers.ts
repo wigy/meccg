@@ -24,6 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
+import { resolveDef } from './effects/index.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
@@ -156,8 +157,7 @@ function applyCorruptionCheckResolution(
     return { state, error: 'Wrong character for pending corruption check' };
   }
 
-  const charDefId = resolveInstanceId(state, characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, characterId);
   const charName = charDef?.name ?? '?';
   const cp = action.corruptionPoints;
   const modifier = action.corruptionModifier;
@@ -583,8 +583,7 @@ function applyCancelInfluence(
     const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
     const activePlayer = state.players.find(p => p.id === state.activePlayer);
     const companyId = activePlayer?.companies[activeCompanyIndex]?.id ?? '' as import('../index.js').CompanyId;
-    const charDefId = resolveInstanceId(state, action.characterId);
-    const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+    const charDef = resolveDef(state, action.characterId);
     const reason = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
 
     const costResult = applyCost(resultState, cancelEffect.cost, action.characterId, {
@@ -1509,8 +1508,7 @@ function applyRingPlayOfferResolution(
   if (!char) {
     return { state, error: `Character ${characterInstanceId as string} not found for ring placement` };
   }
-  const charDefId = resolveInstanceId(state, characterInstanceId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charDef = resolveDef(state, characterInstanceId);
   logDetail(`ring-play-offer: playing ${ringName} (${ringInstanceId as string}) onto ${charDef?.name ?? (characterInstanceId as string)}${storedPlacement ? ' (stored)' : ''}`);
 
   const newHandCards = player.hand.filter((_, i) => i !== handIdx);
