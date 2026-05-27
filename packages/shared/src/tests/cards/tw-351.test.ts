@@ -123,6 +123,22 @@ describe('Torque of Hues (tw-351)', () => {
     expect(actions).toHaveLength(0);
   });
 
+  test('cancel-attack NOT offered when Torque of Hues is in hand (not in play)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [TORQUE_OF_HUES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Item is in hand, not attached to any character.
+    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+
+    const actions = viableActions(state, PLAYER_1, 'cancel-attack');
+    expect(actions).toHaveLength(0);
+  });
+
   test('cancel-attack NOT offered outside of combat', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
