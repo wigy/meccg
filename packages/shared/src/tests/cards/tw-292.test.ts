@@ -17,7 +17,7 @@
  * | # | Feature                                                          | Status      | Notes                                                           |
  * |---|------------------------------------------------------------------|-------------|-----------------------------------------------------------------|
  * | 1 | "Diplomat only" — play-target: company must contain a diplomat   | IMPLEMENTED | play-target filter company.containsDiplomat                     |
- * | 2 | +3 influence check boost (diplomat target, faction in hand)      | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand (site phase only) |
+ * | 2 | +3 influence check boost (diplomat, active influence attempt)    | IMPLEMENTED | play-option when target.skills diplomat + hasFactionInHand (chain-only)      |
  * | 3 | +2 corruption check boost for diplomat themselves                | IMPLEMENTED | play-option when pending.corruptionCheckTargetsMe               |
  * | 4 | +2 to any company member's corruption check (non-diplomat too)   | IMPLEMENTED | company.containsDiplomat in context; play-target relaxed        |
  */
@@ -30,7 +30,8 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN,
   handCardId, charIdAt, dispatch,
-  buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
+  buildSitePhaseState, buildInfluenceAttemptChainState, findCharInstanceId, findHandCardId,
+  RESOURCE_PLAYER,
   expectInDiscardPile, makeMHState,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, PlayShortEventAction } from '../../index.js';
@@ -44,11 +45,14 @@ describe('New Friendship (tw-292)', () => {
 
   // ── influence-check-boost ─────────────────────────────────────────────────
 
-  test('influence-check-boost: offered when diplomat is present and faction is in hand', () => {
-    const state = buildSitePhaseState({
+  test('influence-check-boost: offered during an active influence attempt', () => {
+    // New Friendship must be played in response to an active influence check —
+    // not speculatively before the attempt is declared.
+    const state = buildInfluenceAttemptChainState({
       characters: [LEGOLAS],
       site: PELARGIR,
       hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
     const actions = computeLegalActions(state, PLAYER_1)
@@ -84,14 +88,16 @@ describe('New Friendship (tw-292)', () => {
   });
 
   test('influence-check-boost: playing adds +3 check-modifier influence constraint on the diplomat', () => {
-    const state = buildSitePhaseState({
+    // Set up an active influence attempt chain so New Friendship is playable
+    const state = buildInfluenceAttemptChainState({
       characters: [LEGOLAS],
       site: PELARGIR,
       hand: [NEW_FRIENDSHIP, MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
     });
 
-    const legolasId = charIdAt(state, RESOURCE_PLAYER);
-    const cardInstance = handCardId(state, RESOURCE_PLAYER);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    const cardInstance = findHandCardId(state, RESOURCE_PLAYER, NEW_FRIENDSHIP);
 
     const after = dispatch(state, {
       type: 'play-short-event',
@@ -112,8 +118,8 @@ describe('New Friendship (tw-292)', () => {
     if (constraints[0].target.kind === 'character') {
       expect(constraints[0].target.characterId).toBe(legolasId);
     }
-    // Card consumed; faction card remains
-    expect(after.players[0].hand).toHaveLength(1);
+    // Card consumed; faction card is now in the chain
+    expect(after.players[0].hand).toHaveLength(0);
     expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
   });
 

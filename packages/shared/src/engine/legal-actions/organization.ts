@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isFactionCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -1064,17 +1064,15 @@ export function buildPlayOptionContext(
         inAvatarCompany = true;
       }
     }
-    // `hasFactionInHand` is only meaningful when an influence check is actually
-    // possible: during the site phase (player has a faction card available) or
-    // when an influence-attempt is already live in the chain (the faction card
-    // has moved from hand to chain but the boost window is still open).
-    // Restricting hand-based detection to the site phase prevents cards like
-    // New Friendship from appearing as playable during the movement-hazard
-    // phase simply because the player happens to hold a faction card.
-    hasFactionInHand = (currentPhase === 'site' && player.hand.some(c => isFactionCard(defById(state, c.definitionId))))
-      || Boolean(state.chain?.entries.some(
-        e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
-      ));
+    // `hasFactionInHand` is true only while this player's influence-attempt is
+    // live in the chain — the faction card has moved from hand to the chain but
+    // the boost window is still open for cards like Muster and New Friendship.
+    // Pre-checking whether the hand contains a faction card is intentionally
+    // excluded: short-event influence boosters must be played in response to an
+    // active influence check, not speculatively before one is declared.
+    hasFactionInHand = Boolean(state.chain?.entries.some(
+      e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
+    ));
     const charCompany = findCharacterCompany(player.companies, char.instanceId);
     if (charCompany?.currentSite) {
       const siteDef = defById(state, charCompany.currentSite.definitionId);
