@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -2849,7 +2849,7 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
     return transitionToDrawCards(state, mhState);
   }
 
-  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+  const hazardPlayerId = hazardPlayer(state).id;
 
   const inPlayNames = buildInPlayNames(state);
   const ahuntBoostCtx = { companyId: company.id };

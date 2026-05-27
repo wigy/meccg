@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -417,7 +417,7 @@ function handleSiteAutomaticAttacks(
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
           companyId: company.id,
           defendingPlayerId: state.activePlayer!,
-          attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
+          attackingPlayerId: hazardPlayer(state).id,
           strikesTotal: dupStrikesR,
           strikeProwess: dupProwessR,
           creatureBody: aa.body ?? null,
@@ -466,7 +466,7 @@ function handleSiteAutomaticAttacks(
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
-        attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
+        attackingPlayerId: hazardPlayer(state).id,
         strikesTotal: dupStrikes,
         strikeProwess: dupProwess,
         creatureBody: aa.body ?? null,
@@ -501,7 +501,7 @@ function handleSiteAutomaticAttacks(
   // Initiate combat for the next automatic attack (or the Forewarned-selected one)
   const resolvedAttackIndex = forewarnedIdx !== undefined ? forewarnedIdx : attackIndex;
   const aa = autoAttacks[resolvedAttackIndex];
-  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+  const hazardPlayerId = hazardPlayer(state).id;
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
@@ -895,7 +895,7 @@ function handleSiteResolveAttacks(
       newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
       // Initiate chain with CardInstance
-      const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+      const hazardPlayerId = hazardPlayer(state).id;
       const cardInstance: CardInstance = { instanceId: attackCard.instanceId, definitionId: attackCard.definitionId };
       let newState: GameState = updatePlayer(state, activePlayerIndex, p => ({ ...p, companies: newCompanies }));
       newState = initiateChain(newState, hazardPlayerId, cardInstance, { type: 'creature' });
@@ -1098,11 +1098,10 @@ function handleSitePlayResources(
     );
     if (hasRequiredSkill) {
       logDetail(`Site: short-event "${shortDef?.name ?? handCard?.definitionId}" intercepted — enqueuing on-guard-window resolution`);
-      const hazardPlayer = state.players.find(p => p.id !== state.activePlayer)!;
       return {
         state: enqueueResolution(state, {
           source: action.cardInstanceId,
-          actor: hazardPlayer.id,
+          actor: hazardPlayer(state).id,
           scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
           kind: {
             type: 'on-guard-window',
@@ -1124,11 +1123,10 @@ function handleSitePlayResources(
     && company.onGuardCards.length > 0
     && company.currentSite?.status !== CardStatus.Tapped) {
     logDetail(`Site: resource play intercepted — enqueuing on-guard-window resolution for hazard player`);
-    const hazardPlayer = state.players.find(p => p.id !== state.activePlayer)!;
     return {
       state: enqueueResolution(state, {
         source: action.cardInstanceId,
-        actor: hazardPlayer.id,
+        actor: hazardPlayer(state).id,
         scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
         kind: {
           type: 'on-guard-window',
