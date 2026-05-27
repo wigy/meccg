@@ -162,50 +162,6 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
- * Piles on {@link PlayerState} that contain {@link CardInstance} tuples and
- * can serve as `from`/`to` arguments for {@link movePlayerCard}.
- */
-export type PlayerPileName =
-  | 'hand'
-  | 'playDeck'
-  | 'discardPile'
-  | 'siteDeck'
-  | 'siteDiscardPile'
-  | 'sideboard'
-  | 'killPile'
-  | 'outOfPlayPile';
-
-/**
- * Move a single card instance between two piles on the same player.
- *
- * Returns the unchanged state if the instance is not present in the `from`
- * pile; no error is raised. Appends to the `to` pile unless `opts.prepend`
- * is set (e.g. returning a card to the top of the play deck).
- */
-export function movePlayerCard(
-  state: GameState,
-  playerIndex: number,
-  instanceId: CardInstance['instanceId'],
-  from: PlayerPileName,
-  to: PlayerPileName,
-  opts?: { readonly prepend?: boolean },
-): GameState {
-  if (from === to) return state;
-  const player = state.players[playerIndex];
-  const fromPile = player[from];
-  const idx = fromPile.findIndex(c => c.instanceId === instanceId);
-  if (idx === -1) return state;
-  const card = fromPile[idx];
-  const newFrom = [...fromPile.slice(0, idx), ...fromPile.slice(idx + 1)];
-  const moved = toCardInstance(card);
-  const toPile = player[to];
-  const newTo = opts?.prepend ? [moved, ...toPile] : [...toPile, moved];
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, [from]: newFrom, [to]: newTo };
-  return { ...state, players: newPlayers };
-}
-
-/**
  * Remove the first element matching `id` from a read-only array of card-like
  * objects. Returns the unchanged array reference if no match is found, so
  * callers can short-circuit when nothing changed.
