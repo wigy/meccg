@@ -151,6 +151,42 @@ describe('New Friendship (tw-292)', () => {
     expect(attempt.need).toBe(3);
   });
 
+  test('influence-check-boost: +3 constraint is counted in faction-influence-roll pending need', () => {
+    // Regression: factionInfluenceRollActions in pending.ts was not consulting
+    // activeConstraints, so constraints added during the chain (e.g. by New
+    // Friendship) were not reflected in the pending-roll action shown to the
+    // player (game mpo1cqve-ltys6m, seq 238).
+    const chainState = buildInfluenceAttemptChainState({
+      characters: [LEGOLAS],
+      site: PELARGIR,
+      hand: [MEN_OF_LEBENNIN],
+      factionDefId: MEN_OF_LEBENNIN,
+    });
+    const legolasId = findCharInstanceId(chainState, RESOURCE_PLAYER, LEGOLAS);
+    // Simulate New Friendship played during the chain: +3 influence constraint
+    const withConstraint = addConstraint(chainState, {
+      source: 'nf-1' as CardInstanceId,
+      sourceDefinitionId: NEW_FRIENDSHIP,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: legolasId },
+      kind: { type: 'check-modifier', check: 'influence', value: 3 },
+    });
+    // p1 passes chain priority → both players have now passed → chain resolves
+    // → faction-influence-roll pending resolution is created
+    const pass = computeLegalActions(withConstraint, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'pass-chain-priority',
+    );
+    if (!pass) throw new Error('Expected p1 to be able to pass chain priority');
+    const resolved = dispatch(withConstraint, pass.action);
+    // The pending faction-influence-roll action must count the +3 constraint
+    const rollActions = computeLegalActions(resolved, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll');
+    expect(rollActions).toHaveLength(1);
+    const rollAction = rollActions[0].action as { need: number };
+    // Legolas DI 2, no racial modifier, +3 constraint → need = 8 - 2 - 3 = 3
+    expect(rollAction.need).toBe(3);
+  });
+
   test('influence-check-boost: NOT offered during movement-hazard phase even with faction in hand', () => {
     // Regression: hasFactionInHand was true any time the player held a faction
     // card, so New Friendship appeared playable during the movement-hazard phase
