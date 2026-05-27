@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName } from '../reducer-utils.js';
+import { cardName, matchesDefinition } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -1521,7 +1521,7 @@ function hazardEventMaintenanceActions(
       for (const handCard of actorPlayer.hand) {
         const handDef = state.cardPool[handCard.definitionId as string];
         if (!handDef) continue;
-        if (!matchesCondition(handCardFilter, handDef as unknown as Record<string, unknown>)) continue;
+        if (!matchesDefinition(handDef, handCardFilter)) continue;
         logDetail(`hazard-event-maintenance: offering hand card ${handCard.definitionId as string} as payment`);
         actions.push({
           action: {

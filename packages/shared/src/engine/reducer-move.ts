@@ -28,7 +28,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, PlayerState } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
+import { matchesDefinition } from './reducer-utils.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -595,7 +595,7 @@ function removeFromCharacterHazards(
 function matchesFilter(state: GameState, inst: CardInstance, filter: Condition): boolean {
   const def = state.cardPool[inst.definitionId as string];
   if (!def) return false;
-  return matchesCondition(filter, def as unknown as Record<string, unknown>);
+  return matchesDefinition(def, filter);
 }
 
 function stringifyFrom(from: MoveZone | readonly MoveZone[]): string {

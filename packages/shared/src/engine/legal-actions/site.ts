@@ -12,6 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
+import { matchesDefinition } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -734,7 +735,7 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
         );
         if (sitePlayTarget?.filter && siteDef) {
-          if (!matchesCondition(sitePlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+          if (!matchesDefinition(siteDef, sitePlayTarget.filter)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push({
               action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1046,7 +1047,7 @@ function playResourcesActions(
           e.type === 'site-rule' && e.rule === 'deny-item',
       ) ?? [];
       const denied = denyRules.some(rule =>
-        matchesCondition(rule.when, itemDef as unknown as Record<string, unknown>),
+        matchesDefinition(itemDef, rule.when),
       );
       if (denied) {
         logDetail(`Item ${itemDef.name} (${itemDef.subtype}): denied at ${siteName} by site-rule deny-item`);
@@ -1186,7 +1187,7 @@ function playResourcesActions(
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
-        && (!sitePlayTarget.filter || matchesCondition(sitePlayTarget.filter, siteDefForAlly as unknown as Record<string, unknown>));
+        && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);

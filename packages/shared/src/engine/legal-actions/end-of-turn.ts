@@ -13,7 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesCondition } from '../../effects/condition-matcher.js';
+import { matchesDefinition } from '../reducer-utils.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -322,7 +322,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
         const def = state.cardPool[card.definitionId as string];
         if (!def) return false;
         if (!filter) return true;
-        return matchesCondition(filter, def as unknown as Record<string, unknown>);
+        return matchesDefinition(def, filter);
       });
 
       if (eligibleCards.length === 0) {

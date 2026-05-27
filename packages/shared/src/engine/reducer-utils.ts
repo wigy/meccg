@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
-import type { CardEffect, OnEventEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -146,6 +146,19 @@ export function cardName(
   fallback?: string,
 ): string {
   return state.cardPool[definitionId as string]?.name ?? fallback ?? (definitionId as string);
+}
+
+/**
+ * Evaluate a DSL {@link Condition} filter against a {@link CardDefinition}.
+ *
+ * Card definitions are matched as plain objects so that filters can reference
+ * any definition field (name, race, type, keywords, …) via dot paths. The
+ * {@link matchesCondition} context type is the structural `Record<string, unknown>`
+ * shape, so a definition needs a structural cast at the call boundary; this
+ * helper centralizes that cast and the intent ("does this card match the filter?").
+ */
+export function matchesDefinition(def: CardDefinition, condition: Condition): boolean {
+  return matchesCondition(condition, def as unknown as Record<string, unknown>);
 }
 
 /**
@@ -691,7 +704,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   const def = state.cardPool[fetchedCard.definitionId as string];
 
   // Validate card matches filter condition
-  if (!def || !matchesCondition(current.effect.filter, def as unknown as Record<string, unknown>)) {
+  if (!def || !matchesDefinition(def, current.effect.filter)) {
     return { state, error: 'Card does not match fetch filter' };
   }
 
