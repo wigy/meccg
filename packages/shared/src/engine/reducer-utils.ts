@@ -231,6 +231,19 @@ export function characterIds(
 }
 
 /**
+ * Returns the company that contains the given character, or `undefined` if no
+ * company holds it. Centralizes the recurring `companies.find(c =>
+ * c.characters.includes(charId))` lookup so phase handlers can locate a
+ * character's company without repeating the membership predicate.
+ */
+export function findCharacterCompany(
+  companies: readonly Company[],
+  characterId: CardInstanceId,
+): Company | undefined {
+  return companies.find(c => c.characters.includes(characterId));
+}
+
+/**
  * Filters a sideboard to the cards whose definitions match `predicate`,
  * returning `{ instanceId, name }` pairs for legal-action generation. Cards
  * whose definitions cannot be resolved from the card pool are skipped.

@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany } from '../reducer-utils.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -384,7 +384,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         // this card"). Handled here and we skip the later tap=bearer
         // branches for this effect.
         if (effect.cost.tap === 'sage-in-company') {
-          const bearerCompany = player.companies.find(c => c.characters.includes(charId));
+          const bearerCompany = findCharacterCompany(player.companies, charId);
           if (!bearerCompany) {
             logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: bearer has no company`);
             continue;
@@ -427,7 +427,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         } else if (effect.when) {
           const charDefForCtx = state.cardPool[char.definitionId as string];
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
-          const company = player.companies.find(c => c.characters.includes(charId));
+          const company = findCharacterCompany(player.companies, charId);
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
@@ -545,7 +545,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         const charDefForCtx = state.cardPool[char.definitionId as string];
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
-        const company = player.companies.find(c => c.characters.includes(charId));
+        const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
@@ -587,7 +587,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const charDefForCtx = state.cardPool[char.definitionId as string];
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
-        const company = player.companies.find(c => c.characters.includes(charId));
+        const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
@@ -778,7 +778,7 @@ function enumerateGrantActionTargets(
   const matches: { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] = [];
 
   if (targets.scope === 'company-items') {
-    const company = player.companies.find(c => c.characters.includes(charId));
+    const company = findCharacterCompany(player.companies, charId);
     if (!company) return [];
     for (const compCharId of company.characters) {
       const compChar = player.characters[compCharId as string];
@@ -1058,7 +1058,7 @@ export function buildPlayOptionContext(
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
-      const co = player.companies.find(c => c.characters.includes(avatar.instanceId));
+      const co = findCharacterCompany(player.companies, avatar.instanceId);
       if (co && co.characters.includes(char.instanceId)) {
         inAvatarCompany = true;
       }
@@ -1074,7 +1074,7 @@ export function buildPlayOptionContext(
       || Boolean(state.chain?.entries.some(
         e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
       ));
-    const charCompany = player.companies.find(c => c.characters.includes(char.instanceId));
+    const charCompany = findCharacterCompany(player.companies, char.instanceId);
     if (charCompany?.currentSite) {
       const siteDef = state.cardPool[charCompany.currentSite.definitionId as string];
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
@@ -1320,7 +1320,7 @@ export function playResourceShortEventActions(
         // eligibleTargets[i] is the first character of the i-th eligible company,
         // used here only to look up the company so we can emit targetCompanyId.
         for (const repCharId of eligibility.eligibleTargets) {
-          const company = player.companies.find(c => c.characters.includes(repCharId));
+          const company = findCharacterCompany(player.companies, repCharId);
           if (!company) continue;
           logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({

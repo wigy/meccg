@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -872,7 +872,7 @@ function corruptionCheckActions(
   const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords } };
 
   // DSL check-modifier effects from the character's own definition, items, and hazards.
-  const company = player.companies.find(c => c.characters.includes(characterId));
+  const company = findCharacterCompany(player.companies, characterId);
   const companyCharCount = company ? company.characters.length : 1;
   const allEffects = collectCharacterEffects(state, char, checkContext);
   const dslModifier = resolveCheckModifier(allEffects, 'corruption', { company: { characterCount: companyCharCount } });

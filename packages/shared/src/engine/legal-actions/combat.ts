@@ -22,6 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
+import { findCharacterCompany } from '../reducer-utils.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -2016,7 +2017,7 @@ function combatHazardPermanentPlays(
       }
     }
 
-    const companyId = defender.companies.find(c => c.characters.includes(targetCharId))?.id;
+    const companyId = findCharacterCompany(defender.companies, targetCharId)?.id;
     if (!companyId) continue;
 
     logDetail(`Combat play-hazard "${def.name}" playable on ${targetDef.name}`);

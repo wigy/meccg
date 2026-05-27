@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -235,7 +235,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     };
   }
 
-  const joinedCompany = companies.find(c => c.characters.includes(charInstId));
+  const joinedCompany = findCharacterCompany(companies, charInstId);
   const affectedIds = joinedCompany ? [joinedCompany.id] : [];
   return {
     state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardHazards({
@@ -506,7 +506,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
       return chDef && isCharacterCard(chDef) && isAvatarCharacter(chDef);
     });
     if (!wizardInPlay) {
-      const company = player.companies.find(c => c.characters.includes(charId));
+      const company = findCharacterCompany(player.companies, charId);
       const havenSiteInstanceId = company?.currentSite?.instanceId;
       if (company && havenSiteInstanceId) {
         logDetail(`The Windlord Found Me: Wizard not in play — opening wizard-search window at ${company.currentSite?.definitionId as string ?? '?'}`);
@@ -543,7 +543,7 @@ export function goldRingAutoTestModifier(
   itemSubtype: string | undefined,
 ): number | null {
   if (itemSubtype !== 'gold-ring') return null;
-  const company = companies.find(c => c.characters.includes(characterId));
+  const company = findCharacterCompany(companies, characterId);
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
@@ -560,7 +560,7 @@ export function goldRingAutoTestSiteName(
   companies: readonly Company[],
   characterId: CardInstanceId,
 ): string | null {
-  const company = companies.find(c => c.characters.includes(characterId));
+  const company = findCharacterCompany(companies, characterId);
   if (!company?.currentSite) return null;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return null;
@@ -760,7 +760,7 @@ function runGrantApply(
       return { error: `set-character-status target-character: action has no targetCardId on ${ctx.sourceName}` };
     }
     const bearerPlayer = newPlayers[ctx.playerIndex];
-    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
       return { error: `${ctx.charName} is not in any company` };
     }
@@ -793,7 +793,7 @@ function runGrantApply(
   if (apply.type === 'increment-company-extra-region-distance') {
     const amount = apply.amount ?? 1;
     const bearerPlayer = newPlayers[ctx.playerIndex];
-    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
       return { error: `${ctx.charName} is not in any company` };
     }
@@ -813,7 +813,7 @@ function runGrantApply(
       return { error: `set-company-special-movement missing specialMovement on ${ctx.sourceName}` };
     }
     const bearerPlayer = newPlayers[ctx.playerIndex];
-    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
       return { error: `${ctx.charName} is not in any company` };
     }
@@ -904,7 +904,7 @@ function runGrantApply(
       return { error: `roll-check missing check on ${ctx.sourceName}` };
     }
     const bearerPlayer = newPlayers[ctx.playerIndex];
-    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
       return { error: `${ctx.charName} is not in any company` };
     }
@@ -1164,7 +1164,7 @@ function runGrantApply(
 
   if (apply.type === 'untap-site') {
     const bearerPlayer = newPlayers[ctx.playerIndex];
-    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
       return { error: `${ctx.charName} is not in any company` };
     }
@@ -1247,7 +1247,7 @@ function parseConstraintScope(
       return { kind: 'until-cleared' };
     case 'company-site-phase':
     case 'company-mh-phase': {
-      const company = player.companies.find(c => c.characters.includes(characterId));
+      const company = findCharacterCompany(player.companies, characterId);
       if (!company) return null;
       return { kind: scopeName, companyId: company.id };
     }
@@ -1265,7 +1265,7 @@ function resolveConstraintTarget(
 ): import('../types/pending.js').ActiveConstraint['target'] | null {
   switch (targetName ?? 'bearer-company') {
     case 'bearer-company': {
-      const company = player.companies.find(c => c.characters.includes(characterId));
+      const company = findCharacterCompany(player.companies, characterId);
       if (!company) return null;
       return { kind: 'company', companyId: company.id };
     }

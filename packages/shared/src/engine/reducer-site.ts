@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1836,12 +1836,12 @@ export function resolveOpponentInfluenceDefend(
     if (attempt.targetKind === 'ally') {
       for (const [charId, ch] of characterEntries(opponent2)) {
         if (ch.allies.some(a => a.instanceId === attempt.targetInstanceId)) {
-          influencedCompanyId = opponent2.companies.find(c => c.characters.includes(charId))?.id;
+          influencedCompanyId = findCharacterCompany(opponent2.companies, charId)?.id;
           break;
         }
       }
     } else {
-      influencedCompanyId = opponent2.companies.find(c => c.characters.includes(attempt.targetInstanceId))?.id;
+      influencedCompanyId = findCharacterCompany(opponent2.companies, attempt.targetInstanceId)?.id;
     }
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
 

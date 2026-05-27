@@ -17,7 +17,7 @@ import { CardStatus } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
-import { characterIds } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany } from '../reducer-utils.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
@@ -109,7 +109,7 @@ function supportActions(
   const actions: GameAction[] = [];
 
   // Find the company containing the character making the check
-  const company = player.companies.find(c => c.characters.includes(pending.characterId));
+  const company = findCharacterCompany(player.companies, pending.characterId);
   if (company) {
     for (const charId of company.characters) {
       if (charId === pending.characterId) continue;
