@@ -203,6 +203,4 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
   });
 
   test.todo('During movement/hazard phase: site stays until end of all M/H phases');
-
-  test.todo('Another company at same site: site remains in play');
 });

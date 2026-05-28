@@ -21,12 +21,13 @@
 import { describe, test, expect } from 'vitest';
 import {
   buildTargetState, findCharInstanceId, attachAllyToChar,
+  addCardInPlay,
   viableActions, PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, BILBO,
   GWAIHIR,
-  MORIA, LORIEN, RESOURCE_PLAYER, HAZARD_PLAYER,
+  MORIA, LORIEN, BREE, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
-import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
+import type { OpponentInfluenceAttemptAction, CardDefinitionId } from '../../test-helpers.js';
 
 describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
   test('character at same site is a valid target', () => {
@@ -100,10 +101,19 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     expect(allyActions.length).toBeGreaterThan(0);
   });
 
-  // The remaining target kinds (faction, item) are blocked on engine work:
-  // OpponentInfluenceAttemptAction.targetKind currently supports only
-  // 'character' | 'ally'. Once the legal-action computer enumerates
-  // faction- and item-typed targets, these can be exercised here.
-  test.todo('faction: playable site target');
+  test('faction: playable site target', () => {
+    // P1 (Aragorn) is at Bree. P2 has Rangers of the North in play.
+    // Rangers of the North is playable at Bree, so P1 can attempt to re-influence it.
+    const RANGERS = 'tw-311' as CardDefinitionId;
+    const state = buildTargetState({ p1Site: BREE, p2Site: LORIEN });
+    const withFaction = addCardInPlay(state, HAZARD_PLAYER, RANGERS);
+
+    const actions = viableActions(withFaction, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
+    const factionActions = actions.filter(a => a.action.targetKind === 'faction');
+    expect(factionActions.length).toBeGreaterThan(0);
+    const aragornId = findCharInstanceId(withFaction, RESOURCE_PLAYER, ARAGORN);
+    expect(factionActions.some(a => a.action.influencingCharacterId === aragornId)).toBe(true);
+  });
+
   test.todo('item: same site + no permanent-event + reveal identical item');
 });
