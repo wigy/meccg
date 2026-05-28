@@ -28,7 +28,7 @@ import { isCharacterCard, isResourceEventCard, CardStatus, hasPlayFlag, formatSi
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
-import { resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, activePlayerState, defById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
@@ -126,14 +126,7 @@ export function availableDI(
     if (ctrlDef && isCharacterCard(ctrlDef)) {
       const resolverCtx: ResolverContext = {
         reason: 'influence-check',
-        bearer: {
-          race: ctrlDef.race,
-          skills: ctrlDef.skills,
-          baseProwess: ctrlDef.prowess,
-          baseBody: ctrlDef.body,
-          baseDirectInfluence: ctrlDef.directInfluence,
-          name: ctrlDef.name,
-        },
+        bearer: buildBearerContext(ctrlDef),
         target: {
           name: targetDef.name,
           race: targetDef.race,

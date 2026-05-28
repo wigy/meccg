@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer, defById } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, getCardEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer, defById } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -1146,8 +1146,8 @@ function handlePlayHazardCard(
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
 
-  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = hazardPlayer.hand[cardIdx];
+  const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = defById(state, handCard.definitionId);
   if (!def) return { state, error: 'Card definition not found' };
 
@@ -1163,8 +1163,7 @@ function handlePlayHazardCard(
     && (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event')
     && hasPlayFlag(def, 'playable-as-hazard')) {
     logDetail(`Play-hazards: ${action.player as string} plays resource-as-hazard "${def.name}" → triggering endgame (caller gets last turn)`);
-    const newHand = [...hazardPlayer.hand];
-    newHand.splice(cardIdx, 1);
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
     const afterDiscard = updatePlayer(state, hazardIndex, p => ({
       ...p,
       hand: newHand,
@@ -1188,8 +1187,7 @@ function handlePlayHazardCard(
     logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
 
     // Remove card from hand — it resides on the chain entry until combat resolves
-    const newHand = [...hazardPlayer.hand];
-    newHand.splice(cardIdx, 1);
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
     let newState: GameState = {
       ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
@@ -1221,7 +1219,7 @@ function handlePlayHazardCard(
       (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
     );
     if (tapAgentEff && action.type === 'play-hazard' && action.agentInstanceId) {
-      return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, cardIdx, def, tapAgentEff);
+      return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, tapAgentEff);
     }
 
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
@@ -1229,8 +1227,7 @@ function handlePlayHazardCard(
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
-    const newHand = [...hazardPlayer.hand];
-    newHand.splice(cardIdx, 1);
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
     let newState: GameState = {
       ...updatePlayer(state, hazardIndex, p => ({
@@ -1304,8 +1301,7 @@ function handlePlayHazardCard(
   // --- Hazard-corruption handling (attaches to character like permanent events) ---
   if (def.cardType === 'hazard-corruption') {
     logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
-    const newHand = [...hazardPlayer.hand];
-    newHand.splice(cardIdx, 1);
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
     const targetCharId = action.type === 'play-hazard' ? action.targetCharacterId : undefined;
     const updatedCorruptionPerChar = targetCharId
       ? { ...mhState.corruptionCardsPlayedPerChar, [targetCharId as string]: true as const }
@@ -1340,8 +1336,7 @@ function handlePlayHazardCard(
   logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
 
   // Remove card from hand — it now resides on the chain
-  const newHand = [...hazardPlayer.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
   const eventTargetCharId = def.eventType === 'permanent' && action.type === 'play-hazard'
     ? action.targetCharacterId
@@ -1396,7 +1391,6 @@ function handleTapAgentAtSite(
   hazardPlayer: GameState['players'][number],
   hazardIndex: number,
   handCard: GameState['players'][number]['hand'][number],
-  cardIdx: number,
   def: CardDefinition,
   tapAgentEff: TapAgentEffect,
 ): ReducerResult {
@@ -1505,8 +1499,7 @@ function handleTapAgentAtSite(
   }
 
   // --- Remove card from hand, add to discard ---
-  const newHand = [...stateAfterReveal.players[hazardIndex].hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(stateAfterReveal.players[hazardIndex].hand, handCard.instanceId);
   stateAfterReveal = updatePlayer(stateAfterReveal, hazardIndex, p => ({
     ...p,
     hand: newHand,
@@ -1569,14 +1562,13 @@ function handlePlaceOnGuard(
   const activeIdx = getPlayerIndex(state, state.activePlayer!);
   const targetCompanyId = state.players[activeIdx].companies[mhState.activeCompanyIndex].id;
 
-  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = hazardPlayer.hand[cardIdx];
+  const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
 
   logDetail(`Play-hazards: hazard player places on-guard card "${action.cardInstanceId}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, targetCompanyId)})`);
 
   // Remove card from hand
-  const newHand = [...hazardPlayer.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
   // Add card to the active company's on-guard cards
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
@@ -2042,10 +2034,9 @@ function handleResetHand(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const discardedCard = player.hand[cardIdx];
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const discardedCard = findById(player.hand, action.cardInstanceId);
+  if (!discardedCard) return { state, error: 'Card not found in hand' };
+  const newHand = removeById(player.hand, discardedCard.instanceId);
 
   const updatedState = updatePlayer(state, playerIndex, p => ({
     ...p,
@@ -2592,11 +2583,10 @@ function handleTapHazardCardForLimit(
   if (card.status !== CardStatus.Untapped) return { state, error: `tap-hazard-card-for-limit: card ${action.cardInstanceId as string} is already tapped` };
 
   const def = defById(state, card.definitionId);
-  const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  const effect = getCardEffects(def).find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
-  const defName = def?.name ?? card.definitionId as string;
+  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
   logDetail(`Tap hazard card for limit: "${defName}" taps → +${effect.tapValue} hazard limit against company ${action.targetCompanyId as string}`);
 
   // Tap the card
@@ -2638,11 +2628,10 @@ function handlePayHazardLimitToUntapCard(
   if (card.status !== CardStatus.Tapped) return { state, error: `pay-hazard-limit-to-untap-card: card ${action.cardInstanceId as string} is not tapped` };
 
   const def = defById(state, card.definitionId);
-  const effect = (def && 'effects' in def ? def.effects as readonly import('../types/effects.js').CardEffect[] : [])
-    .find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  const effect = getCardEffects(def).find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
   if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
-  const defName = def?.name ?? card.definitionId as string;
+  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
   const newHazardCount = mhState.hazardsPlayedThisCompany + effect.untapCost;
   logDetail(`Pay hazard limit to untap: "${defName}" costs ${effect.untapCost} hazard limit (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → card untaps`);
 
@@ -2780,9 +2769,7 @@ function collectMatchingAhuntAttacks(
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = defById(state, card.definitionId);
-      if (!def || !('effects' in def) || !def.effects) continue;
-
-      for (const effect of def.effects) {
+      for (const effect of getCardEffects(def)) {
         if (effect.type !== 'ahunt-attack') continue;
 
         const extendedApplies = effect.extended

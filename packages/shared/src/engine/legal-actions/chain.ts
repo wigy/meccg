@@ -17,7 +17,7 @@ import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, Car
 import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
-import { playerById, defById } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById } from '../reducer-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
 
@@ -234,8 +234,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
   for (const e of chain.entries) {
     if (e.resolved || e.negated || !e.card) continue;
     const def = defById(state, e.card.definitionId);
-    if (!def || !('effects' in def) || !def.effects) continue;
-    const hasTag = (def.effects).some(
+    const hasTag = getCardEffects(def).some(
       (eff): eff is ForceReturnToOriginEffect => eff.type === 'force-return-to-origin',
     );
     if (hasTag) {
@@ -255,8 +254,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     if (!charData) continue;
     for (const ally of charData.allies ?? []) {
       const allyDef = defById(state, ally.definitionId);
-      if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
-      const hasCancelEffect = (allyDef.effects).some(
+      const hasCancelEffect = getCardEffects(allyDef).some(
         (e): e is CancelChainReturnToOriginEffect => e.type === 'cancel-chain-return-to-origin',
       );
       if (!hasCancelEffect) continue;

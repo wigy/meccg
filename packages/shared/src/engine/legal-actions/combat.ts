@@ -242,8 +242,7 @@ function havenJoinAttackActions(
   const actions: EvaluatedAction[] = [];
   for (const offer of offers) {
     if (offer.bearerPlayerId !== playerId) continue;
-    const playerIdx = state.players.findIndex(p => p.id === playerId);
-    const charInPlay = state.players[playerIdx]?.characters[offer.characterId as string];
+    const charInPlay = playerById(state, playerId)?.characters[offer.characterId as string];
     if (!charInPlay) continue;
     logDetail(`Defender may accept haven-join for ${offer.characterId as string}`);
     actions.push({
@@ -270,8 +269,8 @@ function assignStrikeActions(
 
   if (combat.assignmentPhase === 'defender' && playerId === combat.defendingPlayerId) {
     // Find characters in the defending company
-    const playerIndex = state.players.findIndex(p => p.id === playerId);
-    const player = state.players[playerIndex];
+    const player = playerById(state, playerId);
+    if (!player) return [];
     const company = companyById(player.companies, combat.companyId);
     if (!company) return [];
 
@@ -390,8 +389,8 @@ function assignStrikeActions(
 
   if (combat.assignmentPhase === 'attacker' && playerId === combat.attackingPlayerId) {
     // Attacker assigns remaining strikes to unassigned characters or as excess
-    const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-    const defPlayer = state.players[defPlayerIndex];
+    const defPlayer = playerById(state, combat.defendingPlayerId);
+    if (!defPlayer) return [];
     const company = companyById(defPlayer.companies, combat.companyId);
     if (!company) return [];
 
@@ -472,8 +471,8 @@ function assignStrikeActions(
 function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-  const defPlayer = state.players[defPlayerIndex];
+  const defPlayer = playerById(state, combat.defendingPlayerId);
+  if (!defPlayer) return [];
   const company = companyById(defPlayer.companies, combat.companyId);
 
   const actions: EvaluatedAction[] = [];
@@ -527,8 +526,8 @@ function resolveStrikeActions(
 
   // Resolve-strike: tap to fight (normal) or stay untapped (-3 prowess)
   // The -3 option is only available if the combatant is currently untapped
-  const playerIndex0 = state.players.findIndex(p => p.id === playerId);
-  const player0 = state.players[playerIndex0];
+  const player0 = playerById(state, playerId);
+  if (!player0) return [];
   const charData = player0.characters[currentStrike.characterId as string];
   const company0 = companyById(player0.companies, combat.companyId);
 
@@ -667,8 +666,8 @@ function resolveStrikeActions(
   // Support: any untapped character in the same company who hasn't been assigned a strike,
   // or any untapped ally in the company.
   // (CRF: "tap one or more of their untapped characters ... who hasn't been assigned a strike")
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
   const company = companyById(player.companies, combat.companyId);
   const assignedCharIds = new Set(combat.strikeAssignments.map(sa => sa.characterId as string));
   if (company) {
@@ -921,9 +920,8 @@ function shortEventsAffectingStrike(
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!currentStrike || currentStrike.resolved) return [];
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-  if (defPlayerIndex < 0) return [];
-  const defPlayer = state.players[defPlayerIndex];
+  const defPlayer = playerById(state, combat.defendingPlayerId);
+  if (!defPlayer) return [];
 
   const strikeCharData = defPlayer.characters[currentStrike.characterId as string];
   if (!strikeCharData) return [];
@@ -1009,8 +1007,8 @@ function tapItemForStrikeActions(
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!currentStrike || currentStrike.resolved) return [];
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === playerId);
-  const defPlayer = state.players[defPlayerIndex];
+  const defPlayer = playerById(state, playerId);
+  if (!defPlayer) return [];
   const charData = defPlayer.characters[currentStrike.characterId as string];
   if (!charData) return [];
 
@@ -1149,8 +1147,8 @@ function cancelAttackActions(
     return [];
   }
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
   const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
@@ -1473,8 +1471,8 @@ function halveStrikesActions(
   if (combat.phase !== 'assign-strikes') return [];
   if (combat.strikeAssignments.length > 0) return [];
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
 
@@ -1547,9 +1545,8 @@ function modifyAttackActions(
   if (combat.phase !== 'assign-strikes') return [];
   if (combat.strikeAssignments.length > 0) return [];
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex < 0) return [];
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
 
@@ -1646,9 +1643,9 @@ function modifyAttackActions(
     if (effect.when) {
       let baseProwess = combat.strikeProwess;
       if (combat.attackSource.type === 'creature') {
-        const atkPlayerIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
-        if (atkPlayerIdx >= 0) {
-          const creatureCard = state.players[atkPlayerIdx].cardsInPlay.find(
+        const atkPlayer = playerById(state, combat.attackingPlayerId);
+        if (atkPlayer) {
+          const creatureCard = atkPlayer.cardsInPlay.find(
             c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
           );
           if (creatureCard) {
@@ -1701,9 +1698,8 @@ function companyCombatBoostActions(
   if (combat.strikeAssignments.length > 0) return [];
   if (playerId !== combat.defendingPlayerId) return [];
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex < 0) return [];
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   // Find the defending company's characters.
   const company = companyById(player.companies, combat.companyId);
@@ -1779,8 +1775,8 @@ function cancelByTapActions(
   if (combat.assignmentPhase !== 'cancel-by-tap') return [];
   if (!combat.cancelByTapRemaining || combat.cancelByTapRemaining <= 0) return [];
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
   const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
@@ -1916,12 +1912,11 @@ function combatHazardPermanentPlays(
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!currentStrike || currentStrike.resolved) return [];
 
-  const attackerIndex = state.players.findIndex(p => p.id === playerId);
-  const attacker = state.players[attackerIndex];
+  const attacker = playerById(state, playerId);
   if (!attacker) return [];
 
-  const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-  const defender = state.players[defenderIndex];
+  const defender = playerById(state, combat.defendingPlayerId);
+  if (!defender) return [];
   const targetCharId = currentStrike.characterId;
   const targetChar = defender.characters[targetCharId as string];
   if (!targetChar) return [];

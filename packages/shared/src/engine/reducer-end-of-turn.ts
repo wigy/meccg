@@ -12,7 +12,7 @@ import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, removeById, defById } from './reducer-utils.js';
+import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, findById, removeById, defById } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
@@ -96,10 +96,9 @@ function handleEndOfTurnDiscard(
 
   if (action.type === 'discard-card') {
     const player = state.players[playerIndex];
-    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    const discardedCard = player.hand[cardIdx];
-    const newHand = [...player.hand];
-    newHand.splice(cardIdx, 1);
+    const discardedCard = findById(player.hand, action.cardInstanceId);
+    if (!discardedCard) return { state, error: 'Card not found in hand' };
+    const newHand = removeById(player.hand, discardedCard.instanceId);
 
     const updatedState = updatePlayer(state, playerIndex, p => ({
       ...p,
@@ -202,10 +201,9 @@ function handleEndOfTurnResetHand(
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
     const handSize = resolveHandSize(state, playerIndex);
-    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    const discardedCard = player.hand[cardIdx];
-    const newHand = [...player.hand];
-    newHand.splice(cardIdx, 1);
+    const discardedCard = findById(player.hand, action.cardInstanceId);
+    if (!discardedCard) return { state, error: 'Card not found in hand' };
+    const newHand = removeById(player.hand, discardedCard.instanceId);
 
     const updatedState = updatePlayer(state, playerIndex, p => ({
       ...p,
@@ -472,11 +470,10 @@ export function reshuffleCardFromHand(
 ): GameState | null {
   const playerIndex = getPlayerIndex(state, player);
   const p = state.players[playerIndex];
-  const cardIdx = p.hand.findIndex(c => c.instanceId === cardInstanceId);
-  if (cardIdx < 0) return null;
+  const card = findById(p.hand, cardInstanceId);
+  if (!card) return null;
 
-  const card = p.hand[cardIdx];
-  const newHand = [...p.hand.slice(0, cardIdx), ...p.hand.slice(cardIdx + 1)];
+  const newHand = removeById(p.hand, cardInstanceId);
 
   const [shuffled, rng] = shuffle([...p.playDeck, card], state.rng);
 

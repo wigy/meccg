@@ -42,9 +42,8 @@ function pendingEffectLegalActions(state: GameState, playerId: PlayerId): Evalua
 
 /** Computes legal fetch-from-pile actions for a fetch-to-deck effect. */
 function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect: FetchToDeckEffect): EvaluatedAction[] {
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) return [];
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
   const actions: EvaluatedAction[] = [];
 
   // Identify the triggering event card so it is excluded from candidates.

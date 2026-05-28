@@ -8,6 +8,7 @@
 
 export { evaluateExpr } from './expression-eval.js';
 export {
+  buildBearerContext,
   collectEffects,
   collectCharacterEffects,
   collectCompanyAllyEffects,

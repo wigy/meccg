@@ -44,11 +44,8 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   }
 
   const actions: EvaluatedAction[] = [];
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) {
-    return [{ action: { type: 'pass', player: playerId }, viable: true }];
-  }
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [{ action: { type: 'pass', player: playerId }, viable: true }];
 
   // Track which hand cards have been evaluated so we can mark the rest not-playable
   const evaluatedInstances = new Set<string>();

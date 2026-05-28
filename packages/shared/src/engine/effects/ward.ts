@@ -21,7 +21,7 @@
 import type { GameState, CardInstanceId, CardDefinition, CardInPlay } from '../../index.js';
 import { matchesCondition } from '../../effects/index.js';
 import { ownerOf } from '../../types/state.js';
-import { updatePlayer, updateCharacter } from '../reducer-utils.js';
+import { updatePlayer, updateCharacter, getCardEffects } from '../reducer-utils.js';
 import { logDetail } from '../legal-actions/log.js';
 
 /**
@@ -39,8 +39,7 @@ export function collectBearerWardFilters(
   const filters: import('../../types/effects.js').Condition[] = [];
   for (const item of char.items) {
     const def = state.cardPool[item.definitionId as string];
-    if (!def || !('effects' in def) || !def.effects) continue;
-    for (const eff of def.effects) {
+    for (const eff of getCardEffects(def)) {
       if (eff.type === 'ward-bearer') filters.push(eff.filter);
     }
   }

@@ -30,13 +30,13 @@ import type {
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, companyById, defById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -274,15 +274,13 @@ function cancelInfluenceActions(
   actor: PlayerId,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const playerIndex = state.players.findIndex(p => p.id === actor);
-  if (playerIndex < 0) return actions;
-  const player = state.players[playerIndex];
+  const player = playerById(state, actor);
+  if (!player) return actions;
 
   for (const handCard of player.hand) {
     const def = resolveDef(state, handCard.instanceId);
-    if (!def || !('effects' in def) || !def.effects) continue;
-
-    const cancelEffect = (def.effects as CardEffect[]).find(e => e.type === 'cancel-influence');
+    if (!def) continue;
+    const cancelEffect = (getCardEffects(def) as CardEffect[]).find(e => e.type === 'cancel-influence');
     if (!cancelEffect || cancelEffect.type !== 'cancel-influence') continue;
 
     if (cancelEffect.requiredRace) {
@@ -326,9 +324,8 @@ function factionInfluenceRollActions(
   if (top.kind.type !== 'faction-influence-roll') return [];
   const { factionInstanceId, factionDefinitionId, influencingCharacterId } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
@@ -351,14 +348,7 @@ function factionInfluenceRollActions(
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: {
-        race: charDef.race,
-        skills: charDef.skills,
-        baseProwess: charDef.prowess,
-        baseBody: charDef.body,
-        baseDirectInfluence: charDef.directInfluence,
-        name: charDef.name,
-      },
+      bearer: buildBearerContext(charDef),
       faction: {
         name: def.name,
         race: def.race,
@@ -432,9 +422,8 @@ function musterRollActions(
   if (top.kind.type !== 'muster-roll') return [];
   const { factionInstanceId, factionDefinitionId } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
@@ -471,9 +460,8 @@ function flateryAttemptRollActions(
   if (top.kind.type !== 'flattery-attempt') return [];
   const { characterInstanceId, creatureRace, threshold, diplomatBonus } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId as string];
   if (!charInPlay) return [];
@@ -520,9 +508,8 @@ function callOfHomeRollActions(
   if (top.kind.type !== 'call-of-home-roll') return [];
   const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const charInPlay = player.characters[targetCharacterId as string];
   if (!charInPlay) return [];
@@ -562,9 +549,8 @@ function seizedByTerrorRollActions(
   if (top.kind.type !== 'seized-by-terror-roll') return [];
   const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const charInPlay = player.characters[targetCharacterId as string];
   if (!charInPlay) return [];
@@ -605,9 +591,8 @@ function goldRingTestActions(
   if (top.kind.type !== 'gold-ring-test') return [];
   const { goldRingInstanceId, rollModifier } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   // Ring may be in outOfPlayPile (org-phase store path) or in a character's
   // items array (site-phase play path with auto-test-gold-ring).
@@ -681,9 +666,8 @@ function bodyCheckCompanyActions(
   if (top.kind.type !== 'body-check-company') return [];
   const { characterId, modifier, sourceDefinitionId } = top.kind;
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const charInPlay = player.characters[characterId as string];
   if (!charInPlay) return [];
@@ -724,9 +708,8 @@ function resourcePlayOfferActions(
 
   const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
 
-  const playerIndex = state.players.findIndex(p => p.id === actor);
-  if (playerIndex < 0) return actions;
-  const player = state.players[playerIndex];
+  const player = playerById(state, actor);
+  if (!player) return actions;
   const cofInstanceId = top.kind.linkToInstanceId;
 
   for (const card of player.hand) {
@@ -768,9 +751,8 @@ function wizardSearchOnStoreActions(
 ): EvaluatedAction[] {
   if (top.kind.type !== 'wizard-search-on-store') return [];
 
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
 
@@ -842,9 +824,8 @@ function corruptionCheckActions(
 
   // Find the character on either player (corruption checks are owned by
   // the actor, but the actor may not be the active player in all cases).
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return [];
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return [];
   const char = player.characters[characterId as string];
   if (!char) {
     // Character was eliminated — auto-resolve via pass.
@@ -964,9 +945,8 @@ function reactiveCorruptionCheckPlays(
   targetChar: import('../../index.js').CharacterInPlay,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const actorIndex = state.players.findIndex(p => p.id === playerId);
-  if (actorIndex === -1) return actions;
-  const player = state.players[actorIndex];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
 
   const ctx = buildPlayOptionContext(state, targetChar, player);
 
@@ -1175,9 +1155,8 @@ function applyGrantedActionConstraint(
   if (constraint.target.kind !== 'company') return base;
   if (state.activePlayer !== playerId) return base;
 
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) return base;
-  const player = state.players[playerIndex];
+  const player = playerById(state, playerId);
+  if (!player) return base;
   const targetCompanyId = constraint.target.companyId;
   const company = companyById(player.companies, targetCompanyId);
   if (!company) return base;
@@ -1376,8 +1355,9 @@ function applyDenyScoutResources(
     const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
     if (!cardInstId) return true;
     const def = resolveDef(state, cardInstId);
-    if (!def || !('effects' in def) || !def.effects) return true;
-    if (!requiresScout(def.effects)) return true;
+    if (!def) return true;
+    const effects = getCardEffects(def);
+    if (effects.length === 0 || !requiresScout(effects)) return true;
     logDetail(`Constraint ${constraint.id as string} (deny-scout-resources): dropping "${def.name}" — requires scout`);
     return false;
   });
@@ -1566,9 +1546,8 @@ function ringPlayOfferActions(
   const { eligibleCategories } = top.kind;
   const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
 
-  const playerIndex = state.players.findIndex(p => p.id === actor);
-  if (playerIndex < 0) return actions;
-  const player = state.players[playerIndex];
+  const player = playerById(state, actor);
+  if (!player) return actions;
 
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);

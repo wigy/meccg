@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, companyById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -496,9 +496,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
 
   // fetch-wizard-on-store: The Windlord Found Me triggers a wizard-search
   // window when stored if the resource player's Wizard is not already in play.
-  const fetchWizardEffect = itemDef && 'effects' in itemDef
-    ? (itemDef.effects as FetchWizardOnStoreEffect[]).find(e => e.type === 'fetch-wizard-on-store')
-    : undefined;
+  const fetchWizardEffect = (getCardEffects(itemDef) as FetchWizardOnStoreEffect[]).find(e => e.type === 'fetch-wizard-on-store');
   if (fetchWizardEffect) {
     const wizardInPlay = Object.values(stateAfterCheck.players[playerIndex].characters).some(ch => {
       const chDefId = resolveInstanceId(stateAfterCheck, ch.instanceId);
@@ -1302,10 +1300,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   //    card (dynamic, added via on-event / sequence apply).
   // Check the static path first; if that doesn't yield a matching
   // action, fall through to an active constraint lookup.
-  const effects = sourceDef && 'effects' in sourceDef
-    ? (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects
-    : undefined;
-  const staticEffect = effects?.find(
+  const staticEffect = getCardEffects(sourceDef).find(
     (e): e is import('../types/effects.js').GrantActionEffect =>
       e.type === 'grant-action' && e.action === action.actionId,
   );

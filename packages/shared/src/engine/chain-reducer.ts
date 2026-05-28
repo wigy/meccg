@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope, defById } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope, getCardEffects, defById } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -558,8 +558,7 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  if (!def || !('effects' in def) || !def.effects) return state;
-
+  if (!def) return state;
   // Collect all on-event effects for company-arrives-at-site. Each
   // effect's apply is either an `add-constraint` (single) or a
   // `sequence` of `add-constraint`s (River — adds
@@ -569,7 +568,7 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   // modes (e.g. Choking Shadows' +2 prowess vs. type-override); the
   // first effect whose `when` condition matches is applied and the
   // rest skipped.
-  const onEvents = def.effects.filter(
+  const onEvents = getCardEffects(def).filter(
     (e): e is import('../types/effects.js').OnEventEffect =>
       e.type === 'on-event'
       && e.event === 'company-arrives-at-site'
@@ -670,9 +669,8 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  if (!def || !('effects' in def) || !def.effects) return state;
-
-  const onEvents = def.effects.filter(
+  if (!def) return state;
+  const onEvents = getCardEffects(def).filter(
     (e): e is OnEventEffect =>
       e.type === 'on-event'
       && e.event === 'self-enters-play'
@@ -855,13 +853,12 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  if (!def || !('effects' in def) || !def.effects) return state;
-
+  if (!def) return state;
   const inPlayNames = buildInPlayNames(state);
   const ctx: Record<string, unknown> = { inPlay: inPlayNames };
 
   const fetchEffects: PendingEffect[] = [];
-  for (const effect of def.effects) {
+  for (const effect of getCardEffects(def)) {
     if (effect.type !== 'move') continue;
     const payload = moveToFetchToDeckPayload(effect);
     if (!payload) continue;
@@ -1031,11 +1028,10 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)
-  if (def && 'effects' in def && def.effects) {
-    for (const effect of def.effects) {
+  for (const effect of getCardEffects(def)) {
       if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
       if (effect.apply.type === 'move') {
-        logDetail(`"${def.name}" entered play — running move apply`);
+        logDetail(`"${def?.name ?? '?'}" entered play — running move apply`);
         const moveEffect = effect.apply as unknown as import('../types/effects.js').MoveEffect;
         const ctx: import('./reducer-move.js').MoveContext = {
           sourceCardId: entry.card!.instanceId,
@@ -1063,13 +1059,12 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         });
         logDetail(`"${def?.name ?? card.definitionId as string}" entered play — queued resource-play-offer for player ${activePlayer as string}`);
       }
-    }
   }
 
   // Trigger-auto-attack-on-play: initiate combat immediately after the card enters play.
   // Bearer selection happens post-attack via a select-card-bearer pending resolution.
-  if (def && 'effects' in def && def.effects) {
-    const triggerEffect = def.effects.find(
+  {
+    const triggerEffect = getCardEffects(def).find(
       (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
     );
     if (triggerEffect) {
@@ -1093,7 +1088,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           newState, triggerEffect.strikes, inPlayNames, creatureRace, { companyId },
         );
         logDetail(
-          `"${def.name}" entered play — triggering ${triggerEffect.creatureType} auto-attack ` +
+          `"${def?.name ?? '?'}" entered play — triggering ${triggerEffect.creatureType} auto-attack ` +
           `(${effectiveStrikes} strikes, ${effectiveProwess} prowess) on company ${companyId as string}; ` +
           `bearer selected post-attack`,
         );
@@ -1701,9 +1696,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   const resolveEffects: import('../index.js').GameEffect[] = [];
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    if (def && 'effects' in def && def.effects) {
+    {
       const ctx = buildChainApplyContext(current, entry);
-      for (const effect of def.effects) {
+      for (const effect of getCardEffects(def)) {
         if (
           effect.type !== 'cancel-attack' &&
           effect.type !== 'strike-modifier'
@@ -1730,7 +1725,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     entry.payload.targetCharacterId
   ) {
     const def = defById(current, entry.card.definitionId);
-    if (def && 'effects' in def && def.effects?.some(e => e.type === 'set-character-status' && e.status === 'inverted' && e.target === 'target-character')) {
+    if (getCardEffects(def).some(e => e.type === 'set-character-status' && (e as { status?: string }).status === 'inverted' && (e as { target?: string }).target === 'target-character')) {
       const targetId = entry.payload.targetCharacterId;
       for (let pi = 0; pi < current.players.length; pi++) {
         if (current.players[pi].characters[targetId as string]) {
@@ -2085,9 +2080,8 @@ function detectTriggeredPassives(state: GameState, resolvedEntry: ChainEntry): D
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = defById(state, card.definitionId);
-      if (!def || !('effects' in def) || !def.effects) continue;
-
-      for (const effect of def.effects) {
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
         if (effect.type !== 'on-event') continue;
 
         // Match the event trigger against what just resolved

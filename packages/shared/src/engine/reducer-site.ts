@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -784,11 +784,10 @@ function handleSitePlaySiteAutoAttack(
   const hazardPlayerId = action.player;
   const hazardIndex = getPlayerIndex(state, hazardPlayerId);
   const hazardPlayer = state.players[hazardIndex];
-  const creatureIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (creatureIdx === -1) {
+  const creatureCard = findById(hazardPlayer.hand, action.cardInstanceId);
+  if (!creatureCard) {
     return { state, error: `Card ${action.cardInstanceId} not in hazard player's hand` };
   }
-  const creatureCard = hazardPlayer.hand[creatureIdx];
   const creatureDef = defById(state, creatureCard.definitionId);
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
     return { state, error: `Card ${action.cardInstanceId} is not a hazard creature` };
@@ -796,7 +795,7 @@ function handleSitePlaySiteAutoAttack(
 
   // Remove creature from hand, move to hazard player's cardsInPlay for
   // the duration of combat (finalizeCombat routes it to discard).
-  const newHand = hazardPlayer.hand.filter((_, i) => i !== creatureIdx);
+  const newHand = removeById(hazardPlayer.hand, creatureCard.instanceId);
   const stateAfterMove = updatePlayer(state, hazardIndex, p => ({
     ...p,
     hand: newHand,
@@ -1202,8 +1201,8 @@ function handleSitePlayHeroResource(
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
 
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = player.hand[cardIdx];
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = defById(state, handCard.definitionId)!;
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
@@ -1217,8 +1216,7 @@ function handleSitePlayHeroResource(
   logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
 
   // Remove card from hand
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(player.hand, handCard.instanceId);
 
   // Tap the character and attach the item or ally
   const updatedChar: CharacterInPlay = {
@@ -1473,14 +1471,7 @@ export function resolveInfluenceAttemptRoll(
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: {
-        race: charDef.race,
-        skills: charDef.skills,
-        baseProwess: charDef.prowess,
-        baseBody: charDef.body,
-        baseDirectInfluence: charDef.directInfluence,
-        name: charDef.name,
-      },
+      bearer: buildBearerContext(charDef),
       faction: {
         name: def.name,
         race: def.race,

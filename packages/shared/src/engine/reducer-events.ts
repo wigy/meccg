@@ -14,7 +14,7 @@ import { ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, matchesDefinition, findCharacterCompany, companyById, defById } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, getCardEffects, matchesDefinition, findCharacterCompany, findById, removeById, companyById, defById } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -37,16 +37,14 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = player.hand[cardIdx];
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
-
+  const newHand = removeById(player.hand, handCard.instanceId);
   let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand }));
 
   // Discard a card as a play cost (e.g. Sapling of the White Tree for The White Tree)
@@ -119,16 +117,15 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = player.hand[cardIdx];
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-hazards.js').HazardEventCard;
 
   const targetDef = resolveDef(state, action.targetInstanceId!);
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
 
   // Move short event from hand → discard
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(player.hand, handCard.instanceId);
 
   let newState: GameState = updatePlayer(state, playerIndex, p => ({
     ...p,
@@ -196,8 +193,8 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     // must pay the maintenance cost (discard self or matching hand card).
     for (const card of afterPass.players[hazardPlayerIndex].cardsInPlay) {
       const def = defById(afterPass, card.definitionId);
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects) {
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
         if (effect.type !== 'hazard-maintenance') continue;
         if (effect.trigger !== 'opponent-long-event-end') continue;
         logDetail(`Long-event exit: queuing hazard-event-maintenance for "${def.name}" (${card.instanceId as string})`);
@@ -282,8 +279,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = player.hand[cardIdx];
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
@@ -294,8 +291,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // toast can name the card even though no public pile ever held it.
   state = revealInstances(state, [handCard]);
 
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(player.hand, handCard.instanceId);
 
   // Resource-side `call-council` (e.g. Sudden Call, le-235): the card
   // triggers the endgame — discard the card, bypass normal short-event
@@ -1174,15 +1170,14 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  const handCard = player.hand[cardIdx];
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource long-event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(player.hand, handCard.instanceId);
 
   let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand }));
 

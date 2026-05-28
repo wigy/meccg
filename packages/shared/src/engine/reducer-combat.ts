@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, cardName, matchesDefinition, characterEntries, findById, companyById, companySubphaseScope, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, getCardEffects, cardName, matchesDefinition, characterEntries, findById, removeById, companyById, companySubphaseScope, defById } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -795,9 +795,8 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
-  const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (handIndex < 0) return { state, error: 'Card not found in hand' };
-  const handCard = defPlayer.hand[handIndex];
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Card not found in hand' };
   const cardDef = defById(state, handCard.definitionId);
   const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
   const strikeEffect = effects.find((e): e is StrikeModifierEffect => e.type === 'strike-modifier');
@@ -813,7 +812,7 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
 
   let resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
-    hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
+    hand: removeById(p.hand, handCard.instanceId),
     discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
   }));
 
@@ -1272,8 +1271,8 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
 
-  const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIndex < 0) {
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) {
     // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
     // the Ringwraith's Darkhaven tap), an in-play ally (e.g. The Warg-king),
     // or an in-play item with self-and-bearer cost (e.g. Torque of Hues).
@@ -1287,7 +1286,6 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     }
     return handleCancelAttackByInPlayAlly(state, action, combat);
   }
-  const handCard = defPlayer.hand[cardIndex];
 
   // Look up the cancel-attack effect to determine cost type.
   const cardDef = defById(state, handCard.definitionId);
@@ -1319,8 +1317,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
 
   // Move card from hand to discard pile — short events are physically
   // discarded at play time; the chain holds only a reference.
-  const newHand = [...defPlayer.hand];
-  newHand.splice(cardIndex, 1);
+  const newHand = removeById(defPlayer.hand, handCard.instanceId);
   const newDiscard = [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
 
   resultState = updatePlayer(resultState, defPlayerIndex, p => ({
@@ -1594,30 +1591,27 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
 
-  const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+  const discardedCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!discardedCard) return { state, error: 'Card not in hand' };
 
   const originalStrikes = combat.strikesTotal;
-  const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
-  const halveEffect = cardDef && 'effects' in cardDef && cardDef.effects
-    ? cardDef.effects.find(
-        (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
-      )
-    : undefined;
+  const cardDef = state.cardPool[discardedCard.definitionId as string];
+  const halveEffect = getCardEffects(cardDef).find(
+    (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
+  );
   const op = halveEffect?.op ?? 'halve';
   let newStrikes: number;
   if (op === 'subtract') {
     const subtractValue = halveEffect?.value ?? 2;
     const min = halveEffect?.min ?? 1;
     newStrikes = Math.max(min, originalStrikes - subtractValue);
-    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+    logDetail(`Strikes reduced by ${subtractValue} (min ${min}): ${originalStrikes} → ${newStrikes} (${discardedCard.definitionId as string} played)`);
   } else {
     newStrikes = Math.ceil(originalStrikes / 2);
-    logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+    logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${discardedCard.definitionId as string} played)`);
   }
 
-  const newHand = [...defPlayer.hand];
-  const [discardedCard] = newHand.splice(cardIndex, 1);
+  const newHand = removeById(defPlayer.hand, discardedCard.instanceId);
   const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
 
   return {
@@ -1657,13 +1651,12 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
 
   const itemDef = defById(state, item.definitionId);
-  if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
-  const effect = itemDef.effects.find(
+  const effect = getCardEffects(itemDef).find(
     (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
   );
   if (!effect) return { state, error: 'Item has no modify-attack(current-strike) effect' };
 
-  const itemName = itemDef.name;
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
   const prowessBonus = effect.prowessModifier ?? 0;
   logDetail(`Tap-item-for-strike: tapping ${itemName} on ${action.characterInstanceId as string} (+${prowessBonus} prowess for current strike)`);
 
@@ -1720,12 +1713,11 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
   // --- From-hand path ---
   if (action.characterInstanceId === undefined) {
-    const cardIndex = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (cardIndex < 0) return { state, error: 'Card not in hand' };
-    const handCard = player.hand[cardIndex];
+    const handCard = findById(player.hand, action.cardInstanceId);
+    if (!handCard) return { state, error: 'Card not in hand' };
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) return { state, error: 'Card has no effects' };
-    const effect = cardDef.effects.find(
+    if (!cardDef) return { state, error: 'Card definition not found' };
+    const effect = getCardEffects(cardDef).find(
       (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
     );
     if (!effect) return { state, error: 'Card has no modify-attack (fromHand) effect' };
@@ -1739,9 +1731,8 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
 
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
-    const newHand = [...player.hand];
-    const [discardedCard] = newHand.splice(cardIndex, 1);
-    const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+    const newHand = removeById(player.hand, handCard.instanceId);
+    const newDiscard = [...player.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
     const cardLabel = cardDef.name;
@@ -1752,7 +1743,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
       combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody },
     };
 
-    const attackDupLimit = cardDef.effects?.find(
+    const attackDupLimit = getCardEffects(cardDef).find(
       (e): e is import('../types/effects.js').DuplicationLimitEffect =>
         e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
     );
@@ -1781,8 +1772,8 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   const item = charData.items[itemIndex];
 
   const itemDef = defById(state, item.definitionId);
-  if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
-  const effect = itemDef.effects.find(
+  if (!itemDef) return { state, error: 'Item definition not found' };
+  const effect = getCardEffects(itemDef).find(
     (e): e is import('../types/effects.js').ModifyAttackEffect =>
       e.type === 'modify-attack' &&
       !(e).fromHand &&
@@ -2920,9 +2911,8 @@ function handleCombatPlayHazard(
 
   const hazardIndex = state.players.findIndex(p => p.id === action.player);
   const hazardPlayer = state.players[hazardIndex];
-  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'card not in hand' };
-  const handCard = hazardPlayer.hand[cardIdx];
+  const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'card not in hand' };
   const def = defById(state, handCard.definitionId);
   if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') {
     return { state, error: 'only hazard permanent-events may be played during combat' };
@@ -2936,8 +2926,7 @@ function handleCombatPlayHazard(
   if (!targetChar) return { state, error: 'target character not in defending player' };
 
   // Remove card from hand
-  const newHand = [...hazardPlayer.hand];
-  newHand.splice(cardIdx, 1);
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand }));
 
   // Ward check: a matching ward on the target discards the curse to
@@ -2996,8 +2985,7 @@ function findTakePrisonerHazard(
 ): { hostCard: import('../types/state-cards.js').CardInstance; effect: TakePrisonerEffect } | null {
   for (const h of hazards) {
     const def = defById(state, h.definitionId);
-    if (!def || !('effects' in def) || !def.effects) continue;
-    const eff = (def.effects).find(
+    const eff = getCardEffects(def).find(
       (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
     );
     if (eff) return { hostCard: { instanceId: h.instanceId, definitionId: h.definitionId }, effect: eff };

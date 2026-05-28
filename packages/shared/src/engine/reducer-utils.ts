@@ -280,6 +280,20 @@ export function getOnEventEffects(
 }
 
 /**
+ * Returns the effects array from a card definition, or an empty array if the
+ * card has no effects or the definition is absent.
+ *
+ * Eliminates the verbose triple-check `!def || !('effects' in def) || !def.effects`
+ * that precedes every `for (const effect of def.effects)` loop.
+ */
+export function getCardEffects(
+  def: CardDefinition | null | undefined,
+): readonly CardEffect[] {
+  if (!def || !('effects' in def)) return [];
+  return (def as { readonly effects?: readonly CardEffect[] }).effects ?? [];
+}
+
+/**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
  * whose definition has `mind === null`.

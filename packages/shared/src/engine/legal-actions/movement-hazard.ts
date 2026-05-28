@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, defById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -966,10 +966,8 @@ function tapHazardCardForLimitActions(
 
   for (const card of player.cardsInPlay) {
     const def = defById(state, card.definitionId);
-    if (!def || !('effects' in def) || !def.effects) continue;
-    const effects = def.effects;
-
-    const swapEffect = effects.find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+    if (!def) continue;
+    const swapEffect = getCardEffects(def).find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
     if (!swapEffect) continue;
 
     const tapAction: TapHazardCardForLimitAction = {

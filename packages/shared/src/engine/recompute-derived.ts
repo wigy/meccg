@@ -27,6 +27,7 @@ import type {
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
+  buildBearerContext,
   collectCharacterEffects,
   collectGlobalEffects,
   resolveStatModifiers,
@@ -113,14 +114,7 @@ function buildEffectiveStatsContext(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
 ): ResolverContext {
-  const charInfo = {
-    race: charDef.race,
-    skills: charDef.skills,
-    baseProwess: charDef.prowess,
-    baseBody: charDef.body,
-    baseDirectInfluence: charDef.directInfluence,
-    name: charDef.name,
-  };
+  const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
     bearer: charInfo,
@@ -416,14 +410,7 @@ export function computeCombatProwess(
   creatureRace: string,
 ): number {
   const inPlayNames = buildInPlayNames(state);
-  const charInfo = {
-    race: charDef.race,
-    skills: charDef.skills,
-    baseProwess: charDef.prowess,
-    baseBody: charDef.body,
-    baseDirectInfluence: charDef.directInfluence,
-    name: charDef.name,
-  };
+  const charInfo = buildBearerContext(charDef);
   const context: ResolverContext = {
     reason: 'combat',
     bearer: charInfo,

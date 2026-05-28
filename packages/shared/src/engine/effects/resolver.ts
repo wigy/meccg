@@ -22,6 +22,7 @@ import type {
   PlayerState,
   CharacterInPlay,
   CardDefinition,
+  CharacterCard,
   CardEffect,
   StatModifierEffect,
   CheckModifierEffect,
@@ -105,6 +106,25 @@ export function resolveDef(state: GameState, instanceId: CardInstanceId): CardDe
   const defId = resolveInstanceId(state, instanceId);
   if (!defId) return undefined;
   return state.cardPool[defId as string];
+}
+
+/**
+ * Builds the `bearer` sub-object of a {@link ResolverContext} from a character
+ * card definition, mapping the card's stat fields to the resolver naming
+ * convention (`prowess` → `baseProwess`, etc.).
+ *
+ * Used wherever a character's stats are passed into effect evaluation — ensures
+ * the mapping is applied consistently rather than repeated inline.
+ */
+export function buildBearerContext(charDef: CharacterCard): NonNullable<ResolverContext['bearer']> {
+  return {
+    race: charDef.race,
+    skills: charDef.skills,
+    baseProwess: charDef.prowess,
+    baseBody: charDef.body,
+    baseDirectInfluence: charDef.directInfluence,
+    name: charDef.name,
+  };
 }
 
 /**
@@ -907,17 +927,8 @@ export function resolveCombatProwessBonus(
   inPlayNames: readonly string[],
 ): number {
   const charDef = resolveDef(state, char.instanceId);
-  if (!charDef || !('prowess' in charDef)) return 0;
-
-  const cd = charDef as { race: string; skills: readonly string[]; prowess: number; body: number; directInfluence: number; name: string };
-  const charInfo = {
-    race: cd.race,
-    skills: cd.skills,
-    baseProwess: cd.prowess,
-    baseBody: cd.body,
-    baseDirectInfluence: cd.directInfluence,
-    name: cd.name,
-  };
+  if (!charDef || !isCharacterCard(charDef)) return 0;
+  const charInfo = buildBearerContext(charDef);
 
   // Resolve prowess with combat context (includes enemy info)
   const combatContext = buildCombatContext(charInfo, enemy, inPlayNames);
@@ -932,8 +943,8 @@ export function resolveCombatProwessBonus(
   };
   const baseEffects = collectCharacterEffects(state, char, baseContext);
 
-  const combatProwess = resolveStatModifiers(combatEffects, 'prowess', cd.prowess, combatContext);
-  const baseProwess = resolveStatModifiers(baseEffects, 'prowess', cd.prowess, baseContext);
+  const combatProwess = resolveStatModifiers(combatEffects, 'prowess', charDef.prowess, combatContext);
+  const baseProwess = resolveStatModifiers(baseEffects, 'prowess', charDef.prowess, baseContext);
 
   return combatProwess - baseProwess;
 }
@@ -960,18 +971,8 @@ export function resolveEnemyBody(
   inPlayNames: readonly string[],
 ): number {
   const charDef = resolveDef(state, char.instanceId);
-  if (!charDef || !('prowess' in charDef)) return baseBody;
-
-  const cd = charDef as { race: string; skills: readonly string[]; prowess: number; body: number; directInfluence: number; name: string };
-  const charInfo = {
-    race: cd.race,
-    skills: cd.skills,
-    baseProwess: cd.prowess,
-    baseBody: cd.body,
-    baseDirectInfluence: cd.directInfluence,
-    name: cd.name,
-  };
-
+  if (!charDef || !isCharacterCard(charDef)) return baseBody;
+  const charInfo = buildBearerContext(charDef);
   const context = buildCombatContext(charInfo, enemy, inPlayNames);
   const effects = collectCharacterEffects(state, char, context);
 
@@ -1025,14 +1026,7 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
       const context: ResolverContext = {
         reason: 'hand-size',
         self: { location: siteName },
-        bearer: {
-          race: charDef.race,
-          skills: charDef.skills,
-          baseProwess: charDef.prowess,
-          baseBody: charDef.body,
-          baseDirectInfluence: charDef.directInfluence,
-          name: charDef.name,
-        },
+        bearer: buildBearerContext(charDef),
       };
 
       // Collect effects from this character and their items
