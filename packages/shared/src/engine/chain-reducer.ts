@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { updatePlayer, updateCharacter, wrongActionType, findById, playerById, activePlayerState, hazardPlayer, companySubphaseScope, getCardEffects, defById } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -294,7 +294,7 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
   const payload: ChainEntryPayload = isPermanent
     ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
     : { type: 'short-event' as const };
-  const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
+  const cardInstance: CardInstance = toCardInstance(revealedCard);
   newState = pushChainEntry(newState, action.player, cardInstance, payload);
 
   return { state: newState };
@@ -362,7 +362,7 @@ function handleCancelReturnToOrigin(
   newPlayers[playerIndex] = { ...player, characters: updatedChars };
 
   // Flip priority to opponent so they may respond
-  const newPriority = state.players[0].id === action.player ? state.players[1].id : state.players[0].id;
+  const newPriority = opponent(state, action.player);
   logDetail(`cancel-return-to-origin: priority flips to ${newPriority as string}`);
 
   const newChain: ChainState = {
@@ -469,7 +469,7 @@ function cascadeLinkedDiscards(stateBefore: GameState, stateAfter: GameState): G
         result = updatePlayer(result, lpi, p => ({
           ...p,
           cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== linkedId),
-          discardPile: [...p.discardPile, { instanceId: linkedCard.instanceId, definitionId: linkedCard.definitionId }],
+          discardPile: [...p.discardPile, toCardInstance(linkedCard)],
         }));
         break;
       }
@@ -584,7 +584,7 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   }
   const activePlayerId = state.activePlayer;
   if (!activePlayerId) return state;
-  const activeIndex = state.players[0].id === activePlayerId ? 0 : 1;
+  const activeIndex = getPlayerIndex(state, activePlayerId);
   const companyIndex = state.phaseState.activeCompanyIndex;
   const targetCompany = state.players[activeIndex].companies[companyIndex];
   if (!targetCompany) return state;
@@ -919,7 +919,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
             ...newPlayers[playerIndex],
             discardPile: [
               ...newPlayers[playerIndex].discardPile,
-              { instanceId: card.instanceId, definitionId: card.definitionId },
+              toCardInstance(card),
             ],
           };
           break;
@@ -1291,8 +1291,8 @@ function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): str
 function deriveSiteFacedRaces(state: GameState): string[] {
   if (state.phaseState.phase !== 'site') return [];
   const siteState = state.phaseState;
-  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
-  const company = state.players[activePlayerIndex]?.companies[siteState.activeCompanyIndex];
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   if (!company?.currentSite) return [];
   const siteDef = defById(state, company.currentSite.definitionId);
   if (!siteDef || !isSiteCard(siteDef)) return [];
@@ -1420,7 +1420,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail(`Creature resolution: not in M/H or Site phase — fizzle`);
     return state;
   }
-  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const resourcePlayer = state.players[activePlayerIndex];
   const company = resourcePlayer.companies[activeCompanyIndex];
   if (!company) {
@@ -1560,7 +1560,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   // Place the creature card in the hazard player's cardsInPlay during combat.
   // After combat, finalizeCombat moves it to discard or the defender's kill pile.
-  const hazardIndex = state.players.findIndex(p => p.id === hazardPlayerId);
+  const hazardIndex = getPlayerIndex(state, hazardPlayerId);
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[hazardIndex] = {
     ...newPlayers[hazardIndex],
@@ -1816,8 +1816,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (dupEffect) {
       const activePlayerId = current.activePlayer!;
-      const activeIndex = current.players.findIndex(p => p.id === activePlayerId);
-      const company = current.players[activeIndex]?.companies[current.phaseState.activeCompanyIndex];
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
       const destSiteDefId = destSiteInst ? resolveInstanceId(current, destSiteInst.instanceId) : null;
       const destSiteDef = destSiteDefId ? defById(current, destSiteDefId) : undefined;
@@ -1890,7 +1890,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (fcacEffect && current.phaseState.phase === Phase.MovementHazard) {
       const activePlayerId = current.activePlayer!;
-      const activeIndex = current.players[0].id === activePlayerId ? 0 : 1;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
       const targetCompany = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       if (targetCompany) {
         logDetail(`force-check-all-company (body) "${(cardDef as { name?: string }).name ?? '?'}": enqueuing body checks (modifier ${fcacEffect.modifier ?? 0}) for ${targetCompany.characters.length} characters`);
@@ -1926,9 +1926,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (sbtEffect) {
       const resourcePlayerId = current.activePlayer!;
-      const activeIndex = current.players.findIndex(p => p.id === resourcePlayerId);
+      const activeIndex = getPlayerIndex(current, resourcePlayerId);
       const mhState = current.phaseState as import('../index.js').MovementHazardPhaseState;
-      const company = activeIndex >= 0 ? current.players[activeIndex].companies[mhState.activeCompanyIndex] : null;
+      const company = current.players[activeIndex].companies[mhState.activeCompanyIndex] ?? null;
       const originSiteInstanceId = company?.currentSite?.instanceId ?? null;
       logDetail(`Enqueuing seized-by-terror-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
@@ -2130,7 +2130,7 @@ function completeChain(state: GameState): GameState {
       const newPlayers: [PlayerState, PlayerState] = [current.players[0], current.players[1]];
       newPlayers[playerIndex] = {
         ...player,
-        discardPile: [...player.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
+        discardPile: [...player.discardPile, toCardInstance(entry.card)],
       };
       current = { ...current, players: newPlayers };
     }

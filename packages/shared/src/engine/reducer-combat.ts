@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, formatSignedNumber } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, formatSignedNumber, getPlayerIndex } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, getCardEffects, cardName, matchesDefinition, characterEntries, findById, removeById, companyById, companySubphaseScope, defById } from './reducer-utils.js';
+import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -115,7 +115,7 @@ function handleHavenJoinAttack(state: GameState, action: GameAction, combat: Com
   let updatedChar = charInPlay;
   let discardedAllies: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
   if (offer.discardOwnedAllies && charInPlay.allies.length > 0) {
-    discardedAllies = charInPlay.allies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId }));
+    discardedAllies = charInPlay.allies.map(a => (toCardInstance(a)));
     updatedChar = { ...charInPlay, allies: [] };
     logDetail(`Haven-join: discarding ${discardedAllies.length} ally card(s) attached to joiner`);
   }
@@ -282,7 +282,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   // Pass during item-salvage: player declines further transfers, discard remaining items
   if (combat.phase === 'item-salvage') {
     logDetail('Defender passed item-salvage — discarding remaining items');
-    const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
     const salvageItems = combat.salvageItems ?? [];
     for (const item of salvageItems) {
       logDetail(`Discarding unsalvaged item ${item.instanceId as string}`);
@@ -291,7 +291,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
       ...p,
       discardPile: [
         ...p.discardPile,
-        ...salvageItems.map(item => ({ instanceId: item.instanceId, definitionId: item.definitionId })),
+        ...salvageItems.map(item => (toCardInstance(item))),
       ],
     }));
     return finishSalvage(nextState, combat);
@@ -365,7 +365,7 @@ function resolveStrikeCore(
   if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
 
   // Look up combatant stats — may be a character or an ally (CoE rule 2.V.2.2)
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = preAppliedDefender ?? state.players[defPlayerIndex];
   const charData = defPlayer.characters[strike.characterId as string];
   const company = companyById(defPlayer.companies, combat.companyId);
@@ -619,7 +619,7 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
   if (action.type !== 'agent-strike-roll') return wrongActionType(state, action, 'agent-strike-roll');
   if (combat.attackSource.type !== 'agent') return { state, error: 'agent-strike-roll only valid for agent attacks' };
 
-  const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
   const atkPlayer = state.players[atkPlayerIndex];
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -644,7 +644,7 @@ function handleAgentStrikeRoll(state: GameState, action: GameAction, combat: Com
 function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'support-strike') return wrongActionType(state, action, 'support-strike');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
   // Bump the supportCount on the current strike so the +1 modifier is
@@ -695,7 +695,7 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
 function handleCancelStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-strike') return wrongActionType(state, action, 'cancel-strike');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
   const cancellerChar = defPlayer.characters[action.cancellerInstanceId as string];
@@ -793,7 +793,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
 function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'play-strike-event') return { state, error: 'Expected play-strike-event' };
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
@@ -813,7 +813,7 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   let resultState = updatePlayer(state, defPlayerIndex, p => ({
     ...p,
     hand: removeById(p.hand, handCard.instanceId),
-    discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+    discardPile: [...p.discardPile, toCardInstance(handCard)],
   }));
 
   if (strikeEffect.dodge) {
@@ -849,7 +849,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
-  const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
   const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
 
   // Update lastDiceRoll on the attacking player
@@ -864,7 +864,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     let body = combat.creatureBody ?? 0;
     const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
     if (strike2 && combat.creatureRace) {
-      const defIdx2 = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const defIdx2 = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
       const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId as string];
       if (charData2) {
         const inPlayNames2 = buildInPlayNames(stateWithRoll);
@@ -895,7 +895,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   if (combat.bodyCheckTarget === 'character') {
     // Body check against character or ally (CoE rule 2.V.2.2)
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-    const defPlayerIndex = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayerIndex = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
     const defPlayer = stateWithRoll.players[defPlayerIndex];
     const charData = defPlayer.characters[strike.characterId as string];
     const company = companyById(defPlayer.companies, combat.companyId);
@@ -984,7 +984,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       // Discard allies and hazards on the eliminated character immediately
       for (const ally of charData.allies) {
         logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
-        newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+        newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
       }
 
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
@@ -1019,7 +1019,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
         newPlayers2[defPlayerIndex] = {
           ...newPlayers2[defPlayerIndex],
-          discardPile: [...newPlayers2[defPlayerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+          discardPile: [...newPlayers2[defPlayerIndex].discardPile, toCardInstance(item)],
         };
       }
 
@@ -1066,11 +1066,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
           for (const ally of charData.allies) {
             logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
-            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(ally)];
           }
           for (const item of charData.items) {
             logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
-            newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }];
+            newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(item)];
           }
           const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
           newPlayerData2.characters = remainingCharsDisc;
@@ -1125,7 +1125,7 @@ function handleCancelAttackByInPlayAlly(
 ): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
@@ -1162,7 +1162,7 @@ function handleCancelAttackByInPlayCharacter(
 ): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
@@ -1198,7 +1198,7 @@ function handleCancelAttackByInPlayItem(
 ): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
@@ -1268,7 +1268,7 @@ function handleCancelAttackByInPlayItem(
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
 
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
@@ -1318,7 +1318,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   // Move card from hand to discard pile — short events are physically
   // discarded at play time; the chain holds only a reference.
   const newHand = removeById(defPlayer.hand, handCard.instanceId);
-  const newDiscard = [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
+  const newDiscard = [...defPlayer.discardPile, toCardInstance(handCard)];
 
   resultState = updatePlayer(resultState, defPlayerIndex, p => ({
     ...p,
@@ -1388,7 +1388,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 
   // If this was a creature attack, move creature card from attacker's
   // cardsInPlay to discard.
-  const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
   const creatureInstanceId =
     combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
       : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
@@ -1400,7 +1400,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-        discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+        discardPile: [...newPlayers[atkIdx].discardPile, toCardInstance(creatureInPlay)],
       };
     }
   }
@@ -1411,7 +1411,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   let stateWithCancelledPlayers: GameState = { ...state, players: newPlayers, combat: null };
   if (combat.attackSource.type === 'card-triggered-attack') {
     const { cardInstanceId } = combat.attackSource;
-    const defIdx = stateWithCancelledPlayers.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defIdx = getPlayerIndex(stateWithCancelledPlayers, combat.defendingPlayerId);
     const defPlayer = stateWithCancelledPlayers.players[defIdx];
     const company = companyById(defPlayer.companies, combat.companyId);
     const anyUntapped = company
@@ -1500,7 +1500,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
     return { state, error: 'No cancel-by-tap opportunities remaining' };
   }
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company || !company.characters.includes(action.characterId)) {
@@ -1540,7 +1540,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   if (newAssignments.length === 0) {
     logDetail('All strikes canceled — combat ends');
     // Move creature to discard
-    const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+    const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
     const creatureInstanceId =
       combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
         : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
@@ -1552,7 +1552,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
         newPlayers[atkIdx] = {
           ...newPlayers[atkIdx],
           cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-          discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+          discardPile: [...newPlayers[atkIdx].discardPile, toCardInstance(creatureInPlay)],
         };
       }
     }
@@ -1588,7 +1588,7 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to halve' };
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can halve strikes' };
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
 
   const discardedCard = findById(defPlayer.hand, action.cardInstanceId);
@@ -1612,7 +1612,7 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   }
 
   const newHand = removeById(defPlayer.hand, discardedCard.instanceId);
-  const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+  const newDiscard = [...defPlayer.discardPile, toCardInstance(discardedCard)];
 
   return {
     state: {
@@ -1639,7 +1639,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   if (!currentStrike || currentStrike.resolved) return { state, error: 'No active unresolved strike' };
   if (currentStrike.characterId !== action.characterInstanceId) return { state, error: 'Item bearer is not the current strike target' };
 
-  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
 
   const charData = defPlayer.characters[action.characterInstanceId as string];
@@ -1732,7 +1732,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
     const newHand = removeById(player.hand, handCard.instanceId);
-    const newDiscard = [...player.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
+    const newDiscard = [...player.discardPile, toCardInstance(handCard)];
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
     const cardLabel = cardDef.name;
@@ -1827,7 +1827,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   if (shouldDiscard) {
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
-      discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+      discardPile: [...newPlayers[playerIndex].discardPile, toCardInstance(item)],
     };
   }
 
@@ -1881,7 +1881,7 @@ function handleSalvageItem(state: GameState, action: GameAction, combat: CombatS
 
   const item = salvageItems[itemIndex];
   const newPlayers = clonePlayers(state);
-  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
   const recipientChar = newPlayers[defIdx].characters[action.recipientCharacterId as string];
   if (!recipientChar) return { state, error: 'Recipient character not found' };
 
@@ -1906,7 +1906,7 @@ function handleSalvageItem(state: GameState, action: GameAction, combat: CombatS
       logDetail(`Discarding unsalvaged item ${leftover.instanceId as string}`);
       newPlayers[defIdx] = {
         ...newPlayers[defIdx],
-        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: leftover.instanceId, definitionId: leftover.definitionId }],
+        discardPile: [...newPlayers[defIdx].discardPile, toCardInstance(leftover)],
       };
     }
     return finishSalvage({ ...state, players: newPlayers }, combat);
@@ -1953,7 +1953,7 @@ function handleDiscardItemFromCompany(state: GameState, action: GameAction, comb
   if (itemIndex < 0) return { state, error: 'Item not available for discard' };
 
   const item = discardItemOptions[itemIndex];
-  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
   const newPlayers = clonePlayers(state);
 
   // Remove item from its bearer and add to discard pile
@@ -1973,7 +1973,7 @@ function handleDiscardItemFromCompany(state: GameState, action: GameAction, comb
   newPlayers[defIdx] = {
     ...newPlayers[defIdx],
     characters: newCharacters,
-    discardPile: [...newPlayers[defIdx].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+    discardPile: [...newPlayers[defIdx].discardPile, toCardInstance(item)],
   };
 
   const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };
@@ -2009,7 +2009,7 @@ function discardCardTriggeredCard(
         ...newPlayers[defPlayerIdx],
         discardPile: [
           ...newPlayers[defPlayerIdx].discardPile,
-          { instanceId: inPlay.instanceId, definitionId: inPlay.definitionId },
+          toCardInstance(inPlay),
         ],
       };
       return { ...state, players: newPlayers };
@@ -2052,13 +2052,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   const isPlayedAutoAttack = combat.attackSource.type === 'played-auto-attack';
 
   if (creatureInstanceId) {
-    const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
-    const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
+    const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
 
     // Remove creature from attacker's cardsInPlay
     const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
     const creatureCard = creatureInPlay
-      ? { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }
+      ? toCardInstance(creatureInPlay)
       : undefined;
     newPlayers[atkIdx] = {
       ...newPlayers[atkIdx],
@@ -2129,7 +2129,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       if (woundEvent.apply.type === 'force-check') {
         const modifier = woundEvent.apply.modifier ?? 0;
         const actor = combat.defendingPlayerId;
-        const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
+        const actorIndex = getPlayerIndex(stateAfterCombat, actor);
         const phaseStateActive = state.phaseState as { activeCompanyIndex: number };
         const company = stateAfterCombat.players[actorIndex].companies[phaseStateActive.activeCompanyIndex];
         const companyId = company?.id;
@@ -2160,7 +2160,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         // Brigands: fires once per attack (not per wound). Company must discard one item.
         const actor = combat.defendingPlayerId;
         const companyId = combat.companyId;
-        const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
+        const actorIndex = getPlayerIndex(stateAfterCombat, actor);
         const defPlayer = stateAfterCombat.players[actorIndex];
         const company = companyById(defPlayer?.companies ?? [], companyId);
         const hasItems = (company?.characters ?? []).some(charId => {
@@ -2195,7 +2195,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     woundedCharIds.length > 0 &&
     (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
   ) {
-    const defPlayerIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defPlayerIdx];
     const company = companyById(defPlayer?.companies ?? [], combat.companyId);
     if (company) {
@@ -2321,7 +2321,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         if (shouldDiscard) { toDiscard.push(card); } else { remaining.push(card); }
       }
       if (toDiscard.length === 0) return player;
-      const discarded = toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+      const discarded = toDiscard.map(c => (toCardInstance(c)));
       for (const c of toDiscard) {
         allDiscardedIds.add(c.instanceId as string);
         const defName = cardName(stateAfterCombat, c.definitionId, '?');
@@ -2360,11 +2360,11 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           const peaEff = eff;
           if (peaEff.onDefeat !== 'remove-from-play') continue;
           const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? '?';
-          const hazardIdx = stateAfterCombat.players.findIndex(p => p.id === combat.attackingPlayerId);
-          const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+          const hazardIdx = getPlayerIndex(stateAfterCombat, combat.attackingPlayerId);
+          const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
           const sourceCard = stateAfterCombat.players[hazardIdx]?.cardsInPlay.find(c => c.instanceId === sourceInstId);
           if (sourceCard) {
-            const cardRef = { instanceId: sourceCard.instanceId, definitionId: sourceCard.definitionId };
+            const cardRef = toCardInstance(sourceCard);
             const updatedPlayersOD = stateAfterCombat.players.map((p, idx) => {
               if (idx === hazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
               if (idx === defIdx) return { ...p, killPile: [...p.killPile, cardRef] };
@@ -2397,10 +2397,10 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           if (dauEff.type !== 'permanent-event-auto-attack') continue;
           if (!dauEff.discardAfterUse) continue;
           const dauSourceName = (dauSourceDef as { name?: string } | undefined)?.name ?? '?';
-          const dauHazardIdx = stateAfterCombat.players.findIndex(p => p.id === combat.attackingPlayerId);
+          const dauHazardIdx = getPlayerIndex(stateAfterCombat, combat.attackingPlayerId);
           const dauSourceCard = stateAfterCombat.players[dauHazardIdx]?.cardsInPlay.find(c => c.instanceId === dauSourceInstId);
           if (dauSourceCard) {
-            const dauCardRef = { instanceId: dauSourceCard.instanceId, definitionId: dauSourceCard.definitionId };
+            const dauCardRef = toCardInstance(dauSourceCard);
             const dauUpdatedPlayers = stateAfterCombat.players.map((p, idx) => {
               if (idx === dauHazardIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== dauSourceInstId), discardPile: [...p.discardPile, dauCardRef] };
               return p;
@@ -2428,7 +2428,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // characters to determine whether to discard or queue bearer selection.
   if (combat.attackSource.type === 'card-triggered-attack') {
     const { cardInstanceId } = combat.attackSource;
-    const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer = stateAfterCombat.players[defIdx];
     const company = companyById(defPlayer.companies, combat.companyId);
     const anyUntapped = company
@@ -2470,7 +2470,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // was wounded. Reshuffle all non-item revealed cards back into the play deck.
   if (combat.attackSource.type === 'lucky-search-attack') {
     const { scoutInstanceId, foundItemInstanceId, revealedCardInstanceIds } = combat.attackSource;
-    const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
 
     const scoutWounded = combat.strikeAssignments.some(
       a => a.characterId === scoutInstanceId && a.result === 'wounded',
@@ -2505,7 +2505,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       logDetail(`Lucky Search: scout wounded — discarding found item ${String(foundCard.definitionId)}`);
       stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => ({
         ...p,
-        discardPile: [...p.discardPile, { instanceId: foundCard.instanceId, definitionId: foundCard.definitionId }],
+        discardPile: [...p.discardPile, toCardInstance(foundCard)],
       }));
     } else {
       logDetail(`Lucky Search: no item found in deck`);
@@ -2536,7 +2536,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const aa = attacks[attackIndex];
       const race = normalizeCreatureRace(aa.creatureType);
       const inPlayNames2 = buildInPlayNames(stateAfterCombat);
-      const activeIdx2 = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const activeIdx2 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
       const siteDef2 = (() => {
         const company2 = activeIdx2 >= 0 ? companyById(stateAfterCombat.players[activeIdx2].companies, combat.companyId) : undefined;
         const destInst2 = company2?.destinationSite ?? company2?.currentSite ?? null;
@@ -2678,7 +2678,7 @@ function restoreHavenJumpOrigins(
   const origins = combat.havenJumpOrigins ?? [];
   if (origins.length === 0) return stateAfterCombat;
 
-  const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
   if (defIdx < 0) return stateAfterCombat;
 
   const player = stateAfterCombat.players[defIdx];
@@ -2729,7 +2729,7 @@ function discardWoundedItems(
   sourceName: string,
   filter: import('../types/effects.js').Condition | undefined,
 ): GameState {
-  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
   const cloned = clonePlayers(state);
   const newCharacters = { ...cloned[defIdx].characters };
   const discarded: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
@@ -2751,7 +2751,7 @@ function discardWoundedItems(
     newCharacters[charId as string] = { ...charData, items: remaining };
 
     for (const item of matching) {
-      discarded.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+      discarded.push(toCardInstance(item));
       logDetail(`${sourceName}: discarding item ${item.definitionId as string} from wounded character ${charId as string}`);
     }
   }
@@ -2781,7 +2781,7 @@ function discardWoundedCharacters(
   sourceName: string,
   when: import('../types/effects.js').Condition | undefined,
 ): GameState {
-  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
   let stateOut = state;
 
   for (const charId of woundedCharIds) {
@@ -2813,11 +2813,11 @@ function discardWoundedCharacters(
     ];
     for (const ally of charData.allies) {
       logDetail(`${sourceName}: discarding ally ${ally.instanceId as string} from discarded character`);
-      newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+      newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
     }
     for (const item of charData.items) {
       logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);
-      newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }];
+      newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
     }
     const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
     newPlayerData.characters = remainingChars;
@@ -2909,7 +2909,7 @@ function handleCombatPlayHazard(
     return { state, error: 'only the attacking player may play hazards during combat' };
   }
 
-  const hazardIndex = state.players.findIndex(p => p.id === action.player);
+  const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
   const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'card not in hand' };
@@ -2918,7 +2918,7 @@ function handleCombatPlayHazard(
     return { state, error: 'only hazard permanent-events may be played during combat' };
   }
 
-  const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defenderIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defenderPlayer = state.players[defenderIndex];
   const targetCharId = action.targetCharacterId;
   if (!targetCharId) return { state, error: 'targetCharacterId required for combat hazard play' };
@@ -2935,7 +2935,7 @@ function handleCombatPlayHazard(
     logDetail(`Combat play-hazard: "${def.name}" cancelled by ward on target — routing to attacker's discard`);
     newState = updatePlayer(newState, hazardIndex, p => ({
       ...p,
-      discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+      discardPile: [...p.discardPile, toCardInstance(handCard)],
     }));
     return { state: newState };
   }
@@ -2988,7 +2988,7 @@ function findTakePrisonerHazard(
     const eff = getCardEffects(def).find(
       (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
     );
-    if (eff) return { hostCard: { instanceId: h.instanceId, definitionId: h.definitionId }, effect: eff };
+    if (eff) return { hostCard: toCardInstance(h), effect: eff };
   }
   return null;
 }
@@ -3082,7 +3082,7 @@ function applyTakePrisoner(
     return {
       ...p,
       characters: updatedChars,
-      discardPile: [...p.discardPile, ...discardedItems.map(i => ({ instanceId: i.instanceId, definitionId: i.definitionId }))],
+      discardPile: [...p.discardPile, ...discardedItems.map(i => (toCardInstance(i)))],
     };
   });
   newState = updatePlayer(newState, hazardPlayerIndex, p => ({
@@ -3102,7 +3102,7 @@ function applyTakePrisoner(
   // Create HazardHost record.
   const newHost: HazardHost = {
     hostCard,
-    rescueSiteCard: { instanceId: rescueSiteCard.instanceId, definitionId: rescueSiteCard.definitionId },
+    rescueSiteCard: toCardInstance(rescueSiteCard),
     prisoners: [charInstanceId],
     ownedBy: hazardPlayer.id,
   };

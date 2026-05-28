@@ -20,6 +20,7 @@
  */
 
 import type { GameState, PlayerId, CardInstanceId } from '../index.js';
+import { getPlayerIndex } from '../index.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
@@ -110,7 +111,7 @@ export function buildChainApplyContext(
     };
   },
 ): ChainApplyContext {
-  const sourcePlayerIndex = state.players[0].id === entry.declaredBy ? 0 : 1;
+  const sourcePlayerIndex = getPlayerIndex(state, entry.declaredBy);
   const sourceCardId = entry.card?.instanceId ?? ('' as CardInstanceId);
   const ctx: ChainApplyContext = {
     declaredBy: entry.declaredBy,

@@ -36,7 +36,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -1477,15 +1477,7 @@ function hazardEventMaintenanceActions(
 
   // Look up the source effect's handCardFilter
   const sourceDef = defById(state, sourceDefinitionId);
-  let handCardFilter: import('../../types/effects.js').Condition | undefined;
-  if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
-    for (const eff of sourceDef.effects) {
-      if (eff.type === 'hazard-maintenance' && eff.trigger === 'opponent-long-event-end') {
-        handCardFilter = eff.handCardFilter;
-        break;
-      }
-    }
-  }
+  const handCardFilter = findHazardMaintenanceEffect(sourceDef)?.handCardFilter;
 
   const actions: EvaluatedAction[] = [];
 

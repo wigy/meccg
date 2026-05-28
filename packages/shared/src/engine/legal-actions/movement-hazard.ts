@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1054,9 +1054,7 @@ function playHazardsActions(
       // Skip hazards whose play-window pins them to a non-M/H window
       // (e.g. Dragon's Curse: combat/resolve-strike). Those are offered
       // by the combat legal-action emitter instead.
-      const hazardPlayWindow = 'effects' in def && def.effects
-        ? def.effects.find(e => e.type === 'play-window') as { phase?: string } | undefined
-        : undefined;
+      const hazardPlayWindow = getCardEffects(def).find(e => e.type === 'play-window') as { phase?: string } | undefined;
       if (hazardPlayWindow && hazardPlayWindow.phase !== 'movement-hazard') {
         logDetail(`Hazard "${def.name}" has play-window ${hazardPlayWindow.phase} — skipping in M/H phase`);
         continue;
@@ -1170,21 +1168,16 @@ function playHazardsActions(
       // --- Short event ---
       if (isShortEvent) {
         // Duplication-limit: non-viable if max copies already on chain / in play / still in effect
-        if (def.effects) {
+        {
           let blocked = false;
-          for (const effect of def.effects) {
+          for (const effect of getCardEffects(def)) {
             if (effect.type !== 'duplication-limit') continue;
             if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
             const copiesOnChain = state.chain?.entries.filter(e => {
               const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
               return cDef && cDef.name === def.name;
             }).length ?? 0;
-            const copiesInPlay = state.players.reduce((count, p) =>
-              count + p.cardsInPlay.filter(c => {
-                const cDef = defById(state, c.definitionId);
-                return cDef && cDef.name === def.name;
-              }).length, 0,
-            );
+            const copiesInPlay = countCopiesInPlay(state, def.name);
             // For turn-scoped duplication limits on short events, a resolved
             // copy still counts as long as it left an active constraint in
             // play (the effect persists past the card's discard).
@@ -1248,9 +1241,8 @@ function playHazardsActions(
           for (const c of state.activeConstraints) {
             if (seenSources.has(c.source as string)) continue;
             const srcDef = defById(state, c.sourceDefinitionId);
-            if (!srcDef || !('effects' in srcDef)) continue;
-            const srcEffects = (srcDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [];
-            const hasSkill = srcEffects.some(
+            if (!srcDef) continue;
+            const hasSkill = getCardEffects(srcDef).some(
               e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
             );
             if (!hasSkill) continue;
@@ -1278,8 +1270,8 @@ function playHazardsActions(
         }
 
         // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
-        if (def.effects) {
-          const playCondition = def.effects.find(
+        {
+          const playCondition = getCardEffects(def).find(
             (e): e is PlayConditionEffect => e.type === 'play-condition',
           );
           if (playCondition && playCondition.requires === 'site-path') {
@@ -1294,7 +1286,7 @@ function playHazardsActions(
           // When the effect declares a `fixedRace`, emit a single action
           // with that race instead of offering a choice (e.g. Dragon's
           // Desolation — always Dragon).
-          const raceChoice = def.effects.find(
+          const raceChoice = getCardEffects(def).find(
             (e): e is CreatureRaceChoiceEffect => e.type === 'creature-race-choice',
           );
           if (raceChoice) {
@@ -1578,17 +1570,12 @@ function playHazardsActions(
       }
 
       // Duplication-limit: non-viable if max copies already in play
-      if (def.effects) {
+      {
         let blocked = false;
-        for (const effect of def.effects) {
+        for (const effect of getCardEffects(def)) {
           if (effect.type !== 'duplication-limit') continue;
           if (effect.scope === 'game') {
-            const copiesInPlay = state.players.reduce((count, p) =>
-              count + p.cardsInPlay.filter(c => {
-                const cDef = defById(state, c.definitionId);
-                return cDef && cDef.name === def.name;
-              }).length, 0,
-            );
+            const copiesInPlay = countCopiesInPlay(state, def.name);
             if (copiesInPlay >= effect.max) {
               logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
               actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });

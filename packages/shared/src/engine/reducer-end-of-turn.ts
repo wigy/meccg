@@ -12,7 +12,7 @@ import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer, findById, removeById, defById } from './reducer-utils.js';
+import { completeDeckExhaust, defById, findById, handleExchangeSideboard, removeById, startDeckExhaust, toCardInstance, updatePlayer } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
@@ -385,7 +385,7 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
     if (currentSite && company.siteCardOwned) {
       const departureDef = defById(state, currentSite.definitionId);
       const departureIsHaven = departureDef && isSiteCard(departureDef) && departureDef.siteType === 'haven';
-      const departureEntry = { instanceId: currentSite.instanceId, definitionId: currentSite.definitionId };
+      const departureEntry = toCardInstance(currentSite);
       if (!departureIsHaven && currentSite.status === CardStatus.Tapped) {
         logDetail(`haven-return: departure site ${currentSite.definitionId as string} is tapped — discarding to site discard pile`);
         siteDiscardPile = [...siteDiscardPile, departureEntry];

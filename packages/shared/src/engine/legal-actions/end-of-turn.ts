@@ -71,7 +71,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
  */
 function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] {
   const eotState = state.phaseState as EndOfTurnPhaseState;
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
 
   // Already acted this step — no actions
@@ -119,7 +119,7 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
  */
 function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[] {
   const eotState = state.phaseState as EndOfTurnPhaseState;
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   const handSize = resolveHandSize(state, playerIndex);
   const actions: GameAction[] = [];

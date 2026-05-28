@@ -30,11 +30,11 @@ import type {
   CardInstanceId,
   SiteCard,
 } from '../../index.js';
-import type { GrantSkillEffect } from '../../types/effects.js';
 import { matchesCondition, matchesContext, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
+import { getCardEffects, findPlayerAndCompany } from '../reducer-utils.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -136,11 +136,8 @@ function collectFromDef(
   context: ResolverContext,
   results: CollectedEffect[],
 ): void {
-  if (!('effects' in def) || !def.effects) return;
-  for (const effect of def.effects) {
-    if (effect.when && !matchesContext(effect.when, context)) {
-      continue;
-    }
+  for (const effect of getCardEffects(def)) {
+    if (effect.when && !matchesContext(effect.when, context)) continue;
     results.push({ effect, sourceDef: def, sourceInstance: instanceId });
   }
 }
@@ -216,7 +213,9 @@ export function collectGlobalEffects(
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = resolveDef(state, card.instanceId);
-      if (!def || !('effects' in def) || !def.effects) continue;
+      if (!def) continue;
+      const effects = getCardEffects(def);
+      if (effects.length === 0) continue;
 
       // Build a card-specific condition context if the card has linked
       // GoM/DoN overrides (Crown of Flowers pairing). The paired resource
@@ -236,7 +235,7 @@ export function collectGlobalEffects(
         conditionContext = baseRecordContext;
       }
 
-      for (const effect of def.effects) {
+      for (const effect of effects) {
         if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
         if (effect.when && !matchesCondition(effect.when, conditionContext)) {
           continue;
@@ -341,26 +340,17 @@ function collectCompanyPermanentEventEffects(
   const results: CollectedEffect[] = [];
   const baseCtx = context as unknown as Record<string, unknown>;
 
-  // Identify which company this character belongs to
-  let charCompanyId: string | undefined;
-  for (const player of state.players) {
-    for (const company of player.companies) {
-      if (company.characters.includes(char.instanceId)) {
-        charCompanyId = company.id as string;
-        break;
-      }
-    }
-    if (charCompanyId) break;
-  }
-  if (!charCompanyId) return results;
+  const found = findPlayerAndCompany(state, char.instanceId);
+  if (!found) return results;
+  const charCompanyId = found.company.id as string;
 
   // Scan both players' cardsInPlay for company-bound events
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       if ((card.companyId as string | undefined) !== charCompanyId) continue;
       const def = resolveDef(state, card.instanceId);
-      if (!def || !('effects' in def) || !def.effects) continue;
-      for (const effect of def.effects as CompanyModifierEffect[]) {
+      if (!def) continue;
+      for (const effect of getCardEffects(def) as CompanyModifierEffect[]) {
         if (effect.type !== 'company-modifier') continue;
         if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
         if (effect.stat) {
@@ -401,25 +391,22 @@ function collectCompanyItemEffects(
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
   const baseCtx = context as unknown as Record<string, unknown>;
-  for (const player of state.players) {
-    for (const company of player.companies) {
-      if (!company.characters.includes(char.instanceId)) continue;
-      for (const companyCharId of company.characters) {
-        const companyChar = player.characters[companyCharId as string];
-        if (!companyChar) continue;
-        const active = pickActiveItemsForCharacter(state, companyChar);
-        for (const item of companyChar.items) {
-          if (!active.has(item.instanceId as string)) continue;
-          const itemDef = resolveDef(state, item.instanceId);
-          if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
-          for (const effect of itemDef.effects) {
-            if (effect.type !== 'stat-modifier' || effect.target !== 'company') continue;
-            if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
-            results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
-          }
-        }
+  const found = findPlayerAndCompany(state, char.instanceId);
+  if (!found) return results;
+  const { player, company } = found;
+  for (const companyCharId of company.characters) {
+    const companyChar = player.characters[companyCharId as string];
+    if (!companyChar) continue;
+    const active = pickActiveItemsForCharacter(state, companyChar);
+    for (const item of companyChar.items) {
+      if (!active.has(item.instanceId as string)) continue;
+      const itemDef = resolveDef(state, item.instanceId);
+      if (!itemDef) continue;
+      for (const effect of getCardEffects(itemDef)) {
+        if (effect.type !== 'stat-modifier' || effect.target !== 'company') continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
       }
-      return results;
     }
   }
   return results;
@@ -442,18 +429,15 @@ export function collectCompanyAllyEffects(
   context: ResolverContext,
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
-  for (const player of state.players) {
-    for (const company of player.companies) {
-      if (!company.characters.includes(char.instanceId)) continue;
-      for (const companyCharId of company.characters) {
-        const companyChar = player.characters[companyCharId as string];
-        if (!companyChar) continue;
-        for (const ally of companyChar.allies) {
-          const allyDef = resolveDef(state, ally.instanceId);
-          if (allyDef) collectFromDef(allyDef, ally.instanceId, context, results);
-        }
-      }
-      return results;
+  const found = findPlayerAndCompany(state, char.instanceId);
+  if (!found) return results;
+  const { player, company } = found;
+  for (const companyCharId of company.characters) {
+    const companyChar = player.characters[companyCharId as string];
+    if (!companyChar) continue;
+    for (const ally of companyChar.allies) {
+      const allyDef = resolveDef(state, ally.instanceId);
+      if (allyDef) collectFromDef(allyDef, ally.instanceId, context, results);
     }
   }
   return results;
@@ -1069,12 +1053,9 @@ export function getItemGrantedSkills(
   const granted: string[] = [];
   for (const item of charData.items) {
     const itemDef = state.cardPool[item.definitionId as string];
-    if (!itemDef || !('effects' in itemDef)) continue;
-    const effects = (itemDef as { effects?: readonly CardEffect[] }).effects;
-    if (!effects) continue;
-    for (const eff of effects) {
-      if ((eff as GrantSkillEffect).type === 'grant-skill') {
-        granted.push((eff as GrantSkillEffect).skill);
+    for (const eff of getCardEffects(itemDef)) {
+      if (eff.type === 'grant-skill') {
+        granted.push(eff.skill);
       }
     }
   }

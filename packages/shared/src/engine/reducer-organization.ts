@@ -989,7 +989,7 @@ function runGrantApply(
               const newPlayersLocal = clonePlayers(nextState);
               newPlayersLocal[hazardPlayerIndex] = {
                 ...hazardPlayer,
-                discardPile: [...hazardPlayer.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
+                discardPile: [...hazardPlayer.discardPile, toCardInstance(entry.card)],
               };
               nextState = { ...nextState, players: newPlayersLocal };
             }

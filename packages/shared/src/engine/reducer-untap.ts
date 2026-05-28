@@ -9,7 +9,7 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, updatePlayer, wrongActionType, getCardEffects, defById } from './reducer-utils.js';
+import { clonePlayers, defById, getCardEffects, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -290,7 +290,7 @@ function performUntap(state: GameState): GameState {
   const discarded = hazardPlayer.agents.filter(a => a.discardAtEndOfTurn);
   if (discarded.length > 0) {
     logDetail(`Untap: discarding ${discarded.length} hazard agent(s) revealed without home site (rule 9.04)`);
-    const discardedCards = discarded.map(a => ({ instanceId: a.character.instanceId, definitionId: a.character.definitionId }));
+    const discardedCards = discarded.map(a => (toCardInstance(a.character)));
     const discardedSites = discarded.flatMap(a => a.siteStack);
     stateAfterUntap = updatePlayer(stateAfterUntap, hazardPlayerIndex, p => ({
       ...p,
@@ -357,7 +357,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
   // Only scan the active (resource) player's characters — the card text
   // says "at the end of *his* untap phase", so it fires only when the
   // character's controller's untap phase transitions to organization.
-  const activeIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[activeIndex];
   const charSiteType = new Map<string, SiteType | null>();
   for (const company of player.companies) {
@@ -437,7 +437,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
         return {
           ...pl,
           cardsInPlay: pl.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
-          discardPile: [...pl.discardPile, ...toDiscard.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))],
+          discardPile: [...pl.discardPile, ...toDiscard.map(c => (toCardInstance(c)))],
         };
       }) as unknown as typeof advanced.players,
     };

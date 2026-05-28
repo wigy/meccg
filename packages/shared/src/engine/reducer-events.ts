@@ -14,7 +14,7 @@ import { ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { updatePlayer, updateCharacter, wrongActionType, getOnEventEffects, getCardEffects, matchesDefinition, findCharacterCompany, findById, removeById, companyById, defById } from './reducer-utils.js';
+import { companyById, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -60,7 +60,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
         newItems.splice(itemIdx, 1);
         newState = updatePlayer(newState, playerIndex, p => ({
           ...updateCharacter(p, charId, c => ({ ...c, items: newItems })),
-          discardPile: [...p.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+          discardPile: [...p.discardPile, toCardInstance(item)],
         }));
         logDetail(`Discarded item ${item.definitionId as string} from character ${charId}`);
         found = true;
@@ -79,7 +79,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
         newState = updatePlayer(newState, playerIndex, p => ({
           ...p,
           outOfPlayPile: newOop,
-          discardPile: [...p.discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
+          discardPile: [...p.discardPile, toCardInstance(card)],
         }));
         logDetail(`Discarded stored card ${card.definitionId as string} from out-of-play pile`);
       }
@@ -175,7 +175,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       const def = defById(state, card.definitionId);
       if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
-        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
+        discardedEvents.push(toCardInstance(card));
         return false;
       }
       return true;
@@ -501,7 +501,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     let targetInstance: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId };
     if (foundCardsInPlayIdx !== -1) {
       const targetCard = owner.cardsInPlay[foundCardsInPlayIdx];
-      targetInstance = { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId };
+      targetInstance = toCardInstance(targetCard);
       const newOwnerCardsInPlay = [...owner.cardsInPlay];
       newOwnerCardsInPlay.splice(foundCardsInPlayIdx, 1);
       newState = updatePlayer(newState, foundOwnerIndex, p => ({
@@ -513,7 +513,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const charId = foundCharId!;
       const char = owner.characters[charId];
       const haz = char.hazards[foundHazardIdx];
-      targetInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
+      targetInstance = toCardInstance(haz);
       const newHazards = [...char.hazards];
       newHazards.splice(foundHazardIdx, 1);
       // Remove the hazard from the character (character belongs to foundOwnerIndex).
@@ -613,7 +613,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             : !!hazDef;
           if (matches) {
             logDetail(`${def.name}: returning ${hazDef?.name ?? '?'} from ${charId as string} to opponent's hand`);
-            bouncedCards.push({ instanceId: haz.instanceId, definitionId: haz.definitionId });
+            bouncedCards.push(toCardInstance(haz));
           } else {
             remaining.push(haz);
           }

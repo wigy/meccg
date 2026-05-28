@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, getOnEventEffects, cardName, characterEntries, findCharacterCompany, findById, hazardPlayer, playerById, defById } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, findById, findCharacterCompany, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -368,7 +368,7 @@ function handleSiteAutomaticAttacks(
     return { state, error: `Expected 'pass' during automatic-attacks step` };
   }
 
-  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = state.cardPool[company.currentSite!.definitionId as string] as import('../types/cards.js').SiteCard;
 
@@ -893,7 +893,7 @@ function handleSiteResolveAttacks(
 
       // Initiate chain with CardInstance
       const hazardPlayerId = hazardPlayer(state).id;
-      const cardInstance: CardInstance = { instanceId: attackCard.instanceId, definitionId: attackCard.definitionId };
+      const cardInstance: CardInstance = toCardInstance(attackCard);
       let newState: GameState = updatePlayer(state, activePlayerIndex, p => ({ ...p, companies: newCompanies }));
       newState = initiateChain(newState, hazardPlayerId, cardInstance, { type: 'creature' });
       return { state: newState };
@@ -950,7 +950,7 @@ export function applyOnGuardRevealAtResource(
   const payload = isPermanent
     ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
     : { type: 'short-event' as const };
-  const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
+  const cardInstance: CardInstance = toCardInstance(revealedCard);
   newState = initiateChain(newState, action.player, cardInstance, payload);
 
   return { state: newState };
@@ -1014,7 +1014,7 @@ function handleDiscardMinorsForMajor(
       const updatedChar = { ...char, items: newItems };
       const newDiscardPile = [
         ...currentPlayer.discardPile,
-        { instanceId: discardedItem.instanceId, definitionId: discardedItem.definitionId },
+        toCardInstance(discardedItem),
       ];
 
       workingState = updatePlayer(workingState, playerIndex, p => ({
@@ -1426,7 +1426,7 @@ function handleInfluenceAttemptDeclare(
   const newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
   // Initiate chain — faction card is held by the chain entry, opponent gets priority
-  const cardInstance: CardInstance = { instanceId: handCard.instanceId, definitionId: handCard.definitionId };
+  const cardInstance: CardInstance = toCardInstance(handCard);
   const chainState = initiateChain(newState, action.player, cardInstance, {
     type: 'influence-attempt',
     influencingCharacterId: charId,
@@ -1692,7 +1692,7 @@ function handleOpponentInfluenceAttempt(
       return { state, error: 'Revealed card does not match target name' };
     }
 
-    revealedCard = { instanceId: revealedHandCard.instanceId, definitionId: revealedHandCard.definitionId };
+    revealedCard = toCardInstance(revealedHandCard);
     newHand.splice(revealIdx, 1);
     effectiveTargetMind = 0;
     logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
@@ -1831,7 +1831,7 @@ export function resolveOpponentInfluenceDefend(
     const attacker = newPlayers[attackerIndex];
     newPlayers[attackerIndex] = {
       ...attacker,
-      discardPile: [...attacker.discardPile, { instanceId: attempt.revealedCard.instanceId, definitionId: attempt.revealedCard.definitionId }],
+      discardPile: [...attacker.discardPile, toCardInstance(attempt.revealedCard)],
     };
     logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} discarded after failed influence`);
   }
@@ -1871,7 +1871,7 @@ function discardInfluencedCard(
         newAllies.splice(allyIdx, 1);
         const updatedChar = { ...charInPlay, allies: newAllies };
         const newChars = { ...opponent.characters, [charId]: updatedChar };
-        const newDiscard = [...opponent.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+        const newDiscard = [...opponent.discardPile, toCardInstance(ally)];
         players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
         logDetail(`Discarded ally ${ally.instanceId}`);
         return;
@@ -1891,7 +1891,7 @@ function discardInfluencedCard(
     const faction = opponent.cardsInPlay[factionIdx];
     const newCardsInPlay = [...opponent.cardsInPlay];
     newCardsInPlay.splice(factionIdx, 1);
-    const newDiscard = [...opponent.discardPile, { instanceId: faction.instanceId, definitionId: faction.definitionId }];
+    const newDiscard = [...opponent.discardPile, toCardInstance(faction)];
     players[opponentIndex] = { ...opponent, cardsInPlay: newCardsInPlay, discardPile: newDiscard };
     logDetail(`Discarded faction ${faction.instanceId as string}`);
     return;
@@ -1905,18 +1905,18 @@ function discardInfluencedCard(
 
   // Discard items
   for (const item of targetChar.items) {
-    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+    newDiscard.push(toCardInstance(item));
     logDetail(`Discarded item ${item.instanceId} from influenced character`);
   }
 
   // Discard allies
   for (const ally of targetChar.allies) {
-    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+    newDiscard.push(toCardInstance(ally));
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
   }
 
   // Discard the character itself
-  newDiscard.push({ instanceId: targetChar.instanceId, definitionId: targetChar.definitionId });
+  newDiscard.push(toCardInstance(targetChar));
   logDetail(`Discarded influenced character ${targetChar.instanceId}`);
 
   // Handle followers — try to place under GI, otherwise discard
@@ -1942,12 +1942,12 @@ function discardInfluencedCard(
     } else {
       // Discard follower and their items/allies
       for (const item of follower.items) {
-        newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+        newDiscard.push(toCardInstance(item));
       }
       for (const ally of follower.allies) {
-        newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+        newDiscard.push(toCardInstance(ally));
       }
-      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
       logDetail(`Follower ${followerId} discarded (no GI room)`);
     }
@@ -1997,7 +1997,7 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
   const newCompanies = resourcePlayer.companies.map(company => {
     if (company.onGuardCards.length > 0) {
       logDetail(`Cleanup: returning ${company.onGuardCards.length} on-guard card(s) from company ${company.id} to hazard player's hand`);
-      returnedCards.push(...company.onGuardCards.map(og => ({ instanceId: og.instanceId, definitionId: og.definitionId })));
+      returnedCards.push(...company.onGuardCards.map(og => (toCardInstance(og))));
       return { ...company, onGuardCards: [] as readonly OnGuardCard[] };
     }
     return company;

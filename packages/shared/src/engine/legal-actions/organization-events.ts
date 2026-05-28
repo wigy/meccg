@@ -20,7 +20,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -61,12 +61,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       return e.scope === 'game';
     });
     if (dupLimit) {
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = defById(state, c.definitionId);
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
+      const copiesInPlay = countCopiesInPlay(state, def.name);
       if (copiesInPlay >= dupLimit.max) {
         logDetail(`Permanent event ${def.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
         actions.push({

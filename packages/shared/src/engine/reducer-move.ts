@@ -28,7 +28,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, PlayerState } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
-import { matchesDefinition, characterIds, defById } from './reducer-utils.js';
+import { characterIds, defById, matchesDefinition, toCardInstance } from './reducer-utils.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -244,7 +244,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
     if (cipIdx >= 0) {
       const inst = player.cardsInPlay[cipIdx];
       return {
-        instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+        instance: toCardInstance(inst),
         ownerIndex: pi,
         zone: 'in-play',
         remove: s => removeFromCardsInPlay(s, pi, sourceId),
@@ -257,7 +257,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
       if (itemIdx >= 0) {
         const inst = char.items[itemIdx];
         return {
-          instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+          instance: toCardInstance(inst),
           ownerIndex: pi,
           zone: 'self-location',
           remove: s => removeFromCharacterItems(s, pi, charId, sourceId),
@@ -269,7 +269,7 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
         // Hazards are owned by the opposing (hazard) player — discards
         // route to their discard pile, not the defending character's.
         return {
-          instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+          instance: toCardInstance(inst),
           ownerIndex: 1 - pi,
           zone: 'self-location',
           remove: s => removeFromCharacterHazards(s, pi, charId, sourceId),
@@ -321,7 +321,7 @@ function locateInZone(
         if (cipIdx >= 0) {
           const inst = player.cardsInPlay[cipIdx];
           return {
-            instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+            instance: toCardInstance(inst),
             ownerIndex: pi,
             zone: 'in-play',
             remove: s => removeFromCardsInPlay(s, pi, instanceId),
@@ -336,7 +336,7 @@ function locateInZone(
           if (hazIdx >= 0) {
             const inst = char.hazards[hazIdx];
             return {
-              instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+              instance: toCardInstance(inst),
               ownerIndex: 1 - pi,
               zone: 'in-play',
               remove: s => removeFromCharacterHazards(s, pi, charId, instanceId),
@@ -346,7 +346,7 @@ function locateInZone(
           if (itemIdx >= 0) {
             const inst = char.items[itemIdx];
             return {
-              instance: { instanceId: inst.instanceId, definitionId: inst.definitionId },
+              instance: toCardInstance(inst),
               ownerIndex: pi,
               zone: 'in-play',
               remove: s => removeFromCharacterItems(s, pi, charId, instanceId),
@@ -398,7 +398,7 @@ function collectFromZone(
       for (let pi = 0; pi < state.players.length; pi++) {
         const player = state.players[pi];
         for (const cip of player.cardsInPlay) {
-          const inst: CardInstance = { instanceId: cip.instanceId, definitionId: cip.definitionId };
+          const inst: CardInstance = toCardInstance(cip);
           if (!matches(inst)) continue;
           const id = cip.instanceId;
           out.push({
@@ -411,7 +411,7 @@ function collectFromZone(
         for (const charId of characterIds(player)) {
           const char = player.characters[charId];
           for (const haz of char.hazards) {
-            const inst: CardInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
+            const inst: CardInstance = toCardInstance(haz);
             if (!matches(inst)) continue;
             const hazId = haz.instanceId;
             out.push({
@@ -422,7 +422,7 @@ function collectFromZone(
             });
           }
           for (const item of char.items) {
-            const inst: CardInstance = { instanceId: item.instanceId, definitionId: item.definitionId };
+            const inst: CardInstance = toCardInstance(item);
             if (!matches(inst)) continue;
             const itemId = item.instanceId;
             out.push({
@@ -616,8 +616,7 @@ export function findMoveEffectByShape(
   from: MoveZone,
   to: MoveZone,
 ): MoveEffect | null {
-  if (!def || !def.effects) return null;
-  for (const e of def.effects) {
+  for (const e of def?.effects ?? []) {
     if (e.type !== 'move') continue;
     if (e.select !== select) continue;
     const fromMatches = Array.isArray(e.from) ? e.from.includes(from) : e.from === from;

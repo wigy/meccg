@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, removeById, sweepCompanyMembershipChangedEvents, cardName, matchesDefinition, findById, activePlayerState, defById } from './reducer-utils.js';
+import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -367,8 +367,8 @@ function tryCancelDeferredOnReveal(
   if (ogIdx < 0) return null;
   const ogCard = company.onGuardCards[ogIdx];
   const ogDef = defById(state, ogCard.definitionId);
-  if (!ogDef || !('effects' in ogDef)) return null;
-  const ogEffects = (ogDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
+  if (!ogDef) return null;
+  const ogEffects = getCardEffects(ogDef);
 
   const revealEffect = ogEffects.find(
     (e): e is import('../types/effects.js').OnGuardRevealEffect =>
@@ -384,9 +384,8 @@ function tryCancelDeferredOnReveal(
   if (handIdx < 0) return null;
   const handCard = resourcePlayer.hand[handIdx];
   const handDef = defById(state, handCard.definitionId);
-  if (!handDef || !('effects' in handDef)) return null;
-  const handEffects = (handDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [];
-  const hasSkill = handEffects.some(e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill);
+  if (!handDef) return null;
+  const hasSkill = getCardEffects(handDef).some(e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill);
   if (!hasSkill) return null;
 
   const hazardIndex = state.players.findIndex(p => p.id === revealAction.player);
@@ -409,12 +408,12 @@ function tryCancelDeferredOnReveal(
     ...resourcePlayer,
     companies: updatedCompanies,
     hand: newHand,
-    discardPile: [...resourcePlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+    discardPile: [...resourcePlayer.discardPile, toCardInstance(handCard)],
   };
   const hazardPlayer = newPlayers[hazardIndex];
   newPlayers[hazardIndex] = {
     ...hazardPlayer,
-    discardPile: [...hazardPlayer.discardPile, { instanceId: ogCard.instanceId, definitionId: ogCard.definitionId }],
+    discardPile: [...hazardPlayer.discardPile, toCardInstance(ogCard)],
   };
 
   return { ...state, players: newPlayers };
@@ -566,7 +565,7 @@ function applyCancelInfluence(
     return { state, error: 'Card has no cancel-influence effect' };
   }
 
-  const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+  const newDiscard = [...player.discardPile, toCardInstance(discardedCard)];
 
   logDetail(`Cancel-influence: ${cardDef.name} played, influence attempt auto-canceled`);
 
@@ -906,19 +905,19 @@ function returnCharacterToHand(
 
   // Discard items to owning player's discard pile
   for (const item of charInPlay.items) {
-    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+    newDiscard.push(toCardInstance(item));
     logDetail(`Call of Home: discarding item ${item.definitionId as string} from returned character`);
   }
 
   // Discard allies
   for (const ally of charInPlay.allies) {
-    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+    newDiscard.push(toCardInstance(ally));
     logDetail(`Call of Home: discarding ally ${ally.definitionId as string} from returned character`);
   }
 
   // Discard hazards (back to hazard player = opponent)
   for (const hazard of charInPlay.hazards) {
-    newOpponentDiscard.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+    newOpponentDiscard.push(toCardInstance(hazard));
     logDetail(`Call of Home: discarding hazard ${hazard.definitionId as string} from returned character`);
   }
 
@@ -942,12 +941,12 @@ function returnCharacterToHand(
       logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
     } else {
       for (const item of follower.items) {
-        newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+        newDiscard.push(toCardInstance(item));
       }
       for (const ally of follower.allies) {
-        newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+        newDiscard.push(toCardInstance(ally));
       }
-      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
       logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
     }
@@ -963,7 +962,7 @@ function returnCharacterToHand(
   });
 
   // Add character card to hand
-  const newHand = [...player.hand, { instanceId: charInPlay.instanceId, definitionId: charInPlay.definitionId }];
+  const newHand = [...player.hand, toCardInstance(charInPlay)];
 
   newPlayers[playerIndex] = {
     ...player,
@@ -998,13 +997,13 @@ function discardCharacter(
   const newOpponentDiscard = [...opponent.discardPile];
 
   for (const item of charInPlay.items) {
-    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+    newDiscard.push(toCardInstance(item));
   }
   for (const ally of charInPlay.allies) {
-    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+    newDiscard.push(toCardInstance(ally));
   }
   for (const hazard of charInPlay.hazards) {
-    newOpponentDiscard.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+    newOpponentDiscard.push(toCardInstance(hazard));
   }
 
   const newCharacters = { ...player.characters };
@@ -1022,9 +1021,9 @@ function discardCharacter(
     if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
     } else {
-      for (const item of follower.items) newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
-      for (const ally of follower.allies) newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
-      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      for (const item of follower.items) newDiscard.push(toCardInstance(item));
+      for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
+      newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
     }
   }
@@ -1040,7 +1039,7 @@ function discardCharacter(
   });
 
   // Character card goes to the resource player's discard pile (not hand)
-  newDiscard.push({ instanceId: charInPlay.instanceId, definitionId: charInPlay.definitionId });
+  newDiscard.push(toCardInstance(charInPlay));
 
   newPlayers[playerIndex] = {
     ...player,
@@ -1721,7 +1720,7 @@ function applySelectCardBearerResolution(
           ...p,
           discardPile: [
             ...p.discardPile,
-            { instanceId: inPlay.instanceId, definitionId: inPlay.definitionId },
+            toCardInstance(inPlay),
           ],
         }));
         break;
@@ -1860,7 +1859,7 @@ function applyGlamourHazardRollResolution(
       if (hazOwnerIdx === -1) hazOwnerIdx = (actorIndex + 1) % postRoll.players.length;
       postRoll = updatePlayer(postRoll, hazOwnerIdx, p => ({
         ...p,
-        discardPile: [...p.discardPile, { instanceId: haz.instanceId, definitionId: haz.definitionId }],
+        discardPile: [...p.discardPile, toCardInstance(haz)],
       }));
       logDetail(`${sourceName}: ${hazName} discarded from ${foundCharId}`);
     }
@@ -1903,7 +1902,7 @@ function applyDiscardOneCompanyItemResolution(
     const idx = charData.items.findIndex(it => it.instanceId === itemInstanceId);
     if (idx >= 0) {
       const item = charData.items[idx];
-      removedItem = { instanceId: item.instanceId, definitionId: item.definitionId };
+      removedItem = toCardInstance(item);
       newCharacters[charId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
       itemRemoved = true;
       break;
@@ -1977,7 +1976,7 @@ function applyHazardEventMaintenanceResolution(
     newPlayers[actorIdx] = {
       ...actorPlayer,
       cardsInPlay: newCardsInPlay,
-      discardPile: [...actorPlayer.discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
+      discardPile: [...actorPlayer.discardPile, toCardInstance(card)],
     };
   } else {
     // discard-from-hand: validate and verify the hand card matches the filter
@@ -1988,15 +1987,11 @@ function applyHazardEventMaintenanceResolution(
     const handCard = actorPlayer.hand[handIdx];
 
     // Verify the card matches the handCardFilter from the source effect
-    const sourceDef = defById(state, top.kind.sourceDefinitionId);
-    if (sourceDef && 'effects' in sourceDef && sourceDef.effects) {
-      for (const eff of sourceDef.effects) {
-        if (eff.type !== 'hazard-maintenance' || eff.trigger !== 'opponent-long-event-end') continue;
-        const handDef = defById(state, handCard.definitionId);
-        if (!handDef || !matchesDefinition(handDef, eff.handCardFilter)) {
-          return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
-        }
-        break;
+    const maintenanceEff = findHazardMaintenanceEffect(defById(state, top.kind.sourceDefinitionId));
+    if (maintenanceEff) {
+      const handDef = defById(state, handCard.definitionId);
+      if (!handDef || !matchesDefinition(handDef, maintenanceEff.handCardFilter)) {
+        return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
       }
     }
 
@@ -2007,7 +2002,7 @@ function applyHazardEventMaintenanceResolution(
     newPlayers[actorIdx] = {
       ...actorPlayer,
       hand: newHand,
-      discardPile: [...actorPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+      discardPile: [...actorPlayer.discardPile, toCardInstance(handCard)],
     };
   }
 

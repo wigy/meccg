@@ -12,7 +12,8 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
-import { matchesDefinition, playerById, defById } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
+import { getPlayerIndex } from '../../index.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -80,14 +81,12 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
  * exists; atomic resolution windows are skipped by the caller.
  */
 function reshuffleFromHandActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   const results: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!def || !('effects' in def)) continue;
-    const effects = (def as { effects?: readonly import('../../index.js').CardEffect[] }).effects;
-    const hasReshuffle = effects?.some(e =>
+    const hasReshuffle = getCardEffects(def).some(e =>
       e.type === 'move'
       && e.select === 'self'
       && e.from === 'hand'

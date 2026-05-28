@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -658,12 +658,7 @@ function playResourcesActions(
           return e.scope === 'game';
         });
         if (dupLimit) {
-          const copiesInPlay = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === eventDef.name;
-            }).length, 0,
-          );
+          const copiesInPlay = countCopiesInPlay(state, eventDef.name);
           if (copiesInPlay >= dupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
             actions.push({
@@ -1440,10 +1435,9 @@ function sitePhaseGrantActions(
   const siteDefId = resolveInstanceId(state, siteInstanceId);
   if (!siteDefId) return [];
   const siteDef = defById(state, siteDefId);
-  if (!siteDef || !('effects' in siteDef)) return [];
+  if (!siteDef) return [];
 
-  const siteEffects = (siteDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [];
-  const allGrantEffects = siteEffects.filter(
+  const allGrantEffects = getCardEffects(siteDef).filter(
     (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
   );
   if (allGrantEffects.length === 0) return [];

@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
 import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -294,6 +294,20 @@ export function getCardEffects(
 }
 
 /**
+ * Returns the first `hazard-maintenance` effect on the card, or `undefined` if
+ * none exists. Centralizes the recurring pattern of iterating a card's effects
+ * to find the maintenance trigger, used both when computing available legal
+ * actions and when validating the chosen payment.
+ */
+export function findHazardMaintenanceEffect(
+  def: CardDefinition | null | undefined,
+): HazardMaintenanceEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is HazardMaintenanceEffect => e.type === 'hazard-maintenance',
+  );
+}
+
+/**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
  * whose definition has `mind === null`.
@@ -362,6 +376,29 @@ export function companyById(
 }
 
 /**
+ * Finds the player and company containing the given character across all players.
+ *
+ * Each character belongs to exactly one player's company. This helper replaces the
+ * recurring nested-loop pattern that iterates `state.players` to find which player
+ * and company a character belongs to — used in effect collection where we need to
+ * walk the rest of the company's members.
+ *
+ * Returns `undefined` if the character is not currently in any company (e.g. it
+ * has been eliminated or is between phase transitions).
+ */
+export function findPlayerAndCompany(
+  state: GameState,
+  characterId: CardInstanceId,
+): { readonly player: PlayerState; readonly playerIndex: number; readonly company: Company } | undefined {
+  for (let i = 0; i < state.players.length; i++) {
+    const player = state.players[i];
+    const company = findCharacterCompany(player.companies, characterId);
+    if (company) return { player, playerIndex: i, company };
+  }
+  return undefined;
+}
+
+/**
  * Filters a sideboard to the cards whose definitions match `predicate`,
  * returning `{ instanceId, name }` pairs for legal-action generation. Cards
  * whose definitions cannot be resolved from the card pool are skipped.
@@ -379,6 +416,18 @@ export function filterSideboardByDef(
     }
   }
   return result;
+}
+
+/**
+ * Counts how many cards with the given name are currently in any player's
+ * `cardsInPlay`. Used when checking `duplication-limit` constraints with
+ * `scope: "game"` to prevent more than the allowed number of copies being
+ * in play simultaneously.
+ */
+export function countCopiesInPlay(state: GameState, name: string): number {
+  return state.players.reduce((count, p) =>
+    count + p.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length,
+  0);
 }
 
 /**

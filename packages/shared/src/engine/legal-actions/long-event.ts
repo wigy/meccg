@@ -23,7 +23,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -76,29 +76,22 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       }
 
       // Check duplication-limit with scope "game"
-      if (def.effects) {
-        let blocked = false;
-        for (const effect of def.effects) {
-          if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-          const copiesInPlay = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === def.name;
-            }).length, 0,
-          );
-          if (copiesInPlay >= effect.max) {
-            logDetail(`${def.name}: duplication limit reached (${copiesInPlay}/${effect.max})`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${def.name} cannot be duplicated`,
-            });
-            blocked = true;
-            break;
-          }
+      let blocked = false;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+        const copiesInPlay = countCopiesInPlay(state, def.name);
+        if (copiesInPlay >= effect.max) {
+          logDetail(`${def.name}: duplication limit reached (${copiesInPlay}/${effect.max})`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${def.name} cannot be duplicated`,
+          });
+          blocked = true;
+          break;
         }
-        if (blocked) continue;
       }
+      if (blocked) continue;
 
       logDetail(`Resource long-event playable: ${def.name} (${cardInstanceId as string})`);
       actions.push({
@@ -216,10 +209,10 @@ export function heroResourceShortEventActions(
     // duplication-limit is a companion to company-combat-boost (e.g. The Dwarves
     // Are upon You!): it describes per-attack duplication rules and does not
     // represent an independent non-combat effect.
-    const hasEffects = def.effects && def.effects.length > 0;
-    const hasCancelAttack = hasEffects && def.effects.some(e => e.type === 'cancel-attack');
-    const hasCompanyCombatBoost = hasEffects && def.effects.some(e => e.type === 'company-combat-boost');
-    const allCombatOnly = hasEffects && def.effects.every(e => {
+    const effects = getCardEffects(def);
+    const hasCancelAttack = effects.some(e => e.type === 'cancel-attack');
+    const hasCompanyCombatBoost = effects.some(e => e.type === 'company-combat-boost');
+    const allCombatOnly = effects.length > 0 && effects.every(e => {
       if (combatOnlyTypes.has(e.type)) return true;
       if (e.type === 'company-combat-boost') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;

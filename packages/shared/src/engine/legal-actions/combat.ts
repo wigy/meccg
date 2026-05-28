@@ -922,7 +922,6 @@ function shortEventsAffectingStrike(
   for (const handCard of defPlayer.hand) {
     const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
-    if (!def.effects) continue;
 
     const playTarget = getPlayTargetEffect(def);
     if (!playTarget || playTarget.target !== 'character') continue;
@@ -937,7 +936,7 @@ function shortEventsAffectingStrike(
     }
 
     // Must have at least one effect that boosts prowess or body on the character
-    const affectsStrike = def.effects.some(
+    const affectsStrike = getCardEffects(def).some(
       (e): e is OnEventEffect =>
         e.type === 'on-event'
         && e.event === 'self-enters-play'
@@ -951,7 +950,7 @@ function shortEventsAffectingStrike(
     }
 
     // Check turn-scoped duplication limit (e.g. Vilya: max 1 per turn)
-    const turnDupLimit = def.effects.find(
+    const turnDupLimit = getCardEffects(def).find(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
     );
     if (turnDupLimit) {

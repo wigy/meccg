@@ -21,7 +21,7 @@
 import type { GameState, CardInstanceId, CardDefinition, CardInPlay } from '../../index.js';
 import { matchesCondition } from '../../effects/index.js';
 import { ownerOf } from '../../types/state.js';
-import { updatePlayer, updateCharacter, getCardEffects } from '../reducer-utils.js';
+import { getCardEffects, toCardInstance, updateCharacter, updatePlayer } from '../reducer-utils.js';
 import { logDetail } from '../legal-actions/log.js';
 
 /**
@@ -76,8 +76,7 @@ export function applyWardToBearer(
   wardCardDef: CardDefinition,
   newItemInstanceId: CardInstanceId,
 ): GameState {
-  if (!('effects' in wardCardDef) || !wardCardDef.effects) return state;
-  const filters = wardCardDef.effects
+  const filters = getCardEffects(wardCardDef)
     .filter((e): e is import('../../types/effects.js').WardBearerEffect => e.type === 'ward-bearer')
     .map(e => e.filter);
   if (filters.length === 0) return state;
@@ -114,7 +113,7 @@ export function applyWardToBearer(
     if (ownerIdx === -1) ownerIdx = charOwnerIndex === 0 ? 1 : 0;
     next = updatePlayer(next, ownerIdx, p => ({
       ...p,
-      discardPile: [...p.discardPile, { instanceId: haz.instanceId, definitionId: haz.definitionId }],
+      discardPile: [...p.discardPile, toCardInstance(haz)],
     }));
   }
   return next;

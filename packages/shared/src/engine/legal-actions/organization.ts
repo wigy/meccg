@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, activePlayerState, defById } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, defById, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -781,7 +781,7 @@ function enumerateGrantActionTargets(
         const itemDef = defById(state, item.definitionId);
         if (!itemDef) continue;
         if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
-        matches.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+        matches.push(toCardInstance(item));
       }
     }
   }
@@ -793,11 +793,7 @@ function enumerateGrantActionTargets(
  * Extracts grant-action effects from a card definition.
  */
 function extractGrantActions(state: GameState, definitionId: import('../../index.js').CardDefinitionId) {
-  const def = defById(state, definitionId);
-  if (!def || !('effects' in def)) return [];
-  const effects = (def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
-  if (!effects) return [];
-  return effects.filter(
+  return getCardEffects(defById(state, definitionId)).filter(
     (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
   );
 }

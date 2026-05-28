@@ -32,7 +32,7 @@ import type {
 import { hasPlayFlag } from '../index.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
-import { cardName, defById } from './reducer-utils.js';
+import { cardName, defById, toCardInstance } from './reducer-utils.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -122,7 +122,7 @@ export function applyManifestationCascade(state: GameState): GameState {
       const m = manifestIdOf(def);
       if (m && removed.has(m as string)) {
         const owner = ownerOf(card.instanceId) as string;
-        (additions[owner] ??= []).push({ instanceId: card.instanceId, definitionId: card.definitionId });
+        (additions[owner] ??= []).push(toCardInstance(card));
         changed = true;
       } else {
         keep.push(card);

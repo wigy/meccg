@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType, removeById, getOnEventEffects, getCardEffects, cardName, characterEntries, findById, playerById, companyById, hazardPlayer, defById } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -451,7 +451,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
       state: updatePlayer(state, hazardIndex, p => ({
         ...p,
         agents: p.agents.filter((_, i) => i !== agentIdx),
-        discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+        discardPile: [...p.discardPile, toCardInstance(agent.character)],
         // Return old stack sites + home site to deck
         siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
       })),
@@ -480,7 +480,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
         state: updatePlayer(state, hazardIndex, p => ({
           ...p,
           agents: p.agents.filter((_, i) => i !== agentIdx),
-          discardPile: [...p.discardPile, { instanceId: agent.character.instanceId, definitionId: agent.character.definitionId }],
+          discardPile: [...p.discardPile, toCardInstance(agent.character)],
           // Return old stack sites + home site to deck
           siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
         })),
@@ -515,13 +515,11 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
  */
 export function countExtraAgentActions(state: GameState): number {
   return state.players.reduce((sum, p) =>
-    sum + p.cardsInPlay.reduce((s, card) => {
-      const def = defById(state, card.definitionId);
-      if (!def || !('effects' in def)) return s;
-      return s + (def.effects as readonly { type: string; value?: number }[]).reduce(
-        (n, e) => e.type === 'extra-agent-actions' ? n + (e.value ?? 0) : n, 0,
-      );
-    }, 0),
+    sum + p.cardsInPlay.reduce((s, card) =>
+      s + getCardEffects(defById(state, card.definitionId)).reduce(
+        (n, e) => e.type === 'extra-agent-actions' ? n + ((e as { value?: number }).value ?? 0) : n, 0,
+      ),
+    0),
   0);
 }
 
@@ -1155,8 +1153,7 @@ function handlePlayHazardCard(
   // Playing a resource-event as a hazard on the opponent's turn, solely
   // to trigger the endgame. Bypasses the chain: the effect resolves
   // immediately with the Sudden Call player getting one last turn.
-  const defEffects = 'effects' in def ? def.effects : undefined;
-  const hazardCallCouncil = defEffects?.find(
+  const hazardCallCouncil = getCardEffects(def).find(
     (e): e is CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'self',
   );
   if (hazardCallCouncil
@@ -1252,7 +1249,7 @@ function handlePlayHazardCard(
       );
       const activePlayerId = newState.activePlayer;
       if (raceChoice && activePlayerId) {
-        const activeIndex = newState.players[0].id === activePlayerId ? 0 : 1;
+        const activeIndex = getPlayerIndex(newState, activePlayerId);
         const targetCompany = newState.players[activeIndex].companies[mhState.activeCompanyIndex];
         if (targetCompany) {
           const constraintName = raceChoice.apply.constraint;
@@ -1729,7 +1726,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge');
         const isTapped = originSite.status === CardStatus.Tapped;
         newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
-        const entry = { instanceId: originSite.instanceId, definitionId: originSite.definitionId };
+        const entry = toCardInstance(originSite);
         if (!isHaven && isTapped && !alwaysReturnToDeck) {
           if (stolenKnowledge) {
             logDetail(`Step 8: site of origin carries stolen-knowledge — storing in out-of-play pile for marshalling points`);
@@ -1803,7 +1800,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
         );
         if (hasTrigger) {
           logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
-          itemsToDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+          itemsToDiscard.push(toCardInstance(item));
         } else {
           itemsToKeep.push(item);
         }
@@ -2011,7 +2008,7 @@ function fireAllyArrivalEffects(
           const updatedAllies = char.allies.filter(a => a.instanceId !== ally.instanceId);
           newState = updatePlayer(newState, pIdx, p => ({
             ...updateCharacter(p, charInstId, c => ({ ...c, allies: updatedAllies })),
-            discardPile: [...p.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }],
+            discardPile: [...p.discardPile, toCardInstance(ally)],
           }));
         }
       }
@@ -2508,7 +2505,7 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
 
   let newSiteDeck = activePlayer.siteDeck;
   if (destInst) {
-    newSiteDeck = [...activePlayer.siteDeck, { instanceId: destInst.instanceId, definitionId: destInst.definitionId }];
+    newSiteDeck = [...activePlayer.siteDeck, toCardInstance(destInst)];
   }
 
   newPlayers[activeIndex] = {
@@ -2817,7 +2814,7 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
 
   logDetail(`Order-effects: ahunt attack ${mhState.ahuntAttacksResolved + 1}/${matchingAhunts.length} — ${defName}`);
 
-  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
   if (!company) {
     logDetail(`Order-effects: no active company — skipping ahunt`);
