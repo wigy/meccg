@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, companyById, defById } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -297,8 +297,7 @@ function assignStrikeActions(
       for (const ally of charData.allies) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
         const allyDef = defById(state, ally.definitionId);
-        if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
-        const shieldEff = (allyDef.effects).find(
+        const shieldEff = getCardEffects(allyDef).find(
           (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
         );
         if (shieldEff) {
@@ -356,11 +355,9 @@ function assignStrikeActions(
         }
         // Noble Hound and similar allies with `alwaysCountsAsUntapped` are always assignable.
         const allyDef = defById(state, ally.definitionId);
-        const alwaysUntapped = allyDef && 'effects' in allyDef && allyDef.effects
-          ? (allyDef.effects).some(
-              e => e.type === 'strike-shield' && (e).alwaysCountsAsUntapped,
-            )
-          : false;
+        const alwaysUntapped = getCardEffects(allyDef).some(
+          e => e.type === 'strike-shield' && (e as { alwaysCountsAsUntapped?: boolean }).alwaysCountsAsUntapped,
+        );
         if (!alwaysUntapped && ally.status !== CardStatus.Untapped) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
@@ -601,11 +598,7 @@ function resolveStrikeActions(
   const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[]; name?: string };
-    if (!cardWithEffects.effects) continue;
-
-    const strikeEffect = cardWithEffects.effects.find(
+    const strikeEffect = getCardEffects(cardDef).find(
       (e): e is StrikeModifierEffect => e.type === 'strike-modifier',
     );
     if (!strikeEffect) continue;
@@ -634,11 +627,11 @@ function resolveStrikeActions(
       logDetail(`Reroll strike available: ${handCard.definitionId as string} for ${charName}`);
     } else {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
-        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
+        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
         continue;
       }
       if (strikeEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
-        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
+        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
         continue;
       }
       const bonus = strikeEffect.prowessBonus ?? 0;
@@ -646,9 +639,9 @@ function resolveStrikeActions(
       const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);
       const bodyPenalty = strikeEffect.bodyPenalty ?? 0;
       const bodyNote = bodyPenalty ? `, body ${formatSignedNumber(bodyPenalty)}` : '';
-      explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${formatSignedNumber(bonus)}` : ''}${bodyNote})`;
+      explanation = `${(cardDef as { name?: string } | undefined)?.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${formatSignedNumber(bonus)}` : ''}${bodyNote})`;
       need = modifiedNeed;
-      logDetail(`Strike event available: ${cardWithEffects.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
+      logDetail(`Strike event available: ${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
     }
 
     actions.push({
@@ -781,15 +774,14 @@ function resolveStrikeActions(
     for (const item of charData.items) {
       if (item.status !== CardStatus.Untapped) continue;
       const itemDef = defById(state, item.definitionId);
-      if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
-
-      for (const eff of itemDef.effects) {
+      if (!itemDef) continue;
+      for (const eff of getCardEffects(itemDef)) {
         if (eff.type !== 'cancel-strike') continue;
         const csEff = eff;
         if (csEff.cost?.tap !== 'self') continue;
         if (csEff.target && csEff.target !== 'self') continue;
 
-        const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+        const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
 
         if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
           logDetail(`Cancel-strike ${itemName}: when condition not met for bearer ${bearerName}`);
@@ -813,15 +805,14 @@ function resolveStrikeActions(
     for (const ally of charData.allies) {
       if (ally.status !== CardStatus.Untapped) continue;
       const allyDef = defById(state, ally.definitionId);
-      if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
-
-      for (const eff of allyDef.effects) {
+      if (!allyDef) continue;
+      for (const eff of getCardEffects(allyDef)) {
         if (eff.type !== 'cancel-strike') continue;
         const csEff = eff;
         if (csEff.cost?.tap !== 'self') continue;
         if (csEff.target && csEff.target !== 'self') continue;
 
-        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
+        const allyName = (allyDef as { name?: string }).name ?? (ally.definitionId as string);
 
         if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
           logDetail(`Cancel-strike ${allyName}: when condition not met for bearer ${bearerName}`);
@@ -849,7 +840,7 @@ function resolveStrikeActions(
     const { ally } = allyMatch;
     if (ally.status === CardStatus.Untapped) {
       const allyDef = defById(state, ally.definitionId);
-      if (allyDef && 'effects' in allyDef && allyDef.effects) {
+      if (allyDef) {
         const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
         const cancelCtx = (): Record<string, unknown> => {
           const ctx: Record<string, unknown> = {
@@ -859,7 +850,7 @@ function resolveStrikeActions(
           return ctx;
         };
 
-        for (const eff of allyDef.effects) {
+        for (const eff of getCardEffects(allyDef)) {
           if (eff.type !== 'cancel-strike') continue;
           const csEff = eff;
           if (csEff.cost?.tap !== 'self') continue;
@@ -1020,9 +1011,8 @@ function tapItemForStrikeActions(
   for (const item of charData.items) {
     if (item.status !== CardStatus.Untapped) continue;
     const itemDef = defById(state, item.definitionId);
-    if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
-
-    const effect = itemDef.effects.find(
+    if (!itemDef) continue;
+    const effect = getCardEffects(itemDef).find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && (e).scope === 'current-strike',
     );
     if (!effect) continue;
@@ -1190,8 +1180,8 @@ function cancelAttackActions(
     const charData = player.characters[charId as string];
     if (!charData) continue;
     const charDef = defById(state, charData.definitionId);
-    if (!charDef || !('effects' in charDef) || !charDef.effects) continue;
-    const cancelEffect = charDef.effects.find(
+    if (!charDef) continue;
+    const cancelEffect = getCardEffects(charDef).find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
     if (!cancelEffect) continue;
@@ -1219,8 +1209,8 @@ function cancelAttackActions(
   // and a "tap self" cost (e.g. The Warg-king).
   for (const { ally } of findCompanyAllies(player, company.characters)) {
     const allyDef = defById(state, ally.definitionId);
-    if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
-    const cancelEffect = allyDef.effects.find(
+    if (!allyDef) continue;
+    const cancelEffect = getCardEffects(allyDef).find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
     if (!cancelEffect) continue;
@@ -1256,8 +1246,8 @@ function cancelAttackActions(
     }
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
-      if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
-      const cancelEffect = itemDef.effects.find(
+      if (!itemDef) continue;
+      const cancelEffect = getCardEffects(itemDef).find(
         (e): e is CancelAttackEffect => e.type === 'cancel-attack',
       );
       if (!cancelEffect) continue;
@@ -1285,11 +1275,7 @@ function cancelAttackActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
-    if (!cardWithEffects.effects) continue;
-
-    const cancelEffect = cardWithEffects.effects.find(
+    const cancelEffect = getCardEffects(cardDef).find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
     if (!cancelEffect) continue;
@@ -1313,10 +1299,10 @@ function cancelAttackActions(
     // Cards with set-character-status { status: "inverted", target: "target-character" }
     // (e.g. Escape): one action per unwounded character in the defending company —
     // the player chooses which character to wound when they play the card.
-    const hasWound = cardWithEffects.effects.some(
+    const hasWound = getCardEffects(cardDef).some(
       e => e.type === 'set-character-status'
-        && e.status === 'inverted'
-        && e.target === 'target-character',
+        && (e as { status?: string }).status === 'inverted'
+        && (e as { target?: string }).target === 'target-character',
     );
     if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace && hasWound) {
       for (const charId of company.characters) {
@@ -1419,11 +1405,7 @@ function cancelAttackActions(
   // character in the defending company (the player selects who makes the attempt).
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
-    if (!cardWithEffects.effects) continue;
-
-    const flatEffect = cardWithEffects.effects.find(
+    const flatEffect = getCardEffects(cardDef).find(
       (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
     );
     if (!flatEffect) continue;
@@ -1478,11 +1460,7 @@ function halveStrikesActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef)) continue;
-    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
-    if (!cardWithEffects.effects) continue;
-
-    const halveEffect = cardWithEffects.effects.find(
+    const halveEffect = getCardEffects(cardDef).find(
       (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
     );
     if (!halveEffect) continue;
@@ -1562,8 +1540,8 @@ function modifyAttackActions(
 
         for (const item of charData.items) {
           const itemDef = defById(state, item.definitionId);
-          if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
-          const effect = itemDef.effects.find(
+          if (!itemDef) continue;
+          const effect = getCardEffects(itemDef).find(
             (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !(e).fromHand && (e).scope !== 'current-strike',
           );
           if (!effect) continue;
@@ -1617,8 +1595,7 @@ function modifyAttackActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
-    const effect = cardDef.effects.find(
+    const effect = getCardEffects(cardDef).find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
     );
     if (!effect) continue;
@@ -1629,7 +1606,7 @@ function modifyAttackActions(
     if (playerId !== expectedPlayerId) continue;
 
     // Attack-scoped duplication check.
-    const attackDupLimit = (cardDef.effects).find(
+    const attackDupLimit = getCardEffects(cardDef).find(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
@@ -1709,21 +1686,20 @@ function companyCombatBoostActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
-
-    const boostEffects = (cardDef.effects).filter(
+    const boostEffects = getCardEffects(cardDef).filter(
       (e): e is CompanyCombatBoostEffect => e.type === 'company-combat-boost',
     );
     if (boostEffects.length === 0) continue;
 
+    if (!cardDef) continue;
     // Attack-scoped duplication check.
-    const attackDupLimit = (cardDef.effects).find(
+    const attackDupLimit = getCardEffects(cardDef).find(
       (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
     );
     if (attackDupLimit) {
       const prior = countConstraintsFromDefinition(state, cardDef.id, 'attack');
       if (prior >= attackDupLimit.max) {
-        logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        logDetail(`${(cardDef as { name?: string }).name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
       }
     }
@@ -1743,11 +1719,11 @@ function companyCombatBoostActions(
       if (hasMatch) break;
     }
     if (!hasMatch) {
-      logDetail(`${cardDef.name}: no matching characters in company — company-combat-boost not offered`);
+      logDetail(`${(cardDef as { name?: string }).name}: no matching characters in company — company-combat-boost not offered`);
       continue;
     }
 
-    logDetail(`Company-combat-boost available: ${cardDef.name}`);
+    logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name}`);
     actions.push({
       action: {
         type: 'play-short-event',
@@ -1927,14 +1903,12 @@ function combatHazardPermanentPlays(
   for (const handCard of attacker.hand) {
     const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') continue;
-    if (!('effects' in def) || !def.effects) continue;
-
-    const playWindow = def.effects.find(
+    const playWindow = getCardEffects(def).find(
       (e): e is PlayWindowEffect => e.type === 'play-window',
     );
     if (!playWindow || playWindow.phase !== 'combat' || playWindow.step !== 'resolve-strike') continue;
 
-    const playCondition = def.effects.find(
+    const playCondition = getCardEffects(def).find(
       (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'combat-creature-race',
     );
     if (playCondition) {
@@ -1944,7 +1918,7 @@ function combatHazardPermanentPlays(
       }
     }
 
-    const playTarget = def.effects.find(
+    const playTarget = getCardEffects(def).find(
       (e): e is PlayTargetEffect => e.type === 'play-target',
     );
     if (playTarget && playTarget.target === 'character' && playTarget.filter) {
@@ -1976,7 +1950,7 @@ function combatHazardPermanentPlays(
     }
 
     // take-prisoner: require a valid rescue site in the hazard player's location deck.
-    const takePrisonerEff = def.effects.find(
+    const takePrisonerEff = getCardEffects(def).find(
       (e): e is import('../../types/effects.js').TakePrisonerEffect => e.type === 'take-prisoner',
     );
     if (takePrisonerEff) {
@@ -1994,7 +1968,7 @@ function combatHazardPermanentPlays(
     }
 
     // Per-character duplication limit: skip if a copy is already on the target.
-    const charDupLimit = def.effects.find(
+    const charDupLimit = getCardEffects(def).find(
       (e): e is import('../../types/effects.js').DuplicationLimitEffect =>
         e.type === 'duplication-limit' && e.scope === 'character',
     );

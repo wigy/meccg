@@ -187,14 +187,12 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
       if (entry.resolved || entry.negated || !entry.card) continue;
       if (entry.card.instanceId === handCard.instanceId) continue;
       const targetDef = defById(state, entry.card.definitionId);
-      if (!targetDef || !('effects' in targetDef)) continue;
-      const targetEffects = (targetDef as { effects?: readonly CardEffect[] }).effects ?? [];
-      const hasSkill = targetEffects.some(
+      const hasSkill = getCardEffects(targetDef).some(
         e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
       );
       if (!hasSkill) continue;
 
-      logDetail(`Chain response: ${hazDef.name} can cancel ${targetDef.name ?? entry.card.definitionId} (requires ${requiredSkill})`);
+      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId} (requires ${requiredSkill})`);
       actions.push({
         action: {
           type: 'play-short-event',
@@ -355,7 +353,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
     // Per CoE rule 2.V.6, only hazard events that directly affect the
     // company (or an influence check) may be revealed from on-guard.
     // Cards must declare an on-guard-reveal effect with the matching trigger.
-    const hasInfluenceTrigger = 'effects' in def && def.effects?.some(
+    const hasInfluenceTrigger = getCardEffects(def).some(
       (e: { type: string; trigger?: string }) =>
         e.type === 'on-guard-reveal' && e.trigger === 'influence-attempt',
     );
@@ -365,7 +363,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
     }
 
     // Character-targeting events get one action per character
-    const isCharTargeting = 'effects' in def && def.effects?.some(
+    const isCharTargeting = getCardEffects(def).some(
       (e: { type: string; target?: string }) => e.type === 'play-target' && e.target === 'character',
     );
     if (isCharTargeting) {

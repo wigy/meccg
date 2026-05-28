@@ -975,11 +975,11 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   // no-direct-influence flag — revert DI to GI on attach
-  if (targetCharId && def && 'effects' in def && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
+  if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId as string];
       if (char && char.controlledBy !== 'general') {
-        logDetail(`"${def.name}" forces ${targetCharId as string} from DI to GI`);
+        logDetail(`"${def?.name ?? '?'}" forces ${targetCharId as string} from DI to GI`);
         const oldControllerId = char.controlledBy;
         const oldCtrl = newPlayers[pi].characters[oldControllerId as string];
         if (oldCtrl) {
@@ -1004,7 +1004,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   // tap-site-on-play: tap the active company's current site when the card enters play,
   // unless the site carries the never-taps site-rule (e.g. The Worthy Hills).
-  if (def && 'effects' in def && hasPlayFlag(def, 'tap-site-on-play')) {
+  if (hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-site-on-play')) {
     const ps = newState.phaseState as { activeCompanyIndex?: number };
     const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
     const company = newState.players[playerIndex].companies[activeCompanyIndex];
@@ -1014,9 +1014,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       const neverTaps = siteDef && isSiteCard(siteDef)
         && (siteDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'never-taps');
       if (neverTaps) {
-        logDetail(`"${def.name}" tap-site-on-play: site has never-taps — leaving site untapped`);
+        logDetail(`"${def?.name ?? '?'}" tap-site-on-play: site has never-taps — leaving site untapped`);
       } else {
-        logDetail(`"${def.name}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
+        logDetail(`"${def?.name ?? '?'}" tap-site-on-play: tapping site ${siteInPlay.definitionId as string}`);
         const newCompanies = [...newState.players[playerIndex].companies];
         newCompanies[activeCompanyIndex] = {
           ...company,
@@ -1657,11 +1657,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.combat) {
     const cardDef = defById(current, entry.card.definitionId);
-    const flatEffect = cardDef && 'effects' in cardDef
-      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
-      )
-      : undefined;
+    const flatEffect = getCardEffects(cardDef).find(
+      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
+    );
     if (flatEffect) {
       const creatureRace = current.combat.creatureRace ?? '';
       const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(creatureRace));
@@ -1781,11 +1779,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const cohEffect = cardDef && 'effects' in cardDef
-      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is import('../index.js').CallOfHomeCheckEffect => e.type === 'call-of-home-check',
-      )
-      : undefined;
+    const cohEffect = getCardEffects(cardDef).find(
+      (e): e is import('../index.js').CallOfHomeCheckEffect => e.type === 'call-of-home-check',
+    );
     if (cohEffect) {
       const resourcePlayerId = current.activePlayer!;
       logDetail(`Enqueuing call-of-home-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
@@ -1815,11 +1811,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const tadCardDef = defById(current, entry.card.definitionId);
-    const dupEffect = tadCardDef && 'effects' in tadCardDef
-      ? (tadCardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is import('../index.js').DuplicateSiteAutoAttacksEffect => e.type === 'duplicate-site-auto-attacks',
-      )
-      : undefined;
+    const dupEffect = getCardEffects(tadCardDef).find(
+      (e): e is import('../index.js').DuplicateSiteAutoAttacksEffect => e.type === 'duplicate-site-auto-attacks',
+    );
     if (dupEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = current.players.findIndex(p => p.id === activePlayerId);
@@ -1890,12 +1884,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const fcacEffect = cardDef && 'effects' in cardDef
-      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is ForceCheckAllCompanyTopEffect =>
+    const fcacEffect = getCardEffects(cardDef).find(
+      (e): e is ForceCheckAllCompanyTopEffect =>
           e.type === 'force-check-all-company' && (e as { check?: string }).check === 'body',
-      )
-      : undefined;
+    );
     if (fcacEffect && current.phaseState.phase === Phase.MovementHazard) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = current.players[0].id === activePlayerId ? 0 : 1;
@@ -1929,11 +1921,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const sbtEffect = cardDef && 'effects' in cardDef
-      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is import('../index.js').SeizedByTerrorCheckEffect => e.type === 'seized-by-terror-check',
-      )
-      : undefined;
+    const sbtEffect = getCardEffects(cardDef).find(
+      (e): e is import('../index.js').SeizedByTerrorCheckEffect => e.type === 'seized-by-terror-check',
+    );
     if (sbtEffect) {
       const resourcePlayerId = current.activePlayer!;
       const activeIndex = current.players.findIndex(p => p.id === resourcePlayerId);
@@ -1964,11 +1954,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const playTargetWithCostCorruption = cardDef && 'effects' in cardDef
-      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
-        (e): e is PlayTargetEffect => e.type === 'play-target' && e.cost?.check === 'corruption',
-      )
-      : undefined;
+    const playTargetWithCostCorruption = getCardEffects(cardDef).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && (e).cost?.check === 'corruption',
+    );
     if (playTargetWithCostCorruption) {
       const targetCharId = entry.payload.targetCharacterId;
       const modifier = playTargetWithCostCorruption.cost?.modifier ?? 0;

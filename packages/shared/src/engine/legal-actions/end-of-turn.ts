@@ -13,7 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition, characterEntries, playerById, defById } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries, playerById, getCardEffects, defById } from '../reducer-utils.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -294,11 +294,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     sourceDefinitionId: import('../../index.js').CardDefinitionId,
   ): void {
     const sourceDef = defById(state, sourceDefinitionId);
-    if (!sourceDef || !('effects' in sourceDef)) return;
-    const effects = (sourceDef as { effects?: readonly CardEffect[] }).effects;
-    if (!effects) return;
-
-    for (const effect of effects) {
+    for (const effect of getCardEffects(sourceDef)) {
       const fetchApply = findFetchApply(effect);
       if (!fetchApply || effect.type !== 'grant-action') continue;
       const filter: Condition | undefined = fetchApply.filter;
@@ -308,11 +304,11 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
       const costTap = effect.cost.tap;
       const sourceIsCharacter = sourceCardId === charId;
       if (costTap === 'self' && sourceIsCharacter && char.status !== CardStatus.Untapped) {
-        logDetail(`Grant-action ${effect.action}: ${sourceDef.name} is tapped, cannot activate`);
+        logDetail(`Grant-action ${effect.action}: ${sourceDef?.name ?? sourceDefinitionId} is tapped, cannot activate`);
         continue;
       }
       if ((costTap === 'bearer' || (costTap === 'self' && !sourceIsCharacter)) && char.status !== CardStatus.Untapped) {
-        logDetail(`Grant-action ${effect.action}: bearer of ${sourceDef.name} is tapped, cannot activate`);
+        logDetail(`Grant-action ${effect.action}: bearer of ${sourceDef?.name ?? sourceDefinitionId} is tapped, cannot activate`);
         continue;
       }
 
@@ -330,7 +326,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
 
       for (const target of eligibleCards) {
         const targetDef = defById(state, target.definitionId);
-        logDetail(`Grant-action ${effect.action} available: ${sourceDef.name} can fetch ${targetDef?.name ?? '?'} from discard`);
+        logDetail(`Grant-action ${effect.action} available: ${sourceDef?.name ?? sourceDefinitionId} can fetch ${targetDef?.name ?? '?'} from discard`);
         actions.push({
           action: {
             type: 'activate-granted-action',
