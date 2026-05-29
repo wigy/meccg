@@ -75,7 +75,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ELROND] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(2);
@@ -103,6 +103,26 @@ describe('Hundreds of Butterflies (dm-142)', () => {
     expect(playActions.filter(a => a.viable)).toHaveLength(0);
   });
 
+  test('not offered on a stationary company even when destinationSiteName is set to current site', () => {
+    // Regression: game mppr2rlu-vsmg1v seq 150 — the engine sets destinationSiteName
+    // to the current site name for stationary companies (rule 2.IV.ii), so the
+    // company.moving filter must use siteRevealed, not destinationSiteName !== null.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }], hand: [HUNDREDS_OF_BUTTERFLIES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Stationary company: engine sets destinationSiteName=currentSite, siteRevealed=false
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Moria', siteRevealed: false }) };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions.filter(a => a.viable)).toHaveLength(0);
+  });
+
   test('only targets characters in the active moving company, not characters in other companies', () => {
     // Regression test: bug where all characters across all companies were offered
     // (game mpgyr5l9-3xcf53, seq 362 — company-p1-1 moving to Rivendell but
@@ -125,7 +145,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
       ],
     });
     // Active company is index 1 (ELROND's company), moving to Minas Tirith
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 1, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 1, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     // Only ELROND (in the moving company) should be a valid target
@@ -146,7 +166,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
@@ -167,7 +187,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
@@ -189,7 +209,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
@@ -223,7 +243,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith' }) };
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     const after = dispatch(state, playActions[0].action);
