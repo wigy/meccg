@@ -142,7 +142,7 @@ run_skill() {
   claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1 &
   local claude_pid=$!
 
-  local hard_deadline=$(( $(date +%s) + 2700 ))
+  local hard_deadline=$(( $(date +%s) + 3600 ))
   local result_seen_at=0
   local term_reason=""
   local now

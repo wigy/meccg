@@ -83,7 +83,7 @@ Follow these steps:
 
    b. **Rules validation against CoE rules and CRF 22.** Even if the log matches the report, the reported behavior might actually be *correct* per the rules. Before calling it a bug, verify the claim against the authoritative sources:
       - **CoE rules:** Read the relevant section(s) of `docs/coe-rules.md` for the phase/step/mechanic involved. Quote the rule that supposedly was violated.
-      - **CRF 22 errata and rulings:** Consult <https://meccg.com/rules/collected-rulings-and-errata-crf/crf-22/card-errata-and-rulings/> for any card-specific errata or rulings that affect the cards involved in the reported situation. CRF 22 frequently overrides or clarifies plain card text — a "bug" may simply be the engine correctly applying a CRF ruling the reporter was unaware of.
+      - **CRF 22 errata and rulings:** Read `docs/crf-22.md` for any card-specific errata or rulings that affect the cards involved in the reported situation. CRF 22 frequently overrides or clarifies plain card text — a "bug" may simply be the engine correctly applying a CRF ruling the reporter was unaware of.
       - If both the CoE rules and CRF 22 say the engine's behavior was actually correct, **do NOT proceed with a code fix**. Emit `success: false` with `reply.body` citing the specific rule / CRF ruling that justifies the observed behavior.
       - Only proceed to step 6 if (a) the log corroborates the report AND (b) the rules + CRF 22 confirm the observed behavior is genuinely incorrect.
 
