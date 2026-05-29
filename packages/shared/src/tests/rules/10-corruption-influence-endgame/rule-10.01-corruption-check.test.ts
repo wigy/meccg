@@ -20,9 +20,9 @@ import { describe, test, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MINAS_TIRITH,
-  charIdAt, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
+  ARAGORN, LEGOLAS, GANDALF, BILBO,
+  RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
+  charIdAt, findCharInstanceId, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
   expectInDiscardPile, expectNotInDiscardPile,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
@@ -96,5 +96,53 @@ describe('Rule 10.01 — Corruption Check', () => {
     expectCharNotInPlay(afterElim, RESOURCE_PLAYER, aragornId);
     expectInPile(afterElim, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
     expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
+  });
+
+  test('Wizard avatar is eliminated (not discarded) on soft-fail corruption check', () => {
+    // Gandalf is a Wizard avatar (mind === null). With CP = 5 and modifier = 0,
+    // a roll of 5 (== CP) is a "soft fail" that would merely discard a hero —
+    // but rule 10.01 says a Wizard avatar "is immediately eliminated" on any
+    // failed check. Gandalf must go to outOfPlayPile, not discardPile.
+    // Bilbo keeps the company non-empty so cleanup logic doesn't interfere.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const gandalfId = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
+
+    const pendingCheck = {
+      characterId: gandalfId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [] as CardInstanceId[],
+      need: 6,
+      explanation: 'CP 5, modifier 0',
+      supportCount: 0,
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck,
+    };
+
+    // Roll 5 == CP: soft fail for a hero → discard, but wizard → must eliminate
+    const afterFail = dispatch(
+      { ...base, cheatRollTotal: 5, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 },
+    );
+
+    expectCharNotInPlay(afterFail, RESOURCE_PLAYER, gandalfId);
+    expectInPile(afterFail, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
+    expectNotInDiscardPile(afterFail, RESOURCE_PLAYER, gandalfId);
   });
 });
