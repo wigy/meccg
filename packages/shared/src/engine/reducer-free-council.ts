@@ -239,18 +239,32 @@ function resolveCorruptionCheck(
   }
 
   if (total >= cp - 1) {
-    // Roll == CP or CP-1: character and possessions discarded
-    logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
-    const toDiscard: CardInstance[] = [
-      { instanceId: pending.characterId, definitionId: char.definitionId },
-      ...pending.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: [...player.discardPile, ...toDiscard],
-    };
+    // Roll == CP or CP-1: effect depends on alignment (CoE rule 10.01).
+    // Hero: discarded. Wizard avatar: eliminated (outOfPlayPile).
+    const isAvatar = isCharacterCard(charDef) && charDef.mind === null;
+    const possessionsToDiscard = pending.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
+    if (isAvatar) {
+      logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — wizard avatar ${charName} eliminated (outOfPlayPile)`);
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
+        discardPile: [...player.discardPile, ...possessionsToDiscard],
+      };
+    } else {
+      logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+      const toDiscard: CardInstance[] = [
+        { instanceId: pending.characterId, definitionId: char.definitionId },
+        ...possessionsToDiscard,
+      ];
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        discardPile: [...player.discardPile, ...toDiscard],
+      };
+    }
   } else {
     // Roll < CP-1: character eliminated, possessions discarded
     logDetail(`Free Council corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);

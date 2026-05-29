@@ -244,8 +244,14 @@ function applyCorruptionCheckResolution(
   }
 
   if (total >= cp - 1) {
-    // Roll == CP or CP - 1: character + possessions discarded (not followers)
-    logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
+    // Roll == CP or CP - 1: effect depends on alignment (CoE rule 10.01).
+    // Hero: discarded. Wizard avatar: eliminated (outOfPlayPile). Minion/FW avatar: taps (success).
+    const isAvatar = isCharacterCard(charDef) && charDef.mind === null;
+    if (isAvatar) {
+      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — wizard avatar ${charName} eliminated (outOfPlayPile)`);
+    } else {
+      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
+    }
 
     delete newCharacters[characterId as string];
 
@@ -262,18 +268,32 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const toDiscard: CardInstance[] = [
-      { instanceId: characterId, definitionId: char.definitionId },
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
-    const newDiscardPile = [...player.discardPile, ...toDiscard];
+    const possessionsToDiscard = action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
 
-    playersAfterRoll[playerIndex] = {
-      ...playersAfterRoll[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: newDiscardPile,
-    };
+    if (isAvatar) {
+      // Wizard avatars are eliminated (removed from play), not discarded — CoE rule 10.01
+      const newOutOfPlayPile = [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }];
+      const newDiscardPile = [...player.discardPile, ...possessionsToDiscard];
+      playersAfterRoll[playerIndex] = {
+        ...playersAfterRoll[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        outOfPlayPile: newOutOfPlayPile,
+        discardPile: newDiscardPile,
+      };
+    } else {
+      const toDiscard: CardInstance[] = [
+        { instanceId: characterId, definitionId: char.definitionId },
+        ...possessionsToDiscard,
+      ];
+      const newDiscardPile = [...player.discardPile, ...toDiscard];
+      playersAfterRoll[playerIndex] = {
+        ...playersAfterRoll[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        discardPile: newDiscardPile,
+      };
+    }
   } else {
     // Roll < CP - 1: character eliminated, possessions discarded
     logDetail(`Corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);

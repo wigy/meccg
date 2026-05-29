@@ -1307,6 +1307,34 @@ export function enqueueTransferCorruptionCheck(
 }
 
 /**
+ * Enqueue a generic corruption-check pending resolution for a character.
+ * Used by tests that need to trigger a corruption check in the pending
+ * resolution queue (outside of Free Council) without going through the
+ * full hazard-play flow.
+ */
+export function enqueueCorruptionCheck(
+  state: GameState,
+  playerId: PlayerId,
+  characterId: CardInstanceId,
+  modifier = 0,
+  possessions: CardInstanceId[] = [],
+): GameState {
+  return enqueueResolution(state, {
+    source: characterId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: state.phaseState.phase as Phase },
+    kind: {
+      type: 'corruption-check',
+      characterId,
+      modifier,
+      reason: 'Test',
+      possessions,
+      transferredItemId: null,
+    },
+  });
+}
+
+/**
  * Enqueue a `gold-ring-test` pending resolution for the given player,
  * gold ring instance, and character. Used by ring-test rule tests to set
  * up the state just before the player rolls.

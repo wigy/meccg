@@ -20,10 +20,11 @@ import { describe, test, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GANDALF, BILBO,
   RIVENDELL, LORIEN, MINAS_TIRITH,
-  charIdAt, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
+  charIdAt, findCharInstanceId, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
   expectInDiscardPile, expectNotInDiscardPile,
+  enqueueCorruptionCheck,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CardInstanceId } from '../../../index.js';
@@ -96,5 +97,81 @@ describe('Rule 10.01 — Corruption Check', () => {
     expectCharNotInPlay(afterElim, RESOURCE_PLAYER, aragornId);
     expectInPile(afterElim, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
     expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
+  });
+
+  test('Wizard avatar failing with roll == CP is eliminated (outOfPlayPile), not discarded — Free Council path', () => {
+    // Gandalf is a wizard avatar (mind === null). CP = 5, roll = 5 → total == CP
+    // → within 1 of CP → wizard must be eliminated (outOfPlayPile), not discarded.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const gandalfId = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
+
+    const pendingCheck = {
+      characterId: gandalfId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [] as CardInstanceId[],
+      need: 6,
+      explanation: 'CP 5, modifier 0',
+      supportCount: 0,
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck,
+    };
+
+    // Roll 5 → total 5 == CP 5 → within 1 → wizard eliminated, not discarded
+    const after = dispatch({ ...base, cheatRollTotal: 5, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
+    expectCharNotInPlay(after, RESOURCE_PLAYER, gandalfId);
+    expectInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
+    expectNotInDiscardPile(after, RESOURCE_PLAYER, gandalfId);
+  });
+
+  test('Wizard avatar failing with roll == CP is eliminated (outOfPlayPile), not discarded — pending resolution path', () => {
+    // Same rule but exercised through the pending-resolution queue (the path
+    // used during movement/hazard and other non-Free-Council phases).
+    // Gandalf CP = 5, roll = 5 → total == CP → eliminated.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const gandalfId = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
+
+    const withCheck = enqueueCorruptionCheck(base, PLAYER_1, gandalfId);
+
+    // Roll 5, CP = 5, modifier 0 → total 5 == CP → wizard eliminated
+    const after = dispatch({ ...withCheck, cheatRollTotal: 5 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: gandalfId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 6,
+      explanation: 'Test',
+    });
+
+    expectCharNotInPlay(after, RESOURCE_PLAYER, gandalfId);
+    expectInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
+    expectNotInDiscardPile(after, RESOURCE_PLAYER, gandalfId);
   });
 });
