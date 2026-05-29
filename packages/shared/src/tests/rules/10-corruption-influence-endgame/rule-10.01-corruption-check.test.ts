@@ -24,6 +24,7 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
   charIdAt, findCharInstanceId, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
   expectInDiscardPile, expectNotInDiscardPile,
+  enqueueCorruptionCheck,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CardInstanceId } from '../../../index.js';
@@ -144,5 +145,40 @@ describe('Rule 10.01 — Corruption Check', () => {
     expectCharNotInPlay(afterFail, RESOURCE_PLAYER, gandalfId);
     expectInPile(afterFail, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
     expectNotInDiscardPile(afterFail, RESOURCE_PLAYER, gandalfId);
+  });
+
+  test('Wizard avatar failing with roll == CP is eliminated (outOfPlayPile), not discarded — pending resolution path', () => {
+    // Same rule exercised through the pending-resolution queue (used during
+    // movement/hazard and other non-Free-Council phases).
+    // Gandalf CP = 5, roll = 5 → total == CP → eliminated.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const gandalfId = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
+
+    const withCheck = enqueueCorruptionCheck(base, PLAYER_1, gandalfId);
+
+    // Roll 5, CP = 5, modifier 0 → total 5 == CP → wizard eliminated
+    const after = dispatch({ ...withCheck, cheatRollTotal: 5 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: gandalfId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 6,
+      explanation: 'Test',
+    });
+
+    expectCharNotInPlay(after, RESOURCE_PLAYER, gandalfId);
+    expectInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
+    expectNotInDiscardPile(after, RESOURCE_PLAYER, gandalfId);
   });
 });

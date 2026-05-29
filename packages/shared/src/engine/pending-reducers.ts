@@ -266,12 +266,13 @@ function applyCorruptionCheckResolution(
       }
     }
 
+    const possessionsToDiscard = action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
+
     const toDiscard: CardInstance[] = [
       { instanceId: characterId, definitionId: char.definitionId },
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+      ...possessionsToDiscard,
     ];
     const newDiscardPile = [...player.discardPile, ...toDiscard];
-
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
