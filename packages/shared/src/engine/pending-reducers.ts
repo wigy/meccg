@@ -22,7 +22,7 @@ import type {
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -243,15 +243,13 @@ function applyCorruptionCheckResolution(
     }
   }
 
-  if (total >= cp - 1) {
-    // Roll == CP or CP - 1: effect depends on alignment (CoE rule 10.01).
-    // Hero: discarded. Wizard avatar: eliminated (outOfPlayPile). Minion/FW avatar: taps (success).
-    const isAvatar = isCharacterCard(charDef) && charDef.mind === null;
-    if (isAvatar) {
-      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — wizard avatar ${charName} eliminated (outOfPlayPile)`);
-    } else {
-      logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
-    }
+  // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
+  // on any failed corruption check, regardless of how close the roll was.
+  const isWizardAvatar = charDef && isAvatarCharacter(charDef) && isCharacterCard(charDef) && charDef.alignment === Alignment.Wizard;
+
+  if (total >= cp - 1 && !isWizardAvatar) {
+    // Roll == CP or CP - 1: hero character + possessions discarded (not followers)
+    logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
 
     delete newCharacters[characterId as string];
 
@@ -270,33 +268,21 @@ function applyCorruptionCheckResolution(
 
     const possessionsToDiscard = action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
 
-    if (isAvatar) {
-      // Wizard avatars are eliminated (removed from play), not discarded — CoE rule 10.01
-      const newOutOfPlayPile = [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }];
-      const newDiscardPile = [...player.discardPile, ...possessionsToDiscard];
-      playersAfterRoll[playerIndex] = {
-        ...playersAfterRoll[playerIndex],
-        characters: newCharacters,
-        companies: newCompanies,
-        outOfPlayPile: newOutOfPlayPile,
-        discardPile: newDiscardPile,
-      };
-    } else {
-      const toDiscard: CardInstance[] = [
-        { instanceId: characterId, definitionId: char.definitionId },
-        ...possessionsToDiscard,
-      ];
-      const newDiscardPile = [...player.discardPile, ...toDiscard];
-      playersAfterRoll[playerIndex] = {
-        ...playersAfterRoll[playerIndex],
-        characters: newCharacters,
-        companies: newCompanies,
-        discardPile: newDiscardPile,
-      };
-    }
+    const toDiscard: CardInstance[] = [
+      { instanceId: characterId, definitionId: char.definitionId },
+      ...possessionsToDiscard,
+    ];
+    const newDiscardPile = [...player.discardPile, ...toDiscard];
+    playersAfterRoll[playerIndex] = {
+      ...playersAfterRoll[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: newDiscardPile,
+    };
   } else {
-    // Roll < CP - 1: character eliminated, possessions discarded
-    logDetail(`Corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
+    // Roll < CP - 1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
+    const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
+    logDetail(`Corruption check FAILED (${elimReason}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
 
     delete newCharacters[characterId as string];
 

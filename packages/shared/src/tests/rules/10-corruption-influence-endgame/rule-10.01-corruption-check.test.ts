@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, LEGOLAS, GANDALF, BILBO,
-  RIVENDELL, LORIEN, MINAS_TIRITH,
+  RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
   charIdAt, findCharInstanceId, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
   expectInDiscardPile, expectNotInDiscardPile,
   enqueueCorruptionCheck,
@@ -99,15 +99,18 @@ describe('Rule 10.01 — Corruption Check', () => {
     expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
   });
 
-  test('Wizard avatar failing with roll == CP is eliminated (outOfPlayPile), not discarded — Free Council path', () => {
-    // Gandalf is a wizard avatar (mind === null). CP = 5, roll = 5 → total == CP
-    // → within 1 of CP → wizard must be eliminated (outOfPlayPile), not discarded.
+  test('Wizard avatar is eliminated (not discarded) on soft-fail corruption check', () => {
+    // Gandalf is a Wizard avatar (mind === null). With CP = 5 and modifier = 0,
+    // a roll of 5 (== CP) is a "soft fail" that would merely discard a hero —
+    // but rule 10.01 says a Wizard avatar "is immediately eliminated" on any
+    // failed check. Gandalf must go to outOfPlayPile, not discardPile.
+    // Bilbo keeps the company non-empty so cleanup logic doesn't interfere.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
       ],
     });
 
@@ -133,16 +136,20 @@ describe('Rule 10.01 — Corruption Check', () => {
       pendingCheck,
     };
 
-    // Roll 5 → total 5 == CP 5 → within 1 → wizard eliminated, not discarded
-    const after = dispatch({ ...base, cheatRollTotal: 5, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
-    expectCharNotInPlay(after, RESOURCE_PLAYER, gandalfId);
-    expectInPile(after, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
-    expectNotInDiscardPile(after, RESOURCE_PLAYER, gandalfId);
+    // Roll 5 == CP: soft fail for a hero → discard, but wizard → must eliminate
+    const afterFail = dispatch(
+      { ...base, cheatRollTotal: 5, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 },
+    );
+
+    expectCharNotInPlay(afterFail, RESOURCE_PLAYER, gandalfId);
+    expectInPile(afterFail, RESOURCE_PLAYER, 'outOfPlayPile', gandalfId);
+    expectNotInDiscardPile(afterFail, RESOURCE_PLAYER, gandalfId);
   });
 
   test('Wizard avatar failing with roll == CP is eliminated (outOfPlayPile), not discarded — pending resolution path', () => {
-    // Same rule but exercised through the pending-resolution queue (the path
-    // used during movement/hazard and other non-Free-Council phases).
+    // Same rule exercised through the pending-resolution queue (used during
+    // movement/hazard and other non-Free-Council phases).
     // Gandalf CP = 5, roll = 5 → total == CP → eliminated.
     const base = buildTestState({
       activePlayer: PLAYER_1,
@@ -150,7 +157,7 @@ describe('Rule 10.01 — Corruption Check', () => {
       recompute: true,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
       ],
     });
 
