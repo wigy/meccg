@@ -1079,9 +1079,12 @@ export function buildPlayOptionContext(
       });
     }
     // A character is "moving" when it belongs to the active company during the
-    // M/H phase and that company has declared movement (destinationSiteName set).
+    // M/H phase and that company is actually moving to a new site. Use
+    // siteRevealed (true only for moving companies) rather than
+    // destinationSiteName (which is set to the current site even for
+    // stationary companies, making it non-null for both cases).
     const ps = state.phaseState as MovementHazardPhaseState;
-    if (ps.phase === 'movement-hazard' && ps.destinationSiteName !== null && charCompany) {
+    if (ps.phase === 'movement-hazard' && ps.siteRevealed && charCompany) {
       const activeCompany = player.companies[ps.activeCompanyIndex];
       companyMoving = activeCompany?.id === charCompany.id;
     }
