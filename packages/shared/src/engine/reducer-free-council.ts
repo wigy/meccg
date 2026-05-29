@@ -11,7 +11,7 @@
  */
 
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction } from '../index.js';
-import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber } from '../index.js';
+import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -238,8 +238,12 @@ function resolveCorruptionCheck(
     }
   }
 
-  if (total >= cp - 1) {
-    // Roll == CP or CP-1: character and possessions discarded
+  // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
+  // on any failed corruption check, regardless of how close the roll was.
+  const isWizardAvatar = charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef) && charDef.alignment === Alignment.Wizard;
+
+  if (total >= cp - 1 && !isWizardAvatar) {
+    // Roll == CP or CP-1: hero character and possessions discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
     const toDiscard: CardInstance[] = [
       { instanceId: pending.characterId, definitionId: char.definitionId },
@@ -252,8 +256,9 @@ function resolveCorruptionCheck(
       discardPile: [...player.discardPile, ...toDiscard],
     };
   } else {
-    // Roll < CP-1: character eliminated, possessions discarded
-    logDetail(`Free Council corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+    // Roll < CP-1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
+    const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
+    logDetail(`Free Council corruption check FAILED (${elimReason}) — eliminating ${charName}`);
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       characters: newCharacters,
