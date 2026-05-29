@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase } from '@meccg/shared';
 import { getCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
@@ -748,11 +748,14 @@ export function renderHand(
     setShortEventRenderCache(null);
   }
 
-  // Cache render state for cancel-attack scout targeting (e.g. Concealment → scout)
-  const hasMultiScoutCancelAttacks = viable.some(
+  // Cache render state for cancel-attack scout targeting (e.g. Concealment → scout).
+  // Activates whenever any legal action is a cancel-attack that names a scout to tap,
+  // including the single-scout case — so the player always sees the scout highlighted
+  // before committing the action.
+  const hasCancelAttackWithScout = viable.some(
     a => a.type === 'cancel-attack' && a.scoutInstanceId,
-  ) && viable.filter(a => a.type === 'cancel-attack').length > 1;
-  if (onAction && hasMultiScoutCancelAttacks) {
+  );
+  if (onAction && hasCancelAttackWithScout) {
     setCancelAttackRenderCache({ view, cardPool, onAction });
     const selectedCA = getSelectedCancelAttack();
     if (selectedCA) {
@@ -764,7 +767,7 @@ export function renderHand(
         setTargetingInstruction(null);
       }
     }
-  } else if (!hasMultiScoutCancelAttacks) {
+  } else if (!hasCancelAttackWithScout) {
     if (getSelectedCancelAttack()) setTargetingInstruction(null);
     setSelectedCancelAttack(null);
     setCancelAttackRenderCache(null);
@@ -1046,13 +1049,19 @@ export function renderHand(
         });
       }
     } else if (isCancelAttack) {
-      if (cancelAttackActions.length === 1) {
+      const hasScoutTarget = cancelAttackActions.some(
+        (a): a is CancelAttackAction => a.type === 'cancel-attack' && !!a.scoutInstanceId,
+      );
+      if (!hasScoutTarget) {
+        // Costless cancel-attack (no scout tap required): single-step dispatch
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', () => onAction(cancelAttackActions[0]));
         }
       } else {
-        // Two-step scout targeting flow: click to select, then click a scout in combat view
+        // Two-step scout targeting flow: click card to select, then click highlighted scout in combat view.
+        // Used for all cancel-attacks that require tapping a scout, including the single-scout case,
+        // so the player always sees which character will be tapped before committing.
         const selectedCA = getSelectedCancelAttack();
         const isCASelected = selectedCA === cardInstanceId;
         img.className = isCASelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';

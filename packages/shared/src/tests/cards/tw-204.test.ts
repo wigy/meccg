@@ -33,6 +33,7 @@ import {
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
+  buildSitePhaseState, setupAutoAttackStep,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -384,5 +385,64 @@ describe('Concealment (tw-204)', () => {
 
     // The opponent (attacker, P2) has chain priority, not the declarer.
     expect(declared.chain!.priority).toBe(PLAYER_2);
+  });
+
+  test('single scout in company generates one cancel-attack action with scoutInstanceId set', () => {
+    // Regression: with exactly one eligible scout, the engine must still emit scoutInstanceId
+    // so the UI knows which character to highlight before the player commits the action.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, GIMLI] }], hand: [CONCEALMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    // Only Aragorn is a scout; Gimli is not — exactly one cancel-attack action expected
+    expect(cancelActions).toHaveLength(1);
+    const action = cancelActions[0].action as CancelAttackAction;
+    // scoutInstanceId must be set so the UI can highlight the scout before dispatch
+    expect(action.scoutInstanceId).toBeDefined();
+  });
+
+  test('cancel-attack with scoutInstanceId offered during site-phase automatic attack', () => {
+    // Regression: scouts must be highlighted when Concealment is played against a
+    // site automatic attack, not only against M/H creature attacks.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [ARAGORN, BILBO],
+      hand: [CONCEALMENT],
+    });
+
+    const readyState = setupAutoAttackStep(state);
+    const afterPass = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterPass.combat).toBeDefined();
+    const cancelActions = viableActions(afterPass, PLAYER_1, 'cancel-attack');
+    // Both Aragorn and Bilbo are scouts — two actions expected, each with scoutInstanceId
+    expect(cancelActions).toHaveLength(2);
+    const scoutIds = cancelActions.map(a => (a.action as CancelAttackAction).scoutInstanceId);
+    expect(scoutIds.every(id => id !== undefined)).toBe(true);
+    expect(new Set(scoutIds).size).toBe(2);
   });
 });
