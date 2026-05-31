@@ -27,8 +27,8 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
-import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
+import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory, DuplicationLimitEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -952,7 +952,7 @@ function reactiveCorruptionCheckPlays(
 
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!def || def.cardType !== 'hero-resource-event') continue;
+    if (!def || !isResourceEventCard(def)) continue;
     const shortDef = def;
     if (shortDef.eventType !== 'short') continue;
     const effects = shortDef.effects;
@@ -963,6 +963,24 @@ function reactiveCorruptionCheckPlays(
     );
     if (!playTarget || playTarget.target !== 'character') continue;
     if (playTarget.filter && !matchesCondition(playTarget.filter, ctx)) continue;
+
+    // "active-check" duplication limit: skip if a constraint from this definition
+    // already exists on the target character (enforces "Cannot be duplicated on a
+    // given check" for cards like Join With That Power).
+    const activeCheckLimit = effects.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'active-check',
+    );
+    if (activeCheckLimit) {
+      const alreadyApplied = state.activeConstraints.some(
+        c => c.sourceDefinitionId === handCard.definitionId
+          && c.target.kind === 'character'
+          && c.target.characterId === targetChar.instanceId,
+      );
+      if (alreadyApplied) {
+        logDetail(`Reactive play ${shortDef.name}: active-check duplication limit — already applied to ${targetChar.instanceId as string}`);
+        continue;
+      }
+    }
 
     const options = effects.filter(
       (e): e is PlayOptionEffect => e.type === 'play-option',
