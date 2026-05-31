@@ -15,7 +15,7 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
+import { GENERAL_INFLUENCE, SiteType, Alignment, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
@@ -44,13 +44,28 @@ function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard):
 }
 
 /**
- * Returns true if the character declares the `home-site-only` play-flag.
+ * Returns true if the character has the `agent` keyword.
+ *
+ * Rule 1.3.W2 / 1.3.B2: For Wizard and Balrog players, agent cards are treated
+ * as hazard cards in all areas, so they cannot be played as characters at all.
+ * Rule 2.II.2.2.5: Ringwraith/Fallen-wizard players may play agent characters,
+ * but only at the agent's home site.
+ */
+function isAgentCharacter(charDef: CharacterCard): boolean {
+  return (charDef.keywords ?? []).includes('agent');
+}
+
+/**
+ * Returns true if the character declares the `home-site-only` play-flag, or
+ * if the character has the `agent` keyword (rule 2.II.2.2.5: agents played as
+ * characters can only be played at the character's home site, not at havens).
+ *
  * During normal play from hand the context reason is always "play-character",
  * so the flag's optional `when` gate is ignored here — the flag is treated
  * as always active on this code path.
  */
 function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
-  return hasPlayFlag(charDef, 'home-site-only');
+  return hasPlayFlag(charDef, 'home-site-only') || isAgentCharacter(charDef);
 }
 
 /**
@@ -211,6 +226,23 @@ export function playCharacterActions(
     const isAvatar = cardDef.mind === null;
 
     logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
+
+    // Rule 1.3.W2 / 1.3.B2: For Wizard and Balrog players, agent cards are
+    // treated as hazard cards in all areas — they cannot be played as characters.
+    // Rule 2.II.2.2.5: Only Ringwraith and Fallen-wizard players may play agents
+    // as characters.
+    if (isAgentCharacter(cardDef)) {
+      const playerAlignment = player.alignment;
+      if (playerAlignment === Alignment.Wizard || playerAlignment === Alignment.Balrog) {
+        logDetail(`  → blocked: ${charName} is an agent; Wizard/Balrog players treat agents as hazards (rules 1.3.W2/1.3.B2)`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: agents are treated as hazard cards for Wizard/Balrog players and cannot be played as characters`,
+        });
+        continue;
+      }
+    }
 
     // Rule: only one character play per turn
     if (phaseState.characterPlayedThisTurn) {
