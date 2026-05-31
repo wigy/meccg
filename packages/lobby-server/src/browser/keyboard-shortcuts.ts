@@ -57,7 +57,8 @@ const BOARD_TARGET_SELECTOR = [
  * so Tab doesn't block the hand shortcuts.
  */
 const TAB_PILE_BINDINGS: ReadonlyArray<{ key: string; id: string }> = [
-  { key: 'q', id: 'self-victory-pile' },    // eliminated
+  { key: 'q', id: 'self-mp-pile' },          // MP pile (defeated creatures)
+  { key: 'a', id: 'self-eliminated-pile' },  // eliminated (own dead chars/allies)
   { key: 'w', id: 'self-sideboard-pile' },  // sideboard
   { key: 'e', id: 'self-site-pile' },       // sites
   { key: 'r', id: 'self-deck-pile' },       // deck

@@ -51,13 +51,6 @@ function topCardImage(cards: readonly ViewCard[], cardPool: Readonly<Record<stri
   return (def && cardImageProxyPath(def)) ?? '/images/card-back.jpg';
 }
 
-/** Combine eliminated pile and kill pile into a single victory display. */
-function buildVictoryCards(
-  player: { outOfPlayPile: readonly ViewCard[]; killPile: readonly ViewCard[] },
-): readonly ViewCard[] {
-  return [...player.outOfPlayPile, ...player.killPile];
-}
-
 /** Reset all deck piles to empty (dimmed placeholder with 0). */
 export function resetDeckPiles(): void {
   const piles: [string, string][] = [
@@ -69,8 +62,10 @@ export function resetDeckPiles(): void {
     ['opponent-sideboard-pile', 'Sideboard'],
     ['self-discard-pile', 'Discard Pile'],
     ['opponent-discard-pile', 'Discard Pile'],
-    ['self-victory-pile', 'Eliminated'],
-    ['opponent-victory-pile', 'Eliminated'],
+    ['self-mp-pile', 'MP Pile'],
+    ['opponent-mp-pile', 'MP Pile'],
+    ['self-eliminated-pile', 'Eliminated'],
+    ['opponent-eliminated-pile', 'Eliminated'],
   ];
   for (const [id, title] of piles) {
     const el = document.getElementById(id);
@@ -102,17 +97,17 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   const oppSbEl = document.getElementById('opponent-sideboard-pile');
   if (oppSbEl) fillDeckPile(oppSbEl, view.opponent.sideboard.length, '/images/card-back.jpg', 'Sideboard', ids(view.opponent.sideboard));
 
-  const selfVictory = buildVictoryCards(view.self);
-  const oppVictory = buildVictoryCards(view.opponent);
+  const selfMpEl = document.getElementById('self-mp-pile');
+  if (selfMpEl) fillDeckPile(selfMpEl, view.self.killPile.length, topCardImage(view.self.killPile, cardPool ?? null), 'MP Pile', ids(view.self.killPile));
 
-  const selfVEl = document.getElementById('self-victory-pile');
-  if (selfVEl) {
-    fillDeckPile(selfVEl, selfVictory.length, topCardImage(selfVictory, cardPool ?? null), 'Eliminated', ids(selfVictory));
-  }
-  const oppVEl = document.getElementById('opponent-victory-pile');
-  if (oppVEl) {
-    fillDeckPile(oppVEl, oppVictory.length, topCardImage(oppVictory, cardPool ?? null), 'Eliminated', ids(oppVictory));
-  }
+  const oppMpEl = document.getElementById('opponent-mp-pile');
+  if (oppMpEl) fillDeckPile(oppMpEl, view.opponent.killPile.length, topCardImage(view.opponent.killPile, cardPool ?? null), 'MP Pile', ids(view.opponent.killPile));
+
+  const selfElimEl = document.getElementById('self-eliminated-pile');
+  if (selfElimEl) fillDeckPile(selfElimEl, view.self.outOfPlayPile.length, topCardImage(view.self.outOfPlayPile, cardPool ?? null), 'Eliminated', ids(view.self.outOfPlayPile));
+
+  const oppElimEl = document.getElementById('opponent-eliminated-pile');
+  if (oppElimEl) fillDeckPile(oppElimEl, view.opponent.outOfPlayPile.length, topCardImage(view.opponent.outOfPlayPile, cardPool ?? null), 'Eliminated', ids(view.opponent.outOfPlayPile));
 
   const selfDEl = document.getElementById('self-discard-pile');
   if (selfDEl) {
@@ -133,8 +128,10 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedSelfPlayDeck = view.self.playDeck;
   cachedOppPlayDeck = view.opponent.playDeck;
   cachedOppSiteDeck = view.opponent.siteDeck;
-  cachedSelfVictoryCards = selfVictory;
-  cachedOppVictoryCards = oppVictory;
+  cachedSelfKillPile = view.self.killPile;
+  cachedSelfOutOfPlay = view.self.outOfPlayPile;
+  cachedOppKillPile = view.opponent.killPile;
+  cachedOppOutOfPlay = view.opponent.outOfPlayPile;
   if (cardPool) cachedCardPool = cardPool;
   // Collect actionable instance IDs from viable legal actions
   actionableInstanceIds = collectActionInstanceIds(view.legalActions);
@@ -430,9 +427,12 @@ let cachedSelfPlayDeck: readonly ViewCard[] = [];
 let cachedOppPlayDeck: readonly ViewCard[] = [];
 /** Cached opponent site deck as hidden cards for browsing. */
 let cachedOppSiteDeck: readonly ViewCard[] = [];
-/** Cached victory display cards for click handlers. */
-let cachedSelfVictoryCards: readonly ViewCard[] = [];
-let cachedOppVictoryCards: readonly ViewCard[] = [];
+/** Cached kill pile (defeated creatures / MP pile) for click handlers. */
+let cachedSelfKillPile: readonly ViewCard[] = [];
+let cachedOppKillPile: readonly ViewCard[] = [];
+/** Cached out-of-play pile (eliminated characters/allies) for click handlers. */
+let cachedSelfOutOfPlay: readonly ViewCard[] = [];
+let cachedOppOutOfPlay: readonly ViewCard[] = [];
 let siteDeckListenerInstalled = false;
 let pileBrowserClickHandlersInstalled = false;
 
@@ -472,13 +472,15 @@ function installPileBrowserClickHandlers(): void {
   }
 
   // Self piles
+  wirePile('self-mp-pile', 'MP Pile', () => cachedSelfKillPile);
+  wirePile('self-eliminated-pile', 'Eliminated', () => cachedSelfOutOfPlay);
   wirePile('self-sideboard-pile', 'Sideboard', () => cachedSelfSideboard);
-  wirePile('self-victory-pile', 'Eliminated', () => cachedSelfVictoryCards);
   wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard);
   wirePile('self-deck-pile', 'Play Deck', () => cachedSelfPlayDeck);
 
   // Opponent piles
-  wirePile('opponent-victory-pile', 'Eliminated', () => cachedOppVictoryCards);
+  wirePile('opponent-mp-pile', 'MP Pile', () => cachedOppKillPile);
+  wirePile('opponent-eliminated-pile', 'Eliminated', () => cachedOppOutOfPlay);
   wirePile('opponent-sideboard-pile', 'Sideboard', () => cachedOppSideboard);
   wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
