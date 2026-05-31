@@ -2949,7 +2949,27 @@ Used by *Power Built by Waiting* (as-34):
 { "type": "hazard-limit-swap", "tapValue": 1, "untapCost": 2 }
 ```
 
-### 53. `grant-skill`
+### 53. `company-overt`
+
+Marks the bearing character's company as **overt** as long as this ally is in play.
+
+Certain allies explicitly state "its controlling character's company is overt." When
+`isCovertCompany` is evaluated for the bearer's company, the presence of this ally
+overrides the race-based calculation and makes the company overt regardless of
+character races.
+
+No fields beyond `type`.
+
+```json
+{ "type": "company-overt" }
+```
+
+Used by: Regiment of Black Crows (as-76), Great Bats (as-74), Great Lord of
+Goblin-gate (as-75), Last Child of Ungoliant (le-153).
+
+---
+
+### 54. `grant-skill`
 
 Grants a named character skill to the item's bearer while the item is in play.
 The bearer counts as having the skill for all purposes that read `target.skills`
