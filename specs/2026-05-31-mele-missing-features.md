@@ -1,7 +1,7 @@
 # The Lidless Eye (MELE) — Missing Features
 
-Source: <https://meccg.com/rules/by-expansion/the-lidless-eye/>  
-Scope: Ringwraith-alignment mechanics not yet implemented or specced.  
+Source: <https://meccg.com/rules/by-expansion/the-lidless-eye/>
+Scope: Ringwraith-alignment mechanics not yet implemented or specced.
 Excludes: items already in the "Done" roadmap section, and features already
 covered by existing spec files (CvCC, detainment, dragons, agents).
 
