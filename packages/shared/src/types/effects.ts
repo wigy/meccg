@@ -651,6 +651,14 @@ export interface TriggeredAction {
   readonly corruptionCheck?: { readonly modifier: number };
   /** For `move` type with `count`: cap on how many instances to move. */
   readonly count?: number;
+  /**
+   * For `enqueue-ring-play-offer` type: ring categories to exclude from
+   * the eligible set (e.g. `["the-one-ring"]`). Defaults to no exclusions.
+   * The eligible categories are derived from the gold ring's
+   * `ring-test-table` with all roll bounds ignored (all categories
+   * in the table are eligible, minus those listed here).
+   */
+  readonly excludeCategories?: readonly string[];
 }
 
 /**
@@ -1764,7 +1772,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1793,8 +1801,21 @@ export interface PlayConditionEffect extends EffectBase {
    * played. Only offered when the active company's current site type is in
    * this list. Used by Glamour of Surpassing Excellence (as-49):
    * `["border-hold", "free-hold"]`.
+   *
+   * For `requires: 'site-has-resource'`: the item subtype that must appear
+   * in the active company's current site's `playableResources` list
+   * (e.g. `"information"`). Only offered when the site supports that
+   * resource subtype.
+   *
+   * For `requires: 'company-has-item'`: the item subtype that at least one
+   * character in the active company must be carrying (e.g. `"gold-ring"`).
    */
   readonly siteTypes?: readonly string[];
+  /**
+   * For `requires: 'site-has-resource'` and `requires: 'company-has-item'`:
+   * the item subtype to check (e.g. `"information"`, `"gold-ring"`).
+   */
+  readonly subtype?: string;
 }
 
 /**
