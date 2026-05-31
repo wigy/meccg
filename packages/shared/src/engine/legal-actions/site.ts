@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
@@ -632,8 +632,8 @@ function playResourcesActions(
     if (!def) continue;
 
     // Permanent resource events — playable like in organization phase
-    if (def.cardType === 'hero-resource-event') {
-      const eventDef: HeroResourceEventCard = def;
+    if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
+      const eventDef: HeroResourceEventCard | MinionResourceEventCard = def;
       if (eventDef.eventType === 'permanent') {
         evaluatedInstances.add(cardInstanceId as string);
 

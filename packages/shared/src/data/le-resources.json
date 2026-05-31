@@ -742,8 +742,33 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "siteType": "free-hold" }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": "untapped" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 3
+      }
+    ],
+    "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
