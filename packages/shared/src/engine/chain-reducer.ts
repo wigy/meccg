@@ -1027,6 +1027,43 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // tap-character-on-play: tap the targeted character when the card enters play.
+  if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-character-on-play')) {
+    for (let pi = 0; pi < 2; pi++) {
+      const char = newState.players[pi].characters[targetCharId as string];
+      if (char) {
+        logDetail(`"${def?.name ?? '?'}" tap-character-on-play: tapping character ${targetCharId as string}`);
+        newState = updatePlayer(newState, pi, p => updateCharacter(p, targetCharId, () => ({
+          ...char,
+          status: CardStatus.Tapped,
+        })));
+        break;
+      }
+    }
+  }
+
+  // storable-at on direct attachment: add bearer-cannot-untap constraint so the
+  // character may not untap until the card is stored (e.g. To Satisfy the Questioner).
+  // This mirrors what applySelectCardBearerResolution does for post-attack attachment.
+  const storableEffect = (getCardEffects(def)).find(
+    (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
+  );
+  if (targetCharId && storableEffect) {
+    const hasTriggeredAttack = getCardEffects(def).some(e => e.type === 'trigger-attack-on-play');
+    if (!hasTriggeredAttack) {
+      logDetail(`"${def?.name ?? '?'}" storable-at direct attachment: adding bearer-cannot-untap on ${targetCharId as string}`);
+      newState = addConstraint(newState, {
+        source: card.instanceId,
+        sourceDefinitionId: (defById(newState, card.definitionId)
+          ? card.definitionId
+          : card.instanceId) as import('../types/common.js').CardDefinitionId,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: targetCharId },
+        kind: { type: 'bearer-cannot-untap', cardInstanceId: card.instanceId },
+      });
+    }
+  }
+
   // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)
   for (const effect of getCardEffects(def)) {
       if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
