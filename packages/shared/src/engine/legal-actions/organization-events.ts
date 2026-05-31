@@ -187,6 +187,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const cDef = defById(state, ch.definitionId);
           return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
         });
+        // True if the company contains any character who can use shadow-magic:
+        // ringwraiths can use it by default; others need the "shadow-magic" skill.
+        const hasShadowMagicUser = company.characters.some(cId => {
+          const ch = player.characters[cId as string];
+          if (!ch) return false;
+          const cDef = defById(state, ch.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) return false;
+          if ((cDef as { race?: string }).race === 'ringwraith') return true;
+          return [...(cDef as { skills?: readonly string[] }).skills ?? [], ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+        });
         for (const charId of company.characters) {
           const charData = player.characters[charId as string];
           if (!charData) continue;
@@ -200,11 +210,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const ctx = {
               target: {
                 race: charDef.race,
+                status: charData.status,
                 skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
                 name: charDef.name,
                 itemKeywords,
               },
-              company: { skills: companySkills },
+              company: { skills: companySkills, hasShadowMagicUser },
             };
             if (!matchesCondition(playTarget.filter, ctx)) continue;
           }

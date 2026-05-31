@@ -436,7 +436,9 @@ Events:
 
 - `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check. Wounds enqueue a `corruption-check` pending resolution (see [Pending resolutions](#pending-resolutions) below) for the actor whose character was wounded; the resolution is scoped to the active company's MH or Site sub-phase, so it auto-clears at the company's sub-phase end. Implemented in `reducer-combat.ts`.
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
-- `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event and enqueues a `corruption-check` pending resolution per match. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`, so cards that only fire at a haven (e.g. *Lure of the Senses*) express that as `"when": { "bearer.atHaven": true }`. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
+- `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`. Supported apply types:
+  - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
+  - `discard-self` — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
 - `organization-phase-begins` -- fires during the Untap → Organization transition immediately after `untap-phase-end` processing. The reducer (`reducer-untap.ts` `advanceToOrganization`) scans **every** player's `cardsInPlay` for company-bound permanent events (cards with a `companyId`) carrying this on-event. The condition is evaluated against a company context `{ company: { atHaven: boolean } }` where `atHaven` is `true` when the bound company's current site is a haven/darkhaven. Supports `apply: { type: "move", select: "self", from: "self-location", to: "discard" }` to move the card to its owner's discard pile. Used by *Nothing to Eat or Drink* (le-128), which discards itself at the start of organization phase if the bound company is at a haven.
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
 - `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`). Supports `apply: { "type": "discard-self" }` to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated.
@@ -470,7 +472,7 @@ Apply types:
   - `on-event: character-body-check-equals-body` — fires when the body check result **exactly equals** the character's body. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
   - `on-event: character-wounded-by-self` — fires after combat finalization for each wounded character. The condition is evaluated per wounded character; any that pass are discarded. Implemented in `reducer-combat.ts` `discardWoundedCharacters()`. Used by *Abductor* (tw-1).
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
-- `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
+- `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised), and with `untap-phase-end` + `when: { "bearer.atHaven": true }` to discard at the Untap→Organization transition when at a haven (e.g. Well-preserved). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`, `reducer-utils.ts` `sweepAutoDiscardHazards()`, and `reducer-untap.ts` `advanceToOrganization()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by
   site definition ID, so opposing companies co-located at the same
@@ -480,21 +482,46 @@ Apply types:
   potentially belonging to the opposing player — when the ally is
   discarded. Implemented in `reducer-organization.ts` `runGrantApply()`.
 - `enqueue-corruption-check` -- under `on-event: self-enters-play`, enqueue
-  a corruption check on the character targeted by the action
-  (`action.targetCharacterId`). The optional `modifier` integer is added to
-  the check's roll threshold. When the same `self-enters-play` handler also
-  enqueues a `move`-based fetch sub-flow (a `fetch-to-deck` pending effect),
-  the corruption check is deferred until **after** all fetch picks are
-  complete (or the player passes) — the reducer embeds it as
-  `postCorruptionCheck` on the pending effect rather than pushing it into
-  `pendingResolutions` immediately, so the two resolution queues do not
-  conflict. Used by *Vilya* (`modifier: -3` on Elrond). Implemented in
-  `reducer-events.ts` (`applyShortEventOnEntersPlay`) and
-  `reducer-utils.ts` (`handleFetchFromPile`, `resolvePendingEffect`).
+  a corruption check. The optional `modifier` integer is added to the check's
+  roll threshold.
+
+  **Short events**: targets the character in `action.targetCharacterId`.
+  When the same `self-enters-play` handler also enqueues a `move`-based fetch
+  sub-flow (a `fetch-to-deck` pending effect), the corruption check is deferred
+  until **after** all fetch picks are complete (or the player passes) — the
+  reducer embeds it as `postCorruptionCheck` on the pending effect rather than
+  pushing it into `pendingResolutions` immediately, so the two resolution queues
+  do not conflict. Used by *Vilya* (`modifier: -3` on Elrond). Implemented in
+  `reducer-events.ts` (`applyShortEventOnEntersPlay`) and `reducer-utils.ts`
+  (`handleFetchFromPile`, `resolvePendingEffect`).
+
+  **Permanent events** (character-attached): targets `action.targetCharacterId`
+  by default. When `apply.target === "company-shadow-magic-user"`, the reducer
+  finds the first non-Ringwraith character in the bearer's company with the
+  `"shadow-magic"` skill and targets them instead; Ringwraith characters are
+  silently skipped (no corruption check enqueued). Used by *Well-preserved*
+  (as-108). Implemented in `chain-reducer.ts` `resolvePermanentEvent()`.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "enqueue-corruption-check", "modifier": -3 } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-corruption-check", "modifier": -3,
+               "target": "company-shadow-magic-user" } }
+  ```
+
+- `heal-target-character` -- under `on-event: self-enters-play` on a
+  character-attached permanent event, changes the target character's status
+  from `Inverted` (wounded) to `Tapped`. Has no effect if the character is
+  not wounded. Used by *Well-preserved* (as-108). Implemented in
+  `chain-reducer.ts` `resolvePermanentEvent()`.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "heal-target-character" } }
   ```
 
 - `cancel-chain-entry` -- negate an unresolved chain entry or discard a
@@ -1094,9 +1121,14 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills, siteType, moving } }`, so there are no
+`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills, siteType, moving, hasShadowMagicUser } }`, so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
+
+`company.hasShadowMagicUser` is `true` when any character in the company is a
+Ringwraith (race `"ringwraith"`) or has the `"shadow-magic"` skill (naturally
+or via an item). Populated only for organization-phase permanent event
+play-target evaluation. Used by *Well-preserved* (as-108).
 
 ```json
 { "type": "play-target", "target": "character" }
