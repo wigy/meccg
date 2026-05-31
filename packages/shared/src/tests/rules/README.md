@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 144 | 165 | 46.6% |
+| 309 | 150 | 159 | 48.5% |
 
 ## Section Breakdown
 
@@ -15,12 +15,12 @@
 | 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 16 | 27.1% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 10 | 76.9% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 21 | 43.8% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 22 | 45.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 18 | 52.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 17 | 40.5% |
+| 08 | [Combat](08-combat/) | 42 | 22 | 52.4% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 22 | 71.0% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 19 | 35.8% |
 
@@ -117,7 +117,7 @@
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☑ |
 | 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☐ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
-| 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☐ |
+| 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☑ |
 | 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☐ |
 | 3.17 | Organization Phase | [Fw Orc Troll Restriction](03-organization-phase/rule-3.17-fw-orc-troll-restriction.test.ts) | ☐ |
 | 3.18 | Organization Phase | [Balrog Dark Hold Home](03-organization-phase/rule-3.18-balrog-dark-hold-home.test.ts) | ☐ |
@@ -248,11 +248,11 @@
 | 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☑ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☐ |
-| 8.38 | Combat | [Cvcc Rules](08-combat/rule-8.38-cvcc-rules.test.ts) | ☐ |
-| 8.39 | Combat | [Cvcc Strike Sequence](08-combat/rule-8.39-cvcc-strike-sequence.test.ts) | ☐ |
-| 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☐ |
-| 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☐ |
-| 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☐ |
+| 8.38 | Combat | [Cvcc Rules](08-combat/rule-8.38-cvcc-rules.test.ts) | ☑ |
+| 8.39 | Combat | [Cvcc Strike Sequence](08-combat/rule-8.39-cvcc-strike-sequence.test.ts) | ☑ |
+| 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☑ |
+| 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☑ |
+| 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☑ |
 | 9.00 | Agents, Events, Items & Rings | [Agent State Model](09-agents-events-items/rule-9.00-agent-state-model.test.ts) | ☑ |
 | 9.01 | Agents, Events, Items & Rings | [Agent Actions](09-agents-events-items/rule-9.01-agent-actions.test.ts) | ☑ |
 | 9.02 | Agents, Events, Items & Rings | [Agent Action Options](09-agents-events-items/rule-9.02-agent-action-options.test.ts) | ☑ |

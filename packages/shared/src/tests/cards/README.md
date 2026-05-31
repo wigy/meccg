@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 409 | 391 | 18 | 95.6% |
+| 417 | 402 | 15 | 96.4% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 20 | 17 | 85.0% |
+| AS | 22 | 20 | 90.9% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 38 | 97.4% |
-| LE | 71 | 65 | 91.5% |
+| LE | 77 | 73 | 94.8% |
 | TD | 49 | 48 | 98.0% |
 | TW | 226 | 221 | 97.8% |
 | WH | 2 | 2 | 100.0% |
@@ -35,7 +35,7 @@
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 2 | ◐ |
-| as-90 | Join With That Power | — | 10 | ☐ |
+| as-90 | Join With That Power | — | 12 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -125,14 +125,20 @@
 | le-154 | Stinker | — | 16 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
+| le-167 | Bade to Rule | — | 13 | ◐ |
 | le-174 | By the Ringwraith's Word | — | 12 | ☐ |
-| le-179 | Deeper Shadow | — | 7 | ☐ |
-| le-212 | Not Slay Needlessly | — | 11 | ☐ |
+| le-179 | Deeper Shadow | — | 13 | ☑ |
+| le-212 | Not Slay Needlessly | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
-| le-225 | Ruse | — | 15 | ☐ |
+| le-225 | Ruse | — | 10 | ☑ |
+| le-226 | Secrets of Their Forging | — | 18 | ☑ |
+| le-241 | That's Been Heard Before Tonight | — | 13 | ☑ |
 | le-235 | Sudden Call | — | 9 | ☑ |
+| le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
+| le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
+| le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |

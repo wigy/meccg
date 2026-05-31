@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 144 | 309 | 46.6% |
-| Card tests | 391 | 409 | 95.6% |
-| Cards created | 697 | 1683 | 41.4% |
-| Cards certified | 396 | 697 | 56.8% |
-| **Total** | **1628** | **3098** | **52.6%** |
+| Rule tests | 150 | 309 | 48.5% |
+| Card tests | 402 | 417 | 96.4% |
+| Cards created | 698 | 1683 | 41.5% |
+| Cards certified | 406 | 698 | 58.2% |
+| **Total** | **1656** | **3107** | **53.3%** |
 
 ### Deck Catalog
 
@@ -34,11 +34,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 109 (99.1%) |
 | (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (F) Spies and Traitors | minion | 113 | 112 (99.1%) | 74 (65.5%) |
-| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 37 (33.6%) |
-| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 44 (40.0%) |
-| (I) Morgul Rallying Cry | minion | 113 | 113 (100.0%) | 39 (34.5%) |
-| (J) Seducing Nations of Men | minion | 113 | 113 (100.0%) | 51 (45.1%) |
+| (F) Spies and Traitors | minion | 113 | 113 (100.0%) | 88 (77.9%) |
+| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 38 (34.5%) |
+| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 45 (40.9%) |
+| (I) Morgul Rallying Cry | minion | 113 | 113 (100.0%) | 40 (35.4%) |
+| (J) Seducing Nations of Men | minion | 113 | 113 (100.0%) | 52 (46.0%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |

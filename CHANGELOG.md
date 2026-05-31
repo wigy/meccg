@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.34.0 — 2026-05-31
+
+Company vs Company Combat
+
+### Game Engine
+
+- Implement Company vs Company Combat (CvCC) — rules 8.38–8.42: declare company attack, three-phase strike assignment (defender-untapped → attacker-untapped → defender-any), attacker rolls and can be wounded, CvCC strike sequence, alignment restrictions, and hazard restrictions
+- Implement company covert/overt status computed from company composition (Orc/Troll/Balrog-avatar presence)
+- Block wizard/balrog players from playing agent characters (rules 1.3.W2, 2.II.2.2.5)
+- Fix: wizard avatar eliminated (not discarded) on corruption-check roll equal to CP
+- Split victory pile into separate MP pile and eliminated pile
+- Scale unhandled roll actions by dice success probability (AI improvement)
+- Fix: `company.moving` filter incorrectly true for stationary companies
+- Add Under-deeps / surface map schematic with level-based company visibility
+- Fix: agent character restoration — default agents to `[]` when restoring older saves
+
+### Card Certification
+
+- Certify le-179: Deeper Shadow (site-path transform, hazard-limit, conditional corruption check)
+- Certify le-212: Not Slay Needlessly
+- Certify le-225: Ruse (diplomat/covert cancel-attack)
+- Certify le-226: Secrets of Their Forging
+- Certify le-241: That's Been Heard Before Tonight (partial; general-influence permanent-event)
+- Certify le-246: To Satisfy the Questioner
+- Certify le-253: Weigh All Things to a Nicety
+- Certify le-296: Woses of the Eryn Vorn
+- Certify as-90: Join With That Power
+- Certify as-101: Tokens to Show (new faction card)
+- Certify as-108: Well-preserved
+
+### Documentation & Specs
+
+- Add local CRF 22 copy; use it in bug-report skill
+- Add MELE missing-features spec (`specs/2026-05-31-mele-missing-features.md`)
+- Update CvCC plan to match current codebase file structure
+
 ## 0.33.0 — 2026-05-27
 
 Map
