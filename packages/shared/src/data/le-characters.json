@@ -933,7 +933,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lossadan Camp",
-    "effects": [],
-    "text": "Unique. -1 to all corruption checks."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
+    "text": "Unique. -1 to all corruption checks.",
+    "certified": "2026-06-01"
   }
 ]
