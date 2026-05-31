@@ -11,7 +11,7 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { getPlayerIndex } from '../../index.js';
 import { setupActions } from './setup.js';
@@ -46,6 +46,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
+  const dest = effect.to ?? 'deck';
 
   // Identify the triggering event card so it is excluded from candidates.
   // Hazard short events stay in the discard pile while their fetch effects
@@ -61,8 +62,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
       actions.push({
-        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
-          { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },
+        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource, to: dest },
         viable: true,
       });
     }

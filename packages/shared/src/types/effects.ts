@@ -1487,10 +1487,11 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
 }
 
 /**
- * Fetches a card from one or more source piles into the play deck and shuffles.
+ * Fetches a card from one or more source piles into the play deck (or hand) and optionally shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
  * resource or character from their sideboard or discard pile.
+ * When `to` is `'hand'`, the card is moved into the player's hand instead of the deck.
  */
 export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';
@@ -1500,8 +1501,13 @@ export interface FetchToDeckEffect extends EffectBase {
   readonly filter: Condition;
   /** How many cards to fetch. */
   readonly count: number;
-  /** Whether to shuffle the play deck after inserting the card. */
+  /** Whether to shuffle the play deck after inserting the card. Only applies when `to` is `'deck'`. */
   readonly shuffle: boolean;
+  /**
+   * Destination zone. Defaults to `'deck'` (backward-compatible).
+   * When `'hand'`, the fetched card is added to the player's hand instead.
+   */
+  readonly to?: 'deck' | 'hand';
 }
 
 /**
