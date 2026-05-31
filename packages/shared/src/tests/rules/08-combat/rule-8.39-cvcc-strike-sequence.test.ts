@@ -21,8 +21,223 @@
  * Step 8 - Compare rolls: higher wins (loser is wounded + body check), tie = both tapped.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
+import type { SitePhaseState } from '../../../index.js';
+import {
+  buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, viableActions,
+} from '../../test-helpers.js';
+
+const ARAGORN = 'tw-120' as CardDefinitionId;
+const PERCHEN = 'as-4' as CardDefinitionId;
+const MORIA = 'tw-d21' as CardDefinitionId;
+const MORIA_AS = 'as-169' as CardDefinitionId;
+const RIVENDELL = 'tw-d01' as CardDefinitionId;
+
+function buildCvCCInResolveStrike() {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.Wizard,
+        companies: [{ site: MORIA, characters: [ARAGORN] }],
+        hand: [],
+        siteDeck: [RIVENDELL],
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site: MORIA, characters: [PERCHEN] }],
+        hand: [],
+        siteDeck: [MORIA_AS],
+      },
+    ],
+    phase: Phase.Site,
+  });
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'play-resources',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: true,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+
+  let s = { ...state, phaseState: sitePhaseState } as import('../../../index.js').GameState;
+
+  // Pass play-resources to enter declare-company-attack
+  s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+  // Declare CvCC
+  const declareActions = viableActions(s, PLAYER_1, 'declare-company-attack');
+  const declareAction = declareActions[0].action as {
+    type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+  };
+  s = dispatch(s, declareAction);
+
+  // Defender passes (doesn't assign any characters)
+  s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+  // Attacker assigns Aragorn to attack Perchen
+  const atkAssignActions = viableActions(s, PLAYER_1, 'assign-strike');
+  expect(atkAssignActions.length).toBeGreaterThan(0);
+  s = dispatch(s, atkAssignActions[0].action);
+
+  // Should now be in resolve-strike phase
+  return s;
+}
 
 describe('Rule 8.39 — CvCC Strike Sequence', () => {
-  test.todo('CvCC strike sequence: both players roll and compare; loser wounded + body check; includes -3 to stay untapped and +1 support');
+  beforeEach(() => resetMint());
+
+  test('CvCC: two-step resolve — attacker declares tap choice first (sub-step 1)', () => {
+    const state = buildCvCCInResolveStrike();
+
+    expect(state.combat?.phase).toBe('resolve-strike');
+
+    // Sub-step 1: only ATTACKER (PLAYER_1) gets resolve-strike actions
+    const atkActions = viableActions(state, PLAYER_1, 'resolve-strike');
+    expect(atkActions.length).toBeGreaterThan(0); // tap and/or untap
+
+    // Defender must wait
+    const defActions = viableActions(state, PLAYER_2, 'resolve-strike');
+    expect(defActions.length).toBe(0);
+  });
+
+  test('CvCC: attacker can choose to tap (full prowess)', () => {
+    const state = buildCvCCInResolveStrike();
+    const atkActions = viableActions(state, PLAYER_1, 'resolve-strike');
+    const tapAction = atkActions.find(ea => (ea.action as { tapToFight: boolean }).tapToFight === true);
+    expect(tapAction).toBeDefined();
+  });
+
+  test('CvCC: attacker can choose to stay untapped (-3 prowess)', () => {
+    const state = buildCvCCInResolveStrike();
+    const atkActions = viableActions(state, PLAYER_1, 'resolve-strike');
+    const untapAction = atkActions.find(ea => (ea.action as { tapToFight: boolean }).tapToFight === false);
+    expect(untapAction).toBeDefined();
+  });
+
+  test('CvCC: after attacker declares -3 choice, defender gets resolve-strike actions (sub-step 2)', () => {
+    const state = buildCvCCInResolveStrike();
+
+    // Attacker declares tap
+    const afterAtkDeclare = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Now defender should get resolve-strike actions
+    const defActions = viableActions(afterAtkDeclare, PLAYER_2, 'resolve-strike');
+    expect(defActions.length).toBeGreaterThan(0);
+
+    // Attacker should not get more actions in sub-step 2
+    const atkActions = viableActions(afterAtkDeclare, PLAYER_1, 'resolve-strike');
+    expect(atkActions.length).toBe(0);
+  });
+
+  test('CvCC: attackerTapToFight stored on strike assignment after sub-step 1', () => {
+    const state = buildCvCCInResolveStrike();
+    const afterAtkDeclare = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: false, need: 2, explanation: '' });
+
+    const strike = afterAtkDeclare.combat?.strikeAssignments[0];
+    expect(strike?.attackerTapToFight).toBe(false);
+  });
+
+  test('CvCC: both roll after defender resolves — strike gets resolved', () => {
+    let state = buildCvCCInResolveStrike();
+
+    // Attacker taps
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Defender taps
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    // After both roll, the strike should be resolved or a body check/finalize should follow
+    const combat = state.combat;
+    if (combat) {
+      // Either in body-check phase or strike is resolved
+      const strike = combat.strikeAssignments[0];
+      expect(strike?.resolved === true || combat.phase === 'body-check').toBe(true);
+    } else {
+      // Combat finalized (no body check needed in some outcomes)
+      expect(state.combat).toBeNull();
+    }
+  });
+
+  test('CvCC: support from untapped characters adds +1 prowess', () => {
+    // Build a state where defender has an extra untapped character to support
+    const state0 = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [PERCHEN, 'as-3' as CardDefinitionId] }],
+          hand: [],
+          siteDeck: [MORIA_AS],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    let s = { ...state0, phaseState: sitePhaseState } as import('../../../index.js').GameState;
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender assigns one character (Perchen)
+    const defAssign = viableActions(s, PLAYER_2, 'assign-strike').find(
+      ea => !(ea.action as { excess?: boolean }).excess,
+    );
+    expect(defAssign).toBeDefined();
+    s = dispatch(s, defAssign!.action);
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    // Attacker assigns Aragorn
+    s = dispatch(s, viableActions(s, PLAYER_1, 'assign-strike')[0].action);
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Defender should have a support-strike action for Mionid (untapped, no strike)
+    const supportActions = viableActions(s, PLAYER_2, 'support-strike');
+    expect(supportActions.length).toBeGreaterThan(0);
+  });
 });

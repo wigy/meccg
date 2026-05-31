@@ -235,7 +235,37 @@ function renderPhaseBanner(
   const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
 
   let phaseText: string;
-  if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
+  if (combat.isCvCC) {
+    // CvCC-specific phase display
+    const cvccPrefix = 'Company vs Company Combat — ';
+    if (combat.phase === 'assign-strikes') {
+      const whose = combat.assignmentPhase === 'defender'
+        ? (iAmDefender ? 'Your turn (assign untapped defenders)' : 'Defender assigns untapped characters')
+        : combat.assignmentPhase === 'attacker'
+          ? (!iAmDefender ? 'Your turn (pair your untapped attackers)' : 'Attacker pairs their characters')
+          : combat.assignmentPhase === 'defender-any'
+            ? (iAmDefender ? 'Your turn (assign remaining attackers to any character)' : 'Defender assigns remaining attackers')
+            : 'Assigned';
+      const pairedCount = combat.strikeAssignments.filter((a: { attackingCharacterId?: unknown }) => a.attackingCharacterId != null).length;
+      phaseText = `${cvccPrefix}${whose} • ${pairedCount} of ${combat.strikesTotal} paired`;
+    } else if (combat.phase === 'choose-strike-order') {
+      const resolved = combat.strikeAssignments.filter((sa: { resolved: boolean }) => sa.resolved).length;
+      phaseText = `${cvccPrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;
+    } else if (combat.phase === 'resolve-strike') {
+      const resolved = combat.strikeAssignments.filter((sa: { resolved: boolean }) => sa.resolved).length;
+      const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex] as { attackerTapToFight?: boolean } | undefined;
+      const sub = currentStrike?.attackerTapToFight === undefined
+        ? (!iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Attacker declares tap choice')
+        : (iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Defender resolves strike');
+      phaseText = `${cvccPrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal} — ${sub}`;
+    } else if (combat.phase === 'body-check') {
+      const bctTarget = (combat as { bodyCheckTarget?: string }).bodyCheckTarget;
+      const target = bctTarget === 'attacker-character' ? 'Attacking Character' : 'Defending Character';
+      phaseText = `${cvccPrefix}Body Check — ${target}`;
+    } else {
+      phaseText = `${cvccPrefix}${combat.phase}`;
+    }
+  } else if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
     const remaining = combat.cancelByTapRemaining ?? 0;
     phaseText = `${racePrefix}Tap a character to cancel an attack \u2014 ${remaining} cancel${remaining !== 1 ? 's' : ''} remaining`;
   } else if (combat.phase === 'assign-strikes') {

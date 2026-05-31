@@ -292,3 +292,29 @@ export interface SelectForewarnedAttackAction {
   /** Zero-based index into the site's active automatic-attacks array. */
   readonly attackIndex: number;
 }
+
+/**
+ * Declare that the active company will attack an opponent's company at the
+ * same site (Company vs Company Combat, CvCC).
+ *
+ * Legal at the end of the site phase (after play-resources) when:
+ * - The resource player's company has entered the site (siteEntered === true).
+ * - The opponent has a company at the same site.
+ * - No influence attempt or CvCC attack has occurred this turn (opponentInteractionThisTurn === null).
+ * - Alignment restrictions are satisfied (CoE rule 8.41).
+ *
+ * After declaration, opponentInteractionThisTurn is set to 'attack' and
+ * the combat sub-state machine is initiated with isCvCC: true.
+ *
+ * CoE rule 8.38–8.41.
+ */
+export interface DeclareCompanyAttackAction {
+  /** Action discriminant. */
+  readonly type: 'declare-company-attack';
+  /** The resource (active) player declaring the attack. */
+  readonly player: PlayerId;
+  /** The attacking company (the resource player's company entering the site). */
+  readonly attackingCompanyId: CompanyId;
+  /** The target company (the opponent's company at the same site). */
+  readonly targetCompanyId: CompanyId;
+}

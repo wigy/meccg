@@ -460,6 +460,8 @@ export function describeAction(
       return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':
       return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
+    case 'declare-company-attack':
+      return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

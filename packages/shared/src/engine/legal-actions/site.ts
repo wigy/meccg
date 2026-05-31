@@ -134,6 +134,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   // TODO: play-minor-item
 
+  if (siteState.step === 'declare-company-attack') {
+    return viable(declareCompanyAttackActions(state, playerId, siteState));
+  }
+
   if (!isActive) {
     logDetail(`Not active player, no site actions`);
     return [];
@@ -1820,6 +1824,69 @@ function opponentInfluenceActions(
     }
   }
 
+  return actions;
+}
+
+/**
+ * Legal actions during the 'declare-company-attack' step (CvCC).
+ *
+ * Only the active (resource) player can declare. For each opponent company
+ * at the same site that satisfies alignment restrictions, one
+ * `declare-company-attack` action is offered. A `pass` action is always
+ * offered to skip and advance to the next company.
+ *
+ * CoE rules 8.38–8.41.
+ */
+function declareCompanyAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  const isActive = state.activePlayer === playerId;
+  if (!isActive) {
+    logDetail('CvCC: non-active player has no actions in declare-company-attack step');
+    return [];
+  }
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const company = player.companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return [];
+
+  const actions: GameAction[] = [];
+
+  // Find opponent companies at the same site and check alignment restrictions
+  for (const otherPlayer of state.players) {
+    if (otherPlayer.id === playerId) continue;
+    for (const opponentCompany of otherPlayer.companies) {
+      if (!opponentCompany.currentSite) continue;
+      if (opponentCompany.currentSite.definitionId !== company.currentSite.definitionId) continue;
+
+      const A = player.alignment as string;
+      const D = otherPlayer.alignment as string;
+      let canAttack = false;
+      if (A === 'wizard') canAttack = D === 'ringwraith' || D === 'fallen-wizard' || D === 'balrog';
+      else if (A === 'ringwraith') canAttack = D === 'wizard' || D === 'fallen-wizard';
+      else if (A === 'fallen-wizard') canAttack = D === 'ringwraith' || D === 'balrog';
+      else if (A === 'balrog') canAttack = D === 'wizard' || D === 'fallen-wizard';
+
+      if (!canAttack) {
+        logDetail(`CvCC: alignment ${A} cannot attack ${D} — skipping ${opponentCompany.id}`);
+        continue;
+      }
+
+      logDetail(`CvCC: ${company.id} (${A}) can attack ${opponentCompany.id} (${D})`);
+      actions.push({
+        type: 'declare-company-attack',
+        player: playerId,
+        attackingCompanyId: company.id,
+        targetCompanyId: opponentCompany.id,
+      });
+    }
+  }
+
+  // Always offer pass to skip CvCC and advance to next company
+  actions.push({ type: 'pass', player: playerId });
   return actions;
 }
 

@@ -550,7 +550,16 @@ export type SiteStep =
    * additional character may tap to play a minor item (CoE line 373).
    * At Under-deeps sites, any playable item may be played instead.
    */
-  | 'play-minor-item';
+  | 'play-minor-item'
+  /**
+   * After play-resources, the resource player may declare a Company vs
+   * Company Combat (CvCC) attack against an opponent's company at the
+   * same site — if no influence attempt or prior CvCC attack has occurred
+   * this turn. Passing advances to the next company (advanceSiteToNextCompany).
+   *
+   * CoE rules 8.38–8.41.
+   */
+  | 'declare-company-attack';
 
 /**
  * State for the Site phase.
