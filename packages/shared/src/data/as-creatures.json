@@ -10,6 +10,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
+    "starredKillMarshallingPoints": true,
     "race": "men",
     "keyedTo": [
       {

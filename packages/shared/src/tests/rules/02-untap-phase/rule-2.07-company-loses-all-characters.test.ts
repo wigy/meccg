@@ -19,7 +19,8 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  CardStatus,
+  GATES_OF_MORNING,
+  CardStatus, addCardInPlay,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
@@ -30,7 +31,51 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
   // When a character is eliminated, cleanupEmptyCompanies handles the site routing.
   // We trigger character elimination via a Free Council corruption check (roll <= CP-2).
 
-  test.todo('All characters leave play: company permanent-events are discarded');
+  test('All characters leave play: company permanent-events are discarded', () => {
+    // Aragorn at Rivendell with a permanent-event bound to his company.
+    // When Aragorn is eliminated (CP=5, roll=2), the company empties and
+    // the permanent-event must be moved to the discard pile.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = base.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const companyId = base.players[RESOURCE_PLAYER].companies[0].id;
+
+    // Add a permanent-event bound to Aragorn's company
+    const withEvent = addCardInPlay(base, RESOURCE_PLAYER, GATES_OF_MORNING, companyId);
+    const eventInstId = withEvent.players[RESOURCE_PLAYER].cardsInPlay[0].instanceId;
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+
+    const state = { ...withEvent, cheatRollTotal: 2, phaseState: fcState };
+    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    // Company permanent-event must be in discard pile after the company empties
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventInstId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === eventInstId)).toBe(false);
+  });
 
   test('Another company at same site: site remains in play', () => {
     // P1 has Aragorn at Rivendell. A second P1 company (Legolas) shares

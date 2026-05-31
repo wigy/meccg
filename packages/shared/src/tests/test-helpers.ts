@@ -1245,15 +1245,18 @@ export function addToPile(
  * permanent event). Mints a fresh `<playerId>-<n>` instance ID so
  * {@link ownerOf} resolves to the owning player. The counter starts
  * high (1000) to avoid colliding with IDs produced during initial state
- * setup.
+ * setup. Pass `companyId` to bind the card to a specific company (e.g.
+ * for testing CoE rule 2.07 — company permanent-events discarded when
+ * the company loses all characters).
  */
-export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefinitionId): GameState {
+export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefinitionId, companyId?: CompanyId): GameState {
   const ownerId = state.players[ownerIdx].id;
   const counter = 1000 + state.players[ownerIdx].cardsInPlay.length;
   const card: CardInPlay = {
     instanceId: `${ownerId as string}-${counter}` as CardInstanceId,
     definitionId: defId,
     status: CardStatus.Untapped,
+    ...(companyId !== undefined ? { companyId } : {}),
   };
   const updated = { ...state.players[ownerIdx], cardsInPlay: [...state.players[ownerIdx].cardsInPlay, card] };
   const players = ownerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
