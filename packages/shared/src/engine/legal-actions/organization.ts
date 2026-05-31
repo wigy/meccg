@@ -1089,6 +1089,18 @@ export function buildPlayOptionContext(
       companyMoving = activeCompany?.id === charCompany.id;
     }
   }
+
+  // During M/H phase expose destination site type and path region types so
+  // play-option `when` conditions can gate on e.g. "destination is R&L" or
+  // "path contains wilderness" (used by Deeper Shadow, le-179).
+  let destinationSiteType: string | null = null;
+  let destinationRegionTypes: string[] = [];
+  const mhPs = state.phaseState as MovementHazardPhaseState;
+  if (mhPs.phase === 'movement-hazard') {
+    destinationSiteType = mhPs.destinationSiteType ?? null;
+    destinationRegionTypes = [...mhPs.resolvedSitePath];
+  }
+
   return {
     target: {
       race: def.race,
@@ -1102,6 +1114,8 @@ export function buildPlayOptionContext(
       siteType: companySiteType,
       containsDiplomat,
       moving: companyMoving,
+      destinationSiteType,
+      destinationRegionTypes,
     },
     pending: {
       corruptionCheckTargetsMe,

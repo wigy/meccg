@@ -182,7 +182,8 @@
     "skills": [
       "scout",
       "sage",
-      "diplomat"
+      "diplomat",
+      "shadow-magic"
     ],
     "prowess": 5,
     "body": 9,
@@ -257,7 +258,8 @@
     "race": "dúnadan",
     "skills": [
       "sage",
-      "diplomat"
+      "diplomat",
+      "shadow-magic"
     ],
     "prowess": 3,
     "body": 8,
@@ -672,7 +674,8 @@
     "skills": [
       "scout",
       "ranger",
-      "sage"
+      "sage",
+      "shadow-magic"
     ],
     "prowess": 4,
     "body": 9,
