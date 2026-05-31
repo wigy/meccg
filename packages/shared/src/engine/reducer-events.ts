@@ -902,7 +902,7 @@ function applyPlayOptionAddConstraint(
       if (state.phaseState.phase !== Phase.MovementHazard) {
         return { error: `${def.name} option '${option.id}': site-type-override only valid during M/H phase` };
       }
-      const mh = state.phaseState as import('../types/state-phases.js').MovementHazardPhaseState;
+      const mh = state.phaseState;
       // Resolve the destination site definition ID from the active company
       const charPlayerIdx2 = state.players.findIndex(p => targetCharacterId as string in p.characters);
       const charCompany2 = charPlayerIdx2 >= 0
@@ -946,7 +946,7 @@ function applyPlayOptionAddConstraint(
       if (state.phaseState.phase !== Phase.MovementHazard) {
         return { error: `${def.name} option '${option.id}': region-type-override only valid during M/H phase` };
       }
-      const mhRt = state.phaseState as import('../types/state-phases.js').MovementHazardPhaseState;
+      const mhRt = state.phaseState;
       // Resolve 'destination' token to the last region in the resolved path
       if (regionName === 'destination') {
         if (mhRt.resolvedSitePathNames.length === 0) {

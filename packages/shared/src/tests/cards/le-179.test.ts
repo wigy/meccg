@@ -31,10 +31,10 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, RIVENDELL, MINAS_TIRITH,
   viableActions, dispatch,
-  makeMHState, RESOURCE_PLAYER, HAZARD_PLAYER,
+  makeMHState,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
-import { RegionType, SiteType, computeLegalActions } from '../../index.js';
+import { RegionType, SiteType } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Alignment } from '../../index.js';
 
