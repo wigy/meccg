@@ -462,6 +462,8 @@ export function describeAction(
       return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
     case 'protect-from-assignment':
       return `Play Ruse — ${instName(action.targetCharacterId)} protected from strike assignment`;
+    case 'declare-company-attack':
+      return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

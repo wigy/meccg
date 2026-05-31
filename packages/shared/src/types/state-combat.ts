@@ -136,6 +136,25 @@ export interface StrikeAssignment {
    * CoE rule 3.iv.5: only one such resource may be played per strike.
    */
   readonly requiredSkillEventPlayed?: boolean;
+  /**
+   * CvCC only: the attacking character whose strike is paired with this
+   * defending character. Set during the attacker-phase assignment.
+   * Absent for creature combat (no paired attacker per strike).
+   */
+  readonly attackingCharacterId?: CardInstanceId;
+  /**
+   * CvCC only: the outcome for the attacking character after this strike
+   * was resolved (dual-roll). The defending character result is stored
+   * in the regular `result` field.
+   */
+  readonly attackerResult?: 'success' | 'wounded' | 'eliminated';
+  /**
+   * CvCC only: whether the attacking character chose to stay untapped (-3
+   * prowess penalty). When `undefined`, the attacker has not yet made their
+   * choice for this strike's sub-step 1. Used to gate the two-step
+   * resolve-strike sub-phase: attacker declares first, then defender resolves.
+   */
+  readonly attackerTapToFight?: boolean;
 }
 
 /**
@@ -207,19 +226,46 @@ export interface CombatState {
    * - `'attacker'`: attacking player assigns remaining strikes
    * - `'done'`: all strikes assigned, ready to resolve
    */
-  readonly assignmentPhase: 'cancel-window' | 'defender' | 'attacker' | 'cancel-by-tap' | 'done';
+  /**
+   * During assign-strikes, tracks who is currently assigning:
+   * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
+   *   (used when the attacker would otherwise assign first, e.g. attacker-chooses-defenders)
+   * - `'defender'`: defending player assigns strikes to untapped characters
+   * - `'attacker'`: attacking player assigns remaining strikes (creature combat) or
+   *   assigns their untapped characters to target defenders (CvCC)
+   * - `'defender-any'`: CvCC only — defender assigns remaining unpaired attackers
+   *   to any of their characters (including tapped/wounded)
+   * - `'done'`: all strikes assigned, ready to resolve
+   */
+  readonly assignmentPhase: 'cancel-window' | 'defender' | 'attacker' | 'defender-any' | 'cancel-by-tap' | 'done';
   /**
    * During body-check phase, indicates what the body check is against:
    * - `'character'`: check if a wounded character is eliminated
    * - `'creature'`: check if a successful strike defeats the creature
    */
-  readonly bodyCheckTarget: 'character' | 'creature' | null;
+  /**
+   * During body-check phase, indicates what the body check is against:
+   * - `'character'`: check if a wounded defending character is eliminated
+   * - `'creature'`: check if a successful strike defeats the creature
+   * - `'attacker-character'`: CvCC only — check if a wounded attacking character is eliminated
+   *   (the defending player rolls because they won the strike)
+   */
+  readonly bodyCheckTarget: 'character' | 'creature' | 'attacker-character' | null;
   /**
    * Whether this is a detainment attack. Detainment attacks tap characters
    * instead of wounding/eliminating them. Any attack can be detainment —
    * it is an attribute of the attack, not a separate attack type.
    */
   readonly detainment: boolean;
+  /**
+   * When true, this is a Company vs Company Combat (CvCC) encounter.
+   * Absent or false means standard creature combat. When true:
+   * - Each strike is backed by a specific attacking character (no excess-strike overflow)
+   * - Both attacker and defender roll 2d6 + prowess and compare totals
+   * - The loser is wounded; ties tap both sides
+   * - Strike assignment follows the 3-phase CvCC order: defender-untapped → attacker-untapped → defender-any
+   */
+  readonly isCvCC?: boolean;
   /**
    * When true, all strikes must be assigned to the same character.
    * Set by the `multi-attack` combat rule (e.g. Assassin).
