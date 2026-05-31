@@ -22,6 +22,7 @@ import { movementHazardEvaluator } from './evaluators/movement-hazard.js';
 import { combatEvaluator } from './evaluators/combat.js';
 import { sitePhaseEvaluator } from './evaluators/site-phase.js';
 import { endOfTurnEvaluator } from './evaluators/end-of-turn.js';
+import { diceSuccessPct } from './evaluators/common.js';
 
 /** Action types treated as "doing nothing" — suppressed when alternatives exist. */
 const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
@@ -89,9 +90,15 @@ export const heuristicStrategy: AiStrategy = {
     return actions.map(action => {
       const evaluator = evaluatorFor(action, phase);
       const score = evaluator.score(action, context);
-      const weight = score === null
-        ? defaultWeight(action, phase, hasSubstantive, allOptional)
-        : Math.max(0, score);
+      let weight: number;
+      if (score === null) {
+        weight = defaultWeight(action, phase, hasSubstantive, allOptional);
+        if (weight > 0 && 'need' in action && typeof action.need === 'number') {
+          weight *= diceSuccessPct(action.need) / 100;
+        }
+      } else {
+        weight = Math.max(0, score);
+      }
       return { action, weight };
     });
   },
