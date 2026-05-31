@@ -425,7 +425,22 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "diplomat",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "protect-from-strike-assignment",
+        "requiredSkill": "scout"
+      }
+    ],
     "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout."
   },
   {
