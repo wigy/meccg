@@ -51,9 +51,9 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, RIVENDELL,
   dispatch, viableActions,
-  handCardId, charIdAt, findCharInstanceId,
+  handCardId, findCharInstanceId,
   attachItemToChar, setCharStatus, findHandCardId,
-  expectInDiscardPile, RESOURCE_PLAYER,
+  RESOURCE_PLAYER,
   playPermanentEventAndResolve,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlayPermanentEventAction } from '../../index.js';
