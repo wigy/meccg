@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment, formatSignedNumber } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';

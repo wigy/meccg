@@ -37,12 +37,11 @@ import {
   findCharInstanceId, findHandCardId,
   attachItemToChar,
   playPermanentEventAndResolve,
-  dispatch, resolveChain,
+  dispatch,
   getCharacter,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Phase } from '../../index.js';
-import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
