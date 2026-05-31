@@ -217,32 +217,84 @@
 }
 
 /* --------------------------------------------------------------------------
-   Layer toggle button (top-left of full-screen overlay)
+   Layer button bar (top-left of full-screen overlay)
    -------------------------------------------------------------------------- */
 
-.map-layer-toggle {
+.map-layer-bar {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 10;
-  padding: 4px 10px;
+  display: flex;
   border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.map-layer-btn {
+  padding: 4px 10px;
   background: rgba(0, 0, 0, 0.6);
   color: #ccc;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.map-layer-toggle:hover:not(:disabled) {
+.map-layer-btn:last-child {
+  border-right: none;
+}
+
+.map-layer-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
-.map-layer-toggle:disabled {
-  opacity: 0.4;
+.map-layer-btn--active {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
   cursor: default;
+}
+
+/* --------------------------------------------------------------------------
+   Under-deeps map mode — same surface map image, darkened and desaturated
+   -------------------------------------------------------------------------- */
+
+/* Grayscale + sepia tint on the map image in Under-deeps mode */
+.map-fullscreen-img--under-deeps {
+  filter: grayscale(1) sepia(0.35) brightness(0.5);
+}
+
+/* Brownish semi-transparent overlay rendered above the image */
+.map-underdeeps-color-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(60, 30, 10, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Dots layer sits above the colour overlay */
+.map-fullscreen-dots {
+  z-index: 2;
+}
+
+/* Dots and agents on the other level are nearly invisible.
+   On hover the full dot + tooltip become visible so the player can still read them. */
+.map-dot--other-level,
+.map-agent--other-level {
+  opacity: 0.5;
+}
+
+.map-dot--other-level:hover,
+.map-agent--other-level:hover {
+  opacity: 1;
+}
+
+/* Radar: darken the map background in Under-deeps mode */
+.map-radar--under-deeps-mode .map-bg {
+  filter: grayscale(1) sepia(0.3) brightness(0.45);
 }
 
 /* --------------------------------------------------------------------------
@@ -276,24 +328,6 @@
 .map-underdeeps-svg {
   width: 100%;
   height: 100%;
-}
-
-/* Radar variant: Under-deeps schematic scaled to radar box */
-.map-radar--underdeeps .map-underdeeps {
-  position: absolute;
-  inset: 0;
-}
-
-/* Small layer indicator in the radar corner */
-.map-radar-layer-indicator {
-  position: absolute;
-  top: 3px;
-  left: 4px;
-  font-size: 11px;
-  line-height: 1;
-  color: rgba(255, 220, 100, 0.8);
-  pointer-events: none;
-  z-index: 3;
 }
 
 /* Message shown when Under-deeps coords are not yet loaded */

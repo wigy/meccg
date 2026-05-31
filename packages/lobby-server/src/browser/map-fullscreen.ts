@@ -3,27 +3,15 @@
  *
  * Full-screen map overlay for the MECCG game UI.
  *
- * When the player clicks the radar minimap, this module opens a full-screen
- * overlay containing the Middle-Earth map with all company positions shown
- * as coloured dots. Hovering a dot reveals a tooltip with the company's
- * site name. Clicking a company dot selects that company (via the provided
- * callback) and closes the overlay.
+ * Shows the Middle-Earth surface map in two modes — Surface and Under-deeps.
+ * The active mode is stored in map-mode.ts and shared with the radar so both
+ * always reflect the same layer.
  *
- * The overlay is closed by:
- * - Clicking the × close button
- * - Pressing the Escape key
- * - Clicking the semi-transparent backdrop outside the map
- *
- * Color coding mirrors the radar: gold pulse for active company, grey for
- * other own companies, red for opponent companies.
- *
- * A layer toggle button (top-left) switches between the surface map and the
- * Under-deeps schematic. The toggle is active only when at least one company
- * is at an Under-deeps site.
- *
- * Movement overlay (Phase 6): when a self company has a `destinationSite`
- * set, a dashed green line is drawn from its current site dot to the
- * destination, and a green destination dot is added.
+ * In Surface mode the map is shown normally.  In Under-deeps mode the map
+ * image is desaturated and darkened with a brownish tint.  In both modes
+ * every company dot is rendered at its surface-map coordinates, but dots
+ * belonging to the *other* level are rendered at very low opacity so the
+ * player's attention is drawn to the current level's companies.
  */
 
 import type {
@@ -35,21 +23,23 @@ import type {
   OpponentAgentView,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
-import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
+import { getUnderDeepsCoordinates } from './map-under-deeps.js';
+import { getMapMode, setMapMode, isOnCurrentLevel } from './map-mode.js';
 import { resolveCardDef } from './company-site.js';
 
-/** SVG namespace for creating the movement-overlay SVG layer. */
+/** SVG namespace for the movement-overlay layer. */
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** CSS class applied to dots/agents on the level that is NOT currently selected. */
+const DIM_CLASS = 'map-dot--other-level';
 
 /**
  * Open the full-screen map overlay.
  *
  * @param view - The current player's view.
- * @param activeCompanyIndex - Index of the currently focused company in `view.self.companies`.
+ * @param activeCompanyIndex - Index of the currently focused company.
  * @param cardPool - Card definition pool for site name lookups.
- * @param onSelectCompany - Callback invoked with the company index when the player
- *   clicks a dot for one of their own companies. The overlay is closed before the
- *   callback fires.
+ * @param onSelectCompany - Callback with the company index when a dot is clicked.
  */
 export function openFullMap(
   view: PlayerView,
@@ -63,12 +53,10 @@ export function openFullMap(
 
   const close = () => overlay.remove();
 
-  // Clicking the backdrop closes the overlay
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
   });
 
-  // Escape key closes the overlay
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       close();
@@ -76,16 +64,13 @@ export function openFullMap(
     }
   };
   document.addEventListener('keydown', onKeyDown);
-  overlay.addEventListener('remove-listener', () => {
-    document.removeEventListener('keydown', onKeyDown);
-  });
 
   // Inner container
   const inner = document.createElement('div');
   inner.className = 'map-fullscreen-inner';
   overlay.appendChild(inner);
 
-  // Close button
+  // Close button (top-right)
   const closeBtn = document.createElement('button');
   closeBtn.className = 'map-fullscreen-close';
   closeBtn.textContent = '×';
@@ -96,78 +81,99 @@ export function openFullMap(
   });
   inner.appendChild(closeBtn);
 
-  // Determine whether any company is at an Under-deeps site
-  const hasUnderDeepsCompany = checkHasUnderDeepsCompany(view, cardPool);
+  // Mode buttons (top-left): Surface | Under-deeps
+  const layerBar = document.createElement('div');
+  layerBar.className = 'map-layer-bar';
 
-  // Layer toggle button (top-left)
-  let currentLayer: 'surface' | 'under-deeps' = 'surface';
-  const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'map-layer-toggle';
-  toggleBtn.textContent = 'Surface';
-  toggleBtn.title = hasUnderDeepsCompany
-    ? 'Toggle between surface map and Under-deeps schematic'
-    : 'No companies in the Under-deeps';
-  if (!hasUnderDeepsCompany) {
-    toggleBtn.disabled = true;
-  }
-  inner.appendChild(toggleBtn);
+  const surfaceBtn = document.createElement('button');
+  surfaceBtn.className = 'map-layer-btn';
+  surfaceBtn.textContent = 'Surface';
 
-  // Map image container
+  const underDeepsBtn = document.createElement('button');
+  underDeepsBtn.className = 'map-layer-btn';
+  underDeepsBtn.textContent = 'Under-deeps';
+
+  layerBar.appendChild(surfaceBtn);
+  layerBar.appendChild(underDeepsBtn);
+  inner.appendChild(layerBar);
+
+  // Map container
   const mapContainer = document.createElement('div');
   mapContainer.className = 'map-fullscreen-map';
   inner.appendChild(mapContainer);
 
-  /** Render the surface map layer into mapContainer. */
-  const renderSurfaceLayer = () => {
-    mapContainer.innerHTML = '';
+  /** Update button active states to match the current mode. */
+  const syncButtons = () => {
+    const m = getMapMode();
+    surfaceBtn.classList.toggle('map-layer-btn--active', m === 'surface');
+    underDeepsBtn.classList.toggle('map-layer-btn--active', m === 'under-deeps');
+  };
 
-    // Background map image
+  /** Render the map and all dots into mapContainer for the current mode. */
+  const renderMap = () => {
+    mapContainer.innerHTML = '';
+    const mode = getMapMode();
+
+    // Map image — always the surface map image; styled per mode
     const mapImg = document.createElement('img');
     mapImg.src = '/images/map-middle-earth.jpg';
-    mapImg.className = 'map-fullscreen-img';
+    mapImg.className = mode === 'under-deeps'
+      ? 'map-fullscreen-img map-fullscreen-img--under-deeps'
+      : 'map-fullscreen-img';
     mapImg.alt = 'Middle-Earth Map';
     mapContainer.appendChild(mapImg);
 
-    // Movement lines SVG layer (drawn behind dots)
-    const moveLines = buildMovementLinesLayer(view, cardPool);
-    if (moveLines) {
-      mapContainer.appendChild(moveLines);
+    // Brownish colour overlay in Under-deeps mode
+    if (mode === 'under-deeps') {
+      const colorOverlay = document.createElement('div');
+      colorOverlay.className = 'map-underdeeps-color-overlay';
+      mapContainer.appendChild(colorOverlay);
     }
+
+    // Movement lines (always shown)
+    const moveLines = buildMovementLinesLayer(view, cardPool);
+    if (moveLines) mapContainer.appendChild(moveLines);
 
     // Dots layer
     const dotsLayer = document.createElement('div');
     dotsLayer.className = 'map-fullscreen-dots';
     mapContainer.appendChild(dotsLayer);
 
-    // Collect all company dots before appending so we can spread overlapping ones.
-    const pendingDots: Array<{ dot: HTMLElement; x: number; y: number }> = [];
+    const pendingDots: Array<{ dot: HTMLElement; x: number; y: number; siteName: string; siteDef: CardDefinition }> = [];
 
     // Self companies
     view.self.companies.forEach((company, idx) => {
       const role = idx === activeCompanyIndex ? 'active' : 'own';
-      const dot = createFullMapDot(company, view, cardPool, role);
-      if (!dot) return;
+      const result = createFullMapDot(company, view, cardPool, role);
+      if (!result) return;
 
-      dot.addEventListener('click', (e) => {
+      result.dot.addEventListener('click', (e) => {
         e.stopPropagation();
         document.removeEventListener('keydown', onKeyDown);
         close();
         onSelectCompany(idx);
       });
 
-      const coords = getCoordinates(resolveCardDef(company.currentSite!.instanceId, view, cardPool)!.name)!;
-      pendingDots.push({ dot, x: coords[0], y: coords[1] });
+      const dimmed = !isOnCurrentLevel(result.siteName, result.siteDef as { keywords?: readonly string[] });
+      if (dimmed) result.dot.classList.add(DIM_CLASS);
+      pendingDots.push(result);
 
       const destDot = createDestinationDot(company, view, cardPool);
-      if (destDot) dotsLayer.appendChild(destDot);
+      if (destDot) {
+        if (dimmed) destDot.classList.add(DIM_CLASS);
+        dotsLayer.appendChild(destDot);
+      }
     });
 
     // Opponent companies
     for (const company of view.opponent.companies) {
-      const dot = createFullMapDot(company, view, cardPool, 'opponent');
-      if (dot) {
-        const coords = getCoordinates(resolveCardDef(company.currentSite!.instanceId, view, cardPool)!.name)!;
-        pendingDots.push({ dot, x: coords[0], y: coords[1] });
+      const result = createFullMapDot(company, view, cardPool, 'opponent');
+      const dimmed = result
+        ? !isOnCurrentLevel(result.siteName, result.siteDef as { keywords?: readonly string[] })
+        : false;
+      if (result) {
+        if (dimmed) result.dot.classList.add(DIM_CLASS);
+        pendingDots.push(result);
       }
 
       if (company.revealedDestinationSite) {
@@ -179,6 +185,7 @@ export function openFullMap(
             destDot.className = 'map-dot map-dot--opponent-destination map-dot--full';
             destDot.style.left = `${coords[0] * 100}%`;
             destDot.style.top = `${coords[1] * 100}%`;
+            if (dimmed) destDot.classList.add(DIM_CLASS);
             const tooltip = document.createElement('div');
             tooltip.className = 'map-dot-tooltip';
             const tl1 = document.createElement('div');
@@ -195,15 +202,14 @@ export function openFullMap(
       }
     }
 
-    // Group dots that share the same map position and arrange them side by side,
-    // centred on the site coordinate.
+    // Group overlapping dots and spread them side by side
     const groups = new Map<string, typeof pendingDots>();
     for (const item of pendingDots) {
       const key = `${Math.round(item.x * 10000)},${Math.round(item.y * 10000)}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     }
-    const STEP_PX = 14; // dot width (12px) + 2px gap
+    const STEP_PX = 14;
     for (const group of groups.values()) {
       if (group.length > 1) {
         const total = group.length;
@@ -215,20 +221,20 @@ export function openFullMap(
       for (const { dot } of group) dotsLayer.appendChild(dot);
     }
 
-    // Own agents — always visible (face-up or face-down)
+    // Own agents
     for (const agent of view.self.agents) {
       const diamond = createFullMapAgentDiamond(agent, view, cardPool);
       if (diamond) dotsLayer.appendChild(diamond);
     }
 
-    // Revealed opponent agents — shown at their homesite on the full map.
+    // Revealed opponent agents
     for (const agent of view.opponent.agents) {
       if (!agent.revealed || !agent.characterDefinitionId) continue;
       const diamond = createFullMapOpponentAgentDiamond(agent, cardPool);
       if (diamond) dotsLayer.appendChild(diamond);
     }
 
-    // Hidden-agents badge: count opponent face-down agents and show a badge
+    // Hidden-agents badge
     const hiddenAgentCount = view.opponent.agents.filter((a) => !a.revealed).length;
     if (hiddenAgentCount > 0) {
       const badge = document.createElement('div');
@@ -238,114 +244,59 @@ export function openFullMap(
     }
   };
 
-  /** Render the Under-deeps layer into mapContainer. */
-  const renderUnderDeepsLayer = () => {
-    mapContainer.innerHTML = '';
-    const udView = createUnderDeepsView(view, cardPool, activeCompanyIndex);
-    if (udView) {
-      mapContainer.appendChild(udView);
-    } else {
-      const msg = document.createElement('p');
-      msg.className = 'map-underdeeps-unavailable';
-      msg.textContent = 'Under-deeps coordinates not loaded yet.';
-      mapContainer.appendChild(msg);
-    }
-  };
-
   // Initial render
-  renderSurfaceLayer();
+  syncButtons();
+  renderMap();
 
-  // Toggle button handler
-  toggleBtn.addEventListener('click', () => {
-    if (currentLayer === 'surface') {
-      currentLayer = 'under-deeps';
-      toggleBtn.textContent = 'Under-deeps';
-      renderUnderDeepsLayer();
-    } else {
-      currentLayer = 'surface';
-      toggleBtn.textContent = 'Surface';
-      renderSurfaceLayer();
-    }
+  surfaceBtn.addEventListener('click', () => {
+    if (getMapMode() === 'surface') return;
+    setMapMode('surface');
+    syncButtons();
+    renderMap();
+  });
+
+  underDeepsBtn.addEventListener('click', () => {
+    if (getMapMode() === 'under-deeps') return;
+    setMapMode('under-deeps');
+    syncButtons();
+    renderMap();
   });
 
   document.body.appendChild(overlay);
 }
 
 /**
- * Check whether any company (self or opponent) is currently at an Under-deeps site.
- * Used to determine whether the layer toggle button should be enabled.
- */
-function checkHasUnderDeepsCompany(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): boolean {
-  const allCompanies: (Company | OpponentCompanyView)[] = [
-    ...view.self.companies,
-    ...view.opponent.companies,
-  ];
-  for (const company of allCompanies) {
-    if (!company.currentSite) continue;
-    const siteDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
-    if (siteDef && getUnderDeepsCoordinates(siteDef.name) !== null) return true;
-  }
-  return false;
-}
-
-/**
- * Build an SVG layer containing dashed movement lines for all companies
- * (self and opponent) that have a declared destination site.
- *
- * Self companies draw a green line; opponent companies with a revealed
- * destination draw a red line.
- *
- * The SVG is positioned absolutely over the map container with pointer-events
- * set to none so it does not interfere with dot interactions.
- * Returns null if no companies have a destination.
+ * Build an SVG layer with dashed movement lines for all companies that have a
+ * declared destination site. Returns null if no companies have a destination.
  */
 function buildMovementLinesLayer(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): SVGSVGElement | null {
-  const lines: Array<{ x1: number; y1: number; x2: number; y2: number; stroke: string }> = [];
+  const lines: Array<{ x1: number; y1: number; x2: number; y2: number; dimmed: boolean }> = [];
 
   for (const company of view.self.companies) {
     if (!company.currentSite || !company.destinationSite) continue;
-
     const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
     const destDef = resolveCardDef(company.destinationSite.instanceId, view, cardPool);
     if (!currentDef || !destDef) continue;
-
-    const currentCoords = getCoordinates(currentDef.name);
-    const destCoords = getCoordinates(destDef.name);
-    if (!currentCoords || !destCoords) continue;
-
-    lines.push({
-      x1: currentCoords[0] * 100,
-      y1: currentCoords[1] * 100,
-      x2: destCoords[0] * 100,
-      y2: destCoords[1] * 100,
-      stroke: 'rgba(0, 0, 0, 0.75)',
-    });
+    const c = getCoordinates(currentDef.name);
+    const d = getCoordinates(destDef.name);
+    if (!c || !d) continue;
+    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
   }
 
   for (const company of view.opponent.companies) {
     if (!company.currentSite || !company.revealedDestinationSite) continue;
-
     const currentDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
     const destDef = resolveCardDef(company.revealedDestinationSite.instanceId, view, cardPool);
     if (!currentDef || !destDef) continue;
-
-    const currentCoords = getCoordinates(currentDef.name);
-    const destCoords = getCoordinates(destDef.name);
-    if (!currentCoords || !destCoords) continue;
-
-    lines.push({
-      x1: currentCoords[0] * 100,
-      y1: currentCoords[1] * 100,
-      x2: destCoords[0] * 100,
-      y2: destCoords[1] * 100,
-      stroke: 'rgba(0, 0, 0, 0.75)',
-    });
+    const c = getCoordinates(currentDef.name);
+    const d = getCoordinates(destDef.name);
+    if (!c || !d) continue;
+    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
   }
 
   if (lines.length === 0) return null;
@@ -355,14 +306,15 @@ function buildMovementLinesLayer(
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  for (const { x1, y1, x2, y2, stroke } of lines) {
+  for (const { x1, y1, x2, y2, dimmed } of lines) {
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', String(x1));
     line.setAttribute('y1', String(y1));
     line.setAttribute('x2', String(x2));
     line.setAttribute('y2', String(y2));
-    line.setAttribute('stroke', stroke);
+    line.setAttribute('stroke', 'rgba(0, 0, 0, 0.75)');
     line.setAttribute('stroke-width', '0.4');
+    if (dimmed) line.setAttribute('opacity', '0.15');
     svg.appendChild(line);
   }
 
@@ -370,8 +322,8 @@ function buildMovementLinesLayer(
 }
 
 /**
- * Create a destination dot element for a self company that has declared movement.
- * Returns null if the company has no destination or if destination coords are unavailable.
+ * Create a destination dot for a self company that has declared movement.
+ * Returns null if no destination or coordinates are unavailable.
  */
 function createDestinationDot(
   company: Company,
@@ -379,15 +331,12 @@ function createDestinationDot(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement | null {
   if (!company.destinationSite) return null;
-
   const destDef = resolveCardDef(company.destinationSite.instanceId, view, cardPool);
   if (!destDef) return null;
-
   const coords = getCoordinates(destDef.name);
   if (!coords) return null;
 
   const [x, y] = coords;
-
   const dot = document.createElement('div');
   dot.className = 'map-dot map-dot--destination map-dot--full';
   dot.style.left = `${x * 100}%`;
@@ -407,7 +356,7 @@ function createDestinationDot(
   return dot;
 }
 
-/** Derive a short company label from its first character, e.g. "Gandalf's Company". */
+/** Derive a short company label, e.g. "Gandalf's Company". */
 function companyLabel(
   company: Company | OpponentCompanyView,
   view: PlayerView,
@@ -421,16 +370,17 @@ function companyLabel(
 }
 
 /**
- * Create a positioned dot element for the full map overlay.
- * The dot is larger than the radar dot (12×12px via CSS class `map-dot--full`).
- * Returns null if no coordinates are available for the company's current site.
+ * Create a positioned dot for the full map.
+ * Returns null (no dot) if the site has no surface-map coordinates.
+ * Returns an object with the dot element, its position, and its site name
+ * so the caller can apply level-based opacity.
  */
 function createFullMapDot(
   company: Company | OpponentCompanyView,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   role: 'active' | 'own' | 'opponent',
-): HTMLElement | null {
+): { dot: HTMLElement; x: number; y: number; siteName: string; siteDef: CardDefinition } | null {
   if (!company.currentSite) return null;
 
   const siteDef = resolveCardDef(company.currentSite.instanceId, view, cardPool);
@@ -440,18 +390,14 @@ function createFullMapDot(
   if (!coords) return null;
 
   const [x, y] = coords;
-
   const dot = document.createElement('div');
   dot.className = `map-dot map-dot--${role} map-dot--full`;
   dot.style.left = `${x * 100}%`;
   dot.style.top = `${y * 100}%`;
 
   const label = companyLabel(company, view, cardPool);
-
-  // Tooltip
   dot.title = `${label} — ${siteDef.name}`;
 
-  // Hover tooltip with company name and site on separate lines
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
   const line1 = document.createElement('div');
@@ -463,23 +409,10 @@ function createFullMapDot(
   tooltip.appendChild(line2);
   dot.appendChild(tooltip);
 
-  return dot;
+  return { dot, x, y, siteName: siteDef.name, siteDef };
 }
 
-/**
- * Create a diamond marker for one of the player's own agents on the full map.
- *
- * Own agents (face-up or face-down) are always shown because the player always
- * knows where their own agents are positioned. The diamond is larger than the
- * radar version (via `map-agent--full`) and shows a tooltip with the agent name
- * when revealed, or "Face-down agent" when hidden.
- *
- * No click handler is attached — clicking agent diamonds has no effect in Phase 5.
- * Agent selection via the map is deferred to a later iteration once
- * `select-company` targeting covers agents (see spec Phase 5 notes).
- *
- * Returns null if coordinates are unavailable.
- */
+/** Create a full-map agent diamond for one of the player's own agents. */
 function createFullMapAgentDiamond(
   agent: AgentInPlay,
   view: PlayerView,
@@ -489,15 +422,15 @@ function createFullMapAgentDiamond(
   if (!coords) return null;
 
   const [x, y] = coords;
-
   const diamond = document.createElement('div');
   const revealedClass = agent.revealed ? 'map-agent--own-revealed' : 'map-agent--own-hidden';
   diamond.className = `map-agent ${revealedClass} map-agent--full`;
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
 
-  const agentName = cardPool[agent.character.definitionId]?.name ?? 'Unknown agent';
+  if (!isOnCurrentLevel(siteName)) diamond.classList.add("map-agent--other-level");
 
+  const agentName = cardPool[agent.character.definitionId]?.name ?? 'Unknown agent';
   const tooltip = document.createElement('div');
   tooltip.className = 'map-dot-tooltip';
   const tl1 = document.createElement('div');
@@ -512,11 +445,7 @@ function createFullMapAgentDiamond(
   return diamond;
 }
 
-/**
- * Resolve the map position for an agent on the full-screen map.
- * Uses the top of the siteStack when deployed; falls back to the first concrete
- * name in the card's `homesite` field when the agent has not yet been placed.
- */
+/** Resolve the map position for an agent on the full-screen map. */
 function resolveFullMapAgentPosition(
   agent: AgentInPlay,
   view: PlayerView,
@@ -543,10 +472,7 @@ function resolveFullMapAgentPosition(
   return { coords: null, siteName: '' };
 }
 
-/**
- * Create a full-map diamond marker for a revealed opponent agent at its homesite.
- * Returns null if coordinates are unavailable.
- */
+/** Create a full-map diamond marker for a revealed opponent agent at its homesite. */
 function createFullMapOpponentAgentDiamond(
   agent: OpponentAgentView,
   cardPool: Readonly<Record<string, CardDefinition>>,
@@ -563,11 +489,11 @@ function createFullMapOpponentAgentDiamond(
 
     const [x, y] = coords;
     const agentName = (agentDef as { name?: string }).name ?? 'Agent';
-
     const diamond = document.createElement('div');
     diamond.className = 'map-agent map-agent--opponent-revealed map-agent--full';
     diamond.style.left = `${x * 100}%`;
     diamond.style.top = `${y * 100}%`;
+    if (!isOnCurrentLevel(name)) diamond.classList.add("map-agent--other-level");
 
     const tooltip = document.createElement('div');
     tooltip.className = 'map-dot-tooltip';
@@ -585,3 +511,7 @@ function createFullMapOpponentAgentDiamond(
 
   return null;
 }
+
+// Keep import to suppress unused-import errors — under-deeps coord loading
+// is triggered from game-entry.ts; this file only needs the type.
+void (getUnderDeepsCoordinates as unknown);

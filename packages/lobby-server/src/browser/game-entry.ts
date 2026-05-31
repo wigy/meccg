@@ -46,6 +46,10 @@ import './company-view-state.js';
 import { removeMapRadar } from './company-views.js';
 import './company-actions.js';
 import './flip-animate.js';
+import { loadUnderDeepsCoordinates } from './map-under-deeps.js';
+
+// Pre-fetch under-deeps coordinates so map mode switching is instant
+loadUnderDeepsCoordinates().catch(() => { /* non-fatal */ });
 
 // ---- Register lobby callbacks so game-connection can call back into lobby ----
 

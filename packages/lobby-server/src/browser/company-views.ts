@@ -57,6 +57,10 @@ import { setTargetingInstruction } from './render.js';
 import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
+import { onMapModeChange } from './map-mode.js';
+
+// Re-render the radar whenever the map mode changes (single subscription for the module lifetime).
+onMapModeChange(() => rerender());
 
 /** Remove the map radar widget from the DOM if it exists. */
 export function removeMapRadar(): void {

@@ -33,7 +33,7 @@ import type {
   OpponentAgentView,
 } from '@meccg/shared';
 import { getCoordinates } from './map-coordinates.js';
-import { getUnderDeepsCoordinates, createUnderDeepsView } from './map-under-deeps.js';
+import { getMapMode, isOnCurrentLevel } from './map-mode.js';
 import { resolveCardDef } from './company-site.js';
 
 /** Index into the combined list of all companies (self first, then opponent). */
@@ -58,16 +58,10 @@ export function createRadar(
   const hasAnyAgent = view.self.agents.length > 0 || view.opponent.agents.some(a => a.revealed);
   if (!activeCompany?.currentSite && !hasAnySelfSite && !hasAnyAgent) return null;
 
-  // Check if the active self company is at an Under-deeps site
-  if (activeCompany?.currentSite) {
-    const activeSiteDef = resolveCardDef(activeCompany.currentSite.instanceId, view, cardPool);
-    if (activeSiteDef && getUnderDeepsCoordinates(activeSiteDef.name) !== null) {
-      return createUnderDeepsRadar(view, cardPool, activeCompanyIndex);
-    }
-  }
+  const mode = getMapMode();
 
   const radar = document.createElement('div');
-  radar.className = 'map-radar';
+  radar.className = mode === 'under-deeps' ? 'map-radar map-radar--under-deeps-mode' : 'map-radar';
   radar.title = 'Click to open full map';
 
   // Map background image
@@ -90,21 +84,25 @@ export function createRadar(
   // Render own companies
   view.self.companies.forEach((company, idx) => {
     const dot = createCompanyDot(company, view, cardPool, idx === activeCompanyIndex ? 'active' : 'own');
+    const dimmed = dot?.classList.contains('map-dot--other-level') ?? false;
     if (dot) {
       const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
       const coords = siteDef ? getCoordinates(siteDef.name) : null;
       if (coords) pendingDots.push({ dot, x: coords[0], y: coords[1] });
     }
 
-    // Destination dot for companies with planned movement
     const destDot = createRadarDestinationDot(company, view, cardPool);
-    if (destDot) dotsLayer.appendChild(destDot);
+    if (destDot) {
+      if (dimmed) destDot.classList.add('map-dot--other-level');
+      dotsLayer.appendChild(destDot);
+    }
   });
 
   // Render opponent companies
   view.opponent.companies.forEach((company, idx) => {
     const role = idx === activeOpponentIndex ? 'opponent-active' : 'opponent';
     const dot = createCompanyDot(company, view, cardPool, role);
+    const dimmed = dot?.classList.contains('map-dot--other-level') ?? false;
     if (dot) {
       const siteDef = resolveCardDef(company.currentSite!.instanceId, view, cardPool);
       const coords = siteDef ? getCoordinates(siteDef.name) : null;
@@ -121,6 +119,7 @@ export function createRadar(
           destDot.style.left = `${coords[0] * 100}%`;
           destDot.style.top = `${coords[1] * 100}%`;
           destDot.title = `→ ${destDef.name}`;
+          if (dimmed) destDot.classList.add('map-dot--other-level');
           dotsLayer.appendChild(destDot);
         }
       }
@@ -169,41 +168,6 @@ export function createRadar(
 }
 
 /**
- * Create a radar widget showing the Under-deeps schematic scaled to radar size.
- * Used when the active company is at an Under-deeps site.
- */
-function createUnderDeepsRadar(
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  activeCompanyIndex: number,
-): HTMLElement | null {
-  const udView = createUnderDeepsView(view, cardPool, activeCompanyIndex);
-  if (!udView) return null;
-
-  const radar = document.createElement('div');
-  radar.className = 'map-radar map-radar--underdeeps';
-  radar.title = 'Click to open full map (Under-deeps)';
-
-  // Scale the Under-deeps view to fit the radar box
-  udView.style.width = '100%';
-  udView.style.height = '100%';
-  radar.appendChild(udView);
-
-  // Small indicator that we're in the Under-deeps layer
-  const indicator = document.createElement('span');
-  indicator.className = 'map-radar-layer-indicator';
-  indicator.textContent = '⛏';
-  indicator.title = 'Under-deeps';
-  radar.appendChild(indicator);
-
-  radar.addEventListener('click', () => {
-    radar.dispatchEvent(new CustomEvent('map-radar-click', { bubbles: true }));
-  });
-
-  return radar;
-}
-
-/**
  * Create a positioned dot element for one company.
  * Returns null if the company has no current site or if the site has no coordinates.
  */
@@ -228,6 +192,8 @@ function createCompanyDot(
   dot.style.left = `${x * 100}%`;
   dot.style.top = `${y * 100}%`;
   dot.title = siteDef.name;
+
+  if (!isOnCurrentLevel(siteDef.name, siteDef as { keywords?: readonly string[] })) dot.classList.add('map-dot--other-level');
 
   return dot;
 }
@@ -258,6 +224,7 @@ function createAgentDiamond(
   diamond.style.left = `${x * 100}%`;
   diamond.style.top = `${y * 100}%`;
   diamond.title = `${agentName} — ${siteName}`;
+  if (!isOnCurrentLevel(siteName)) diamond.classList.add('map-agent--other-level');
 
   return diamond;
 }
@@ -320,6 +287,7 @@ function createOpponentAgentDiamond(
     diamond.style.left = `${x * 100}%`;
     diamond.style.top = `${y * 100}%`;
     diamond.title = `${agentName} — ${name} (home)`;
+    if (!isOnCurrentLevel(name)) diamond.classList.add('map-agent--other-level');
     return diamond;
   }
 
@@ -365,7 +333,7 @@ function buildRadarMovementLines(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): SVGSVGElement | null {
-  const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  const lines: Array<{ x1: number; y1: number; x2: number; y2: number; dimmed: boolean }> = [];
 
   for (const company of view.self.companies) {
     if (!company.currentSite || !company.destinationSite) continue;
@@ -375,7 +343,8 @@ function buildRadarMovementLines(
     const c = getCoordinates(currentDef.name);
     const d = getCoordinates(destDef.name);
     if (!c || !d) continue;
-    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100 });
+    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
   }
 
   for (const company of view.opponent.companies) {
@@ -386,7 +355,8 @@ function buildRadarMovementLines(
     const c = getCoordinates(currentDef.name);
     const d = getCoordinates(destDef.name);
     if (!c || !d) continue;
-    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100 });
+    const dimmed = !isOnCurrentLevel(currentDef.name, currentDef as { keywords?: readonly string[] });
+    lines.push({ x1: c[0] * 100, y1: c[1] * 100, x2: d[0] * 100, y2: d[1] * 100, dimmed });
   }
 
   if (lines.length === 0) return null;
@@ -396,7 +366,7 @@ function buildRadarMovementLines(
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  for (const { x1, y1, x2, y2 } of lines) {
+  for (const { x1, y1, x2, y2, dimmed } of lines) {
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', String(x1));
     line.setAttribute('y1', String(y1));
@@ -404,6 +374,7 @@ function buildRadarMovementLines(
     line.setAttribute('y2', String(y2));
     line.setAttribute('stroke', 'rgba(0, 0, 0, 0.75)');
     line.setAttribute('stroke-width', '1');
+    if (dimmed) line.setAttribute('opacity', '0.15');
     svg.appendChild(line);
   }
 
