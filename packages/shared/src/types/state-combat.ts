@@ -217,7 +217,17 @@ export interface CombatState {
    * - `'body-check'`: body check after a strike result
    * - `'discard-item-from-company'`: defender must discard one item (An Article Missing)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company';
+  /**
+   * The current sub-phase of combat:
+   * - `'assign-strikes'`: defenders assign strikes to characters
+   * - `'choose-strike-order'`: defender picks which strike resolves next
+   * - `'resolve-strike'`: the chosen strike is resolved
+   * - `'body-check'`: body check after a strike result
+   * - `'item-salvage'`: item transfer from an eliminated character
+   * - `'discard-item-from-company'`: defender must discard one item
+   * - `'trophy-offer'`: Orc/Troll characters may take the defeated creature as a trophy (MELE §8.37)
+   */
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -307,6 +317,13 @@ export interface CombatState {
    * successful agent strike with `strikeEffect: 'discard-item'` resolves.
    */
   readonly discardItemOptions?: readonly ItemInPlay[];
+  /**
+   * Eligible Orc or Troll (non-half-orc) characters that faced a strike during
+   * this combat and may take the defeated creature as a trophy (MELE §8.37).
+   * Set when transitioning to the `'trophy-offer'` phase. The creature instance
+   * is the combat's creatureInstanceId.
+   */
+  readonly trophyEligibleCharacters?: readonly CardInstanceId[];
   /**
    * CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
    * While the attacker has any playable combat hazards (e.g. Dragon's Curse)

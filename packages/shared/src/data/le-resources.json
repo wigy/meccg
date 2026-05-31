@@ -1017,6 +1017,21 @@
   },
   {
     "cardType": "minion-resource-event",
+    "id": "le-170",
+    "name": "Black Rider",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackRider.jpg",
+    "text": "Black Rider mode. Playable at a Darkhaven during the organization phase on your Ringwraith's own company. The company may move to a non-Darkhaven site. Discard this card and any other Ringwraith followers in the company during any of your following organization phases the company is at a Darkhaven. Cannot be duplicated on a given company. Cannot be included in a Balrog's deck.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {"type": "ringwraith-mode"}
+    ]
+  },
+  {
+    "cardType": "minion-resource-event",
     "id": "le-178",
     "name": "Crooked Promptings",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CrookedPromptings.jpg",
@@ -1044,12 +1059,18 @@
     "id": "le-183",
     "name": "Fell Rider",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FellRider.jpg",
-    "text": "Fell Rider mode. Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith’s own company. +2 prowess, -3 direct influence to your Ringwraith. Discard all allies and Ringwraith followers in the company; none may join the company. Your Ringwraith may move to a non-Darkhaven site. Discard this card during any of your following organization phases your Ringwraith is at a Darkhaven [{DH}]. Cannot be duplicated on a given company. Cannot be included in a Balrog's deck.",
+    "text": "Fell Rider mode. Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith’s own company. +2 prowess, -3 direct influence to your Ringwraith. Discard all allies and Ringwraith followers in the company; none may join the company. Your Ringwraith may move to a non-Darkhaven site. Discard this card during any of your following organization phases your Ringwraith is at a Darkhaven [{DH}]. Cannot be duplicated on a given company. Cannot be included in a Balrog’s deck.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {"type": "stat-modifier", "stat": "prowess", "value": 2},
+      {"type": "stat-modifier", "stat": "direct-influence", "value": -3},
+      {"type": "ringwraith-mode"},
+      {"type": "company-overt"}
+    ]
   },
   {
     "cardType": "minion-resource-event",
@@ -1074,6 +1095,23 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "minion-resource-event",
+    "id": "le-190",
+    "name": "Heralded Lord",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HeraldedLord.jpg",
+    "text": "Heralded Lord mode. Playable on your Ringwraith’s company at a Darkhaven during the organization phase. -2 prowess, +3 direct influence to entire company. His own company may move to a non-Darkhaven site. Discard this card and any other Ringwraith followers in the company during any of your following organization phases the company is at a Darkhaven. Cannot be included in a Balrog’s deck.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {"type": "stat-modifier", "stat": "prowess", "value": -2},
+      {"type": "stat-modifier", "stat": "direct-influence", "value": 3},
+      {"type": "ringwraith-mode"}
+    ]
   },
   {
     "cardType": "minion-resource-event",

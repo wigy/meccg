@@ -8,6 +8,7 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
 import { Phase, CardStatus, isSiteCard, getPlayerIndex } from '../index.js';
+import { BARAD_DUR_HERO, BARAD_DUR_MINION, THE_ONE_RING } from '../card-ids.js';
 import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -266,6 +267,40 @@ function handleEndOfTurnResetHand(
 }
 
 /**
+ * Checks whether the active player satisfies the One Ring Ringwraith win condition.
+ *
+ * MELE §1: if a Ringwraith player's company is bearing The One Ring at
+ * Barad-dûr (either the hero site tw-374 or the minion site le-352), that
+ * player wins immediately. Returns the winning player's ID if the condition
+ * is met, or null otherwise.
+ */
+function checkOneRingWin(state: GameState): PlayerId | null {
+  const activePlayer = state.players.find(p => p.id === state.activePlayer);
+  if (!activePlayer || activePlayer.alignment !== 'ringwraith') return null;
+
+  const baradDurIds = new Set<string>([BARAD_DUR_HERO as string, BARAD_DUR_MINION as string]);
+  const oneRingId = THE_ONE_RING as string;
+
+  for (const company of activePlayer.companies) {
+    const currentSiteDefId = company.currentSite?.definitionId as string | undefined;
+    if (!currentSiteDefId || !baradDurIds.has(currentSiteDefId)) continue;
+
+    // Company is at Barad-dûr — check for The One Ring in any character's items
+    for (const charId of company.characters) {
+      const char = activePlayer.characters[charId as string];
+      if (!char) continue;
+      for (const item of char.items) {
+        if ((item.definitionId as string) === oneRingId) {
+          logDetail(`One Ring win condition: ${activePlayer.name} has The One Ring at Barad-dûr — Ringwraith wins immediately (MELE §1)`);
+          return activePlayer.id;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Step 3 (signal-end): Resource player signals end of turn.
  * Pass switches the active player and advances to the next turn's Untap phase.
  */
@@ -277,6 +312,13 @@ function handleEndOfTurnResetHand(
  */
 function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'pass') {
+    // MELE §1: check Ringwraith One Ring win condition before the turn ends
+    const oneRingWinner = checkOneRingWin(state);
+    if (oneRingWinner) {
+      logDetail(`One Ring win condition triggered — transitioning to Free Council with immediate winner ${oneRingWinner as string}`);
+      return { state: transitionToFreeCouncil(state, oneRingWinner) };
+    }
+
     const currentIndex = getPlayerIndex(state, state.activePlayer!);
     const nextIndex = (currentIndex === 0 ? 1 : 0);
     const nextPlayer = state.players[nextIndex].id;

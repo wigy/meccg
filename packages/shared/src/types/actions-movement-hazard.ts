@@ -844,3 +844,23 @@ export interface PayHazardLimitToUntapCardAction {
   /** The company whose hazard limit is being spent. */
   readonly targetCompanyId: CompanyId;
 }
+
+/**
+ * An Orc or Troll character takes a defeated creature card as a trophy
+ * (MELE §8.37). The trophy is placed under the character and counts as a
+ * minor item worth 0 CP. Total printed MPs grant stat bonuses.
+ *
+ * Available during the `trophy-offer` combat phase after a non-detainment
+ * creature defeat. The defending player may take a trophy for each eligible
+ * Orc/Troll character that faced a strike, or pass to skip all trophies.
+ */
+export interface TakeTrophyAction {
+  /** Action discriminant. */
+  readonly type: 'take-trophy';
+  /** The defending player offering the trophy. */
+  readonly player: PlayerId;
+  /** The character who will hold the trophy (must be Orc or Troll, not half-orc). */
+  readonly characterId: CardInstanceId;
+  /** The creature instance being taken as a trophy. */
+  readonly creatureInstanceId: CardInstanceId;
+}

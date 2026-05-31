@@ -19,6 +19,7 @@ import type {
   Company,
   MarshallingPointTotals,
 } from './state-cards.js';
+import type { CardDefinitionId } from './common.js';
 import type { AgentInPlay } from './state-agents.js';
 
 // ---- Per-player state ----
@@ -117,4 +118,17 @@ export interface PlayerState {
    * during the current deck exhaustion. Maximum 5.
    */
   readonly deckExhaustExchangeCount: number;
+  /**
+   * When a Ringwraith avatar fails a body check with an unmodified roll of
+   * exactly 7 or 8 (MELE §8.R1), the Ringwraith is returned to hand rather
+   * than eliminated. This field records the definition ID of the Ringwraith
+   * that was returned.
+   *
+   * While set:
+   * - This player may not reveal a *different* Ringwraith.
+   * - The opponent may not reveal this same Ringwraith.
+   *
+   * Cleared when the returned Ringwraith is re-played.
+   */
+  readonly ringwraithReturnedToHand?: CardDefinitionId;
 }

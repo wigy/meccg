@@ -303,6 +303,42 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
     score1 -= 5;
   }
 
+  // MELE §6 step 5: Unique card reveal — scan each player's hand for unique
+  // resource cards whose name matches a unique card the *opponent* has in play.
+  // Each match reduces the opponent's final total by 1 (automatic, non-interactive).
+  const uniqueNamesInPlay0 = new Set<string>();
+  const uniqueNamesInPlay1 = new Set<string>();
+  for (const card of p0.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
+      uniqueNamesInPlay0.add((def as { name: string }).name);
+    }
+  }
+  for (const card of p1.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
+      uniqueNamesInPlay1.add((def as { name: string }).name);
+    }
+  }
+  for (const handCard of p0.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
+    const name = (def as { name: string }).name;
+    if (uniqueNamesInPlay1.has(name)) {
+      logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+      score1 -= 1;
+    }
+  }
+  for (const handCard of p1.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
+    const name = (def as { name: string }).name;
+    if (uniqueNamesInPlay0.has(name)) {
+      logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+      score0 -= 1;
+    }
+  }
+
   logHeading(`Final scores: ${p0.name} = ${score0}, ${p1.name} = ${score1}`);
 
   let winner: PlayerId | null = null;

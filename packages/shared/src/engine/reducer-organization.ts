@@ -237,6 +237,12 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
   const joinedCompany = findCharacterCompany(companies, charInstId);
   const affectedIds = joinedCompany ? [joinedCompany.id] : [];
+
+  // MELE §8.R1: if the played character matches the Ringwraith that was returned
+  // to hand, clear the restriction flag so the player may reveal another Ringwraith
+  // and the opponent can reveal it again.
+  const clearRingwraithFlag = player.ringwraithReturnedToHand === handCard.definitionId;
+
   return {
     state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({
@@ -245,6 +251,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
         siteDeck: newSiteDeck,
         characters: newCharacters,
         companies,
+        ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
       })),
       phaseState: { ...phaseState, characterPlayedThisTurn: true },
     }), affectedIds),

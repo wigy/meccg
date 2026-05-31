@@ -16,9 +16,9 @@ import type {
   PlayerState,
   CardEffect,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter } from '../../index.js';
 import { logDetail } from './log.js';
-import { playerById, defById } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
@@ -93,6 +93,28 @@ function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, cand
     }
   }
   return results;
+}
+
+/**
+ * Returns true if a Ringwraith company has a mode card (Black Rider,
+ * Fell Rider, or Heralded Lord) bound to it via `cardsInPlay`.
+ *
+ * Mode cards are permanent-event resources with a `ringwraith-mode` effect.
+ * They are bound to the company via `CardInPlay.companyId`. Without a mode
+ * card the Ringwraith may only move Darkhaven-to-Darkhaven (MELE §1.2).
+ */
+function ringwraithHasModeCard(
+  state: GameState,
+  company: { readonly id: import('../../index.js').CompanyId },
+  player: PlayerState,
+): boolean {
+  for (const card of player.cardsInPlay) {
+    if (card.companyId !== company.id) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    if (getCardEffects(def).some(e => e.type === 'ringwraith-mode')) return true;
+  }
+  return false;
 }
 
 /**
@@ -255,7 +277,35 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // regular starter/region movement. When already at an under-deeps site, regular movement
     // does not apply at all.
     const regularCandidates = currentIsUD ? [] : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false));
-    const reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
+    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
+
+    // MELE §1.2: Ringwraith movement restrictions.
+    // Check whether this company has a Ringwraith avatar.
+    const hasRingwraithAvatar = player.alignment === 'ringwraith' && company.characters.some(cId => {
+      const char = player.characters[cId as string];
+      if (!char) return false;
+      const def = defById(state, char.definitionId);
+      return def && isCharacterCard(def) && isAvatarCharacter(def) && def.race === Race.Ringwraith;
+    });
+
+    if (hasRingwraithAvatar) {
+      const hasModeCard = ringwraithHasModeCard(state, company, player);
+
+      // Gate: without a mode card, Ringwraith may only move to Darkhaven (siteType: haven).
+      if (!hasModeCard) {
+        const before = reachable.length;
+        reachable = reachable.filter(r => r.site.siteType === SiteType.Haven);
+        logDetail(`Company ${company.id as string}: Ringwraith has no mode card — restricted to Darkhaven destinations (${before} → ${reachable.length})`);
+      }
+
+      // Ringwraith companies may never move through Coastal Seas regions (MELE §1.1).
+      const beforeCoastal = reachable.length;
+      reachable = reachable.filter(r => !(r.site.sitePath ?? []).includes(RegionType.Coastal));
+      if (reachable.length !== beforeCoastal) {
+        logDetail(`Company ${company.id as string}: filtered out ${beforeCoastal - reachable.length} Coastal Seas destination(s) for Ringwraith`);
+      }
+    }
+
     // Deduplicate: a site reachable by both starter and region movement only needs one action
     const seen = new Set<string>();
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);
