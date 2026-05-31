@@ -10,7 +10,7 @@ import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, Pendin
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
-import { ownerOf } from '../types/state.js';
+import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -827,7 +827,9 @@ function applyPlayOptionAddConstraint(
   }
 
   // Company-targeted constraints: resolve the company from the target character
-  const isCompanyTargeted = constraintName === 'hazard-limit-modifier';
+  const isCompanyTargeted = constraintName === 'hazard-limit-modifier'
+    || constraintName === 'site-type-override'
+    || constraintName === 'region-type-override';
   let companyId: import('../types/common.js').CompanyId | undefined;
   if (isCompanyTargeted) {
     const playerIndex = state.players.findIndex(p => targetCharacterId as string in p.characters);
@@ -891,6 +893,77 @@ function applyPlayOptionAddConstraint(
       }
       kind = { type: 'hazard-limit-modifier', value: apply.value };
       break;
+    case 'site-type-override': {
+      // Changes destination site type during M/H phase (e.g. Deeper Shadow: R→S).
+      const overrideType = (apply as { overrideType?: string }).overrideType;
+      if (!overrideType) {
+        return { error: `${def.name} option '${option.id}': site-type-override requires 'overrideType'` };
+      }
+      if (state.phaseState.phase !== Phase.MovementHazard) {
+        return { error: `${def.name} option '${option.id}': site-type-override only valid during M/H phase` };
+      }
+      const mh = state.phaseState;
+      // Resolve the destination site definition ID from the active company
+      const charPlayerIdx2 = state.players.findIndex(p => targetCharacterId as string in p.characters);
+      const charCompany2 = charPlayerIdx2 >= 0
+        ? findCharacterCompany(state.players[charPlayerIdx2].companies, targetCharacterId)
+        : undefined;
+      let destSiteDefId: string | null = null;
+      if (charCompany2?.destinationSite?.instanceId) {
+        const resolved = resolveInstanceId(state, charCompany2.destinationSite.instanceId);
+        if (resolved) destSiteDefId = resolved as string;
+      }
+      if (!destSiteDefId && mh.destinationSiteName) {
+        for (const [defId, d] of Object.entries(state.cardPool)) {
+          const ct = (d as { cardType?: string }).cardType;
+          const name = (d as { name?: string }).name;
+          if (ct?.includes('site') && name === mh.destinationSiteName) {
+            destSiteDefId = defId;
+            break;
+          }
+        }
+      }
+      if (!destSiteDefId) {
+        logDetail(`${def.name} option '${option.id}': site-type-override — no destination site found, fizzle`);
+        return { state };
+      }
+      kind = {
+        type: 'attribute-modifier',
+        attribute: 'site.type',
+        op: 'override',
+        value: overrideType,
+        filter: { 'site.definitionId': destSiteDefId },
+      };
+      break;
+    }
+    case 'region-type-override': {
+      // Changes a region type in the site path during M/H phase (e.g. Deeper Shadow: w→s).
+      const overrideType = (apply as { overrideType?: string }).overrideType;
+      let regionName = (apply as { regionName?: string }).regionName;
+      if (!overrideType || !regionName) {
+        return { error: `${def.name} option '${option.id}': region-type-override requires 'overrideType' and 'regionName'` };
+      }
+      if (state.phaseState.phase !== Phase.MovementHazard) {
+        return { error: `${def.name} option '${option.id}': region-type-override only valid during M/H phase` };
+      }
+      const mhRt = state.phaseState;
+      // Resolve 'destination' token to the last region in the resolved path
+      if (regionName === 'destination') {
+        if (mhRt.resolvedSitePathNames.length === 0) {
+          logDetail(`${def.name} option '${option.id}': region-type-override — no resolved path names, fizzle`);
+          return { state };
+        }
+        regionName = mhRt.resolvedSitePathNames[mhRt.resolvedSitePathNames.length - 1];
+      }
+      kind = {
+        type: 'attribute-modifier',
+        attribute: 'region.type',
+        op: 'override',
+        value: overrideType,
+        filter: { 'region.name': regionName },
+      };
+      break;
+    }
     default:
       return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}'` };
   }
@@ -946,6 +1019,19 @@ function applyShortEventOnEntersPlay(
       if (!characterId) {
         logDetail(`enqueue-corruption-check: no target character — fizzle`);
         continue;
+      }
+      // If the effect has a `when` condition, evaluate it against the target
+      // character's definition. Used e.g. by Deeper Shadow to skip the check
+      // for Ringwraith characters ("Unless he is a Ringwraith, ...").
+      if (onEvent.when) {
+        const charInPlay = state.players[playerIndex].characters[characterId as string];
+        const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
+        const targetRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
+        const whenCtx = { target: { race: targetRace } };
+        if (!matchesCondition(onEvent.when, whenCtx)) {
+          logDetail(`"${def.name}" enqueue-corruption-check: when condition not met for ${characterId as string} — skipping`);
+          continue;
+        }
       }
       const modifier = (onEvent.apply.modifier) ?? 0;
       logDetail(`"${def.name}" played — enqueuing corruption check on ${characterId as string} (modifier ${modifier})`);

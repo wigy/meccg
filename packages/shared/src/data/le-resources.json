@@ -613,10 +613,73 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DeeperShadow.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "Magic",
+      "Shadow-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Shadow-magic. Playable during the movement/hazard phase on a moving shadow-magic-using character. In character’s site path, change a Ruins & Lairs [{R}] to a Shadow-hold [{S}] or one Wilderness [{w}] to a Shadow-land [{s}].Alternatively, decrease the hazard limit against his company by one (to no minimum). Unless he is a Ringwraith, he makes a corruption check modified by -3."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.race": "ringwraith" },
+                { "target.skills": { "$includes": "shadow-magic" } }
+              ]
+            },
+            { "company.moving": true }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "change-site-type",
+        "when": { "company.destinationSiteType": "ruins-and-lairs" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "shadow-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "change-region-type",
+        "when": { "company.destinationRegionTypes": { "$includes": "wilderness" } },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "shadow",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "decrease-hazard-limit",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase",
+          "value": -1
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "$not": { "target.race": "ringwraith" } },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "text": "Magic. Shadow-magic. Playable during the movement/hazard phase on a moving shadow-magic-using character. In character’s site path, change a Ruins & Lairs [{R}] to a Shadow-hold [{S}] or one Wilderness [{w}] to a Shadow-land [{s}].Alternatively, decrease the hazard limit against his company by one (to no minimum). Unless he is a Ringwraith, he makes a corruption check modified by -3.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
