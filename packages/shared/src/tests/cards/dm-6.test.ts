@@ -22,7 +22,7 @@ import {
   pool, PLAYER_1, PLAYER_2,
   buildTestState, buildSitePhaseState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
-  getCharacter, RESOURCE_PLAYER, BLUE_MOUNTAIN_DWARF_HOLD,
+  getCharacter, RESOURCE_PLAYER, BLUE_MOUNTAIN_DWARF_HOLD, Alignment,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
 import { computeLegalActions, Phase } from '../../index.js';
@@ -43,6 +43,9 @@ const BLUE_MOUNTAIN_DWARVES = 'tw-200' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;      // minion haven
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;    // minion haven
 const BARAD_DUR = 'le-352' as CardDefinitionId;       // dark-hold
+
+// Fori the Beardless's homesite — required site for agent-as-character tests
+const IRON_HILL_DWARF_HOLD = 'tw-403' as CardDefinitionId;
 
 describe('Drór (dm-6)', () => {
   beforeEach(() => resetMint());
@@ -72,6 +75,11 @@ describe('Drór (dm-6)', () => {
     // Drór base DI = 2. Fori the Beardless is a dwarf with mind 4.
     // Without the +2 DI bonus against Dwarves: DI 2 < mind 4 → cannot control.
     // With the bonus: DI 4 >= mind 4 → can control as a follower.
+    //
+    // Ringwraith alignment is required: Fori is an agent character, and rule 1.3.W2
+    // forbids Wizard players from playing agents as characters. Additionally, Drór's
+    // company must be at Fori's homesite (Iron Hill Dwarf-hold) because rule 2.II.2.2.5
+    // restricts agents played as characters to their home site only.
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -79,7 +87,8 @@ describe('Drór (dm-6)', () => {
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: DOL_GULDUR, characters: [DROR] }],
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: IRON_HILL_DWARF_HOLD, characters: [DROR] }],
           hand: [FORI_THE_BEARDLESS],
           siteDeck: [MINAS_MORGUL],
         },
