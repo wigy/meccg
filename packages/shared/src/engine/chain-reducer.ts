@@ -903,7 +903,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   if (targetCharId) {
     // Resource permanent events (e.g. Align Palantír) go into items;
     // hazard permanent events go into hazards.
-    const isResource = def && def.cardType === 'hero-resource-event';
+    const isResource = def && (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event');
     const slot = isResource ? 'items' : 'hazards';
     // Find which player owns the target character
     for (let pi = 0; pi < 2; pi++) {

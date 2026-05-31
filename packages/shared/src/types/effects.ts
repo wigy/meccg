@@ -127,7 +127,7 @@ interface EffectBase {
 export interface StatModifierEffect extends EffectBase {
   readonly type: 'stat-modifier';
   /** Which stat to modify. */
-  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes';
+  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
   /** Maximum resulting stat value. Can be a MathJS expression. */

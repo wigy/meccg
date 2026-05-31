@@ -53,7 +53,13 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
   "when": { "reason": "combat", "enemy.race": "orc" } }
 ```
 
-Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`.
+Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`.
+
+The `general-influence` stat is a player-level modifier (not per-character). When a card
+carrying `stat: "general-influence"` is attached to a character, `PlayerState.generalInfluenceBonus`
+is incremented by `value` during `recomputeDerived`. Effective GI pool = `GENERAL_INFLUENCE (20) +
+generalInfluenceBonus`. Example: Bade to Rule (le-167) grants +5 GI to the Ringwraith
+player while attached to the Ringwraith.
 
 The `strikes` stat is used with `target: "all-attacks"` to modify the number
 of strikes on creature and automatic attacks (e.g. Wake of War).
@@ -1526,6 +1532,32 @@ Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
 
 Implemented in `legal-actions/site.ts` (permanent event play-condition
 check) and `reducer-events.ts` (discard execution).
+
+- `site-type` — restricts the card to companies whose current site type
+  is in the `siteTypes` array. For character-targeting permanent events
+  (org phase), the check is applied per company in
+  `legal-actions/organization-events.ts`; only characters in a qualifying
+  company are offered as targets. For short/long events and site-phase
+  events, the check is in `legal-actions/organization.ts` and
+  `legal-actions/site.ts` respectively.
+
+  Minion haven sites (Dol Guldur, Minas Morgul, Carn Dûm, etc.) use
+  `siteType: "haven"` — there is no separate `"darkhaven"` type.
+
+```json
+{ "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] }
+```
+
+  Example: Bade to Rule (le-167) — requires the Ringwraith's company to
+  be at a Darkhaven (haven-type site).
+
+- `card-not-in-play` — blocked if a named card is currently in play (as
+  a character or in any player's cardsInPlay). The `cardName` field names
+  the blocking card. Used by *By the Ringwraith's Word* and similar cards.
+
+```json
+{ "type": "play-condition", "requires": "card-not-in-play", "cardName": "Balrog" }
+```
 
 ### 24. `creature-race-choice`
 

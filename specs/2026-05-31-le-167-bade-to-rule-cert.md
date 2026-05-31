@@ -45,7 +45,7 @@ Replace the current effects array on `le-167` with:
 ```json
 "effects": [
   { "type": "play-target", "target": "character", "filter": { "target.race": "ringwraith" } },
-  { "type": "play-condition", "requires": "at-site-type", "siteType": "darkhaven" },
+  { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
   { "type": "stat-modifier", "stat": "direct-influence", "value": -2 },
   { "type": "stat-modifier", "stat": "general-influence", "value": 5 },
   { "type": "grant-action", "id": "discard-self", "phase": ["organization"],
@@ -247,8 +247,9 @@ offered if the player already has a copy attached to a character.
 **File:** `docs/card-effects-dsl.md`
 
 Add entries for:
+
 - `stat: 'general-influence'` on `stat-modifier` — modifies the player's 20-point GI pool
-- `at-site-type` play-condition — restricts play to companies at the named site type
+- `site-type` play-condition with `siteTypes: ["haven"]` — restricts play to companies at a haven
 - `discard-self` grant-action during `organization` phase
 
 ### Step 8 — Create card test

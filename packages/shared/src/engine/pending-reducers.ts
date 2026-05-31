@@ -25,7 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
-import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -692,7 +692,7 @@ function applyMusterRollResolution(
     return { state, error: 'Targeted card is not a faction' };
   }
 
-  const unusedGI = GENERAL_INFLUENCE - owner.generalInfluenceUsed;
+  const unusedGI = effectiveGeneralInfluence(state, owner.id) - owner.generalInfluenceUsed;
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + unusedGI;
 
@@ -942,7 +942,7 @@ function returnCharacterToHand(
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
-    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
     } else {
@@ -1024,7 +1024,7 @@ function discardCharacter(
         const def = defById(state, ch.definitionId);
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
-    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
