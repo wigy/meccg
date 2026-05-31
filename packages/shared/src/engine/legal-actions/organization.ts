@@ -1194,11 +1194,35 @@ function playOptionActionsForCard(
   const actions: EvaluatedAction[] = [];
   const hasTapCost = playTarget.cost?.tap === 'character';
   const targets = eligiblePlayOptionTargets(state, player, playTarget);
+
+  // Resolve the source definition once to check for an active-check duplication limit.
+  const sourceDefId = resolveInstanceId(state, cardInstanceId);
+  const sourceDef = sourceDefId ? defById(state, sourceDefId) : undefined;
+  const allEffects = sourceDef ? getCardEffects(sourceDef) : [];
+  const activeCheckLimit = allEffects.find(
+    (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'active-check',
+  );
+
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
     if (!char) continue;
     const charDef = defById(state, char.definitionId);
     const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
+
+    // "active-check" duplication limit: skip this target if a constraint from this
+    // definition already exists for it (enforces "Cannot be duplicated on a given check").
+    if (activeCheckLimit && sourceDefId) {
+      const alreadyApplied = state.activeConstraints.some(
+        c => c.sourceDefinitionId === sourceDefId
+          && c.target.kind === 'character'
+          && c.target.characterId === targetId,
+      );
+      if (alreadyApplied) {
+        logDetail(`${def.name}: active-check duplication limit — already applied to ${targetName}`);
+        continue;
+      }
+    }
+
     const ctx = buildTargetContext(state, char, player, currentPhase);
     for (const opt of options) {
       if (opt.when && !matchesCondition(opt.when, ctx)) {

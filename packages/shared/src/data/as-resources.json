@@ -9,8 +9,36 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Diplomat only. One influence check or corruption check by a character in a diplomat’s company receives a bonus equal to the number of characters in the company minus one. Cannot be duplicated on a given check."
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "company.containsDiplomat": true } },
+      {
+        "type": "play-option",
+        "id": "influence-check-boost",
+        "when": { "player.hasFactionInHand": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "valueExpr": "company.characterCount - 1"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption-check-boost",
+        "when": { "pending.corruptionCheckTargetsMe": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "scope": "until-cleared",
+          "valueExpr": "company.characterCount - 1"
+        }
+      },
+      { "type": "duplication-limit", "scope": "active-check", "max": 1 }
+    ],
+    "text": "Diplomat only. One influence check or corruption check by a character in a diplomat’s company receives a bonus equal to the number of characters in the company minus one. Cannot be duplicated on a given check.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
