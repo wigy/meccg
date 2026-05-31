@@ -1170,6 +1170,10 @@ function cancelAttackActions(
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
+    // Company covert/overt mode is not yet implemented — always expose false
+    // so cards with `defender.covert` conditions (e.g. Not Slay Needlessly)
+    // can be expressed in the DSL even before toggle support is added.
+    ctx['defender'] = { covert: false };
     return ctx;
   };
 
@@ -1287,6 +1291,19 @@ function cancelAttackActions(
     if (tapCost === 'self' || tapCost === 'self-and-bearer' || tapCost === 'bearer') {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: tap cost "${tapCost}" requires card in play, skipping hand card`);
       continue;
+    }
+
+    // Attack-scoped duplication check: if the card has duplication-limit scope
+    // "attack", count already-played copies via activeConstraints markers.
+    const cancelAttackDupLimit = getCardEffects(cardDef).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (cancelAttackDupLimit) {
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
+      if (prior >= cancelAttackDupLimit.max) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${cancelAttackDupLimit.max})`);
+        continue;
+      }
     }
 
     // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
@@ -1634,7 +1651,8 @@ function modifyAttackActions(
       if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx };
+      // Company covert/overt mode is not yet implemented — always expose false.
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: false } };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;

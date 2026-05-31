@@ -700,7 +700,30 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["elves", "dwarves", "dúnedain", "men"] } },
+            { "defender.covert": true }
+          ]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -2,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["elves", "dwarves", "dúnedain", "men"] } },
+            { "$not": { "defender.covert": true } }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
     "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
   },
   {

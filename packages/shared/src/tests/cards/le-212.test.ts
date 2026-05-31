@@ -4,88 +4,193 @@
  * Card test: Not Slay Needlessly (le-212)
  * Type: minion-resource-event (short)
  * Alignment: ringwraith
- * Effects: 0 — none of the card's rules are expressible via the existing
- * DSL plus engine surface today.
  *
- * Text:
+ * Card text:
  *   "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a
  *    covert company, the attack is canceled. Otherwise, -2 to the attack's
  *    prowess. Cannot be duplicated on a given attack."
  *
- * Engine Support:
- * | # | Rule                                                            | Status          |
- * |---|-----------------------------------------------------------------|-----------------|
- * | 1 | Playable only when the attacking creature's race is Elf,        | OK (DSL)        |
- * |   | Dwarf, Dunadan, or Man (`enemy.race` filter)                    |                 |
- * | 2 | If the defending company is COVERT → cancel the attack          | NOT IMPLEMENTED |
- * | 3 | Otherwise → -2 to the attack's prowess                          | NOT IMPLEMENTED |
- * | 4 | Cannot be duplicated on a given attack (per-attack scope)       | NOT IMPLEMENTED |
+ * Effects:
+ *   1. cancel-attack — when defender.covert AND enemy.race in [elves, dwarves,
+ *      dúnedain, men]. DORMANT until covert/overt company mode is implemented.
+ *   2. modify-attack (fromHand, defender, prowessModifier: -2) — when NOT
+ *      defender.covert AND enemy.race in [elves, dwarves, dúnedain, men].
+ *      Currently fires for ALL matching-race attacks (covert is always false).
+ *   3. duplication-limit (scope: attack, max: 1) — prevents a second copy from
+ *      being played on the same attack.
  *
- * Playable: NO — NOT CERTIFIED. Multiple engine pieces are missing:
+ * Playable: PARTIALLY — NOT CERTIFIED.
+ *   The "against a covert company, the attack is canceled" branch (Effect 1)
+ *   requires covert/overt company-mode tracking, which is not yet implemented.
+ *   The context path `defender.covert` is now exposed in the combat when-context
+ *   (always false until toggle support exists), so the DSL effects are correct
+ *   but the cancel branch can never fire and cannot be tested.
  *
- *   - Covert/overt company state is not modeled. `detainment.ts` declares
- *     `defendingCovert?: boolean` but documents at the call site that the
- *     "Covert/overt mode is not yet implemented on companies — call sites
- *     currently pass `false`." No reducer, organization-phase action, or
- *     UI surface lets a Fallen-wizard (or Ringwraith) company toggle
- *     covert mode, and the combat condition contexts assembled by
- *     `cancelAttackActions` and `modifyAttackFromHandActions` in
- *     `packages/shared/src/engine/legal-actions/combat.ts` do not expose
- *     `defender.covert` to `when` clauses. Both branches of this card
- *     hinge on knowing whether the defender is covert, so neither mode
- *     can fire correctly today.
- *
- *   - The "otherwise" branch needs `modify-attack` with `fromHand: true`,
- *     `player: "defender"` and `prowessModifier: -2`, gated on
- *     "defender is NOT covert". The effect type and player wiring exist
- *     (used by Dragon's Desolation tw-29 with `player: "attacker"`), but
- *     without the covert context the negation has no anchor.
- *
- *   - "Cannot be duplicated on a given attack" needs a per-attack
- *     `duplication-limit` scope. Implemented scopes today are `"game"`,
- *     `"character"`, `"company"`, and `"turn"` (see usages in
- *     `legal-actions/{combat,long-event,movement-hazard,
- *     organization-events,site}.ts`). A `scope: "attack"` entry would be
- *     silently ignored, so a player could currently chain two copies
- *     against the same attack.
- *
- * Once a covert toggle exists on companies and is threaded into the
- * combat condition context as `defender.covert`, plus
- * `duplication-limit` picks up an `"attack"` scope, the card's effects
- * array would look roughly like:
- *
- *   [
- *     { "type": "cancel-attack",
- *       "when": { "$and": [
- *         { "enemy.race": { "$in": ["elf", "dwarf", "dunadan", "man"] } },
- *         { "defender.covert": true }
- *       ] } },
- *     { "type": "modify-attack", "fromHand": true,
- *       "player": "defender",
- *       "prowessModifier": -2,
- *       "when": { "$and": [
- *         { "enemy.race": { "$in": ["elf", "dwarf", "dunadan", "man"] } },
- *         { "$not": { "defender.covert": true } }
- *       ] } },
- *     { "type": "duplication-limit", "scope": "attack", "max": 1 }
- *   ]
- *
- * At that point each `test.todo` below should be flipped into a real
- * assertion and the card re-certified.
+ * | # | Rule                                                      | Status      |
+ * |---|-----------------------------------------------------------|-------------|
+ * | 1 | Race filter: only vs Elf/Dwarf/Dúnedain/Men attacks       | OK (DSL)    |
+ * | 2 | Covert company → cancel the attack                        | NOT TESTED  |
+ * |   | (defender.covert always false — covert mode unimplemented)|             |
+ * | 3 | Non-covert → -2 to attack prowess                         | OK          |
+ * | 4 | Cannot be duplicated on a given attack                    | OK          |
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  PLAYER_1, PLAYER_2,
+  buildTestState, resetMint,
+  RESOURCE_PLAYER,
+  viableActions, dispatch,
+  makeCancelWindowCombat,
+  expectInDiscardPile,
+} from '../test-helpers.js';
+import { Phase } from '../../index.js';
+import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
+
+const NSN = 'le-212' as CardDefinitionId;
+
+// Hazard creatures — LE pool, sorted by race.
+const ELF_LORD = 'le-69' as CardDefinitionId;    // race "elves"
+const SONS_OF_KINGS = 'le-91' as CardDefinitionId; // race "dúnedain"
+const AMBUSHER = 'le-59' as CardDefinitionId;     // race "men"
+const HOBGOBLINS = 'le-77' as CardDefinitionId;   // race "orc" (control — not Elf/Dwarf/Dúnedain/Men)
+
+// Minion characters.
+const GORBAG = 'le-11' as CardDefinitionId; // orc, mind 6, no special effects
+const SHAGRAT = 'le-39' as CardDefinitionId; // orc, mind 6, no special effects
+
+// Minion sites.
+const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
+const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
+const MORIA = 'le-392' as CardDefinitionId;        // shadow-hold (non-haven, company destination)
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Build a base game state with NSN in the resource player's hand. */
+function buildBase(opts: { nsnCopies?: number } = {}) {
+  const hand = Array.from({ length: opts.nsnCopies ?? 1 }, () => NSN);
+  return buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: MORIA, characters: [GORBAG] }],
+        hand,
+        siteDeck: [DOL_GULDUR],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }],
+        hand: [],
+        siteDeck: [DOL_GULDUR],
+      },
+    ],
+  });
+}
 
 describe('Not Slay Needlessly (le-212)', () => {
-  test.todo('playable on an attack by an Elf creature');
-  test.todo('playable on an attack by a Dwarf creature');
-  test.todo('playable on an attack by a Dúnedain (dunadan) creature');
-  test.todo('playable on an attack by a Man creature');
-  test.todo('NOT playable on an attack by an Orc, Troll, Wolf, or other non-listed race');
+  beforeEach(() => resetMint());
+
+  // ─── Effect 2: -2 prowess vs. matching races (non-covert) ────────────────────
+
+  test('modify-attack is available against an Elf (elves) creature', () => {
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess: 10,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+    const act = actions[0].action as ModifyAttackAction;
+    expect(act.player).toBe(PLAYER_1);
+    expect(act.cardInstanceId).toBe(state.players[RESOURCE_PLAYER].hand[0].instanceId);
+  });
+
+  test('modify-attack is available against a Dúnedain creature', () => {
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: SONS_OF_KINGS,
+      creatureRace: 'dúnedain',
+      strikeProwess: 8,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+  });
+
+  test('modify-attack is available against a Men creature', () => {
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: AMBUSHER,
+      creatureRace: 'men',
+      strikeProwess: 7,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+  });
+
+  test('modify-attack is NOT available against a non-matching race (Orc)', () => {
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: HOBGOBLINS,
+      creatureRace: 'orc',
+      strikeProwess: 10,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    // Race filter excludes Orc — no modify-attack action should be generated.
+    expect(actions).toHaveLength(0);
+  });
+
+  test('playing NSN reduces the attack prowess by 2', () => {
+    const strikeProwess = 10;
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess,
+    });
+    const [action] = viableActions(state, PLAYER_1, 'modify-attack');
+    const after = dispatch(state, action.action);
+
+    expect(after.combat?.strikeProwess).toBe(strikeProwess - 2);
+  });
+
+  test('NSN is discarded from hand after playing (short-event lifecycle)', () => {
+    const state = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess: 10,
+    });
+    const [action] = viableActions(state, PLAYER_1, 'modify-attack');
+    const after = dispatch(state, action.action);
+
+    expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, NSN);
+  });
+
+  // ─── Effect 4: cannot be duplicated on a given attack ────────────────────────
+
+  test('cannot play a second copy on the same attack (per-attack duplication limit)', () => {
+    // Two copies of NSN in hand.
+    const base = buildBase({ nsnCopies: 2 });
+    const state = makeCancelWindowCombat(base, {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess: 10,
+    });
+
+    // Before playing: both copies are available.
+    expect(viableActions(state, PLAYER_1, 'modify-attack')).toHaveLength(2);
+
+    // Play the first copy.
+    const [action] = viableActions(state, PLAYER_1, 'modify-attack');
+    const after = dispatch(state, action.action);
+
+    // After playing: the second copy is blocked by the duplication limit.
+    // The player still has one NSN in hand but the attack constraint blocks it.
+    expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(1);
+    expect(viableActions(after, PLAYER_1, 'modify-attack')).toHaveLength(0);
+  });
+
+  // ─── Effect 1: cancel vs. covert company (NOT TESTED — covert unimplemented) ──
+
   test.todo('against a covert company: the attack is canceled (no strikes assigned)');
-  test.todo('against an overt (non-covert) company: the attack continues with prowess reduced by 2');
-  test.todo('the -2 prowess modifier applies to every strike in the attack');
-  test.todo('cannot play a second copy of Not Slay Needlessly on the same attack (per-attack duplication limit)');
-  test.todo('a second copy IS playable on a later, separate attack in the same turn');
-  test.todo('the card is discarded after resolving (short-event lifecycle)');
+  test.todo('the cancel branch only fires vs covert companies; non-covert companies get -2 prowess instead');
 });
