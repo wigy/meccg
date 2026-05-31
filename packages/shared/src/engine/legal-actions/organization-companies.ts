@@ -16,7 +16,8 @@ import type {
   PlayerState,
   CardEffect,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter, Skill } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
@@ -702,6 +703,26 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
       for (const targetCompany of companiesAtSite) {
         if (targetCompany.id === company.id) continue;
 
+        const atHaven = companyAtHaven(state, targetCompany);
+        const resultingCharIds = [...targetCompany.characters, charInstId];
+
+        // Rules 3.24–3.26 apply only at non-haven sites.
+        if (!atHaven) {
+          const resultingSize = effectiveSize(state, resultingCharIds);
+          if (resultingSize > 7) {
+            logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — would exceed size limit (${resultingSize} > 7)`);
+            continue;
+          }
+          if (wouldViolateRaceMixing(state, resultingCharIds)) {
+            logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — race-mixing restriction (rule 3.25)`);
+            continue;
+          }
+          if (wouldViolateLeaderRestriction(state, resultingCharIds)) {
+            logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — leader restriction (rule 3.26)`);
+            continue;
+          }
+        }
+
         logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
         const candidate: GameAction = {
           type: 'move-to-company',
@@ -732,6 +753,75 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
  *
  * Emits one action per valid (sourceCompany, targetCompany) pair at the same site.
  */
+/**
+ * Check whether a company's current site is a haven.
+ * Havens exempt companies from size limits, race-mixing, and leader restrictions.
+ */
+function companyAtHaven(state: GameState, company: { currentSite?: { instanceId: CardInstanceId } | null }): boolean {
+  if (!company.currentSite) return false;
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  if (!siteDefId) return false;
+  const siteDef = defById(state, siteDefId);
+  return !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+}
+
+/**
+ * Compute effective company size per CoE rule 3.24.
+ * Hobbits and Orc scouts each count as half a character (total rounded up).
+ */
+function effectiveSize(state: GameState, charInstIds: readonly CardInstanceId[]): number {
+  let halfCount = 0;
+  let fullCount = 0;
+  for (const charInstId of charInstIds) {
+    const defId = resolveInstanceId(state, charInstId);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
+    const isHobbit = def.race === Race.Hobbit;
+    const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
+    if (isHobbit || isOrcScout) halfCount++;
+    else fullCount++;
+  }
+  return Math.ceil(fullCount + halfCount / 2);
+}
+
+/** The MECCG races that cannot mix with Orcs/Trolls (CoE rule 3.25). */
+const HERO_RACES = new Set<Race>([Race.Dunadan, Race.Dwarf, Race.Elf, Race.Hobbit]);
+/** The MECCG races that cannot mix with hero races (CoE rule 3.25). */
+const DARK_RACES = new Set<Race>([Race.Orc, Race.Troll]);
+
+/**
+ * Check if combining the given characters would violate the race-mixing
+ * restriction (CoE rule 3.25): Dúnedain, Dwarves, Elves, and Hobbits
+ * cannot be in the same company as Orcs and Trolls.
+ */
+function wouldViolateRaceMixing(state: GameState, charInstIds: readonly CardInstanceId[]): boolean {
+  let hasHeroRace = false;
+  let hasDarkRace = false;
+  for (const id of charInstIds) {
+    const defId = resolveInstanceId(state, id);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def || !isCharacterCard(def)) continue;
+    if (HERO_RACES.has(def.race)) hasHeroRace = true;
+    if (DARK_RACES.has(def.race)) hasDarkRace = true;
+  }
+  return hasHeroRace && hasDarkRace;
+}
+
+/**
+ * Check if the given characters would violate the leader restriction
+ * (CoE rule 3.26): a company may only contain one Leader-keyword character.
+ */
+function wouldViolateLeaderRestriction(state: GameState, charInstIds: readonly CardInstanceId[]): boolean {
+  let leaderCount = 0;
+  for (const id of charInstIds) {
+    const defId = resolveInstanceId(state, id);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def || !isCharacterCard(def)) continue;
+    if (def.keywords?.includes('Leader')) leaderCount++;
+  }
+  return leaderCount > 1;
+}
+
 export function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
@@ -753,6 +843,26 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
 
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
+
+      const atHaven = companyAtHaven(state, targetCompany);
+      const mergedCharIds = [...targetCompany.characters, ...company.characters];
+
+      // Rules 3.24–3.26 apply only at non-haven sites.
+      if (!atHaven) {
+        const mergedSize = effectiveSize(state, mergedCharIds);
+        if (mergedSize > 7) {
+          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
+          continue;
+        }
+        if (wouldViolateRaceMixing(state, mergedCharIds)) {
+          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — race-mixing restriction (rule 3.25)`);
+          continue;
+        }
+        if (wouldViolateLeaderRestriction(state, mergedCharIds)) {
+          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — leader restriction (rule 3.26)`);
+          continue;
+        }
+      }
 
       logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);
       const candidate: GameAction = {
