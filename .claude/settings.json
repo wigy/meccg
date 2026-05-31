@@ -10,6 +10,13 @@
             "if": "Bash(git commit:*)",
             "timeout": 10,
             "statusMessage": "Checking for test changes on master..."
+          },
+          {
+            "type": "command",
+            "command": "npm run lint 2>&1 >/tmp/.meccg-lint-check.log; rc=$?; cat /tmp/.meccg-lint-check.log >&2; [ $rc -eq 0 ] || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Lint failed — fix errors before pushing\"}}\\n'; exit $rc",
+            "if": "Bash(git push*)",
+            "timeout": 120,
+            "statusMessage": "Running lint before push..."
           }
         ]
       }

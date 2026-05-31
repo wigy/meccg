@@ -268,10 +268,10 @@ describe('Join With That Power (as-90)', () => {
     });
     const asternak = charIdAt(base, RESOURCE_PLAYER);
     const withCheck = enqueueResolution(base, { source: null, actor: PLAYER_1, scope: { kind: 'phase', phase: Phase.Organization }, kind: { type: 'corruption-check', characterId: asternak, modifier: 0, reason: 'test', possessions: [], transferredItemId: null } });
-    const firstOffers = computeLegalActions(withCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action as PlayShortEventAction).optionId === 'corruption-check-boost');
+    const firstOffers = computeLegalActions(withCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action).optionId === 'corruption-check-boost');
     expect(firstOffers).toHaveLength(2);
     const after = dispatch(withCheck, firstOffers[0].action);
-    const secondOffers = computeLegalActions(after, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action as PlayShortEventAction).optionId === 'corruption-check-boost');
+    const secondOffers = computeLegalActions(after, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action).optionId === 'corruption-check-boost');
     expect(secondOffers).toHaveLength(0);
   });
 
@@ -289,7 +289,7 @@ describe('Join With That Power (as-90)', () => {
     const ostisen = findCharInstanceId(base, RESOURCE_PLAYER, OSTISEN);
 
     const withAsterCheck = enqueueResolution(base, { source: null, actor: PLAYER_1, scope: { kind: 'phase', phase: Phase.Organization }, kind: { type: 'corruption-check', characterId: asternak, modifier: 0, reason: 'test', possessions: [], transferredItemId: null } });
-    const asterOffers = computeLegalActions(withAsterCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action as PlayShortEventAction).optionId === 'corruption-check-boost' && (ea.action as PlayShortEventAction).targetCharacterId === asternak);
+    const asterOffers = computeLegalActions(withAsterCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action).optionId === 'corruption-check-boost' && (ea.action).targetCharacterId === asternak);
     expect(asterOffers.length).toBeGreaterThan(0);
     const afterFirst = dispatch(withAsterCheck, asterOffers[0].action);
 
@@ -301,7 +301,7 @@ describe('Join With That Power (as-90)', () => {
     const afterAsterCheck = dispatch(stateWithCheat, asterCheckRolls[0].action);
 
     // Ostisen's check now active; second as-90 should be offered for Ostisen
-    const ostisenOffers = computeLegalActions(afterAsterCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action as PlayShortEventAction).optionId === 'corruption-check-boost');
+    const ostisenOffers = computeLegalActions(afterAsterCheck, PLAYER_1).filter(ea => ea.viable && ea.action.type === 'play-short-event' && (ea.action).optionId === 'corruption-check-boost');
     expect(ostisenOffers.length).toBeGreaterThan(0);
   });
 });
