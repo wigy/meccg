@@ -369,8 +369,29 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Bring one resource or character (including a Ringwraith) from your sideboard or discard pile into your play deck and shuffle."
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "minion-character",
+              "minion-resource-item",
+              "minion-resource-ally",
+              "minion-resource-faction",
+              "minion-resource-event"
+            ]
+          }
+        },
+        "count": 1
+      }
+    ],
+    "text": "Bring one resource or character (including a Ringwraith) from your sideboard or discard pile into your play deck and shuffle.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
@@ -404,7 +425,22 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "diplomat",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "protect-from-strike-assignment",
+        "requiredSkill": "scout"
+      }
+    ],
     "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout."
   },
   {
@@ -825,8 +861,24 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item."
+    "effects": [
+      { "type": "play-window", "phase": "site" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.skills": { "$includes": "sage" } },
+        "cost": { "tap": "character" }
+      },
+      { "type": "play-condition", "requires": "site-has-resource", "subtype": "information" },
+      { "type": "play-condition", "requires": "company-has-item", "subtype": "gold-ring" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "enqueue-ring-play-offer", "excludeCategories": ["the-one-ring"] }
+      }
+    ],
+    "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
@@ -838,8 +890,33 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "siteType": "free-hold" }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": "untapped" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 3
+      }
+    ],
+    "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
@@ -1415,6 +1492,7 @@
         "site": "The Worthy Hills"
       }
     ],
-    "effects": []
+    "effects": [],
+    "certified": "2026-05-31"
   }
 ]

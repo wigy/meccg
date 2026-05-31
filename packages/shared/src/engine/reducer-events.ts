@@ -17,6 +17,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { companyById, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -1228,6 +1229,110 @@ function applyShortEventOnEntersPlay(
         scope,
         target: { kind: 'company', companyId: company.id },
         kind,
+      });
+    }
+
+    if (onEvent.apply.type === 'enqueue-ring-play-offer') {
+      // "Secrets of Their Forging" path: bypass gold-ring dice roll and offer
+      // ALL categories from the ring's test table (minus any excluded ones).
+      // The action must carry the gold ring to discard as targetGoldRingInstanceId.
+      const goldRingInstanceId = action.type === 'play-short-event'
+        ? action.targetGoldRingInstanceId
+        : undefined;
+      if (!goldRingInstanceId) {
+        logDetail(`"${def.name}": enqueue-ring-play-offer — no gold ring instance — fizzle`);
+        continue;
+      }
+
+      // Locate the gold ring in any character's items (resource player's characters).
+      let foundCharIdStr: string | null = null;
+      let foundItemIdx = -1;
+      const actor = state.players[playerIndex];
+      for (const [charIdStr, char] of Object.entries(actor.characters)) {
+        const idx = char.items.findIndex(i => i.instanceId === goldRingInstanceId);
+        if (idx !== -1) {
+          foundCharIdStr = charIdStr;
+          foundItemIdx = idx;
+          break;
+        }
+      }
+      if (foundCharIdStr === null) {
+        logDetail(`"${def.name}": enqueue-ring-play-offer — gold ring ${goldRingInstanceId as string} not found — fizzle`);
+        continue;
+      }
+
+      // Compute all eligible categories from the ring's test table, minus excluded ones.
+      const bearerChar = actor.characters[foundCharIdStr];
+      const ringCard = bearerChar.items[foundItemIdx];
+      const ringDef = resolveDef(state, ringCard.instanceId);
+      const ringEffects: readonly unknown[] = ringDef && 'effects' in (ringDef as object)
+        ? ((ringDef as unknown as { effects?: readonly unknown[] }).effects ?? [])
+        : [];
+      const tableEffect = ringEffects.find(
+        (e): e is RingTestTableEffect => (e as { type?: string }).type === 'ring-test-table',
+      );
+      const excludeCategories: readonly string[] = (onEvent.apply as unknown as { excludeCategories?: readonly string[] }).excludeCategories ?? [];
+      let eligibleCategories: readonly RingCategory[];
+      if (tableEffect) {
+        // Collect every unique category from the table regardless of roll bounds —
+        // Secrets of Their Forging bypasses the dice roll entirely.
+        const seen = new Set<string>();
+        const allCategories: RingCategory[] = [];
+        for (const row of tableEffect.table) {
+          if (!seen.has(row.category)) {
+            seen.add(row.category);
+            allCategories.push(row.category);
+          }
+        }
+        eligibleCategories = allCategories.filter(c => !excludeCategories.includes(c));
+      } else {
+        eligibleCategories = [];
+      }
+      logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef && 'name' in (ringDef as object) ? (ringDef as { name: string }).name : goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
+
+      // Discard the gold ring from the bearer.
+      const newItems = [...bearerChar.items];
+      newItems.splice(foundItemIdx, 1);
+      state = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        characters: { ...p.characters, [foundCharIdStr]: { ...bearerChar, items: newItems } },
+        discardPile: [...p.discardPile, ringCard],
+      }));
+
+      // Tap the active company's current site (site phase only), unless it carries never-taps.
+      if (state.phaseState.phase === Phase.Site) {
+        const siteState = state.phaseState;
+        const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+        const companies = state.players[activePlayerIndex].companies;
+        const company = companies[siteState.activeCompanyIndex];
+        if (company?.currentSite) {
+          const siteDef = defById(state, company.currentSite.definitionId);
+          const neverTaps = siteDef && 'effects' in (siteDef as object)
+            && ((siteDef as unknown as { effects?: readonly { type: string; rule?: string }[] }).effects ?? [])
+              .some(e => e.type === 'site-rule' && e.rule === 'never-taps');
+          if (!neverTaps) {
+            const updatedCompanies = [...companies];
+            updatedCompanies[siteState.activeCompanyIndex] = {
+              ...company,
+              currentSite: { ...company.currentSite, status: CardStatus.Tapped },
+            };
+            state = updatePlayer(state, activePlayerIndex, p => ({ ...p, companies: updatedCompanies }));
+          }
+        }
+      }
+
+      // Enqueue the ring-play-offer pending resolution.
+      state = enqueueResolution(state, {
+        source: handCard.instanceId,
+        actor: actor.id,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        kind: {
+          type: 'ring-play-offer',
+          characterInstanceId: foundCharIdStr as CardInstanceId,
+          eligibleCategories,
+          rollTotal: 999,
+          storedPlacement: false,
+        },
       });
     }
   }

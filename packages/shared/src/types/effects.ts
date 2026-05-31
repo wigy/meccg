@@ -651,6 +651,14 @@ export interface TriggeredAction {
   readonly corruptionCheck?: { readonly modifier: number };
   /** For `move` type with `count`: cap on how many instances to move. */
   readonly count?: number;
+  /**
+   * For `enqueue-ring-play-offer` type: ring categories to exclude from
+   * the eligible set (e.g. `["the-one-ring"]`). Defaults to no exclusions.
+   * The eligible categories are derived from the gold ring's
+   * `ring-test-table` with all roll bounds ignored (all categories
+   * in the table are eligible, minus those listed here).
+   */
+  readonly excludeCategories?: readonly string[];
 }
 
 /**
@@ -845,7 +853,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
  *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1605,6 +1613,25 @@ export interface HalveStrikesEffect extends EffectBase {
 }
 
 /**
+ * Played from hand as a short event during the assign-strikes phase, targeting
+ * a character in the defending company with the required skill. No strike from
+ * the current attack may be assigned to that character for the rest of the
+ * attack's assign-strikes phase.
+ *
+ * Unlike `cancel-attack` (which cancels the entire attack), this only prevents
+ * assignment to the targeted character — other characters may still be assigned
+ * strikes normally.
+ *
+ * Used by Ruse (le-225) mode B: play on a scout facing an attack; no strikes
+ * of the attack may be assigned to the scout.
+ */
+export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
+  readonly type: 'protect-from-strike-assignment';
+  /** The skill required on the character to be protected (e.g. "scout"). */
+  readonly requiredSkill: string;
+}
+
+/**
  * Played from hand during strike resolution as a short event.
  * Covers three distinct mechanical modes, selected by `dodge` / `reroll` flags:
  *
@@ -1764,7 +1791,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1793,8 +1820,21 @@ export interface PlayConditionEffect extends EffectBase {
    * played. Only offered when the active company's current site type is in
    * this list. Used by Glamour of Surpassing Excellence (as-49):
    * `["border-hold", "free-hold"]`.
+   *
+   * For `requires: 'site-has-resource'`: the item subtype that must appear
+   * in the active company's current site's `playableResources` list
+   * (e.g. `"information"`). Only offered when the site supports that
+   * resource subtype.
+   *
+   * For `requires: 'company-has-item'`: the item subtype that at least one
+   * character in the active company must be carrying (e.g. `"gold-ring"`).
    */
   readonly siteTypes?: readonly string[];
+  /**
+   * For `requires: 'site-has-resource'` and `requires: 'company-has-item'`:
+   * the item subtype to check (e.g. `"information"`, `"gold-ring"`).
+   */
+  readonly subtype?: string;
 }
 
 /**
@@ -2187,6 +2227,7 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | HalveStrikesEffect
+  | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect

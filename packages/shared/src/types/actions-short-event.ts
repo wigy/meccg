@@ -63,6 +63,14 @@ export interface PlayShortEventAction {
    * as part of playing the card — there is no separate sub-flow.
    */
   readonly discardTargetInstanceId?: CardInstanceId;
+  /**
+   * For cards with an `enqueue-ring-play-offer` apply (e.g. Secrets of
+   * Their Forging), the gold ring item to discard and whose test table
+   * determines the eligible replacement ring categories. One legal action
+   * is emitted per (sage × gold ring) pair so the player selects both
+   * the sage to tap and which gold ring to replace.
+   */
+  readonly targetGoldRingInstanceId?: CardInstanceId;
 }
 
 /**

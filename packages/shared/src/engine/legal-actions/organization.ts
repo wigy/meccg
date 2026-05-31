@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -1424,6 +1424,72 @@ export function playResourceShortEventActions(
       }
     }
 
+    // play-condition requires: "site-has-resource" — active site must have the
+    // given item subtype in its playableResources array. Only meaningful during
+    // the site phase (after a company is selected).
+    const siteHasResourceCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-has-resource',
+    );
+    if (siteHasResourceCondition && siteHasResourceCondition.subtype) {
+      let siteHasResource = false;
+      if (currentPhase === 'site') {
+        const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
+        if (company?.currentSite) {
+          const siteDef = defById(state, company.currentSite.definitionId);
+          if (siteDef && isSiteCard(siteDef)) {
+            siteHasResource = (siteDef.playableResources ?? []).includes(
+              siteHasResourceCondition.subtype as Parameters<typeof siteDef.playableResources.includes>[0],
+            );
+          }
+        }
+      }
+      if (!siteHasResource) {
+        logDetail(`${def.name}: play-condition site-has-resource requires ${siteHasResourceCondition.subtype} to be playable at the active site`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} requires a site where ${siteHasResourceCondition.subtype} is playable`,
+        });
+        continue;
+      }
+    }
+
+    // play-condition requires: "company-has-item" — at least one character in the
+    // active company must carry an item of the given subtype. Only meaningful
+    // during the site phase.
+    const companyHasItemCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'company-has-item',
+    );
+    if (companyHasItemCondition && companyHasItemCondition.subtype) {
+      let companyHasItem = false;
+      if (currentPhase === 'site') {
+        const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
+        if (company) {
+          companyHasItem = company.characters.some(charId => {
+            const char = player.characters[charId as string];
+            return char?.items.some(item => {
+              const itemDef = defById(state, item.definitionId);
+              return itemDef && 'subtype' in itemDef
+                && (itemDef as { subtype?: string }).subtype === companyHasItemCondition.subtype;
+            });
+          });
+        }
+      }
+      if (!companyHasItem) {
+        logDetail(`${def.name}: play-condition company-has-item requires a ${companyHasItemCondition.subtype} in the active company`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} requires a character in the company to have a ${companyHasItemCondition.subtype}`,
+        });
+        continue;
+      }
+    }
+
     // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
     // enumerate (target, option) pairs, emitting one legal action per
     // combination whose option `when` matches the target's context.
@@ -1486,10 +1552,18 @@ export function playResourceShortEventActions(
       }
     }
 
+    // Detect enqueue-ring-play-offer apply: requires per-(sage × gold ring) emission.
+    const hasRingPlayOffer = def.effects?.some(
+      e => e.type === 'on-event'
+        && (e as { event?: string; apply?: { type?: string } }).event === 'self-enters-play'
+        && (e as { event?: string; apply?: { type?: string } }).apply?.type === 'enqueue-ring-play-offer',
+    ) ?? false;
+
     // Emit one play action per eligible target combination. When the card
     // has a play-target with tap cost AND discard-in-play, emit the cross-
-    // product of (tap target × discard target).
-    const emitPlay = (tapTargetId: CardInstanceId | undefined) => {
+    // product of (tap target × discard target). When the card has
+    // enqueue-ring-play-offer, also cross with gold rings in the sage's company.
+    const emitPlay = (tapTargetId: CardInstanceId | undefined, goldRingId?: CardInstanceId) => {
       if (discardTargetIds) {
         for (const discardId of discardTargetIds) {
           logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
@@ -1505,13 +1579,14 @@ export function playResourceShortEventActions(
           });
         }
       } else {
-        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}: ${def.name}`);
+        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}${goldRingId ? ` (ring ${String(goldRingId)})` : ''}: ${def.name}`);
         actions.push({
           action: {
             type: 'play-short-event',
             player: playerId,
             cardInstanceId: handCard.instanceId,
             ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+            ...(goldRingId ? { targetGoldRingInstanceId: goldRingId } : {}),
           },
           viable: true,
         });
@@ -1527,6 +1602,37 @@ export function playResourceShortEventActions(
           viable: false,
           reason: `No eligible ${playTarget.target} to target`,
         });
+      } else if (hasRingPlayOffer) {
+        // Cross sage targets with gold rings in each sage's company.
+        let anyOffered = false;
+        for (const targetId of tapTargets) {
+          const sageCompany = findCharacterCompany(player.companies, targetId);
+          const goldRings: CardInstanceId[] = [];
+          if (sageCompany) {
+            for (const charId of sageCompany.characters) {
+              const char = player.characters[charId as string];
+              if (!char) continue;
+              for (const item of char.items) {
+                const itemDef = defById(state, item.definitionId);
+                if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+                  goldRings.push(item.instanceId);
+                }
+              }
+            }
+          }
+          for (const ringId of goldRings) {
+            emitPlay(targetId, ringId);
+            anyOffered = true;
+          }
+        }
+        if (!anyOffered) {
+          logDetail(`${def.name}: no eligible (sage × gold ring) pair — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+            viable: false,
+            reason: `${def.name} requires a sage and a gold ring in the same company`,
+          });
+        }
       } else {
         for (const targetId of tapTargets) emitPlay(targetId);
       }

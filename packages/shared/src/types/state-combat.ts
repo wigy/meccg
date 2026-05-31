@@ -396,6 +396,13 @@ export interface CombatState {
    * (tapped, wounded) and support bonuses still apply on top of the mind base.
    */
   readonly defenderProwessFromMind?: boolean;
+  /**
+   * Character instance IDs protected from strike assignment by a
+   * `protect-from-strike-assignment` effect (e.g. Ruse mode B).
+   * Characters in this set cannot be assigned any strike from the current
+   * attack. The protection expires naturally when combat ends.
+   */
+  readonly protectedFromStrikeAssignment?: readonly CardInstanceId[];
 }
 
 /**
