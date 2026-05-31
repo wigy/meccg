@@ -911,5 +911,27 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul"
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-7",
+    "name": "Dôgrib",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Dogrib.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lossadan Camp",
+    "effects": [],
+    "text": "Unique. -1 to all corruption checks."
   }
 ]
