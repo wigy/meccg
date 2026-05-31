@@ -236,6 +236,23 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     return { state: { ...state, combat: newCombatState } };
   }
 
+  // CvCC assignment: no excess strikes — each attacker character backs one strike
+  if (combat.isCvCC) {
+    newAssignments = handleCvCCAssignment(combat, action);
+    logDetail(`CvCC: assignment updated — ${newAssignments.length} assignment(s), ${action.attackingCharacterId != null ? `attacker ${action.attackingCharacterId as string}` : 'reservation'} → defender ${action.characterId as string}`);
+
+    // Count how many attacking characters have been committed
+    const pairedCount = countCvCCPairedAttackers(combat, newAssignments);
+    const allPaired = pairedCount >= combat.strikesTotal;
+
+    let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
+    if (allPaired) {
+      const next = nextStrikePhase(newCombatState);
+      newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
+    }
+    return { state: { ...state, combat: newCombatState } };
+  }
+
   if (existingIdx >= 0) {
     newAssignments = combat.strikeAssignments.map((a, i) =>
       i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
@@ -262,6 +279,64 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   }
 
   return { state: { ...state, combat: newCombatState } };
+}
+
+/**
+ * Counts how many attacking characters have been paired with a defender in CvCC.
+ * A paired attacker appears as `attackingCharacterId` on at least one assignment.
+ */
+function countCvCCPairedAttackers(
+  _combat: CombatState,
+  assignments: readonly StrikeAssignment[],
+): number {
+  const paired = new Set(
+    assignments
+      .map(a => a.attackingCharacterId)
+      .filter(Boolean),
+  );
+  return paired.size;
+}
+
+/**
+ * Apply a CvCC strike assignment action to the current assignments array.
+ *
+ * Three cases:
+ * 1. Defender phase: `attackingCharacterId` absent → add reservation for the defender.
+ * 2. Attacker/defender-any phase with existing reservation for the defender:
+ *    update the reservation to add the paired attacker.
+ * 3. Attacker/defender-any phase with new defender target: add a new fully-paired entry.
+ */
+function handleCvCCAssignment(
+  combat: CombatState,
+  action: { readonly characterId: CardInstanceId; readonly attackingCharacterId?: CardInstanceId },
+): StrikeAssignment[] {
+  if (action.attackingCharacterId == null) {
+    // Defender phase: create reservation (no attacker yet)
+    return [...combat.strikeAssignments, {
+      characterId: action.characterId,
+      excessStrikes: 0,
+      resolved: false,
+    }];
+  }
+
+  // Attacker/defender-any phase: find existing reservation for this defender
+  const reservationIdx = combat.strikeAssignments.findIndex(
+    a => a.characterId === action.characterId && a.attackingCharacterId == null,
+  );
+  if (reservationIdx >= 0) {
+    // Update reservation to pair with attacker
+    return combat.strikeAssignments.map((a, i) =>
+      i === reservationIdx ? { ...a, attackingCharacterId: action.attackingCharacterId } : a,
+    );
+  }
+
+  // New defender target: create fully-paired entry
+  return [...combat.strikeAssignments, {
+    characterId: action.characterId,
+    attackingCharacterId: action.attackingCharacterId,
+    excessStrikes: 0,
+    resolved: false,
+  }];
 }
 
 /** Defender passes during strike assignment — attacker assigns remaining. */
@@ -317,6 +392,34 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     return {
       state: { ...state, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined } },
     };
+  }
+
+  // CvCC phase transitions (rule 8.38 three-phase assignment)
+  if (combat.isCvCC && combat.phase === 'assign-strikes') {
+    if (combat.assignmentPhase === 'defender') {
+      // Defender done — attacker assigns their untapped characters
+      logDetail('CvCC: defender passed phase 1 — transitioning to attacker assignment');
+      return {
+        state: { ...state, combat: { ...combat, assignmentPhase: 'attacker' } },
+      };
+    }
+
+    if (combat.assignmentPhase === 'attacker') {
+      // Attacker done — check if any unpaired attackers remain for defender-any phase
+      const pairedCount = countCvCCPairedAttackers(combat, combat.strikeAssignments);
+      if (pairedCount < combat.strikesTotal) {
+        logDetail(`CvCC: attacker passed phase 2 — ${combat.strikesTotal - pairedCount} unpaired attacker(s), entering defender-any`);
+        return {
+          state: { ...state, combat: { ...combat, assignmentPhase: 'defender-any' } },
+        };
+      }
+      // All attackers paired — proceed to resolve
+      logDetail('CvCC: all attackers paired — transitioning to resolve');
+      const next = nextStrikePhase(combat);
+      return {
+        state: { ...state, combat: { ...combat, assignmentPhase: 'done', ...next } },
+      };
+    }
   }
 
   const totalAllocated = combat.strikeAssignments.length
@@ -607,7 +710,216 @@ function resolveStrikeCore(
 /** Resolve the current strike — roll dice and determine outcome. */
 function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'resolve-strike') return wrongActionType(state, action, 'resolve-strike');
+
+  // CvCC two-step sub-phase
+  if (combat.isCvCC) {
+    const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (!currentStrike) return { state, error: 'No current strike' };
+
+    if (currentStrike.attackerTapToFight === undefined) {
+      // Sub-step 1: attacker declares their -3 choice
+      logDetail(`CvCC sub-step 1: attacker ${action.tapToFight ? 'taps' : 'stays untapped (-3)'}`);
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex
+          ? { ...a, attackerTapToFight: action.tapToFight }
+          : a,
+      );
+      return {
+        state: { ...state, combat: { ...combat, strikeAssignments: newAssignments } },
+      };
+    }
+
+    // Sub-step 2: defender resolves — both sides roll and compare
+    return resolveStrikeCvCC(state, combat, action.tapToFight);
+  }
+
   return resolveStrikeCore(state, combat, action.tapToFight ? 'tap' : 'untap', 0, null);
+}
+
+/**
+ * CvCC dual-roll strike resolution (rule 8.38–8.39).
+ *
+ * Both sides roll 2d6 + prowess. Higher total wins; the loser is wounded
+ * (body check). On a tie, both tap (unless they chose to stay untapped).
+ *
+ * Attacker's tap choice was already stored in `attackerTapToFight`.
+ * Defender's tap choice is passed as `defenderTapToFight`.
+ *
+ * Prowess modifiers:
+ * - Attacker: effectiveStats.prowess, −3 if !attackerTapToFight, −1 if tapped, −2 if wounded
+ * - Defender: effectiveStats.prowess, −3 if !defenderTapToFight, −1 if tapped, −2 if wounded
+ * - Support bonus applied to each side separately via supportCount
+ */
+function resolveStrikeCvCC(
+  state: GameState,
+  combat: CombatState,
+  defenderTapToFight: boolean,
+): ReducerResult {
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.resolved) return { state, error: 'Current strike already resolved or missing' };
+  if (strike.attackingCharacterId == null) return { state, error: 'CvCC strike has no attacking character' };
+  if (strike.attackerTapToFight === undefined) return { state, error: 'Attacker has not declared -3 choice' };
+
+  const atkSource = combat.attackSource;
+  if (atkSource.type !== 'company-attack') return { state, error: 'Not a CvCC attack' };
+
+  // Look up attacker character
+  const atkPlayerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const atkPlayer = state.players[atkPlayerIdx];
+  const atkCharData = atkPlayer.characters[strike.attackingCharacterId as string];
+  if (!atkCharData) return { state, error: `Attacking character ${strike.attackingCharacterId as string} not found` };
+  const atkCharDef = defById(state, atkCharData.definitionId);
+  const atkCharName = (atkCharDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
+
+  // Look up defender character
+  const defPlayerIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIdx];
+  const defCharData = defPlayer.characters[strike.characterId as string];
+  if (!defCharData) return { state, error: `Defending character ${strike.characterId as string} not found` };
+  const defCharDef = defById(state, defCharData.definitionId);
+  const defCharName = (defCharDef as { name?: string } | undefined)?.name ?? (strike.characterId as string);
+
+  // Compute attacker prowess
+  let atkProwess = atkCharData.effectiveStats.prowess;
+  if (!strike.attackerTapToFight) atkProwess -= 3;
+  if (atkCharData.status === CardStatus.Tapped) atkProwess -= 1;
+  if (atkCharData.status === CardStatus.Inverted) atkProwess -= 2;
+
+  // Compute defender prowess
+  let defProwess = defCharData.effectiveStats.prowess;
+  if (!defenderTapToFight) defProwess -= 3;
+  if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
+  if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
+  defProwess += (strike.supportCount ?? 0);
+  defProwess += (strike.strikeProwessBonus ?? 0);
+
+  // Roll for attacker
+  const atkRollResult = roll2d6(state);
+  const atkRoll = atkRollResult.roll;
+  const atkTotal = atkRoll.die1 + atkRoll.die2 + atkProwess;
+
+  // Roll for defender using updated RNG state
+  const defState = { ...state, rng: atkRollResult.rng, cheatRollTotal: atkRollResult.cheatRollTotal };
+  const defRollResult = roll2d6(defState);
+  const defRoll = defRollResult.roll;
+  const defTotal = defRoll.die1 + defRoll.die2 + defProwess;
+
+  logDetail(`CvCC dual-roll: ${atkCharName} rolls ${atkRoll.die1}+${atkRoll.die2}=${atkRoll.die1 + atkRoll.die2} + prowess ${atkProwess} = ${atkTotal}`);
+  logDetail(`CvCC dual-roll: ${defCharName} rolls ${defRoll.die1}+${defRoll.die2}=${defRoll.die1 + defRoll.die2} + prowess ${defProwess} = ${defTotal}`);
+
+  const effects: GameEffect[] = [
+    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`),
+    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`),
+  ];
+
+  // Determine outcome
+  const newPlayers = clonePlayers(state);
+
+  let defResult: 'success' | 'wounded' | 'eliminated';
+  let atkResult: 'success' | 'wounded' | 'eliminated';
+  let bodyCheckTarget: 'character' | 'attacker-character' | null = null;
+  const defWasAlreadyWounded = defCharData.status === CardStatus.Inverted;
+
+  if (atkTotal > defTotal) {
+    // Attacker wins: defender wounded, attacker taps (unless -3)
+    defResult = 'wounded';
+    atkResult = 'success';
+    bodyCheckTarget = 'character';
+    logDetail(`CvCC: attacker wins (${atkTotal} > ${defTotal}) — defender wounded`);
+    if (strike.attackerTapToFight && atkCharData.status === CardStatus.Untapped) {
+      newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Tapped);
+      logDetail(`CvCC: attacker taps`);
+    }
+  } else if (defTotal > atkTotal) {
+    // Defender wins: attacker wounded, defender taps (unless -3)
+    defResult = 'success';
+    atkResult = 'wounded';
+    bodyCheckTarget = 'attacker-character';
+    logDetail(`CvCC: defender wins (${defTotal} > ${atkTotal}) — attacker wounded`);
+    if (defenderTapToFight && defCharData.status === CardStatus.Untapped) {
+      newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Tapped);
+      logDetail(`CvCC: defender taps`);
+    }
+  } else {
+    // Tie: both tap unless -3, no wound, no body check
+    defResult = 'success';
+    atkResult = 'success';
+    bodyCheckTarget = null;
+    logDetail(`CvCC: tie (${atkTotal} = ${defTotal}) — both tap (unless -3)`);
+    if (strike.attackerTapToFight && atkCharData.status === CardStatus.Untapped) {
+      newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Tapped);
+    }
+    if (defenderTapToFight && defCharData.status === CardStatus.Untapped) {
+      newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Tapped);
+    }
+  }
+
+  // Apply wound to loser
+  if (defResult === 'wounded') {
+    newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Inverted);
+    logDetail(`CvCC: defending character ${defCharName} is wounded`);
+  }
+  if (atkResult === 'wounded') {
+    newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Inverted);
+    logDetail(`CvCC: attacking character ${atkCharName} is wounded`);
+  }
+
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? {
+          ...a,
+          resolved: bodyCheckTarget === null,
+          result: defResult,
+          attackerResult: atkResult,
+          wasAlreadyWounded: defWasAlreadyWounded,
+        }
+      : a,
+  );
+
+  const combatWithAssignments: CombatState = {
+    ...combat,
+    strikeAssignments: newAssignments,
+    bodyCheckTarget,
+    rng: defRollResult.rng,
+    cheatRollTotal: defRollResult.cheatRollTotal,
+  } as CombatState & { rng: unknown; cheatRollTotal: unknown };
+
+  const stateWithRoll: GameState = {
+    ...state,
+    rng: defRollResult.rng,
+    cheatRollTotal: defRollResult.cheatRollTotal,
+    players: newPlayers,
+    combat: combatWithAssignments,
+  };
+
+  if (bodyCheckTarget !== null) {
+    const combatInBodyCheck: CombatState = { ...combatWithAssignments, phase: 'body-check', bodyCheckTarget };
+    return { state: { ...stateWithRoll, combat: combatInBodyCheck }, effects };
+  }
+
+  // No body check — advance to next strike
+  const next = nextStrikePhase(combatWithAssignments);
+  if (!next) {
+    return finalizeCombat({ ...stateWithRoll, combat: combatWithAssignments }, effects);
+  }
+  return { state: { ...stateWithRoll, combat: { ...combatWithAssignments, ...next } }, effects };
+}
+
+/** Update a player's character to a new status (inline utility for CvCC). */
+function updatePlayerCharacterStatus(
+  player: import('../types/state-player.js').PlayerState,
+  charId: CardInstanceId,
+  status: CardStatus,
+): import('../types/state-player.js').PlayerState {
+  const ch = player.characters[charId as string];
+  if (!ch) return player;
+  return {
+    ...player,
+    characters: {
+      ...player.characters,
+      [charId as string]: { ...ch, status },
+    },
+  };
 }
 
 /**
@@ -1091,6 +1403,77 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       return { state: { ...stateWithRoll, combat: { ...combat, ...next3 } }, effects };
     }
     return finalizeCombat(stateWithRoll, effects);
+  }
+
+  if (combat.bodyCheckTarget === 'attacker-character') {
+    // CvCC: defender won; roll body check for the attacking character
+    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (!strike?.attackingCharacterId) return { state, error: 'CvCC body check: no attacking character' };
+
+    const atkPlayerIdx = getPlayerIndex(stateWithRoll, combat.attackingPlayerId);
+    const atkPlayer = stateWithRoll.players[atkPlayerIdx];
+    const charData = atkPlayer.characters[strike.attackingCharacterId as string];
+    if (!charData) return { state, error: 'CvCC body check: attacking character not found' };
+
+    const charDef = defById(stateWithRoll, charData.definitionId);
+    const body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    const charName = (charDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
+
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}`);
+
+    const newAssignments = combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
+    );
+    const newCombat = { ...combat, strikeAssignments: newAssignments, bodyCheckTarget: null };
+
+    if (rollTotal > body) {
+      logDetail(`CvCC: ${charName} eliminated (roll ${rollTotal} > body ${body})`);
+      // Eliminate the attacking character
+      const newPlayers = clonePlayers(stateWithRoll);
+      const charInstance = toCardInstance(charData);
+      const atkCompanySource = combat.attackSource;
+      if (atkCompanySource.type !== 'company-attack') return { state, error: 'Not a company attack' };
+
+      // Find attacker's company to remove character from
+      const atkCompany = newPlayers[atkPlayerIdx].companies.find(c => c.id === atkCompanySource.attackingCompanyId);
+      if (atkCompany) {
+        const updatedCompany = { ...atkCompany, characters: atkCompany.characters.filter(id => id !== strike.attackingCharacterId) };
+        newPlayers[atkPlayerIdx] = {
+          ...newPlayers[atkPlayerIdx],
+          characters: Object.fromEntries(
+            Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
+          ) as (typeof newPlayers)[0]['characters'],
+          companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
+          discardPile: [...newPlayers[atkPlayerIdx].discardPile, charInstance],
+        };
+        // Defender gets kill MP
+        const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
+        newPlayers[defIdx] = {
+          ...newPlayers[defIdx],
+          killPile: [...newPlayers[defIdx].killPile, charInstance],
+        };
+        // Remove character data
+        const charsCopy = { ...newPlayers[atkPlayerIdx].characters };
+        delete charsCopy[strike.attackingCharacterId as string];
+        newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], characters: charsCopy };
+      }
+
+      const combatWithElim = { ...newCombat, strikeAssignments: newAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex ? { ...a, attackerResult: 'eliminated' as const } : a,
+      ) };
+      const nextA = nextStrikePhase(combatWithElim);
+      if (nextA) {
+        return { state: { ...stateWithRoll, players: newPlayers, combat: { ...combatWithElim, ...nextA } }, effects };
+      }
+      return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithElim }, effects);
+    } else {
+      logDetail(`CvCC: ${charName} survives body check (roll ${rollTotal} <= body ${body})`);
+      const nextA = nextStrikePhase(newCombat);
+      if (nextA) {
+        return { state: { ...stateWithRoll, combat: { ...newCombat, ...nextA } }, effects };
+      }
+      return finalizeCombat({ ...stateWithRoll, combat: newCombat }, effects);
+    }
   }
 
   return { state, error: 'Invalid body check target' };

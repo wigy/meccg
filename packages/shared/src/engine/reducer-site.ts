@@ -55,6 +55,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
+  'declare-company-attack': handleDeclareCompanyAttack,
   // TODO: play-minor-item
 };
 
@@ -1062,8 +1063,23 @@ function handleSitePlayResources(
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
-  // Pass — end this company's site phase
+  // Pass — check whether CvCC attack is possible before advancing
   if (action.type === 'pass') {
+    // If the company has entered the site and no opponent interaction has
+    // occurred, transition to declare-company-attack so the player gets
+    // the option to initiate CvCC.
+    if (siteState.siteEntered && siteState.opponentInteractionThisTurn === null) {
+      const hasCvCCTargets = hasCvCCAttackTargets(state, siteState, player, company.id);
+      if (hasCvCCTargets) {
+        logDetail(`Site: company ${company.id} done with resources — entering declare-company-attack step`);
+        return {
+          state: {
+            ...state,
+            phaseState: { ...siteState, step: 'declare-company-attack' as const },
+          },
+        };
+      }
+    }
     logDetail(`Site: company ${company.id} done playing resources → advancing to next company`);
     return advanceSiteToNextCompany(state, siteState, company.id);
   }
@@ -2123,6 +2139,163 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
     }
   }
   return newState;
+}
+
+/**
+ * CvCC alignment matrix (CoE rule 8.41).
+ *
+ * Returns true if a company of `attackerAlignment` (and `attackerCovert` for
+ * fallen-wizards) may legally attack a company of `defenderAlignment`.
+ * Since covert/overt tracking is not yet implemented, fallen-wizard
+ * companies default to covert restrictions (most conservative).
+ */
+function canAttackAlignment(
+  attackerAlignment: Alignment,
+  defenderAlignment: Alignment,
+  _attackerCovert = true,
+): boolean {
+  switch (attackerAlignment) {
+    case Alignment.Wizard:
+      // Wizard can attack: Ringwraith, Fallen-wizard (overt), Balrog
+      // Since overt is not tracked, include all fallen-wizard for now
+      return defenderAlignment === Alignment.Ringwraith
+        || defenderAlignment === Alignment.FallenWizard
+        || defenderAlignment === Alignment.Balrog;
+    case Alignment.Ringwraith:
+      // Ringwraith can attack: Wizard, Fallen-wizard
+      return defenderAlignment === Alignment.Wizard
+        || defenderAlignment === Alignment.FallenWizard;
+    case Alignment.FallenWizard:
+      // Covert fallen-wizard: Ringwraith, Balrog
+      // Overt fallen-wizard: any company (not yet tracked — use covert restrictions)
+      return defenderAlignment === Alignment.Ringwraith
+        || defenderAlignment === Alignment.Balrog;
+    case Alignment.Balrog:
+      // Balrog can attack: Wizard, Fallen-wizard
+      return defenderAlignment === Alignment.Wizard
+        || defenderAlignment === Alignment.FallenWizard;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Returns true if the given company could initiate a CvCC attack this turn.
+ * Checks that the opponent has at least one company at the same site, and
+ * that the alignment restrictions are satisfied.
+ */
+function hasCvCCAttackTargets(
+  state: GameState,
+  siteState: SitePhaseState,
+  attackingPlayer: PlayerState,
+  _attackingCompanyId: CompanyId,
+): boolean {
+  const attackingCompany = attackingPlayer.companies[siteState.activeCompanyIndex];
+  if (!attackingCompany?.currentSite) return false;
+  const siteName = attackingCompany.currentSite.definitionId;
+
+  const hazardIdx = state.players.findIndex(p => p.id !== attackingPlayer.id);
+  if (hazardIdx < 0) return false;
+  const opponent = state.players[hazardIdx];
+
+  for (const opponentCompany of opponent.companies) {
+    if (!opponentCompany.currentSite) continue;
+    if (opponentCompany.currentSite.definitionId !== siteName) continue;
+    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Handle the 'declare-company-attack' step (CoE rules 8.38–8.41).
+ *
+ * The resource player either declares a CvCC attack against an opponent's
+ * company at the same site, or passes to end the current company's site phase.
+ *
+ * On declaration:
+ * - Validates eligibility (entered site, no prior interaction, alignment).
+ * - Creates CombatState with isCvCC: true.
+ * - Sets opponentInteractionThisTurn = 'attack'.
+ */
+function handleDeclareCompanyAttack(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  const player = playerById(state, action.player)!;
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Pass — end this company's site phase
+  if (action.type === 'pass') {
+    logDetail(`Site: company ${company.id} passed CvCC declaration → advancing to next company`);
+    return advanceSiteToNextCompany(state, siteState, company.id);
+  }
+
+  if (action.type !== 'declare-company-attack') {
+    return { state, error: `Unexpected action '${action.type}' in declare-company-attack step` };
+  }
+
+  // Validate
+  if (!siteState.siteEntered) {
+    return { state, error: 'Company has not entered the site — cannot declare CvCC attack' };
+  }
+  if (siteState.opponentInteractionThisTurn !== null) {
+    return { state, error: 'A company interaction has already occurred this turn — cannot declare CvCC attack' };
+  }
+
+  const hazardPlayerState = state.players.find(p => p.id !== player.id);
+  if (!hazardPlayerState) return { state, error: 'No opponent found' };
+
+  const targetCompany = hazardPlayerState.companies.find(c => c.id === action.targetCompanyId);
+  if (!targetCompany) return { state, error: 'Target company not found' };
+
+  if (!company.currentSite || !targetCompany.currentSite
+    || company.currentSite.definitionId !== targetCompany.currentSite.definitionId) {
+    return { state, error: 'Target company is not at the same site' };
+  }
+
+  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment)) {
+    return { state, error: 'Alignment restrictions prevent this CvCC attack' };
+  }
+
+  // Count attackers: characters in attacking company
+  const attackerCount = company.characters.length;
+  if (attackerCount === 0) {
+    return { state, error: 'Attacking company has no characters' };
+  }
+
+  logDetail(`Site: CvCC attack declared — ${company.id} (${player.alignment}) attacks ${targetCompany.id} (${hazardPlayerState.alignment}), ${attackerCount} strike(s)`);
+
+  const combat: CombatState = {
+    isCvCC: true,
+    attackSource: { type: 'company-attack', attackingCompanyId: action.attackingCompanyId },
+    companyId: action.targetCompanyId,
+    defendingPlayerId: hazardPlayerState.id,
+    attackingPlayerId: player.id,
+    strikesTotal: attackerCount,
+    strikeProwess: 0,
+    creatureBody: null,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  const updatedSiteState: SitePhaseState = {
+    ...siteState,
+    opponentInteractionThisTurn: 'attack',
+  };
+
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: updatedSiteState,
+    },
+  };
 }
 
 function advanceSiteToNextCompany(

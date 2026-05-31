@@ -154,6 +154,11 @@ export interface AssignStrikeAction {
   readonly excess?: boolean;
   /** Whether the character is currently tapped (informational, for UI display). */
   readonly tapped?: boolean;
+  /**
+   * CvCC only: the attacking character who is backing this strike.
+   * Set during the attacker-phase assignment step. Absent for creature combat.
+   */
+  readonly attackingCharacterId?: CardInstanceId;
 }
 
 /**
