@@ -217,7 +217,8 @@ describe('discard-card — opponent must not learn the discarded card', () => {
    * must omit it — the opponent sees "a card" instead.
    */
   test('extractActionCardDefs omits the discarded card (hand → discardPile is private→private)', () => {
-    const state = eotState({ p1Hand: [SUN] });
+    // p1Deck is non-empty so rule 2.09 doesn't redirect the discard to the play deck
+    const state = eotState({ p1Hand: [SUN], p1Deck: [BARROW_WIGHT] });
     const discardedId = handCardId(state, RESOURCE_PLAYER);
 
     const action: DiscardCardAction = {

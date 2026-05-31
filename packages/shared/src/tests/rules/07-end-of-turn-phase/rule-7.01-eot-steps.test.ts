@@ -166,8 +166,9 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
   test('Discarding the last card in hand still allows passing the discard step', () => {
     // P1 has a single card. After discarding it, the only remaining
     // legal action is pass — the engine doesn't get stuck when hand
-    // becomes empty mid-step.
-    const state = eotState({ p1Hand: [SUN] });
+    // becomes empty mid-step. p1Deck is non-empty so rule 2.09 doesn't
+    // redirect the discard to the play deck.
+    const state = eotState({ p1Hand: [SUN], p1Deck: [CAVE_DRAKE] });
     const sunId = handCardId(state, RESOURCE_PLAYER);
 
     const afterDiscard = dispatch(state, { type: 'discard-card', player: PLAYER_1, cardInstanceId: sunId });
