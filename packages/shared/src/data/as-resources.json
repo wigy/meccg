@@ -126,12 +126,56 @@
     "id": "as-108",
     "name": "Well-preserved",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Wellpreserved.jpg",
+    "keywords": ["Magic", "Shadow-magic"],
     "text": "Magic. Shadow-magic. Playable on a wounded character in a company with a shadow-magic-using character. Wounded character becomes untapped with -1 to body. Discard at the end of his untap phase if at a Darkhaven [{DH}]. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -3.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "inverted" },
+            { "company.hasShadowMagicUser": true }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "heal-target-character" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": { "type": "discard-self" },
+        "when": { "bearer.atHaven": true }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3,
+          "target": "company-shadow-magic-user"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-faction",

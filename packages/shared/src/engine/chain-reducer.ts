@@ -1095,6 +1095,70 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           },
         });
         logDetail(`"${def?.name ?? card.definitionId as string}" entered play — queued resource-play-offer for player ${activePlayer as string}`);
+      } else if (effect.apply.type === 'heal-target-character') {
+        // Set the target character's status from wounded (Inverted) to Tapped.
+        if (targetCharId) {
+          for (let pi = 0; pi < 2; pi++) {
+            const charInPlay = newState.players[pi].characters[targetCharId as string];
+            if (!charInPlay) continue;
+            if (charInPlay.status === CardStatus.Inverted) {
+              logDetail(`"${def?.name ?? '?'}" heal-target-character: healing ${targetCharId as string} (wounded → tapped)`);
+              newState = updatePlayer(newState, pi, p => ({
+                ...p,
+                characters: { ...p.characters, [targetCharId as string]: { ...charInPlay, status: CardStatus.Tapped } },
+              }));
+            } else {
+              logDetail(`"${def?.name ?? '?'}" heal-target-character: ${targetCharId as string} not wounded — no effect`);
+            }
+            break;
+          }
+        } else {
+          logDetail(`"${def?.name ?? '?'}" heal-target-character: no target character — fizzle`);
+        }
+      } else if (effect.apply.type === 'enqueue-corruption-check') {
+        // For permanent events, determine which character receives the corruption check.
+        // When apply.target === "company-shadow-magic-user", find the non-Ringwraith shadow-magic
+        // user in the target character's company; Ringwraiths are exempt from the check.
+        // Without a target specifier, target the attached character (targetCharId).
+        const applyTarget = (effect.apply as { target?: string }).target;
+        let corrCheckCharId: import('../types/common.js').CardInstanceId | undefined;
+        if (applyTarget === 'company-shadow-magic-user' && targetCharId) {
+          outer: for (let pi = 0; pi < 2; pi++) {
+            if (!newState.players[pi].characters[targetCharId as string]) continue;
+            const company = newState.players[pi].companies.find(co => co.characters.includes(targetCharId));
+            if (!company) break;
+            for (const memberId of company.characters) {
+              const memberChar = newState.players[pi].characters[memberId as string];
+              if (!memberChar) continue;
+              const memberDef = defById(newState, memberChar.definitionId);
+              if (!memberDef) continue;
+              const memberRace = (memberDef as { race?: string }).race;
+              if (memberRace === 'ringwraith') continue; // ringwraiths don't make the check
+              const memberSkills = (memberDef as { skills?: readonly string[] }).skills ?? [];
+              if (memberSkills.includes('shadow-magic')) {
+                corrCheckCharId = memberId;
+                break outer;
+              }
+            }
+            // No non-ringwraith shadow-magic user found (all shadow-magic users are ringwraiths)
+            logDetail(`"${def?.name ?? '?'}" enqueue-corruption-check: shadow-magic user is a Ringwraith — no check`);
+            break;
+          }
+        } else if (!applyTarget) {
+          corrCheckCharId = targetCharId;
+        }
+        if (corrCheckCharId) {
+          const modifier = (effect.apply as { modifier?: number }).modifier ?? 0;
+          logDetail(`"${def?.name ?? '?'}" enqueue-corruption-check on ${corrCheckCharId as string} (modifier ${modifier})`);
+          newState = enqueueCorruptionCheck(newState, {
+            source: card.instanceId,
+            actor: entry.declaredBy,
+            scope: { kind: 'phase', phase: newState.phaseState.phase },
+            characterId: corrCheckCharId,
+            modifier,
+            reason: def?.name ?? '?',
+          });
+        }
       }
   }
 

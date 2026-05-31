@@ -366,6 +366,9 @@ function advanceToOrganization(state: GameState): ReducerResult {
     for (const charId of company.characters) charSiteType.set(charId as string, siteType);
   }
 
+  // Collect items to discard-self from untap-phase-end triggers (processed after scan).
+  const untapEndDiscards: Array<{ charId: string; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
+
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
     const bearerCtx = { bearer: { siteType, atHaven: siteType === SiteType.Haven } };
@@ -377,23 +380,48 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (e.type !== 'on-event') continue;
         const oe: OnEventEffect = e;
         if (oe.event !== 'untap-phase-end') continue;
-        if (oe.apply.type !== 'force-check' || oe.apply.check !== 'corruption') continue;
         if (oe.when && !matchesContext(oe.when, bearerCtx)) {
           logDetail(`Untap-phase-end: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when condition not met (siteType=${siteType ?? 'none'})`);
           continue;
         }
-        const modifier = oe.apply.modifier ?? 0;
-        logDetail(`Untap-phase-end: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
-        advanced = enqueueCorruptionCheck(advanced, {
-          source: card.instanceId,
-          actor: player.id,
-          scope: { kind: 'phase', phase: Phase.Organization },
-          characterId: char.instanceId,
-          modifier,
-          reason: def?.name ?? 'Untap-phase-end',
-        });
+        if (oe.apply.type === 'force-check' && oe.apply.check === 'corruption') {
+          const modifier = oe.apply.modifier ?? 0;
+          logDetail(`Untap-phase-end: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
+          advanced = enqueueCorruptionCheck(advanced, {
+            source: card.instanceId,
+            actor: player.id,
+            scope: { kind: 'phase', phase: Phase.Organization },
+            characterId: char.instanceId,
+            modifier,
+            reason: def?.name ?? 'Untap-phase-end',
+          });
+        } else if (oe.apply.type === 'discard-self') {
+          // Determine which slot (items/hazards/allies) the card lives in
+          const slot: 'items' | 'hazards' | 'allies' =
+            char.items.some(i => i.instanceId === card.instanceId) ? 'items'
+            : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
+          logDetail(`Untap-phase-end: queuing discard-self for ${def?.name ?? '?'} on ${charId} (slot=${slot})`);
+          untapEndDiscards.push({ charId, slot, cardInstanceId: card.instanceId as string });
+        }
       }
     }
+  }
+
+  // Apply collected discard-self items after the scan loop to avoid mutation during iteration.
+  for (const { charId, slot, cardInstanceId } of untapEndDiscards) {
+    const char = advanced.players[activeIndex].characters[charId];
+    if (!char) continue;
+    const cardToDiscard = char[slot].find(c => c.instanceId === cardInstanceId);
+    if (!cardToDiscard) continue;
+    logDetail(`Untap-phase-end: discarding ${cardInstanceId} from character ${charId}`);
+    advanced = updatePlayer(advanced, activeIndex, p => ({
+      ...p,
+      characters: {
+        ...p.characters,
+        [charId]: { ...char, [slot]: char[slot].filter(c => c.instanceId !== cardInstanceId) },
+      },
+      discardPile: [...p.discardPile, toCardInstance(cardToDiscard)],
+    }));
   }
 
   // Sweep `organization-phase-start` on-event triggers on company-bound permanent events.
