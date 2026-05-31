@@ -12,27 +12,22 @@
  *
  * Effects:
  *   1. cancel-attack — when defender.covert AND enemy.race in [elves, dwarves,
- *      dúnedain, men]. DORMANT until covert/overt company mode is implemented.
+ *      dúnedain, men].
  *   2. modify-attack (fromHand, defender, prowessModifier: -2) — when NOT
  *      defender.covert AND enemy.race in [elves, dwarves, dúnedain, men].
- *      Currently fires for ALL matching-race attacks (covert is always false).
  *   3. duplication-limit (scope: attack, max: 1) — prevents a second copy from
  *      being played on the same attack.
  *
- * Playable: PARTIALLY — NOT CERTIFIED.
- *   The "against a covert company, the attack is canceled" branch (Effect 1)
- *   requires covert/overt company-mode tracking, which is not yet implemented.
- *   The context path `defender.covert` is now exposed in the combat when-context
- *   (always false until toggle support exists), so the DSL effects are correct
- *   but the cancel branch can never fire and cannot be tested.
+ * Covert/overt is computed from company composition (rule glossary):
+ *   - Overt: contains Orc, Troll, or Balrog character, or an overt-marking ally.
+ *   - Covert: none of the above.
  *
- * | # | Rule                                                      | Status      |
- * |---|-----------------------------------------------------------|-------------|
- * | 1 | Race filter: only vs Elf/Dwarf/Dúnedain/Men attacks       | OK (DSL)    |
- * | 2 | Covert company → cancel the attack                        | NOT TESTED  |
- * |   | (defender.covert always false — covert mode unimplemented)|             |
- * | 3 | Non-covert → -2 to attack prowess                         | OK          |
- * | 4 | Cannot be duplicated on a given attack                    | OK          |
+ * | # | Rule                                                      | Status  |
+ * |---|-----------------------------------------------------------|---------|
+ * | 1 | Race filter: only vs Elf/Dwarf/Dúnedain/Men attacks       | OK      |
+ * | 2 | Covert company → cancel the attack                        | OK      |
+ * | 3 | Non-covert → -2 to attack prowess                         | OK      |
+ * | 4 | Cannot be duplicated on a given attack                    | OK      |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -56,8 +51,9 @@ const AMBUSHER = 'le-59' as CardDefinitionId;     // race "men"
 const HOBGOBLINS = 'le-77' as CardDefinitionId;   // race "orc" (control — not Elf/Dwarf/Dúnedain/Men)
 
 // Minion characters.
-const GORBAG = 'le-11' as CardDefinitionId; // orc, mind 6, no special effects
-const SHAGRAT = 'le-39' as CardDefinitionId; // orc, mind 6, no special effects
+const GORBAG = 'le-11' as CardDefinitionId;   // orc, mind 6 — overt race
+const SHAGRAT = 'le-39' as CardDefinitionId;  // orc, mind 6
+const ASTERNAK = 'le-1' as CardDefinitionId;  // man, mind 5 — covert race (no Orc/Troll/Balrog)
 
 // Minion sites.
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
@@ -189,8 +185,46 @@ describe('Not Slay Needlessly (le-212)', () => {
     expect(viableActions(after, PLAYER_1, 'modify-attack')).toHaveLength(0);
   });
 
-  // ─── Effect 1: cancel vs. covert company (NOT TESTED — covert unimplemented) ──
+  // ─── Effect 1: cancel vs. covert company ─────────────────────────────────────
 
-  test.todo('against a covert company: the attack is canceled (no strikes assigned)');
-  test.todo('the cancel branch only fires vs covert companies; non-covert companies get -2 prowess instead');
+  test('against a covert company: cancel-attack is available for a matching race', () => {
+    // Asternak is a Man (covert race) — company has no Orc/Troll/Balrog → covert.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ASTERNAK] }],
+          hand: [NSN],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess: 10,
+    });
+    expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
+    expect(viableActions(state, PLAYER_1, 'modify-attack')).toHaveLength(0);
+  });
+
+  test('the cancel branch only fires vs covert companies; overt companies get -2 prowess', () => {
+    // GORBAG is Orc (overt race) → overt company gets modify-attack, not cancel.
+    const overtState = makeCancelWindowCombat(buildBase(), {
+      creatureDefId: ELF_LORD,
+      creatureRace: 'elves',
+      strikeProwess: 10,
+    });
+    expect(viableActions(overtState, PLAYER_1, 'cancel-attack')).toHaveLength(0);
+    expect(viableActions(overtState, PLAYER_1, 'modify-attack')).toHaveLength(1);
+  });
 });

@@ -603,13 +603,56 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "target.race": "ringwraith" } },
-      { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
-      { "type": "stat-modifier", "stat": "direct-influence", "value": -2 },
-      { "type": "stat-modifier", "stat": "general-influence", "value": 5 },
-      { "type": "grant-action", "action": "discard-self", "cost": { "discard": "self" }, "apply": { "type": "sequence", "apps": [] } },
-      { "type": "on-event", "event": "bearer-company-moves", "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } },
-      { "type": "duplication-limit", "scope": "player", "max": 1 }
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "ringwraith"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": [
+          "haven"
+        ]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 5
+      },
+      {
+        "type": "grant-action",
+        "action": "discard-self",
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": []
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      }
     ],
     "text": "Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith. -2 to his direct influence, +5 general influence. You may discard this card during any of your organization phases. Discard this card if your Ringwraith moves. Alternatively, playable if your Ringwraith is not in play. +5 general influence. Place this card with your Ringwraith when he comes into play. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck.",
     "certified": "2026-05-31"
@@ -636,18 +679,28 @@
           "$and": [
             {
               "$or": [
-                { "target.race": "ringwraith" },
-                { "target.skills": { "$includes": "shadow-magic" } }
+                {
+                  "target.race": "ringwraith"
+                },
+                {
+                  "target.skills": {
+                    "$includes": "shadow-magic"
+                  }
+                }
               ]
             },
-            { "company.moving": true }
+            {
+              "company.moving": true
+            }
           ]
         }
       },
       {
         "type": "play-option",
         "id": "change-site-type",
-        "when": { "company.destinationSiteType": "ruins-and-lairs" },
+        "when": {
+          "company.destinationSiteType": "ruins-and-lairs"
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "site-type-override",
@@ -658,7 +711,11 @@
       {
         "type": "play-option",
         "id": "change-region-type",
-        "when": { "company.destinationRegionTypes": { "$includes": "wilderness" } },
+        "when": {
+          "company.destinationRegionTypes": {
+            "$includes": "wilderness"
+          }
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "region-type-override",
@@ -680,7 +737,11 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "when": { "$not": { "target.race": "ringwraith" } },
+        "when": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        },
         "apply": {
           "type": "enqueue-corruption-check",
           "modifier": -3
@@ -705,8 +766,19 @@
         "type": "cancel-attack",
         "when": {
           "$and": [
-            { "enemy.race": { "$in": ["elves", "dwarves", "dúnedain", "men"] } },
-            { "defender.covert": true }
+            {
+              "enemy.race": {
+                "$in": [
+                  "elves",
+                  "dwarves",
+                  "dúnedain",
+                  "men"
+                ]
+              }
+            },
+            {
+              "defender.covert": true
+            }
           ]
         }
       },
@@ -717,12 +789,29 @@
         "prowessModifier": -2,
         "when": {
           "$and": [
-            { "enemy.race": { "$in": ["elves", "dwarves", "dúnedain", "men"] } },
-            { "$not": { "defender.covert": true } }
+            {
+              "enemy.race": {
+                "$in": [
+                  "elves",
+                  "dwarves",
+                  "dúnedain",
+                  "men"
+                ]
+              }
+            },
+            {
+              "$not": {
+                "defender.covert": true
+              }
+            }
           ]
         }
       },
-      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
     ],
     "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
   },
@@ -778,6 +867,11 @@
     "mind": 4,
     "marshallingPoints": 3,
     "marshallingCategory": "ally",
+    "effects": [
+      {
+        "type": "company-overt"
+      }
+    ],
     "playableAt": []
   },
   {

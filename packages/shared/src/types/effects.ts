@@ -2234,7 +2234,8 @@ export type CardEffect =
   | HazardLimitSwapEffect
   | RingTestTableEffect
   | RingTestSearchEffect
-  | GrantSkillEffect;
+  | GrantSkillEffect
+  | CompanyOvertEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2470,4 +2471,16 @@ export interface GrantSkillEffect extends EffectBase {
   readonly type: 'grant-skill';
   /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
   readonly skill: string;
+}
+
+/**
+ * Marks the bearing character's company as overt as long as this ally is in play.
+ *
+ * Certain allies (e.g. Regiment of Black Crows, Great Bats, Great Lord of
+ * Goblin-gate, Last Child of Ungoliant) explicitly state "its controlling
+ * character's company is overt". This effect is evaluated at any point where
+ * covert/overt status is checked (combat, detainment, hazard eligibility).
+ */
+export interface CompanyOvertEffect extends EffectBase {
+  readonly type: 'company-overt';
 }

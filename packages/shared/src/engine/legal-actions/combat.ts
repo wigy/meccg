@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, isCovertCompany } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -1170,10 +1170,7 @@ function cancelAttackActions(
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
-    // Company covert/overt mode is not yet implemented — always expose false
-    // so cards with `defender.covert` conditions (e.g. Not Slay Needlessly)
-    // can be expressed in the DSL even before toggle support is added.
-    ctx['defender'] = { covert: false };
+    ctx['defender'] = { covert: isCovertCompany(company, player, state) };
     return ctx;
   };
 
@@ -1651,8 +1648,10 @@ function modifyAttackActions(
       if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
-      // Company covert/overt mode is not yet implemented — always expose false.
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: false } };
+      const defendingPlayer = playerById(state, combat.defendingPlayerId);
+      const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
+      const defenderCovert = defendingPlayer && defendingCompany ? isCovertCompany(defendingCompany, defendingPlayer, state) : false;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert } };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;
