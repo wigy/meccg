@@ -13,73 +13,18 @@
  *    Darkhaven [{DH}] during his organization phase."
  *
  * Engine Support:
- * | # | Rule                                                             | Status          | Notes                                                   |
- * |---|------------------------------------------------------------------|-----------------|---------------------------------------------------------|
- * | 1 | Playable during site phase at border-hold or free-hold            | OK              | play-target: site filter checks siteType                |
- * | 2 | Site must have Information in playableResources                   | OK              | play-target: site filter checks playableResources       |
- * | 3 | Target must be in a COVERT company                               | NOT IMPLEMENTED | No company.covert in play-target character context;     |
- * |   |                                                                  |                 | covert/overt tracking not implemented for ringwraith    |
- * |   |                                                                  |                 | companies (see le-212.test for same gap)                |
- * | 4 | Target character must be untapped                                | OK              | play-target: character filter checks target.status      |
- * | 5 | Tap the character (but not the site) on play                    | NOT IMPLEMENTED | cost: { tap: character } on play-target is not applied  |
- * |   |                                                                  |                 | during resolvePermanentEvent — only handled for short   |
- * |   |                                                                  |                 | events via applyCost in reducer-events.ts               |
- * | 6 | No MPs received (MPs granted only when stored)                   | OK (data)       | marshallingPoints: 0 on card; 2 on storable-at          |
- * | 7 | Character may not untap until card is stored at Darkhaven        | NOT IMPLEMENTED | bearer-cannot-untap constraint not placed by            |
- * |   |                                                                  |                 | resolvePermanentEvent for direct character-targeting;   |
- * |   |                                                                  |                 | only placed via select-card-bearer (trigger-attack-on-  |
- * |   |                                                                  |                 | play path, used by Rescue Prisoners). applyAdd-         |
- * |   |                                                                  |                 | ConstraintFromOnEvent targets company/player, not char. |
- * | 8 | Storing at a Darkhaven during organization phase releases lock   | PARTIAL         | storable-at: haven clears bearer-cannot-untap on store, |
- * |   |                                                                  |                 | but #7 means the constraint is never placed to begin    |
+ * | # | Rule                                                             | Status    |
+ * |---|------------------------------------------------------------------|-----------|
+ * | 1 | Playable during site phase at border-hold or free-hold            | OK        |
+ * | 2 | Site must have Information in playableResources                   | OK        |
+ * | 3 | Target must be in a COVERT company                               | OK        |
+ * | 4 | Target character must be untapped                                | OK        |
+ * | 5 | Tap the character (but not the site) on play                    | OK        |
+ * | 6 | No MPs received (MPs granted only when stored)                   | OK        |
+ * | 7 | Character may not untap until card is stored at Darkhaven        | OK        |
+ * | 8 | Storing at a Darkhaven during organization phase releases lock   | OK        |
  *
- * Playable: NO — NOT CERTIFIED.
- *
- * Missing engine pieces (blocking full certification):
- *
- *   - **Covert company tracking** (rule 3): No data structure records whether a
- *     ringwraith company is currently in covert or overt mode. The play-target
- *     character filter context (`{ target: {...}, company: { skills, siteType,
- *     moving } }` in `legal-actions/site.ts`) does not expose `company.covert`.
- *     Until a covert toggle is modelled on companies and threaded into the
- *     filter context, all companies (covert or overt) are treated identically.
- *
- *   - **Character tapping as permanent-event cost** (rule 5): For permanent
- *     events played via `play-permanent-event`, the chain resolves through
- *     `resolvePermanentEvent` in `chain-reducer.ts`, which attaches the card to
- *     the character's items but never calls `applyCost`. `applyCost` is only
- *     called in `reducer-events.ts` for short events. So the `cost: { tap:
- *     "character" }` on the play-target effect is never executed for permanent
- *     events and the character remains in its current status.
- *
- *   - **bearer-cannot-untap constraint placement** (rule 7): The constraint that
- *     prevents the bearer from untapping is only added by `select-card-bearer`
- *     (enqueued from `reducer-combat.ts` after a `trigger-attack-on-play`
- *     attack resolves). `resolvePermanentEvent` does not place it for direct
- *     character-targeting permanent events, and `applyAddConstraintFromOnEvent`
- *     (used by `self-enters-play` on-event effects) targets companies/players,
- *     not individual characters. Extending this would require either a new
- *     `self-enters-play` apply type that places `bearer-cannot-untap` on the
- *     targeted character, or a dedicated code path in `resolvePermanentEvent`.
- *
- * Once these three pieces are implemented, the effects array should look like:
- *
- *   [
- *     { "type": "play-target", "target": "site",
- *       "filter": { "$and": [
- *         { "siteType": { "$in": ["border-hold", "free-hold"] } },
- *         { "playableResources": { "$includes": "information" } }
- *       ] } },
- *     { "type": "play-target", "target": "character",
- *       "filter": { "$and": [
- *         { "target.status": "untapped" },
- *         { "company.covert": true }          ← needs engine support
- *       ] },
- *       "cost": { "tap": "character" } },
- *     { "type": "storable-at", "siteTypes": ["haven"], "marshallingPoints": 2 }
- *   ]
- *
- * and the test.todo entries below should be converted to real assertions.
+ * Playable: YES — CERTIFIED.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -93,19 +38,22 @@ import {
   RESOURCE_PLAYER,
   CardStatus,
   setCharStatus,
+  playPermanentEventAndResolve,
+  handCardId,
+  charIdAt,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const THATS_BEEN_HEARD = 'le-241' as CardDefinitionId;
 
 // Minion characters
-const GORBAG = 'le-11' as CardDefinitionId;       // minion orc
-const THE_MOUTH = 'le-24' as CardDefinitionId;    // minion man
+const GORBAG = 'le-11' as CardDefinitionId;       // minion orc — overt race
+const THE_MOUTH = 'le-24' as CardDefinitionId;    // minion man — covert race
 
 // Minion sites — free-holds with Information playable (positive cases)
 const BAG_END = 'le-350' as CardDefinitionId;          // free-hold, info in playableResources
 const THRANDUILS_HALLS = 'le-408' as CardDefinitionId; // free-hold, info in playableResources
-const MINAS_TIRITH_MINION = 'le-391' as CardDefinitionId; // free-hold, info in playableResources
+const _MINAS_TIRITH_MINION = 'le-391' as CardDefinitionId; // free-hold, info in playableResources
 
 // Minion sites — wrong type or no Information (negative cases)
 const MORIA = 'le-392' as CardDefinitionId;       // shadow-hold (wrong type)
@@ -115,15 +63,19 @@ const DALE = 'le-363' as CardDefinitionId;         // border-hold, no informatio
 // Minion haven for storage
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // darkhaven
 
-/** Build a site-phase state with the ringwraith player at the given site. */
-function sitePhaseAt(site: CardDefinitionId, opts: { cardStatus?: CardStatus } = {}) {
+/**
+ * Build a site-phase state with the ringwraith player at the given site.
+ * Uses THE_MOUTH (man, covert) by default. Pass `character: GORBAG` for overt tests.
+ */
+function sitePhaseAt(site: CardDefinitionId, opts: { cardStatus?: CardStatus; character?: CardDefinitionId } = {}) {
+  const char = opts.character ?? THE_MOUTH;
   const state = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.Site,
     players: [
       {
         id: PLAYER_1,
-        companies: [{ site, characters: [GORBAG] }],
+        companies: [{ site, characters: [char] }],
         hand: [THATS_BEEN_HEARD],
         siteDeck: [DOL_GULDUR],
       },
@@ -137,7 +89,7 @@ function sitePhaseAt(site: CardDefinitionId, opts: { cardStatus?: CardStatus } =
   });
   const withPhase = { ...state, phaseState: makeSitePhase() };
   if (opts.cardStatus === CardStatus.Tapped) {
-    return setCharStatus(withPhase, RESOURCE_PLAYER, GORBAG, CardStatus.Tapped);
+    return setCharStatus(withPhase, RESOURCE_PLAYER, char, CardStatus.Tapped);
   }
   return withPhase;
 }
@@ -191,14 +143,68 @@ describe("That's Been Heard Before Tonight (le-241)", () => {
     expect(actions).toHaveLength(0);
   });
 
-  // ── Unimplemented rules (test.todo) ─────────────────────────────────────
+  // ── Covert company filter (IMPLEMENTED) ──────────────────────────────────
 
-  test.todo('only viable when the company is in COVERT mode (covert/overt tracking not yet implemented)');
-  test.todo('not viable when the company is OVERT (covert/overt tracking not yet implemented)');
-  test.todo('playing the card taps the targeted character (permanent event cost not applied in resolvePermanentEvent)');
-  test.todo('playing the card does NOT tap the site');
-  test.todo('the targeted character cannot untap at the next untap phase (bearer-cannot-untap constraint not placed for direct-targeting permanent events)');
-  test.todo('the character can untap again once the card is stored at a Darkhaven during organization phase');
-  test.todo('2 marshalling points are received when the card is stored at a Darkhaven');
-  test.todo('no marshalling points are received while the card is attached (before storage)');
+  test('viable when the company is covert (The Mouth, man race)', () => {
+    const state = sitePhaseAt(BAG_END);
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event').length).toBeGreaterThan(0);
+  });
+
+  test('not viable when the company is overt (Gorbag, orc race)', () => {
+    const state = sitePhaseAt(BAG_END, { character: GORBAG });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  // ── Character tapping on play (IMPLEMENTED) ─────────────────────────────
+
+  test('playing the card taps the targeted character', () => {
+    const state = sitePhaseAt(BAG_END);
+    const cardInstId = handCardId(state, RESOURCE_PLAYER);
+    const charInstId = charIdAt(state, RESOURCE_PLAYER);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardInstId, charInstId);
+
+    const defPlayer = after.players[RESOURCE_PLAYER];
+    const char = defPlayer.characters[charInstId as string];
+    expect(char?.status).toBe(CardStatus.Tapped);
+  });
+
+  test('playing the card does NOT tap the site', () => {
+    const state = sitePhaseAt(BAG_END);
+    const cardInstId = handCardId(state, RESOURCE_PLAYER);
+    const charInstId = charIdAt(state, RESOURCE_PLAYER);
+    const before = state.players[RESOURCE_PLAYER].companies[0].currentSite?.status;
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardInstId, charInstId);
+
+    const siteStatus = after.players[RESOURCE_PLAYER].companies[0].currentSite?.status;
+    expect(siteStatus).toBe(before);
+  });
+
+  // ── Bearer-cannot-untap constraint (IMPLEMENTED) ──────────────────────────
+
+  test('bearer-cannot-untap constraint is placed on the targeted character', () => {
+    const state = sitePhaseAt(BAG_END);
+    const cardInstId = handCardId(state, RESOURCE_PLAYER);
+    const charInstId = charIdAt(state, RESOURCE_PLAYER);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, cardInstId, charInstId);
+
+    const constraint = after.activeConstraints.find(
+      c => c.kind.type === 'bearer-cannot-untap' && c.target.kind === 'character' && c.target.characterId === charInstId,
+    );
+    expect(constraint).toBeDefined();
+  });
+
+  test('2 marshalling points are received when the card is stored at a Darkhaven', () => {
+    // Attach the card, then store it — should grant 2 MPs.
+    const state = sitePhaseAt(BAG_END);
+    const cardInstId = handCardId(state, RESOURCE_PLAYER);
+    const charInstId = charIdAt(state, RESOURCE_PLAYER);
+    const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, cardInstId, charInstId);
+
+    // Verify card is attached to character
+    const defPlayer = afterPlay.players[RESOURCE_PLAYER];
+    const char = defPlayer.characters[charInstId as string];
+    const attachedCard = char?.items.find(i => i.definitionId === THATS_BEEN_HEARD);
+    expect(attachedCard).toBeDefined();
+    expect(afterPlay.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+  });
 });

@@ -27,6 +27,7 @@ import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
+import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 
@@ -1001,6 +1002,38 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   let newState: GameState = { ...state, players: newPlayers };
+
+  // Apply play-target character tap cost for permanent events (e.g. That's Been
+  // Heard Before Tonight taps the targeted character on play). The cost is declared
+  // on the play-target effect rather than the card root.
+  if (targetCharId) {
+    const playTargetEff = getCardEffects(def).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character' && !!e.cost?.tap,
+    );
+    if (playTargetEff?.cost) {
+      const costResult = applyCost(newState, playTargetEff.cost, targetCharId, {
+        playerIndex,
+        label: def?.name ?? '?',
+      });
+      if (!('error' in costResult)) {
+        newState = costResult.state;
+        logDetail(`"${def?.name ?? '?'}" applied play-target cost (tap) to ${targetCharId as string}`);
+        // Place bearer-cannot-untap so the character stays tapped until the card
+        // is stored (e.g. at a Darkhaven for le-241). The store-item handler
+        // clears this constraint automatically when the card leaves the character.
+        newState = addConstraint(newState, {
+          source: card.instanceId,
+          sourceDefinitionId: card.definitionId,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'character', characterId: targetCharId },
+          kind: { type: 'bearer-cannot-untap', cardInstanceId: card.instanceId },
+        });
+        logDetail(`"${def?.name ?? '?'}" placed bearer-cannot-untap constraint on ${targetCharId as string}`);
+      } else {
+        logDetail(`"${def?.name ?? '?'}" play-target cost failed: ${costResult.error}`);
+      }
+    }
+  }
 
   // tap-site-on-play: tap the active company's current site when the card enters play,
   // unless the site carries the never-taps site-rule (e.g. The Worthy Hills).
