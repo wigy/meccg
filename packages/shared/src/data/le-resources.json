@@ -713,8 +713,24 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item."
+    "effects": [
+      { "type": "play-window", "phase": "site" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.skills": { "$includes": "sage" } },
+        "cost": { "tap": "character" }
+      },
+      { "type": "play-condition", "requires": "site-has-resource", "subtype": "information" },
+      { "type": "play-condition", "requires": "company-has-item", "subtype": "gold-ring" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "enqueue-ring-play-offer", "excludeCategories": ["the-one-ring"] }
+      }
+    ],
+    "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item.",
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
