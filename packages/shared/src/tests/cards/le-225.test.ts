@@ -18,20 +18,15 @@
  *     may be assigned to the scout.
  *
  * Engine Support:
- * | # | Rule                                                                  | Status          |
- * |---|-----------------------------------------------------------------------|-----------------|
- * | 1 | Mode A: cancel-attack with diplomat tap cost                          | PARTIAL         |
- * | 2 | Mode A: diplomat must be in a COVERT company                          | NOT IMPLEMENTED |
- * | 3 | Mode B: protect-from-assignment offered when scout is in company       | IMPLEMENTED     |
- * | 4 | Mode B: protected scout cannot be assigned any strike                  | IMPLEMENTED     |
- * | 5 | Mode B: other characters may still be assigned strikes                 | IMPLEMENTED     |
- * | 6 | Mode B: card discarded after use                                       | IMPLEMENTED     |
- * | 7 | Mode B: protection expires after combat ends                           | IMPLEMENTED     |
- *
- * NOT CERTIFIED — Mode A requires covert company tracking which is not yet
- * implemented. `Company` has no covert field; `cancelAttackActions` does not
- * expose `company.covert` in its when-context, so the `cancel-attack` effect
- * with `when: { "company.covert": true }` never fires.
+ * | # | Rule                                                                  | Status      |
+ * |---|-----------------------------------------------------------------------|-------------|
+ * | 1 | Mode A: cancel-attack with diplomat tap cost                          | OK          |
+ * | 2 | Mode A: diplomat must be in a COVERT company                          | OK          |
+ * | 3 | Mode B: protect-from-assignment offered when scout is in company       | OK          |
+ * | 4 | Mode B: protected scout cannot be assigned any strike                  | OK          |
+ * | 5 | Mode B: other characters may still be assigned strikes                 | OK          |
+ * | 6 | Mode B: card discarded after use                                       | OK          |
+ * | 7 | Mode B: protection expires after combat ends                           | OK          |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -41,19 +36,21 @@ import {
   ORC_PATROL,
   viableActions,
   makeMHState,
+  makeCancelWindowCombat,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt, dispatch, expectInDiscardPile,
+  handCardId, companyIdAt, dispatch, expectInDiscardPile, resolveChain,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
-import type { ProtectFromStrikeAssignmentAction } from '../../index.js';
+import { RegionType, SiteType, CardStatus } from '../../index.js';
+import type { ProtectFromStrikeAssignmentAction, CancelAttackAction } from '../../index.js';
 
 const RUSE = 'le-225' as CardDefinitionId;
 
 // Minion fixtures (ringwraith alignment)
-const LAGDUF = 'le-18' as CardDefinitionId;       // warrior/orc, no scout skill
-const OSTISEN = 'le-36' as CardDefinitionId;      // scout/man
+const LAGDUF = 'le-18' as CardDefinitionId;       // warrior/orc — overt race
+const OSTISEN = 'le-36' as CardDefinitionId;      // scout/man — covert race
+const ASTERNAK = 'le-1' as CardDefinitionId;      // warrior/diplomat/man — covert race
 
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
@@ -269,11 +266,81 @@ describe('Ruse (le-225) — Mode B: scout protection', () => {
   });
 });
 
-describe('Ruse (le-225) — Mode A: diplomat cancel-attack (NOT IMPLEMENTED)', () => {
+describe('Ruse (le-225) — Mode A: diplomat cancel-attack', () => {
   beforeEach(() => resetMint());
 
-  test.todo('Mode A: playable when defending company has an untapped diplomat AND is covert (covert tracking not yet implemented)');
-  test.todo('Mode A: NOT playable when the defending company is not covert');
-  test.todo('Mode A: NOT playable when the only diplomat is tapped');
-  test.todo('Mode A: taps the chosen diplomat and cancels the attack');
+  test('Mode A: cancel-attack offered when company has an untapped diplomat AND is covert', () => {
+    // Asternak (man) → covert company; has diplomat skill.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [ASTERNAK] }], hand: [RUSE], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base);
+    const actions = viableActions(state, PLAYER_1, 'cancel-attack');
+    expect(actions).toHaveLength(1);
+    const act = actions[0].action as CancelAttackAction;
+    expect(act.player).toBe(PLAYER_1);
+  });
+
+  test('Mode A: NOT offered when the defending company is overt (Orc character)', () => {
+    // Lagduf (orc) → overt company; even with Ruse in hand, covert gate blocks it.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [LAGDUF, ASTERNAK] }], hand: [RUSE], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base);
+    expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
+  });
+
+  test('Mode A: NOT offered when the diplomat is tapped', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [{ defId: ASTERNAK, status: CardStatus.Tapped }] }], hand: [RUSE], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base);
+    expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
+  });
+
+  test('Mode A: taps the diplomat and cancels the attack', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [ASTERNAK] }], hand: [RUSE], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base);
+    const [cancelAction] = viableActions(state, PLAYER_1, 'cancel-attack');
+
+    // Cancel-attack goes through the chain; resolve the chain to apply it.
+    const declared = dispatch(state, cancelAction.action);
+    const after = resolveChain(declared);
+
+    // Attack is canceled — combat is cleared
+    expect(after.combat).toBeNull();
+    // Ruse is discarded from hand
+    expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, RUSE);
+    // Diplomat (Asternak) is tapped
+    const defPlayer = declared.players[RESOURCE_PLAYER];
+    const asternak = Object.values(defPlayer.characters).find(c => c.definitionId === ASTERNAK);
+    expect(asternak?.status).toBe(CardStatus.Tapped);
+  });
 });
