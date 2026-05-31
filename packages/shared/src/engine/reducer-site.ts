@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race, Alignment, formatSignedNumber } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, findById, findCharacterCompany, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1714,7 +1714,7 @@ function handleOpponentInfluenceAttempt(
 
   // Calculate modifiers
   const influencerDI = availableDI(state, charId, player);
-  const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
+  const opponentGI = effectiveGeneralInfluence(state, opponent.id) - opponent.generalInfluenceUsed;
   // CoE rules 8.W1, 8.R1, 8.F1, 8.B1: cross-alignment influence penalty.
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(player.alignment, opponent.alignment);
 
@@ -1935,7 +1935,7 @@ function discardInfluencedCard(
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
-    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, opponent.id)) {
       // Move to GI
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);

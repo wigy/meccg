@@ -212,6 +212,7 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
 
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   let generalInfluenceUsed = 0;
+  let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
   let charactersChanged = false;
   const newCharacters: Record<string, CharacterInPlay> = {};
@@ -278,6 +279,22 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     } else {
       newCharacters[key] = { ...char, effectiveStats: newStats };
       charactersChanged = true;
+    }
+  }
+
+  // General-influence bonus: sum stat-modifier general-influence effects from character items.
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) {
+      const itemDef = resolveDef(state, item.instanceId);
+      const effects = itemDef && 'effects' in itemDef
+        ? (itemDef as { effects?: readonly CardEffect[] }).effects ?? []
+        : [];
+      for (const effect of effects) {
+        if (effect.type === 'stat-modifier' && (effect as { stat?: string }).stat === 'general-influence') {
+          const val = (effect as { value?: number }).value ?? 0;
+          generalInfluenceBonus += typeof val === 'number' ? val : 0;
+        }
+      }
     }
   }
 
@@ -353,6 +370,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   if (
     !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
+    player.generalInfluenceBonus === generalInfluenceBonus &&
     player.marshallingPoints === mp
   ) {
     return player;
@@ -362,6 +380,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     ...player,
     characters: charactersChanged ? newCharacters : player.characters,
     generalInfluenceUsed,
+    generalInfluenceBonus,
     marshallingPoints: mp,
   };
 }

@@ -85,6 +85,11 @@ export interface PlayerState {
    */
   readonly generalInfluenceUsed: number;
   /**
+   * Sum of general-influence modifiers from cards currently in play (e.g. Bade to Rule: +5).
+   * Recomputed by recomputeDerived. Effective GI pool = GENERAL_INFLUENCE + generalInfluenceBonus.
+   */
+  readonly generalInfluenceBonus: number;
+  /**
    * Number of times this player's play deck has been exhausted (reshuffled from discard).
    * The game ends via Free Council when a player exhausts their deck twice.
    */

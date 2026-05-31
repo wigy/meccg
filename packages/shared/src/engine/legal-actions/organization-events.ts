@@ -12,6 +12,7 @@ import type {
   EvaluatedAction,
   CardInstanceId,
   HeroResourceEventCard,
+  MinionResourceEventCard,
   HazardEventCard,
   PlayTargetEffect,
   DuplicationLimitEffect,
@@ -33,8 +34,8 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
-    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') continue;
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | MinionResourceEventCard | undefined;
+    if (!def || (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') || def.eventType !== 'permanent') continue;
 
     // Check uniqueness: unique permanent events can't be played if already in play
     if (def.unique) {
@@ -68,6 +69,32 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           action: { type: 'not-playable', player: playerId, cardInstanceId },
           viable: false,
           reason: `${def.name} cannot be duplicated`,
+        });
+        continue;
+      }
+    }
+
+    // Check duplication-limit with scope "player": each player independently limited
+    const playerDupLimit = def.effects?.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'player',
+    );
+    if (playerDupLimit) {
+      let copiesOwned = player.cardsInPlay.filter(c => {
+        const cDef = defById(state, c.definitionId);
+        return cDef && cDef.name === def.name;
+      }).length;
+      for (const ch of Object.values(player.characters)) {
+        copiesOwned += ch.items.filter(i => {
+          const iDef = defById(state, i.definitionId);
+          return iDef && iDef.name === def.name;
+        }).length;
+      }
+      if (copiesOwned >= playerDupLimit.max) {
+        logDetail(`Permanent event ${def.name}: player duplication limit reached (${copiesOwned}/${playerDupLimit.max})`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} cannot be duplicated by a given player`,
         });
         continue;
       }
@@ -126,8 +153,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const companyDupLimit = def.effects?.find(
         (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
       );
+      // play-condition: site-type — the character's company must be at one of the required site types
+      const siteTypeCondition = def.effects?.find(
+        (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-type',
+      );
       let anyTarget = false;
       for (const company of player.companies) {
+        if (siteTypeCondition) {
+          const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : null;
+          const companySiteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : null;
+          if (!companySiteType || !siteTypeCondition.siteTypes?.includes(companySiteType)) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} not at required site type [${siteTypeCondition.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
+            continue;
+          }
+        }
         if (companyDupLimit) {
           const copiesInCompany = company.characters.reduce((count, cId) => {
             const ch = player.characters[cId as string];

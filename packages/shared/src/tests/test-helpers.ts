@@ -547,6 +547,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
       marshallingPoints: { ...ZERO_MARSHALLING_POINTS, ...(setup.marshallingPoints ?? {}) },
       generalInfluenceUsed: 0,
+      generalInfluenceBonus: 0,
       deckExhaustionCount: setup.deckExhaustionCount ?? 0,
       freeCouncilCalled: false,
       lastDiceRoll: null,

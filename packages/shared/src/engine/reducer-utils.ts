@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -424,6 +424,14 @@ export function filterSideboardByDef(
  * `scope: "game"` to prevent more than the allowed number of copies being
  * in play simultaneously.
  */
+/**
+ * Returns the effective general-influence pool for the player.
+ * Base pool is 20; permanent events (e.g. Bade to Rule) can add a bonus.
+ */
+export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId): number {
+  return GENERAL_INFLUENCE + (playerById(state, playerId)?.generalInfluenceBonus ?? 0);
+}
+
 export function countCopiesInPlay(state: GameState, name: string): number {
   return state.players.reduce((count, p) =>
     count + p.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length,
