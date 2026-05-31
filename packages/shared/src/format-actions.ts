@@ -464,6 +464,8 @@ export function describeAction(
       return `Play Ruse — ${instName(action.targetCharacterId)} protected from strike assignment`;
     case 'declare-company-attack':
       return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
+    case 'take-trophy':
+      return `${action.player as string} takes creature ${action.creatureInstanceId as string} as trophy for ${action.characterId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

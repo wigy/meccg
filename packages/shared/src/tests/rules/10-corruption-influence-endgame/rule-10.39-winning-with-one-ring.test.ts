@@ -17,8 +17,89 @@
  * [BALROG] If a Balrog player has Challenge the Power in play and the conditions outlined on the card are met, that player wins.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import { Phase, CardDefinitionId, CardStatus, Alignment } from '../../../index.js';
+import {
+  buildTestState, PLAYER_1, PLAYER_2, resetMint,
+  dispatch, findCharInstanceId, RESOURCE_PLAYER,
+} from '../../test-helpers.js';
+import type { EndOfTurnPhaseState } from '../../../index.js';
+
+// Minion sites
+const BARAD_DUR_MINION = 'le-352' as CardDefinitionId;  // dark-hold (Ringwraith win condition site)
+const CARN_DUM = 'le-359' as CardDefinitionId;           // haven (Darkhaven)
+
+// Minion character (Ringwraith avatar)
+const ADUNAPHEL = 'le-50' as CardDefinitionId;
+
+// Hero character for opponent
+const ARAGORN = 'tw-120' as CardDefinitionId;
+
+// Sites
+const RIVENDELL = 'tw-421' as CardDefinitionId;
+const MORIA = 'tw-413' as CardDefinitionId;
+
+// The One Ring item
+const THE_ONE_RING = 'tw-347' as CardDefinitionId;
 
 describe('Rule 10.39 — Winning with The One Ring', () => {
-  test.todo('Each alignment has specific conditions for winning with The One Ring');
+  beforeEach(() => resetMint());
+
+  test('Each alignment has specific conditions for winning with The One Ring', () => {
+    // [MINION] Ringwraith player bears The One Ring at Barad-dûr → immediate win on end-of-turn pass
+    const base = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: BARAD_DUR_MINION, characters: [ADUNAPHEL] }],
+          hand: [],
+          siteDeck: [CARN_DUM],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+
+    // Attach The One Ring to Adunaphel
+    const rwId = findCharInstanceId(base, RESOURCE_PLAYER, ADUNAPHEL);
+    const oneRingItem = { instanceId: 'one-ring-inst' as never, definitionId: THE_ONE_RING, status: CardStatus.Untapped };
+    const endOfTurnPhaseState: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const stateWithRing = {
+      ...base,
+      phaseState: endOfTurnPhaseState,
+      players: base.players.map((p, i) => {
+        if (i !== RESOURCE_PLAYER) return p;
+        const char = p.characters[rwId as string];
+        return {
+          ...p,
+          characters: {
+            ...p.characters,
+            [rwId as string]: {
+              ...char,
+              items: [...char.items, oneRingItem],
+            },
+          },
+        };
+      }) as unknown as typeof base.players,
+    };
+
+    const after = dispatch(stateWithRing, { type: 'pass', player: PLAYER_1 });
+
+    // Game should transition to Free Council (Ringwraith One Ring win triggers FreeCouncil)
+    expect(after.phaseState.phase).toBe(Phase.FreeCouncil);
+  });
 });

@@ -3022,3 +3022,26 @@ not the granted skills. This correctly implements the card text "if the bearer i
 ```
 
 Used by Magic Ring of Stealth (tw-274).
+
+---
+
+### 55. `ringwraith-mode`
+
+Marks a permanent-event resource card as a Ringwraith mode card (Black Rider,
+Fell Rider, or Heralded Lord). When this card is in play bound to a Ringwraith
+company (`CardInPlay.companyId`), the company may move to non-Darkhaven sites.
+Without a mode card in play, a Ringwraith company is restricted to
+Darkhaven-to-Darkhaven movement only (MELE §1.2).
+
+This effect carries no additional data — its presence is the entire payload.
+The engine reads it when computing legal movement actions.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| (none) | — | Presence of the effect is the payload. |
+
+```json
+{ "type": "ringwraith-mode" }
+```
+
+Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190).

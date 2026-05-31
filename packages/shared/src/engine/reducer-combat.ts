@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, formatSignedNumber, getPlayerIndex } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -79,6 +79,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
     // event handler applies its effects without touching the combat state.
     case 'play-short-event':
       return handlePlayResourceShortEvent(state, action);
+    case 'take-trophy':
+      return handleTakeTrophy(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -354,6 +356,11 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     return {
       state: { ...state, combat: { ...combat, attackerStep1Done: true } },
     };
+  }
+
+  // Pass during trophy-offer: defending player declines to take a trophy.
+  if (combat.phase === 'trophy-offer') {
+    return finalizeCombatFromTrophyOffer(state, combat);
   }
 
   // Pass during item-salvage: player declines further transfers, discard remaining items
@@ -1235,6 +1242,58 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     const effectiveRoll = rollTotal + woundedBonus;
 
     logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
+
+    // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
+    // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
+    if (charData && !allyMatch && (rollTotal === 7 || rollTotal === 8)) {
+      const rwDef = defById(stateWithRoll, charData.definitionId);
+      if (rwDef && isCharacterCard(rwDef) && rwDef.race === Race.Ringwraith) {
+        logDetail(`Ringwraith body check roll is ${rollTotal} (7 or 8 unmodified) — Ringwraith returned to hand (MELE §8.R1)`);
+        const newAssignmentsRW = combat.strikeAssignments.map((a, i) => {
+          if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+          if (!a.resolved && a.characterId === strike.characterId) {
+            logDetail(`Strike ${i} auto-resolved (Ringwraith returned to hand, CoE 3.i.5)`);
+            return { ...a, resolved: true, result: 'success' as const };
+          }
+          return a;
+        });
+        const newPlayersRW = clonePlayers(stateWithRoll);
+        const newPlayerDataRW = { ...defPlayer };
+        const combatWithRW = { ...combat, strikeAssignments: newAssignmentsRW };
+
+        // Remove from company
+        if (company) {
+          newPlayerDataRW.companies = newPlayerDataRW.companies.map(c =>
+            c.id === combat.companyId
+              ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+              : c,
+          );
+        }
+        // Move the Ringwraith card instance to the player's hand (not eliminated)
+        const rwInstance = toCardInstance(charData);
+        newPlayerDataRW.hand = [...newPlayerDataRW.hand, rwInstance];
+        // Discard allies and items on the returned Ringwraith
+        for (const ally of charData.allies) {
+          logDetail(`Discarding ally ${ally.instanceId as string} from returned Ringwraith`);
+          newPlayerDataRW.discardPile = [...newPlayerDataRW.discardPile, toCardInstance(ally)];
+        }
+        for (const item of charData.items) {
+          logDetail(`Discarding item ${item.instanceId as string} from returned Ringwraith`);
+          newPlayerDataRW.discardPile = [...newPlayerDataRW.discardPile, toCardInstance(item)];
+        }
+        const { [strike.characterId as string]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
+        newPlayerDataRW.characters = remainingCharsRW;
+        // Record the returned Ringwraith's definition ID for reveal restrictions
+        newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
+        newPlayersRW[defPlayerIndex] = newPlayerDataRW;
+
+        const nextRW = nextStrikePhase(combatWithRW);
+        if (nextRW) {
+          return { state: { ...stateWithRoll, players: newPlayersRW, combat: { ...combatWithRW, ...nextRW } }, effects };
+        }
+        return finalizeCombat({ ...stateWithRoll, players: newPlayersRW, combat: combatWithRW }, effects);
+      }
+    }
 
     if (effectiveRoll > body) {
       // Combatant eliminated
@@ -2475,6 +2534,56 @@ function discardCardTriggeredCard(
  * moves from the hazard player's discard pile to the defending player's
  * marshalling point pile. Otherwise it stays in discard.
  */
+/**
+ * Handle a `take-trophy` action during the `trophy-offer` combat phase.
+ *
+ * The chosen Orc/Troll character receives the defeated creature card as a
+ * trophy (placed under the character). The creature is removed from the
+ * kill pile (kill-MP was already counted in finalizeCombat) and stored on
+ * the character instead. After taking a trophy the phase returns to normal
+ * (removes the combat state).
+ */
+function handleTakeTrophy(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'take-trophy') return wrongActionType(state, action, 'take-trophy');
+  if (combat.phase !== 'trophy-offer') return { state, error: 'take-trophy only valid in trophy-offer phase' };
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const char = defPlayer.characters[action.characterId as string];
+  if (!char) return { state, error: 'Trophy character not found' };
+
+  // Find the creature instance in the kill pile (it was moved there in finalizeCombat)
+  const creatureInKillPile = findById(defPlayer.killPile, action.creatureInstanceId);
+  if (!creatureInKillPile) return { state, error: 'Creature not found in kill pile for trophy' };
+
+  logDetail(`Trophy: ${action.characterId as string} takes ${action.creatureInstanceId as string} as a trophy (MELE §8.37)`);
+
+  // Remove from kill pile and add to character's trophies
+  const newKillPile = removeById(defPlayer.killPile, action.creatureInstanceId);
+  const newTrophies = [...(char.trophies ?? []), creatureInKillPile];
+  const newPlayers = clonePlayers(state);
+  newPlayers[defPlayerIndex] = {
+    ...defPlayer,
+    killPile: newKillPile,
+    characters: {
+      ...defPlayer.characters,
+      [action.characterId as string]: { ...char, trophies: newTrophies },
+    },
+  };
+
+  // Clear combat and return
+  return { state: { ...state, players: newPlayers, combat: null } };
+}
+
+/**
+ * Handle a `pass` action during the `trophy-offer` combat phase.
+ * The defending player declines to take any trophy; combat ends normally.
+ */
+function finalizeCombatFromTrophyOffer(state: GameState, _combat: CombatState): ReducerResult {
+  logDetail('Trophy offer declined — combat finalized without trophy');
+  return { state: { ...state, combat: null } };
+}
+
 function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerResult {
   const combat = state.combat;
   if (!combat) return { state, error: 'No combat to finalize' };
@@ -3039,6 +3148,43 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
     // Queue exhausted — remove the constraint.
     stateAfterCombat = removeConstraint(stateAfterCombat, tidingsConstraint.id);
+  }
+
+  // MELE §8.37: Trophy offer — after a non-detainment non-played-auto-attack
+  // creature defeat, eligible Orc/Troll characters may take the creature as
+  // a trophy. We transition to the `trophy-offer` phase rather than finalizing
+  // immediately so the defending player can choose.
+  if (allDefeated && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
+    const defIdx3 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const defPlayer3 = stateAfterCombat.players[defIdx3];
+    // Find Orc/Troll (not half-orc) characters that faced at least one strike
+    const facedStrikeCharIds = new Set<string>(
+      combat.strikeAssignments.map(a => a.characterId as string),
+    );
+    const trophyEligible: import('../types/common.js').CardInstanceId[] = [];
+    for (const charId of facedStrikeCharIds) {
+      const char = defPlayer3.characters[charId];
+      if (!char) continue;
+      const def = defById(stateAfterCombat, char.definitionId);
+      if (!def || !isCharacterCard(def)) continue;
+      if (def.race === Race.Orc || def.race === Race.Troll) {
+        trophyEligible.push(charId as import('../types/common.js').CardInstanceId);
+      }
+    }
+    if (trophyEligible.length > 0) {
+      logDetail(`Trophy offer: ${trophyEligible.length} eligible Orc/Troll character(s) may take creature ${creatureInstanceId as string} as a trophy (MELE §8.37)`);
+      // The creature card has been moved to the kill pile — we move it back to
+      // a trophy-hold so the offer phase can assign it to a character.
+      // For simplicity: keep it in the kill pile (the player still earns kill-MP)
+      // and only use the instance ID for reference; the reducer will remove it
+      // from the kill pile if the trophy is taken.
+      const trophyOfferCombat: CombatState = {
+        ...combat,
+        phase: 'trophy-offer',
+        trophyEligibleCharacters: trophyEligible,
+      };
+      return { state: { ...stateAfterCombat, combat: trophyOfferCombat }, effects };
+    }
   }
 
   return {

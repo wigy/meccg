@@ -114,6 +114,7 @@ restriction is checked when the opponent tries to reveal their avatar.
 >
 > Character attributes are modified by total printed MPs on all trophy cards
 > held by that character:
+>
 > - 1 MP total → +1 Direct Influence
 > - 2 MP total → +1 DI, +1 Prowess (max 9)
 > - 3 MP total → +2 DI, +1 Prowess (max 9)

@@ -186,6 +186,18 @@ export interface CharacterInPlay {
   readonly controlledBy: 'general' | CardInstanceId;
   /** Computed stats including item modifiers. Recomputed after every action. */
   readonly effectiveStats: EffectiveStats;
+  /**
+   * Creature cards taken as trophies by this Orc or Troll character (MELE §8.37).
+   * A trophy is treated as a minor item worth 0 CP. Total printed MPs on all
+   * trophy cards determine stat bonuses:
+   * - 1 MP total → +1 Direct Influence
+   * - 2 MP total → +1 DI, +1 Prowess (max 9)
+   * - 3 MP total → +2 DI, +1 Prowess (max 9)
+   * - 4+ MP total → +2 DI, +2 Prowess (max 9)
+   *
+   * Half-orcs may not take trophies.
+   */
+  readonly trophies?: readonly CardInstance[];
 }
 
 // ---- Company ----

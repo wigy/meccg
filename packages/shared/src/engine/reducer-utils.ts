@@ -955,7 +955,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * "covert").
  */
 export function isCovertCompany(
-  company: { readonly characters: readonly CardInstanceId[] },
+  company: { readonly characters: readonly CardInstanceId[]; readonly id?: import('../index.js').CompanyId },
   player: PlayerState,
   state: GameState,
 ): boolean {
@@ -979,6 +979,20 @@ export function isCovertCompany(
       if (!allyDef || !isAllyCard(allyDef)) continue;
       if (getCardEffects(allyDef).some(e => e.type === 'company-overt')) {
         return false; // overt
+      }
+    }
+  }
+
+  // Fell Rider mode card: permanent event bound to this company with a
+  // `company-overt` effect makes the Ringwraith company overt (MELE §1.2).
+  // We can only check this when the company ID is available.
+  if (company.id !== undefined) {
+    for (const card of player.cardsInPlay) {
+      if (card.companyId !== company.id) continue;
+      const cardDef = defById(state, card.definitionId);
+      if (!cardDef) continue;
+      if (getCardEffects(cardDef).some(e => e.type === 'company-overt')) {
+        return false; // overt (e.g. Fell Rider)
       }
     }
   }

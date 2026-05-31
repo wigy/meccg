@@ -99,6 +99,8 @@ export const CRAM = did('td-105');
 export const SCROLL_OF_ISILDUR = did('tw-323');
 /** Palantír of Orthanc — special item, palantír, playable only at Isengard. */
 export const PALANTIR_OF_ORTHANC = did('tw-300');
+/** The One Ring — the master ring, playable by Ringwraith or (via Cracks of Doom) Wizard players. */
+export const THE_ONE_RING = did('tw-347');
 /** Sapling of the White Tree — major item, storable at Minas Tirith for 2 MP. */
 export const SAPLING_OF_THE_WHITE_TREE = did('tw-322');
 
@@ -260,6 +262,10 @@ export const MORIA = did('tw-413');
 export const MINAS_TIRITH = did('tw-412');
 /** Mount Doom — the only site where The One Ring can be destroyed. */
 export const MOUNT_DOOM = did('tw-414');
+/** Barad-dûr — hero dark-hold (TW set). Also the Ringwraith win-condition site. */
+export const BARAD_DUR_HERO = did('tw-374');
+/** Barad-dûr — minion dark-hold (LE set). Ringwraith win-condition site. */
+export const BARAD_DUR_MINION = did('le-352');
 /** Ettenmoors — hero ruins-and-lairs in Rhudaur, nearest haven Rivendell. */
 export const ETTENMOORS_HERO = did('tw-395');
 /** The White Towers — hero ruins-and-lairs in Arthedain, nearest haven Rivendell. */

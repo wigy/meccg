@@ -15,7 +15,7 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, SiteType, Alignment, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
+import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
@@ -274,6 +274,32 @@ export function playCharacterActions(
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
         reason: `${charName}: cannot reveal another avatar after one was eliminated`,
+      });
+      continue;
+    }
+
+    // MELE §8.R1: Ringwraith return-to-hand reveal restrictions.
+    // (a) A player whose Ringwraith returned to hand may not reveal a *different* Ringwraith.
+    if (isAvatar && cardDef.race === Race.Ringwraith && player.ringwraithReturnedToHand) {
+      if (cardDef.id !== player.ringwraithReturnedToHand) {
+        logDetail(`  → blocked: ${charName} is a different Ringwraith; ${player.ringwraithReturnedToHand as string} must be re-played first (MELE §8.R1)`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: a Ringwraith has been returned to hand — you must re-play that Ringwraith before revealing a different one`,
+        });
+        continue;
+      }
+    }
+
+    // (b) The opponent may not reveal the Ringwraith that was returned to that player's hand.
+    const opponentPlayer = state.players.find(p => p.id !== playerId);
+    if (isAvatar && cardDef.race === Race.Ringwraith && opponentPlayer?.ringwraithReturnedToHand === cardDef.id) {
+      logDetail(`  → blocked: ${charName} (def ${cardDef.id}) was returned to opponent's hand; opponent must re-play it first (MELE §8.R1)`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: the opponent's Ringwraith of this type was returned to their hand and may not be revealed by you`,
       });
       continue;
     }

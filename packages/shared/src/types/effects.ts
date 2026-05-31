@@ -2276,7 +2276,8 @@ export type CardEffect =
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
-  | CompanyOvertEffect;
+  | CompanyOvertEffect
+  | RingwraithModeEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2524,4 +2525,15 @@ export interface GrantSkillEffect extends EffectBase {
  */
 export interface CompanyOvertEffect extends EffectBase {
   readonly type: 'company-overt';
+}
+
+/**
+ * Marks this permanent event as a Ringwraith mode card (Black Rider, Fell Rider,
+ * Heralded Lord). When in play bound to a company, the Ringwraith company is
+ * permitted to move to non-Darkhaven sites. Without a mode card in play the
+ * Ringwraith company is restricted to Darkhaven-to-Darkhaven movement only.
+ * This effect carries no additional data — its presence is the entire payload.
+ */
+export interface RingwraithModeEffect extends EffectBase {
+  readonly type: 'ringwraith-mode';
 }
