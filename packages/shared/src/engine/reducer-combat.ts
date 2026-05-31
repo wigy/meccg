@@ -1721,6 +1721,23 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     resultState = pushChainEntry(resultState, action.player, handCard, payload);
   }
 
+  // Attack-scoped duplication limit: record this play as a constraint so the
+  // legal-action scanner can block a second copy on the same attack (e.g.
+  // if this cancel-attack is negated and the defender tries again).
+  const cancelDupLimit = getCardEffects(cardDef).find(
+    e => e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
+  );
+  if (cancelDupLimit) {
+    resultState = addConstraint(resultState, {
+      source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      scope: { kind: 'attack' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'attack-card-played' },
+    });
+    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added attack-card-played marker (cancel-attack duplication-limit scope attack)`);
+  }
+
   return { state: resultState };
 }
 
@@ -1824,6 +1841,11 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
       });
     }
   }
+
+  // Sweep attack-scoped constraints (e.g. duplication-limit markers from
+  // cancel-attack or modify-attack cards played on this attack) now that the
+  // attack has ended via cancellation.
+  stateWithCancelledPlayers = sweepExpired(stateWithCancelledPlayers, { kind: 'attack-end' });
 
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
   return stateWithCancelledPlayers;

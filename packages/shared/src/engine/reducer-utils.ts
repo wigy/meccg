@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -937,4 +937,51 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     }
   }
   return { state: newState };
+}
+
+/**
+ * Returns true if the given company is covert, false if overt.
+ *
+ * A company is overt if it contains:
+ * - Any character with Race.Orc or Race.Troll (rule glossary: "overt").
+ * - The Balrog avatar (an avatar character of a Balrog-alignment player).
+ * - Any ally carrying a `company-overt` effect (e.g. Regiment of Black Crows,
+ *   Great Bats, Great Lord of Goblin-gate, Last Child of Ungoliant).
+ *
+ * Ringwraith in Fell Rider mode also makes a company overt, but Fell Rider mode
+ * is not yet tracked — when it is implemented, add the check here.
+ *
+ * A company is covert when none of the overt conditions are met (rule glossary:
+ * "covert").
+ */
+export function isCovertCompany(
+  company: { readonly characters: readonly CardInstanceId[] },
+  player: PlayerState,
+  state: GameState,
+): boolean {
+  const overtRaces = new Set<Race>([Race.Orc, Race.Troll]);
+
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+
+    const charDef = defById(state, charData.definitionId);
+    if (charDef && isCharacterCard(charDef)) {
+      // Orc/Troll race makes company overt
+      if (overtRaces.has(charDef.race)) return false;
+      // Balrog avatar (avatar character in a Balrog-alignment game) makes company overt
+      if (isAvatarCharacter(charDef) && player.alignment === 'balrog') return false;
+    }
+
+    // Check allies for company-overt effect
+    for (const ally of charData.allies) {
+      const allyDef = defById(state, ally.definitionId);
+      if (!allyDef || !isAllyCard(allyDef)) continue;
+      if (getCardEffects(allyDef).some(e => e.type === 'company-overt')) {
+        return false; // overt
+      }
+    }
+  }
+
+  return true; // covert
 }

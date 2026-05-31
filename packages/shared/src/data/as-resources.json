@@ -10,11 +10,19 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "company.containsDiplomat": true } },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.containsDiplomat": true
+        }
+      },
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": {
+          "player.hasFactionInHand": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -26,7 +34,9 @@
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "pending.corruptionCheckTargetsMe": true },
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -35,7 +45,11 @@
           "valueExpr": "company.characterCount - 1"
         }
       },
-      { "type": "duplication-limit", "scope": "active-check", "max": 1 }
+      {
+        "type": "duplication-limit",
+        "scope": "active-check",
+        "max": 1
+      }
     ],
     "text": "Diplomat only. One influence check or corruption check by a character in a diplomat’s company receives a bonus equal to the number of characters in the company minus one. Cannot be duplicated on a given check.",
     "certified": "2026-05-31"
@@ -88,7 +102,11 @@
         "site": "a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      }
+    ],
     "text": "Playable at a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]. Its controlling character's company is overt. May not be attacked. Discard this ally if its controlling character is wounded. Tap this ally to cancel a hazard creature attack against his company not keyed to a site and to put the creature’s card back into its player’s hand. Cannot be duplicated in a given company."
   },
   {
@@ -155,8 +173,17 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-condition", "requires": "site-type", "siteTypes": ["border-hold", "free-hold"] },
-      { "type": "roll-remove-hazard-events" }
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": [
+          "border-hold",
+          "free-hold"
+        ]
+      },
+      {
+        "type": "roll-remove-hazard-events"
+      }
     ],
     "certified": "2026-05-19"
   },
@@ -172,9 +199,22 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-flag", "flag": "allow-store-eot" },
-      { "type": "duplication-limit", "scope": "game", "max": 1 },
-      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } }
+      {
+        "type": "play-flag",
+        "flag": "allow-store-eot"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "discard-self"
+        }
+      }
     ],
     "certified": "2026-04-24"
   },
@@ -191,11 +231,27 @@
     "influenceNumber": 9,
     "race": "man",
     "playableAt": [
-      { "site": "Easterling Camp" }
+      {
+        "site": "Easterling Camp"
+      }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": -5, "when": { "bearer.race": "wizard" } },
-      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -5,
+        "when": {
+          "bearer.race": "wizard"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "certified": "2026-05-18"
   },
@@ -240,7 +296,12 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-ally",
@@ -255,7 +316,12 @@
     "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-event",

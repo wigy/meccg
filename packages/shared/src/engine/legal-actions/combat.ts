@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, isCovertCompany } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -1424,6 +1424,7 @@ function cancelAttackActions(
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
+    ctx['defender'] = { covert: isCovertCompany(company, player, state) };
     return ctx;
   };
 
@@ -1541,6 +1542,19 @@ function cancelAttackActions(
     if (tapCost === 'self' || tapCost === 'self-and-bearer' || tapCost === 'bearer') {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: tap cost "${tapCost}" requires card in play, skipping hand card`);
       continue;
+    }
+
+    // Attack-scoped duplication check: if the card has duplication-limit scope
+    // "attack", count already-played copies via activeConstraints markers.
+    const cancelAttackDupLimit = getCardEffects(cardDef).find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
+    );
+    if (cancelAttackDupLimit) {
+      const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
+      if (prior >= cancelAttackDupLimit.max) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${cancelAttackDupLimit.max})`);
+        continue;
+      }
     }
 
     // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
@@ -1888,7 +1902,10 @@ function modifyAttackActions(
       if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
       if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx };
+      const defendingPlayer = playerById(state, combat.defendingPlayerId);
+      const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
+      const defenderCovert = defendingPlayer && defendingCompany ? isCovertCompany(defendingCompany, defendingPlayer, state) : false;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert } };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;
