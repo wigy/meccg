@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, isCovertCompany } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -632,6 +632,7 @@ function playResourcesActions(
     if (!def) continue;
 
     // Permanent resource events — playable like in organization phase
+    // Handles both hero (wizard) and minion (ringwraith) permanent events.
     if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
       const eventDef: HeroResourceEventCard | MinionResourceEventCard = def;
       if (eventDef.eventType === 'permanent') {
@@ -835,6 +836,7 @@ function playResourcesActions(
                 status: ch.status,
                 name: charDef.name,
               },
+              company: { covert: isCovertCompany(company, player, state) },
             };
             if (!charPlayTarget.filter || matchesCondition(charPlayTarget.filter, ctx)) {
               eligibleCharIds.push(charId);

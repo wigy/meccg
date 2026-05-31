@@ -1171,8 +1171,56 @@
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 2,
-    "marshallingCategory": "misc"
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            {
+              "siteType": {
+                "$in": [
+                  "border-hold",
+                  "free-hold"
+                ]
+              }
+            },
+            {
+              "playableResources": {
+                "$includes": "information"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.status": "untapped"
+            },
+            {
+              "company.covert": true
+            }
+          ]
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ],
+        "marshallingPoints": 2
+      }
+    ],
+    "certified": "2026-05-31"
   },
   {
     "cardType": "minion-resource-event",
