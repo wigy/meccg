@@ -460,6 +460,8 @@ export function describeAction(
       return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':
       return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
+    case 'protect-from-assignment':
+      return `Play Ruse — ${instName(action.targetCharacterId)} protected from strike assignment`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

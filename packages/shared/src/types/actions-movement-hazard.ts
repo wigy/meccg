@@ -389,6 +389,22 @@ export interface CancelStrikeAction {
 }
 
 /**
+ * Play a `protect-from-strike-assignment` short event (e.g. Ruse mode B)
+ * from hand during the assign-strikes phase. The targeted character cannot
+ * be assigned any strike from the current attack.
+ */
+export interface ProtectFromStrikeAssignmentAction {
+  /** Action discriminant. */
+  readonly type: 'protect-from-assignment';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The short event card (e.g. Ruse) being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character to protect — must have the required skill. */
+  readonly targetCharacterId: CardInstanceId;
+}
+
+/**
  * Play a strike-modifier short event (Dodge, Risky Blow, Lucky Strike, etc.)
  * from hand during resolve-strike. The engine consults the card's
  * `strike-modifier` effect to determine the resolution mode (dodge, reroll,

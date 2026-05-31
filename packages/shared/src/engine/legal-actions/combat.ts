@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
@@ -137,12 +137,14 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   logHeading(`Combat actions (phase: ${combat.phase}, assignment: ${combat.assignmentPhase})`);
 
-  // Cancel-attack, halve-strikes, and modify-attack actions are available to
-  // the defending player before any strikes have been assigned (pre-assignment
-  // window). Hand-card modify-attack effects support either side per the
-  // card's `player` declaration (e.g. hazard-side Dragon's Desolation Mode A).
+  // Cancel-attack, halve-strikes, protect-from-assignment, and modify-attack
+  // actions are available to the defending player before any strikes have been
+  // assigned (pre-assignment window). Hand-card modify-attack effects support
+  // either side per the card's `player` declaration (e.g. hazard-side Dragon's
+  // Desolation Mode A).
   const cancelActions = cancelAttackActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
+  const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
 
@@ -154,19 +156,20 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // Cancel-window: defender's pre-assignment window to cancel the attack
       // before the attacker assigns strikes (attacker-chooses-defenders).
       // Only the defending player may act: cancel-attack, halve-strikes,
-      // modify-attack, haven-join (e.g. Alatar), or pass.
+      // protect-from-assignment, modify-attack, haven-join (e.g. Alatar), or pass.
       if (combat.assignmentPhase === 'cancel-window') {
         if (playerId !== combat.defendingPlayerId) return [];
         return [
           ...cancelActions,
           ...halveActions,
+          ...protectActions,
           ...modifyActions,
           ...companyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...modifyActions, ...companyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
@@ -307,6 +310,12 @@ function assignStrikeActions(
       }
     }
 
+    // protect-from-assignment (Ruse mode B): characters shielded by this
+    // effect cannot be assigned any strike for the duration of this attack.
+    const protectedChars = new Set<string>(
+      (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
+    );
+
     // Offer untapped characters that don't already have a strike
     for (const charId of company.characters) {
       if (assignedCharIds.has(charId as string)) continue;
@@ -315,6 +324,10 @@ function assignStrikeActions(
       if (!charData) continue;
       if (strikeShieldBlockedChars.has(charId as string)) {
         logDetail(`Character ${charId as string} shielded — must assign strike to ally first`);
+        continue;
+      }
+      if (protectedChars.has(charId as string)) {
+        logDetail(`Character ${charId as string} protected from strike assignment (Ruse) — skipping`);
         continue;
       }
       if (charData.status !== CardStatus.Untapped) {
@@ -398,9 +411,18 @@ function assignStrikeActions(
 
     if (strikesRemaining <= 0) return [];
 
+    // protect-from-assignment (Ruse mode B): collect IDs shielded from assignment.
+    const attackerProtectedChars = new Set<string>(
+      (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
+    );
+
     // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
     const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
     for (const charId of company.characters) {
+      if (attackerProtectedChars.has(charId as string)) {
+        logDetail(`Character ${charId as string} protected from strike assignment — excluded from attacker pool`);
+        continue;
+      }
       if (combat.excludeAvatarStrikes) {
         const charData = defPlayer.characters[charId as string];
         const def = charData?.definitionId ? defById(state, charData.definitionId) : undefined;
@@ -1425,6 +1447,63 @@ function cancelAttackActions(
       actions.push({
         action: {
           type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate protect-from-assignment actions for the defending player during
+ * the assign-strikes phase. For each card in hand with a
+ * `protect-from-strike-assignment` effect, one action is generated per
+ * qualifying character in the defending company (those with the required
+ * skill). Playing the card protects the chosen character from receiving any
+ * strike in the current attack.
+ *
+ * Used by Ruse (le-225) mode B: play on a scout; no strikes may be assigned.
+ */
+function protectFromStrikeAssignmentActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const company = companyById(player.companies, combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const protEff = getCardEffects(cardDef).find(
+      (e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment',
+    );
+    if (!protEff) continue;
+
+    for (const charId of company.characters) {
+      const charData = player.characters[charId as string];
+      if (!charData) continue;
+      const charDef = defById(state, charData.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (!charDef.skills.includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
+        logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} lacks skill "${protEff.requiredSkill}" — skipping`);
+        continue;
+      }
+      logDetail(`protect-from-assignment available: ${handCard.definitionId as string} can protect ${charDef.name ?? charId as string} (skill: ${protEff.requiredSkill})`);
+      actions.push({
+        action: {
+          type: 'protect-from-assignment',
           player: playerId,
           cardInstanceId: handCard.instanceId,
           targetCharacterId: charId,

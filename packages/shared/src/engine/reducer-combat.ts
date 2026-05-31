@@ -58,6 +58,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handlePlayStrikeEvent(state, action, combat);
     case 'cancel-strike':
       return handleCancelStrike(state, action, combat);
+    case 'protect-from-assignment':
+      return handleProtectFromStrikeAssignment(state, action, combat);
     case 'halve-strikes':
       return handleHalveStrikes(state, action, combat);
     case 'tap-item-for-strike':
@@ -1618,6 +1620,49 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
     state: {
       ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: { ...combat, strikesTotal: newStrikes },
+    },
+  };
+}
+
+/**
+ * Play a `protect-from-strike-assignment` short event from hand during the
+ * assign-strikes phase. The targeted character is added to
+ * `CombatState.protectedFromStrikeAssignment`, preventing any strike in the
+ * current attack from being assigned to them. The card is discarded.
+ *
+ * Used by Ruse (le-225) mode B: play on a scout; no strikes may be assigned
+ * to that scout for the rest of the current attack.
+ */
+function handleProtectFromStrikeAssignment(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'protect-from-assignment') return wrongActionType(state, action, 'protect-from-assignment');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only protect from strike assignment before strikes are assigned' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can protect a character from strike assignment' };
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const playedCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!playedCard) return { state, error: 'Card not in hand' };
+
+  const targetChar = defPlayer.characters[action.targetCharacterId as string];
+  if (!targetChar) return { state, error: 'Target character not in defending company' };
+
+  const cardName_ = cardName(state, playedCard.definitionId);
+  const targetName_ = cardName(state, targetChar.definitionId, action.targetCharacterId as string);
+  logDetail(`${cardName_} played — ${targetName_} is now protected from strike assignment this attack`);
+
+  const newHand = removeById(defPlayer.hand, playedCard.instanceId);
+  const newDiscard = [...defPlayer.discardPile, toCardInstance(playedCard)];
+
+  const alreadyProtected = combat.protectedFromStrikeAssignment ?? [];
+  const newProtected = alreadyProtected.includes(action.targetCharacterId)
+    ? alreadyProtected
+    : [...alreadyProtected, action.targetCharacterId];
+
+  return {
+    state: {
+      ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
+      combat: { ...combat, protectedFromStrikeAssignment: newProtected },
     },
   };
 }

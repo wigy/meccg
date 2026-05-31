@@ -1605,6 +1605,25 @@ export interface HalveStrikesEffect extends EffectBase {
 }
 
 /**
+ * Played from hand as a short event during the assign-strikes phase, targeting
+ * a character in the defending company with the required skill. No strike from
+ * the current attack may be assigned to that character for the rest of the
+ * attack's assign-strikes phase.
+ *
+ * Unlike `cancel-attack` (which cancels the entire attack), this only prevents
+ * assignment to the targeted character — other characters may still be assigned
+ * strikes normally.
+ *
+ * Used by Ruse (le-225) mode B: play on a scout facing an attack; no strikes
+ * of the attack may be assigned to the scout.
+ */
+export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
+  readonly type: 'protect-from-strike-assignment';
+  /** The skill required on the character to be protected (e.g. "scout"). */
+  readonly requiredSkill: string;
+}
+
+/**
  * Played from hand during strike resolution as a short event.
  * Covers three distinct mechanical modes, selected by `dodge` / `reroll` flags:
  *
@@ -2187,6 +2206,7 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | HalveStrikesEffect
+  | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
