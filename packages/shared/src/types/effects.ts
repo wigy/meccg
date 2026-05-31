@@ -596,17 +596,27 @@ export interface TriggeredAction {
    * For `enqueue-pending-fetch` type: which pile to fetch from.
    * Matches the `source` field on `FetchToDeckEffect`.
    */
-  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand')[];
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'play-deck')[];
   /** For `enqueue-pending-fetch` type: how many cards to fetch. Defaults to 1. */
   readonly fetchCount?: number;
   /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
   readonly fetchShuffle?: boolean;
+  /**
+   * For `enqueue-pending-fetch` type: where to place the fetched card.
+   * Defaults to `'play-deck'` for backward compatibility.
+   */
+  readonly fetchTo?: 'play-deck' | 'hand';
   /**
    * For `enqueue-pending-fetch` type: when true, enqueue a corruption
    * check on the bearer after the fetch completes. Used by Palantír
    * grant-actions.
    */
   readonly postCorruptionCheck?: boolean;
+  /**
+   * For `enqueue-pending-fetch` type: modifier applied to the post-fetch
+   * corruption check roll. Defaults to 0. Used by Dwarven Ring grant-actions.
+   */
+  readonly postCorruptionCheckModifier?: number;
   /**
    * For `discard-named-card-from-company` type: the name of the card to
    * search for among the bearer's company's attached items/allies and
@@ -1494,14 +1504,20 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
  */
 export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';
-  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile"]). */
+  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile", "play-deck"]). */
   readonly source: readonly string[];
   /** DSL condition evaluated against each card definition to decide eligibility. */
   readonly filter: Condition;
   /** How many cards to fetch. */
   readonly count: number;
-  /** Whether to shuffle the play deck after inserting the card. */
+  /** Whether to shuffle the play deck after fetching. */
   readonly shuffle: boolean;
+  /**
+   * Where the fetched card is placed. Defaults to `'play-deck'` for backward
+   * compatibility. Use `'hand'` when the card goes directly to hand (e.g.
+   * Dwarven Ring fetch abilities).
+   */
+  readonly to?: 'play-deck' | 'hand';
 }
 
 /**

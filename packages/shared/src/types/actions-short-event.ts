@@ -119,5 +119,5 @@ export interface FetchFromPileAction {
   /** The card instance to fetch. */
   readonly cardInstanceId: CardInstanceId;
   /** Which pile the card is being fetched from. */
-  readonly source: 'sideboard' | 'discard-pile';
+  readonly source: 'sideboard' | 'discard-pile' | 'play-deck';
 }
