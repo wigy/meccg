@@ -11,7 +11,7 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { getPlayerIndex } from '../../index.js';
 import { setupActions } from './setup.js';

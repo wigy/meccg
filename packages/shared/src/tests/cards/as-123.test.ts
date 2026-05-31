@@ -28,7 +28,6 @@
  *
  * Character fixtures:
  *   - DROR  (dm-6):  dwarf, warrior+diplomat — Dwarf bearer for ability tests
- *   - FORI  (dm-11): dwarf, warrior+scout    — second Dwarf for multi-bearer tests
  *   - GORBAG(le-11): orc, warrior+scout      — non-Dwarf bearer (ability must not fire)
  *
  * Site fixtures:
@@ -48,9 +47,8 @@ import {
   buildTestState, resetMint,
   attachItemToChar,
   viableActions, dispatch,
-  findCharInstanceId, getCharacter,
-  RESOURCE_PLAYER, HAZARD_PLAYER,
-  addCardToHand,
+  findCharInstanceId,
+  RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import type { ActivateGrantedAction } from '../../types/actions-organization.js';
@@ -61,7 +59,6 @@ const DWARVEN_RING = 'as-123' as CardDefinitionId;
 
 // ── Minion Dwarf characters ──────────────────────────────────────────────────
 const DROR = 'dm-6' as CardDefinitionId;   // dwarf, warrior+diplomat
-const FORI = 'dm-11' as CardDefinitionId;  // dwarf, warrior+scout
 
 // ── Non-Dwarf minion character ───────────────────────────────────────────────
 const GORBAG = 'le-11' as CardDefinitionId; // orc, warrior+scout
