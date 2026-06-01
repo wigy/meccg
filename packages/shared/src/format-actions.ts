@@ -154,6 +154,16 @@ export function extractActionCardDefs(
     visit(rest);
     return defs;
   }
+  // exchange-sideboard swaps one card between discard pile and sideboard —
+  // both are private locations (opponent sees neither). Even if either card
+  // was previously revealed (e.g. played as a hazard), broadcasting its
+  // identity would tell the opponent exactly which cards the player exchanged,
+  // which is hidden information. Exclude both instance IDs.
+  if (action.type === 'exchange-sideboard') {
+    const { discardCardInstanceId: _d, sideboardCardInstanceId: _s, ...rest } = action;
+    visit(rest);
+    return defs;
+  }
   visit(action);
   return defs;
 }
