@@ -1211,6 +1211,30 @@ function playResourcesActions(
         }
       }
 
+      // Company-scope duplication limit: count copies of this ally already in the company.
+      const allyCompanyDupLimit = allyDef.effects?.find(
+        (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+      );
+      if (allyCompanyDupLimit) {
+        const copiesInCompany = company.characters.reduce((count, charInstId) => {
+          const ch = player.characters[charInstId as string];
+          if (!ch) return count;
+          return count + ch.allies.filter(a => {
+            const aDef = defById(state, a.definitionId);
+            return aDef && aDef.name === allyDef.name;
+          }).length;
+        }, 0);
+        if (copiesInCompany >= allyCompanyDupLimit.max) {
+          logDetail(`Ally ${allyDef.name}: company duplication limit reached (${copiesInCompany}/${allyCompanyDupLimit.max})`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${allyDef.name}: cannot be duplicated in a given company`,
+          });
+          continue;
+        }
+      }
+
       if (untappedCharacters.length === 0) {
         logDetail(`Ally ${allyDef.name}: no untapped character to control it`);
         actions.push({

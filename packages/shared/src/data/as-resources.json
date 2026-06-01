@@ -102,17 +102,35 @@
     "body": null,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": [
-      {
-        "site": "a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]"
-      }
-    ],
+    "playableAt": [],
     "effects": [
       {
-        "type": "company-overt"
-      }
+        "type": "play-target",
+        "target": "site",
+        "requireTapped": false,
+        "filter": {
+          "$and": [
+            { "siteType": "ruins-and-lairs" },
+            { "$not": { "keywords": { "$includes": "under-deeps" } } }
+          ]
+        }
+      },
+      { "type": "play-flag", "flag": "no-attack" },
+      { "type": "company-overt" },
+      {
+        "type": "on-event",
+        "event": "bearer-wounded",
+        "apply": { "type": "discard-self" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "attack.source": "creature" }
+      },
+      { "type": "duplication-limit", "scope": "company", "max": 1 }
     ],
-    "text": "Playable at a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]. Its controlling character's company is overt. May not be attacked. Discard this ally if its controlling character is wounded. Tap this ally to cancel a hazard creature attack against his company not keyed to a site and to put the creature’s card back into its player’s hand. Cannot be duplicated in a given company."
+    "text": "Playable at a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]. Its controlling character’s company is overt. May not be attacked. Discard this ally if its controlling character is wounded. Tap this ally to cancel a hazard creature attack against his company not keyed to a site and to put the creature’s card back into its player’s hand. Cannot be duplicated in a given company.",
+    "certified": "2026-06-01"
   },
   {
     "cardType": "minion-resource-event",

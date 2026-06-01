@@ -2832,6 +2832,46 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // Check for on-event: bearer-wounded effects on allies attached to wounded characters.
+  // When any characters are wounded (not eliminated), scan each wounded character's
+  // allies for this event. If an ally has bearer-wounded → discard-self, discard it.
+  // Used by Regiment of Black Crows (as-76) and Great Bats (as-74).
+  if (woundedCharIds.length > 0) {
+    const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    let defPlayer = stateAfterCombat.players[defPlayerIdx];
+    let anyDiscarded = false;
+    for (const charId of woundedCharIds) {
+      const charData = defPlayer.characters[charId as string];
+      if (!charData) continue;
+      const alliesToDiscard: (typeof charData.allies)[number][] = [];
+      for (const ally of charData.allies) {
+        const allyDef = defById(stateAfterCombat, ally.definitionId);
+        const bearerWoundedEvents = getOnEventEffects(allyDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-wounded');
+        if (bearerWoundedEvents.some(e => e.apply?.type === 'discard-self')) {
+          const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+          logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
+          alliesToDiscard.push(ally);
+          anyDiscarded = true;
+        }
+      }
+      if (alliesToDiscard.length > 0) {
+        const remainingAllies = charData.allies.filter(a => !alliesToDiscard.some(d => d.instanceId === a.instanceId));
+        const newDiscard = [...defPlayer.discardPile, ...alliesToDiscard.map(a => toCardInstance(a))];
+        defPlayer = {
+          ...defPlayer,
+          characters: {
+            ...defPlayer.characters,
+            [charId as string]: { ...charData, allies: remainingAllies },
+          },
+          discardPile: newDiscard,
+        };
+      }
+    }
+    if (anyDiscarded) {
+      stateAfterCombat = updatePlayer(stateAfterCombat, defPlayerIdx, () => defPlayer);
+    }
+  }
+
   // Check for on-event: attack-not-defeated effects on the attack source.
   // If the attack was NOT fully defeated and the creature card carries this
   // event, apply its constraint to the defending company.
