@@ -77,6 +77,53 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;      // haven (minion), NO info
 const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;
 const MINOR_RING = 'le-324' as CardDefinitionId;
 
+/** Build a minion site-phase state at enter-or-skip step. */
+function buildMinionEnterOrSkip(opts: {
+  site: CardDefinitionId;
+  characters: CardDefinitionId[];
+  hand?: CardDefinitionId[];
+}): ReturnType<typeof buildTestState> {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: opts.site, characters: opts.characters }],
+        hand: opts.hand ?? [],
+        siteDeck: [ETTENMOORS],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: DOL_GULDUR, characters: [SHAGRAT] }],
+        hand: [],
+        siteDeck: [DIMRILL_DALE],
+      },
+    ],
+    phase: Phase.Site,
+  });
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'enter-or-skip',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: false,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+
+  return { ...state, phaseState: sitePhaseState };
+}
+
 /** Build a minion site-phase state with the given setup. */
 function buildMinionSitePhase(opts: {
   site: CardDefinitionId;
@@ -440,5 +487,46 @@ describe('Secrets of Their Forging (le-226)', () => {
     const hadorId = charIdAt(base, RESOURCE_PLAYER);
     expect(hadorId).toBeTruthy();
     expect(base.players[RESOURCE_PLAYER].characters[hadorId as string]).toBeDefined();
+  });
+
+  // ── Regression: enter-or-skip play-condition checks ───────────────────────
+
+  test('not offered at enter-or-skip when site has no information (haven without playable resources)', () => {
+    // Regression: during enter-or-skip, play-condition checks (site-has-resource,
+    // company-has-item) were skipped, causing the card to appear playable when it
+    // shouldn't be. Carn Dum is a haven with no playable resources.
+    const CARN_DUM = 'le-359' as CardDefinitionId;
+    const base = buildMinionEnterOrSkip({
+      site: CARN_DUM,
+      characters: [HADOR],
+    });
+    const withRing = attachItemToChar(base, RESOURCE_PLAYER, HADOR, LEAST_OF_GOLD_RINGS);
+    const withCard = addCardToHand(withRing, RESOURCE_PLAYER, SECRETS_OF_THEIR_FORGING);
+
+    const plays = viableActions(withCard, PLAYER_1, 'play-short-event');
+    expect(plays.length).toBe(0);
+  });
+
+  test('not offered at enter-or-skip when company has no gold ring', () => {
+    const base = buildMinionEnterOrSkip({
+      site: DIMRILL_DALE,
+      characters: [HADOR],
+    });
+    const withCard = addCardToHand(base, RESOURCE_PLAYER, SECRETS_OF_THEIR_FORGING);
+
+    const plays = viableActions(withCard, PLAYER_1, 'play-short-event');
+    expect(plays.length).toBe(0);
+  });
+
+  test('offered at enter-or-skip when site has information and company has gold ring', () => {
+    const base = buildMinionEnterOrSkip({
+      site: DIMRILL_DALE,
+      characters: [HADOR],
+    });
+    const withRing = attachItemToChar(base, RESOURCE_PLAYER, HADOR, LEAST_OF_GOLD_RINGS);
+    const withCard = addCardToHand(withRing, RESOURCE_PLAYER, SECRETS_OF_THEIR_FORGING);
+
+    const plays = viableActions(withCard, PLAYER_1, 'play-short-event');
+    expect(plays.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -93,8 +93,12 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     const base = viable(enterOrSkipActions(state, playerId, siteState));
     // Rule 2.1.1: resource player may play resource short-events before
     // committing to enter or skip the current company's site.
+    // Use playResourceShortEventActions (not heroResourceShortEventActions) so
+    // that play-condition checks (site-has-resource, company-has-item) are
+    // evaluated against the active company's site. The active company has
+    // already been selected by this step, so activeCompanyIndex is valid.
     if (isActive) {
-      base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+      base.push(...playResourceShortEventActions(state, playerId, new Set(), 'site'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
