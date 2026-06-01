@@ -833,28 +833,18 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
       newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
-      // For short events with a postCorruptionCheck (e.g. Vilya), enqueue
-      // the corruption check even when the player passed the remaining picks.
-      if (current.postCorruptionCheck) {
-        newState = enqueueCorruptionCheck(newState, {
-          source: current.cardInstanceId,
-          actor: effectOwner,
-          scope: { kind: 'phase', phase: newState.phaseState.phase },
-          characterId: current.postCorruptionCheck.characterId,
-          modifier: current.postCorruptionCheck.modifier,
-          reason: 'card effect',
-        });
-      }
-    } else if (current.postCorruptionCheck) {
-      // Grant-action fetches (skipDiscard=true) also need the corruption check
-      // when the player passes the remaining picks (e.g. Dwarven Ring ability).
+    }
+    // Enqueue post-fetch corruption check when all picks are resolved (including
+    // the pass/skip case). Applies whether skipDiscard is true (grant-action items
+    // like Dwarven Ring and Palantír that stay in play) or false (event cards).
+    if (current.postCorruptionCheck) {
       newState = enqueueCorruptionCheck(newState, {
         source: current.cardInstanceId,
         actor: effectOwner,
         scope: { kind: 'phase', phase: newState.phaseState.phase },
         characterId: current.postCorruptionCheck.characterId,
         modifier: current.postCorruptionCheck.modifier,
-        reason: 'Palantír',
+        reason: 'card effect',
       });
     }
   }
