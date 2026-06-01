@@ -2256,7 +2256,9 @@ function hasCvCCAttackTargets(
 ): boolean {
   const attackingCompany = attackingPlayer.companies[siteState.activeCompanyIndex];
   if (!attackingCompany?.currentSite) return false;
-  const siteName = attackingCompany.currentSite.definitionId;
+
+  const atkSiteDef = defById(state, attackingCompany.currentSite.definitionId);
+  const atkSiteName = atkSiteDef && isSiteCard(atkSiteDef) ? atkSiteDef.name : null;
 
   const hazardIdx = state.players.findIndex(p => p.id !== attackingPlayer.id);
   if (hazardIdx < 0) return false;
@@ -2264,7 +2266,14 @@ function hasCvCCAttackTargets(
 
   for (const opponentCompany of opponent.companies) {
     if (!opponentCompany.currentSite) continue;
-    if (opponentCompany.currentSite.definitionId !== siteName) continue;
+    const oppSiteDef = defById(state, opponentCompany.currentSite.definitionId);
+    const oppSiteName = oppSiteDef && isSiteCard(oppSiteDef) ? oppSiteDef.name : null;
+    // Same site: match by name when both resolve (handles hero/minion versions of the same
+    // location), fall back to definitionId equality when site definitions are unavailable.
+    const sameSite = atkSiteName && oppSiteName
+      ? atkSiteName === oppSiteName
+      : attackingCompany.currentSite.definitionId === opponentCompany.currentSite.definitionId;
+    if (!sameSite) continue;
     if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment)) continue;
     return true;
   }
