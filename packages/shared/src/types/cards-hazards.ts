@@ -41,6 +41,24 @@ export interface CreatureKeyRestriction {
    */
   readonly siteNames?: readonly string[];
   /**
+   * Site keyword tags where this creature can be played. The destination
+   * site must carry at least one of the listed keywords. Used for creatures
+   * whose playability is tied to a site category rather than a single type
+   * or name — e.g. `["under-deeps"]` for Nameless Thing, which is playable
+   * at any Under-deeps site regardless of its specific siteType.
+   * Evaluated in `findCreatureKeyingMatches`.
+   */
+  readonly siteKeywords?: readonly Keyword[];
+  /**
+   * Site adjacency keyword filter. The creature is playable at any site
+   * that is adjacent (in the Under-deeps movement sense) to a site that
+   * carries at least one of the listed keywords. Used for Doors-of-Night
+   * alternates that let a creature attack companies at surface sites
+   * bordering the Under-deeps (e.g. Nameless Thing's DoN clause).
+   * Evaluated in `findCreatureKeyingMatches`.
+   */
+  readonly adjacentToSiteKeywords?: readonly Keyword[];
+  /**
    * Optional DSL condition gating this keying entry. When present, the
    * entry is skipped unless the condition matches a context exposing:
    *
