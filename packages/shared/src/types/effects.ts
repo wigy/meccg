@@ -602,6 +602,11 @@ export interface TriggeredAction {
   /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
   readonly fetchShuffle?: boolean;
   /**
+   * For `enqueue-pending-fetch` type: where to place the fetched card.
+   * Defaults to `'deck'` (shuffled into play deck).
+   */
+  readonly fetchTo?: 'deck' | 'hand';
+  /**
    * For `enqueue-pending-fetch` type: when true, enqueue a corruption
    * check on the bearer after the fetch completes. Used by Palantír
    * grant-actions.
@@ -613,12 +618,6 @@ export interface TriggeredAction {
    * Positive = easier (roll bonus); negative = harder.
    */
   readonly postCorruptionCheckModifier?: number;
-  /**
-   * For `enqueue-pending-fetch` type: destination pile for fetched cards.
-   * Defaults to 'deck' (shuffled into play deck). Use 'hand' to place
-   * fetched cards directly into the player's hand (e.g. Dwarven Ring fetch).
-   */
-  readonly fetchTo?: 'deck' | 'hand';
   /**
    * For `discard-named-card-from-company` type: the name of the card to
    * search for among the bearer's company's attached items/allies and
@@ -1513,7 +1512,7 @@ export interface FetchToDeckEffect extends EffectBase {
   readonly filter: Condition;
   /** How many cards to fetch. */
   readonly count: number;
-  /** Whether to shuffle the play deck after inserting the card. Only applies when `to` is `'deck'`. */
+  /** Whether to shuffle the play deck after fetching. */
   readonly shuffle: boolean;
   /**
    * Destination pile for the fetched card. Defaults to 'deck'.
