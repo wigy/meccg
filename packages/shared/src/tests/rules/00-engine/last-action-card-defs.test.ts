@@ -393,7 +393,7 @@ describe('exchange-sideboard — opponent must not learn which cards were swappe
       ...base,
       // Move into the reset-hand step (where exchange-sideboard is legal).
       phaseState: {
-        phase: 'end-of-turn' as const,
+        phase: Phase.EndOfTurn,
         step: 'reset-hand' as const,
         discardDone: [true, true] as [boolean, boolean],
         resetHandDone: [true, false] as [boolean, boolean],
