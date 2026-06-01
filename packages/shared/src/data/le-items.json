@@ -262,5 +262,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. When a gold ring is tested in a company bearing the Scroll of Isildur, the random value obtained is modified by +1. May be stored at Barad-dûr for 5 marshalling points."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-334",
+    "name": "Palantír of Orthanc",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PalantirofOrthanc.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 3,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Palantír. Playable at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to move to your play deck (reshuffle the play deck). Bearer then makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
   }
 ]
