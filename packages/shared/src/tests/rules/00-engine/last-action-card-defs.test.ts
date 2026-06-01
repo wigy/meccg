@@ -24,7 +24,7 @@ import {
   PLAYER_1, PLAYER_2,
   ELROND, LEGOLAS, ARAGORN,
   MARVELS_TOLD, FOOLISH_WORDS,
-  SUN, BARROW_WIGHT, ORC_PATROL,
+  SUN, BARROW_WIGHT, ORC_PATROL, ASSASSIN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   handCardId, dispatch, makeMHState,
@@ -36,7 +36,7 @@ import {
   buildAnUnexpectedOutpostMH,
   resolveChain,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, FetchFromPileAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
@@ -364,5 +364,82 @@ describe('fetch-from-pile — opponent must not learn which card was fetched', (
     expect(audienceDesc).toContain('a card');
     const realName = pool[ORC_PATROL as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
+describe('exchange-sideboard — opponent must not learn which cards were swapped', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug 165f571aad0c5f10 (game mpv5bx8n-3j9fua, seq 366):
+   * during the deck-exhaustion sideboard exchange sub-flow, the opponent's
+   * toast showed the actual card names of both the discarded card and the
+   * sideboard card swapped in. Both the discard pile and the sideboard are
+   * private to the opponent; even if either card was previously publicly
+   * visible (and thus recorded in `state.revealedInstances`), broadcasting
+   * those identities here would reveal exactly which cards the player chose to
+   * exchange — private strategic information. `extractActionCardDefs` must
+   * exclude both `discardCardInstanceId` and `sideboardCardInstanceId`.
+   */
+  test('extractActionCardDefs omits both cards even when previously revealed', () => {
+    const base = eotState({ p2Hand: [], p2Deck: [BARROW_WIGHT] });
+
+    // Provide p2 with one card in the discard pile and one in the sideboard.
+    // We need instance IDs, so we inject them directly into the state.
+    const discardCard = { instanceId: 'test-discard-1' as CardInstanceId, definitionId: ORC_PATROL };
+    const sideboardCard = { instanceId: 'test-sideboard-1' as CardInstanceId, definitionId: ASSASSIN };
+
+    const state: typeof base = {
+      ...base,
+      // Move into the reset-hand step (where exchange-sideboard is legal).
+      phaseState: {
+        phase: 'end-of-turn' as const,
+        step: 'reset-hand' as const,
+        discardDone: [true, true] as [boolean, boolean],
+        resetHandDone: [true, false] as [boolean, boolean],
+      },
+      players: [
+        base.players[0],
+        {
+          ...base.players[1],
+          discardPile: [discardCard],
+          sideboard: [sideboardCard],
+          deckExhaustPending: true,
+          deckExhaustExchangeCount: 0,
+        },
+      ] as unknown as typeof base.players,
+      // Simulate both cards having been previously visible to the opponent.
+      revealedInstances: {
+        ...base.revealedInstances,
+        [discardCard.instanceId as string]: discardCard.definitionId,
+        [sideboardCard.instanceId as string]: sideboardCard.definitionId,
+      },
+    };
+
+    const action: ExchangeSideboardAction = {
+      type: 'exchange-sideboard',
+      player: PLAYER_2,
+      discardCardInstanceId: discardCard.instanceId,
+      sideboardCardInstanceId: sideboardCard.instanceId,
+    };
+    const after = dispatch(state, action);
+
+    // Both cards remain in revealedInstances (the map only grows).
+    expect(after.revealedInstances[discardCard.instanceId as string]).toBe(ORC_PATROL);
+    expect(after.revealedInstances[sideboardCard.instanceId as string]).toBe(ASSASSIN);
+
+    // The broadcast map must NOT name either card — the opponent must only
+    // learn that an exchange happened, not which cards were involved.
+    const defs = extractActionCardDefs(after, action);
+    expect(defs[discardCard.instanceId as string]).toBeUndefined();
+    expect(defs[sideboardCard.instanceId as string]).toBeUndefined();
+
+    // describeAction with only the opponent's map renders "a card" for both.
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    const discardName = pool[ORC_PATROL as string]?.name;
+    const sideboardName = pool[ASSASSIN as string]?.name;
+    if (discardName) expect(audienceDesc).not.toContain(discardName);
+    if (sideboardName) expect(audienceDesc).not.toContain(sideboardName);
   });
 });
