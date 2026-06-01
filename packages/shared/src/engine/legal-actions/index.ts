@@ -11,7 +11,7 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { getPlayerIndex } from '../../index.js';
 import { setupActions } from './setup.js';
@@ -54,15 +54,18 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const sourceCardId = current.type === 'card-effect' ? current.cardInstanceId : undefined;
 
   for (const source of effect.source) {
-    const pile = source === 'sideboard' ? player.sideboard : player.discardPile;
-    const pileSource = source === 'sideboard' ? 'sideboard' : 'discard-pile';
+    const pile = source === 'sideboard' ? player.sideboard
+      : source === 'deck' ? player.playDeck
+      : player.discardPile;
+    const pileSource: 'sideboard' | 'discard-pile' | 'deck' = source === 'sideboard' ? 'sideboard'
+      : source === 'deck' ? 'deck'
+      : 'discard-pile';
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
       actions.push({
-        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
-          { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },
+        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource },
         viable: true,
       });
     }
