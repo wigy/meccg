@@ -19,6 +19,8 @@ import type { ReducerResult } from './reducer-utils.js';
 import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
+import { BARAD_DUR_MINION } from '../card-ids.js';
+import { resolveInstanceId } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -71,9 +73,10 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
   const withFetch = fireEndOfTurnFetchEffects(state);
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
+  const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
   return {
     state: {
-      ...withChecks,
+      ...withRingTests,
       phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
     },
   };
@@ -2142,6 +2145,58 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
 }
 
 /**
+ * Fire automatic gold-ring tests at the beginning of the end-of-turn phase
+ * for Ringwraith and Balrog players (CoE rule 9.23).
+ *
+ * Any gold ring borne by a character in a Ringwraith or Balrog company is
+ * automatically tested with a -2 roll modifier. For Ringwraith companies at
+ * Barad-Dûr the modifier is -3 instead.
+ */
+function fireEndOfTurnGoldRingTests(state: GameState): GameState {
+  const resourcePlayer = playerById(state, state.activePlayer)!;
+  if (resourcePlayer.alignment !== Alignment.Ringwraith && resourcePlayer.alignment !== Alignment.Balrog) {
+    return state;
+  }
+
+  let newState = state;
+  for (const company of resourcePlayer.companies) {
+    // Determine the base modifier for this company.
+    // Ringwraith at Barad-Dûr: -3; otherwise Ringwraith or Balrog: -2.
+    let baseModifier = -2;
+    if (resourcePlayer.alignment === Alignment.Ringwraith && company.currentSite) {
+      const siteDefId = resolveInstanceId(newState, company.currentSite.instanceId);
+      if (siteDefId === BARAD_DUR_MINION) {
+        baseModifier = -3;
+      }
+    }
+
+    for (const charId of company.characters) {
+      const bearer = resourcePlayer.characters[charId as string];
+      if (!bearer) continue;
+      for (const item of bearer.items) {
+        const itemDef = defById(newState, item.definitionId) as { subtype?: string; name?: string } | undefined;
+        if (!itemDef || itemDef.subtype !== 'gold-ring') continue;
+
+        logDetail(`end-of-turn: auto-testing gold ring "${itemDef.name ?? item.definitionId as string}" on ${charId as string} (${resourcePlayer.alignment} player, modifier ${baseModifier})`);
+        newState = enqueueResolution(newState, {
+          source: item.instanceId,
+          actor: state.activePlayer!,
+          scope: { kind: 'phase', phase: Phase.EndOfTurn },
+          kind: {
+            type: 'gold-ring-test',
+            goldRingInstanceId: item.instanceId,
+            characterInstanceId: charId,
+            rollModifier: baseModifier,
+          },
+        });
+      }
+    }
+  }
+
+  return newState;
+}
+
+/**
  * CvCC alignment matrix (CoE rule 8.41).
  *
  * Returns true if a company of `attackerAlignment` (and `attackerCovert` for
@@ -2318,9 +2373,10 @@ function advanceSiteToNextCompany(
     const cleanedState = returnOnGuardCardsToHand(sweptState);
     const withFetch = fireEndOfTurnFetchEffects(cleanedState);
     const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
+    const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
     return {
       state: cleanupEmptyCompanies({
-        ...withChecks,
+        ...withRingTests,
         phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
       }),
     };

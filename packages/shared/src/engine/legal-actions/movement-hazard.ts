@@ -2126,6 +2126,50 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Site keyword matches — destination site must carry at least one of the keywords.
+    // Resolved from the destination site definition by name (consistent with how siteTypes
+    // uses mhState.destinationSiteType). Falls back to the instance-based destSiteDef when
+    // the company's destinationSite instance is already resolved.
+    if (key.siteKeywords && key.siteKeywords.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName,
+        ) as SiteCard | undefined);
+      if (resolvedDest) {
+        const destKeywords = resolvedDest.keywords ?? [];
+        for (const kw of key.siteKeywords) {
+          if (destKeywords.includes(kw)) {
+            const k = `site-keyword:${kw}`;
+            if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-keyword', value: kw }); }
+          }
+        }
+      }
+    }
+    // Adjacent-to site keyword matches — destination site must be adjacent (under-deeps sense)
+    // to any site carrying at least one of the listed keywords.
+    // Looks up the destination site by name from the card pool.
+    if (key.adjacentToSiteKeywords && key.adjacentToSiteKeywords.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName,
+        ) as SiteCard | undefined);
+      if (resolvedDest) {
+        for (const kw of key.adjacentToSiteKeywords) {
+          const kwSites = Object.values(state.cardPool).filter(
+            c => isSiteCard(c) && (c.keywords ?? []).includes(kw),
+          ) as SiteCard[];
+          for (const kwSite of kwSites) {
+            if (isUnderDeepsAdjacent(state, kwSite, resolvedDest)) {
+              const k = `adjacent-to-site-keyword:${kw}`;
+              if (!seen.has(k)) { seen.add(k); matches.push({ method: 'adjacent-to-site-keyword', value: kw }); }
+              break;
+            }
+          }
+        }
+      }
+    }
   }
 
   return matches;
@@ -2219,6 +2263,8 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
     if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
+    if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
+    if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
     return parts.join(', ');
   }).join(' or ');
   return `Not keyable (requires ${keyDesc})`;

@@ -6,7 +6,8 @@
  * and transitioning to Free Council.
  */
 
-import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
+import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance } from '../index.js';
+import type { PlayerState } from '../types/state-player.js';
 import { Phase, CardStatus, isSiteCard, getPlayerIndex } from '../index.js';
 import { BARAD_DUR_HERO, BARAD_DUR_MINION, THE_ONE_RING } from '../card-ids.js';
 import { shuffle } from '../rng.js';
@@ -19,6 +20,20 @@ import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
+
+/**
+ * Apply CoE rule 2.09: if a player's play deck AND discard pile are both empty,
+ * the next discarded card immediately becomes their play deck (not discard pile).
+ *
+ * Returns a partial player state update to spread into the player object.
+ */
+function discardOrBecomePlayDeck(player: PlayerState, card: CardInstance): Pick<PlayerState, 'playDeck' | 'discardPile'> {
+  if (player.playDeck.length === 0 && player.discardPile.length === 0) {
+    logDetail(`Rule 2.09: both play deck and discard empty — discarded card becomes new play deck`);
+    return { playDeck: [card], discardPile: player.discardPile };
+  }
+  return { playDeck: player.playDeck, discardPile: [...player.discardPile, card] };
+}
 
 /**
  * End-of-turn phase handler (CoE 2.VI).
@@ -104,7 +119,7 @@ function handleEndOfTurnDiscard(
     const updatedState = updatePlayer(state, playerIndex, p => ({
       ...p,
       hand: newHand,
-      discardPile: [...p.discardPile, discardedCard],
+      ...discardOrBecomePlayDeck(p, discardedCard),
     }));
 
     logDetail(`End-of-Turn discard: player ${player.name} discarded 1 card (hand now ${newHand.length})`);
@@ -209,7 +224,7 @@ function handleEndOfTurnResetHand(
     const updatedState = updatePlayer(state, playerIndex, p => ({
       ...p,
       hand: newHand,
-      discardPile: [...p.discardPile, discardedCard],
+      ...discardOrBecomePlayDeck(p, discardedCard),
     }));
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);

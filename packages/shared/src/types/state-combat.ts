@@ -288,9 +288,16 @@ export interface CombatState {
    */
   readonly multiAttackCount?: number;
   /**
+   * Number of strikes per individual attack when `multiAttackCount > 1`.
+   * Each cancel-by-tap removes this many strike assignments (one full attack).
+   * For single-attack creatures this is absent and one assignment is removed.
+   * Example: Nameless Thing — 3 attacks × 2 strikes → strikesPerAttack = 2.
+   */
+  readonly strikesPerAttack?: number;
+  /**
    * Number of remaining cancel-by-tap opportunities the defender has.
-   * Each tap cancels one strike assignment. Set by the `cancel-attack-by-tap`
-   * combat rule.
+   * Each tap cancels one attack (= `strikesPerAttack` assignments, defaulting to 1).
+   * Set by the `cancel-attack-by-tap` combat rule.
    */
   readonly cancelByTapRemaining?: number;
   /**
