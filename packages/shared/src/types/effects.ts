@@ -608,6 +608,18 @@ export interface TriggeredAction {
    */
   readonly postCorruptionCheck?: boolean;
   /**
+   * For `enqueue-pending-fetch` type: modifier applied to the corruption
+   * check roll when `postCorruptionCheck` is true. Defaults to 0.
+   * Positive = easier (roll bonus); negative = harder.
+   */
+  readonly postCorruptionCheckModifier?: number;
+  /**
+   * For `enqueue-pending-fetch` type: destination pile for fetched cards.
+   * Defaults to 'deck' (shuffled into play deck). Use 'hand' to place
+   * fetched cards directly into the player's hand (e.g. Dwarven Ring fetch).
+   */
+  readonly fetchTo?: 'deck' | 'hand';
+  /**
    * For `discard-named-card-from-company` type: the name of the card to
    * search for among the bearer's company's attached items/allies and
    * move to the owner's discard pile. Used by Stinker / Gollum to discard
@@ -1495,7 +1507,7 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
  */
 export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';
-  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile"]). */
+  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile", "deck"]). */
   readonly source: readonly string[];
   /** DSL condition evaluated against each card definition to decide eligibility. */
   readonly filter: Condition;
@@ -1504,8 +1516,8 @@ export interface FetchToDeckEffect extends EffectBase {
   /** Whether to shuffle the play deck after inserting the card. Only applies when `to` is `'deck'`. */
   readonly shuffle: boolean;
   /**
-   * Destination zone. Defaults to `'deck'` (backward-compatible).
-   * When `'hand'`, the fetched card is added to the player's hand instead.
+   * Destination pile for the fetched card. Defaults to 'deck'.
+   * When 'hand', the card is placed directly in the player's hand instead.
    */
   readonly to?: 'deck' | 'hand';
 }

@@ -845,6 +845,17 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
           reason: 'card effect',
         });
       }
+    } else if (current.postCorruptionCheck) {
+      // Grant-action fetches (skipDiscard=true) also need the corruption check
+      // when the player passes the remaining picks (e.g. Dwarven Ring ability).
+      newState = enqueueCorruptionCheck(newState, {
+        source: current.cardInstanceId,
+        actor: effectOwner,
+        scope: { kind: 'phase', phase: newState.phaseState.phase },
+        characterId: current.postCorruptionCheck.characterId,
+        modifier: current.postCorruptionCheck.modifier,
+        reason: 'Palantír',
+      });
     }
   }
   // When skipping a fetch-to-deck effect by passing, emit a text notification
@@ -885,7 +896,9 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   const player = state.players[playerIndex];
 
   // Find the card in the specified source pile
-  const sourcePile = action.source === 'sideboard' ? player.sideboard : player.discardPile;
+  const sourcePile = action.source === 'sideboard' ? player.sideboard
+    : action.source === 'deck' ? player.playDeck
+    : player.discardPile;
   const cardIdx = sourcePile.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) {
     return { state, error: `Card not found in ${action.source as string}` };
@@ -899,26 +912,35 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     return { state, error: 'Card does not match fetch filter' };
   }
 
+  const fetchTo = current.effect.to ?? 'deck';
+  logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → ${fetchTo}${fetchTo === 'deck' ? ', shuffling' : ''}`);
+
+  // Remove from source pile
   const newSourcePile = removeById(sourcePile, fetchedCard.instanceId);
-  const dest = current.effect.to ?? 'deck';
 
   const newPlayers = clonePlayers(state);
   let nextRng = state.rng;
 
-  if (dest === 'hand') {
-    logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → hand`);
-    const newHand = [...player.hand, fetchedCard];
+  if (fetchTo === 'hand') {
+    // Place fetched card directly in the player's hand; reshuffle the deck if it was the source
     if (action.source === 'sideboard') {
-      newPlayers[playerIndex] = { ...player, sideboard: newSourcePile, hand: newHand };
+      newPlayers[playerIndex] = { ...player, sideboard: newSourcePile, hand: [...player.hand, fetchedCard] };
+    } else if (action.source === 'deck') {
+      const [reshuffledDeck, rng2] = shuffle(newSourcePile, state.rng);
+      nextRng = rng2;
+      newPlayers[playerIndex] = { ...player, playDeck: reshuffledDeck, hand: [...player.hand, fetchedCard] };
     } else {
-      newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, hand: newHand };
+      newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, hand: [...player.hand, fetchedCard] };
     }
   } else {
-    logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → play deck, shuffling`);
-    const [shuffledDeck, rng] = shuffle([...player.playDeck, fetchedCard], state.rng);
-    nextRng = rng;
+    // Default: place in play deck and shuffle
+    const [shuffledDeck, rng2] = shuffle([...player.playDeck, fetchedCard], state.rng);
+    nextRng = rng2;
     if (action.source === 'sideboard') {
       newPlayers[playerIndex] = { ...player, sideboard: newSourcePile, playDeck: shuffledDeck };
+    } else if (action.source === 'deck') {
+      // Re-insert into deck then shuffle (card was removed from deck already)
+      newPlayers[playerIndex] = { ...player, playDeck: shuffledDeck };
     } else {
       newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, playDeck: shuffledDeck };
     }
