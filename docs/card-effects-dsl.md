@@ -3052,3 +3052,44 @@ The engine reads it when computing legal movement actions.
 ```
 
 Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190).
+
+---
+
+## Creature Keying — `keyedTo` extended fields
+
+The `keyedTo` array on a hazard-creature card describes where the creature can be
+played. Each entry is a `CreatureKeyRestriction` object; a creature is playable if
+**any** entry matches. The following fields extend the base set (regionTypes,
+regionNames, siteTypes, siteNames, when):
+
+### `siteKeywords`
+
+```json
+{ "siteKeywords": ["under-deeps"] }
+```
+
+Matches when the destination site carries at least one of the listed keywords in its
+`keywords` array. Evaluated in `findCreatureKeyingMatches` (movement-hazard.ts) and
+`checkCreatureKeying` (reducer-movement-hazard.ts). Also checked in
+`playSiteAutoAttackActions` (site.ts) when resolving dynamic auto-attack eligibility:
+a creature keyed to `["under-deeps"]` is eligible as a dynamic auto-attack at any
+under-deeps site regardless of its specific `siteType`.
+
+Used by: *Nameless Thing* (dm-109) — "Playable at any Under-deeps site."
+
+### `adjacentToSiteKeywords`
+
+```json
+{ "adjacentToSiteKeywords": ["under-deeps"], "when": { "inPlay": "Doors of Night" } }
+```
+
+Matches when the destination site is adjacent (in the under-deeps movement sense —
+bidirectional via `adjacentSites`) to any site carrying one of the listed keywords.
+Implemented using `isUnderDeepsAdjacent` against all matching sites in
+`state.cardPool`. Typically gated by a `when` condition (e.g. Doors of Night) since
+this is an alternate keying that only fires under specific circumstances.
+
+The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
+
+Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
+an adjacent site of any Under-deeps site."

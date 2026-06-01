@@ -416,6 +416,15 @@ function playSiteAutoAttackActions(
           keyable = true;
           break;
         }
+        // siteKeywords: creature keyed to "any under-deeps site" is eligible at any
+        // under-deeps site — match when the site's own keywords include any of the keys
+        if (key.siteKeywords && siteDef && isSiteCard(siteDef)) {
+          const siteKeywords = siteDef.keywords ?? [];
+          if (key.siteKeywords.some(kw => siteKeywords.includes(kw))) {
+            keyable = true;
+            break;
+          }
+        }
       }
       if (!keyable) {
         logDetail(`Creature "${def.name}" keying does not match dynamic auto-attack filter — skipping`);
