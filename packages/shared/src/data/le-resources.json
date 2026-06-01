@@ -1015,7 +1015,11 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": []
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "$not": { "target.race": "ringwraith" } } },
+      { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
+      { "type": "duplication-limit", "scope": "player", "max": 1 }
+    ]
   },
   {
     "cardType": "minion-resource-event",
