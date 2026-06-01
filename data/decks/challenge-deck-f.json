@@ -28,13 +28,13 @@
       "favourite": true
     },
     {
-      "name": "Palantír of Minas Tirith",
-      "card": "le-333",
+      "name": "Blazon of the Eye",
+      "card": "le-302",
       "qty": 1
     },
     {
-      "name": "Scroll of Isildur",
-      "card": "le-343",
+      "name": "Foul-smelling Paste",
+      "card": "le-310",
       "qty": 1
     },
     {
@@ -247,6 +247,16 @@
       {
         "name": "Woses of the Eryn Vorn",
         "card": "le-296",
+        "qty": 1
+      },
+      {
+        "name": "Palantír of Minas Tirith",
+        "card": "le-333",
+        "qty": 1
+      },
+      {
+        "name": "Scroll of Isildur",
+        "card": "le-343",
         "qty": 1
       }
     ]
