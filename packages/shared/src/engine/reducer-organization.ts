@@ -1078,12 +1078,12 @@ function runGrantApply(
     const fromSources = apply.fetchFrom ?? ['discard-pile'];
     const count = apply.fetchCount ?? 1;
     const shuffle = apply.fetchShuffle ?? true;
+    const fetchTo = apply.fetchTo ?? 'deck';
     const filter = apply.filter ?? {};
-    const fetchTo = apply.fetchTo ?? 'play-deck';
     const characterId = ctx.action.characterId;
     const sourceId = ctx.action.sourceCardId;
     const ccModifier = apply.postCorruptionCheckModifier ?? 0;
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-deck from [${fromSources.join(', ')}] to=${fetchTo} (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck})`);
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier})`);
     return {
       updatedChar: char,
       effects: [],
@@ -1101,7 +1101,7 @@ function runGrantApply(
                 filter,
                 count,
                 shuffle,
-                ...(fetchTo !== 'play-deck' ? { to: fetchTo } : {}),
+                to: fetchTo,
               },
               skipDiscard: true,
               ...(apply.postCorruptionCheck

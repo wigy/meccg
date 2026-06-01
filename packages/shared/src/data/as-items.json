@@ -155,14 +155,39 @@
     "subtype": "special",
     "marshallingPoints": 4,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 3,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
       "ring",
       "dwarven-ring"
-    ]
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2,
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "grant-action",
+        "action": "recall-to-hand",
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.race": "dwarf" },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchCount": 2,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "postCorruptionCheck": true,
+          "postCorruptionCheckModifier": 2,
+          "filter": { "subtype": "minor" }
+        }
+      }
+    ],
+    "certified": "2026-06-01"
   },
   {
     "cardType": "minion-resource-item",

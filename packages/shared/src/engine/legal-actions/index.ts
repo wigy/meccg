@@ -54,18 +54,12 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const sourceCardId = current.type === 'card-effect' ? current.cardInstanceId : undefined;
 
   for (const source of effect.source) {
-    let pile: readonly import('../../types/index.js').CardInstance[];
-    let pileSource: 'sideboard' | 'discard-pile' | 'play-deck';
-    if (source === 'sideboard') {
-      pile = player.sideboard;
-      pileSource = 'sideboard';
-    } else if (source === 'play-deck') {
-      pile = player.playDeck;
-      pileSource = 'play-deck';
-    } else {
-      pile = player.discardPile;
-      pileSource = 'discard-pile';
-    }
+    const pile = source === 'sideboard' ? player.sideboard
+      : source === 'deck' ? player.playDeck
+      : player.discardPile;
+    const pileSource: 'sideboard' | 'discard-pile' | 'deck' = source === 'sideboard' ? 'sideboard'
+      : source === 'deck' ? 'deck'
+      : 'discard-pile';
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);

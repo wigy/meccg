@@ -596,16 +596,16 @@ export interface TriggeredAction {
    * For `enqueue-pending-fetch` type: which pile to fetch from.
    * Matches the `source` field on `FetchToDeckEffect`.
    */
-  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'play-deck')[];
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand')[];
   /** For `enqueue-pending-fetch` type: how many cards to fetch. Defaults to 1. */
   readonly fetchCount?: number;
   /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
   readonly fetchShuffle?: boolean;
   /**
    * For `enqueue-pending-fetch` type: where to place the fetched card.
-   * Defaults to `'play-deck'` for backward compatibility.
+   * Defaults to `'deck'` (shuffled into play deck).
    */
-  readonly fetchTo?: 'play-deck' | 'hand';
+  readonly fetchTo?: 'deck' | 'hand';
   /**
    * For `enqueue-pending-fetch` type: when true, enqueue a corruption
    * check on the bearer after the fetch completes. Used by Palantír
@@ -613,8 +613,9 @@ export interface TriggeredAction {
    */
   readonly postCorruptionCheck?: boolean;
   /**
-   * For `enqueue-pending-fetch` type: modifier applied to the post-fetch
-   * corruption check roll. Defaults to 0. Used by Dwarven Ring grant-actions.
+   * For `enqueue-pending-fetch` type: modifier applied to the corruption
+   * check roll when `postCorruptionCheck` is true. Defaults to 0.
+   * Positive = easier (roll bonus); negative = harder.
    */
   readonly postCorruptionCheckModifier?: number;
   /**
@@ -1497,14 +1498,14 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
 }
 
 /**
- * Fetches a card from one or more source piles into the play deck and shuffles.
+ * Fetches a card from one or more source piles into the play deck (or hand) and optionally shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
  * resource or character from their sideboard or discard pile.
  */
 export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';
-  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile", "play-deck"]). */
+  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile", "deck"]). */
   readonly source: readonly string[];
   /** DSL condition evaluated against each card definition to decide eligibility. */
   readonly filter: Condition;
@@ -1513,11 +1514,10 @@ export interface FetchToDeckEffect extends EffectBase {
   /** Whether to shuffle the play deck after fetching. */
   readonly shuffle: boolean;
   /**
-   * Where the fetched card is placed. Defaults to `'play-deck'` for backward
-   * compatibility. Use `'hand'` when the card goes directly to hand (e.g.
-   * Dwarven Ring fetch abilities).
+   * Destination pile for the fetched card. Defaults to 'deck'.
+   * When 'hand', the card is placed directly in the player's hand instead.
    */
-  readonly to?: 'play-deck' | 'hand';
+  readonly to?: 'deck' | 'hand';
 }
 
 /**
