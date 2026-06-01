@@ -36,10 +36,11 @@ export type PlayableResourceType = ItemSubtype | 'faction' | 'ally' | 'informati
  * attacks are built into the site card itself. They must be resolved before
  * any resources can be played at the site.
  *
- * The optional `body`, `combatRules`, and `sourceInstanceId` fields are used
- * only for augmented attacks injected at runtime by `permanent-event-auto-attack`
- * effects (e.g. Balrog of Moria, Spawn events). Printed site attacks never
- * carry these fields.
+ * The optional `body` and `sourceInstanceId` fields are used only for
+ * augmented attacks injected at runtime by `permanent-event-auto-attack`
+ * effects (e.g. Balrog of Moria, Spawn events). The `combatRules` field may
+ * appear on both printed site attacks (e.g. "attacker-chooses-defenders") and
+ * runtime-injected attacks.
  */
 export interface AutomaticAttack {
   /** The type of creatures guarding the site (e.g. "Orcs", "Undead"). Used for card interactions. */
