@@ -13,39 +13,32 @@
  * Base stats: strikes 2, prowess 10, body 4, kill MP 3.
  *
  * Engine Support:
- * | # | Rule                                                     | Status           | Notes                                       |
- * |---|----------------------------------------------------------|------------------|---------------------------------------------|
- * | 1 | Drake (race)                                             | IMPLEMENTED      | race field; used by race-gated interactions |
- * | 2 | 3 attacks of 2 strikes each                              | IMPLEMENTED      | combat-multi-attack count:3 × strikes:2     |
- * | 3 | A character can tap to cancel one of these attacks       | IMPLEMENTED      | combat-cancel-attack-by-tap maxCancels:1    |
- * | 4 | Playable at any Under-deeps site (base keying)           | NOT IMPLEMENTED  | no under-deeps site match in keyedTo;       |
- * |   |                                                          |                  | DM-set Under-deeps sites not yet in data    |
- * | 5 | (with DoN) playable at adjacent site of Under-deeps site | NOT IMPLEMENTED  | no adjacency concept in creature keying     |
- * | 6 | (with DoN) playable keyed to a Coastal Sea [{c}]         | NOT ENCODED      | could be { regionTypes: ["coastal"], when:  |
- * |   |                                                          |                  | inPlay DoN } but left out to avoid shipping |
- * |   |                                                          |                  | a half-encoded creature — base Under-deeps  |
- * |   |                                                          |                  | path would stay unplayable and the card     |
- * |   |                                                          |                  | would look playable only with DoN+coastal   |
+ * | # | Rule                                                     | Status      | Notes                                                  |
+ * |---|----------------------------------------------------------|-------------|--------------------------------------------------------|
+ * | 1 | Drake (race)                                             | IMPLEMENTED | race field used by race-gated interactions             |
+ * | 2 | 3 attacks of 2 strikes each (strikesTotal = 6)           | IMPLEMENTED | combat-multi-attack count:3 × strikes:2                |
+ * | 3 | A character can tap to cancel one of these attacks        | IMPLEMENTED | combat-cancel-attack-by-tap maxCancels:1               |
+ * |   |   — one tap removes one full 2-strike attack              |             | strikesPerAttack:2 removes 2 assignments per tap       |
+ * | 4 | Playable at any Under-deeps site (base keying)           | IMPLEMENTED | siteKeywords:["under-deeps"] in keyedTo                |
+ * | 5 | (with DoN) playable at adjacent site of Under-deeps site | IMPLEMENTED | adjacentToSiteKeywords:["under-deeps"] with DoN when   |
+ * | 6 | (with DoN) playable keyed to a Coastal Sea [{c}]         | IMPLEMENTED | regionTypes:["coastal"] with DoN when                  |
  *
- * Playable: PARTIALLY — multi-attack and cancel-by-tap effects are encoded
- * and will resolve correctly once the creature enters combat, but every
- * playability path (base and both Doors-of-Night alternates) involves
- * Under-deeps sites, and the engine has no way to identify an Under-deeps
- * site during creature keying (the DM-set Under-deeps sites are not in
- * the data yet, and "adjacent site of any Under-deeps site" has no
- * representation at all). The card therefore cannot be played today. NOT CERTIFIED.
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GIMLI,
   DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint,
   makeMHState,
-  viableActions,
+  viableActionsForHandCard,
+  playCreatureHazardAndResolve,
+  handCardId, companyIdAt, charIdAt, dispatch,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
   Phase, Alignment, RegionType, SiteType,
@@ -54,6 +47,15 @@ import {
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
 
 const NAMELESS_THING = 'dm-109' as CardDefinitionId;
+
+// Under-deeps site: The Under-gates (dm-38) — shadow-hold, adjacent to Moria
+const THE_UNDER_GATES = 'dm-38' as CardDefinitionId;
+// Under-deeps site: The Under-vaults (dm-41) — ruins-and-lairs, adjacent to Mount Gram (tw-415)
+const THE_UNDER_VAULTS = 'dm-41' as CardDefinitionId;
+// Surface site adjacent to The Under-vaults (cost 0 adjacency)
+const MOUNT_GRAM = 'tw-415' as CardDefinitionId;
+// Surface site adjacent to The Iron-deeps (dm-33)
+const CARN_DUM = 'tw-380' as CardDefinitionId;
 
 function baseStateWithHazardInHand(
   cardsInPlay?: Array<{ instanceId: CardInstanceId; definitionId: CardDefinitionId; status: CardStatus }>,
@@ -68,7 +70,7 @@ function baseStateWithHazardInHand(
         alignment: Alignment.Wizard,
         companies: [{ site: MORIA, characters: [ARAGORN] }],
         hand: [],
-        siteDeck: [MINAS_TIRITH],
+        siteDeck: [MINAS_TIRITH, THE_UNDER_GATES, THE_UNDER_VAULTS, MOUNT_GRAM, CARN_DUM],
       },
       {
         id: PLAYER_2,
@@ -92,15 +94,62 @@ function donInPlay() {
 describe('Nameless Thing (dm-109)', () => {
   beforeEach(() => resetMint());
 
-  // ─── Keying: nothing works today (Under-deeps not representable) ──────────
-  //
-  // The card's three playability clauses — base "any Under-deeps site",
-  // DoN "adjacent site of any Under-deeps site", and DoN "Coastal Sea" —
-  // all hinge on Under-deeps site identity, which isn't readable from the
-  // generic site-keying machinery. Until that exists, a held copy must
-  // never appear as a viable play-hazard, no matter the path or DoN state.
+  // ─── Keying: base Under-deeps site ──────────────────────────────────────────
 
-  test('NOT playable on a wilderness path (base Under-deeps keying not implemented)', () => {
+  test('playable at an Under-deeps destination site — The Under-gates (shadow-hold)', () => {
+    const state = baseStateWithHazardInHand();
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'The Under-gates',
+      }),
+    };
+
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(true);
+    const a = actions[0].action as { keyedBy?: { method: string; value: string } };
+    expect(a.keyedBy?.method).toBe('site-keyword');
+    expect(a.keyedBy?.value).toBe('under-deeps');
+  });
+
+  test('playable at another Under-deeps site — The Under-vaults (ruins-and-lairs)', () => {
+    const state = baseStateWithHazardInHand();
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'The Under-vaults',
+      }),
+    };
+
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(true);
+  });
+
+  test('NOT playable at a surface site without Doors of Night', () => {
+    const state = baseStateWithHazardInHand();
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Shadow],
+        resolvedSitePathNames: ['Gundabad'],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Mount Gram',
+      }),
+    };
+
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(0);
+  });
+
+  test('NOT playable via wilderness path without Doors of Night', () => {
     const state = baseStateWithHazardInHand();
     const ready: GameState = {
       ...state,
@@ -108,39 +157,74 @@ describe('Nameless Thing (dm-109)', () => {
         resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
         resolvedSitePathNames: ['Rhudaur', 'Arthedain'],
         destinationSiteType: SiteType.RuinsAndLairs,
-        destinationSiteName: 'Moria',
+        destinationSiteName: 'Weathertop',
       }),
     };
 
-    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
-    expect(plays).toHaveLength(0);
-
-    const all = computeLegalActions(ready, PLAYER_2).filter(ea => ea.action.type === 'play-hazard');
-    expect(all.every(ea => !ea.viable)).toBe(true);
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(0);
   });
 
-  test('NOT playable on a coastal path without Doors of Night', () => {
+  // ─── Keying: DoN — adjacent surface site ────────────────────────────────────
+
+  test('with Doors of Night, playable at a surface site adjacent to an Under-deeps site', () => {
+    // Mount Gram is the surface entry point for The Under-vaults (dm-41)
+    const state = baseStateWithHazardInHand([donInPlay()]);
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Shadow],
+        resolvedSitePathNames: ['Gundabad'],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Mount Gram',
+      }),
+    };
+
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(true);
+    const a = actions[0].action as { keyedBy?: { method: string; value: string } };
+    expect(a.keyedBy?.method).toBe('adjacent-to-site-keyword');
+    expect(a.keyedBy?.value).toBe('under-deeps');
+  });
+
+  test('without Doors of Night, NOT playable at a surface site adjacent to Under-deeps', () => {
     const state = baseStateWithHazardInHand();
     const ready: GameState = {
       ...state,
       phaseState: makeMHState({
-        resolvedSitePath: [RegionType.Coastal, RegionType.Coastal],
-        resolvedSitePathNames: ['Andrast', 'Anfalas'],
-        destinationSiteType: SiteType.RuinsAndLairs,
-        destinationSiteName: 'Dol Amroth',
+        resolvedSitePath: [RegionType.Shadow],
+        resolvedSitePathNames: ['Gundabad'],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Mount Gram',
       }),
     };
 
-    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
-    expect(plays).toHaveLength(0);
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(0);
   });
 
-  test('NOT playable on a coastal path even with Doors of Night (Coastal alt not encoded)', () => {
-    // Once the base Under-deeps rule is in, the DoN-coastal alt can ride
-    // alongside it. Today, encoding only the alt would ship a creature
-    // whose base path (Under-deeps) stays broken while a secondary path
-    // works — so the alt is left out on purpose, and DoN+coastal stays
-    // unplayable. This test pins that choice.
+  test('with Doors of Night, playable at another surface site adjacent to Under-deeps (Carn Dum)', () => {
+    // Carn Dûm (tw-380) is the surface entry for The Iron-deeps (dm-33)
+    const state = baseStateWithHazardInHand([donInPlay()]);
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Shadow],
+        resolvedSitePathNames: ['Gundabad'],
+        destinationSiteType: SiteType.DarkHold,
+        destinationSiteName: 'Carn Dûm',
+      }),
+    };
+
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(true);
+  });
+
+  // ─── Keying: DoN — Coastal Sea ──────────────────────────────────────────────
+
+  test('with Doors of Night, playable via a Coastal Sea path', () => {
     const state = baseStateWithHazardInHand([donInPlay()]);
     const ready: GameState = {
       ...state,
@@ -152,55 +236,225 @@ describe('Nameless Thing (dm-109)', () => {
       }),
     };
 
-    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
-    expect(plays).toHaveLength(0);
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(true);
+    const a = actions[0].action as { keyedBy?: { method: string; value: string } };
+    expect(a.keyedBy?.method).toBe('region-type');
+    expect(a.keyedBy?.value).toBe('coastal');
   });
 
-  // ─── NOT IMPLEMENTED — Under-deeps keying (base + DoN alternates) ─────────
-  //
-  // Filling these requires:
-  // 1. DM-set Under-deeps sites added to dm-sites.json (sites use the
-  //    'under-deeps' keyword, consistent with balrog-sites).
-  // 2. A way to express "any Under-deeps site" in `CreatureKeyRestriction`
-  //    — e.g. an `under-deeps` site-type enum value or keyword filter
-  //    in `findCreatureKeyingMatches` (movement-hazard.ts).
-  // 3. Site-to-site adjacency data (each Under-deeps site lists surface
-  //    sites adjacent to it, and vice versa) plus matching in the
-  //    creature-keying pass, so "adjacent site of any Under-deeps site"
-  //    can resolve against the company's destination.
-  //
-  // Once (1)+(2) land, the base keying entry and the DoN-gated coastal
-  // alt can be added to `keyedTo` and tested here. (3) is needed for the
-  // "adjacent site of any Under-deeps site" branch.
+  test('without Doors of Night, NOT playable via a Coastal Sea path', () => {
+    const state = baseStateWithHazardInHand();
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Coastal, RegionType.Coastal],
+        resolvedSitePathNames: ['Andrast', 'Anfalas'],
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Dol Amroth',
+      }),
+    };
 
-  test.todo('playable at an Under-deeps destination site (base keying)');
+    const actions = viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, NAMELESS_THING);
+    expect(actions).toHaveLength(0);
+  });
 
-  test.todo('NOT playable at a non-Under-deeps site without Doors of Night');
+  // ─── Combat: multi-attack (3 attacks × 2 strikes = 6 total) ─────────────────
 
-  test.todo('with Doors of Night, playable at a surface site adjacent to any Under-deeps site');
+  test('combat initiates with strikesTotal = 6, prowess 10, strikesPerAttack = 2', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH, THE_UNDER_GATES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [NAMELESS_THING],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'The Under-gates',
+      }),
+    };
 
-  test.todo('without Doors of Night, NOT playable at a surface site merely adjacent to an Under-deeps site');
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId,
+      { method: 'site-keyword', value: 'under-deeps' },
+    );
 
-  test.todo('with Doors of Night, playable via a Coastal Sea [{c}] path');
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikesTotal).toBe(6);
+    expect(afterChain.combat!.strikeProwess).toBe(10);
+    expect(afterChain.combat!.multiAttackCount).toBe(3);
+    expect(afterChain.combat!.strikesPerAttack).toBe(2);
+    expect(afterChain.combat!.cancelByTapRemaining).toBe(1);
+  });
 
-  test.todo('without Doors of Night, NOT playable via a Coastal Sea path');
+  // ─── Combat: cancel-by-tap cancels one full 2-strike attack ─────────────────
 
-  // ─── NOT IMPLEMENTED — combat resolution depends on keying first ──────────
-  //
-  // combat-multi-attack (count:3) and combat-cancel-attack-by-tap
-  // (maxCancels:1) are implemented in the engine and wired into the
-  // card's `effects` array. Exercising them end-to-end requires the
-  // creature to actually enter combat, which requires a successful
-  // play-hazard, which requires a matching keyedTo entry — so these
-  // tests stay as todos alongside the keying work.
+  test('defender taps one non-target character to cancel one attack (removes 2 strikes)', () => {
+    // Two-character company: Aragorn + Legolas
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH, THE_UNDER_GATES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [NAMELESS_THING],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'The Under-gates',
+      }),
+    };
 
-  test.todo('combat initiates with strikesTotal = 6 (3 attacks × 2 strikes) once playable');
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
-  test.todo('strikeProwess is 10 once combat initiates');
+    // Play creature and resolve chain
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId,
+      { method: 'site-keyword', value: 'under-deeps' },
+    );
 
-  test.todo('defender may tap one non-target character to cancel one of the three attacks');
+    // P2 (attacker) assigns all 6 strikes to Aragorn (forceSingleTarget)
+    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const afterAssign = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornId,
+      tapped: false,
+    });
 
-  test.todo('only one attack may be canceled by tap (maxCancels: 1) even with multiple untapped non-targets');
+    // Now in cancel-by-tap sub-phase
+    expect(afterAssign.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(afterAssign.combat!.strikesTotal).toBe(6);
+    expect(afterAssign.combat!.cancelByTapRemaining).toBe(1);
 
-  test.todo('defeating Nameless Thing awards 3 kill MP and body-check uses body 4');
+    // P1 (defender) sees cancel-by-tap action for Legolas (not Aragorn — target)
+    const defActions = computeLegalActions(afterAssign, PLAYER_1);
+    const cancelActions = defActions.filter(a => a.viable && a.action.type === 'cancel-by-tap');
+    expect(cancelActions).toHaveLength(1);
+    const cancelAction = cancelActions[0].action as { characterId: CardInstanceId };
+    expect(cancelAction.characterId).toBe(legolasId);
+
+    // Tap Legolas — should cancel one full attack (2 strikes)
+    const afterCancel = dispatch(afterAssign, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasId,
+    });
+
+    expect(afterCancel.combat!.strikesTotal).toBe(4);
+    expect(afterCancel.combat!.strikeAssignments).toHaveLength(4);
+    // cancelByTapRemaining is undefined (exhausted) after the last cancel
+    expect(afterCancel.combat!.cancelByTapRemaining ?? 0).toBe(0);
+  });
+
+  test('only one attack may be canceled by tap — no second cancel-by-tap action after first', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH, THE_UNDER_GATES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [NAMELESS_THING],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'The Under-gates',
+      }),
+    };
+
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId,
+      { method: 'site-keyword', value: 'under-deeps' },
+    );
+
+    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const gimliId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+    const afterAssign = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornId,
+      tapped: false,
+    });
+    expect(afterAssign.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Tap Legolas — first (and only) cancel
+    const afterCancel = dispatch(afterAssign, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasId,
+    });
+    // cancelByTapRemaining is undefined (exhausted) after the last cancel
+    expect(afterCancel.combat!.cancelByTapRemaining ?? 0).toBe(0);
+
+    // No more cancel-by-tap actions available
+    const postCancelActions = computeLegalActions(afterCancel, PLAYER_1);
+    const remainingCancels = postCancelActions.filter(a => a.viable && a.action.type === 'cancel-by-tap');
+    expect(remainingCancels).toHaveLength(0);
+
+    // Gimli still untapped, but cancel exhausted — no cancel action for Gimli either
+    const gimliCancelActions = postCancelActions.filter(a => {
+      if (a.action.type !== 'cancel-by-tap') return false;
+      const ca = a.action as { characterId: CardInstanceId };
+      return ca.characterId === gimliId;
+    });
+    expect(gimliCancelActions).toHaveLength(0);
+  });
 });

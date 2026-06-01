@@ -1993,12 +1993,15 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   newCharacters[action.characterId as string] = { ...charData, status: CardStatus.Tapped };
   newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
 
-  // Remove one strike assignment (the last one assigned to the target)
+  // Remove one full attack's worth of strike assignments.
+  // For multi-attack creatures (e.g. Nameless Thing: 3 attacks × 2 strikes),
+  // strikesPerAttack is set so one tap cancels one full attack (all its strikes).
+  const strikesToRemove = combat.strikesPerAttack ?? 1;
   const newAssignments = [...combat.strikeAssignments];
-  newAssignments.pop();
+  for (let i = 0; i < strikesToRemove; i++) newAssignments.pop();
 
   const newCancelRemaining = combat.cancelByTapRemaining - 1;
-  const newStrikesTotal = combat.strikesTotal - 1;
+  const newStrikesTotal = combat.strikesTotal - strikesToRemove;
 
   logDetail(`Strikes reduced: ${combat.strikesTotal} → ${newStrikesTotal}, cancels remaining: ${newCancelRemaining}`);
 
