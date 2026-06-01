@@ -466,6 +466,8 @@ export function describeAction(
       return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
     case 'take-trophy':
       return `${action.player as string} takes creature ${action.creatureInstanceId as string} as trophy for ${action.characterId as string}`;
+    case 'cvcc-ally-discard-roll':
+      return `${action.player as string} rolls for CvCC ally discard (${action.allyInstanceId as string})`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

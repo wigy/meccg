@@ -93,6 +93,8 @@ export function applyResolution(
       return applyDiscardOneCompanyItemResolution(state, action, top);
     case 'hazard-event-maintenance':
       return applyHazardEventMaintenanceResolution(state, action, top);
+    case 'cvcc-ally-discard-roll':
+      return applyCvccAllyDiscardRollResolution(state, action, top);
   }
 }
 
@@ -2013,4 +2015,98 @@ function applyHazardEventMaintenanceResolution(
   }
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/**
+ * Resolve a queued `cvcc-ally-discard-roll` resolution (Bow of the Galadhrim, as-68).
+ *
+ * The attacking player rolls 2d6. If roll > ally.mind + threshold (5),
+ * the ally is discarded from the defending company to the ally owner's discard pile.
+ */
+function applyCvccAllyDiscardRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'cvcc-ally-discard-roll') {
+    return { state, error: `Pending cvcc-ally-discard-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'cvcc-ally-discard-roll') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending cvcc-ally-discard-roll' };
+  }
+
+  const { allyInstanceId, allyMind, threshold, allyOwnerPlayerIndex } = top.kind;
+  const bowDef = top.kind.sourceItemInstanceId
+    ? resolveDef(state, top.kind.sourceItemInstanceId)
+    : undefined;
+  const bowName = (bowDef as { name?: string })?.name ?? 'Bow of the Galadhrim';
+
+  const allyOwner = state.players[allyOwnerPlayerIndex];
+  if (!allyOwner) {
+    return { state: dequeueResolution(state, top.id), error: 'Ally owner player not found' };
+  }
+
+  // Find the character hosting this ally
+  let hostCharId: string | null = null;
+  let allyName = allyInstanceId as string;
+  for (const [charId, char] of Object.entries(allyOwner.characters)) {
+    const ally = char.allies.find(a => a.instanceId === allyInstanceId);
+    if (ally) {
+      hostCharId = charId;
+      const allyDef = defById(state, ally.definitionId);
+      allyName = (allyDef as { name?: string })?.name ?? allyName;
+      break;
+    }
+  }
+
+  if (hostCharId === null) {
+    logDetail(`${bowName}: ally ${allyName} no longer in play — skipping roll`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const discardThreshold = allyMind + threshold;
+  const doDiscard = rollTotal > discardThreshold;
+
+  const rollEffect = diceRollEffect(
+    allyOwner.name,
+    roll,
+    `${bowName}: ${allyName} (roll ${rollTotal} vs mind ${allyMind} + ${threshold} = ${discardThreshold})`,
+  );
+
+  logDetail(`${bowName}: rolled ${rollTotal} for ally "${allyName}" (mind ${allyMind} + ${threshold} = ${discardThreshold}) → ${doDiscard ? 'DISCARD' : 'SURVIVES'}`);
+
+  const stateAfterRoll = updatePlayer(
+    { ...state, rng, cheatRollTotal },
+    allyOwnerPlayerIndex,
+    p => ({ ...p, lastDiceRoll: roll }),
+  );
+
+  let postRoll = dequeueResolution(stateAfterRoll, top.id);
+
+  if (doDiscard) {
+    const hostChar = postRoll.players[allyOwnerPlayerIndex].characters[hostCharId];
+    if (hostChar) {
+      const allyCard = hostChar.allies.find(a => a.instanceId === allyInstanceId);
+      if (allyCard) {
+        logDetail(`${bowName}: discarding ally "${allyName}" from character ${hostCharId}`);
+        postRoll = updatePlayer(postRoll, allyOwnerPlayerIndex, p => ({
+          ...p,
+          characters: {
+            ...p.characters,
+             
+            [hostCharId]: {
+              ...hostChar,
+              allies: hostChar.allies.filter(a => a.instanceId !== allyInstanceId),
+            },
+          },
+          discardPile: [...p.discardPile, toCardInstance(allyCard)],
+        }));
+      }
+    }
+  }
+
+  return { state: postRoll, effects: [rollEffect] };
 }

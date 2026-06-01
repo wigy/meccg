@@ -408,6 +408,26 @@ export interface PendingResolution {
         /** The permanent event card requiring maintenance payment. */
         readonly sourceInstanceId: CardInstanceId;
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Bow of the Galadhrim CvCC pre-strike roll (as-68).
+         *
+         * In company-versus-company combat, before strikes are assigned, the
+         * attacking player rolls 2d6 for each non-unique minion ally in the
+         * defending company. If roll > allyMind + threshold, the ally is discarded.
+         */
+        readonly type: 'cvcc-ally-discard-roll';
+        /** Instance ID of the ally being tested. */
+        readonly allyInstanceId: CardInstanceId;
+        /** Mind value of the ally (from its card definition). */
+        readonly allyMind: number;
+        /** Fixed threshold added to ally mind (card's threshold field). */
+        readonly threshold: number;
+        /** Player index (0 or 1) who owns the ally (to remove it from their state). */
+        readonly allyOwnerPlayerIndex: number;
+        /** Instance ID of the source item (Bow of the Galadhrim) for logging. */
+        readonly sourceItemInstanceId: CardInstanceId;
       };
 }
 
