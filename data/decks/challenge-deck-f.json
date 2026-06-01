@@ -28,13 +28,13 @@
       "favourite": true
     },
     {
-      "name": "Blazon of the Eye",
-      "card": "le-302",
+      "name": "Palantír of Minas Tirith",
+      "card": "le-333",
       "qty": 1
     },
     {
-      "name": "Foul-smelling Paste",
-      "card": "le-310",
+      "name": "Scroll of Isildur",
+      "card": "le-343",
       "qty": 1
     },
     {
@@ -285,7 +285,7 @@
     {
       "name": "Barad-dur",
       "card": "le-352",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Carn Dum",

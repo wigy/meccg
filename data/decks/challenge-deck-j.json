@@ -195,8 +195,8 @@
         "qty": 3
       },
       {
-        "name": "Palantir of Orthanc",
-        "card": "tw-300",
+        "name": "Palantír of Orthanc",
+        "card": "le-334",
         "qty": 1
       },
       {
@@ -206,7 +206,7 @@
       },
       {
         "name": "Scroll of Isildur",
-        "card": "tw-323",
+        "card": "le-343",
         "qty": 1
       },
       {
@@ -275,7 +275,7 @@
     {
       "name": "Barad-dur",
       "card": "le-352",
-      "qty": 4
+      "qty": 1
     },
     {
       "name": "Caves of Ulund",
