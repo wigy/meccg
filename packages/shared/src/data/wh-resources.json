@@ -83,8 +83,19 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Ranger only. Cancels a Wolf, Animal, Spider, Dragon, Drake, or Undead attack against a ranger’s company."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "ranger",
+        "when": {
+          "enemy.race": {
+            "$in": ["wolf", "animal", "spider", "dragon", "drake", "undead"]
+          }
+        }
+      }
+    ],
+    "text": "Ranger only. Cancels a Wolf, Animal, Spider, Dragon, Drake, or Undead attack against a ranger’s company.",
+    "certified": "2026-06-01"
   },
   {
     "cardType": "minion-resource-event",
