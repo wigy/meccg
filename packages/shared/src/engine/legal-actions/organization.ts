@@ -1300,11 +1300,35 @@ export function playResourceShortEventActions(
     const def = defById(state, handCard.definitionId);
     if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's
     // catch-all loop (or by fillNotPlayable in legal-actions/index.ts).
     if (playWindow && playWindow.phase !== currentPhase) continue;
+    // When play-window declares a site-type restriction (e.g. Lucky Search
+    // requires shadow-hold or dark-hold), enforce it against the active
+    // company's current site. Only applies during the site phase after a
+    // company has been selected (activeCompanyIndex is valid outside of the
+    // select-company step).
+    if (playWindow?.siteTypes && playWindow.siteTypes.length > 0 && currentPhase === 'site') {
+      const siteState = state.phaseState as { activeCompanyIndex: number; step: string } | null;
+      if (siteState && siteState.step !== 'select-company') {
+        const activePlayer = activePlayerState(state);
+        const activeCompany = activePlayer?.companies[siteState.activeCompanyIndex];
+        const siteDef = activeCompany?.currentSite
+          ? defById(state, activeCompany.currentSite.definitionId)
+          : undefined;
+        if (siteDef && isSiteCard(siteDef) && !playWindow.siteTypes.includes(siteDef.siteType)) {
+          logDetail(`${def.name}: play-window siteTypes [${playWindow.siteTypes.join(', ')}] does not include active site type ${siteDef.siteType} — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+            viable: false,
+            reason: `${def.name} can only be played at ${playWindow.siteTypes.map((s: string) => s.replace(/-/g, ' ')).join(' or ')}`,
+          });
+          continue;
+        }
+      }
+    }
     // End-of-org cards (e.g. Stealth) are playable during the normal
     // organization window: playing one implicitly transitions the engine
     // into the end-of-org sub-step (see reducer-organization.ts),
