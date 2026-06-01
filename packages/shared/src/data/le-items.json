@@ -231,14 +231,36 @@
     "effects": [
       {
         "type": "item-play-site",
-        "sites": ["Bag End"]
+        "sites": [
+          "Bag End"
+        ]
       },
       {
         "type": "storable-at",
-        "sites": ["Barad-dûr"],
+        "sites": [
+          "Barad-dûr"
+        ],
         "marshallingPoints": 5
       }
     ],
     "certified": "2026-06-01"
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-343",
+    "name": "Scroll of Isildur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ScrollofIsildur.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 4,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. When a gold ring is tested in a company bearing the Scroll of Isildur, the random value obtained is modified by +1. May be stored at Barad-dûr for 5 marshalling points."
   }
 ]
