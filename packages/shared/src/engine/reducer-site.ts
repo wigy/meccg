@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
@@ -2353,13 +2353,102 @@ function handleDeclareCompanyAttack(
     opponentInteractionThisTurn: 'attack',
   };
 
-  return {
-    state: {
-      ...state,
-      combat,
-      phaseState: updatedSiteState,
-    },
-  };
+  let newState: GameState = { ...state, combat, phaseState: updatedSiteState };
+
+  // Fire cvc-combat-pre-strike on-event effects from items on attacking characters.
+  // The Bow of the Galadhrim (as-68) uses this to roll for each non-unique minion
+  // ally in the defending company before strikes are assigned.
+  newState = fireCvccPreStrikeEffects(newState, player, company, hazardPlayerState, targetCompany);
+
+  return { state: newState };
+}
+
+/**
+ * Scan attacking company characters' items for `on-event: cvc-combat-pre-strike`
+ * effects. For each qualifying item (condition met), collect non-unique minion
+ * allies from the defending company and enqueue one `cvcc-ally-discard-roll`
+ * pending resolution per ally per qualifying item.
+ */
+function fireCvccPreStrikeEffects(
+  state: GameState,
+  attackingPlayer: PlayerState,
+  attackingCompany: { characters: readonly CardInstanceId[] },
+  defendingPlayer: PlayerState,
+  defendingCompany: { characters: readonly CardInstanceId[] },
+): GameState {
+  const defPlayerIndex = state.players.findIndex(p => p.id === defendingPlayer.id);
+
+  // Collect non-unique minion allies in the defending company
+  const defMinionAllies: Array<{ allyInstanceId: CardInstanceId; allyMind: number }> = [];
+  for (const charInstId of defendingCompany.characters) {
+    const char = defendingPlayer.characters[charInstId as string];
+    if (!char) continue;
+    for (const ally of char.allies) {
+      const allyDef = defById(state, ally.definitionId);
+      if (!allyDef) continue;
+      const isMinion = (allyDef as { cardType?: string }).cardType === 'minion-resource-ally';
+      const isUnique = (allyDef as { unique?: boolean }).unique === true;
+      if (isMinion && !isUnique) {
+        const mind = (allyDef as { mind?: number }).mind ?? 0;
+        defMinionAllies.push({ allyInstanceId: ally.instanceId, allyMind: mind });
+      }
+    }
+  }
+
+  if (defMinionAllies.length === 0) return state;
+
+  let newState = state;
+
+  // Scan attacking characters' items for cvc-combat-pre-strike on-event effects
+  for (const charInstId of attackingCompany.characters) {
+    const char = attackingPlayer.characters[charInstId as string];
+    if (!char) continue;
+    const charDef = defById(newState, char.definitionId);
+
+    // Build a bearer context for condition evaluation
+    const bearerRace = charDef && isCharacterCard(charDef) ? charDef.race : '';
+    const bearerSkills = charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+    const bearerCtx = { bearer: { race: bearerRace, skills: bearerSkills } };
+
+    for (const item of char.items) {
+      const itemDef = defById(newState, item.definitionId);
+      if (!itemDef) continue;
+
+      for (const effect of getCardEffects(itemDef)) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'cvc-combat-pre-strike') continue;
+        if (effect.apply.type !== 'roll-discard-opponent-non-unique-ally') continue;
+
+        // Check condition
+        if (effect.when && !matchesCondition(effect.when, bearerCtx)) {
+          logDetail(`CvCC pre-strike: ${(itemDef as { name?: string }).name} condition not met for bearer — skipping`);
+          continue;
+        }
+
+        const threshold = (effect.apply as { threshold?: number }).threshold ?? 5;
+        const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
+        logDetail(`CvCC pre-strike: ${itemName} fires — enqueuing ${defMinionAllies.length} ally-discard roll(s)`);
+
+        for (const { allyInstanceId, allyMind } of defMinionAllies) {
+          newState = enqueueResolution(newState, {
+            source: item.instanceId,
+            actor: attackingPlayer.id,
+            scope: { kind: 'phase', phase: Phase.Site },
+            kind: {
+              type: 'cvcc-ally-discard-roll',
+              allyInstanceId,
+              allyMind,
+              threshold,
+              allyOwnerPlayerIndex: defPlayerIndex,
+              sourceItemInstanceId: item.instanceId,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  return newState;
 }
 
 function advanceSiteToNextCompany(

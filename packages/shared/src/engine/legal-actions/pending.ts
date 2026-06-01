@@ -92,6 +92,8 @@ export function resolutionLegalActions(
       return hazardEventMaintenanceActions(state, actor, top);
     case 'ring-play-offer':
       return ringPlayOfferActions(state, actor, top);
+    case 'cvcc-ally-discard-roll':
+      return cvccAllyDiscardRollActions(state, actor, top);
   }
 }
 
@@ -1590,4 +1592,44 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
   return table
     .filter(row => (row.min === null || rollTotal >= row.min) && (row.max === null || rollTotal <= row.max))
     .map(row => row.category);
+}
+
+/**
+ * Compute the single `cvcc-ally-discard-roll` action for a queued ally-discard
+ * resolution (Bow of the Galadhrim, as-68). The attacking player rolls 2d6;
+ * if roll > ally.mind + threshold, the ally is discarded.
+ */
+function cvccAllyDiscardRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'cvcc-ally-discard-roll') return [];
+  const { allyInstanceId, allyMind, threshold } = top.kind;
+
+  // Find the ally definition for its name
+  let allyName = allyInstanceId as string;
+  for (let pi = 0; pi < 2; pi++) {
+    for (const char of Object.values(state.players[pi].characters)) {
+      const ally = char.allies.find(a => a.instanceId === allyInstanceId);
+      if (ally) {
+        const def = defById(state, ally.definitionId);
+        allyName = (def as { name?: string })?.name ?? allyName;
+        break;
+      }
+    }
+  }
+
+  const need = allyMind + threshold;
+  logDetail(`Pending cvcc-ally-discard-roll for ally "${allyName}": roll must be > ${need} (mind ${allyMind} + threshold ${threshold})`);
+
+  return [{
+    action: {
+      type: 'cvcc-ally-discard-roll' as const,
+      player: playerId,
+      allyInstanceId,
+      explanation: `Roll for ${allyName}: discard if roll > ${need} (mind ${allyMind} + 5)`,
+    },
+    viable: true,
+  }];
 }
