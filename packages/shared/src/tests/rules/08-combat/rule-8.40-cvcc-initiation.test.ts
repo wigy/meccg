@@ -25,6 +25,8 @@ const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;
 const RIVENDELL = 'tw-d01' as CardDefinitionId;
+const MORIA_HERO = 'tw-413' as CardDefinitionId;
+const MORIA_MINION = 'le-392' as CardDefinitionId;
 
 function buildSiteState(opts: {
   siteEntered: boolean;
@@ -144,5 +146,57 @@ describe('Rule 8.40 — CvCC Initiation Conditions', () => {
     // Either select-company for remaining companies, or end-of-turn if no more companies
     expect(['select-company', 'discard'].includes(ps.step as string)
       || s.phaseState.phase === 'end-of-turn').toBe(true);
+  });
+
+  test('CvCC allowed: wizard at hero-Moria vs ringwraith at minion-Moria (same name, different card IDs)', () => {
+    // Regression test: hero version (tw-413) and minion version (le-392) of Moria are
+    // different card IDs but represent the same physical site — CvCC must be offered.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA_HERO, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_MINION, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    const s = { ...state, phaseState: sitePhaseState };
+    const afterPass = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    const ps = afterPass.phaseState as SitePhaseState;
+    expect(ps.step).toBe('declare-company-attack');
+
+    const actions = viableActions(afterPass, PLAYER_1, 'declare-company-attack');
+    expect(actions.length).toBe(1);
   });
 });

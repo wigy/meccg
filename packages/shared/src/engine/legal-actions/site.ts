@@ -1894,12 +1894,22 @@ function declareCompanyAttackActions(
 
   const actions: GameAction[] = [];
 
+  const siteDef = defById(state, company.currentSite.definitionId);
+  const siteName = siteDef && isSiteCard(siteDef) ? siteDef.name : null;
+
   // Find opponent companies at the same site and check alignment restrictions
   for (const otherPlayer of state.players) {
     if (otherPlayer.id === playerId) continue;
     for (const opponentCompany of otherPlayer.companies) {
       if (!opponentCompany.currentSite) continue;
-      if (opponentCompany.currentSite.definitionId !== company.currentSite.definitionId) continue;
+      const oppSiteDef = defById(state, opponentCompany.currentSite.definitionId);
+      const oppSiteName = oppSiteDef && isSiteCard(oppSiteDef) ? oppSiteDef.name : null;
+      // Same site: match by name when both resolve (handles hero/minion versions of the
+      // same location), fall back to definitionId equality when definitions are unavailable.
+      const sameSite = siteName && oppSiteName
+        ? siteName === oppSiteName
+        : company.currentSite.definitionId === opponentCompany.currentSite.definitionId;
+      if (!sameSite) continue;
 
       const A = player.alignment as string;
       const D = otherPlayer.alignment as string;
