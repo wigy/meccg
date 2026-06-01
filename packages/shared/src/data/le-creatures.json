@@ -205,6 +205,7 @@
     "prowess": 14,
     "body": 8,
     "killMarshallingPoints": 1,
+    "starredKillMarshallingPoints": true,
     "race": "awakened plant",
     "keyedTo": [
       {
@@ -286,6 +287,7 @@
     "prowess": 10,
     "body": 6,
     "killMarshallingPoints": 2,
+    "starredKillMarshallingPoints": true,
     "race": "men",
     "keyedTo": [
       {
@@ -365,6 +367,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 2,
+    "starredKillMarshallingPoints": true,
     "race": "dúnedain",
     "keyedTo": [
       { "regionTypes": ["free"] },
@@ -406,6 +409,7 @@
     "prowess": 15,
     "body": 9,
     "killMarshallingPoints": 3,
+    "starredKillMarshallingPoints": true,
     "race": "elves",
     "keyedTo": [
       {
@@ -451,6 +455,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
+    "starredKillMarshallingPoints": true,
     "race": "elves",
     "keyedTo": [
       { "regionTypes": ["wilderness", "border"] },

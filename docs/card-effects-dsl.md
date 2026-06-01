@@ -457,6 +457,13 @@ Events:
     "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } } }
   ```
 
+- `bearer-wounded` -- fires after combat finalization for each ally whose bearer (controlling character) was wounded (result `'wounded'`, not tapped under detainment rules; detainment strikes tap, not wound). Scans every wounded character's attached allies for this event. Supports `apply: { "type": "discard-self" }`, which removes the ally from the bearer and places it in the defending player's discard pile. Implemented in `reducer-combat.ts` combat finalization. Used by *Regiment of Black Crows* (as-76) and *Great Bats* (as-74).
+
+  ```json
+  { "type": "on-event", "event": "bearer-wounded",
+    "apply": { "type": "discard-self" } }
+  ```
+
 - `company-member-wounded` -- fires after combat finalization when any character in the defending company was wounded (result `'wounded'`, not tapped under detainment rules). Scans every character in the defending company for attached hazard events carrying this on-event; for each match, enqueues one `corruption-check` pending resolution on the **bearer** (the character bearing the hazard, not the wounded character). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Despair of the Heart* (tw-27). Implemented in `reducer-combat.ts` combat finalization.
 - `character-gains-item` -- fires immediately after any character in the bearer's company gains an item during the site phase (via `play-hero-resource`). For each character bearing a hazard with this event, enqueues one `corruption-check` pending resolution for that character (the bearer, not the character who gained the item). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Lure of Expedience* (le-122). Implemented in `reducer-site.ts` `fireCharacterGainsItemChecks()`.
 - `end-of-turn` -- fires when the active player's site phase ends and the game transitions into the End-of-Turn phase (both when all companies have been handled and when the player passes with no active step). The reducer (`reducer-site.ts`) scans every character of the active player for attached hazards carrying this on-event. Supports `apply: { type: "force-check-per-others-item", check: "corruption" }`, which enqueues one `corruption-check` pending resolution per item in the bearer's company that the bearer does not bear; the modifier for each check is the negative corruption-point value of that item (`-item.corruptionPoints`). Used by *Covetous Thoughts* (le-107). Implemented in `reducer-site.ts` `fireEndOfTurnCorruptionChecks()`.
@@ -3045,3 +3052,44 @@ The engine reads it when computing legal movement actions.
 ```
 
 Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190).
+
+---
+
+## Creature Keying — `keyedTo` extended fields
+
+The `keyedTo` array on a hazard-creature card describes where the creature can be
+played. Each entry is a `CreatureKeyRestriction` object; a creature is playable if
+**any** entry matches. The following fields extend the base set (regionTypes,
+regionNames, siteTypes, siteNames, when):
+
+### `siteKeywords`
+
+```json
+{ "siteKeywords": ["under-deeps"] }
+```
+
+Matches when the destination site carries at least one of the listed keywords in its
+`keywords` array. Evaluated in `findCreatureKeyingMatches` (movement-hazard.ts) and
+`checkCreatureKeying` (reducer-movement-hazard.ts). Also checked in
+`playSiteAutoAttackActions` (site.ts) when resolving dynamic auto-attack eligibility:
+a creature keyed to `["under-deeps"]` is eligible as a dynamic auto-attack at any
+under-deeps site regardless of its specific `siteType`.
+
+Used by: *Nameless Thing* (dm-109) — "Playable at any Under-deeps site."
+
+### `adjacentToSiteKeywords`
+
+```json
+{ "adjacentToSiteKeywords": ["under-deeps"], "when": { "inPlay": "Doors of Night" } }
+```
+
+Matches when the destination site is adjacent (in the under-deeps movement sense —
+bidirectional via `adjacentSites`) to any site carrying one of the listed keywords.
+Implemented using `isUnderDeepsAdjacent` against all matching sites in
+`state.cardPool`. Typically gated by a `when` condition (e.g. Doors of Night) since
+this is an alternate keying that only fires under specific circumstances.
+
+The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
+
+Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
+an adjacent site of any Under-deeps site."

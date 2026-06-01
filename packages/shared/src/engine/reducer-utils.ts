@@ -666,9 +666,18 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
       }
     }
     const newSiteDeck = [...player.siteDeck, ...untappedSites];
-    const newDiscardPile = [...player.discardPile, ...tappedSites];
 
-    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile };
+    // CoE rule 2.07: permanent-events bound to a now-empty company are discarded.
+    const emptyCompanyIds = new Set(emptyCompanies.map(c => c.id as string));
+    const boundToEmpty = player.cardsInPlay.filter(c => c.companyId && emptyCompanyIds.has(c.companyId as string));
+    const remainingCardsInPlay = player.cardsInPlay.filter(c => !c.companyId || !emptyCompanyIds.has(c.companyId as string));
+    if (boundToEmpty.length > 0) {
+      logDetail(`cleanupEmptyCompanies: discarding ${boundToEmpty.length} permanent-event(s) bound to empty company/companies`);
+    }
+
+    const newDiscardPile = [...player.discardPile, ...tappedSites, ...boundToEmpty.map(toCardInstance)];
+
+    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile, cardsInPlay: remainingCardsInPlay };
   });
 
   return { ...state, players: [newPlayers[0], newPlayers[1]] };

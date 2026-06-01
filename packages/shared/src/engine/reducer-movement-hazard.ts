@@ -1173,7 +1173,7 @@ function handlePlayHazardCard(
   if (def.cardType === 'hazard-creature') {
     const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
     if (!viaKeyingBypass) {
-      const keyError = checkCreatureKeying(def, mhState);
+      const keyError = checkCreatureKeying(state, def, mhState);
       if (keyError) return { state, error: keyError };
     } else {
       logDetail(`Creature "${def.name}" played via keying-bypass constraint (race "${def.race}")`);
@@ -2212,8 +2212,32 @@ function regionTypesMatch(required: readonly RegionType[], path: readonly Region
  *
  * @returns An error string if the creature cannot be keyed, or undefined if legal.
  */
-function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
+function checkCreatureKeying(state: GameState, def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
+  // Look up the destination site definition by name for keyword checks
+  const destSiteDef = mhState.destinationSiteName
+    ? Object.values(state.cardPool).find(c => isSiteCard(c) && c.name === mhState.destinationSiteName)
+    : undefined;
+  const destSiteCard = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef : undefined;
+
+  // Build sitePath counts from the destination site's own sitePath (for Rain-drake
+  // and similar cards that gate on destinationSite.sitePath.*Count conditions).
+  const destSitePath = destSiteCard?.sitePath ?? [];
+  const destPathCounts: Record<string, number> = {};
+  for (const rt of destSitePath) {
+    const key2 = `${rt}Count`;
+    destPathCounts[key2] = (destPathCounts[key2] ?? 0) + 1;
+  }
+  const inPlayNames = buildInPlayNames(state);
+  const whenCtxBase: Record<string, unknown> = {
+    inPlay: inPlayNames,
+    destinationSite: { sitePath: destPathCounts },
+  };
+
   for (const key of def.keyedTo) {
+    // When-condition guards the entry (DoN, sitePath-count conditions, etc.)
+    if (key.when) {
+      if (!matchesCondition(key.when, whenCtxBase)) continue;
+    }
     // Check region types against site path (count-based: if the creature
     // lists a region type N times, the path must contain at least N of that type)
     if (key.regionTypes && key.regionTypes.length > 0) {
@@ -2244,6 +2268,30 @@ function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseStat
         return undefined;
       }
     }
+    // Check site keywords against destination site's keywords
+    if (key.siteKeywords && key.siteKeywords.length > 0 && destSiteCard) {
+      const kws = destSiteCard.keywords ?? [];
+      if (key.siteKeywords.some(kw => kws.includes(kw))) {
+        logDetail(`Creature "${def.name}" keyable to site keyword: ${key.siteKeywords.join('/')}`);
+        return undefined;
+      }
+    }
+    // Check adjacentToSiteKeywords — destination must be adjacent to a site with the keyword
+    if (key.adjacentToSiteKeywords && key.adjacentToSiteKeywords.length > 0 && destSiteCard && mhState.destinationSiteName) {
+      for (const kw of key.adjacentToSiteKeywords) {
+        const kwSites = Object.values(state.cardPool).filter(c => isSiteCard(c) && (c.keywords ?? []).includes(kw));
+        for (const kwSite of kwSites) {
+          if (isSiteCard(kwSite)) {
+            const r1 = resolveAdjacency(state, kwSite, mhState.destinationSiteName);
+            const r2 = destSiteCard.name ? resolveAdjacency(state, destSiteCard, kwSite.name) : undefined;
+            if (r1 !== undefined || r2 !== undefined) {
+              logDetail(`Creature "${def.name}" keyable — destination adjacent to ${kw} site "${kwSite.name}"`);
+              return undefined;
+            }
+          }
+        }
+      }
+    }
   }
 
   const keyDesc = def.keyedTo.map(k => {
@@ -2252,6 +2300,8 @@ function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseStat
     if (k.regionNames?.length) parts.push(`named: ${k.regionNames.join('/')}`);
     if (k.siteTypes?.length) parts.push(`sites: ${k.siteTypes.join('/')}`);
     if (k.siteNames?.length) parts.push(`at: ${k.siteNames.join('/')}`);
+    if (k.siteKeywords?.length) parts.push(`site-keyword: ${k.siteKeywords.join('/')}`);
+    if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to: ${k.adjacentToSiteKeywords.join('/')}`);
     return parts.join(', ');
   }).join(' OR ');
   return `${def.name} cannot be keyed to this company's path (requires ${keyDesc})`;

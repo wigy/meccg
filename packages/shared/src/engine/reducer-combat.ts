@@ -1993,12 +1993,15 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   newCharacters[action.characterId as string] = { ...charData, status: CardStatus.Tapped };
   newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
 
-  // Remove one strike assignment (the last one assigned to the target)
+  // Remove one full attack's worth of strike assignments.
+  // For multi-attack creatures (e.g. Nameless Thing: 3 attacks × 2 strikes),
+  // strikesPerAttack is set so one tap cancels one full attack (all its strikes).
+  const strikesToRemove = combat.strikesPerAttack ?? 1;
   const newAssignments = [...combat.strikeAssignments];
-  newAssignments.pop();
+  for (let i = 0; i < strikesToRemove; i++) newAssignments.pop();
 
   const newCancelRemaining = combat.cancelByTapRemaining - 1;
-  const newStrikesTotal = combat.strikesTotal - 1;
+  const newStrikesTotal = combat.strikesTotal - strikesToRemove;
 
   logDetail(`Strikes reduced: ${combat.strikesTotal} → ${newStrikesTotal}, cancels remaining: ${newCancelRemaining}`);
 
@@ -2578,10 +2581,53 @@ function handleTakeTrophy(state: GameState, action: GameAction, combat: CombatSt
 /**
  * Handle a `pass` action during the `trophy-offer` combat phase.
  * The defending player declines to take any trophy; combat ends normally.
+ * Applies rule 8.22: if the defeated creature is in the defender's kill pile
+ * but alignment-mismatched, move it to out-of-play instead.
  */
-function finalizeCombatFromTrophyOffer(state: GameState, _combat: CombatState): ReducerResult {
+function finalizeCombatFromTrophyOffer(state: GameState, combat: CombatState): ReducerResult {
   logDetail('Trophy offer declined — combat finalized without trophy');
-  return { state: { ...state, combat: null } };
+  const finalState = applyRule8_22AfterTrophyDecision(state, combat);
+  return { state: { ...finalState, combat: null } };
+}
+
+/**
+ * Apply CoE rule 8.22 after the trophy decision is resolved (either no eligible
+ * characters or player declined). Checks the creature in the defender's kill pile
+ * and moves it to out-of-play if the alignment doesn't match the creature's starred status.
+ *
+ * - Hero/FW: starred creatures → out-of-play
+ * - Minion/Balrog: non-starred creatures → out-of-play
+ */
+function applyRule8_22AfterTrophyDecision(state: GameState, combat: CombatState): GameState {
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+          : null;
+  if (!creatureInstanceId || combat.detainment) return state;
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defIdx];
+  const creatureInKill = defPlayer.killPile.find(c => c.instanceId === creatureInstanceId);
+  if (!creatureInKill) return state;
+
+  const creatureDef = resolveDef(state, creatureInstanceId) as { starredKillMarshallingPoints?: boolean } | undefined;
+  const isStarred = creatureDef?.starredKillMarshallingPoints === true;
+  const defAlignment = defPlayer.alignment;
+  const defIsMinion = defAlignment === Alignment.Ringwraith || defAlignment === Alignment.Balrog;
+  const worthMP = defIsMinion ? isStarred : !isStarred;
+
+  if (!worthMP) {
+    logDetail(`Rule 8.22: moving ${isStarred ? 'starred' : 'non-starred'} creature from kill pile to out-of-play for ${defAlignment} defender`);
+    const newPlayers = clonePlayers(state);
+    newPlayers[defIdx] = {
+      ...newPlayers[defIdx],
+      killPile: newPlayers[defIdx].killPile.filter(c => c.instanceId !== creatureInstanceId),
+      outOfPlayPile: [...newPlayers[defIdx].outOfPlayPile, creatureInKill],
+    };
+    return { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players };
+  }
+  return state;
 }
 
 function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerResult {
@@ -2639,6 +2685,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       };
       logDetail(`All strikes defeated (detainment) — creature discarded instead of kill pile (§3.II.3)`);
     } else if (allDefeated && creatureCard) {
+      // Always move to kill pile initially. Rule 8.22 routing (kill pile vs out-of-play)
+      // is applied after the trophy-offer decision to avoid race with trophy code.
       newPlayers[defIdx] = {
         ...newPlayers[defIdx],
         killPile: [...newPlayers[defIdx].killPile, creatureCard],
@@ -2784,6 +2832,46 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           }
         }
       }
+    }
+  }
+
+  // Check for on-event: bearer-wounded effects on allies attached to wounded characters.
+  // When any characters are wounded (not eliminated), scan each wounded character's
+  // allies for this event. If an ally has bearer-wounded → discard-self, discard it.
+  // Used by Regiment of Black Crows (as-76) and Great Bats (as-74).
+  if (woundedCharIds.length > 0) {
+    const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    let defPlayer = stateAfterCombat.players[defPlayerIdx];
+    let anyDiscarded = false;
+    for (const charId of woundedCharIds) {
+      const charData = defPlayer.characters[charId as string];
+      if (!charData) continue;
+      const alliesToDiscard: (typeof charData.allies)[number][] = [];
+      for (const ally of charData.allies) {
+        const allyDef = defById(stateAfterCombat, ally.definitionId);
+        const bearerWoundedEvents = getOnEventEffects(allyDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-wounded');
+        if (bearerWoundedEvents.some(e => e.apply?.type === 'discard-self')) {
+          const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+          logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
+          alliesToDiscard.push(ally);
+          anyDiscarded = true;
+        }
+      }
+      if (alliesToDiscard.length > 0) {
+        const remainingAllies = charData.allies.filter(a => !alliesToDiscard.some(d => d.instanceId === a.instanceId));
+        const newDiscard = [...defPlayer.discardPile, ...alliesToDiscard.map(a => toCardInstance(a))];
+        defPlayer = {
+          ...defPlayer,
+          characters: {
+            ...defPlayer.characters,
+            [charId as string]: { ...charData, allies: remainingAllies },
+          },
+          discardPile: newDiscard,
+        };
+      }
+    }
+    if (anyDiscarded) {
+      stateAfterCombat = updatePlayer(stateAfterCombat, defPlayerIdx, () => defPlayer);
     }
   }
 
@@ -3173,11 +3261,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
     if (trophyEligible.length > 0) {
       logDetail(`Trophy offer: ${trophyEligible.length} eligible Orc/Troll character(s) may take creature ${creatureInstanceId as string} as a trophy (MELE §8.37)`);
-      // The creature card has been moved to the kill pile — we move it back to
-      // a trophy-hold so the offer phase can assign it to a character.
-      // For simplicity: keep it in the kill pile (the player still earns kill-MP)
-      // and only use the instance ID for reference; the reducer will remove it
-      // from the kill pile if the trophy is taken.
+      // Creature is in kill pile; rule 8.22 is applied after the trophy decision
+      // (in finalizeCombatFromTrophyOffer or take-trophy handler).
       const trophyOfferCombat: CombatState = {
         ...combat,
         phase: 'trophy-offer',
@@ -3187,8 +3272,11 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // No trophy offer — apply rule 8.22 alignment-based routing now.
+  const stateWithRule8_22 = applyRule8_22AfterTrophyDecision(stateAfterCombat, combat);
+
   return {
-    state: stateAfterCombat,
+    state: stateWithRule8_22,
     effects,
   };
 }

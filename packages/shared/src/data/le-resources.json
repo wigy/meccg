@@ -441,7 +441,8 @@
         "requiredSkill": "scout"
       }
     ],
-    "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout."
+    "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout.",
+    "certified": "2026-06-01"
   },
   {
     "cardType": "minion-resource-ally",
@@ -849,7 +850,8 @@
         "max": 1
       }
     ],
-    "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
+    "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack.",
+    "certified": "2026-06-01"
   },
   {
     "cardType": "minion-resource-event",
