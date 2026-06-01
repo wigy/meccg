@@ -1502,6 +1502,7 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
  *
  * Used by short events like Smoke Rings that let the player retrieve a
  * resource or character from their sideboard or discard pile.
+ * When `to` is `'hand'`, the card is moved into the player's hand instead of the deck.
  */
 export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';

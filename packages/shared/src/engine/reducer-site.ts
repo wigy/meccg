@@ -2058,6 +2058,7 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
  */
 function fireEndOfTurnFetchEffects(state: GameState): GameState {
   let newState = state;
+  const inPlayNames = buildInPlayNames(state);
 
   // Scan both players' cardsInPlay for matching permanent events.
   for (const player of newState.players) {
@@ -2066,10 +2067,18 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
       for (const effect of getOnEventEffects(def, 'end-of-turn')) {
         if (effect.actor !== 'both') continue;
         if (effect.apply.type !== 'move') continue;
+
+        // Evaluate the optional `when` condition (e.g. "if Doors of Night is in play")
+        if (effect.when && !matchesContext(effect.when, { inPlay: inPlayNames })) {
+          logDetail(`end-of-turn: "${def?.name}" — when condition not met, skipping`);
+          continue;
+        }
+
         const payload = moveToFetchToDeckPayload(effect.apply as unknown as MoveEffect);
         if (!payload) continue;
 
-        logDetail(`end-of-turn: "${def?.name}" — firing fetch-to-deck for both players`);
+        const dest = payload.to === 'hand' ? 'hand' : 'deck';
+        logDetail(`end-of-turn: "${def?.name}" — firing fetch-to-${dest} for both players`);
 
         // Enqueue one pending fetch effect per player (resource player first)
         for (const targetPlayer of newState.players) {
@@ -2084,7 +2093,7 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
             ...newState,
             pendingEffects: [...newState.pendingEffects, pendingEffect],
           };
-          logDetail(`end-of-turn: queued fetch-to-deck for player ${targetPlayer.id as string} from "${def?.name}"`);
+          logDetail(`end-of-turn: queued fetch-to-${dest} for player ${targetPlayer.id as string} from "${def?.name}"`);
         }
       }
     }

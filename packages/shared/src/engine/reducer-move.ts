@@ -628,17 +628,19 @@ export function findMoveEffectByShape(
 }
 
 /**
- * Translate a `move`-shape "fetch into deck" effect into the legacy
+ * Translate a `move`-shape "fetch into deck or hand" effect into the
  * {@link FetchToDeckEffect} shape used by the pending-effects queue.
  * The move's `from` zones (`'sideboard' | 'discard'`) map to the
  * legacy pile names (`'sideboard' | 'discard-pile'`).
  *
- * Returns null when `move` is not a fetch-to-deck shape.
+ * Handles both `to: 'deck'` (shuffle into play deck) and `to: 'hand'`
+ * (return directly to hand). Returns null for non-fetch move shapes.
  */
 export function moveToFetchToDeckPayload(
   move: MoveEffect,
 ): import('../types/effects.js').FetchToDeckEffect | null {
-  if (move.select !== 'target' || move.to !== 'deck') return null;
+  if (move.select !== 'target') return null;
+  if (move.to !== 'deck' && move.to !== 'hand') return null;
   const fromArr = Array.isArray(move.from) ? move.from : [move.from];
   const source = fromArr.map(z =>
     z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : null,
@@ -649,5 +651,6 @@ export function moveToFetchToDeckPayload(
     filter: move.filter ?? {},
     count: move.count ?? 1,
     shuffle: move.shuffleAfter ?? true,
+    to: move.to === 'hand' ? 'hand' : 'deck',
   };
 }

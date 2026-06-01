@@ -46,6 +46,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
+  const dest = effect.to ?? 'deck';
 
   // Identify the triggering event card so it is excluded from candidates.
   // Hazard short events stay in the discard pile while their fetch effects
@@ -65,7 +66,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
       actions.push({
-        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource },
+        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource, to: dest },
         viable: true,
       });
     }

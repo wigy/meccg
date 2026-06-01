@@ -855,18 +855,21 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
     const playerName = (state.players.find(p => p.id === effectOwner) as { name: string } | undefined)?.name ?? effectOwner as string;
     const eventDef = resolveDef(state, current.cardInstanceId) as { name?: string } | undefined;
     const cardName = eventDef?.name ?? current.cardInstanceId as string;
-    skipEffects.push({ effect: 'text-notification', message: `${playerName} does not retrieve a Man hazard creature (${cardName})` });
+    skipEffects.push({ effect: 'text-notification', message: `${playerName} declines to retrieve a card (${cardName})` });
   }
   return { state: newState, effects: skipEffects.length > 0 ? skipEffects : undefined };
 }
 
 /**
- * Handle fetching a card from sideboard or discard pile into the play deck.
+ * Handle fetching a card from sideboard or discard pile into the play deck or hand.
  *
  * Part of the fetch-to-deck effect resolution. The current effect is the
  * first entry in {@link GameState.pendingEffects}. After the fetch,
  * the effect is consumed; if no more effects remain, the event card moves
  * from cardsInPlay to the player's discard pile.
+ *
+ * When the effect's `to` field is `'hand'`, the card is moved into the player's
+ * hand instead of being shuffled into the play deck.
  */
 export function handleFetchFromPile(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-from-pile') return { state, error: 'Expected fetch-from-pile action' };

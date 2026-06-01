@@ -106,7 +106,7 @@ export interface GlamourHazardRollAction {
 }
 
 /**
- * Select a card from the sideboard or discard pile to fetch into the play deck.
+ * Select a card from the sideboard or discard pile to fetch into the play deck or hand.
  *
  * This action is part of the fetch-to-deck sub-flow initiated by resource
  * short events like Smoke Rings. The player must select exactly one eligible
@@ -120,4 +120,6 @@ export interface FetchFromPileAction {
   readonly cardInstanceId: CardInstanceId;
   /** Which pile the card is being fetched from. */
   readonly source: 'sideboard' | 'discard-pile' | 'deck';
+  /** Destination zone. Defaults to `'deck'` for backward compatibility. */
+  readonly to?: 'deck' | 'hand';
 }
