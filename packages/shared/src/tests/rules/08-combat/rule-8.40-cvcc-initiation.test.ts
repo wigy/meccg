@@ -27,6 +27,8 @@ const MORIA_AS = 'as-169' as CardDefinitionId;
 const RIVENDELL = 'tw-d01' as CardDefinitionId;
 const MORIA_HERO = 'tw-413' as CardDefinitionId;
 const MORIA_MINION = 'le-392' as CardDefinitionId;
+const EAGLES_EYRIE_HERO = 'tw-391' as CardDefinitionId;
+const EAGLES_EYRIE_MINION = 'as-144' as CardDefinitionId;
 
 function buildSiteState(opts: {
   siteEntered: boolean;
@@ -166,6 +168,59 @@ describe('Rule 8.40 — CvCC Initiation Conditions', () => {
           id: PLAYER_2,
           alignment: Alignment.Ringwraith,
           companies: [{ site: MORIA_MINION, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    const s = { ...state, phaseState: sitePhaseState };
+    const afterPass = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    const ps = afterPass.phaseState as SitePhaseState;
+    expect(ps.step).toBe('declare-company-attack');
+
+    const actions = viableActions(afterPass, PLAYER_1, 'declare-company-attack');
+    expect(actions.length).toBe(1);
+  });
+
+  test('CvCC allowed: ringwraith at minion-Eagles-Eyrie vs wizard at hero-Eagles-Eyrie (same name, different card IDs)', () => {
+    // Regression test for game mpv5bx8n-3j9fua: ringwraith company at as-144 and wizard
+    // company at tw-391 are both "Eagles' Eyrie" but different card IDs.  CvCC must be
+    // offered when the ringwraith is the resource (active) player.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: EAGLES_EYRIE_MINION, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: EAGLES_EYRIE_HERO, characters: [ARAGORN] }],
           hand: [],
           siteDeck: [],
         },
