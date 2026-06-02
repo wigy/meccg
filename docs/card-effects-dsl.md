@@ -768,14 +768,37 @@ hand during the opponent's site phase while an `opponent-influence-defend`
 resolution is pending. The card is discarded after use.
 
 When `requiredRace` is present, requires a character of that race under
-the player's control. The `cost` is typically a corruption check with a
-modifier that the cost-paying character must make after the cancellation.
+the player's control. When `requiredSkill` is present, requires a
+character who has that skill (either innate or from an item). Both fields
+may coexist — when both are set, the character must match both. The `cost`
+is typically a corruption check with a modifier that the cost-paying
+character must make after the cancellation.
+
+The optional `targetKindFilter` array restricts which target kinds the
+card may cancel. When present, the cancel-influence action is only
+available when the pending `opponent-influence-defend` resolution's
+`targetKind` appears in the list (`"character"`, `"ally"`, or
+`"faction"`). When absent, all target kinds are valid. A card may declare
+multiple `cancel-influence` effects (e.g. one for a privileged role with
+no cost and broader scope, one for a secondary role with a cost and
+narrower scope).
 
 ```json
 { "type": "cancel-influence",
   "requiredRace": "wizard",
   "cost": { "check": "corruption", "modifier": -2 } }
+{ "type": "cancel-influence",
+  "requiredRace": "ringwraith" }
+{ "type": "cancel-influence",
+  "requiredSkill": "shadow-magic",
+  "targetKindFilter": ["character", "ally"],
+  "cost": { "check": "corruption", "modifier": -3 } }
 ```
+
+Example: Poisonous Despair (le-219) — Ringwraith cancels any influence
+attempt (character, ally, or faction) for free; a non-Ringwraith character
+with the `shadow-magic` skill can cancel character/ally attempts at the
+cost of a corruption check modified by -3.
 
 ### 9b. `halve-strikes`
 

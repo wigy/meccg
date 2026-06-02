@@ -24,7 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { resolveDef } from './effects/index.js';
+import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
@@ -566,11 +566,36 @@ function applyCancelInfluence(
     return { state, error: 'cancel-influence card definition not found' };
   }
 
-  const cancelEffect = ('effects' in cardDef && cardDef.effects)
-    ? (cardDef.effects as import('../index.js').CardEffect[]).find(e => e.type === 'cancel-influence')
-    : undefined;
-  if (!cancelEffect || cancelEffect.type !== 'cancel-influence') {
+  const allCancelEffects = ('effects' in cardDef && cardDef.effects)
+    ? (cardDef.effects as import('../index.js').CardEffect[]).filter(e => e.type === 'cancel-influence')
+    : [];
+  if (allCancelEffects.length === 0) {
     return { state, error: 'Card has no cancel-influence effect' };
+  }
+
+  // Resolve the paying character's race and skills to find the matching effect
+  const charDef = resolveDef(state, action.characterId);
+  const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
+  const charData = action.characterId ? player.characters[action.characterId as string] : undefined;
+  const charSkills = charDef && isCharacterCard(charDef)
+    ? [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])]
+    : [];
+  const targetKind = top.kind.type === 'opponent-influence-defend'
+    ? top.kind.attempt.targetKind
+    : undefined;
+
+  // Pick the first effect that matches the current context (character + targetKind)
+  const cancelEffect = allCancelEffects.find(e => {
+    if (e.type !== 'cancel-influence') return false;
+    if (e.requiredRace && charRace !== e.requiredRace) return false;
+    if (e.requiredSkill && !charSkills.includes(e.requiredSkill)) return false;
+    if (e.targetKindFilter && e.targetKindFilter.length > 0 && targetKind) {
+      if (!e.targetKindFilter.includes(targetKind)) return false;
+    }
+    return true;
+  });
+  if (!cancelEffect || cancelEffect.type !== 'cancel-influence') {
+    return { state, error: 'No matching cancel-influence effect for this character and target' };
   }
 
   const newDiscard = [...player.discardPile, toCardInstance(discardedCard)];
@@ -584,15 +609,14 @@ function applyCancelInfluence(
     const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
     const activePlayer = activePlayerState(state);
     const companyId = activePlayer?.companies[activeCompanyIndex]?.id ?? '' as import('../index.js').CompanyId;
-    const charDef = resolveDef(state, action.characterId);
-    const reason = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
+    const charName = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
 
     const costResult = applyCost(resultState, cancelEffect.cost, action.characterId, {
       playerIndex,
       sourceCardId: action.cardInstanceId,
       companyId,
       checkScopeKind: 'company-site-subphase',
-      label: reason,
+      label: charName,
     });
     if ('error' in costResult) return { state, error: costResult.error };
     resultState = costResult.state;
