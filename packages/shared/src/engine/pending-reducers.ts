@@ -24,8 +24,8 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { resolveDef, getItemGrantedSkills } from './effects/index.js';
-import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail } from './legal-actions/log.js';
 import {
@@ -1411,9 +1411,30 @@ function applyGoldRingTestResolution(
   const ringDef = defById(state, ringCard.definitionId);
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
+  // Collect check-modifier effects (e.g. Scroll of Isildur) from every character
+  // in the company bearing the ring. Uses stateAfterRing so the ring itself is
+  // already gone, but Scroll-of-Isildur-style companions are still present.
+  let itemCheckModifier = 0;
+  if (characterInstanceId) {
+    const afterRingPlayer = stateAfterRing.players[actorIndex];
+    const company = findCharacterCompany(afterRingPlayer.companies, characterInstanceId);
+    if (company) {
+      const checkContext = { reason: 'gold-ring-test' };
+      for (const compCharId of company.characters) {
+        const compChar = afterRingPlayer.characters[compCharId as string];
+        if (!compChar) continue;
+        const charEffects = collectCharacterEffects(stateAfterRing, compChar, checkContext);
+        itemCheckModifier += resolveCheckModifier(charEffects, 'gold-ring-test');
+      }
+      if (itemCheckModifier !== 0) {
+        logDetail(`Gold-ring test: item modifiers from company: ${formatSignedNumber(itemCheckModifier)}`);
+      }
+    }
+  }
+
   const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + rollModifier;
-  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)} = ${total}; ring discarded`);
+  const total = roll.die1 + roll.die2 + rollModifier + itemCheckModifier;
+  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''} = ${total}; ring discarded`);
 
   const rollEffect = diceRollEffect(player.name, roll, `Gold-ring test: ${ringName}`);
 

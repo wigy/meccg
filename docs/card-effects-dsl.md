@@ -1330,6 +1330,23 @@ Rules:
   { "type": "site-rule", "rule": "heal-during-untap" }
   ```
 
+- `site-phase-ring-auto-test` — at company selection during the site phase
+  (`select-company` → `enter-or-skip` transition), scans every gold-ring item
+  borne by characters in the selected company and enqueues a `gold-ring-test`
+  pending resolution for each one. The tests fire before the enter-or-skip
+  decision, so even a company that chooses not to enter the site must test its
+  borne rings. The `rollModifier` field is applied to every enqueued test's
+  2d6 roll. Unlike `auto-test-gold-ring` (which fires on the store/play path),
+  this rule targets already-held rings. Consumed by
+  `engine/reducer-site.ts` `enqueueSitePhaseRingAutoTests()`. Used by
+  *Barad-dûr* (le-352) — "Any gold ring item at this site is automatically
+  tested during the site phase (the site need not be entered). All ring tests
+  at this site are modified by -3."
+
+  ```json
+  { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3 }
+  ```
+
 - `dynamic-auto-attack` — when a company enters this site, the opponent
   may play one non-unique hazard creature from hand as the site's automatic-attack.
   The `keying` filter lists the site-types and region-types that satisfy
@@ -1553,6 +1570,34 @@ Context variables for grant-action `when` conditions:
 
 Implemented in `reducer-organization.ts` (handler), `legal-actions/organization.ts`
 (scanner + context), `reducer-utils.ts` (fetch completion with corruption check).
+
+### Grant-Action: `palantir-peek-shuffle`
+
+Tap the Palantír item to shuffle the top 5 cards of both players' play
+decks (keeping them at the top in a new random order). Bearer makes a
+corruption check after the shuffle. Requires the bearer to be able to
+use a Palantír. Used by *Palantír of Minas Tirith* (le-333).
+
+```json
+{ "type": "grant-action", "action": "palantir-peek-shuffle",
+  "cost": { "tap": "self" },
+  "when": { "bearer.canUsePalantir": true },
+  "apply": {
+    "type": "sequence",
+    "apps": [
+      { "type": "shuffle-deck-top", "count": 5 },
+      { "type": "shuffle-deck-top", "count": 5, "toOwner": "opponent" },
+      { "type": "enqueue-corruption-check" }
+    ]
+  } }
+```
+
+**Apply type `shuffle-deck-top`:** Shuffles the top `count` (default 5) cards
+of the target player's play deck, keeping them at the top in a new random order.
+`toOwner` controls the target: omitted or `"source-owner"` = bearer's player;
+`"opponent"` = the opposing player. If the deck has fewer than `count` cards, all
+available cards are shuffled. Implemented in `reducer-organization.ts`
+`runGrantApply()`.
 
 ### 23. `play-condition`
 

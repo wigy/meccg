@@ -176,10 +176,40 @@
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 3,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Minas Tirith"]
+      },
+      {
+        "type": "grant-action",
+        "action": "palantir-peek-shuffle",
+        "cost": { "tap": "self" },
+        "when": { "bearer.canUsePalantir": true },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "shuffle-deck-top",
+              "count": 5
+            },
+            {
+              "type": "shuffle-deck-top",
+              "count": 5,
+              "toOwner": "opponent"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-06-02"
   },
   {
     "cardType": "minion-resource-item",
@@ -260,8 +290,20 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. When a gold ring is tested in a company bearing the Scroll of Isildur, the random value obtained is modified by +1. May be stored at Barad-dûr for 5 marshalling points."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "gold-ring-test",
+        "value": 1
+      },
+      {
+        "type": "storable-at",
+        "sites": ["Barad-dûr"],
+        "marshallingPoints": 5
+      }
+    ],
+    "text": "Unique. When a gold ring is tested in a company bearing the Scroll of Isildur, the random value obtained is modified by +1. May be stored at Barad-dûr for 5 marshalling points.",
+    "certified": "2026-06-02"
   },
   {
     "cardType": "minion-resource-item",

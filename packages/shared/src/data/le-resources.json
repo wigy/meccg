@@ -620,14 +620,33 @@
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
     "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
     "playableAt": [
       {
         "site": "Moria"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Moria if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Goblins of Goblin-gate (+2), Orcs of Dol Guldur (-2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Goblins of Goblin-gate"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Dol Guldur"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Moria if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Goblins of Goblin-gate (+2), Orcs of Dol Guldur (-2).",
+    "certified": "2026-06-02"
   },
   {
     "cardType": "minion-resource-event",
