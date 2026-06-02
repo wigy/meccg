@@ -207,17 +207,21 @@ export function heroResourceShortEventActions(
     // attack, wound the character). They don't represent independent non-combat
     // effects, so they don't prevent the card from being treated as combat-only.
     // duplication-limit is a companion to company-combat-boost (e.g. The Dwarves
-    // Are upon You!): it describes per-attack duplication rules and does not
-    // represent an independent non-combat effect.
+    // Are upon You!) or attack-modifiers (e.g. Not Slay Needlessly): it describes
+    // per-attack duplication rules and does not represent an independent non-combat
+    // effect.
     const effects = getCardEffects(def);
     const hasCancelAttack = effects.some(e => e.type === 'cancel-attack');
+    const hasModifyAttack = effects.some(e => e.type === 'modify-attack');
     const hasCompanyCombatBoost = effects.some(e => e.type === 'company-combat-boost');
+    const hasCombatEffect = hasCancelAttack || hasModifyAttack || hasCompanyCombatBoost;
     const allCombatOnly = effects.length > 0 && effects.every(e => {
       if (combatOnlyTypes.has(e.type)) return true;
+      if (e.type === 'modify-attack') return true;
       if (e.type === 'company-combat-boost') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
       if (hasCancelAttack && (e.type === 'play-target' || (e.type === 'set-character-status' && e.status === 'inverted'))) return true;
-      if (hasCompanyCombatBoost && e.type === 'duplication-limit') return true;
+      if (hasCombatEffect && e.type === 'duplication-limit') return true;
       return false;
     });
     if (allCombatOnly) {

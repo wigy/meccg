@@ -185,6 +185,34 @@ describe('Not Slay Needlessly (le-212)', () => {
     expect(viableActions(after, PLAYER_1, 'modify-attack')).toHaveLength(0);
   });
 
+  // ─── Regression: must not be playable outside of an appropriate attack ───────
+
+  test('NOT playable as a resource short event during the organization phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [GORBAG] }],
+          hand: [NSN],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    const nsnInstanceId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const playable = viableActions(state, PLAYER_1, 'play-short-event')
+      .filter(ea => (ea.action as { cardInstanceId?: unknown }).cardInstanceId === nsnInstanceId);
+    expect(playable).toHaveLength(0);
+  });
+
   // ─── Effect 1: cancel vs. covert company ─────────────────────────────────────
 
   test('against a covert company: cancel-attack is available for a matching race', () => {
