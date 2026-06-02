@@ -1407,10 +1407,11 @@ export function playResourceShortEventActions(
     // combat (e.g. The Cock Crows' GoM discard mode). A play-option effect
     // with a met `when` also represents a non-combat mode (e.g. Many Turns
     // and Doublings' hazard-limit reduction).
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'play-target', 'set-character-status']);
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;
+      if (e.type === 'duplication-limit' && (e as { scope?: string }).scope === 'attack') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
       return false;
     });
