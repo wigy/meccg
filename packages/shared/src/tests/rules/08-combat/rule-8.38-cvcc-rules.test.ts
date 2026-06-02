@@ -27,6 +27,8 @@ const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;  // Weathertop ruins-and-lairs (minion site)
 const RIVENDELL = 'tw-d01' as CardDefinitionId;
+const EAGLES_EYRIE_HERO = 'tw-391' as CardDefinitionId;
+const EAGLES_EYRIE_MINION = 'as-144' as CardDefinitionId;
 
 /** Build a site-phase state where both players are at the same site. */
 function buildCvCCState(opts: {
@@ -222,5 +224,64 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
 
     const ps = afterDeclare.phaseState as SitePhaseState;
     expect(ps.opponentInteractionThisTurn).toBe('attack');
+  });
+
+  test('CvCC: declare-company-attack succeeds when companies are at hero/minion versions of the same site', () => {
+    // Regression: game mpwmana3-ufoini — ringwraith at Eagles\' Eyrie minion (as-144)
+    // and wizard at Eagles\' Eyrie hero (tw-391). Legal actions correctly offered the
+    // attack, but the reducer rejected it with "Target company is not at the same site"
+    // because it compared definitionIds instead of site names.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: EAGLES_EYRIE_MINION, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: EAGLES_EYRIE_HERO, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    const s = { ...state, phaseState: sitePhaseState };
+    const afterPass = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    expect((afterPass.phaseState as SitePhaseState).step).toBe('declare-company-attack');
+
+    const declareAction = viableActions(afterPass, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    const afterDeclare = dispatch(afterPass, declareAction);
+
+    // Combat must start — the reducer must not reject the action
+    expect(afterDeclare.combat).not.toBeNull();
+    expect(afterDeclare.combat?.isCvCC).toBe(true);
   });
 });

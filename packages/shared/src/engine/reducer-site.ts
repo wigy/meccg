@@ -2323,8 +2323,19 @@ function handleDeclareCompanyAttack(
   const targetCompany = hazardPlayerState.companies.find(c => c.id === action.targetCompanyId);
   if (!targetCompany) return { state, error: 'Target company not found' };
 
-  if (!company.currentSite || !targetCompany.currentSite
-    || company.currentSite.definitionId !== targetCompany.currentSite.definitionId) {
+  if (!company.currentSite || !targetCompany.currentSite) {
+    return { state, error: 'Target company is not at the same site' };
+  }
+  // Same site: match by name to handle hero/minion versions of the same location
+  // (e.g. tw-391 and as-144 are both "Eagles' Eyrie"), fall back to definitionId equality.
+  const atkSiteDef = defById(state, company.currentSite.definitionId);
+  const atkSiteName = atkSiteDef && isSiteCard(atkSiteDef) ? atkSiteDef.name : null;
+  const tgtSiteDef = defById(state, targetCompany.currentSite.definitionId);
+  const tgtSiteName = tgtSiteDef && isSiteCard(tgtSiteDef) ? tgtSiteDef.name : null;
+  const sameSite = atkSiteName && tgtSiteName
+    ? atkSiteName === tgtSiteName
+    : company.currentSite.definitionId === targetCompany.currentSite.definitionId;
+  if (!sameSite) {
     return { state, error: 'Target company is not at the same site' };
   }
 
