@@ -107,8 +107,45 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company’s current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "ranger"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "grant-action",
+        "action": "cancel-return-and-site-tap",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "cancel-return-and-site-tap",
+              "scope": "turn",
+              "target": "bearer-company"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company’s current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company.",
+    "certified": "2026-06-02"
   },
   {
     "cardType": "hero-resource-ally",
