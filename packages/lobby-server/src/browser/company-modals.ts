@@ -643,16 +643,28 @@ const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
 /**
  * Show a tooltip menu for choosing between multiple granted actions on a single card
  * (e.g. Cram offers both untap-bearer and extra-region-movement).
+ *
+ * @param getCharacterName - optional lookup that resolves a character instance ID
+ *   to a display name; used to disambiguate items when multiple characters offer
+ *   the same action (e.g. two rangers each able to cancel River).
  */
 export function showGrantedActionTooltip(
   anchor: HTMLElement,
   actions: ActivateGrantedAction[],
   onAction: (action: GameAction) => void,
+  getCharacterName?: (id: CardInstanceId) => string | undefined,
 ): void {
   dismissTooltip();
 
   const tooltip = document.createElement('div');
   tooltip.className = 'char-action-tooltip';
+
+  // Detect when multiple entries share the same actionId so we know whether
+  // appending a character name is necessary to distinguish them.
+  const actionIdCounts = new Map<string, number>();
+  for (const a of actions) {
+    actionIdCounts.set(a.actionId, (actionIdCounts.get(a.actionId) ?? 0) + 1);
+  }
 
   for (const action of actions) {
     const btn = document.createElement('button');
@@ -662,11 +674,19 @@ export function showGrantedActionTooltip(
     // Distinguish them by the action's `noTap` flag; otherwise fall back
     // to the action-id label.
     const baseLabel = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
-    btn.textContent = action.noTap === true
+    let label = action.noTap === true
       ? `${baseLabel} (no tap, -3)`
       : action.actionId === 'remove-self-on-roll'
         ? `${baseLabel} (tap)`
         : baseLabel;
+    // When two or more actions share the same actionId (e.g. two untapped
+    // rangers both able to cancel River), append the acting character's name
+    // so the player knows which character they are choosing to tap.
+    if (getCharacterName && (actionIdCounts.get(action.actionId) ?? 0) > 1 && action.characterId) {
+      const charName = getCharacterName(action.characterId);
+      if (charName) label += ` — ${charName}`;
+    }
+    btn.textContent = label;
     btn.onclick = (e) => {
       e.stopPropagation();
       dismissTooltip();
