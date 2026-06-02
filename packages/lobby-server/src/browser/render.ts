@@ -26,6 +26,8 @@ export {
   clearOpponentInfluenceSelection,
   getSelectedShortEvent,
   clearShortEventSelection,
+  getSelectedPermanentEventForPlay,
+  clearPermanentEventPlaySelection,
 } from './render-selection-state.js';
 
 // Debug/text view panels

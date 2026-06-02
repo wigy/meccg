@@ -29,6 +29,8 @@ import {
   getShortEventRenderCache, setShortEventRenderCache,
   getSelectedCancelAttack, setSelectedCancelAttack,
   getCancelAttackRenderCache, setCancelAttackRenderCache,
+  getSelectedPermanentEventForPlay, setSelectedPermanentEventForPlay,
+  getPermanentEventPlayRenderCache, setPermanentEventPlayRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
 
@@ -120,6 +122,23 @@ function findResourcePlayActions(
     a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
       && a.cardInstanceId === instanceId
       && !isAllyAction(a, cardPool),
+  );
+}
+
+/**
+ * Find all play-permanent-event actions with a character target for a given instance.
+ * Character-targeting permanent events produce one action per eligible character.
+ */
+function findPermanentEventCharTargetActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-permanent-event'
+      && a.cardInstanceId === instanceId
+      && 'targetCharacterId' in a
+      && !!a.targetCharacterId,
   );
 }
 
@@ -552,6 +571,15 @@ function reRenderCancelAttackTarget(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/** Re-render hand and company views using cached state (for permanent-event character targeting flow). */
+function reRenderPermanentEventTarget(): void {
+  const cache = getPermanentEventPlayRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 // ---- Main hand rendering ----
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -680,6 +708,30 @@ export function renderHand(
     setResourcePlayRenderCache(null);
   }
 
+  // Cache render state for permanent-event character-targeting re-rendering
+  const hasCharTargetPermanentEventActions = viable.some(
+    a => a.type === 'play-permanent-event' && 'targetCharacterId' in a && a.targetCharacterId,
+  );
+  if (onAction && hasCharTargetPermanentEventActions) {
+    setPermanentEventPlayRenderCache({ view, cardPool, onAction });
+    const selectedPermEventId = getSelectedPermanentEventForPlay();
+    if (selectedPermEventId) {
+      const stillViable = viable.some(
+        a => a.type === 'play-permanent-event'
+          && a.cardInstanceId === selectedPermEventId
+          && 'targetCharacterId' in a && a.targetCharacterId,
+      );
+      if (!stillViable) {
+        setSelectedPermanentEventForPlay(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasCharTargetPermanentEventActions) {
+    if (getSelectedPermanentEventForPlay()) setTargetingInstruction(null);
+    setSelectedPermanentEventForPlay(null);
+    setPermanentEventPlayRenderCache(null);
+  }
+
   // Cache render state for hazard character-targeting re-rendering
   const hasCharTargetHazardActions = viable.some(
     a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
@@ -796,6 +848,8 @@ export function renderHand(
     const isAlly = allyActions.length > 0;
     const resourceActions = findResourcePlayActions(cardInstanceId, viable, cardPool);
     const isResource = resourceActions.length > 0;
+    const permanentEventCharTargetActions = findPermanentEventCharTargetActions(cardInstanceId, viable);
+    const isPermanentEventWithCharTarget = permanentEventCharTargetActions.length > 1;
     const influenceActions = findInfluenceActions(cardInstanceId, viable);
     const isInfluence = influenceActions.length > 0;
     const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
@@ -805,7 +859,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -830,6 +884,11 @@ export function renderHand(
     const isResourceSelected = selectedResourceInstanceId !== null
       && cardInstanceId !== null
       && selectedResourceInstanceId === cardInstanceId;
+
+    const selectedPermEventId = getSelectedPermanentEventForPlay();
+    const isPermanentEventSelected = selectedPermEventId !== null
+      && cardInstanceId !== null
+      && selectedPermEventId === cardInstanceId;
 
     const selectedHazardInstanceId = getSelectedHazardForPlay();
     const isHazardSelected = selectedHazardInstanceId !== null
@@ -1075,6 +1134,21 @@ export function renderHand(
             reRenderCancelAttackTarget();
           });
         }
+      }
+    } else if (isPermanentEventWithCharTarget) {
+      // Permanent-event character targeting: two-step flow (click card, then click target character)
+      img.className = isPermanentEventSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      if (onAction && cardInstanceId) {
+        const instId = cardInstanceId;
+        img.addEventListener('click', () => {
+          setSelectedPermanentEventForPlay(isPermanentEventSelected ? null : instId);
+          setTargetingInstruction(
+            getSelectedPermanentEventForPlay() ? `Click a character to attach ${def.name}` : null,
+          );
+          reRenderPermanentEventTarget();
+        });
       }
     } else if (isStrikeEvent) {
       img.className = 'hand-card hand-card-playable';

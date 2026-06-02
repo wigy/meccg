@@ -37,7 +37,7 @@ import type {
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -563,6 +563,28 @@ export function renderCompanyBlock(
             e.stopPropagation();
             clearResourcePlaySelection();
             options?.onAction?.(resourceAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    // Permanent-event character targeting: click a character to apply selected permanent event
+    const selectedPermanentEvent = getSelectedPermanentEventForPlay();
+    if (selectedPermanentEvent) {
+      const permEventAction = viableActions(view.legalActions).find(
+        a => a.type === 'play-permanent-event'
+          && a.cardInstanceId === selectedPermanentEvent
+          && 'targetCharacterId' in a
+          && a.targetCharacterId === charInstId,
+      );
+      if (permEventAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearPermanentEventPlaySelection();
+            options?.onAction?.(permEventAction);
           },
         };
       }
