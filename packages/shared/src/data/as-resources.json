@@ -351,6 +351,25 @@
     "playableAt": []
   },
   {
+    "cardType": "minion-resource-faction",
+    "id": "as-121",
+    "name": "Orcs of Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/OrcsofDolGuldur.jpg",
+    "text": "Unique. Playable at Dol Guldur if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Orcs of Moria (-2), Orcs of the Red Eye (+2).",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Dol Guldur"
+      }
+    ]
+  },
+  {
     "cardType": "minion-resource-ally",
     "id": "as-74",
     "name": "Great Bats",
