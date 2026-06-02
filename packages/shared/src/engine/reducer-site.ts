@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
@@ -27,7 +27,7 @@ import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
-import type { MoveEffect } from '../types/effects.js';
+import type { MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect } from '../types/state-combat.js';
 
 
@@ -83,6 +83,56 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
 }
 
 /**
+ * If the company's current site declares `site-phase-ring-auto-test`,
+ * enqueue a `gold-ring-test` pending resolution for every gold-ring item
+ * borne by a character in the company. Called at company selection so the
+ * tests fire before the enter-or-skip choice — i.e. even if the company
+ * never enters the site.
+ */
+function enqueueSitePhaseRingAutoTests(
+  state: GameState,
+  actor: PlayerId,
+  company: Company,
+): GameState {
+  if (!company.currentSite) return state;
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  if (!siteDefId) return state;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return state;
+  const rule = siteDef.effects.find(
+    (e): e is SitePhaseRingAutoTestSiteRule =>
+      e.type === 'site-rule' && 'rule' in e && (e as { rule: string }).rule === 'site-phase-ring-auto-test',
+  );
+  if (!rule) return state;
+
+  const actorPlayer = state.players.find(p => p.id === actor);
+  if (!actorPlayer) return state;
+
+  let result = state;
+  for (const charInstId of company.characters) {
+    const char = actorPlayer.characters[charInstId as string];
+    if (!char) continue;
+    for (const item of char.items) {
+      const itemDef = defById(state, item.definitionId);
+      if (!itemDef || !('subtype' in itemDef) || (itemDef as { subtype?: string }).subtype !== 'gold-ring') continue;
+      logDetail(`Site-phase ring auto-test: ${itemDef.name} held by ${defById(state, char.definitionId)?.name ?? '?'} at ${siteDef.name} (modifier ${formatSignedNumber(rule.rollModifier)})`);
+      result = enqueueResolution(result, {
+        source: item.instanceId,
+        actor,
+        scope: { kind: 'phase', phase: Phase.Site },
+        kind: {
+          type: 'gold-ring-test',
+          goldRingInstanceId: item.instanceId,
+          rollModifier: rule.rollModifier,
+          characterInstanceId: charInstId,
+        },
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * Handle the 'select-company' action in the site phase: resource player
  * picks which company resolves its site phase next.
  *
@@ -101,27 +151,32 @@ function handleSiteSelectCompany(
 
   const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+  const company = player.companies[companyIndex];
 
   logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        ...siteState,
-        step: 'enter-or-skip' as const,
-        activeCompanyIndex: companyIndex,
-        automaticAttacksResolved: 0,
-        siteEntered: false,
-        resourcePlayed: false,
-        minorItemAvailable: false,
-        hoardBountyAvailable: false,
-        thoroughSearchAvailable: false,
-        declaredAgentAttack: null,
-        awaitingOnGuardReveal: false,
-        pendingResourceAction: null,
-      },
+  let nextState: GameState = {
+    ...state,
+    phaseState: {
+      ...siteState,
+      step: 'enter-or-skip' as const,
+      activeCompanyIndex: companyIndex,
+      automaticAttacksResolved: 0,
+      siteEntered: false,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
     },
   };
+
+  // site-phase-ring-auto-test: enqueue gold-ring-test resolutions for every
+  // borne gold-ring item in the company, before the enter-or-skip decision.
+  nextState = enqueueSitePhaseRingAutoTests(nextState, state.activePlayer!, company);
+
+  return { state: nextState };
 }
 
 /**

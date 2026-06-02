@@ -321,8 +321,14 @@
       {
         "type": "site-rule",
         "rule": "heal-during-untap"
+      },
+      {
+        "type": "site-rule",
+        "rule": "site-phase-ring-auto-test",
+        "rollModifier": -3
       }
     ],
+    "certified": "2026-06-02",
     "unique": true
   },
   {
