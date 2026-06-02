@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 417 | 402 | 15 | 96.4% |
+| 428 | 417 | 11 | 97.4% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 22 | 20 | 90.9% |
+| AS | 25 | 24 | 96.0% |
 | BA | 2 | 0 | 0.0% |
-| DM | 39 | 38 | 97.4% |
-| LE | 77 | 73 | 94.8% |
-| TD | 49 | 48 | 98.0% |
+| DM | 39 | 39 | 100.0% |
+| LE | 83 | 80 | 96.4% |
+| TD | 49 | 49 | 100.0% |
 | TW | 226 | 221 | 97.8% |
-| WH | 2 | 2 | 100.0% |
+| WH | 4 | 4 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -34,8 +34,13 @@
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
-| as-68 | Bow of the Galadhrim | — | 2 | ◐ |
+| as-68 | Bow of the Galadhrim | — | 5 | ☑ |
+| as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
+| as-101 | Tokens to Show | — | 8 | ☑ |
+| as-108 | Well-preserved | — | 13 | ☑ |
+| as-123 | Dwarven Ring of Thélor's Tribe | — | 14 | ☑ |
+| as-124 | Dwarven Ring of Thrár's Tribe | — | 12 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
@@ -75,7 +80,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
 | dm-108 | Little Snuffler | — | 4 | ☑ |
-| dm-109 | Nameless Thing | — | 14 | ◐ |
+| dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 6 | ☑ |
@@ -87,6 +92,7 @@
 | dm-179 | Noble Hound | — | 4 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
+| le-7 | Dôgrib | — | 1 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
 | le-19 | Layos | — | 3 | ☑ |
@@ -126,10 +132,11 @@
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
-| le-174 | By the Ringwraith's Word | — | 12 | ☐ |
+| le-174 | By the Ringwraith's Word | — | 14 | ◐ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-212 | Not Slay Needlessly | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
+| le-219 | Poisonous Despair | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
 | le-226 | Secrets of Their Forging | — | 18 | ☑ |
 | le-241 | That's Been Heard Before Tonight | — | 13 | ☑ |
@@ -138,6 +145,7 @@
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
+| le-278 | Orcs of Moria | — | 9 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
@@ -145,10 +153,13 @@
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
+| le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
+| le-339 | Red Book of Westmarch | — | 11 | ☑ |
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
+| le-343 | Scroll of Isildur | — | 9 | ☑ |
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
-| le-352 | Barad-dûr | — | 10 | ◐ |
+| le-352 | Barad-dûr | — | 11 | ☑ |
 | le-354 | Beorn's House | — | 4 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
@@ -170,7 +181,7 @@
 | td-20 | Eärcaraxë | — | 9 | ☑ |
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |
-| td-27 | From the Pits of Angband | — | 11 | ◐ |
+| td-27 | From the Pits of Angband | — | 15 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
@@ -439,6 +450,8 @@
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | wh-33 | Noble Steed | — | 9 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
+| wh-43 | Crept Along Cleverly | — | 5 | ☑ |
+| wh-47 | Piercing All Shadows | — | 7 | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = certified, ◐ = partial*

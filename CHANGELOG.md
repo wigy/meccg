@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.35.0 — 2026-06-02
+
+The Liddless Eye
+
+### Game Engine
+
+- Implement company composition rules 3.24–3.26: company size limits, race-mixing restriction, and leader restriction
+- Implement rule 9.23: gold ring EOT automatic test at darkhavens
+- Implement rule 2.09: both piles empty triggers play-deck exhaustion check
+- Implement rule 8.22: creature MP awarded by alignment of defeating company
+- Implement rule 2.07: permanent events discarded when company loses all characters
+- Implement 6 missing MELE (Lidless Eye) features: Ringwraith body check, covert/overt modes, trophies, item MP by alignment, One Ring win condition, and audience reveal at darkhavens
+- Extend `cancel-influence` DSL effect with `requiredSkill` and `targetKindFilter` fields
+- Add site-phase gold ring auto-test DSL support
+- Fix CvCC: use site-name comparison for declare-company-attack reducer
+- Fix CvCC: match opponent companies by site name for initiation check
+- Fix CvCC: Eagles' Eyrie attacker-chooses-defenders rule not applied
+- Fix combat: treat `modify-attack` as combat-only in short-event playability checks
+- Fix le-174: enforce ringwraith-at-same-site condition for By the Ringwraith's Word
+- Fix le-174: require character target for play
+- Fix sideboard: prevent card identity leak via lastActionCardDefs on exchange
+
+### Web Client
+
+- Add Attack button for declare-company-attack step in CvCC
+- Fix cancel-river tooltip to include character name when multiple rangers can act
+- Add two-step target selection for character-targeting permanent events
+
+### Card Certification
+
+- Certify le-7: Dôgrib
+- Certify le-219: Poisonous Despair
+- Certify le-278: Orcs of Moria
+- Certify le-333: Palantír of Minas Tirith
+- Certify le-339: Red Book of Westmarch (minion)
+- Certify le-343: Scroll of Isildur (minion)
+- Certify le-352: Barad-dûr
+- Certify as-68: Bow of the Galadhrim
+- Certify as-76: Regiment of Black Crows
+- Certify as-123: Dwarven Ring of Thélor's Tribe
+- Certify as-124: Dwarven Ring of Thrár's Tribe
+- Certify dm-109: Nameless Thing
+- Certify td-27: From the Pits of Angband
+- Certify wh-43: Crept Along Cleverly
+- Certify wh-47: Piercing All Shadows
+
+### Card Data
+
+- Add card data for le-334: Palantír of Orthanc
+
+### Infrastructure
+
+- Fix challenge decks F, I, J: correct card counts and wrong-alignment palantírs/scrolls
+- Fix AI runner: log and retry on next_request_id failure instead of silent exit
+
 ## 0.34.0 — 2026-05-31
 
 Company vs Company Combat

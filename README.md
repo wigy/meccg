@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 150 | 309 | 48.5% |
-| Card tests | 402 | 417 | 96.4% |
-| Cards created | 698 | 1683 | 41.5% |
-| Cards certified | 406 | 698 | 58.2% |
-| **Total** | **1656** | **3107** | **53.3%** |
+| Rule tests | 160 | 309 | 51.8% |
+| Card tests | 417 | 428 | 97.4% |
+| Cards created | 1145 | 1683 | 68.0% |
+| Cards certified | 424 | 1145 | 37.0% |
+| **Total** | **2146** | **3565** | **60.2%** |
 
 ### Deck Catalog
 
@@ -32,13 +32,13 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 | (A) Stewards of Gondor | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (B) Release the Prisoners | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 109 (99.1%) |
+| (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (F) Spies and Traitors | minion | 113 | 113 (100.0%) | 88 (77.9%) |
-| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 38 (34.5%) |
-| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 45 (40.9%) |
-| (I) Morgul Rallying Cry | minion | 113 | 113 (100.0%) | 40 (35.4%) |
-| (J) Seducing Nations of Men | minion | 113 | 113 (100.0%) | 52 (46.0%) |
+| (F) Spies and Traitors | minion | 112 | 112 (100.0%) | 108 (96.4%) |
+| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 49 (44.5%) |
+| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 52 (47.3%) |
+| (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 45 (40.9%) |
+| (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 58 (52.7%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |
