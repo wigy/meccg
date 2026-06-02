@@ -462,7 +462,11 @@ export function renderSiteArea(
           } else {
             cImg.addEventListener('click', (e) => {
               e.stopPropagation();
-              showGrantedActionTooltip(e.currentTarget as HTMLElement, grantedForSource, onAction);
+              const getCharacterName = (id: CardInstanceId): string | undefined => {
+                const defId = cachedInstanceLookup(id);
+                return defId ? cardPool[defId as string]?.name : undefined;
+              };
+              showGrantedActionTooltip(e.currentTarget as HTMLElement, grantedForSource, onAction, getCharacterName);
             });
           }
         }
