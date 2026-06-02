@@ -18,9 +18,8 @@
  * | # | Rule                                                           | Status          |
  * |---|----------------------------------------------------------------|-----------------|
  * | 1 | Playable during organization phase on non-Ringwraith character | IMPLEMENTED     |
- * | 2 | Playability gated on bearer being at a Darkhaven (haven site)  | IMPLEMENTED     |
- * |   | Note: "same Darkhaven as Ringwraith" cross-company check not   |                 |
- * |   | yet expressible in DSL — only haven site-type is enforced.    |                 |
+ * | 2 | Playability gated on target being at same Darkhaven as the    | IMPLEMENTED     |
+ * |   | controller's Ringwraith                                        |                 |
  * | 3 | Target character becomes a leader (if not already)             | NOT IMPLEMENTED |
  * | 4 | +4 direct influence for the bearer against characters in his  | NOT IMPLEMENTED |
  * |   | own company                                                    |                 |
@@ -178,7 +177,33 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
 
   // ── Unimplemented rules ───────────────────────────────────────────────────
 
-  test.todo('NOT playable if the controller\'s Ringwraith is not at the same Darkhaven as the target');
+  test('NOT playable if the controller\'s Ringwraith is not at the same Darkhaven as the target', () => {
+    // Company has only non-ringwraith characters at a haven; no ringwraith anywhere at that haven
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [THE_MOUTH, CIRYAHER] }],
+          hand: [BY_THE_RINGWRAITHS_WORD],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
   test.todo('while attached, the bearer counts as a leader even if the base character has no leader skill');
   test.todo('while attached, the bearer gets +4 direct influence against characters in his own company');
   test.todo('+4 DI does not apply when the bearer targets a character outside his own company');

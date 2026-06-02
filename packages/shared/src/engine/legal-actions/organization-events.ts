@@ -157,6 +157,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const siteTypeCondition = def.effects?.find(
         (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-type',
       );
+      // play-condition: same-site-has-character-race — a company at the same site must have a character of the given race
+      const sameSiteRaceCondition = def.effects?.find(
+        (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'same-site-has-character-race',
+      );
       let anyTarget = false;
       for (const company of player.companies) {
         if (siteTypeCondition) {
@@ -164,6 +168,23 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const companySiteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : null;
           if (!companySiteType || !siteTypeCondition.siteTypes?.includes(companySiteType)) {
             logDetail(`Permanent event ${def.name}: company ${company.id as string} not at required site type [${siteTypeCondition.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
+            continue;
+          }
+        }
+        if (sameSiteRaceCondition?.race) {
+          const requiredRace = sameSiteRaceCondition.race;
+          const companySiteId = company.currentSite?.definitionId;
+          const racePresent = player.companies.some(otherCompany => {
+            if (!companySiteId || otherCompany.currentSite?.definitionId !== companySiteId) return false;
+            return otherCompany.characters.some(cId => {
+              const ch = player.characters[cId as string];
+              if (!ch) return false;
+              const cDef = defById(state, ch.definitionId);
+              return cDef && 'race' in cDef && (cDef as { race?: string }).race === requiredRace;
+            });
+          });
+          if (!racePresent) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} has no ${requiredRace} at the same site`);
             continue;
           }
         }

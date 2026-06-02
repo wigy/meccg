@@ -1808,7 +1808,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race';
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
@@ -1830,6 +1830,10 @@ export interface PlayConditionEffect extends EffectBase {
    * For `requires: 'combat-creature-race'`: the required attacker race
    * (lowercase, e.g. `"dragon"`). When the current combat's
    * `creatureRace` does not match, the card is non-playable.
+   *
+   * For `requires: 'same-site-has-character-race'`: the character race
+   * (e.g. `"ringwraith"`) that must appear in at least one of the
+   * controller's companies at the same site as the target's company.
    */
   readonly race?: string;
   /**
