@@ -1600,10 +1600,23 @@ check) and `reducer-events.ts` (discard execution).
 
 - `card-not-in-play` — blocked if a named card is currently in play (as
   a character or in any player's cardsInPlay). The `cardName` field names
-  the blocking card. Used by *By the Ringwraith's Word* and similar cards.
+  the blocking card.
 
 ```json
 { "type": "play-condition", "requires": "card-not-in-play", "cardName": "Balrog" }
+```
+
+- `same-site-has-character-race` — for character-targeting permanent events
+  (org phase): the target character's company's current site must also be
+  the site of at least one other of the controller's companies that contains
+  a character of the specified `race`. Used by *By the Ringwraith's Word*
+  (le-174) to enforce "at the same Darkhaven as your Ringwraith".
+
+  Implemented in `legal-actions/organization-events.ts` alongside the
+  `site-type` company-loop check.
+
+```json
+{ "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" }
 ```
 
 ### 24. `creature-race-choice`

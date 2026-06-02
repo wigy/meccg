@@ -1018,6 +1018,7 @@
     "effects": [
       { "type": "play-target", "target": "character", "filter": { "$not": { "target.race": "ringwraith" } } },
       { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
+      { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" },
       { "type": "duplication-limit", "scope": "player", "max": 1 }
     ]
   },
