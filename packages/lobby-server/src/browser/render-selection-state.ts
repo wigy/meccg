@@ -403,3 +403,46 @@ export function getCancelAttackRenderCache(): typeof cancelAttackRenderCache {
 export function setCancelAttackRenderCache(cache: typeof cancelAttackRenderCache): void {
   cancelAttackRenderCache = cache;
 }
+
+// ---- Permanent-event character targeting selection ----
+
+/**
+ * Selected permanent-event instance ID for the two-step character targeting flow.
+ * When a player clicks a character-targeting permanent event with multiple
+ * eligible characters, the card instance ID is stored here and the company
+ * view highlights valid target characters.
+ */
+let selectedPermanentEventInstanceId: CardInstanceId | null = null;
+
+/** Returns the currently selected permanent-event instance ID for character targeting. */
+export function getSelectedPermanentEventForPlay(): CardInstanceId | null {
+  return selectedPermanentEventInstanceId;
+}
+
+/** Set the selected permanent-event instance ID for character targeting. */
+export function setSelectedPermanentEventForPlay(id: CardInstanceId | null): void {
+  selectedPermanentEventInstanceId = id;
+}
+
+/** Clear the permanent-event character targeting selection. */
+export function clearPermanentEventPlaySelection(): void {
+  selectedPermanentEventInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during permanent-event character targeting. */
+let permanentEventPlayRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached permanent-event play render arguments. */
+export function getPermanentEventPlayRenderCache(): typeof permanentEventPlayRenderCache {
+  return permanentEventPlayRenderCache;
+}
+
+/** Set the cached permanent-event play render arguments. */
+export function setPermanentEventPlayRenderCache(cache: typeof permanentEventPlayRenderCache): void {
+  permanentEventPlayRenderCache = cache;
+}
