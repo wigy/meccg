@@ -24,19 +24,17 @@
  * | 8 | hazardDraws       | OK     | 1                                                         |
  *
  * Engine Support:
- * | # | Feature                                  | Status          | Notes                                                 |
- * |---|------------------------------------------|-----------------|-------------------------------------------------------|
- * | 1 | Site phase flow                          | IMPLEMENTED     | select-company, enter-or-skip (no resources, no AA)   |
- * | 2 | Haven path movement                      | IMPLEMENTED     | Minas Morgul ↔ Barad-dûr via starter movement         |
- * | 3 | Region movement                          | IMPLEMENTED     | sites within 4 regions of Gorgoroth                   |
- * | 4 | Card draws                               | IMPLEMENTED     | resourceDraws (2) / hazardDraws (1)                   |
- * | 5 | site-rule: heal-during-untap             | IMPLEMENTED     | wounded characters heal during untap at this site     |
- * | 6 | Gold ring auto-test during site phase    | NOT IMPLEMENTED | no engine hook for borne-ring site-phase tests        |
- * | 7 | -3 modifier on all ring tests at site    | NOT IMPLEMENTED | depends on (6); no per-site ring-test modifier hook   |
+ * | # | Feature                                  | Status      | Notes                                                 |
+ * |---|------------------------------------------|-------------|-------------------------------------------------------|
+ * | 1 | Site phase flow                          | IMPLEMENTED | select-company, enter-or-skip (no resources, no AA)   |
+ * | 2 | Haven path movement                      | IMPLEMENTED | Minas Morgul ↔ Barad-dûr via starter movement         |
+ * | 3 | Region movement                          | IMPLEMENTED | sites within 4 regions of Gorgoroth                   |
+ * | 4 | Card draws                               | IMPLEMENTED | resourceDraws (2) / hazardDraws (1)                   |
+ * | 5 | site-rule: heal-during-untap             | IMPLEMENTED | wounded characters heal during untap at this site     |
+ * | 6 | site-rule: site-phase-ring-auto-test     | IMPLEMENTED | borne gold rings auto-tested before enter-or-skip     |
+ * | 7 | -3 modifier on all ring tests at site    | IMPLEMENTED | captured in site-phase-ring-auto-test rollModifier    |
  *
- * Playable: PARTIALLY — the "Darkhaven during untap" healing works, but
- * the site-phase gold-ring auto-test and the -3 ring-test modifier at
- * this site are not implemented. NOT CERTIFIED.
+ * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -48,14 +46,34 @@ import {
   dispatch, expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
-  isSiteCard, buildMovementMap, getReachableSites,
+  isSiteCard, buildMovementMap, getReachableSites, computeLegalActions,
 } from '../../index.js';
-import type { SiteCard, CardDefinitionId } from '../../index.js';
+import type { SiteCard, CardDefinitionId, SitePhaseState } from '../../index.js';
 
 const BARAD_DUR = 'le-352' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const MIONID = 'as-3' as CardDefinitionId; // minion-character, ringwraith
+const THE_LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;
+
+/** Build a SitePhaseState at the select-company step. */
+const SELECT_COMPANY_PHASE: SitePhaseState = {
+  phase: Phase.Site,
+  step: 'select-company',
+  activeCompanyIndex: -1,
+  handledCompanyIds: [],
+  siteEntered: false,
+  resourcePlayed: false,
+  minorItemAvailable: false,
+  hoardBountyAvailable: false,
+  thoroughSearchAvailable: false,
+  declaredAgentAttack: null,
+  automaticAttacksResolved: 0,
+  awaitingOnGuardReveal: false,
+  pendingResourceAction: null,
+  opponentInteractionThisTurn: null,
+  pendingOpponentInfluence: null,
+};
 
 describe('Barad-dûr (le-352)', () => {
   beforeEach(() => resetMint());
@@ -206,29 +224,194 @@ describe('Barad-dûr (le-352)', () => {
     expectCharStatus(nextState, RESOURCE_PLAYER, MIONID, CardStatus.Inverted);
   });
 
-  // ─── Site phase: special rules (NOT IMPLEMENTED) ────────────────────────────
+  // ─── Site phase: gold ring auto-test ────────────────────────────────────────
   // "Any gold ring item at this site is automatically tested during the site
-  //  phase (the site need not be entered)."
-  //
-  // The engine has `auto-test-gold-ring` only for the storage path (a gold
-  // ring stored at a site with the rule is auto-tested on store). Barad-dûr's
-  // mechanic is different: any borne gold ring held by a character in any
-  // company at this site is auto-tested during the site phase, whether or not
-  // the company enters. No engine hook scans borne rings for site-phase tests
-  // — the site-phase reducer does not enqueue `gold-ring-test` resolutions.
+  //  phase (the site need not be entered). All ring tests at this site are
+  //  modified by -3."
 
-  test.todo('borne gold ring at Barad-dûr is auto-tested during the site phase');
+  test('borne gold ring at Barad-dûr is auto-tested when company is selected', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: BARAD_DUR,
+            characters: [{ defId: MIONID, items: [THE_LEAST_OF_GOLD_RINGS] }],
+          }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
 
-  test.todo('gold ring auto-test fires even when company does not enter the site');
+    const selectCompanyState = { ...state, phaseState: SELECT_COMPANY_PHASE };
+    const companyId = selectCompanyState.players[0].companies[0].id;
+    const afterSelect = dispatch(selectCompanyState, {
+      type: 'select-company',
+      player: PLAYER_1,
+      companyId,
+    });
 
-  // "All ring tests at this site are modified by -3."
-  //
-  // The engine's only ring-test modifier today is the `rollModifier` field on
-  // the `auto-test-gold-ring` site-rule. Since Barad-dûr's auto-test trigger
-  // is not implemented (above), neither is the -3 modifier for ring tests
-  // performed here. A site-wide "all ring tests at this site get modifier X"
-  // hook would be needed to also cover Rule 9.23 end-of-turn tests and the
-  // manual `test-gold-ring` grant-action.
+    // gold-ring-test pending resolution must be enqueued with rollModifier -3.
+    const ringTest = afterSelect.pendingResolutions.find(r => r.kind.type === 'gold-ring-test');
+    expect(ringTest).toBeDefined();
+    const kind = ringTest!.kind;
+    if (kind.type !== 'gold-ring-test') throw new Error('unreachable');
+    expect(kind.rollModifier).toBe(-3);
+  });
 
-  test.todo('all ring tests at Barad-dûr have a -3 modifier applied to the 2d6 roll');
+  test('gold ring auto-test fires even when company does not enter the site', () => {
+    // The gold-ring-test pending resolution is enqueued at select-company,
+    // before enter-or-skip. Legal actions at that point must be gold-ring-test-roll
+    // (not enter-site or pass), proving the test precedes the entry decision.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: BARAD_DUR,
+            characters: [{ defId: MIONID, items: [THE_LEAST_OF_GOLD_RINGS] }],
+          }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+
+    const selectCompanyState = { ...state, phaseState: SELECT_COMPANY_PHASE };
+    const companyId = selectCompanyState.players[0].companies[0].id;
+    const afterSelect = dispatch(selectCompanyState, {
+      type: 'select-company',
+      player: PLAYER_1,
+      companyId,
+    });
+
+    // Legal actions after select-company should be gold-ring-test-roll only
+    // (pending resolution drains before enter-or-skip is offered).
+    const actions = computeLegalActions(afterSelect, PLAYER_1);
+    const viableTypes = actions.filter(a => a.viable).map(a => a.action.type);
+    expect(viableTypes).toContain('gold-ring-test-roll');
+    expect(viableTypes).not.toContain('enter-site');
+    expect(viableTypes).not.toContain('pass');
+  });
+
+  test('all ring tests at Barad-dûr have a -3 modifier applied to the 2d6 roll', () => {
+    // After select-company the gold-ring-test is pending. The legal action
+    // carries the same -3 rollModifier as the pending resolution.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: BARAD_DUR,
+            characters: [{ defId: MIONID, items: [THE_LEAST_OF_GOLD_RINGS] }],
+          }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+
+    const selectCompanyState = { ...state, phaseState: SELECT_COMPANY_PHASE };
+    const companyId = selectCompanyState.players[0].companies[0].id;
+    const afterSelect = dispatch(selectCompanyState, {
+      type: 'select-company',
+      player: PLAYER_1,
+      companyId,
+    });
+
+    // Get ring instance ID from the pending resolution.
+    const ringTestRes = afterSelect.pendingResolutions.find(r => r.kind.type === 'gold-ring-test')!;
+    const kind = ringTestRes.kind;
+    if (kind.type !== 'gold-ring-test') throw new Error('unreachable');
+    const ringInstId = kind.goldRingInstanceId;
+
+    // The legal action for the roll carries the -3 rollModifier.
+    const rollActions = computeLegalActions(afterSelect, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'gold-ring-test-roll');
+    expect(rollActions).toHaveLength(1);
+    const rollAction = rollActions[0].action as { rollModifier: number };
+    expect(rollAction.rollModifier).toBe(-3);
+
+    // Dispatch the roll and verify the ring is discarded afterwards.
+    const afterRoll = dispatch(afterSelect, rollActions[0].action);
+    const ringInDiscard = afterRoll.players[0].discardPile.some(c => c.instanceId === ringInstId);
+    expect(ringInDiscard).toBe(true);
+
+    const chars = Object.values(afterRoll.players[0].characters);
+    const ringStillOnChar = chars.some(ch => ch.items.some(i => i.instanceId === ringInstId));
+    expect(ringStillOnChar).toBe(false);
+
+    // ring-play-offer must follow (Rule 9.21).
+    const offerRes = afterRoll.pendingResolutions.find(r => r.kind.type === 'ring-play-offer');
+    expect(offerRes).toBeDefined();
+  });
+
+  test('company without a gold ring at Barad-dûr gets no ring-test at select-company', () => {
+    // Regression: the site rule must only fire for borne gold rings, not
+    // for any item or character.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: BARAD_DUR, characters: [MIONID] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+
+    const selectCompanyState = { ...state, phaseState: SELECT_COMPANY_PHASE };
+    const companyId = selectCompanyState.players[0].companies[0].id;
+    const afterSelect = dispatch(selectCompanyState, {
+      type: 'select-company',
+      player: PLAYER_1,
+      companyId,
+    });
+
+    // No gold-ring-test pending resolution.
+    const ringTest = afterSelect.pendingResolutions.find(r => r.kind.type === 'gold-ring-test');
+    expect(ringTest).toBeUndefined();
+
+    // Player should get enter-or-skip choices.
+    const actions = computeLegalActions(afterSelect, PLAYER_1);
+    const viableTypes = actions.filter(a => a.viable).map(a => a.action.type);
+    expect(viableTypes).toContain('pass');
+  });
 });

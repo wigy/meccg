@@ -1181,6 +1181,7 @@ export type SiteRuleEffect =
   | DenyCharacterSiteRule
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
+  | SitePhaseRingAutoTestSiteRule
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
@@ -1292,6 +1293,25 @@ export interface AutoTestGoldRingSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'auto-test-gold-ring';
   /** Roll modifier applied to the 2d6 auto-test (e.g. -2 for a Darkhaven). */
+  readonly rollModifier: number;
+}
+
+/**
+ * Auto-tests every gold-ring item **borne** by characters in any company at
+ * this site at the start of the site phase, before the enter-or-skip decision.
+ * The test fires regardless of whether the company enters the site.
+ *
+ * Unlike `auto-test-gold-ring` (which fires when a gold ring is stored or
+ * played at a Darkhaven), this rule scans items already held by characters.
+ *
+ * Example — Barad-dûr (le-352): "Any gold ring item at this site is
+ * automatically tested during the site phase (the site need not be entered).
+ * All ring tests at this site are modified by -3."
+ */
+export interface SitePhaseRingAutoTestSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'site-phase-ring-auto-test';
+  /** Roll modifier applied to every auto-test (e.g. -3 for Barad-dûr). */
   readonly rollModifier: number;
 }
 

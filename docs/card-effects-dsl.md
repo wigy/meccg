@@ -1307,6 +1307,23 @@ Rules:
   { "type": "site-rule", "rule": "heal-during-untap" }
   ```
 
+- `site-phase-ring-auto-test` — at company selection during the site phase
+  (`select-company` → `enter-or-skip` transition), scans every gold-ring item
+  borne by characters in the selected company and enqueues a `gold-ring-test`
+  pending resolution for each one. The tests fire before the enter-or-skip
+  decision, so even a company that chooses not to enter the site must test its
+  borne rings. The `rollModifier` field is applied to every enqueued test's
+  2d6 roll. Unlike `auto-test-gold-ring` (which fires on the store/play path),
+  this rule targets already-held rings. Consumed by
+  `engine/reducer-site.ts` `enqueueSitePhaseRingAutoTests()`. Used by
+  *Barad-dûr* (le-352) — "Any gold ring item at this site is automatically
+  tested during the site phase (the site need not be entered). All ring tests
+  at this site are modified by -3."
+
+  ```json
+  { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3 }
+  ```
+
 - `dynamic-auto-attack` — when a company enters this site, the opponent
   may play one non-unique hazard creature from hand as the site's automatic-attack.
   The `keying` filter lists the site-types and region-types that satisfy
