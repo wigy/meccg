@@ -96,7 +96,8 @@
         "creatureType": "Animals",
         "strikes": 2,
         "prowess": 10,
-        "special": "attacker chooses defending characters"
+        "special": "attacker chooses defending characters",
+        "combatRules": ["attacker-chooses-defenders"]
       }
     ],
     "resourceDraws": 1,
