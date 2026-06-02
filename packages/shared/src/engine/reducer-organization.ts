@@ -1182,6 +1182,30 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'shuffle-deck-top') {
+    // Shuffle the top N cards of the target player's play deck, keeping
+    // them at the top in a new random order. Used by Palantír of Minas
+    // Tirith to randomise the top 5 of both players' decks.
+    const n = apply.count ?? 5;
+    const isOpponent = apply.toOwner === 'opponent';
+    const targetIndex = isOpponent ? 1 - ctx.playerIndex : ctx.playerIndex;
+    const targetPlayer = newPlayers[targetIndex];
+    if (!targetPlayer) {
+      return { error: `shuffle-deck-top: player at index ${targetIndex} not found` };
+    }
+    const sliceSize = Math.min(n, targetPlayer.playDeck.length);
+    if (sliceSize > 0) {
+      const topN = targetPlayer.playDeck.slice(0, sliceSize);
+      const [shuffled, newRng] = shuffle(topN, rngRef.rng);
+      rngRef.rng = newRng;
+      const newDeck = [...shuffled, ...targetPlayer.playDeck.slice(sliceSize)];
+      const label = isOpponent ? "opponent's" : 'own';
+      logDetail(`Grant-action ${ctx.action.actionId}: shuffling top ${sliceSize} of ${label} play deck`);
+      newPlayers[targetIndex] = { ...newPlayers[targetIndex], playDeck: newDeck };
+    }
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
 }
 
