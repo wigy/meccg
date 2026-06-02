@@ -413,6 +413,10 @@ export interface TriggeredAction {
    *   `"hoardBountyAvailable"` for *Bounty of the Hoard*, `"thoroughSearchAvailable"`
    *   for *Thorough Search*). New "unlock-slot" mechanics only need a new flag name —
    *   no additional handler code required.
+   * - `shuffle-deck-top` — shuffle the top `count` (default 5) cards of the target
+   *   player's play deck in place, keeping them at the top. `toOwner` selects the
+   *   player: omitted / `"source-owner"` = bearer's player; `"opponent"` = other player.
+   *   Implemented in `reducer-organization.ts` `runGrantApply()`.
    * (Other types documented inline on their respective fields.)
    */
   readonly type: string;

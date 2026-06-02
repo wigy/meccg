@@ -1548,6 +1548,34 @@ Context variables for grant-action `when` conditions:
 Implemented in `reducer-organization.ts` (handler), `legal-actions/organization.ts`
 (scanner + context), `reducer-utils.ts` (fetch completion with corruption check).
 
+### Grant-Action: `palantir-peek-shuffle`
+
+Tap the Palantír item to shuffle the top 5 cards of both players' play
+decks (keeping them at the top in a new random order). Bearer makes a
+corruption check after the shuffle. Requires the bearer to be able to
+use a Palantír. Used by *Palantír of Minas Tirith* (le-333).
+
+```json
+{ "type": "grant-action", "action": "palantir-peek-shuffle",
+  "cost": { "tap": "self" },
+  "when": { "bearer.canUsePalantir": true },
+  "apply": {
+    "type": "sequence",
+    "apps": [
+      { "type": "shuffle-deck-top", "count": 5 },
+      { "type": "shuffle-deck-top", "count": 5, "toOwner": "opponent" },
+      { "type": "enqueue-corruption-check" }
+    ]
+  } }
+```
+
+**Apply type `shuffle-deck-top`:** Shuffles the top `count` (default 5) cards
+of the target player's play deck, keeping them at the top in a new random order.
+`toOwner` controls the target: omitted or `"source-owner"` = bearer's player;
+`"opponent"` = the opposing player. If the deck has fewer than `count` cards, all
+available cards are shuffled. Implemented in `reducer-organization.ts`
+`runGrantApply()`.
+
 ### 23. `play-condition`
 
 Gates playability on a game-state condition. The `requires` field names
