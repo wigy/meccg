@@ -81,7 +81,11 @@ while true; do
   git checkout master 2>&1 | tee -a "$LOG_FILE"
   git pull 2>&1 | tee -a "$LOG_FILE"
 
-  MSG_ID=$(next_request_id)
+  MSG_ID=$(next_request_id) || {
+    echo "=== WARNING: next_request_id failed at $(date -Iseconds), will retry ===" | tee -a "$LOG_FILE"
+    sleep 60
+    continue
+  }
 
   if [ -z "$MSG_ID" ]; then
     delay="${IDLE_BACKOFF[$idle_index]}"
