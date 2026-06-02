@@ -490,6 +490,34 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     }
   }
 
+  // During declare-company-attack, render Attack button(s) for each target.
+  // With one target the Attack button becomes primary (most expected action),
+  // and Skip CvCC is demoted to a secondary slot. With multiple targets all
+  // Attack buttons are added as secondary slots alongside the Skip CvCC primary.
+  if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'declare-company-attack') {
+    const attackEvals = view.legalActions.filter(
+      ea => ea.viable && ea.action.type === 'declare-company-attack',
+    );
+    if (attackEvals.length === 1) {
+      btn.textContent = 'Attack';
+      btn.onclick = () => onAction(attackEvals[0].action);
+
+      const skipBtn = document.createElement('button');
+      skipBtn.className = 'enter-site-btn';
+      skipBtn.textContent = 'Skip CvCC';
+      skipBtn.onclick = () => onAction(passAction);
+      panel?.appendChild(skipBtn);
+    } else if (attackEvals.length > 1) {
+      for (const atk of attackEvals) {
+        const attackBtn = document.createElement('button');
+        attackBtn.className = 'enter-site-btn';
+        attackBtn.textContent = 'Attack';
+        attackBtn.onclick = () => onAction(atk.action);
+        panel?.appendChild(attackBtn);
+      }
+    }
+  }
+
   // During enter-or-skip, promote "Enter" to the primary pass button slot
   // (bottom-most, triggered by the Enter key) and demote "Skip" to the
   // secondary slot above it. Entering the site is the usual choice, so it
