@@ -30,7 +30,8 @@ import type {
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory, DuplicationLimitEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import type { OpponentInfluenceAttempt } from '../../types/pending.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -261,19 +262,26 @@ function opponentInfluenceDefendActions(
     viable: true,
   }];
 
-  actions.push(...cancelInfluenceActions(state, actor));
+  actions.push(...cancelInfluenceActions(state, actor, attempt));
 
   return actions;
 }
 
 /**
  * Scan the defending player's hand for cancel-influence cards (e.g.
- * Wizard's Laughter) and generate one action per qualifying character
- * who can pay the cost.
+ * Wizard's Laughter, Poisonous Despair) and generate one action per
+ * qualifying character who can pay the cost.
+ *
+ * Each card may carry multiple `cancel-influence` effects (e.g. one
+ * for the no-cost Ringwraith case and one for the cost-paying shadow-magic
+ * case). All effects are checked; one action is generated per matching
+ * (card × character × effect) combination, de-duplicated by card + character
+ * so the same pairing is never offered twice.
  */
 function cancelInfluenceActions(
   state: GameState,
   actor: PlayerId,
+  attempt: OpponentInfluenceAttempt,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const player = playerById(state, actor);
@@ -282,28 +290,52 @@ function cancelInfluenceActions(
   for (const handCard of player.hand) {
     const def = resolveDef(state, handCard.instanceId);
     if (!def) continue;
-    const cancelEffect = (getCardEffects(def) as CardEffect[]).find(e => e.type === 'cancel-influence');
-    if (!cancelEffect || cancelEffect.type !== 'cancel-influence') continue;
+    const cancelEffects = (getCardEffects(def) as CardEffect[]).filter(e => e.type === 'cancel-influence');
+    if (cancelEffects.length === 0) continue;
 
-    if (cancelEffect.requiredRace) {
-      for (const company of player.companies) {
-        for (const charId of company.characters) {
-          const charData = player.characters[charId as string];
-          if (!charData) continue;
-          const charDef = resolveDef(state, charId);
-          if (!charDef || !isCharacterCard(charDef)) continue;
-          if (charDef.race !== cancelEffect.requiredRace) continue;
+    // Track which (card, character) pairs already have an action to avoid duplicates
+    const generated = new Set<string>();
 
-          logDetail(`Cancel-influence: ${charDef.name} (${cancelEffect.requiredRace}) can play ${def.name}`);
-          actions.push({
-            action: {
-              type: 'cancel-influence',
-              player: actor,
-              cardInstanceId: handCard.instanceId,
-              characterId: charId,
-            },
-            viable: true,
-          });
+    for (const cancelEffect of cancelEffects) {
+      if (cancelEffect.type !== 'cancel-influence') continue;
+
+      // Check targetKindFilter: skip this effect if the pending attempt targets a kind not in the filter
+      if (cancelEffect.targetKindFilter && cancelEffect.targetKindFilter.length > 0) {
+        if (!cancelEffect.targetKindFilter.includes(attempt.targetKind)) continue;
+      }
+
+      if (cancelEffect.requiredRace || cancelEffect.requiredSkill) {
+        for (const company of player.companies) {
+          for (const charId of company.characters) {
+            const charData = player.characters[charId as string];
+            if (!charData) continue;
+            const charDef = resolveDef(state, charId);
+            if (!charDef || !isCharacterCard(charDef)) continue;
+
+            // Check race restriction
+            if (cancelEffect.requiredRace && charDef.race !== cancelEffect.requiredRace) continue;
+
+            // Check skill restriction (character's innate skills + item-granted skills)
+            if (cancelEffect.requiredSkill) {
+              const allSkills = [...charDef.skills, ...getItemGrantedSkills(state, charData)];
+              if (!allSkills.includes(cancelEffect.requiredSkill)) continue;
+            }
+
+            const pairKey = `${handCard.instanceId as string}:${charId as string}`;
+            if (generated.has(pairKey)) continue;
+            generated.add(pairKey);
+
+            logDetail(`Cancel-influence: ${charDef.name} can play ${def.name} (targetKind=${attempt.targetKind})`);
+            actions.push({
+              action: {
+                type: 'cancel-influence',
+                player: actor,
+                cardInstanceId: handCard.instanceId,
+                characterId: charId,
+              },
+              viable: true,
+            });
+          }
         }
       }
     }

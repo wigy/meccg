@@ -949,8 +949,24 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent’s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3."
+    "keywords": [
+      "magic",
+      "spirit-magic"
+    ],
+    "effects": [
+      {
+        "type": "cancel-influence",
+        "requiredRace": "ringwraith"
+      },
+      {
+        "type": "cancel-influence",
+        "requiredSkill": "shadow-magic",
+        "targetKindFilter": ["character", "ally"],
+        "cost": { "check": "corruption", "modifier": -3 }
+      }
+    ],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent’s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3.",
+    "certified": "2026-06-02"
   },
   {
     "cardType": "minion-resource-ally",

@@ -1632,6 +1632,19 @@ export interface CancelInfluenceEffect extends EffectBase {
   readonly cost?: ActionCost;
   /** The race required on the character who pays the cost (e.g. "wizard"). */
   readonly requiredRace?: string;
+  /**
+   * A skill required on the character who pays the cost (e.g. "shadow-magic").
+   * Checked against the character's skills array plus any item-granted skills.
+   * May be combined with {@link requiredRace}: both must match when both are set.
+   */
+  readonly requiredSkill?: string;
+  /**
+   * Restricts cancellation to specific target kinds. When present, the
+   * cancel-influence action is only available when the pending
+   * `opponent-influence-defend` resolution's `targetKind` appears in this list.
+   * When absent (or empty), all target kinds are valid.
+   */
+  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction')[];
 }
 
 /**
