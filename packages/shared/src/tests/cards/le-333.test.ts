@@ -21,8 +21,8 @@
  * | 5 | Condition: bearer can use Palantír    | IMPLEMENTED | when: { bearer.canUsePalantir: true }           |
  *
  * Fixture alignment: minion-resource-item (ringwraith); site-play tests use
- * minion sites (LE). Grant-action tests attach tw-190 (Align Palantír) to
- * supply the `canUsePalantir` context flag.
+ * minion sites (LE). Grant-action tests use le-4 (Calendal) as the bearer —
+ * a minion Elf with a native `can-use-palantir` play-flag.
  *
  * Playable: YES
  */
@@ -33,7 +33,6 @@ import {
   PLAYER_1, PLAYER_2,
   viableActions, dispatch,
   RESOURCE_PLAYER,
-  attachItemToChar,
   CardStatus,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
@@ -41,8 +40,8 @@ import type { CardDefinitionId, ActivateGrantedAction } from '../../index.js';
 
 // ─── Local card-ID constants ───────────────────────────────────────────────
 const PALANTIR_MINAS_TIRITH = 'le-333' as CardDefinitionId;
-const ALIGN_PALANTIR        = 'tw-190' as CardDefinitionId; // grants can-use-palantir
-const GORBAG                = 'le-11'  as CardDefinitionId; // minion orc character
+const CALENDAL              = 'le-4'   as CardDefinitionId; // minion elf with can-use-palantir
+const GORBAG                = 'le-11'  as CardDefinitionId; // minion orc character (no palantir ability)
 const GRISHNAKH             = 'le-12'  as CardDefinitionId; // minion orc character
 const MINAS_TIRITH_MINION   = 'le-391' as CardDefinitionId; // free-hold
 const MINAS_MORGUL_SITE     = 'le-390' as CardDefinitionId; // darkhaven
@@ -115,8 +114,8 @@ describe('Palantír of Minas Tirith (le-333)', () => {
     expect(peekActions).toHaveLength(0);
   });
 
-  test('palantir-peek-shuffle offered when bearer has Align Palantír (can use Palantír)', () => {
-    // Attach Align Palantír (tw-190) to give Gorbag the can-use-palantir flag
+  test('palantir-peek-shuffle offered when bearer has native can-use-palantir (Calendal)', () => {
+    // Calendal (le-4) has a native can-use-palantir play-flag; no extra item needed
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -124,16 +123,15 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
         },
         { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL_SITE, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekActions = actions.filter(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
@@ -150,29 +148,28 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
         },
         { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL_SITE, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekActions = actions.filter(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
     expect(peekActions).toHaveLength(1);
 
-    const after = dispatch(withAlignPalantir, peekActions[0].action);
+    const after = dispatch(base, peekActions[0].action);
 
-    // The bearer (Gorbag) remains untapped
-    const gorbag = Object.values(after.players[RESOURCE_PLAYER].characters)[0];
-    expect(gorbag.status).toBe(CardStatus.Untapped);
+    // The bearer (Calendal) remains untapped
+    const bearer = Object.values(after.players[RESOURCE_PLAYER].characters)[0];
+    expect(bearer.status).toBe(CardStatus.Untapped);
 
     // The Palantír item is now tapped
-    const palantir = gorbag.items.find(i => i.definitionId === PALANTIR_MINAS_TIRITH);
+    const palantir = bearer.items.find(i => i.definitionId === PALANTIR_MINAS_TIRITH);
     expect(palantir).toBeDefined();
     expect(palantir!.status).toBe(CardStatus.Tapped);
   });
@@ -185,21 +182,20 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
         },
         { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL_SITE, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekAction = actions.find(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
     expect(peekAction).toBeDefined();
-    const after = dispatch(withAlignPalantir, peekAction!.action);
+    const after = dispatch(base, peekAction!.action);
 
     // No further peek-shuffle offered once tapped
     const afterActions = viableActions(after, PLAYER_1, 'activate-granted-action');
@@ -221,7 +217,7 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
           playDeck: deckCards,
@@ -236,17 +232,16 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekAction = actions.find(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
     expect(peekAction).toBeDefined();
-    const after = dispatch(withAlignPalantir, peekAction!.action);
+    const after = dispatch(base, peekAction!.action);
 
     // Own deck length unchanged
-    const ownDeckBefore = withAlignPalantir.players[RESOURCE_PLAYER].playDeck;
+    const ownDeckBefore = base.players[RESOURCE_PLAYER].playDeck;
     const ownDeckAfter  = after.players[RESOURCE_PLAYER].playDeck;
     expect(ownDeckAfter).toHaveLength(ownDeckBefore.length);
 
@@ -271,7 +266,7 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
           playDeck: deckCards,
@@ -286,17 +281,16 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekAction = actions.find(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
     expect(peekAction).toBeDefined();
-    const after = dispatch(withAlignPalantir, peekAction!.action);
+    const after = dispatch(base, peekAction!.action);
 
     // Opponent deck length unchanged
-    const oppDeckBefore = withAlignPalantir.players[1].playDeck;
+    const oppDeckBefore = base.players[1].playDeck;
     const oppDeckAfter  = after.players[1].playDeck;
     expect(oppDeckAfter).toHaveLength(oppDeckBefore.length);
 
@@ -321,21 +315,20 @@ describe('Palantír of Minas Tirith (le-333)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: GORBAG, items: [PALANTIR_MINAS_TIRITH] }] }],
+          companies: [{ site: MINAS_TIRITH_MINION, characters: [{ defId: CALENDAL, items: [PALANTIR_MINAS_TIRITH] }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL_SITE],
         },
         { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL_SITE, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
-    const withAlignPalantir = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, ALIGN_PALANTIR);
 
-    const actions = viableActions(withAlignPalantir, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action');
     const peekAction = actions.find(
       ea => (ea.action as ActivateGrantedAction).actionId === 'palantir-peek-shuffle',
     );
     expect(peekAction).toBeDefined();
-    const after = dispatch(withAlignPalantir, peekAction!.action);
+    const after = dispatch(base, peekAction!.action);
 
     // A corruption-check pending resolution is enqueued on Gorbag
     const cc = after.pendingResolutions.find(r => r.kind.type === 'corruption-check');
