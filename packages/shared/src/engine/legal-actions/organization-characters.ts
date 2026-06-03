@@ -244,15 +244,24 @@ export function playCharacterActions(
       }
     }
 
-    // Rule: only one character play per turn
+    // Rule: only one character play per turn.
+    // Exception: troll-triplet co-play — a character with `coPlayCompanions` may
+    // be played on the same turn as one of its listed companions (e.g. Bûrat,
+    // Tûma, and Wûluag may all be played in the same organization phase).
     if (phaseState.characterPlayedThisTurn) {
-      logDetail(`  → blocked: already played a character this turn`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: already played a character this turn`,
-      });
-      continue;
+      const lastPlayedDefId = phaseState.lastPlayedCharacterDefinitionId;
+      const coPlayCompanions = isCharacterCard(cardDef) ? (cardDef as { coPlayCompanions?: readonly string[] }).coPlayCompanions ?? [] : [];
+      const isCoPlayException = lastPlayedDefId !== undefined && coPlayCompanions.includes(lastPlayedDefId);
+      if (!isCoPlayException) {
+        logDetail(`  → blocked: already played a character this turn`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: already played a character this turn`,
+        });
+        continue;
+      }
+      logDetail(`  co-play exception: ${charName} may be played alongside ${lastPlayedDefId}`);
     }
 
     // Rule: unique characters cannot be in play twice

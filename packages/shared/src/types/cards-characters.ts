@@ -142,6 +142,13 @@ export interface MinionCharacterCard {
   readonly manifestId?: ManifestId;
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
+  /**
+   * Definition IDs of companion characters that this character may be played
+   * alongside on the same turn, bypassing the one-character-per-turn limit.
+   * Used by the troll triplet (Bûrat as-1, Tûma as-5, Wûluag as-6): each
+   * lists the other two so any pair or all three may be played together.
+   */
+  readonly coPlayCompanions?: readonly string[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */

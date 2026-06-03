@@ -84,7 +84,12 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any non-Under-deeps Ruins & Lairs",
-    "effects": [],
+    "coPlayCompanions": ["as-1", "as-5"],
+    "effects": [
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "reason": "combat", "enemy.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "mind", "value": -1, "when": { "$or": [{ "company.characterNames": { "$includes": "Bûrat" } }, { "company.characterNames": { "$includes": "Tûma" } }] } },
+      { "type": "grant-action", "action": "untap-companion-at-site", "cost": { "tap": "self" }, "companionIds": ["as-1", "as-5"], "apply": { "type": "set-character-status", "target": "target-character", "status": "untapped" } }
+    ],
     "text": "Unique. Manifestation of \"William\". May not be included with a starting company. May be played on the same turn Bûrat and/or Tûma is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Wûluag to untap Bûrat or Tûma if at the same site. If Bûrat and/or Tûma is in his company, Wûluag's mind is reduced by one.",
     "discardBodyCheck": [
       8
@@ -110,6 +115,12 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any non-Under-deeps Ruins & Lairs",
+    "coPlayCompanions": ["as-5", "as-6"],
+    "effects": [
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "reason": "combat", "enemy.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "mind", "value": -1, "when": { "$or": [{ "company.characterNames": { "$includes": "Tûma" } }, { "company.characterNames": { "$includes": "Wûluag" } }] } },
+      { "type": "grant-action", "action": "untap-companion-at-site", "cost": { "tap": "self" }, "companionIds": ["as-5", "as-6"], "apply": { "type": "set-character-status", "target": "target-character", "status": "untapped" } }
+    ],
     "discardBodyCheck": [
       8
     ]
@@ -133,8 +144,15 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any non-Under-deeps Ruins & Lairs",
+    "coPlayCompanions": ["as-1", "as-6"],
+    "effects": [
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "reason": "combat", "enemy.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "mind", "value": -1, "when": { "$or": [{ "company.characterNames": { "$includes": "Bûrat" } }, { "company.characterNames": { "$includes": "Wûluag" } }] } },
+      { "type": "grant-action", "action": "untap-companion-at-site", "cost": { "tap": "self" }, "companionIds": ["as-1", "as-6"], "apply": { "type": "set-character-status", "target": "target-character", "status": "untapped" } }
+    ],
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "certified": "2026-06-04"
   }
 ]
