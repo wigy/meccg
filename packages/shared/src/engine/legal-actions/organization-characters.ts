@@ -16,6 +16,7 @@ import type {
   SiteCard,
 } from '../../index.js';
 import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
+import type { PlayFlagEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
@@ -246,13 +247,26 @@ export function playCharacterActions(
 
     // Rule: only one character play per turn
     if (phaseState.characterPlayedThisTurn) {
-      logDetail(`  → blocked: already played a character this turn`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: already played a character this turn`,
-      });
-      continue;
+      // Buddy-play exception: if this character belongs to a buddy group whose
+      // companion was already played this turn, it may still be played.
+      const buddyPlayEffect = (cardDef.effects ?? []).find(
+        (e): e is PlayFlagEffect => e.type === 'play-flag' && e.flag === 'buddy-play',
+      );
+      const buddyGroupPlayedThisTurn = phaseState.buddyGroupPlayedThisTurn ?? [];
+      const defId = cardDef.id as string;
+      const buddyAllowed = buddyGroupPlayedThisTurn.includes(defId) ||
+        (buddyPlayEffect?.companions?.some(c => buddyGroupPlayedThisTurn.includes(c)) ?? false);
+
+      if (!buddyAllowed) {
+        logDetail(`  → blocked: already played a character this turn`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: already played a character this turn`,
+        });
+        continue;
+      }
+      logDetail(`  → buddy-play exception: ${charName} may be played (companion played this turn)`);
     }
 
     // Rule: unique characters cannot be in play twice

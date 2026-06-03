@@ -36,7 +36,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById } from './reducer-utils.js';
+import { playerById, findCharacterCompany } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -293,9 +293,38 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         && c.kind.type === 'character-is-prisoner',
     );
 
-    // General influence: prisoners cost 0 GI; others under GI count normally
+    // General influence: prisoners cost 0 GI; others under GI count normally.
+    // Effective mind is computed with company context so companion-based mind
+    // reductions (e.g. troll trio: Wûluag's mind -1 when Bûrat/Tûma is present)
+    // are reflected in the GI cost.
     if (!isPrisoner && char.controlledBy === 'general' && charDef.mind !== null) {
-      generalInfluenceUsed += charDef.mind;
+      // Build companion context for mind modifiers
+      const charCompany = findCharacterCompany(player.companies, char.instanceId);
+      const companionDefinitionIds = (charCompany?.characters ?? [])
+        .filter(id => id !== char.instanceId)
+        .map(id => {
+          const compChar = player.characters[id as string];
+          if (!compChar) return null;
+          return compChar.definitionId as string;
+        })
+        .filter((id): id is string => id !== null);
+      const mindContext: ResolverContext = {
+        reason: 'effective-stats',
+        bearer: {
+          ...buildBearerContext(charDef),
+          companionDefinitionIds,
+        },
+        inPlay: inPlayNames,
+      };
+      const mindEffects = collectCharacterEffects(state, char, mindContext);
+      // Only compute effective mind if there are mind modifiers; otherwise use base
+      const hasMindModifiers = mindEffects.some(
+        e => e.effect.type === 'stat-modifier' && (e.effect as { stat?: string }).stat === 'mind',
+      );
+      const effectiveMind = hasMindModifiers
+        ? resolveStatModifiers(mindEffects, 'mind', charDef.mind, mindContext)
+        : charDef.mind;
+      generalInfluenceUsed += Math.max(0, effectiveMind);
     }
 
     // Character MPs: prisoners contribute negative MPs

@@ -786,6 +786,37 @@ function enumerateGrantActionTargets(
     }
   }
 
+  if (targets.scope === 'characters-at-site') {
+    // Find the bearer's current site
+    const bearerCompany = findCharacterCompany(player.companies, charId);
+    if (!bearerCompany?.currentSite) return [];
+    const bearerSiteDefId = bearerCompany.currentSite.definitionId as string;
+    const allowedDefIds = targets.definitionIds ?? [];
+
+    // Scan all companies across both players for characters at the same site
+    for (const p of state.players) {
+      for (const company of p.companies) {
+        if (!company.currentSite) continue;
+        if ((company.currentSite.definitionId as string) !== bearerSiteDefId) continue;
+        for (const memberId of company.characters) {
+          // Exclude the bearer themselves
+          if (memberId === charId) continue;
+          const member = p.characters[memberId as string];
+          if (!member) continue;
+          // Restrict to specified definition IDs if given
+          if (allowedDefIds.length > 0 && !allowedDefIds.includes(member.definitionId as string)) continue;
+          // Only include tapped/inverted characters — untapping an already-untapped character is pointless
+          if (member.status === CardStatus.Untapped) continue;
+          if (targets.filter) {
+            const memberDef = defById(state, member.definitionId);
+            if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+          }
+          matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
+        }
+      }
+    }
+  }
+
   return matches;
 }
 

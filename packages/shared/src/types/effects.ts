@@ -127,7 +127,7 @@ interface EffectBase {
 export interface StatModifierEffect extends EffectBase {
   readonly type: 'stat-modifier';
   /** Which stat to modify. */
-  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence';
+  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
   /** Maximum resulting stat value. Can be a MathJS expression. */
@@ -319,10 +319,15 @@ export interface GrantActionEffect extends EffectBase {
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
+ *
+ * - `"characters-at-site"` — characters at the same site as the bearer.
+ *   Optionally restricted to specific definition IDs via `definitionIds`.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items';
+  readonly scope: 'company-items' | 'characters-at-site';
   readonly filter?: Condition;
+  /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
+  readonly definitionIds?: readonly string[];
 }
 
 /** The cost required to activate a granted action. */
@@ -868,7 +873,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
  *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -879,6 +884,12 @@ export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-
 export interface PlayFlagEffect extends EffectBase {
   readonly type: 'play-flag';
   readonly flag: PlayFlag;
+  /**
+   * For `buddy-play` flag: definition IDs of the companion characters in the
+   * buddy group. When any of these companions is played in the same turn, this
+   * character may also be played without counting against the one-character-per-turn limit.
+   */
+  readonly companions?: readonly string[];
 }
 
 /**
