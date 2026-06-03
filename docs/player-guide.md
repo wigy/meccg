@@ -39,7 +39,7 @@ Not all cards in the game are fully playable yet. Each card goes through several
 2. **Certified** — the AI verifies that every effect on the card is implemented and working. Certification costs credits and takes time. Only certified cards are considered reliable to play.
 3. **Tested and tuned** — even after certification, edge cases may surface during real games. Bug reports drive further fixes until the card is fully playable in all situations.
 
-You can see how many cards are created and certified in the project status table in the README. If a card you want to play behaves incorrectly, filing a bug report is the fastest way to get it fixed.
+You can see how many cards are created and certified in the project status table in the README. If a card you want to play behaves incorrectly, filing a bug report is the fastest way to get it fixed — it will usually be addressed and released in the next release.
 
 ## The Inbox
 
