@@ -627,6 +627,11 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
+    "keywords": [
+      "Uruk-hai"
+    ],
+    "effects": [],
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       8
     ]
