@@ -629,7 +629,7 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
 
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[playerIndex] = { ...player, companies };
-  return sweepAutoDiscardHazards({ ...state, players: newPlayers });
+  return sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers }));
 }
 
 /**
@@ -728,6 +728,91 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
             characters: {
               ...newPlayers[pi].characters,
               [charId as string]: { ...newPlayers[pi].characters[charId as string], hazards: remaining },
+            },
+            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
+          };
+        }
+      }
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
+ * Sweeps resource permanent events attached to characters' `items` slots that
+ * carry `on-event: company-composition-changed` + a `move self→discard` apply.
+ *
+ * Mirrors {@link sweepAutoDiscardHazards} but for resource-side events. The
+ * context extended with `company.hasHigherMindThanBearer` lets cards like
+ * *By the Ringwraith's Word* declare a conditional auto-discard.
+ *
+ * `hasHigherMindThanBearer` is `true` when any other character in the bearer's
+ * company has a non-null `mind` value strictly greater than the bearer's own
+ * non-null `mind`. Both sides must have numeric minds; null-mind avatars do not
+ * participate in the comparison.
+ *
+ * Call after any action that changes a company's character roster.
+ */
+export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    for (const company of player.companies) {
+      const companyCharCount = company.characters.length;
+
+      // Pre-compute mind values for all characters in this company
+      const companyMinds: number[] = [];
+      for (const chId of company.characters) {
+        const ch = player.characters[chId as string];
+        if (!ch) continue;
+        const chDef = state.cardPool[ch.definitionId as string];
+        const mind = chDef && 'mind' in chDef && typeof (chDef as { mind: unknown }).mind === 'number'
+          ? (chDef as { mind: number }).mind
+          : null;
+        if (mind !== null) companyMinds.push(mind);
+      }
+
+      for (const charId of company.characters) {
+        const char = player.characters[charId as string];
+        if (!char) continue;
+
+        // Determine bearer's mind for higher-mind comparison
+        const bearerDef = state.cardPool[char.definitionId as string];
+        const bearerMind = bearerDef && 'mind' in bearerDef && typeof (bearerDef as { mind: unknown }).mind === 'number'
+          ? (bearerDef as { mind: number }).mind
+          : null;
+        const hasHigherMindThanBearer = bearerMind !== null
+          && companyMinds.some(m => m > bearerMind);
+
+        const ctx = { company: { characterCount: companyCharCount, hasHigherMindThanBearer } };
+
+        const toDiscard: string[] = [];
+        for (const item of char.items) {
+          const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
+          const trigger = getOnEventEffects(itemDef, 'company-composition-changed').find(
+            e => e.apply?.type === 'move' && (e.apply as { select?: string; to?: string }).select === 'self'
+              && (e.apply as { to?: string }).to === 'discard'
+              && !!e.when && matchesCondition(e.when, ctx),
+          );
+          if (trigger) {
+            logDetail(`sweepAutoDiscardResourceEvents: "${itemDef?.name}" on ${charId as string} (hasHigherMind=${hasHigherMindThanBearer})`);
+            toDiscard.push(item.instanceId as string);
+          }
+        }
+
+        if (toDiscard.length > 0) {
+          changed = true;
+          const discardSet = new Set(toDiscard);
+          const discarded = char.items.filter(i => discardSet.has(i.instanceId as string));
+          const remaining = char.items.filter(i => !discardSet.has(i.instanceId as string));
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [charId as string]: { ...newPlayers[pi].characters[charId as string], items: remaining },
             },
             discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
           };

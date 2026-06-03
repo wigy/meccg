@@ -3182,3 +3182,73 @@ The keying method recorded in `keyedBy.method` is `"adjacent-to-site-keyword"`.
 
 Used by: *Nameless Thing* (dm-109) — "If Doors of Night is in play, also playable at
 an adjacent site of any Under-deeps site."
+
+### 38. `grant-keyword`
+
+Grants a keyword tag to the item's bearer while the item/event is attached.
+
+The bearer counts as having the named keyword for all purposes — e.g. the "Leader"
+keyword makes the bearer subject to the one-leader-per-company rule (CoE 3.26) and
+eligible for faction-influence bonuses gated on Leader status.
+
+```json
+{ "type": "grant-keyword", "keyword": "Leader" }
+```
+
+Fields:
+- `keyword` — the keyword to grant (e.g. `"Leader"`).
+
+Implemented in `engine/legal-actions/organization-companies.ts`
+(`wouldViolateLeaderRestriction` now also checks attached items for this effect).
+
+Used by: *By the Ringwraith's Word* (le-174).
+
+### 39. `protect-from-body-check`
+
+Protects the bearer from being eliminated by a failed body check. When a body check
+roll would normally eliminate the bearer (`effectiveRoll > body`), the negative result
+is suppressed and the bearer remains in play in their current status (typically
+wounded/inverted after the strike).
+
+No fields beyond `type`.
+
+```json
+{ "type": "protect-from-body-check" }
+```
+
+Implemented in `engine/reducer-combat.ts` (`handleBodyCheckRoll`): before the standard
+elimination path, items on the target character are scanned for this effect; if found,
+the result is recorded as `'wounded'` (the character already is wounded from the strike)
+and the elimination is skipped.
+
+Used by: *By the Ringwraith's Word* (le-174).
+
+### `on-event: company-composition-changed` — items (resource events)
+
+The `company-composition-changed` event fires against **items** (resource permanent
+events attached to `character.items`) as well as hazards. When an item carries this
+event with `apply: { type: "move", select: "self", from: "self-location", to: "discard" }`
+and a `when` condition that evaluates to true, the item is discarded to the owner's
+discard pile.
+
+The context passed to the condition includes:
+
+- `company.characterCount` — number of characters in the company.
+- `company.hasHigherMindThanBearer` — `true` when any other character in the bearer's
+  company has a non-null `mind` value strictly greater than the bearer's own non-null
+  `mind`. Both sides must have numeric minds; null-mind avatars do not participate.
+
+Implemented in `engine/reducer-utils.ts` (`sweepAutoDiscardResourceEvents`), called
+after any company composition change (merge, split, character play) and after permanent
+event resolution.
+
+```json
+{
+  "type": "on-event",
+  "event": "company-composition-changed",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+  "when": { "company.hasHigherMindThanBearer": true }
+}
+```
+
+Used by: *By the Ringwraith's Word* (le-174).

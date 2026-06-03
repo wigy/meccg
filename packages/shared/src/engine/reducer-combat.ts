@@ -1295,6 +1295,28 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
     }
 
+    // Check if the character is protected from body check elimination.
+    // protect-from-body-check on an attached item suppresses the elimination.
+    // Allies cannot benefit from this protection.
+    if (!allyMatch && charData && effectiveRoll > body) {
+      const isProtected = charData.items.some(item => {
+        const itemDef = state.cardPool[item.definitionId as string];
+        return getCardEffects(itemDef).some(e => e.type === 'protect-from-body-check');
+      });
+      if (isProtected) {
+        logDetail('Character protected from body check elimination (protect-from-body-check)');
+        const protectedAssignments = combat.strikeAssignments.map((a, i) =>
+          i === combat.currentStrikeIndex ? { ...a, result: 'wounded' as const } : a,
+        );
+        const combatProtected = { ...combat, strikeAssignments: protectedAssignments };
+        const nextProtected = nextStrikePhase(combatProtected);
+        if (nextProtected) {
+          return { state: { ...stateWithRoll, combat: { ...combatProtected, ...nextProtected } }, effects };
+        }
+        return finalizeCombat(stateWithRoll, effects);
+      }
+    }
+
     if (effectiveRoll > body) {
       // Combatant eliminated
       logDetail(`${allyMatch ? 'Ally' : 'Character'} eliminated`);

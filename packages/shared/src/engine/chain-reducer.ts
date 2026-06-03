@@ -25,7 +25,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -2130,6 +2130,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
     current = resolvePermanentEvent(current, entry);
+    current = sweepAutoDiscardResourceEvents(current);
   }
 
   if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
