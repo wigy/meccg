@@ -82,7 +82,6 @@ const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
 const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
 const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
 const reseedBtn = document.getElementById('reseed-btn') as HTMLButtonElement;
-const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
 const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
 const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
 const swapHandBtn = document.getElementById('swap-hand-btn') as HTMLButtonElement;
@@ -94,10 +93,6 @@ const settingsBackdrop = document.getElementById('settings-backdrop') as HTMLEle
 const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
 const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 const autoPassToggle = document.getElementById('auto-pass-toggle') as HTMLInputElement;
-const snapshotBtn = document.getElementById('snapshot-btn') as HTMLButtonElement;
-const snapshotModal = document.getElementById('snapshot-modal') as HTMLElement;
-const snapshotBackdrop = document.getElementById('snapshot-backdrop') as HTMLElement;
-const snapshotList = document.getElementById('snapshot-list') as HTMLElement;
 const SERVER_DEV = window.__MECCG_DEV === true;
 
 /** Flash a button to confirm the action was triggered. */
@@ -256,71 +251,6 @@ loadBtn.addEventListener('click', () => {
     flashBtn(loadBtn);
     clearGameBoard();
   }
-});
-
-resetBtn.addEventListener('click', () => {
-  if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-    const msg: ClientMessage = { type: 'reset' };
-    appState.ws.send(JSON.stringify(msg));
-    flashBtn(resetBtn);
-    clearGameBoard();
-  }
-});
-
-snapshotBtn.addEventListener('click', () => {
-  void (async () => {
-    try {
-      const resp = await fetch('/api/snapshots');
-      const snapshots = await resp.json() as { file: string; description: string; character?: string; site?: string }[];
-      snapshotList.innerHTML = '';
-      if (snapshots.length === 0) {
-        snapshotList.textContent = 'No snapshots available.';
-      } else {
-        for (const snap of snapshots) {
-          const item = document.createElement('div');
-          item.className = 'snapshot-item';
-          const images = document.createElement('div');
-          images.className = 'snapshot-item-images';
-          for (const defId of [snap.character, snap.site]) {
-            if (!defId) continue;
-            const def = cardPool[defId];
-            const imgPath = def ? cardImageProxyPath(def) : undefined;
-            if (imgPath) {
-              const img = document.createElement('img');
-              img.src = imgPath;
-              img.alt = def.name;
-              images.appendChild(img);
-            }
-          }
-          if (images.childElementCount > 0) item.appendChild(images);
-          const name = document.createElement('div');
-          name.className = 'snapshot-item-name';
-          name.textContent = snap.file;
-          const desc = document.createElement('div');
-          desc.className = 'snapshot-item-desc';
-          desc.textContent = snap.description;
-          item.appendChild(name);
-          item.appendChild(desc);
-          item.addEventListener('click', () => {
-            if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
-              const msg: ClientMessage = { type: 'load-snapshot', file: snap.file };
-              appState.ws.send(JSON.stringify(msg));
-              clearGameBoard();
-            }
-            snapshotModal.classList.add('hidden');
-          });
-          snapshotList.appendChild(item);
-        }
-      }
-      snapshotModal.classList.remove('hidden');
-    } catch {
-      renderLog('Failed to fetch snapshot list');
-    }
-  })();
-});
-
-snapshotBackdrop.addEventListener('click', () => {
-  snapshotModal.classList.add('hidden');
 });
 
 devMenuBtn.addEventListener('click', (e) => {
