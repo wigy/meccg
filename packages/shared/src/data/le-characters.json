@@ -845,7 +845,24 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Easterling Camp"
+    "homesite": "Easterling Camp",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Easterling Camp"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-character",
