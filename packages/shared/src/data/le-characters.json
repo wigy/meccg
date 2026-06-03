@@ -812,6 +812,9 @@
     "alignment": "ringwraith",
     "unique": true,
     "race": "orc",
+    "keywords": [
+      "Uruk-hai"
+    ],
     "skills": [
       "warrior",
       "ranger"
@@ -823,6 +826,7 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       8
     ]
