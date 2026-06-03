@@ -59,8 +59,6 @@ When enabled it adds two extra tools to the toolbar:
   - *Cheat roll* — force the next dice result to a specific value
   - *Summon* — add any card directly to your hand
   - *Swap Hand* — swap hands between the two players
-  - *Snapshot* — capture the current state for a bug report
-  - *Reset* — restart the game from scratch
 
 Settings also contains an **Auto-pass** toggle that automatically takes the only available action after a short delay, which speeds up solo testing.
 
