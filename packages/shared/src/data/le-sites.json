@@ -806,9 +806,18 @@
     "playableResources": [
       "gold-ring"
     ],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 5,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "certified": "2026-06-04",
     "unique": true
   },
   {
