@@ -11,7 +11,6 @@
  */
 
 import type { ClientMessage } from '@meccg/shared';
-import { cardImageProxyPath } from '@meccg/shared';
 import {
   appState, cardPool,
   VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
