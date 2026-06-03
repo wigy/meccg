@@ -95,7 +95,7 @@
     "id": "as-1",
     "name": "Bûrat",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Burat.jpg",
-    "text": "Unique. Manifestation of “Bert”. May not be included with a starting company. May be played on the same turn Tûma and/or Wûluag is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Bûrat to untap Tûma or Wûluag if at the same site. If Tûma and/or Wûluag is in his company, Bûrat’s mind is reduced by one.",
+    "text": "Unique. Manifestation of \"Bert\". May not be included with a starting company. May be played on the same turn Tûma and/or Wûluag is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Bûrat to untap Tûma or Wûluag if at the same site. If Tûma and/or Wûluag is in his company, Bûrat's mind is reduced by one.",
     "alignment": "ringwraith",
     "unique": true,
     "race": "troll",
@@ -112,9 +112,23 @@
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "discardBodyCheck": [
       8
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "not-starting-character"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "dwarf"
+        }
+      }
     ]
-  },
-  {
+  },  {
     "cardType": "minion-character",
     "id": "as-5",
     "name": "Tûma",
