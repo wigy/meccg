@@ -801,7 +801,11 @@
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-character",
