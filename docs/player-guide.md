@@ -45,6 +45,25 @@ You can see how many cards are created and certified in the project status table
 
 All replies from the AI and the server arrive in your **Inbox** (accessible from the lobby). Check the Sent tab to follow up on messages you have already submitted.
 
+## Developer Mode
+
+Because the game is still under active development, a **Developer Mode** is available for testers. Enable it in the **Settings** dialog (gear icon in the game toolbar).
+
+When enabled it adds two extra tools to the toolbar:
+
+- **Debug view** — a raw JSON dump of the full game state, useful for verifying card data and tracking down rule bugs.
+- **Developer tools menu** — a set of testing aids:
+  - *Undo* — step back one action
+  - *Save / Load* — snapshot and restore the game state
+  - *Reseed* — re-randomise the remaining deck order
+  - *Cheat roll* — force the next dice result to a specific value
+  - *Summon* — add any card directly to your hand
+  - *Swap Hand* — swap hands between the two players
+  - *Snapshot* — capture the current state for a bug report
+  - *Reset* — restart the game from scratch
+
+Settings also contains an **Auto-pass** toggle that automatically takes the only available action after a short delay, which speeds up solo testing.
+
 ## Pseudo-AI Mode
 
 When starting a solo game, you can enable pseudo-AI mode. In this mode you control both sides: a separate panel appears so you can pick actions for the second player. This is useful for testing specific game situations without needing an opponent.
