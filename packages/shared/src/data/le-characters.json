@@ -722,6 +722,9 @@
     "skills": [
       "warrior"
     ],
+    "keywords": [
+      "Uruk-hai"
+    ],
     "prowess": 4,
     "body": 8,
     "mind": 2,
@@ -731,7 +734,8 @@
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "certified": "2026-06-03"
   },
   {
     "cardType": "minion-character",
