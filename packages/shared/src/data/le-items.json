@@ -220,6 +220,9 @@
     "alignment": "ringwraith",
     "unique": true,
     "subtype": "major",
+    "keywords": [
+      "shield"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
