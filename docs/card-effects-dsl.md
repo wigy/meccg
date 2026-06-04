@@ -3144,6 +3144,37 @@ Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190).
 
 ---
 
+### 56. `absorb-wound`
+
+When a strike against the bearer succeeds (would wound), the wound is prevented.
+Instead, combat transitions to a `'shield-discard-roll'` phase in which the
+**attacking player** rolls 2d6. If the roll strictly exceeds `rollThreshold`,
+the item is discarded from the bearer. If the roll does not exceed the threshold,
+the item stays in play.
+
+The bearer is still **tapped** (the strike "succeeded" against them), but they are
+not wounded. The creature is **not** considered defeated — the result of the strike
+assignment is recorded as `'absorbed'` rather than `'success'`, so `finalizeCombat`
+does not route the creature to the kill pile or trigger a trophy offer.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `rollThreshold` | yes | Item is discarded if attacker's 2d6 roll **strictly exceeds** this value (e.g. `6` means "discard on 7–12"). |
+
+```json
+{ "type": "absorb-wound", "rollThreshold": 6 }
+```
+
+Used by *Sable Shield* (le-341): "If a strike against the bearer is successful, he
+is not wounded. Instead, the attacker makes a roll—if this result is greater than 6,
+discard Sable Shield."
+
+Implemented in `engine/reducer-combat.ts` (`resolveStrike` absorb-wound detection,
+`handleShieldDiscardRoll`) and `engine/legal-actions/combat.ts`
+(`shieldDiscardRollActions` for the `'shield-discard-roll'` phase).
+
+---
+
 ## Creature Keying — `keyedTo` extended fields
 
 The `keyedTo` array on a hazard-creature card describes where the creature can be

@@ -478,6 +478,8 @@ export function describeAction(
       return `${action.player as string} takes creature ${action.creatureInstanceId as string} as trophy for ${action.characterId as string}`;
     case 'cvcc-ally-discard-roll':
       return `${action.player as string} rolls for CvCC ally discard (${action.allyInstanceId as string})`;
+    case 'shield-discard-roll':
+      return `${action.player as string} rolls to determine if shield ${action.itemInstanceId as string} is discarded`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

@@ -2335,7 +2335,8 @@ export type CardEffect =
   | RingTestSearchEffect
   | GrantSkillEffect
   | CompanyOvertEffect
-  | RingwraithModeEffect;
+  | RingwraithModeEffect
+  | AbsorbWoundEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2594,4 +2595,21 @@ export interface CompanyOvertEffect extends EffectBase {
  */
 export interface RingwraithModeEffect extends EffectBase {
   readonly type: 'ringwraith-mode';
+}
+
+/**
+ * When a strike against the bearer succeeds (would wound), the wound is
+ * prevented. Instead, the attacker rolls 2d6; if the result strictly exceeds
+ * {@link rollThreshold}, this item is discarded from the bearer.
+ *
+ * "If a strike against the bearer is successful, he is not wounded. Instead,
+ * the attacker makes a roll — if this result is greater than 6, discard
+ * [item]."
+ *
+ * Used by *Sable Shield* (le-341).
+ */
+export interface AbsorbWoundEffect extends EffectBase {
+  readonly type: 'absorb-wound';
+  /** Roll total must strictly exceed this value for the item to be discarded (default 6). */
+  readonly rollThreshold: number;
 }
