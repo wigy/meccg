@@ -976,7 +976,38 @@
     "directInfluence": 5,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Udûn"
+    "homesite": "Any site in Udûn",
+    "certified": "2026-06-04",
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "company-stat-boost",
+        "cost": { "tap": "self" },
+        "when": { "bearer.atHaven": true },
+        "targets": { "scope": "player-companies" },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "company-stat-modifier",
+              "stat": "prowess",
+              "value": 1,
+              "target": "action-target-company",
+              "scope": "turn"
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "company-stat-modifier",
+              "stat": "body",
+              "value": 1,
+              "target": "action-target-company",
+              "scope": "turn"
+            }
+          ]
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-character",

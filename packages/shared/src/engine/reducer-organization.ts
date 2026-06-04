@@ -909,7 +909,7 @@ function runGrantApply(
     if (!scope) {
       return { error: `add-constraint: unknown or unresolved scope "${apply.scope ?? ''}" on ${ctx.sourceName}` };
     }
-    const target = resolveConstraintTarget(apply.target, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player);
+    const target = resolveConstraintTarget(apply.target, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player, ctx.action);
     if (!target) {
       return { error: `add-constraint: cannot resolve target "${apply.target ?? ''}" on ${ctx.sourceName}` };
     }
@@ -1340,6 +1340,7 @@ function resolveConstraintTarget(
   player: import('../types/state.js').PlayerState,
   characterId: CardInstanceId,
   playerId: import('../types/common.js').PlayerId,
+  action?: import('../types/actions-organization.js').ActivateGrantedAction,
 ): import('../types/pending.js').ActiveConstraint['target'] | null {
   switch (targetName ?? 'bearer-company') {
     case 'bearer-company': {
@@ -1349,6 +1350,11 @@ function resolveConstraintTarget(
     }
     case 'player':
       return { kind: 'player', playerId };
+    case 'action-target-company': {
+      const companyId = action?.targetCompanyId;
+      if (!companyId) return null;
+      return { kind: 'company', companyId };
+    }
     default:
       return null;
   }

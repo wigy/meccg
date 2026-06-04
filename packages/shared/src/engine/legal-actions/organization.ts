@@ -486,6 +486,17 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             continue;
           }
 
+          // Evaluate the `when` condition against the grant-action context.
+          if (effect.when) {
+            const charDefCard = isCharacterCard(charDef) ? charDef : undefined;
+            const company = findCharacterCompany(player.companies, charId);
+            const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+            if (!matchesCondition(effect.when, ctx)) {
+              logDetail(`Grant-action ${effect.action} on ${charDef.name}: when condition failed`);
+              continue;
+            }
+          }
+
           // untap-companion-at-site: enumerate tapped companions in the bearer's
           // company whose definition ID appears in the effect's `companionIds` list.
           // Only use this legacy path when `effect.targets` is absent (older data format).
@@ -529,6 +540,32 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           // Per-target enumeration: emit one activation per candidate in
           // the declared scope (e.g. Gandalf's gold-ring test).
           if (effect.targets) {
+            // Player-companies scope: enumerate all companies and emit one activation per company.
+            if (effect.targets.scope === 'player-companies') {
+              const companies = player.companies;
+              if (companies.length === 0) {
+                logDetail(`Grant-action ${effect.action} on ${charDef.name}: player has no companies`);
+                continue;
+              }
+              for (const company of companies) {
+                logDetail(`Grant-action ${effect.action} available: ${charDef.name} can activate targeting company ${company.id as string}`);
+                actions.push({
+                  action: {
+                    type: 'activate-granted-action',
+                    player: playerId,
+                    characterId: charId,
+                    sourceCardId: char.instanceId,
+                    sourceCardDefinitionId: char.definitionId,
+                    actionId: effect.action,
+                    rollThreshold: rollThresholdFor(effect),
+                    targetCompanyId: company.id,
+                  },
+                  viable: true,
+                });
+              }
+              continue;
+            }
+
             const candidates = enumerateGrantActionTargets(state, player, charId, effect.targets);
             if (candidates.length === 0) {
               logDetail(`Grant-action ${effect.action} on ${charDef.name}: no targets in scope '${effect.targets.scope}'`);
