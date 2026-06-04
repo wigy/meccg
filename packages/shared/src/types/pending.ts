@@ -360,6 +360,20 @@ export interface PendingResolution {
         readonly cardInstanceId: CardInstanceId;
         /** The company whose characters are eligible to be the bearer. */
         readonly companyId: CompanyId;
+        /**
+         * Post-selection mode (from `TriggerAttackOnPlayEffect.afterAttack`).
+         * - `"attach-with-constraint"` (default / absent): attach card to
+         *   bearer's items and add `bearer-cannot-untap` constraint.
+         * - `"move-to-mp-pile"`: tap the chosen character, leave card in
+         *   `cardsInPlay` without attaching or adding a constraint.
+         */
+        readonly mode?: 'attach-with-constraint' | 'move-to-mp-pile';
+        /**
+         * When true, after bearer selection discard any faction cards in
+         * play belonging to the resource player that are playable at the
+         * company's current site.
+         */
+        readonly discardFactionsAtSite?: boolean;
       }
     | {
         /**

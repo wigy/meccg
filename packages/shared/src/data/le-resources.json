@@ -1037,7 +1037,39 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 2,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "border-hold"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Men", "strikes": 4, "prowess": 7 },
+          { "creatureType": "Men", "strikes": 1, "prowess": 9 }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardFactionsAtSite": true
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-event",

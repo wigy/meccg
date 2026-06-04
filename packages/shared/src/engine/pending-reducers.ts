@@ -1749,7 +1749,7 @@ function applySelectCardBearerResolution(
 ): ReducerResult | null {
   if (top.kind.type !== 'select-card-bearer') return null;
 
-  const { cardInstanceId, companyId } = top.kind;
+  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions } = top.kind;
 
   if (action.type === 'pass') {
     // Player declines bearer assignment — discard the card
@@ -1820,6 +1820,58 @@ function applySelectCardBearerResolution(
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');
+
+  const resolvedMode = bearerMode ?? 'attach-with-constraint';
+
+  if (resolvedMode === 'move-to-mp-pile') {
+    // Burning Rick, Cot, and Tree mode: tap the character, leave card in cardsInPlay
+    // (it already earns MPs there), no untap constraint.
+    logDetail(
+      `select-card-bearer: "${cardLabel}" assigned to ${characterId as string} — tapping character, card stays in cardsInPlay`,
+    );
+    let s = updatePlayer(state, defIdx, p => updateCharacter(p, characterId, () => ({
+      ...ch,
+      status: CardStatus.Tapped,
+    })));
+
+    // Discard factions playable at the company's current site if requested
+    if (shouldDiscardFactions) {
+      const company = s.players[defIdx].companies.find(co => co.id === companyId);
+      const currentSiteDef = company?.currentSite
+        ? defById(s, company.currentSite.definitionId)
+        : undefined;
+      const siteName = currentSiteDef && 'name' in currentSiteDef ? (currentSiteDef as { name: string }).name : undefined;
+      const siteType = currentSiteDef && 'siteType' in currentSiteDef ? (currentSiteDef as { siteType: string }).siteType : undefined;
+
+      if (siteName || siteType) {
+        const factionsToDiscard: import('../types/state-cards.js').CardInPlay[] = [];
+        for (const card of s.players[defIdx].cardsInPlay) {
+          const fDef = defById(s, card.definitionId);
+          if (!isFactionCard(fDef)) continue;
+          const playableAt = fDef.playableAt as readonly ({ site?: string; siteType?: string; region?: string })[];
+          const matches = playableAt.some(entry =>
+            (siteName && 'site' in entry && entry.site === siteName) ||
+            (siteType && 'siteType' in entry && entry.siteType === siteType),
+          );
+          if (matches) {
+            factionsToDiscard.push(card);
+            logDetail(`select-card-bearer: discarding faction "${fDef.name}" playable at ${siteName ?? siteType ?? '?'}`);
+          }
+        }
+        if (factionsToDiscard.length > 0) {
+          const discardIds = new Set(factionsToDiscard.map(c => c.instanceId as string));
+          s = updatePlayer(s, defIdx, p => ({
+            ...p,
+            cardsInPlay: p.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+            discardPile: [...p.discardPile, ...factionsToDiscard.map(toCardInstance)],
+          }));
+        }
+      }
+    }
+
+    return { state: dequeueResolution(s, top.id) };
+  }
+
   logDetail(
     `select-card-bearer: "${cardLabel}" assigned to ${characterId as string} — tapping character, adding constraint`,
   );

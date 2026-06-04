@@ -1213,23 +1213,33 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         const defPlayer = newState.players[defPlayerIndex];
         const atkPlayer = newState.players[1 - defPlayerIndex];
         const inPlayNames = buildInPlayNames(newState);
-        const creatureRace = normalizeCreatureRace(triggerEffect.creatureType);
+
+        // Multi-attack form: use attacks[0] for first combat, pass rest as remainingAttacks.
+        // Single-attack form: use the top-level fields (backward-compatible).
+        const firstAttack = triggerEffect.attacks
+          ? triggerEffect.attacks[0]
+          : { creatureType: triggerEffect.creatureType!, strikes: triggerEffect.strikes!, prowess: triggerEffect.prowess! };
+        const remaining = triggerEffect.attacks ? triggerEffect.attacks.slice(1) : [];
+
+        const creatureRace = normalizeCreatureRace(firstAttack.creatureType);
         const effectiveProwess = resolveAttackProwess(
-          newState, triggerEffect.prowess, inPlayNames, creatureRace, true, undefined,
+          newState, firstAttack.prowess, inPlayNames, creatureRace, true, undefined,
           { companyId },
         );
         const effectiveStrikes = resolveAttackStrikes(
-          newState, triggerEffect.strikes, inPlayNames, creatureRace, { companyId },
+          newState, firstAttack.strikes, inPlayNames, creatureRace, { companyId },
         );
         logDetail(
-          `"${def?.name ?? '?'}" entered play — triggering ${triggerEffect.creatureType} auto-attack ` +
+          `"${def?.name ?? '?'}" entered play — triggering ${firstAttack.creatureType} auto-attack ` +
           `(${effectiveStrikes} strikes, ${effectiveProwess} prowess) on company ${companyId as string}; ` +
-          `bearer selected post-attack`,
+          `bearer selected post-attack` +
+          (remaining.length > 0 ? `; ${remaining.length} more attack(s) queued` : ''),
         );
         const combat: CombatState = {
           attackSource: {
             type: 'card-triggered-attack',
             cardInstanceId: card.instanceId,
+            ...(remaining.length > 0 ? { remainingAttacks: remaining } : {}),
           },
           companyId,
           defendingPlayerId: defPlayer.id,
