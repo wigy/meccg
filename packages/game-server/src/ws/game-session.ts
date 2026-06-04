@@ -33,7 +33,6 @@ import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
-const SNAPSHOT_DIR = path.join(__dirname, '../../data/dev/snapshots');
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
 
 interface PendingPlayer {
@@ -47,7 +46,7 @@ interface GameSave {
 }
 
 export interface GameSessionOptions {
-  /** Enable development-mode operations (undo, save, load, reseed, reset). */
+  /** Enable development-mode operations (undo, save, load, reseed). */
   dev?: boolean;
   playerNames: [string, string];
 }
@@ -151,27 +150,23 @@ export class GameSession {
       case 'action':
         this.handleAction(ws, msg);
         break;
-      case 'reset':
       case 'save':
       case 'load':
       case 'reseed':
       case 'undo':
       case 'cheat-roll':
       case 'summon-card':
-      case 'load-snapshot':
       case 'swap-hand':
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
         }
-        if (msg.type === 'reset') this.handleReset();
-        else if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
+        if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
         else if (msg.type === 'load') this.handleLoad();
         else if (msg.type === 'reseed') this.handleReseed(ws);
         else if (msg.type === 'undo') this.handleUndo(ws);
         else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
         else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
-        else if (msg.type === 'load-snapshot') this.handleLoadSnapshot(ws, msg.file);
         else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
         break;
     }
@@ -566,43 +561,6 @@ export class GameSession {
     }
   }
 
-  private handleReset(): void {
-    this.serverLog.log('reset');
-    // Delete save files
-    for (const savePath of [this.saveFilePath(), this.autosaveFilePath()]) {
-      if (fs.existsSync(savePath)) {
-        fs.unlinkSync(savePath);
-      }
-    }
-
-    // Clear game state and undo history
-    this.state = null;
-    this.stateHistory = [];
-
-    // Force all clients to reconnect
-    const restartMsg: ServerMessage = { type: 'restart', message: 'Game reset. Reconnecting...' };
-
-    for (const [, { ws }] of this.pending.entries()) {
-      this.send(ws, restartMsg);
-      ws.close();
-    }
-    this.pending.clear();
-
-    for (const [, { ws }] of this.players.entries()) {
-      this.send(ws, restartMsg);
-      ws.close();
-    }
-    this.players.clear();
-
-    for (const ws of this.spectators) {
-      this.send(ws, restartMsg);
-      ws.close();
-    }
-    this.spectators.clear();
-
-    this.nameToPlayerId = {};
-  }
-
   private handleReseed(ws: WebSocket): void {
     if (!this.state) return;
     const newSeed = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
@@ -888,48 +846,6 @@ export class GameSession {
     console.log(`[swap-hand] Swapped hands: ${p0.name} (${p0.hand.length} cards) ↔ ${p1.name} (${p1.hand.length} cards)`);
     this.send(ws, { type: 'info', message: `Hands swapped: ${p0.name} ↔ ${p1.name}` });
     this.broadcastState();
-  }
-
-  private handleLoadSnapshot(ws: WebSocket, file: string): void {
-    // Validate filename: exactly 3 digits + .json extension
-    if (!/^\d{3}\.json$/.test(file)) {
-      this.send(ws, { type: 'error', message: `Invalid snapshot filename: "${file}"` });
-      return;
-    }
-    const snapshotPath = path.join(SNAPSHOT_DIR, file);
-    if (!fs.existsSync(snapshotPath)) {
-      this.send(ws, { type: 'error', message: `Snapshot not found: "${file}"` });
-      return;
-    }
-
-    // Remap snapshot's player names to match the current game's player names,
-    // so loadSave can find the players when clients reconnect.
-    const autosavePath = this.autosaveFilePath();
-    const snapData = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8')) as GameSave;
-    const snapNames = Object.keys(snapData.nameToPlayerId);
-    const currentNames = [...this.playerNames];
-    if (snapNames.length === 2 && currentNames.length === 2) {
-      const remapped: Record<string, string> = {};
-      remapped[currentNames[0]] = snapData.nameToPlayerId[snapNames[0]];
-      remapped[currentNames[1]] = snapData.nameToPlayerId[snapNames[1]];
-      snapData.nameToPlayerId = remapped;
-      fs.writeFileSync(autosavePath, JSON.stringify(snapData));
-    } else {
-      fs.copyFileSync(snapshotPath, autosavePath);
-    }
-    this.serverLog.log('load-snapshot', { file, savePath: autosavePath });
-
-    // Clear state and restart all clients (same pattern as handleLoad)
-    this.state = null;
-    this.stateHistory = [];
-    const restartMsg: ServerMessage = { type: 'restart', message: 'Loading snapshot. Reconnecting...' };
-    for (const [, { ws: pws }] of this.pending.entries()) { this.send(pws, restartMsg); pws.close(); }
-    this.pending.clear();
-    for (const [, { ws: pws }] of this.players.entries()) { this.send(pws, restartMsg); pws.close(); }
-    this.players.clear();
-    for (const sws of this.spectators) { this.send(sws, restartMsg); sws.close(); }
-    this.spectators.clear();
-    this.nameToPlayerId = {};
   }
 
   private loadSave(name1: string, name2: string): GameSave | null {

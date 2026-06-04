@@ -73,15 +73,6 @@ export interface ActionMessage {
 }
 
 /**
- * Sent by a client to request a full game reset. The server deletes the
- * save file and forces all clients to reconnect with a fresh game.
- */
-export interface ResetMessage {
-  /** Message type discriminant. */
-  readonly type: 'reset';
-}
-
-/**
  * Sent by a client to request the server to save the current game state.
  */
 export interface SaveMessage {
@@ -143,17 +134,6 @@ export interface SummonCardMessage {
 }
 
 /**
- * Dev-only: load a named snapshot from the bundled dev snapshots directory.
- * The server copies the snapshot to the save path and restarts all clients.
- */
-export interface LoadSnapshotMessage {
-  /** Message type discriminant. */
-  readonly type: 'load-snapshot';
-  /** Snapshot filename (e.g. "001.json"). */
-  readonly file: string;
-}
-
-/**
  * Dev-only: swap hands between the two players.
  * Both players' hand contents are exchanged.
  */
@@ -162,7 +142,7 @@ export interface SwapHandMessage {
   readonly type: 'swap-hand';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | LoadSnapshotMessage | SwapHandMessage;
+export type ClientMessage = JoinMessage | ActionMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | SwapHandMessage;
 
 // ---- Server → Client ----
 

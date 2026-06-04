@@ -52,7 +52,6 @@ const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const GAME_LOG_DIR = path.join(os.homedir(), '.meccg', 'logs', 'games');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
-const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 
 const LOBBY_VERSION: string = (() => {
   try {
@@ -209,16 +208,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     res.write('data: connected\n\n');
     reloadClients.add(res);
     req.on('close', () => reloadClients.delete(res));
-    return;
-  }
-
-  // Dev snapshots index endpoint
-  if (DEV && urlPath === '/api/snapshots') {
-    fs.readFile(GAME_SERVER_SNAPSHOTS, (err, data) => {
-      if (err) { res.writeHead(404); res.end('[]'); return; }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(data);
-    });
     return;
   }
 
