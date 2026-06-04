@@ -1416,7 +1416,14 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "dodge": true
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-faction",
