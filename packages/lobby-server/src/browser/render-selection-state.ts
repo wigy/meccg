@@ -446,3 +446,47 @@ export function getPermanentEventPlayRenderCache(): typeof permanentEventPlayRen
 export function setPermanentEventPlayRenderCache(cache: typeof permanentEventPlayRenderCache): void {
   permanentEventPlayRenderCache = cache;
 }
+
+// ---- CvCC attacker selection ----
+
+/** The attacking character the player has first-clicked during CvCC attacker assignment. */
+let selectedCvCCAttackerId: CardInstanceId | null = null;
+
+/** Get the selected CvCC attacker instance ID. */
+export function getSelectedCvCCAttacker(): CardInstanceId | null {
+  return selectedCvCCAttackerId;
+}
+
+/** Set the selected CvCC attacker instance ID. */
+export function setSelectedCvCCAttacker(id: CardInstanceId): void {
+  selectedCvCCAttackerId = id;
+}
+
+/** Clear the CvCC attacker selection. */
+export function clearSelectedCvCCAttacker(): void {
+  selectedCvCCAttackerId = null;
+}
+
+// ---- CvCC defender selection ----
+
+/**
+ * The defending character the player has first-clicked during CvCC defender phase
+ * assignment. After selecting a defender (golden → green), the player clicks an
+ * attacker (blue) to create the full pair.
+ */
+let selectedCvCCDefenderId: CardInstanceId | null = null;
+
+/** Get the selected CvCC defender instance ID. */
+export function getSelectedCvCCDefender(): CardInstanceId | null {
+  return selectedCvCCDefenderId;
+}
+
+/** Set the selected CvCC defender instance ID. */
+export function setSelectedCvCCDefender(id: CardInstanceId): void {
+  selectedCvCCDefenderId = id;
+}
+
+/** Clear the CvCC defender selection. */
+export function clearSelectedCvCCDefender(): void {
+  selectedCvCCDefenderId = null;
+}

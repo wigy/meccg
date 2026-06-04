@@ -277,6 +277,14 @@ export interface CombatState {
    */
   readonly isCvCC?: boolean;
   /**
+   * CvCC only: pool of unallocated excess strikes (attacking characters beyond
+   * one per defending character). Per rule 3.V.ii, the attacking player may
+   * allocate any of these as temporary -1 modifications to the defending
+   * character's prowess during Step 2 of each strike sequence.
+   * Set when assignment ends; decremented by `allocate-cvcc-excess` actions.
+   */
+  readonly cvccExcessPool?: number;
+  /**
    * When true, all strikes must be assigned to the same character.
    * Set by the `multi-attack` combat rule (e.g. Assassin).
    */
