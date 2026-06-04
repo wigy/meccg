@@ -639,6 +639,10 @@ export function resolveStatModifiers(
       const maxVal = evaluateExpr(effect.max, exprContext);
       result = Math.min(result, maxVal);
     }
+    if (effect.min !== undefined) {
+      const minVal = evaluateExpr(effect.min, exprContext);
+      result = Math.max(result, minVal);
+    }
   }
 
   return result;

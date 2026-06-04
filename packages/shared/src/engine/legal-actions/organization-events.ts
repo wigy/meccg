@@ -234,6 +234,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 status: charData.status,
                 skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
                 name: charDef.name,
+                keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 itemKeywords,
               },
               company: { skills: companySkills, hasShadowMagicUser },

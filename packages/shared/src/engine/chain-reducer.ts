@@ -1106,6 +1106,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         const ctx: import('./reducer-move.js').MoveContext = {
           sourceCardId: entry.card!.instanceId,
           sourcePlayerIndex: playerIndex,
+          ...(targetCharId ? { targetCharacterId: targetCharId } : {}),
         };
         const stateBefore = newState;
         const r = applyMove(newState, moveEffect, ctx);

@@ -132,6 +132,8 @@ export interface StatModifierEffect extends EffectBase {
   readonly value: ValueExpr;
   /** Maximum resulting stat value. Can be a MathJS expression. */
   readonly max?: ValueExpr;
+  /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
+  readonly min?: ValueExpr;
   /** Named identifier so other effects can reference and override this one. */
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
