@@ -95,7 +95,8 @@
     "unique": false,
     "subtype": "major",
     "keywords": [
-      "hoard"
+      "hoard",
+      "weapon"
     ],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
