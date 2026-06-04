@@ -31,7 +31,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  makeMHState, makeWildernessMHState, makeShadowMHState, makeDoubleWildernessMHState,
+  makeWildernessMHState, makeShadowMHState, makeDoubleWildernessMHState,
   makeBorderMHState,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
@@ -39,7 +39,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
-  Phase, RegionType, SiteType,
+  Phase, RegionType,
   computeLegalActions,
 } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
