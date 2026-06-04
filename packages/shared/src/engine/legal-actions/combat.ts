@@ -891,8 +891,12 @@ function resolveStrikeActions(
           continue;
         }
       }
-      explanation = `Reroll: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, better of two rolls)`;
-      need = tapNeed;
+      const rerollBonus = strikeEffect.prowessBonus ?? 0;
+      const rerollProwess = tapProwess + rerollBonus;
+      const rerollNeed = Math.max(2, strikeProwess - rerollProwess + 1);
+      const rerollBonusNote = rerollBonus !== 0 ? `, ${formatSignedNumber(rerollBonus)}` : '';
+      explanation = `Reroll: need ${rerollNeed}+ (prowess ${rerollProwess} vs ${strikeProwess}, better of two rolls${rerollBonusNote})`;
+      need = rerollNeed;
       logDetail(`Reroll strike available: ${handCard.definitionId as string} for ${charName}`);
     } else {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {

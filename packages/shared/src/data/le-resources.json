@@ -1238,7 +1238,16 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "reroll": true,
+        "prowessBonus": 1,
+        "filter": { "target.skills": { "$includes": "warrior" } }
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-event",
