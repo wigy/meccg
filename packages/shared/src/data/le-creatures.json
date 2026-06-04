@@ -527,6 +527,7 @@
     "id": "le-98",
     "name": "Wargs",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Wargs.jpg",
+    "certified": "2026-06-04",
     "text": "Wolves. Two strikes.",
     "unique": false,
     "strikes": 2,
@@ -534,7 +535,8 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "wolves",
-    "keyedTo": []
+    "keyedTo": [{ "regionTypes": ["border", "wilderness", "shadow"] }],
+    "effects": []
   },
   {
     "cardType": "hazard-creature",
