@@ -95,6 +95,8 @@ export function applyResolution(
       return applyHazardEventMaintenanceResolution(state, action, top);
     case 'cvcc-ally-discard-roll':
       return applyCvccAllyDiscardRollResolution(state, action, top);
+    case 'tap-one-character':
+      return applyTapOneCharacterResolution(state, action, top);
   }
 }
 
@@ -2154,4 +2156,58 @@ function applyCvccAllyDiscardRollResolution(
   }
 
   return { state: postRoll, effects: [rollEffect] };
+}
+
+/**
+ * Resolve a `tap-one-character` pending resolution.
+ *
+ * The resource player selects one untapped character in the company to tap
+ * via a `tap-character-by-effect` action, or passes if no untapped characters
+ * are available. Used by *Stench of Mordor* (le-141).
+ */
+function applyTapOneCharacterResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'tap-one-character') return null;
+
+  // pass: no untapped characters available (or player skips)
+  if (action.type === 'pass') {
+    logDetail('tap-one-character: pass (no untapped character tapped)');
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'tap-character-by-effect') {
+    return { state, error: `Pending tap-one-character requires tap-character-by-effect or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for tap-one-character' };
+  }
+
+  const { characterInstanceId } = action;
+  const { companyId } = top.kind;
+
+  const playerIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
+  if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
+  const player = state.players[playerIdx];
+
+  const char = player.characters[characterInstanceId as string];
+  if (!char) return { state, error: `Character ${characterInstanceId as string} not found` };
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: `Character ${characterInstanceId as string} is not untapped` };
+  }
+
+  const charName = (defById(state, char.definitionId) as { name?: string })?.name ?? (characterInstanceId as string);
+  logDetail(`tap-one-character: tapping ${charName} (Stench of Mordor)`);
+
+  const newState = updatePlayer(state, playerIdx, p => ({
+    ...p,
+    characters: {
+      ...p.characters,
+      [characterInstanceId as string]: { ...char, status: CardStatus.Tapped },
+    },
+  }));
+
+  return { state: dequeueResolution(newState, top.id) };
 }

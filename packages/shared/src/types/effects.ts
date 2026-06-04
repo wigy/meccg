@@ -127,7 +127,7 @@ interface EffectBase {
 export interface StatModifierEffect extends EffectBase {
   readonly type: 'stat-modifier';
   /** Which stat to modify. */
-  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence';
+  readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
   /** Maximum resulting stat value. Can be a MathJS expression. */
@@ -309,6 +309,12 @@ export interface GrantActionEffect extends EffectBase {
    * per-target actions like Gandalf's gold-ring test.
    */
   readonly targets?: GrantActionTargets;
+  /**
+   * For `action: "untap-companion-at-site"`: the definition IDs of characters
+   * that may be untapped by this ability. One activation is emitted per tapped
+   * companion in the bearer's company whose definition ID is in this list.
+   */
+  readonly companionIds?: readonly string[];
 }
 
 /**
@@ -319,10 +325,15 @@ export interface GrantActionEffect extends EffectBase {
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
+ *
+ * - `"characters-at-site"` — characters at the same site as the bearer.
+ *   Optionally restricted to specific definition IDs via `definitionIds`.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items';
+  readonly scope: 'company-items' | 'characters-at-site';
   readonly filter?: Condition;
+  /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
+  readonly definitionIds?: readonly string[];
 }
 
 /** The cost required to activate a granted action. */
@@ -868,7 +879,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
  *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -879,6 +890,12 @@ export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-
 export interface PlayFlagEffect extends EffectBase {
   readonly type: 'play-flag';
   readonly flag: PlayFlag;
+  /**
+   * For `buddy-play` flag: definition IDs of the companion characters in the
+   * buddy group. When any of these companions is played in the same turn, this
+   * character may also be played without counting against the one-character-per-turn limit.
+   */
+  readonly companions?: readonly string[];
 }
 
 /**
@@ -2336,7 +2353,9 @@ export type CardEffect =
   | GrantSkillEffect
   | CompanyOvertEffect
   | RingwraithModeEffect
-  | AbsorbWoundEffect;
+  | AbsorbWoundEffect
+  | GrantKeywordEffect
+  | ProtectFromBodyCheckEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2612,4 +2631,35 @@ export interface AbsorbWoundEffect extends EffectBase {
   readonly type: 'absorb-wound';
   /** Roll total must strictly exceed this value for the item to be discarded (default 6). */
   readonly rollThreshold: number;
+}
+
+/**
+ * Grants a keyword tag to the item's bearer while the item is attached.
+ *
+ * The bearer counts as having the named keyword for all purposes — e.g. the
+ * "Leader" keyword makes the bearer subject to the one-leader-per-company
+ * rule (CoE 3.26) and eligible for faction-influence bonuses gated on Leader
+ * status — exactly as if their card definition listed the keyword.
+ *
+ * Used by *By the Ringwraith's Word* (le-174) to grant the "Leader" keyword
+ * to any non-Ringwraith minion character while the event is attached.
+ */
+export interface GrantKeywordEffect extends EffectBase {
+  readonly type: 'grant-keyword';
+  /** The keyword to grant (e.g. `"Leader"`). */
+  readonly keyword: string;
+}
+
+/**
+ * Suppresses the bearer's printed discard-number check (`discardBodyCheck`) during
+ * a regular combat body check. When the body check roll matches a value in the
+ * character's `discardBodyCheck` array (e.g. roll = 8 for characters with
+ * `discardBodyCheck: [8]`), the discard is prevented and the bearer remains in
+ * play wounded instead. Does NOT protect against elimination (roll > body).
+ *
+ * Used by *By the Ringwraith's Word* (le-174): "cannot be discarded by a body
+ * check."
+ */
+export interface ProtectFromBodyCheckEffect extends EffectBase {
+  readonly type: 'protect-from-body-check';
 }

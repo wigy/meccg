@@ -26,6 +26,7 @@ import { getCoordinates } from './map-coordinates.js';
 import { getUnderDeepsCoordinates } from './map-under-deeps.js';
 import { getMapMode, setMapMode, isOnCurrentLevel } from './map-mode.js';
 import { resolveCardDef } from './company-site.js';
+import { createCombatMarker } from './map-radar.js';
 
 /** SVG namespace for the movement-overlay layer. */
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -233,6 +234,10 @@ export function openFullMap(
       const diamond = createFullMapOpponentAgentDiamond(agent, cardPool);
       if (diamond) dotsLayer.appendChild(diamond);
     }
+
+    // CvCC combat marker
+    const combatMarker = createCombatMarker(view, cardPool, true);
+    if (combatMarker) dotsLayer.appendChild(combatMarker);
 
     // Hidden-agents badge
     const hiddenAgentCount = view.opponent.agents.filter((a) => !a.revealed).length;

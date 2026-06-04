@@ -230,6 +230,96 @@ function requestRejoin(): void {
  * instance lookup (e.g. because it is another company's current site), we
  * must not expose the destination during the organization phase.
  */
+/** Describe the outcome of a dice-roll action. Returns labelled log lines with isSelf flag. */
+function describeRollOutcome(
+  action: GameAction,
+  view: import('@meccg/shared').PlayerView,
+  prevSelfDice: import('@meccg/shared').TwoDiceSix | null,
+  prevOppDice: import('@meccg/shared').TwoDiceSix | null,
+  prevResolvedCount: number,
+  prevCombatAttackingPlayerId: import('@meccg/shared').PlayerId | null,
+  instanceToName: (id: import('@meccg/shared').CardInstanceId) => string,
+): { line: string; isSelf: boolean }[] {
+  const isSelf = action.player === view.self.id;
+  const newSelfDice = view.self.lastDiceRoll;
+  const newOppDice = view.opponent.lastDiceRoll;
+  const fmtDice = (d: import('@meccg/shared').TwoDiceSix) => `[${d.die1},${d.die2}]=${d.die1 + d.die2}`;
+  const diceChanged = (a: import('@meccg/shared').TwoDiceSix | null, b: import('@meccg/shared').TwoDiceSix | null) =>
+    !a || !b || a.die1 !== b.die1 || a.die2 !== b.die2;
+
+  if (action.type !== 'resolve-strike' && action.type !== 'body-check-roll' && action.type !== 'agent-strike-roll') {
+    return [];
+  }
+
+  // Skip CvCC sub-step 1 (tap declaration — no dice rolled, only attacker's side fires)
+  const combat = view.combat;
+  if (combat?.isCvCC && action.type === 'resolve-strike' && isSelf && view.self.id === combat.attackingPlayerId) {
+    return []; // attacker's tap declaration, no roll yet
+  }
+
+  // Detect whether any new dice were rolled (either player)
+  const selfChanged = diceChanged(newSelfDice, prevSelfDice);
+  const oppChanged = diceChanged(newOppDice, prevOppDice);
+  if (!selfChanged && !oppChanged) return [];
+
+  const newResolved = combat?.strikeAssignments.filter(sa => sa.resolved).length ?? 0;
+  const just = (combat && newResolved > prevResolvedCount)
+    ? combat.strikeAssignments.filter(sa => sa.resolved).at(-1)
+    : undefined;
+
+  if (action.type === 'body-check-roll') {
+    // The roll itself is shown via the effect notification; here we add the result.
+    if (!just) return [];
+    const sa = just;
+    let resultLine: string;
+    if (sa.result === 'eliminated') {
+      resultLine = `${instanceToName(sa.characterId)} eliminated`;
+    } else if (sa.attackerResult === 'eliminated') {
+      resultLine = `${instanceToName(sa.attackingCharacterId!)} eliminated`;
+    } else if (sa.result === 'wounded') {
+      resultLine = `${instanceToName(sa.characterId)} survives body check`;
+    } else if (sa.attackerResult === 'wounded') {
+      resultLine = `${instanceToName(sa.attackingCharacterId!)} survives body check`;
+    } else {
+      return [];
+    }
+    return [{ line: resultLine, isSelf: false }];
+  }
+
+  // CvCC resolve-strike: both dice changed — produce only the result line.
+  // The roll lines already came from the effect notifications.
+  // When combat ends on a tie (view.combat null), result is always Tie.
+  // When body check is pending, result/attackerResult are already set on the current
+  // strike assignment even though resolved=false — read them directly.
+  const isCvCCResolve = combat?.isCvCC
+    || (!combat && selfChanged && oppChanged && prevCombatAttackingPlayerId !== null);
+  if (isCvCCResolve && (selfChanged || oppChanged)) {
+    let resultLine: string;
+    if (!combat) {
+      resultLine = 'Tie';
+    } else {
+      const sa = combat.strikeAssignments[combat.currentStrikeIndex];
+      if (!sa) return [];
+      if (sa.result === 'wounded' || sa.result === 'eliminated') {
+        resultLine = `${instanceToName(sa.characterId)} ${sa.result}`;
+      } else if (sa.attackerResult === 'wounded' || sa.attackerResult === 'eliminated') {
+        resultLine = `${instanceToName(sa.attackingCharacterId!)} ${sa.attackerResult}`;
+      } else {
+        resultLine = 'Tie';
+      }
+    }
+    return [{ line: resultLine, isSelf: false }];
+  }
+
+  // Regular combat
+  const actorDice = isSelf ? newSelfDice : newOppDice;
+  if (!actorDice) return [];
+  const need = (action as { need?: number }).need;
+  const needStr = need !== undefined ? ` (needed ${need})` : '';
+  const resultStr = just ? ` → ${just.result ?? '?'}` : '';
+  return [{ line: `Rolled ${fmtDice(actorDice)}${needStr}${resultStr}`, isSelf }];
+}
+
 function describeOpponentAction(
   action: GameAction,
   pool: Readonly<Record<string, import('@meccg/shared').CardDefinition>>,
@@ -346,6 +436,27 @@ export function connect(name: string): void {
           const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
           renderLog(`<< ${desc}`, cardPool);
         }
+        // Log roll outcomes (dice result + strike/body-check result) for both players
+        if (msg.lastAction) {
+          const instanceToName = (id: import('@meccg/shared').CardInstanceId): string => {
+            const defId = appState.lastInstanceLookup(id);
+            const def = defId ? cardPool[defId as string] : undefined;
+            return (def as { name?: string } | undefined)?.name ?? (id as string);
+          };
+          const rollLines = describeRollOutcome(msg.lastAction, msg.view, appState.prevSelfDice, appState.prevOpponentDice, appState.prevResolvedCount, appState.prevCombatAttackingPlayerId, instanceToName);
+          for (const { line, isSelf } of rollLines) {
+            renderLog(`${isSelf ? '>>' : '<<'} ${line}`, cardPool);
+            showNotification(line);
+          }
+        }
+        appState.prevSelfDice = msg.view.self.lastDiceRoll;
+        appState.prevOpponentDice = msg.view.opponent.lastDiceRoll;
+        appState.prevResolvedCount = msg.view.combat?.strikeAssignments.filter(sa => sa.resolved).length ?? 0;
+        // Keep the last CvCC attacker ID so the final-strike roll log can show
+        // both rolls even after view.combat becomes null (combat ended).
+        if (msg.view.combat?.isCvCC) {
+          appState.prevCombatAttackingPlayerId = msg.view.combat.attackingPlayerId;
+        }
         // Snapshot card positions before clearing DOM for FLIP animation
         snapshotPositions();
         renderState(msg.view, cardPool);
@@ -432,9 +543,20 @@ export function connect(name: string): void {
 
       case 'effect':
         if (msg.effect.effect === 'dice-roll') {
-          const { playerName, die1, die2, label } = msg.effect;
-          renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
-          if (playerName !== name) {
+          const { playerName, die1, die2, label, total } = msg.effect;
+          renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${total !== undefined ? ` (total ${total})` : ''}`);
+          // CvCC strikes carry a prowess total — format as prowess+d1+d2=total.
+          // Result line is shown later via describeRollOutcome once the state arrives.
+          if (total !== undefined) {
+            const prowess = total - die1 - die2;
+            const charName = label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label;
+            const rollStr = `${prowess}+${die1}+${die2}=${total}`;
+            if (playerName === name) {
+              showNotification(`rolled ${rollStr} for ${charName} in CvCC`, { self: name });
+            } else {
+              showNotification(`rolled ${rollStr} for ${charName} in CvCC`, { opponent: appState.opponentName ?? playerName });
+            }
+          } else if (playerName !== name) {
             showNotification(`rolled ${die1} + ${die2} = ${die1 + die2} (${label})`, { opponent: playerName });
           }
           const visualView = document.getElementById('visual-view');

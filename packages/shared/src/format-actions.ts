@@ -268,11 +268,17 @@ export function describeAction(
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
       return `${base}${raceTag}`;
     }
+    case 'allocate-cvcc-excess':
+      return 'Assign −1 excess strike to current defender';
     case 'assign-strike': {
       const tapTag = action.tapped ? ' [tapped]' : '';
-      return action.excess
-        ? `Assign excess strike to ${instName(action.characterId)}${tapTag} (-1 prowess)`
-        : `Assign strike to ${instName(action.characterId)}${tapTag}`;
+      if (action.excess) {
+        return `Assign excess strike to ${instName(action.characterId)}${tapTag} (-1 prowess)`;
+      }
+      if (action.attackingCharacterId) {
+        return `Pair ${instName(action.attackingCharacterId)} → ${instName(action.characterId)}`;
+      }
+      return `Assign strike to ${instName(action.characterId)}${tapTag}`;
     }
     case 'resolve-strike':
       return action.tapToFight ? 'Resolve strike (tap to fight)' : 'Resolve strike (stay untapped, -3 prowess)';
@@ -480,6 +486,8 @@ export function describeAction(
       return `${action.player as string} rolls for CvCC ally discard (${action.allyInstanceId as string})`;
     case 'shield-discard-roll':
       return `${action.player as string} rolls to determine if shield ${action.itemInstanceId as string} is discarded`;
+    case 'tap-character-by-effect':
+      return `${action.player as string} taps character ${action.characterInstanceId as string} (hazard effect)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

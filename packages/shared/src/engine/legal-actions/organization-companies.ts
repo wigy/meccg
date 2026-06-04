@@ -817,7 +817,24 @@ function wouldViolateLeaderRestriction(state: GameState, charInstIds: readonly C
     const defId = resolveInstanceId(state, id);
     const def = defId ? defById(state, defId) : undefined;
     if (!def || !isCharacterCard(def)) continue;
-    if (def.keywords?.includes('Leader')) leaderCount++;
+    // Natural Leader keyword on the character card
+    let isLeader = def.keywords?.includes('Leader') ?? false;
+    // Also check attached items for grant-keyword: 'Leader' effects
+    if (!isLeader) {
+      for (const player of state.players) {
+        const char = player.characters[id as string];
+        if (!char) continue;
+        for (const item of char.items) {
+          const itemDef = state.cardPool[item.definitionId as string];
+          const effects = getCardEffects(itemDef);
+          if (effects.some(e => e.type === 'grant-keyword' && (e as { keyword: string }).keyword === 'Leader')) {
+            isLeader = true;
+          }
+        }
+        break;
+      }
+    }
+    if (isLeader) leaderCount++;
   }
   return leaderCount > 1;
 }

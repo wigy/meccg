@@ -486,6 +486,46 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             continue;
           }
 
+          // untap-companion-at-site: enumerate tapped companions in the bearer's
+          // company whose definition ID appears in the effect's `companionIds` list.
+          // Only use this legacy path when `effect.targets` is absent (older data format).
+          if (effect.action === 'untap-companion-at-site' && !effect.targets) {
+            const companionIds = (effect as { companionIds?: readonly string[] }).companionIds ?? [];
+            const company = findCharacterCompany(player.companies, charId);
+            if (!company) {
+              logDetail(`Grant-action ${effect.action} on ${charDef.name}: bearer has no company`);
+              continue;
+            }
+            let emitted = 0;
+            for (const compId of company.characters) {
+              if (compId === charId) continue;
+              const companion = player.characters[compId as string];
+              if (!companion || companion.status !== CardStatus.Tapped) continue;
+              const compDef = defById(state, companion.definitionId);
+              if (!compDef || !isCharacterCard(compDef)) continue;
+              if (!companionIds.includes(compDef.id as string)) continue;
+              logDetail(`Grant-action ${effect.action} available: ${charDef.name} can tap to untap ${compDef.name}`);
+              actions.push({
+                action: {
+                  type: 'activate-granted-action',
+                  player: playerId,
+                  characterId: charId,
+                  sourceCardId: char.instanceId,
+                  sourceCardDefinitionId: char.definitionId,
+                  actionId: effect.action,
+                  rollThreshold: rollThresholdFor(effect),
+                  targetCardId: companion.instanceId,
+                },
+                viable: true,
+              });
+              emitted++;
+            }
+            if (emitted === 0) {
+              logDetail(`Grant-action ${effect.action} on ${charDef.name}: no tapped companions in company`);
+            }
+            continue;
+          }
+
           // Per-target enumeration: emit one activation per candidate in
           // the declared scope (e.g. Gandalf's gold-ring test).
           if (effect.targets) {
@@ -782,6 +822,37 @@ function enumerateGrantActionTargets(
         if (!itemDef) continue;
         if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
         matches.push(toCardInstance(item));
+      }
+    }
+  }
+
+  if (targets.scope === 'characters-at-site') {
+    // Find the bearer's current site
+    const bearerCompany = findCharacterCompany(player.companies, charId);
+    if (!bearerCompany?.currentSite) return [];
+    const bearerSiteDefId = bearerCompany.currentSite.definitionId as string;
+    const allowedDefIds = targets.definitionIds ?? [];
+
+    // Scan all companies across both players for characters at the same site
+    for (const p of state.players) {
+      for (const company of p.companies) {
+        if (!company.currentSite) continue;
+        if ((company.currentSite.definitionId as string) !== bearerSiteDefId) continue;
+        for (const memberId of company.characters) {
+          // Exclude the bearer themselves
+          if (memberId === charId) continue;
+          const member = p.characters[memberId as string];
+          if (!member) continue;
+          // Restrict to specified definition IDs if given
+          if (allowedDefIds.length > 0 && !allowedDefIds.includes(member.definitionId as string)) continue;
+          // Only include tapped/inverted characters — untapping an already-untapped character is pointless
+          if (member.status === CardStatus.Untapped) continue;
+          if (targets.filter) {
+            const memberDef = defById(state, member.definitionId);
+            if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+          }
+          matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
+        }
       }
     }
   }

@@ -70,6 +70,17 @@ function createDefaultAppState() {
   lastCompanyNames: {} as Readonly<Record<string, string>>,
   /** Phase from the last state update, for detecting phase transitions. */
   lastPhase: null as string | null,
+  /** Dice rolls from the previous state update, for detecting new rolls. */
+  prevSelfDice: null as import('@meccg/shared').TwoDiceSix | null,
+  prevOpponentDice: null as import('@meccg/shared').TwoDiceSix | null,
+  /** Resolved strike count from the previous state, for detecting new resolutions. */
+  prevResolvedCount: 0,
+  /**
+   * Attacking player ID from the most recent CvCC combat, preserved even after
+   * combat ends so describeRollOutcome can show both rolls for the final strike
+   * (when view.combat becomes null).
+   */
+  prevCombatAttackingPlayerId: null as import('@meccg/shared').PlayerId | null,
   /** Current game ID (set on 'assigned' message). */
   currentGameId: null as string | null,
   /** Latest state sequence number (updated on each 'state' message). */
