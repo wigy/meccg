@@ -230,10 +230,20 @@
     ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": [
+      "shield"
+    ],
+    "effects": [
+      {
+        "type": "absorb-wound",
+        "rollThreshold": 6
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-item",

@@ -43,6 +43,7 @@ Follow these steps:
    - `check-modifier` — bonus/penalty to corruption, faction-influence checks (`resolver.ts`). For corruption-check resolutions the modifier is collected from attached hazards **and** items (`legal-actions/pending.ts`), with a context exposing `source.keywords` (the keywords on the card that enqueued the check) so items can gate on "spell", "ritual", etc.
    - `company-modifier` — applies stat modifiers to all characters in bearer's company (`resolver.ts`)
    - `duplication-limit` — prevents multiple copies in scope "game" (`packages/shared/src/engine/reducer.ts`)
+   - `absorb-wound` — prevents wound from a successful strike; attacker rolls to potentially discard the item (`packages/shared/src/engine/reducer-combat.ts` `resolveStrike` + `handleShieldDiscardRoll`)
 
    **Partially implemented:**
    - `mp-modifier` — works for elimination pile with numeric values only; expression strings are ignored (`packages/shared/src/engine/recompute-derived.ts`)

@@ -222,6 +222,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     }
     case 'body-check':
       return bodyCheckActions(state, playerId, combat);
+    case 'shield-discard-roll':
+      return shieldDiscardRollActions(state, playerId, combat);
     case 'item-salvage':
       return itemSalvageActions(state, playerId, combat);
     case 'discard-item-from-company':
@@ -1460,6 +1462,47 @@ function bodyCheckActions(
       player: playerId,
       need: bcNeed,
       explanation: `Body check: need ${bcNeed}+ (${bcParts.join(', ')})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Generate the shield-discard-roll action offered to the attacking player
+ * during the `'shield-discard-roll'` combat phase (Sable Shield, le-341).
+ * The attacking player rolls 2d6; if the result strictly exceeds the item's
+ * rollThreshold the shield is discarded, otherwise it stays in play.
+ */
+function shieldDiscardRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.attackingPlayerId) return [];
+  if (!combat.shieldAbsorbItemId) return [];
+
+  const itemDef = state.cardPool[
+    (() => {
+      const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+      if (!defPlayer) return undefined;
+      const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+      const charData = strike ? defPlayer.characters[strike.characterId as string] : undefined;
+      return charData?.items.find(i => i.instanceId === combat.shieldAbsorbItemId)?.definitionId as string | undefined;
+    })() ?? ''
+  ] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+
+  const absorbEffect = (itemDef?.effects ?? []).find(
+    (e): e is import('../../types/effects.js').AbsorbWoundEffect => e.type === 'absorb-wound',
+  );
+  const threshold = absorbEffect?.rollThreshold ?? 6;
+
+  logDetail(`Shield discard roll — attacker rolls; shield discarded if roll > ${threshold}`);
+  return [{
+    action: {
+      type: 'shield-discard-roll' as const,
+      player: playerId,
+      rollThreshold: threshold,
+      itemInstanceId: combat.shieldAbsorbItemId,
     },
     viable: true,
   }];

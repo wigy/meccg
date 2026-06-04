@@ -95,7 +95,7 @@ export interface StrikeAssignment {
    * - `'eliminated'` -- The character was killed and removed from play.
    * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
    */
-  readonly result?: 'success' | 'wounded' | 'eliminated' | 'canceled';
+  readonly result?: 'success' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
@@ -227,7 +227,7 @@ export interface CombatState {
    * - `'discard-item-from-company'`: defender must discard one item
    * - `'trophy-offer'`: Orc/Troll characters may take the defeated creature as a trophy (MELE §8.37)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -261,6 +261,13 @@ export interface CombatState {
    *   (the defending player rolls because they won the strike)
    */
   readonly bodyCheckTarget: 'character' | 'creature' | 'attacker-character' | null;
+  /**
+   * During 'shield-discard-roll' phase: the instance ID of the item that
+   * absorbed the wound (e.g. Sable Shield). The attacking player rolls 2d6;
+   * if the result strictly exceeds the item's rollThreshold, the item is
+   * discarded. Absent in all other phases.
+   */
+  readonly shieldAbsorbItemId?: CardInstanceId;
   /**
    * Whether this is a detainment attack. Detainment attacks tap characters
    * instead of wounding/eliminating them. Any attack can be detainment —

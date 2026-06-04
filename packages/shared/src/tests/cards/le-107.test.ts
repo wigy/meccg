@@ -53,8 +53,8 @@ const GORBAG = 'le-11' as CardDefinitionId;     // minion-character, orc
 const SHAGRAT = 'le-39' as CardDefinitionId;    // minion-character, orc
 const DOL_GULDUR = 'le-367' as CardDefinitionId;    // minion-site, haven
 const ETTENMOORS = 'le-373' as CardDefinitionId;    // minion-site, ruins-and-lairs
-const RED_BOOK = 'le-339' as CardDefinitionId;      // minion item, corruptionPoints: 2
-const SABLE_SHIELD = 'le-341' as CardDefinitionId;  // minion item, corruptionPoints: 0
+const RED_BOOK = 'le-339' as CardDefinitionId;          // minion item, corruptionPoints: 2
+const STRANGE_RATIONS = 'le-345' as CardDefinitionId;  // minion item, corruptionPoints: 0
 
 describe('Covetous Thoughts (le-107)', () => {
   beforeEach(() => resetMint());
@@ -321,7 +321,7 @@ describe('Covetous Thoughts (le-107)', () => {
   });
 
   test('end-of-turn: enqueues one check per item — two items produce two checks', () => {
-    // Shagrat bears two items (Red Book cp 2 + Sable Shield cp 0).
+    // Shagrat bears two items (Red Book cp 2 + Strange Rations cp 0).
     // Gorbag must make two checks: one with modifier -2, one with modifier 0.
     const base = buildSitePhaseState({
       site: DOL_GULDUR,
@@ -329,7 +329,7 @@ describe('Covetous Thoughts (le-107)', () => {
     });
     const withCT = attachHazardToChar(base, RESOURCE_PLAYER, GORBAG, COVETOUS_THOUGHTS);
     const withItem1 = attachItemToChar(withCT, RESOURCE_PLAYER, SHAGRAT, RED_BOOK);
-    const withItem2 = attachItemToChar(withItem1, RESOURCE_PLAYER, SHAGRAT, SABLE_SHIELD);
+    const withItem2 = attachItemToChar(withItem1, RESOURCE_PLAYER, SHAGRAT, STRANGE_RATIONS);
 
     const next = dispatch(withItem2, { type: 'pass', player: PLAYER_1 });
 
