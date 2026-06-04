@@ -25,11 +25,13 @@
  * used as targets because The Arkenstone's powers specifically act on Dwarves.
  * For the faction-influence-check test a hero character at a hero site is
  * used to verify the DI modifier mechanics (same resolver path).
+ * The +5 DI against Dwarf characters is verified via availableDI() directly
+ * since Gimli is a hero character and cannot be a follower of a minion.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, buildSitePhaseState, resetMint,
+  pool, buildTestState, buildSitePhaseState, resetMint,
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LORIEN, MINAS_TIRITH,
@@ -37,10 +39,10 @@ import {
   findCharInstanceId, getCharacter,
   expectCharItemCount, expectInDiscardPile,
   attachItemToChar, recomputeDerived,
-  viablePlayCharacterActions,
 } from '../test-helpers.js';
 import { Alignment, Phase, computeLegalActions } from '../../index.js';
-import type { ActivateGrantedAction, CardDefinitionId, InfluenceAttemptAction } from '../../index.js';
+import type { ActivateGrantedAction, CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import { availableDI } from '../../engine/legal-actions/organization.js';
 
 const THE_ARKENSTONE = 'le-418' as CardDefinitionId;
 
@@ -61,7 +63,6 @@ const BLUE_MOUNTAIN_DWARVES = 'tw-200' as CardDefinitionId; // dwarf, influenceN
 // Sites
 const LONELY_MOUNTAIN_MINION = 'le-387' as CardDefinitionId; // "The Lonely Mountain" (minion)
 const LONELY_MOUNTAIN_HERO = 'tw-428' as CardDefinitionId;   // "The Lonely Mountain" (hero, hoard)
-const IRON_HILL_DWARF_HOLD = 'tw-403' as CardDefinitionId;   // Gimli's homesite
 const BLUE_MOUNTAIN_DWARF_HOLD = 'tw-377' as CardDefinitionId; // hero site for Dwarf faction
 
 // Other minion sites for non-co-location tests
@@ -72,11 +73,11 @@ describe('The Arkenstone (le-418)', () => {
 
   // ── Effect 2: +5 DI against Dwarf characters (influence-check) ───────────
 
-  test('+5 DI enables controlling Dwarf Gimli (mind 6) with The Mouth (DI 4)', () => {
-    // Company at Iron Hill Dwarf-hold (Gimli's homesite) — needed so Gimli
-    // can be played at this site. The Mouth base DI 4 < Gimli mind 6 (becomes 7
-    // with +1 Arkenstone mind), but with +5 DI bonus: 4+5=9 >= 7 → playable as follower.
-    const state = buildTestState({
+  test('+5 DI bonus: availableDI returns 9 (base 4 + 5) when targeting Gimli (dwarf)', () => {
+    // Gimli is a hero character and cannot be a follower of a minion, so the
+    // DI modifier is verified via availableDI() directly (same pattern as dm-11).
+    // The Mouth base DI 4 + Arkenstone +5 vs dwarves = 9.
+    const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       recompute: true,
@@ -84,11 +85,8 @@ describe('The Arkenstone (le-418)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{
-            site: IRON_HILL_DWARF_HOLD,
-            characters: [{ defId: THE_MOUTH, items: [THE_ARKENSTONE] }],
-          }],
-          hand: [GIMLI],
+          companies: [{ site: LONELY_MOUNTAIN_MINION, characters: [THE_MOUTH] }],
+          hand: [],
           siteDeck: [MORIA_MINION],
         },
         {
@@ -100,22 +98,15 @@ describe('The Arkenstone (le-418)', () => {
         },
       ],
     });
-
-    const gimliHandInst = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GIMLI);
-    expect(gimliHandInst).toBeDefined();
-
-    const plays = viablePlayCharacterActions(state, PLAYER_1);
-    // Gimli should appear as a playable follower under The Mouth.
+    const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, THE_MOUTH, THE_ARKENSTONE));
     const mouthId = findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH);
-    const gimliPlay = plays.find(
-      a => a.characterInstanceId === gimliHandInst!.instanceId && a.controlledBy === mouthId,
-    );
-    expect(gimliPlay).toBeDefined();
+    const gimliDef = pool[GIMLI as string] as CharacterCard;
+
+    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER], gimliDef)).toBe(9);
   });
 
-  test('without Arkenstone The Mouth (DI 4) cannot control Gimli (mind 6)', () => {
-    // At Iron Hill Dwarf-hold (Gimli's homesite) without Arkenstone.
-    // DI 4 < Gimli mind 6 → not viable as follower.
+  test('+5 DI NOT applied without Arkenstone: availableDI returns 4 (base only) vs Gimli', () => {
+    // Without the Arkenstone no conditional DI bonus fires → base DI 4 only.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -124,8 +115,8 @@ describe('The Arkenstone (le-418)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: IRON_HILL_DWARF_HOLD, characters: [THE_MOUTH] }],
-          hand: [GIMLI],
+          companies: [{ site: LONELY_MOUNTAIN_MINION, characters: [THE_MOUTH] }],
+          hand: [],
           siteDeck: [MORIA_MINION],
         },
         {
@@ -137,17 +128,10 @@ describe('The Arkenstone (le-418)', () => {
         },
       ],
     });
-
-    const gimliHandInst = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GIMLI);
-    expect(gimliHandInst).toBeDefined();
-
     const mouthId = findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH);
-    const plays = viablePlayCharacterActions(state, PLAYER_1);
-    // Without Arkenstone: DI 4 < mind 6 → not viable as follower of The Mouth.
-    const gimliAsFollower = plays.find(
-      a => a.characterInstanceId === gimliHandInst!.instanceId && a.controlledBy === mouthId,
-    );
-    expect(gimliAsFollower).toBeUndefined();
+    const gimliDef = pool[GIMLI as string] as CharacterCard;
+
+    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER], gimliDef)).toBe(4);
   });
 
   // ── Effect 2: +5 DI against Dwarf factions (faction-influence-check) ─────
@@ -313,11 +297,10 @@ describe('The Arkenstone (le-418)', () => {
   });
 
   test('+1 mind on follower Kíli is reflected in DI cost accounting', () => {
-    // The Mouth (DI 4) controls Kíli (mind 3, effective mind 4 with Arkenstone).
-    // A second Dwarf Bofur (mind 2, effective mind 3) would need DI 3 = exactly the
-    // remaining 0 DI → cannot be played as follower once Kíli costs 4.
-    const BOFUR = 'tw-132' as CardDefinitionId; // dwarf, mind 2
-
+    // Directly constructs a state with Kíli as follower to verify that
+    // effectiveStats.mind (raised from 3 to 4 by Arkenstone) is used in DI cost
+    // accounting. The Mouth (DI 4) with Kíli (effective mind 4) as follower
+    // has 0 remaining DI.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -327,9 +310,9 @@ describe('The Arkenstone (le-418)', () => {
           alignment: Alignment.Ringwraith,
           companies: [{ site: LONELY_MOUNTAIN_MINION, characters: [
             { defId: THE_MOUTH },
-            { defId: KILI, followerOf: 0 }, // Kíli is follower of The Mouth (index 0)
+            { defId: KILI, followerOf: 0 }, // Kíli as follower to test DI cost logic
           ] }],
-          hand: [BOFUR],
+          hand: [],
           siteDeck: [MORIA_MINION],
         },
         {
@@ -342,16 +325,10 @@ describe('The Arkenstone (le-418)', () => {
       ],
     });
     const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, THE_MOUTH, THE_ARKENSTONE));
+    const mouthId = findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH);
 
-    // Kíli's effective mind = 4, consuming all 4 DI of The Mouth.
-    // Bofur (effective mind 3) would need 3 more DI — not available.
-    const bofurHandInst = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === BOFUR);
-    expect(bofurHandInst).toBeDefined();
-    const plays = viablePlayCharacterActions(state, PLAYER_1);
-    const bofurAsFollower = plays.find(
-      a => a.characterInstanceId === bofurHandInst!.instanceId && a.controlledBy !== 'general',
-    );
-    expect(bofurAsFollower).toBeUndefined();
+    // Kíli effective mind = 4 (base 3 + 1 from Arkenstone) consumes all 4 DI.
+    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER])).toBe(0);
   });
 
   // ── Effect 4: force-discard-dwarf-at-site ────────────────────────────────
