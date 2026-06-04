@@ -2187,7 +2187,18 @@ export function resolveChainStrikeModifier(state: GameState, effect: StrikeModif
     return resolveStrikeCore(state, combat, 'dodge', effect.bodyPenalty ?? 0, null);
   }
   if (effect.reroll) {
-    return resolveStrikeCore(state, combat, 'reroll', 0, null);
+    // Apply any prowess bonus before resolving — supports combined reroll+bonus cards (e.g. Swift Strokes).
+    let preState = state;
+    if (effect.prowessBonus) {
+      const bonus = effect.prowessBonus;
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex
+          ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + bonus }
+          : a,
+      );
+      preState = { ...state, combat: { ...combat, strikeAssignments: newAssignments } };
+    }
+    return resolveStrikeCore(preState, preState.combat!, 'reroll', 0, null);
   }
 
   // Default: accumulate prowess/body bonuses on the current strike assignment.
