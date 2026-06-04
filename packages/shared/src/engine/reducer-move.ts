@@ -436,10 +436,35 @@ function collectFromZone(
       }
       return out;
     }
+    case 'items-on-target': {
+      // Collect items attached to the target character, excluding the source
+      // card itself (so a self-enters-play bounce does not remove the newly
+      // played card from the character it was just attached to).
+      const targetId = ctx.targetCharacterId;
+      if (!targetId) return out;
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const char = state.players[pi].characters[targetId as string];
+        if (!char) continue;
+        for (const item of char.items) {
+          if (item.instanceId === ctx.sourceCardId) continue;
+          const inst: CardInstance = toCardInstance(item);
+          if (!matches(inst)) continue;
+          const itemId = item.instanceId;
+          out.push({
+            instance: inst,
+            ownerIndex: pi,
+            zone: 'items-on-target',
+            remove: s => removeFromCharacterItems(s, pi, targetId, itemId),
+          });
+        }
+        break;
+      }
+      return out;
+    }
     default:
-      // Contextual locators (items-on-target, items-on-wounded,
-      // attached-to-target-company) are added by the phases that need
-      // them. Unsupported zones return no candidates.
+      // Contextual locators (items-on-wounded, attached-to-target-company)
+      // are added by the phases that need them. Unsupported zones return no
+      // candidates.
       return out;
   }
 }
