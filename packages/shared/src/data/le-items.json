@@ -153,14 +153,19 @@
     "subtype": "special",
     "marshallingPoints": 2,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
       "ring",
       "lesser-ring"
-    ]
+    ],
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 2 },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-item",
@@ -220,6 +225,9 @@
     "alignment": "ringwraith",
     "unique": true,
     "subtype": "major",
+    "keywords": [
+      "shield"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 0,

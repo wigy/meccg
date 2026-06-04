@@ -54,6 +54,12 @@ export interface ResolverContext {
     readonly baseBody: number;
     readonly baseDirectInfluence: number;
     readonly name: string;
+    /**
+     * Definition IDs of other characters in the same company.
+     * Used by conditions like `{ "bearer.companionDefinitionIds": { "$includes": "as-1" } }`
+     * to gate effects on company membership (e.g. troll-trio mind reduction).
+     */
+    readonly companionDefinitionIds?: readonly string[];
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {

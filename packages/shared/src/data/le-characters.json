@@ -627,6 +627,11 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
+    "keywords": [
+      "Uruk-hai"
+    ],
+    "effects": [],
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       8
     ]
@@ -640,6 +645,10 @@
     "alignment": "ringwraith",
     "unique": true,
     "race": "troll",
+    "keywords": [
+      "Half-troll",
+      "Leader"
+    ],
     "skills": [
       "warrior",
       "ranger"
@@ -651,6 +660,52 @@
     "marshallingPoints": 3,
     "marshallingCategory": "character",
     "homesite": "Minas Morgul",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": {
+          "self.location": "Minas Morgul"
+        }
+      }
+    ],
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       9
     ]
@@ -667,6 +722,9 @@
     "skills": [
       "warrior"
     ],
+    "keywords": [
+      "Uruk-hai"
+    ],
     "prowess": 4,
     "body": 8,
     "mind": 2,
@@ -676,7 +734,8 @@
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "certified": "2026-06-03"
   },
   {
     "cardType": "minion-character",
@@ -801,7 +860,11 @@
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-character",
@@ -812,6 +875,9 @@
     "alignment": "ringwraith",
     "unique": true,
     "race": "orc",
+    "keywords": [
+      "Uruk-hai"
+    ],
     "skills": [
       "warrior",
       "ranger"
@@ -823,6 +889,7 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       8
     ]
@@ -845,7 +912,24 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Easterling Camp"
+    "homesite": "Easterling Camp",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Easterling Camp"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-character",

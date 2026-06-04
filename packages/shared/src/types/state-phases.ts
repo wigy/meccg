@@ -190,6 +190,17 @@ export interface OrganizationPhaseState {
    */
   readonly characterPlayedThisTurn: boolean;
   /**
+   * Definition IDs of characters belonging to a buddy-play group that has
+   * been played this turn. When a character carrying the `buddy-play` flag
+   * is played, all definition IDs in its `companions` list (and its own ID)
+   * are added here. Other characters in that group may then be played in
+   * the same turn without consuming the one-character-per-turn slot.
+   *
+   * Optional — absent on states created before this field was added, treated
+   * as an empty array.
+   */
+  readonly buddyGroupPlayedThisTurn?: readonly string[];
+  /**
    * How many cards have been fetched from the sideboard this turn via
    * the avatar tap action (CoE 2.II.6). Used to enforce the limit of
    * 5 cards to discard or 1 card to deck.

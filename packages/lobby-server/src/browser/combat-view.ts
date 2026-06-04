@@ -34,7 +34,7 @@ import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } fr
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { dismissTooltip } from './company-modals.js';
-import { getSelectedCancelAttack, clearCancelAttackSelection } from './render-selection-state.js';
+import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
 import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
@@ -85,9 +85,31 @@ export function renderCombatView(
   const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
+  // Two-step attacker selection is used in two CvCC sub-phases:
+  // - 'attacker': the attacker pairs their untapped characters with defenders
+  // - 'defender-any': the defender assigns remaining unpaired attackers to any of their characters
+  // Clear stale selection whenever we leave these phases.
+  const inCvCCTwoStepPhase = !!combat.isCvCC
+    && combat.phase === 'assign-strikes'
+    && ((combat.assignmentPhase === 'attacker' && view.self.id === combat.attackingPlayerId)
+      || (combat.assignmentPhase === 'defender-any' && view.self.id === combat.defendingPlayerId));
+  if (!inCvCCTwoStepPhase) clearSelectedCvCCAttacker();
+  const selectedCvCCAttacker = getSelectedCvCCAttacker();
+
+  // Two-step defender selection is used in the CvCC defender phase:
+  // - 'defender': the defender (iAmDefender) picks one of their untapped chars first (golden),
+  //   then clicks an unpaired attacker (blue) to create the full pair.
+  // Clear stale selection whenever we leave this phase.
+  const inCvCCDefenderPhase = !!combat.isCvCC
+    && iAmDefender
+    && combat.phase === 'assign-strikes'
+    && combat.assignmentPhase === 'defender';
+  if (!inCvCCDefenderPhase) clearSelectedCvCCDefender();
+  const selectedCvCCDefender = getSelectedCvCCDefender();
+
   // Build attacker row and defender row
-  const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, onAction);
+  const attackerRow = renderAttackerRow(combat, view, cardPool, assignActions, selectedCvCCAttacker, selectedCvCCDefender, iAmDefender, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -257,7 +279,8 @@ function renderPhaseBanner(
       const sub = currentStrike?.attackerTapToFight === undefined
         ? (!iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Attacker declares tap choice')
         : (iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Defender resolves strike');
-      phaseText = `${cvccPrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal} — ${sub}`;
+      const excessSuffix = (combat.cvccExcessPool ?? 0) > 0 ? ` • ${combat.cvccExcessPool} × −1 to assign` : '';
+      phaseText = `${cvccPrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal} — ${sub}${excessSuffix}`;
     } else if (combat.phase === 'body-check') {
       const bctTarget = (combat as { bodyCheckTarget?: string }).bodyCheckTarget;
       const target = bctTarget === 'attacker-character' ? 'Attacking Character' : 'Defending Character';
@@ -334,6 +357,11 @@ function renderAttackerRow(
   combat: CombatState,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  assignActions: AssignStrikeAction[],
+  selectedCvCCAttacker: ReturnType<typeof getSelectedCvCCAttacker>,
+  selectedCvCCDefender: CardInstanceId | null,
+  iAmDefender: boolean,
+  onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'combat-attacker';
@@ -385,6 +413,51 @@ function renderAttackerRow(
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.cardInstanceId as string);
         container.appendChild(img);
+      }
+    }
+  } else if (combat.attackSource.type === 'company-attack' && combat.isCvCC) {
+    // CvCC: render each attacking character as their own card column (row layout)
+    container.classList.add('combat-attacker--cvcc');
+    const attackingCompany = findCompany(combat.attackSource.attackingCompanyId, view);
+    if (attackingCompany) {
+      const isAttackerMe = view.self.id === combat.attackingPlayerId;
+      const attackerCharMap = isAttackerMe ? view.self.characters : view.opponent.characters;
+      const attackerStrikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
+      for (let i = 0; i < combat.strikeAssignments.length; i++) {
+        const sa = combat.strikeAssignments[i];
+        if (sa.attackingCharacterId && !attackerStrikeMap.has(sa.attackingCharacterId as string)) {
+          attackerStrikeMap.set(sa.attackingCharacterId as string, { index: i, assignment: sa });
+        }
+      }
+      // Highlight unpaired attackers for first-click in both two-step phases:
+      // - 'attacker' phase: driven by the attacker
+      // - 'defender-any' phase: driven by the defender (selecting which unpaired attacker to assign)
+      // - 'defender' phase: when a defender is selected, show unpaired attackers as blue targets
+      const isAttackerAssignPhase = isAttackerMe && !iAmDefender
+        && combat.phase === 'assign-strikes' && combat.assignmentPhase === 'attacker';
+      const isDefenderAnyPhase = !isAttackerMe && iAmDefender
+        && combat.phase === 'assign-strikes' && combat.assignmentPhase === 'defender-any';
+      const isCvCCDefenderPhaseWithSelection = !isAttackerMe && iAmDefender
+        && combat.phase === 'assign-strikes' && combat.assignmentPhase === 'defender'
+        && selectedCvCCDefender !== null;
+      const selectableAttackerIds = (isAttackerAssignPhase || isDefenderAnyPhase)
+        ? new Set(assignActions.map(a => a.attackingCharacterId as string).filter(Boolean))
+        : isCvCCDefenderPhaseWithSelection
+          ? new Set(
+              assignActions
+                .filter(a => (a.characterId as string) === (selectedCvCCDefender as string))
+                .map(a => a.attackingCharacterId as string)
+                .filter(Boolean),
+            )
+          : new Set<string>();
+      for (const charId of attackingCompany.characters) {
+        const char = attackerCharMap[charId as string];
+        if (!char) continue;
+        container.appendChild(renderCvCCAttackerCharacterColumn(
+          char, cardPool, combat, attackerStrikeMap,
+          selectableAttackerIds, selectedCvCCAttacker as CardInstanceId | null,
+          selectedCvCCDefender, isCvCCDefenderPhaseWithSelection, onAction,
+        ));
       }
     }
   } else if (combat.attackSource.type === 'tidings-attack') {
@@ -441,6 +514,8 @@ function renderDefenderRow(
   cancelAttackActions: CancelAttackAction[],
   modifyAttackActions: ModifyAttackAction[],
   tapItemForStrikeActions: TapItemForStrikeAction[],
+  selectedCvCCAttacker: CardInstanceId | null,
+  selectedCvCCDefender: CardInstanceId | null,
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -453,8 +528,41 @@ function renderDefenderRow(
   const iAmDefender = view.self.id === combat.defendingPlayerId;
   const charMap = iAmDefender ? view.self.characters : view.opponent.characters;
 
-  // Build a set of assignable character IDs for quick lookup
-  const assignableIds = new Set(assignActions.map(a => a.characterId as string));
+  // Two-step selection: only show defender targets once an attacker character is selected.
+  // Applies to both 'attacker' phase (attacker picks) and 'defender-any' phase (defender picks).
+  const isCvCCAttackerPhase = !!combat.isCvCC
+    && combat.phase === 'assign-strikes'
+    && ((combat.assignmentPhase === 'attacker' && view.self.id === combat.attackingPlayerId)
+      || (combat.assignmentPhase === 'defender-any' && view.self.id === combat.defendingPlayerId));
+
+  // CvCC defender phase: this player is the defender and is choosing which of their untapped
+  // chars to pair with an attacker. Uses selectedCvCCDefender for the two-step flow.
+  const isCvCCDefenderPhase = !!combat.isCvCC
+    && iAmDefender
+    && combat.phase === 'assign-strikes'
+    && combat.assignmentPhase === 'defender';
+
+  let effectiveAssignActions: AssignStrikeAction[];
+  if (isCvCCAttackerPhase) {
+    // Show defender targets only once an attacker char is selected
+    effectiveAssignActions = selectedCvCCAttacker !== null
+      ? assignActions.filter(a => (a.attackingCharacterId as string) === (selectedCvCCAttacker as string))
+      : [];
+  } else if (isCvCCDefenderPhase) {
+    // In CvCC defender phase: defenders in the row are first-click targets (golden/green).
+    // Actual assign actions are fired from the attacker row (blue targets) after defender is selected.
+    // We expose no assign actions here — the character column handles the click specially.
+    effectiveAssignActions = [];
+  } else {
+    effectiveAssignActions = assignActions;
+  }
+
+  // Build a set of assignable character IDs for quick lookup (used for golden highlight)
+  // In CvCC defender phase, golden comes from a separate set derived from assign actions
+  const cvccDefenderPhaseEligibleIds = isCvCCDefenderPhase
+    ? new Set(assignActions.map(a => a.characterId as string))
+    : new Set<string>();
+  const assignableIds = new Set(effectiveAssignActions.map(a => a.characterId as string));
 
   // Build a set of characters that can support the current strike
   const supportableIds = new Set(supportActions.map(a => a.supportingCharacterId as string));
@@ -536,7 +644,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, onAction);
     container.appendChild(col);
   }
 
@@ -571,6 +679,10 @@ function renderCombatCharacterColumn(
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
+  isCvCCAttackerPhase: boolean,
+  isCvCCDefenderPhase: boolean,
+  cvccDefenderPhaseEligibleIds: Set<string>,
+  selectedCvCCDefender: CardInstanceId | null,
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const col = document.createElement('div');
@@ -650,13 +762,40 @@ function renderCombatCharacterColumn(
       e.stopPropagation();
       onAction(chooseOrderAction);
     });
+  } else if (isCvCCDefenderPhase && cvccDefenderPhaseEligibleIds.has(charIdStr) && !strike) {
+    // CvCC defender phase: this char can be selected as the "first click" defender.
+    const isThisDefSelected = selectedCvCCDefender !== null && (selectedCvCCDefender as string) === charIdStr;
+    if (isThisDefSelected) {
+      // Already selected — show green; clicking deselects
+      img.classList.add('combat-card--cvcc-selected');
+    } else if (selectedCvCCDefender === null) {
+      // No defender selected yet — show golden (assignable) to invite first click
+      img.classList.add('combat-card--assignable');
+    }
+    // (When another defender is selected, this char shows no special highlight)
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isThisDefSelected) {
+        clearSelectedCvCCDefender();
+      } else {
+        setSelectedCvCCDefender(char.instanceId);
+      }
+      rerender();
+    });
   } else if (isAssignable) {
-    img.classList.add('combat-card--assignable');
+    // In CvCC attacker phase, use blue (supportable) to signal "second target"
+    if (isCvCCAttackerPhase) {
+      img.classList.add('combat-card--supportable');
+    } else {
+      img.classList.add('combat-card--assignable');
+    }
     img.style.cursor = 'pointer';
     const action = assignActions.find(a => a.characterId === char.instanceId);
     if (action) {
       img.addEventListener('click', (e) => {
         e.stopPropagation();
+        clearSelectedCvCCAttacker();
         onAction(action);
       });
     }
@@ -851,6 +990,148 @@ function renderCombatCharacterColumn(
   return col;
 }
 
+/** Render a single attacker character column for CvCC. */
+function renderCvCCAttackerCharacterColumn(
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  combat: CombatState,
+  attackerStrikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
+  selectableAttackerIds: Set<string>,
+  selectedAttackerId: CardInstanceId | null,
+  selectedCvCCDefender: CardInstanceId | null,
+  isCvCCDefenderPhaseWithSelection: boolean,
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const col = document.createElement('div');
+  col.className = 'character-column';
+  col.dataset.combatCharId = char.instanceId as string;
+
+  const def = cardPool[char.definitionId as string];
+  if (!def) return col;
+  const imgPath = cardImageProxyPath(def);
+  if (!imgPath) return col;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'character-card-wrap';
+
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0;
+  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
+
+  const inner = document.createElement('div');
+  inner.className = 'character-card-inner';
+  if (char.status === CardStatus.Tapped) {
+    inner.classList.add('character-card-inner--tapped');
+    wrap.classList.add('character-card-wrap--tapped');
+  } else if (char.status === CardStatus.Inverted) {
+    inner.classList.add('character-card-inner--wounded');
+    if (hasAttachments) img.classList.add('company-card--faded-top');
+  } else {
+    if (hasAttachments) img.classList.add('company-card--faded');
+  }
+
+  const charIdStr = char.instanceId as string;
+  const strike = attackerStrikeMap.get(charIdStr);
+  const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved && combat.phase === 'resolve-strike';
+
+  const isSelected = selectedAttackerId !== null && (selectedAttackerId as string) === charIdStr;
+  const isSelectable = selectableAttackerIds.has(charIdStr);
+
+  // CvCC defender phase: when a defender is selected, unpaired attackers are blue "second targets"
+  const isDefenderPhaseTarget = isCvCCDefenderPhaseWithSelection && isSelectable;
+
+  if (strike) {
+    if (strike.assignment.resolved && strike.assignment.attackerResult) {
+      if (strike.assignment.attackerResult === 'success') img.classList.add('combat-card--strike-success');
+      else if (strike.assignment.attackerResult === 'wounded') img.classList.add('combat-card--strike-wounded');
+      else if (strike.assignment.attackerResult === 'eliminated') img.classList.add('combat-card--strike-eliminated');
+    } else if (isCurrentStrike) {
+      img.classList.add('combat-card--current-strike');
+    } else if (strike.assignment.attackingCharacterId) {
+      img.classList.add('combat-card--strike-assigned');
+    }
+  } else if (isDefenderPhaseTarget) {
+    // Blue: second target in CvCC defender phase two-step flow
+    img.classList.add('combat-card--supportable');
+  } else if (isSelected) {
+    img.classList.add('combat-card--cvcc-selected');
+  } else if (isSelectable) {
+    img.classList.add('combat-card--assignable');
+  }
+
+  if (isDefenderPhaseTarget) {
+    // Click fires the assign action pairing selectedCvCCDefender ↔ this attacker
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (selectedCvCCDefender !== null) {
+        const assignAction: AssignStrikeAction = {
+          type: 'assign-strike',
+          player: combat.defendingPlayerId,
+          characterId: selectedCvCCDefender,
+          attackingCharacterId: char.instanceId,
+        };
+        clearSelectedCvCCDefender();
+        onAction(assignAction);
+      }
+    });
+  } else if (isSelectable || isSelected) {
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isSelected) {
+        clearSelectedCvCCAttacker();
+      } else {
+        setSelectedCvCCAttacker(char.instanceId);
+      }
+      rerender();
+    });
+  }
+
+  inner.appendChild(img);
+
+  const badge = document.createElement('div');
+  badge.className = 'char-stats-badge';
+  badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
+  inner.appendChild(badge);
+
+  if (strike?.assignment.resolved && strike.assignment.attackerResult) {
+    const overlay = document.createElement('div');
+    overlay.className = 'combat-result-overlay';
+    if (strike.assignment.attackerResult === 'success') {
+      overlay.textContent = '✔';
+      overlay.classList.add('combat-result-overlay--success');
+    } else if (strike.assignment.attackerResult === 'wounded') {
+      overlay.textContent = '☠';
+      overlay.classList.add('combat-result-overlay--wounded');
+    } else {
+      overlay.textContent = '✖';
+      overlay.classList.add('combat-result-overlay--eliminated');
+    }
+    inner.appendChild(overlay);
+  }
+
+  wrap.appendChild(inner);
+  col.appendChild(wrap);
+
+  const items = [...char.items, ...char.allies, ...char.hazards];
+  if (items.length > 0) {
+    const attachments = document.createElement('div');
+    attachments.className = 'character-attachments';
+    for (const item of items) {
+      const itemDef = cardPool[item.definitionId as string];
+      if (!itemDef) continue;
+      const itemImg = cardImageProxyPath(itemDef);
+      if (!itemImg) continue;
+      const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
+      if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+      attachments.appendChild(itemEl);
+    }
+    col.appendChild(attachments);
+  }
+
+  return col;
+}
+
 // ---- SVG strike arrows ----
 
 /**
@@ -867,14 +1148,19 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
   svg.style.width = arenaRect.width + 'px';
   svg.style.height = arenaRect.height + 'px';
 
-  // Find the attacker card element; fall back to the attacker container
-  const attackerEl = arena.querySelector('.combat-card--attacker') ?? arena.querySelector('.combat-attacker');
-  if (!attackerEl) return;
+  // For CvCC each strike has a specific attacking character; fall back to a
+  // single attacker element for creature/agent/automatic attacks.
+  const singleAttackerEl = combat.isCvCC
+    ? null
+    : (arena.querySelector('.combat-card--attacker') ?? arena.querySelector('.combat-attacker'));
 
-  const attackerRect = attackerEl.getBoundingClientRect();
-  // Arrow starts from the center of the attacker card/container
-  const attackerX = attackerRect.left + attackerRect.width / 2 - arenaRect.left;
-  const attackerY = attackerRect.top + attackerRect.height / 2 - arenaRect.top;
+  let singleAttackerX = 0;
+  let singleAttackerY = 0;
+  if (singleAttackerEl) {
+    const r = singleAttackerEl.getBoundingClientRect();
+    singleAttackerX = r.left + r.width / 2 - arenaRect.left;
+    singleAttackerY = r.top + r.height / 2 - arenaRect.top;
+  }
 
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
     const sa = combat.strikeAssignments[i];
@@ -884,6 +1170,31 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
     // Find the card image inside the character column
     const cardEl = charEl.querySelector('.company-card');
     if (!cardEl) continue;
+
+    // Skip assignments without a paired attacker (should not occur after the reservation
+    // model was removed, but guard defensively to avoid broken arrows).
+    if (combat.isCvCC && !sa.attackingCharacterId) {
+      continue;
+    }
+
+    let attackerX: number;
+    let attackerY: number;
+    if (combat.isCvCC && sa.attackingCharacterId) {
+      const atkEl = arena.querySelector(`[data-combat-char-id="${sa.attackingCharacterId}"]`);
+      if (!atkEl) continue;
+      const atkCardEl = atkEl.querySelector('.company-card');
+      if (!atkCardEl) continue;
+      const atkRect = atkCardEl.getBoundingClientRect();
+      attackerX = atkRect.left + atkRect.width / 2 - arenaRect.left;
+      // When I'm the defender, attackers are on top → use bottom of attacker card
+      // When I'm the attacker, attackers are on bottom → use top of attacker card
+      attackerY = iAmDefender
+        ? atkRect.bottom - arenaRect.top
+        : atkRect.top - arenaRect.top;
+    } else {
+      attackerX = singleAttackerX;
+      attackerY = singleAttackerY;
+    }
 
     const charRect = cardEl.getBoundingClientRect();
     const charX = charRect.left + charRect.width / 2 - arenaRect.left;
@@ -923,7 +1234,7 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 // ---- Combat action buttons (bottom-right, same area as pass button) ----
 
 /** Combat action types that get rendered as buttons (not handled by card clicks). */
-const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll']);
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll', 'allocate-cvcc-excess']);
 
 /**
  * Render combat action buttons stacked above the pass button in the
@@ -958,6 +1269,7 @@ function combatButtonLabel(action: GameAction): string {
   }
   if (action.type === 'agent-strike-roll') return 'Roll for Agent';
   if (action.type === 'body-check-roll') return 'Body Check';
+  if (action.type === 'allocate-cvcc-excess') return 'Assign −1';
   if (action.type === 'pass') return 'Pass';
   return action.type;
 }

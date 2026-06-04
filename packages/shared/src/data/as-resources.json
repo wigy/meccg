@@ -443,6 +443,9 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      { "type": "play-target", "target": "company" }
+    ]
   }
 ]

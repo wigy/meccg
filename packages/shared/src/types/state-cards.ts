@@ -55,6 +55,13 @@ export interface EffectiveStats {
   readonly directInfluence: number;
   /** Sum of corruption points from all items and corruption cards. */
   readonly corruptionPoints: number;
+  /**
+   * Effective mind after applying stat-modifier effects (e.g. troll triplet
+   * mind reduction when companions are in the company). Undefined means no
+   * modifier applies and the base `mind` from the card definition should be
+   * used. Only set when a `stat-modifier` with `stat: "mind"` fires.
+   */
+  readonly mind?: number;
 }
 
 /**

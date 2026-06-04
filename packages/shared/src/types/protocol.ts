@@ -284,6 +284,12 @@ export interface DiceRollEffect {
   readonly die2: DieRoll;
   /** Context label (e.g. "Initiative", "Corruption check"). */
   readonly label: string;
+  /**
+   * Final total including prowess/modifier (e.g. die1 + die2 + prowess).
+   * Present for CvCC strikes and body checks. Absent for raw d6 rolls.
+   * Prowess = total - die1 - die2.
+   */
+  readonly total?: number;
 }
 
 /**
