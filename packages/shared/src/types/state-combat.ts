@@ -427,6 +427,17 @@ export interface CombatState {
    * attack. The protection expires naturally when combat ends.
    */
   readonly protectedFromStrikeAssignment?: readonly CardInstanceId[];
+  /**
+   * When true, this attack uses the "each character faces one strike" rule
+   * (CoE §3.I.1): every character in the defending company is automatically
+   * assigned exactly one strike, with no player choice. After the cancel
+   * window, the engine pre-assigns one strike per character and advances
+   * directly to the resolve-strike phase.
+   *
+   * Used by sites like Mount Gundabad (le-395) whose auto-attack text reads
+   * "each character faces 1 strike with N prowess".
+   */
+  readonly eachCharacterFacesOneStrike?: boolean;
 }
 
 /**

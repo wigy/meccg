@@ -28,7 +28,7 @@ import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestatio
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
 import type { MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
-import type { PendingEffect } from '../types/state-combat.js';
+import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
 
 /**
@@ -586,32 +586,54 @@ function handleSiteAutomaticAttacks(
     }
   }
 
-  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
+  const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
+  // "each character faces 1 strike": total = company size, strikes pre-assigned one per character.
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+    : [];
+  const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
+
+  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
   const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
-  const combat: CombatState = {
+
+  // Build a temporary combat state to compute the initial phase via nextStrikePhase.
+  const baseCombat: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: resolvedAttackIndex },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
-    strikesTotal: effectiveStrikes,
+    strikesTotal: strikesTotalValue,
     strikeProwess: effectiveProwess,
     creatureBody: aa.body ?? null,
     creatureRace,
-    strikeAssignments: [],
+    strikeAssignments: preAssignedStrikes,
     currentStrikeIndex: 0,
-    phase: 'assign-strikes',
-    assignmentPhase: (aaAttackerChooses ? 'cancel-window' : 'defender'),
+    phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
+    assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
     detainment: isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
+      // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
+      // Passing the site type lets the standard detainment rules fire correctly for
+      // Ringwraith/Balrog companies at dark-holds and shadow-holds.
+      attackKeyedTo: [{ siteTypes: [siteDef.siteType] }],
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+    ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };
+
+  // For each-character attacks with multiple characters, start at choose-strike-order.
+  let combat: CombatState = baseCombat;
+  if (isEachCharacter && preAssignedStrikes.length > 1) {
+    combat = { ...baseCombat, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null };
+  } else if (isEachCharacter && preAssignedStrikes.length === 1) {
+    combat = { ...baseCombat, phase: 'resolve-strike', currentStrikeIndex: 0, attackerStep1Done: false, bodyCheckTarget: null };
+  }
 
   return {
     state: {
