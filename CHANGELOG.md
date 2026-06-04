@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.36.0 — 2026-06-04
+Challenge Deck F
+
+### Card Certification
+- Certify Lagduf (le-18), Lieutenant of Morgul (le-22), Muzgash (le-25), Tros Hesnef (le-46), Radbug (le-38), Orc Veteran (le-35)
+- Certify Tûma (as-5), Wûluag (as-6): implement troll-trio buddy mechanics
+- Certify Dancing Spire (as-143), Gold Hill (as-148), Irerock (as-151)
+- Certify Caves of Ûlund (le-360), Dale (le-363), Gondmaeglom (le-379), The Lonely Mountain (le-387), Mount Gundabad (le-395), Raider-hold (le-399)
+- Certify Minor Ring (le-324), Sable Shield (le-341): implement absorb-wound effect
+- Certify Stench of Mordor (le-141), By the Ringwraith's Word (le-174)
+- Partial implementation: Bûrat (as-1), Orders from Lugbúrz (as-94)
+
+### Game Engine
+- Implement absorb-wound DSL effect for Sable Shield
+- Implement troll-trio buddy-play mechanics for Tûma, Wûluag, and Bûrat characters
+- Recognize `play-deck` as a valid source token in fetch-from-pile actions
+- Remove duplicate effects arrays from troll trio character data
+
+### Web Client
+- CvCC combat UI improvements
+- Add End key shortcut to toggle full-screen map
+- Show Pass button in relevant combat step
+
+### Infrastructure
+- Remove snapshot and reset features from dev mode
+- Add player guide with instructions for credits, bug reports, and feature requests
+
 ## 0.35.0 — 2026-06-02
 
 The Liddless Eye

@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 428 | 417 | 11 | 97.4% |
+| 450 | 438 | 12 | 97.3% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 25 | 24 | 96.0% |
+| AS | 32 | 29 | 90.6% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 39 | 100.0% |
-| LE | 83 | 80 | 96.4% |
+| LE | 98 | 96 | 98.0% |
 | TD | 49 | 49 | 100.0% |
 | TW | 226 | 221 | 97.8% |
 | WH | 4 | 4 | 100.0% |
@@ -24,8 +24,11 @@
 
 | Card | Name | Type | Effects | Status |
 |:-----|:-----|:-----|:-------:|:------:|
+| as-1 | Bûrat | — | 6 | ◐ |
 | as-3 | Mîonid | — | 2 | ☑ |
 | as-4 | Perchen | — | 3 | ☑ |
+| as-5 | Tûma | — | 12 | ☑ |
+| as-6 | Wûluag | — | 12 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 11 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -37,11 +40,15 @@
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
+| as-94 | Orders from Lugbúrz | — | 8 | ◐ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-123 | Dwarven Ring of Thélor's Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár's Tribe | — | 12 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
+| as-143 | Dancing Spire | — | 8 | ☑ |
+| as-148 | Gold Hill | — | 9 | ☑ |
+| as-151 | Irerock | — | 9 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
 | as-140 | Nûrniag Camp | — | 5 | ☑ |
@@ -95,14 +102,20 @@
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
+| le-18 | Lagduf | — | 2 | ☑ |
 | le-19 | Layos | — | 3 | ☑ |
 | le-21 | Lieutenant of Dol Guldur | — | 7 | ☑ |
+| le-22 | Lieutenant of Morgul | — | 7 | ☑ |
 | le-23 | Luitprand | — | 3 | ☑ |
 | le-24 | The Mouth | — | 7 | ☑ |
+| le-25 | Muzgash | — | 2 | ☑ |
 | le-27 | Nevido Smôd | — | 2 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
+| le-35 | Orc Veteran | — | 3 | ☑ |
 | le-36 | Ostisen | — | 3 | ☑ |
+| le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
+| le-46 | Tros Hesnef | — | 3 | ☑ |
 | le-50 | Adûnaphel the Ringwraith | — | 7 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
@@ -125,6 +138,7 @@
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-132 | Rebel-talk | — | 10 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
+| le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 4 | ☑ |
 | le-143 | Tidings of Bold Spies | — | — | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
@@ -132,7 +146,7 @@
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
-| le-174 | By the Ringwraith's Word | — | 14 | ◐ |
+| le-174 | By the Ringwraith's Word | — | 14 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-212 | Not Slay Needlessly | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
@@ -152,9 +166,11 @@
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
+| le-324 | Minor Ring | — | 8 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-339 | Red Book of Westmarch | — | 11 | ☑ |
+| le-341 | Sable Shield | — | 6 | ☑ |
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
 | le-343 | Scroll of Isildur | — | 9 | ☑ |
 | le-350 | Bag End | — | 12 | ☑ |
@@ -162,13 +178,19 @@
 | le-352 | Barad-dûr | — | 11 | ☑ |
 | le-354 | Beorn's House | — | 4 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
+| le-360 | Caves of Ûlund | — | 6 | ☑ |
+| le-363 | Dale | — | 6 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-367 | Dol Guldur | — | 15 | ☑ |
 | le-372 | Edoras | — | 7 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
+| le-379 | Gondmaeglom | — | 11 | ☑ |
+| le-387 | The Lonely Mountain | — | 8 | ☑ |
 | le-390 | Minas Morgul | — | 14 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
+| le-395 | Mount Gundabad | — | 10 | ☑ |
+| le-399 | Raider-hold | — | 12 | ☑ |
 | le-408 | Thranduil's Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
