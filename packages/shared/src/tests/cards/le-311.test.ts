@@ -249,7 +249,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     expect(rollActions.length).toBe(1);
 
@@ -281,7 +281,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
 
     // Roll 6: magic-ring eligible, dwarven/spirit NOT eligible
@@ -309,7 +309,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
 
     // Roll 8: magic-ring NOT eligible (max is 6), dwarven NOT eligible (min 9), no spirit
@@ -336,7 +336,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
 
     // Roll 9: dwarven-ring eligible (min:9), NOT spirit (min:10)
@@ -363,7 +363,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
 
     // Roll 12: all categories eligible
@@ -394,7 +394,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -419,7 +419,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRing, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRing, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRing, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
 
     // Any roll — lesser-ring is always eligible so searchCategories must include it
@@ -452,7 +452,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRingInDeck, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRingInDeck, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -479,7 +479,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRingInDeck, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRingInDeck, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -512,7 +512,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRingInDiscard, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRingInDiscard, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRingInDiscard, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRingInDiscard, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -538,7 +538,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRingInDiscard, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRingInDiscard, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRingInDiscard, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRingInDiscard, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -575,7 +575,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withRingInDeck, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withRingInDeck, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withRingInDeck, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
@@ -612,7 +612,7 @@ describe('Gleaming Gold Ring (le-311)', () => {
     const gorbagId = charIdAt(withGoldRingInDeck, RESOURCE_PLAYER);
     const ringInstanceId = getCharacter(withGoldRingInDeck, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
 
-    const withTest = enqueueGoldRingTest(withGoldRingInDeck, PLAYER_1, ringInstanceId, gorbagId!);
+    const withTest = enqueueGoldRingTest(withGoldRingInDeck, PLAYER_1, ringInstanceId, gorbagId);
     const rollActions = viableActions(withTest, PLAYER_1, 'gold-ring-test-roll');
     const afterRoll = dispatch({ ...withTest, cheatRollTotal: 5 }, rollActions[0].action);
 
