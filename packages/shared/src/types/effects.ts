@@ -2352,7 +2352,9 @@ export type CardEffect =
   | RingTestSearchEffect
   | GrantSkillEffect
   | CompanyOvertEffect
-  | RingwraithModeEffect;
+  | RingwraithModeEffect
+  | GrantKeywordEffect
+  | ProtectFromBodyCheckEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2611,4 +2613,35 @@ export interface CompanyOvertEffect extends EffectBase {
  */
 export interface RingwraithModeEffect extends EffectBase {
   readonly type: 'ringwraith-mode';
+}
+
+/**
+ * Grants a keyword tag to the item's bearer while the item is attached.
+ *
+ * The bearer counts as having the named keyword for all purposes — e.g. the
+ * "Leader" keyword makes the bearer subject to the one-leader-per-company
+ * rule (CoE 3.26) and eligible for faction-influence bonuses gated on Leader
+ * status — exactly as if their card definition listed the keyword.
+ *
+ * Used by *By the Ringwraith's Word* (le-174) to grant the "Leader" keyword
+ * to any non-Ringwraith minion character while the event is attached.
+ */
+export interface GrantKeywordEffect extends EffectBase {
+  readonly type: 'grant-keyword';
+  /** The keyword to grant (e.g. `"Leader"`). */
+  readonly keyword: string;
+}
+
+/**
+ * Suppresses the bearer's printed discard-number check (`discardBodyCheck`) during
+ * a regular combat body check. When the body check roll matches a value in the
+ * character's `discardBodyCheck` array (e.g. roll = 8 for characters with
+ * `discardBodyCheck: [8]`), the discard is prevented and the bearer remains in
+ * play wounded instead. Does NOT protect against elimination (roll > body).
+ *
+ * Used by *By the Ringwraith's Word* (le-174): "cannot be discarded by a body
+ * check."
+ */
+export interface ProtectFromBodyCheckEffect extends EffectBase {
+  readonly type: 'protect-from-body-check';
 }

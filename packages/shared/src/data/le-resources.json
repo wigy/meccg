@@ -1050,11 +1050,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-03",
     "effects": [
       { "type": "play-target", "target": "character", "filter": { "$not": { "target.race": "ringwraith" } } },
       { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
       { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" },
-      { "type": "duplication-limit", "scope": "player", "max": 1 }
+      { "type": "duplication-limit", "scope": "player", "max": 1 },
+      { "type": "grant-keyword", "keyword": "Leader" },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 4 },
+      { "type": "protect-from-body-check" },
+      {
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": { "company.hasHigherMindThanBearer": true }
+      }
     ]
   },
   {

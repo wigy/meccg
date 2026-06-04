@@ -201,6 +201,13 @@ export interface OrganizationPhaseState {
    */
   readonly buddyGroupPlayedThisTurn?: readonly string[];
   /**
+   * The definition ID of the character played this turn, if any. Used to
+   * enable the troll-triplet co-play exception: Bûrat, Tûma, and Wûluag
+   * may be played on the same turn as each other without counting against
+   * the one-character-per-turn limit.
+   */
+  readonly lastPlayedCharacterDefinitionId?: string;
+  /**
    * How many cards have been fetched from the sideboard this turn via
    * the avatar tap action (CoE 2.II.6). Used to enforce the limit of
    * 5 cards to discard or 1 card to deck.

@@ -13,7 +13,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -261,7 +261,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   }
 
   return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardHazards({
+    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({
         ...p,
         hand: newHand,
@@ -273,9 +273,10 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       phaseState: {
         ...phaseState,
         characterPlayedThisTurn: true,
+        lastPlayedCharacterDefinitionId: handCard.definitionId as string,
         ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
       },
-    }), affectedIds),
+    })), affectedIds),
   };
 }
 
@@ -1650,10 +1651,10 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   };
 
   return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardHazards({
+    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({ ...p, companies: filteredCompanies })),
       reverseActions: [...state.reverseActions, reverseAction],
-    }), [action.sourceCompanyId, action.targetCompanyId]),
+    })), [action.sourceCompanyId, action.targetCompanyId]),
   };
 }
 
@@ -1714,10 +1715,10 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
     }));
 
   return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardHazards({
+    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({ ...p, companies })),
       reverseActions: [...state.reverseActions, ...reverses],
-    }), [action.sourceCompanyId, action.targetCompanyId]),
+    })), [action.sourceCompanyId, action.targetCompanyId]),
   };
 }
 
