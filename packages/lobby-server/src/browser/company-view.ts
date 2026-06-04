@@ -375,10 +375,12 @@ export function renderCompanyViews(
   // has toggled to the all-companies overview (allCompaniesOverride).
   if (view.combat && !getAllCompaniesOverride()) {
     document.body.classList.remove('all-companies-mode');
+    document.body.classList.add('combat-active');
     renderCombatView(board, view, cardPool, onAction);
     return;
   }
 
+  document.body.classList.remove('combat-active');
   // Clean up any leftover combat buttons when not in the combat arena view
   clearCombatButtons();
 

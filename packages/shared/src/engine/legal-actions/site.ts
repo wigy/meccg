@@ -1894,6 +1894,14 @@ function declareCompanyAttackActions(
 
   const actions: GameAction[] = [];
 
+  // If an interaction (attack or influence) already happened this turn, skip
+  // offering attack actions — only the pass remains to advance the company.
+  if (siteState.opponentInteractionThisTurn !== null) {
+    logDetail(`CvCC: interaction already occurred this turn (${siteState.opponentInteractionThisTurn}) — only pass offered`);
+    actions.push({ type: 'pass', player: playerId });
+    return actions;
+  }
+
   const siteDef = defById(state, company.currentSite.definitionId);
   const siteName = siteDef && isSiteCard(siteDef) ? siteDef.name : null;
 

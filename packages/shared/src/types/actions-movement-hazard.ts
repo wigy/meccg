@@ -162,6 +162,17 @@ export interface AssignStrikeAction {
 }
 
 /**
+ * CvCC only — allocate one excess strike as a -1 prowess modifier to the
+ * defending character currently facing their strike (rule 3.V.ii).
+ * Available during Step 2 (attacker's window before the defender resolves).
+ * The last strike to resolve forces any remaining excess to be applied.
+ */
+export interface AllocateCvccExcessAction {
+  readonly type: 'allocate-cvcc-excess';
+  readonly player: PlayerId;
+}
+
+/**
  * Resolve the current strike in combat by rolling dice.
  *
  * The defending character rolls 2d6 + their prowess against the creature's

@@ -318,6 +318,20 @@ export interface HavenReturnAction {
 }
 
 /**
+ * Tap a character as the mandatory cost of a hazard effect at the start of
+ * the site phase (e.g. Stench of Mordor). The resource player selects one
+ * untapped character in the active company to tap. Resolves the
+ * `tap-one-character` pending resolution.
+ */
+export interface TapCharacterByEffectAction {
+  readonly type: 'tap-character-by-effect';
+  /** The resource player performing the tap. */
+  readonly player: PlayerId;
+  /** The instance ID of the character being tapped. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Pay the maintenance cost for a hazard permanent event that requires upkeep
  * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
  *

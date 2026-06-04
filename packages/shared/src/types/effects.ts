@@ -309,6 +309,12 @@ export interface GrantActionEffect extends EffectBase {
    * per-target actions like Gandalf's gold-ring test.
    */
   readonly targets?: GrantActionTargets;
+  /**
+   * For `action: "untap-companion-at-site"`: the definition IDs of characters
+   * that may be untapped by this ability. One activation is emitted per tapped
+   * companion in the bearer's company whose definition ID is in this list.
+   */
+  readonly companionIds?: readonly string[];
 }
 
 /**

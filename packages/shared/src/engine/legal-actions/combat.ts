@@ -288,6 +288,84 @@ function assignStrikeActions(
 
     if (strikesRemaining <= 0) return [];
 
+    // CvCC defender phase: defender selects one of their untapped chars AND one
+    // unpaired attacker → full pair immediately. No blind reservations.
+    if (combat.isCvCC) {
+      const atkSource = combat.attackSource;
+      if (atkSource.type !== 'company-attack') return [];
+      const atkPlayer = playerById(state, combat.attackingPlayerId);
+      if (!atkPlayer) return [];
+      const atkCompany = companyById(atkPlayer.companies, atkSource.attackingCompanyId);
+      if (!atkCompany) return [];
+
+      // Find unpaired attackers: attacker chars NOT already in strikeAssignments as attackingCharacterId
+      const usedAttackerIds = new Set(
+        combat.strikeAssignments
+          .map(a => a.attackingCharacterId)
+          .filter(Boolean)
+          .map(id => id as string),
+      );
+      const unpairedAttackers = atkCompany.characters.filter(
+        id => !usedAttackerIds.has(id as string),
+      );
+
+      if (unpairedAttackers.length === 0) {
+        // All attackers already paired — pass only
+        logDetail('CvCC defender phase: all attackers already paired, pass only');
+        actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+        return actions;
+      }
+
+      // Collect eligible defenders: untapped, not yet assigned
+      const cvccProtectedChars = new Set<string>(
+        (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
+      );
+
+      const eligibleDefenders: CardInstanceId[] = [];
+      for (const charId of company.characters) {
+        if (assignedCharIds.has(charId as string)) continue;
+        if (cvccProtectedChars.has(charId as string)) {
+          logDetail(`CvCC defender phase: character ${charId as string} protected from assignment — skipping`);
+          continue;
+        }
+        const charData = player.characters[charId as string];
+        if (!charData) continue;
+        if (charData.status !== CardStatus.Untapped) {
+          logDetail(`CvCC defender phase: character ${charId as string} is ${charData.status} — not available`);
+          continue;
+        }
+        eligibleDefenders.push(charId);
+      }
+
+      if (eligibleDefenders.length === 0) {
+        logDetail('CvCC defender phase: no eligible defenders available, pass only');
+        actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+        return actions;
+      }
+
+      // Generate one action per (untapped-unassigned-defender, unpaired-attacker) pair
+      for (const defId of eligibleDefenders) {
+        for (const atkId of unpairedAttackers) {
+          logDetail(`CvCC defender phase: can pair defender ${defId as string} against attacker ${atkId as string}`);
+          actions.push({
+            action: {
+              type: 'assign-strike',
+              player: playerId,
+              characterId: defId,
+              attackingCharacterId: atkId,
+            },
+            viable: true,
+          });
+        }
+      }
+
+      // Defender may pass to hand over to attacker phase
+      logDetail('CvCC defender phase: defender can pass');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+
+      return actions;
+    }
+
     // Forced-strike targets (e.g. Alatar haven-join): each listed character
     // must receive a strike before any other assignment is legal. The filter
     // collapses the defender's legal menu to only the unassigned forced
@@ -537,29 +615,22 @@ function cvccAttackerAssignActions(
     return actions;
   }
 
-  // Find defender targets: pre-reserved defenders without a paired attacker + unassigned defenders
+  // Find defender targets: unassigned defenders (not in any strikeAssignment as characterId)
   const defPlayer = playerById(state, combat.defendingPlayerId);
   if (!defPlayer) return actions;
   const defCompany = companyById(defPlayer.companies, combat.companyId);
   if (!defCompany) return actions;
 
-  const pairedDefenderIds = new Set(
-    combat.strikeAssignments
-      .filter(a => a.attackingCharacterId != null)
-      .map(a => a.characterId as string),
+  const assignedDefenderIds = new Set(
+    combat.strikeAssignments.map(a => a.characterId as string),
   );
 
-  // Defenders that were reserved in phase 1 but not yet paired with an attacker
-  const unparedReservations = combat.strikeAssignments
-    .filter(a => a.attackingCharacterId == null)
-    .map(a => a.characterId);
-
-  // Defenders not yet assigned at all (neither reserved nor paired)
+  // Defenders not yet assigned at all
   const unassignedDefenders: CardInstanceId[] = defCompany.characters.filter(
-    id => !pairedDefenderIds.has(id as string) && !unparedReservations.includes(id),
+    id => !assignedDefenderIds.has(id as string),
   );
 
-  const validTargets: CardInstanceId[] = [...unparedReservations, ...unassignedDefenders];
+  const validTargets: CardInstanceId[] = unassignedDefenders;
 
   if (validTargets.length === 0) {
     logDetail('CvCC attacker: no defender targets available, must pass');
@@ -623,10 +694,16 @@ function cvccDefenderAnyAssignActions(
 
   if (unpairedAttackers.length === 0) return [];
 
+  // Only offer defenders that have not yet received any strike assignment.
+  // Defenders already assigned (reservation or full pair) are not "remaining characters".
+  const assignedDefIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
+  const unassignedDefs = defCompany.characters.filter(id => !assignedDefIds.has(id as string));
+
+  if (unassignedDefs.length === 0) return [];
+
   const actions: EvaluatedAction[] = [];
-  // For each unpaired attacker, defender can target any of their characters
   for (const atkId of unpairedAttackers) {
-    for (const defId of defCompany.characters) {
+    for (const defId of unassignedDefs) {
       logDetail(`CvCC defender-any: can assign attacker ${atkId as string} to ${defId as string}`);
       actions.push({
         action: {
@@ -1139,6 +1216,11 @@ function cvccResolveStrikeActions(
     if (atkStatus === CardStatus.Untapped) {
       acts.push({ action: { type: 'resolve-strike', player: playerId, tapToFight: false, need: 2, explanation: untapExplanation }, viable: true });
     }
+    // Rule 3.V.ii: attacker may allocate excess strikes as -1 modifiers before declaring tap choice
+    if (combat.cvccExcessPool && combat.cvccExcessPool > 0) {
+      logDetail(`CvCC excess pool: ${combat.cvccExcessPool} excess strike(s) available to allocate as -1`);
+      acts.push({ action: { type: 'allocate-cvcc-excess', player: playerId }, viable: true });
+    }
     return acts;
   }
 
@@ -1326,9 +1408,9 @@ function bodyCheckActions(
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
-  // CvCC: when the ATTACKER character was wounded (defender won), the defending
-  // player rolls the body check (they won the strike). For all other cases the
-  // attacking player rolls.
+  // Body check always belongs to the opponent of the wounded character:
+  // - defender's character wounded → attacker (opponent) rolls
+  // - attacker's character wounded (CvCC) → defender (opponent) rolls
   const roller = combat.bodyCheckTarget === 'attacker-character'
     ? combat.defendingPlayerId
     : combat.attackingPlayerId;

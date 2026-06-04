@@ -245,7 +245,10 @@ export function playCharacterActions(
       }
     }
 
-    // Rule: only one character play per turn
+    // Rule: only one character play per turn.
+    // Exception: troll-triplet co-play — a character with `coPlayCompanions` may
+    // be played on the same turn as one of its listed companions (e.g. Bûrat,
+    // Tûma, and Wûluag may all be played in the same organization phase).
     if (phaseState.characterPlayedThisTurn) {
       // Buddy-play exception: if this character belongs to a buddy group whose
       // companion was already played this turn, it may still be played.

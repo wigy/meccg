@@ -68,8 +68,10 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
  * repeated `{ effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label }`
  * object literal used throughout the reducers to broadcast roll animations.
  */
-export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: string): DiceRollEffect {
-  return { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label };
+export function diceRollEffect(playerName: string, roll: TwoDiceSix, label: string, total?: number): DiceRollEffect {
+  return total !== undefined
+    ? { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label, total }
+    : { effect: 'dice-roll', playerName, die1: roll.die1, die2: roll.die2, label };
 }
 
 /**
