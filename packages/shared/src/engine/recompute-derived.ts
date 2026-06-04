@@ -36,7 +36,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById } from './reducer-utils.js';
+import { playerById, findCharacterCompany } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -144,19 +144,21 @@ export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
  *
  * Includes `bearer` (the character), `target` (same character, for global
  * effects that filter by `target.race` etc.), `inPlay` (names of all
- * events/cards in play for condition checking), and `company.characterNames`
- * (names of other characters in the same company, used for companion-conditional
- * effects like the troll-triplet mind reduction).
+ * events/cards in play for condition checking), `company.characterNames`
+ * (names of other characters in the same company), and optionally
+ * `bearer.companionDefinitionIds` (definition IDs of companions, for
+ * conditions that match by ID rather than name).
  */
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
+  companionDefinitionIds: readonly string[] = [],
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: charInfo,
+    bearer: { ...charInfo, companionDefinitionIds },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
@@ -171,8 +173,9 @@ function buildEffectiveStatsContext(
  * to the old hardcoded approach for items without effects arrays.
  *
  * @param companionNames Names of other characters in the same company (used
- *   for companion-conditional stat modifiers like the troll-triplet mind
- *   reduction). Pass an empty array when company composition is unknown.
+ *   for `company.characterNames` conditions like the troll-triplet mind reduction).
+ * @param companionDefinitionIds Definition IDs of companions (used for
+ *   `bearer.companionDefinitionIds` conditions). Pass empty array if unknown.
  */
 function computeEffectiveStats(
   state: GameState,
@@ -180,8 +183,9 @@ function computeEffectiveStats(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
+  companionDefinitionIds: readonly string[] = [],
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds);
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   const collected = [...charEffects, ...globalEffects];
@@ -340,9 +344,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         && c.kind.type === 'character-is-prisoner',
     );
 
-    // Compute effective stats first so effective mind is available for GI.
+    // Compute effective stats with both companion name and ID context so that
+    // conditions using either company.characterNames or bearer.companionDefinitionIds work.
     const companionNames = companionNamesMap.get(key) ?? [];
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames);
+    const charCompany = findCharacterCompany(player.companies, char.instanceId);
+    const companionDefinitionIds = (charCompany?.characters ?? [])
+      .filter(id => id !== char.instanceId)
+      .map(id => {
+        const compChar = player.characters[id as string];
+        if (!compChar) return null;
+        return compChar.definitionId as string;
+      })
+      .filter((id): id is string => id !== null);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {
