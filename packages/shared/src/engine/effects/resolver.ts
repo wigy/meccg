@@ -251,6 +251,25 @@ export function collectGlobalEffects(
     }
   }
 
+  // Items attached to characters in play can also carry global target effects
+  // (e.g. The Arkenstone: +1 mind to all Dwarves while held by anyone). These
+  // items live in character.items, not in cardsInPlay, so we scan them separately.
+  for (const player of state.players) {
+    for (const char of Object.values(player.characters)) {
+      for (const item of char.items) {
+        const def = resolveDef(state, item.instanceId);
+        if (!def) continue;
+        const effects = getCardEffects(def);
+        if (effects.length === 0) continue;
+        for (const effect of effects) {
+          if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
+          if (effect.when && !matchesCondition(effect.when, baseRecordContext)) continue;
+          results.push({ effect, sourceDef: def, sourceInstance: item.instanceId });
+        }
+      }
+    }
+  }
+
   return results;
 }
 

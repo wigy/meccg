@@ -1264,6 +1264,77 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  // `discard-target-character` — discard the character identified by
+  // action.targetCardId, along with all their items and allies, to the
+  // owning player's discard pile. Followers revert to general influence.
+  // Used by The Arkenstone (le-418): discard a Dwarf at the same site.
+  if (apply.type === 'discard-target-character') {
+    const targetCharId = ctx.action.targetCardId;
+    if (!targetCharId) {
+      return { error: `${ctx.sourceName}: discard-target-character requires targetCardId` };
+    }
+    let targetPlayerIndex = -1;
+    for (let i = 0; i < newPlayers.length; i++) {
+      if (newPlayers[i].characters[targetCharId as string]) {
+        targetPlayerIndex = i;
+        break;
+      }
+    }
+    if (targetPlayerIndex === -1) {
+      return { error: `${ctx.sourceName}: target character ${targetCharId as string} not found` };
+    }
+    const targetPlayerData = newPlayers[targetPlayerIndex];
+    const targetChar = targetPlayerData.characters[targetCharId as string];
+    if (!targetChar) {
+      return { error: `${ctx.sourceName}: target character ${targetCharId as string} missing` };
+    }
+    const targetDefId = resolveInstanceId(state, targetCharId);
+    const targetName = (targetDefId ? defById(state, targetDefId)?.name : undefined) ?? String(targetCharId);
+    logDetail(`Grant-action ${ctx.action.actionId}: discarding ${targetName} to player ${targetPlayerIndex}'s discard pile`);
+
+    // Remove character from all companies
+    const newCompanies = targetPlayerData.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(ch => ch !== targetCharId),
+    }));
+
+    // Build new discard pile: character + items + allies
+    let newDiscard = [...targetPlayerData.discardPile];
+    if (targetDefId) {
+      newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
+    }
+    for (const item of targetChar.items) {
+      logDetail(`Grant-action ${ctx.action.actionId}: discarding item ${item.instanceId as string} from ${targetName}`);
+      newDiscard = [...newDiscard, toCardInstance(item)];
+    }
+    for (const ally of targetChar.allies) {
+      logDetail(`Grant-action ${ctx.action.actionId}: discarding ally ${ally.instanceId as string} from ${targetName}`);
+      newDiscard = [...newDiscard, toCardInstance(ally)];
+    }
+
+    // Remove character from characters map and revert followers to GI
+    const { [targetCharId as string]: _removed, ...remainingChars } = targetPlayerData.characters;
+    let updatedChars = remainingChars;
+    for (const followerId of targetChar.followers) {
+      const follower = updatedChars[followerId as string];
+      if (follower && follower.controlledBy === targetCharId) {
+        logDetail(`Grant-action ${ctx.action.actionId}: reverting follower ${followerId as string} to general influence`);
+        updatedChars = {
+          ...updatedChars,
+          [followerId as string]: { ...follower, controlledBy: 'general' as const },
+        };
+      }
+    }
+
+    newPlayers[targetPlayerIndex] = {
+      ...targetPlayerData,
+      companies: newCompanies,
+      characters: updatedChars,
+      discardPile: newDiscard,
+    };
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
 }
 

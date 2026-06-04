@@ -113,7 +113,8 @@ export function availableDI(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      usedDI += followerDef.mind;
+      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1)
+      usedDI += followerChar.effectiveStats.mind ?? followerDef.mind;
     }
   }
 
@@ -702,6 +703,68 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
                 actionId: effect.action,
                 rollThreshold: rollThresholdFor(effect),
                 targetCardId: target.instanceId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
+        // `force-discard-dwarf-at-site` targets each Dwarf character at the
+        // bearer's current site (any company, any player). Emit one action per
+        // Dwarf. If there are no Dwarves at the same site, the ability is not
+        // offered. Used by The Arkenstone (le-418).
+        if (effect.action === 'force-discard-dwarf-at-site') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const siteDef = company.currentSite
+            ? defById(state, company.currentSite.definitionId)
+            : undefined;
+          const siteName = siteDef && 'name' in siteDef
+            ? (siteDef as { name: string }).name
+            : '';
+          if (!siteName) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer has no current site`);
+            continue;
+          }
+          const dwarfTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const p of state.players) {
+            for (const co of p.companies) {
+              const coSiteDef = co.currentSite
+                ? defById(state, co.currentSite.definitionId)
+                : undefined;
+              const coSiteName = coSiteDef && 'name' in coSiteDef
+                ? (coSiteDef as { name: string }).name
+                : '';
+              if (coSiteName !== siteName) continue;
+              for (const coCharId of co.characters) {
+                const coChar = p.characters[coCharId as string];
+                if (!coChar) continue;
+                const coCharDef = defById(state, coChar.definitionId);
+                if (!coCharDef || !isCharacterCard(coCharDef)) continue;
+                if (coCharDef.race !== 'dwarf') continue;
+                dwarfTargets.push({ instanceId: coCharId, name: coCharDef.name });
+              }
+            }
+          }
+          if (dwarfTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no Dwarf at site ${siteName}`);
+            continue;
+          }
+          for (const { instanceId: targetId, name: targetName } of dwarfTargets) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to discard ${targetName}`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: targetId,
               },
               viable: true,
             });

@@ -88,9 +88,29 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "$or": [{ "target.race": "dwarf" }, { "faction.race": "dwarf" }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "all-characters",
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "grant-action",
+        "action": "force-discard-dwarf-at-site",
+        "cost": { "discard": "self" },
+        "apply": { "type": "discard-target-character" }
       }
     ],
-    "text": "Unique. +5 to bearer’s direct influence against Dwarves and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this item is at the same site as a Dwarf character, you may discard this item to force the discard of the Dwarf (and all non-follower cards he controls)."
+    "text": "Unique. +5 to bearer’s direct influence against Dwarves and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this item is at the same site as a Dwarf character, you may discard this item to force the discard of the Dwarf (and all non-follower cards he controls).",
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-item",
