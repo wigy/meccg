@@ -316,6 +316,12 @@ export interface ActivateGrantedAction {
   /** Optional target card for the action (e.g. which gold ring to test). */
   readonly targetCardId?: CardInstanceId;
   /**
+   * Optional target company for actions that apply to a chosen company
+   * (e.g. Dwar's Darkhaven buff — targets any one of the player's companies).
+   * Set by the legal-action emitter when `targets.scope === "player-companies"`.
+   */
+  readonly targetCompanyId?: import('./common.js').CompanyId;
+  /**
    * Second character involved in the cost, used when `cost.tap ===
    * "sage-and-scout-in-company"`. Carries the scout's instance ID while
    * `characterId` carries the sage's instance ID.

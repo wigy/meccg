@@ -322,15 +322,16 @@ export interface GrantActionEffect extends EffectBase {
  *
  * `scope` names a zone relative to the action's bearer. Supported values:
  * - `"company-items"` — items borne by any character in the bearer's company.
+ * - `"characters-at-site"` — characters at the same site as the bearer.
+ *   Optionally restricted to specific definition IDs via `definitionIds`.
+ * - `"player-companies"` — all companies owned by the bearer's player.
+ *   Each company produces one activation carrying `targetCompanyId`.
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
- *
- * - `"characters-at-site"` — characters at the same site as the bearer.
- *   Optionally restricted to specific definition IDs via `definitionIds`.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site';
+  readonly scope: 'company-items' | 'characters-at-site' | 'player-companies';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
