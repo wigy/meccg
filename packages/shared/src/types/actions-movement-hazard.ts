@@ -358,6 +358,27 @@ export interface BodyCheckRollAction {
 }
 
 /**
+ * Roll 2d6 to determine whether the Sable Shield is discarded after absorbing
+ * a successful strike. Available during the 'shield-discard-roll' combat phase.
+ * Offered to the attacking player (who "makes the roll" per card text). If the
+ * roll strictly exceeds the item's {@link AbsorbWoundEffect.rollThreshold},
+ * the shield is discarded; otherwise it stays in play. Combat then continues
+ * to the next strike or finalization.
+ *
+ * Used by *Sable Shield* (le-341).
+ */
+export interface ShieldDiscardRollAction {
+  /** Action discriminant. */
+  readonly type: 'shield-discard-roll';
+  /** The attacking player rolling. */
+  readonly player: PlayerId;
+  /** The threshold: shield is discarded if roll strictly exceeds this value. */
+  readonly rollThreshold: number;
+  /** The instance ID of the shield item being checked. */
+  readonly itemInstanceId: CardInstanceId;
+}
+
+/**
  * Transfer one item from an eliminated character to an unwounded companion
  * in the same company. Available during the 'item-salvage' combat phase
  * after a character is eliminated by a body check (CoE rule 3.I.2).

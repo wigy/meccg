@@ -9,7 +9,7 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, 
 import type { PlayerState } from '../types/state-player.js';
 import type { ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect, AbsorbWoundEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
@@ -52,6 +52,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleSupportStrike(state, action, combat);
     case 'body-check-roll':
       return handleBodyCheckRoll(state, action, combat);
+    case 'shield-discard-roll':
+      return handleShieldDiscardRoll(state, action, combat);
     case 'cancel-attack':
       return handleCancelAttack(state, action, combat);
     case 'cancel-by-tap':
@@ -626,6 +628,27 @@ function resolveStrikeCore(
     ? findTakePrisonerHazard(state, defPlayerIndex, charData.hazards)
     : null;
 
+  // absorb-wound (e.g. Sable Shield le-341): if a successful strike would wound
+  // the bearer (not an ally, not detainment, not already handled), check if any
+  // item on the character has an absorb-wound effect. If so, the wound is
+  // prevented; the combat transitions to shield-discard-roll so the attacker
+  // rolls to determine whether the shield is discarded.
+  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && charData
+    ? charData.items.find(item => {
+        const def = state.cardPool[item.definitionId as string] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
+        return (def?.effects ?? []).some(e => e.type === 'absorb-wound');
+      })
+    : null;
+
+  if (absorbWoundItem) {
+    logDetail(`absorb-wound: ${absorbWoundItem.instanceId as string} absorbs strike — ${strike.characterId as string} not wounded`);
+    // Use 'success' locally so the character taps (not wounds) in the status
+    // application block below. The assignment records 'absorbed' so finalizeCombat
+    // does not count this as a creature defeat.
+    result = 'success';
+    bodyCheckTarget = null;
+  }
+
   // Whether the combatant taps on a non-wounded outcome:
   //  - tap:    always (success or tie)
   //  - reroll: always (same as tap)
@@ -638,13 +661,16 @@ function resolveStrikeCore(
 
   // Record strike assignment. Dodge tags the strike so the body check picks
   // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
+  // absorb-wound: record 'absorbed' (not 'success') so finalizeCombat does not
+  // treat the absorb as a creature defeat.
   const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
+  const assignmentResult = absorbWoundItem ? ('absorbed' as const) : result;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {
           ...a,
           resolved: true,
-          result,
+          result: assignmentResult,
           wasAlreadyWounded,
           ...(mode === 'dodge' ? { dodged: true, dodgeBodyPenalty } : {}),
         }
@@ -711,6 +737,18 @@ function resolveStrikeCore(
     );
     // Override result and bodyCheckTarget: prisoner-taking skips wound/body-check
     bodyCheckTarget = null;
+  }
+
+  // absorb-wound: shield absorbed the strike; transition to shield-discard-roll
+  // so the attacking player rolls to determine if the shield is discarded.
+  if (absorbWoundItem) {
+    const combatWithShieldRoll: CombatState = {
+      ...combat,
+      strikeAssignments: newAssignments,
+      phase: 'shield-discard-roll',
+      shieldAbsorbItemId: absorbWoundItem.instanceId,
+    };
+    return { state: { ...postPrisonerState, combat: combatWithShieldRoll }, effects };
   }
 
   // Advance combat: body check, next strike, or finalize
@@ -1644,6 +1682,65 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   }
 
   return { state, error: 'Invalid body check target' };
+}
+
+/**
+ * Handle the shield-discard-roll phase (Sable Shield le-341).
+ *
+ * The attacking player rolls 2d6. If the result strictly exceeds the item's
+ * rollThreshold, the shield is discarded from the bearer. Combat then advances
+ * to the next strike or finalizes.
+ */
+function handleShieldDiscardRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'shield-discard-roll') return wrongActionType(state, action, 'shield-discard-roll');
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, 'Shield discard roll')];
+
+  const stateWithRoll: GameState = {
+    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
+    rng,
+    cheatRollTotal,
+  };
+
+  const threshold = action.rollThreshold;
+  logDetail(`Shield discard roll: attacker rolled ${rollTotal}, threshold ${threshold} — shield ${rollTotal > threshold ? 'DISCARDED' : 'survives'}`);
+
+  let stateAfterShield = stateWithRoll;
+  if (rollTotal > threshold && combat.shieldAbsorbItemId) {
+    // Discard the shield from the bearer
+    const defPlayerIndex = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
+    const defPlayer = stateWithRoll.players[defPlayerIndex];
+    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+    const charData = defPlayer.characters[strike.characterId as string];
+
+    if (charData) {
+      const shieldItem = charData.items.find(i => i.instanceId === combat.shieldAbsorbItemId);
+      if (shieldItem) {
+        logDetail(`Discarding shield ${shieldItem.instanceId as string} from ${strike.characterId as string}`);
+        const newItems = charData.items.filter(i => i.instanceId !== combat.shieldAbsorbItemId);
+        const newDiscardPile = [...defPlayer.discardPile, toCardInstance(shieldItem)];
+        stateAfterShield = updatePlayer(stateWithRoll, defPlayerIndex, p => ({
+          ...p,
+          characters: {
+            ...p.characters,
+            [strike.characterId as string]: { ...charData, items: newItems },
+          },
+          discardPile: newDiscardPile,
+        }));
+      }
+    }
+  }
+
+  // Clear the shield-discard-roll field and advance combat
+  const combatCleared: CombatState = { ...combat, phase: 'resolve-strike' as const, shieldAbsorbItemId: undefined };
+  const next = nextStrikePhase(combatCleared);
+  if (next) {
+    return { state: { ...stateAfterShield, combat: { ...combatCleared, ...next } }, effects };
+  }
+  return finalizeCombat({ ...stateAfterShield, combat: combatCleared }, effects);
 }
 
 /**
@@ -2740,6 +2837,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   const combat = state.combat;
   if (!combat) return { state, error: 'No combat to finalize' };
 
+  // 'absorbed' strikes (Sable Shield) do not count as defeating the creature —
+  // the attacker won the roll but the wound was intercepted by the item.
   const allDefeated = combat.strikeAssignments.length > 0
     && combat.strikeAssignments.every(a => a.result === 'success');
 
