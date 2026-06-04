@@ -3242,6 +3242,7 @@ eligible for faction-influence bonuses gated on Leader status.
 ```
 
 Fields:
+
 - `keyword` — the keyword to grant (e.g. `"Leader"`).
 
 Implemented in `engine/legal-actions/organization-companies.ts`
