@@ -253,7 +253,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
         companies,
         ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
       })),
-      phaseState: { ...phaseState, characterPlayedThisTurn: true },
+      phaseState: { ...phaseState, characterPlayedThisTurn: true, lastPlayedCharacterDefinitionId: handCard.definitionId as string },
     }), affectedIds),
   };
 }
