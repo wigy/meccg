@@ -488,7 +488,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
           // untap-companion-at-site: enumerate tapped companions in the bearer's
           // company whose definition ID appears in the effect's `companionIds` list.
-          if (effect.action === 'untap-companion-at-site') {
+          // Only use this legacy path when `effect.targets` is absent (older data format).
+          if (effect.action === 'untap-companion-at-site' && !effect.targets) {
             const companionIds = (effect as { companionIds?: readonly string[] }).companionIds ?? [];
             const company = findCharacterCompany(player.companies, charId);
             if (!company) {
@@ -821,6 +822,37 @@ function enumerateGrantActionTargets(
         if (!itemDef) continue;
         if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
         matches.push(toCardInstance(item));
+      }
+    }
+  }
+
+  if (targets.scope === 'characters-at-site') {
+    // Find the bearer's current site
+    const bearerCompany = findCharacterCompany(player.companies, charId);
+    if (!bearerCompany?.currentSite) return [];
+    const bearerSiteDefId = bearerCompany.currentSite.definitionId as string;
+    const allowedDefIds = targets.definitionIds ?? [];
+
+    // Scan all companies across both players for characters at the same site
+    for (const p of state.players) {
+      for (const company of p.companies) {
+        if (!company.currentSite) continue;
+        if ((company.currentSite.definitionId as string) !== bearerSiteDefId) continue;
+        for (const memberId of company.characters) {
+          // Exclude the bearer themselves
+          if (memberId === charId) continue;
+          const member = p.characters[memberId as string];
+          if (!member) continue;
+          // Restrict to specified definition IDs if given
+          if (allowedDefIds.length > 0 && !allowedDefIds.includes(member.definitionId as string)) continue;
+          // Only include tapped/inverted characters — untapping an already-untapped character is pointless
+          if (member.status === CardStatus.Untapped) continue;
+          if (targets.filter) {
+            const memberDef = defById(state, member.definitionId);
+            if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+          }
+          matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
+        }
       }
     }
   }

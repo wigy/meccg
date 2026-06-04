@@ -320,7 +320,7 @@ describe('Tûma (as-5)', () => {
       phaseState: {
         phase: Phase.Organization,
         characterPlayedThisTurn: true,
-        lastPlayedCharacterDefinitionId: 'as-1',
+        buddyGroupPlayedThisTurn: ['as-1', 'as-5', 'as-6'],
         sideboardFetchedThisTurn: 0,
         sideboardFetchDestination: null,
       } as GameState['phaseState'],
@@ -354,7 +354,7 @@ describe('Tûma (as-5)', () => {
       phaseState: {
         phase: Phase.Organization,
         characterPlayedThisTurn: true,
-        lastPlayedCharacterDefinitionId: 'as-3',
+        // Mîonid is not in any buddy group — buddyGroupPlayedThisTurn is absent
         sideboardFetchedThisTurn: 0,
         sideboardFetchDestination: null,
       } as GameState['phaseState'],

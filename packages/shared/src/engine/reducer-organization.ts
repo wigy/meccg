@@ -7,6 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect } from '../index.js';
+import type { PlayFlagEffect } from '../types/effects.js';
 import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
@@ -243,6 +244,22 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   // and the opponent can reveal it again.
   const clearRingwraithFlag = player.ringwraithReturnedToHand === handCard.definitionId;
 
+  // Buddy-play group tracking: when a character with the buddy-play flag is played,
+  // record its definition ID and all companion IDs so its companions may also be
+  // played this turn without consuming the one-character-per-turn slot.
+  const buddyPlayEffect = (charDef.effects ?? []).find(
+    (e): e is PlayFlagEffect => e.type === 'play-flag' && e.flag === 'buddy-play',
+  );
+  const newBuddyGroup: string[] = [...(phaseState.buddyGroupPlayedThisTurn ?? [])];
+  if (buddyPlayEffect) {
+    const charDefId = handCard.definitionId as string;
+    if (!newBuddyGroup.includes(charDefId)) newBuddyGroup.push(charDefId);
+    for (const companion of buddyPlayEffect.companions ?? []) {
+      if (!newBuddyGroup.includes(companion)) newBuddyGroup.push(companion);
+    }
+    logDetail(`  Buddy-play group updated: [${newBuddyGroup.join(', ')}]`);
+  }
+
   return {
     state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({
@@ -253,7 +270,12 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
         companies,
         ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
       })),
-      phaseState: { ...phaseState, characterPlayedThisTurn: true, lastPlayedCharacterDefinitionId: handCard.definitionId as string },
+      phaseState: {
+        ...phaseState,
+        characterPlayedThisTurn: true,
+        lastPlayedCharacterDefinitionId: handCard.definitionId as string,
+        ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
+      },
     })), affectedIds),
   };
 }
@@ -793,6 +815,42 @@ function runGrantApply(
       ? { ...char, status: statusEnum }
       : char;
     return { updatedChar, effects: [], stateOps: [] };
+  }
+
+  // target-instance: apply a status change to any character in any company/player
+  // by instance ID (used by untap-companion-at-site — target may be in a different company).
+  if (apply.type === 'set-character-status' && apply.target === 'target-instance') {
+    if (apply.status === undefined) {
+      return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
+    }
+    const targetCardId = ctx.action.targetCardId;
+    if (!targetCardId) {
+      return { error: `set-character-status target-instance: action has no targetCardId on ${ctx.sourceName}` };
+    }
+    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
+      : apply.status === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    // Find the target across all players
+    for (let pi = 0; pi < newPlayers.length; pi++) {
+      const p = newPlayers[pi];
+      const targetChar = p.characters[targetCardId as string];
+      if (!targetChar) continue;
+      const targetDef = defById(state, targetChar.definitionId);
+      const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
+      logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} (player ${p.id as string}) → status ${apply.status}`);
+      newPlayers[pi] = {
+        ...p,
+        characters: {
+          ...p.characters,
+          [targetCardId as string]: { ...targetChar, status: statusEnum },
+        },
+      };
+      const updatedChar2 = targetCardId === ctx.action.characterId
+        ? { ...char, status: statusEnum }
+        : char;
+      return { updatedChar: updatedChar2, effects: [], stateOps: [] };
+    }
+    return { error: `set-character-status target-instance: target ${targetCardId as string} not found` };
   }
 
   if (apply.type === 'increment-company-extra-region-distance') {
