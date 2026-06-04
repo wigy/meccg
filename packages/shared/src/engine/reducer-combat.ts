@@ -1334,25 +1334,70 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
     }
 
-    // Check if the character is protected from body check elimination.
-    // protect-from-body-check on an attached item suppresses the elimination.
+    // Check if the character's printed discard number (discardBodyCheck) is triggered.
+    // When the body check roll matches a value in the character's discardBodyCheck array,
+    // the character is discarded to the discard pile (not eliminated).
+    // protect-from-body-check on an attached item suppresses this discard, leaving the character wounded.
     // Allies cannot benefit from this protection.
-    if (!allyMatch && charData && effectiveRoll > body) {
-      const isProtected = charData.items.some(item => {
-        const itemDef = state.cardPool[item.definitionId as string];
-        return getCardEffects(itemDef).some(e => e.type === 'protect-from-body-check');
-      });
-      if (isProtected) {
-        logDetail('Character protected from body check elimination (protect-from-body-check)');
-        const protectedAssignments = combat.strikeAssignments.map((a, i) =>
-          i === combat.currentStrikeIndex ? { ...a, result: 'wounded' as const } : a,
-        );
-        const combatProtected = { ...combat, strikeAssignments: protectedAssignments };
-        const nextProtected = nextStrikePhase(combatProtected);
-        if (nextProtected) {
-          return { state: { ...stateWithRoll, combat: { ...combatProtected, ...nextProtected } }, effects };
+    if (!allyMatch && charData) {
+      const charDefForDiscard = defById(stateWithRoll, charData.definitionId);
+      const discardBodyCheckValues = isCharacterCard(charDefForDiscard) && charDefForDiscard.cardType === 'minion-character' && charDefForDiscard.discardBodyCheck != null
+        ? charDefForDiscard.discardBodyCheck
+        : [];
+      if ((discardBodyCheckValues).includes(effectiveRoll)) {
+        const isProtected = charData.items.some(item => {
+          const itemDef = state.cardPool[item.definitionId as string];
+          return getCardEffects(itemDef).some(e => e.type === 'protect-from-body-check');
+        });
+        if (isProtected) {
+          logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — discard suppressed by protect-from-body-check; character survives wounded`);
+          const survivedAssignments = combat.strikeAssignments.map((a, i) =>
+            i === combat.currentStrikeIndex ? { ...a, result: 'wounded' as const } : a,
+          );
+          const combatSurvived = { ...combat, strikeAssignments: survivedAssignments };
+          const nextSurvived = nextStrikePhase(combatSurvived);
+          if (nextSurvived) {
+            return { state: { ...stateWithRoll, combat: { ...combatSurvived, ...nextSurvived } }, effects };
+          }
+          return finalizeCombat(stateWithRoll, effects);
         }
-        return finalizeCombat(stateWithRoll, effects);
+        logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — character discarded to discard pile`);
+        const discardAssignments = combat.strikeAssignments.map((a, i) => {
+          if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+          if (!a.resolved && a.characterId === strike.characterId) {
+            logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
+            return { ...a, resolved: true, result: 'success' as const };
+          }
+          return a;
+        });
+        const newPlayersDiscard = clonePlayers(stateWithRoll);
+        const newPlayerDataDiscard = { ...defPlayer };
+        const combatWithBodyCheckDiscard = { ...combat, strikeAssignments: discardAssignments };
+        if (company) {
+          newPlayerDataDiscard.companies = newPlayerDataDiscard.companies.map(c =>
+            c.id === combat.companyId
+              ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+              : c,
+          );
+        }
+        const discardedCharDefId = resolveInstanceId(state, strike.characterId);
+        newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
+        for (const ally of charData.allies) {
+          logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
+          newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(ally)];
+        }
+        for (const item of charData.items) {
+          logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
+          newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(item)];
+        }
+        const { [strike.characterId as string]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
+        newPlayerDataDiscard.characters = remainingCharsDiscard;
+        newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
+        const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
+        if (nextBodyCheckDiscard) {
+          return { state: { ...stateWithRoll, players: newPlayersDiscard, combat: { ...combatWithBodyCheckDiscard, ...nextBodyCheckDiscard } }, effects };
+        }
+        return finalizeCombat({ ...stateWithRoll, players: newPlayersDiscard, combat: combatWithBodyCheckDiscard }, effects);
       }
     }
 

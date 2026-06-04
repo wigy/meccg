@@ -2622,10 +2622,11 @@ export interface GrantKeywordEffect extends EffectBase {
 }
 
 /**
- * Protects the bearer from being eliminated or discarded as a result of a
- * failed body check. When a body check roll would normally eliminate the bearer
- * (roll > body), the negative result is suppressed and the bearer remains in
- * play in their current status (typically wounded/inverted after the strike).
+ * Suppresses the bearer's printed discard-number check (`discardBodyCheck`) during
+ * a regular combat body check. When the body check roll matches a value in the
+ * character's `discardBodyCheck` array (e.g. roll = 8 for characters with
+ * `discardBodyCheck: [8]`), the discard is prevented and the bearer remains in
+ * play wounded instead. Does NOT protect against elimination (roll > body).
  *
  * Used by *By the Ringwraith's Word* (le-174): "cannot be discarded by a body
  * check."

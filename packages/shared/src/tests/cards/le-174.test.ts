@@ -23,7 +23,7 @@
  * | 3 | Target character becomes a leader (if not already)             | IMPLEMENTED |
  * | 4 | +4 direct influence for the bearer against characters in his  | IMPLEMENTED |
  * |   | own company                                                    |             |
- * | 5 | Bearer cannot be discarded by a body check                     | IMPLEMENTED |
+ * | 5 | Bearer's discardBodyCheck is suppressed (not elimination)      | IMPLEMENTED |
  * | 6 | Auto-discard while a character in bearer's company has a       | IMPLEMENTED |
  * |   | higher mind than the bearer                                    |             |
  * | 7 | Cannot be duplicated by a given player (per-player copy limit) | IMPLEMENTED |
@@ -380,9 +380,14 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
   });
 
   // ── Rule 5: Cannot be discarded by a body check ──────────────────────────
+  //
+  // Grishnákh has discardBodyCheck: [8] — a body check roll of exactly 8
+  // sends him to the discard pile. "By the Ringwraith's Word" suppresses that
+  // specific discard-number check, leaving him wounded instead.
+  // The card does NOT protect against elimination (roll > body).
 
-  test('while attached, a failed body check on the bearer does NOT eliminate him', () => {
-    // Grishnákh body=8; a roll > 8 would normally eliminate him.
+  test('while attached, a body check matching the discard number does not discard the bearer', () => {
+    // Roll = 8 hits Grishnákh's discardBodyCheck; card suppresses → survives wounded.
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -412,24 +417,24 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     const grishnakhId = findCharInstanceId(base, RESOURCE_PLAYER, GRISHNAKH);
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
 
-    // Put Grishnákh in wounded status (pre-body-check)
     const wounded = setCharStatus(base, RESOURCE_PLAYER, GRISHNAKH, CardStatus.Inverted);
     const readyState = {
       ...wounded,
       phaseState: makeShadowMHState(),
       combat: makeBodyCheckCombat({ companyId, characterId: grishnakhId }),
-      cheatRollTotal: 12, // roll 12 > body 8 → would normally eliminate
+      cheatRollTotal: 8, // roll 8 ∈ discardBodyCheck → would normally discard
     };
 
     const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    // Grishnákh must still be in play (not in outOfPlayPile)
+    // With the card: discard suppressed, Grishnákh remains in play
     expect(afterCheck.players[0].characters[grishnakhId as string]).toBeDefined();
+    expect(afterCheck.players[0].discardPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
     expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
   });
 
-  test('without the card, a failed body check eliminates the character', () => {
-    // Same scenario but without the card attached — Grishnákh should be eliminated.
+  test('without the card, a body check matching the discard number discards the bearer', () => {
+    // Roll = 8 hits Grishnákh's discardBodyCheck → goes to discard pile.
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -464,12 +469,59 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
       ...wounded,
       phaseState: makeShadowMHState(),
       combat: makeBodyCheckCombat({ companyId, characterId: grishnakhId }),
-      cheatRollTotal: 12,
+      cheatRollTotal: 8, // roll 8 ∈ discardBodyCheck → discarded
     };
 
     const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    // Without the card, Grishnákh should be eliminated
+    // Without the card: Grishnákh is in the discard pile (not eliminated)
+    expect(afterCheck.players[0].characters[grishnakhId as string]).toBeUndefined();
+    expect(afterCheck.players[0].discardPile.some(c => c.definitionId === GRISHNAKH)).toBe(true);
+    expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
+  });
+
+  test('with the card attached, a body check roll above body still eliminates the bearer', () => {
+    // protect-from-body-check only blocks the discard-number check, not elimination.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: ETTENMOORS, characters: [{ defId: GRISHNAKH, items: [BY_THE_RINGWRAITHS_WORD] }] },
+          ],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [HOARMURATH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const grishnakhId = findCharInstanceId(base, RESOURCE_PLAYER, GRISHNAKH);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+
+    const wounded = setCharStatus(base, RESOURCE_PLAYER, GRISHNAKH, CardStatus.Inverted);
+    const readyState = {
+      ...wounded,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: grishnakhId }),
+      cheatRollTotal: 12, // roll 12 > body 8 → eliminated even with card
+    };
+
+    const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
+
+    // Card does not protect from elimination — Grishnákh is eliminated
     expect(afterCheck.players[0].characters[grishnakhId as string]).toBeUndefined();
     expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(true);
   });
