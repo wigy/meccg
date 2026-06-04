@@ -550,6 +550,14 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animals",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["wilderness", "wilderness"] },
+      { "regionTypes": ["coastal"] },
+      { "siteNames": ["Moria"] }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character" }
+    ],
+    "certified": "2026-06-04"
   }
 ]
