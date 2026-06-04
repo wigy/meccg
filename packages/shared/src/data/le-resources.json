@@ -1488,9 +1488,33 @@
     "unique": true,
     "marshallingPoints": 4,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "siteType": "ruins-and-lairs",
+        "when": {
+          "site.region": {
+            "$in": [
+              "Forochel",
+              "Withered Heath"
+            ]
+          }
+        }
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Wargs of the Forochel"
+        }
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-faction",

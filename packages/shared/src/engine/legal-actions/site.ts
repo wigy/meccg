@@ -47,6 +47,7 @@ function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
     site: {
       name: siteDef.name,
       siteType: siteDef.siteType,
+      region: siteDef.region,
       autoAttack: { race: autoAttackRaces },
     },
   };
