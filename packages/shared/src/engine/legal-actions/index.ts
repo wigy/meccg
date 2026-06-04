@@ -56,10 +56,10 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
 
   for (const source of effect.source) {
     const pile = source === 'sideboard' ? player.sideboard
-      : source === 'deck' ? player.playDeck
+      : (source === 'deck' || source === 'play-deck') ? player.playDeck
       : player.discardPile;
     const pileSource: 'sideboard' | 'discard-pile' | 'deck' = source === 'sideboard' ? 'sideboard'
-      : source === 'deck' ? 'deck'
+      : (source === 'deck' || source === 'play-deck') ? 'deck'
       : 'discard-pile';
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
