@@ -1526,17 +1526,60 @@
   },
   {
     "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-274",
+    "name": "Orcs of Angmar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofAngmar.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Mount Gram"
+      }
+    ],
+    "text": "Unique. Playable at Mount Gram if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Morgul-orcs (+2), Orcs of Gundabad (-2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
     "id": "le-276",
     "name": "Orcs of Gundabad",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofGundabad.jpg",
-    "text": "Unique. Playable at Mount Gundabad if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. Standard Modifications: Grey Mountain Goblins (+2), Orcs of Angmar (-2).",
-    "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Mount Gundabad"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Grey Mountain Goblins"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Angmar"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Mount Gundabad if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. Standard Modifications: Grey Mountain Goblins (+2), Orcs of Angmar (-2).",
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-faction",
