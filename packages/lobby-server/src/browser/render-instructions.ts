@@ -416,7 +416,11 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       case 'enter-or-skip': label = 'Skip'; break;
       case 'play-resources': label = 'Pass'; break;
       case 'play-minor-item': label = 'Pass'; break;
-      case 'declare-company-attack': label = view.combat ? 'Pass' : 'Skip CvCC'; break;
+      case 'declare-company-attack': {
+        const hasAttack = view.legalActions.some(ea => ea.viable && ea.action.type === 'declare-company-attack');
+        label = hasAttack ? 'Skip CvCC' : 'Pass';
+        break;
+      }
       default: label = 'Continue';
     }
   } else if (view.phaseState.phase === Phase.EndOfTurn) {
