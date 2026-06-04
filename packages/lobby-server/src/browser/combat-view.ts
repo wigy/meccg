@@ -455,7 +455,7 @@ function renderAttackerRow(
         if (!char) continue;
         container.appendChild(renderCvCCAttackerCharacterColumn(
           char, cardPool, combat, attackerStrikeMap,
-          selectableAttackerIds, selectedCvCCAttacker as CardInstanceId | null,
+          selectableAttackerIds, selectedCvCCAttacker,
           selectedCvCCDefender, isCvCCDefenderPhaseWithSelection, onAction,
         ));
       }
