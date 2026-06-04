@@ -1381,6 +1381,38 @@ export function addCardToHand(
 }
 
 /**
+ * Add a card (by definition ID) to the front of a player's play deck.
+ * Mints a new instance and prepends it so the card is at the top.
+ */
+export function addCardToPlayDeck(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): GameState {
+  const card = { instanceId: mint(), definitionId: defId };
+  const updated = { ...state.players[playerIdx], playDeck: [card, ...state.players[playerIdx].playDeck] };
+  const p0 = playerIdx === 0 ? updated : state.players[0];
+  const p1 = playerIdx === 1 ? updated : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/**
+ * Add a card (by definition ID) to the end of a player's discard pile.
+ * Mints a new instance and appends it.
+ */
+export function addCardToDiscardPile(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): GameState {
+  const card = { instanceId: mint(), definitionId: defId };
+  const updated = { ...state.players[playerIdx], discardPile: [...state.players[playerIdx].discardPile, card] };
+  const p0 = playerIdx === 0 ? updated : state.players[0];
+  const p1 = playerIdx === 1 ? updated : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/**
  * Place an on-guard card on a player's company and return the updated
  * GameState + card. Cards are placed face-down by default; pass
  * `revealed: true` to place a pre-revealed card (e.g. for testing the

@@ -296,6 +296,12 @@ export interface PendingResolution {
         readonly rollTotal: number;
         /** If true, the ring enters play stored rather than attached (Rule 9.22 Darkhaven path). */
         readonly storedPlacement: boolean;
+        /**
+         * Categories for which the player may search play deck and discard pile
+         * (from a `ring-test-search` effect on the tested gold ring, e.g. Gleaming
+         * Gold Ring can search for a Lesser Ring regardless of roll).
+         */
+        readonly searchCategories?: readonly import('../types/effects.js').RingCategory[];
       }
     | {
         /**
