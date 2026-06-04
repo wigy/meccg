@@ -274,7 +274,42 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "spiders",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      },
+      {
+        "regionNames": [
+          "Heart of Mirkwood",
+          "Southern Mirkwood",
+          "Western Mirkwood",
+          "Woodland Realm"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-body-check-equals-body",
+        "apply": {
+          "type": "discard-character"
+        },
+        "when": {
+          "$not": {
+            "target.race": {
+              "$in": [
+                "wizard",
+                "ringwraith"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "hazard-creature",
