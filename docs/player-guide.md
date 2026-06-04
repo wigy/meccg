@@ -13,6 +13,7 @@ Click the **bug icon** during a game to file a report. Bug reports can only be s
 You do not need to describe the game situation. The AI has full access to the complete game log and state, so it already knows everything about what happened. Just describe what you observed or expected and let the AI figure out the context.
 
 Good bug reports:
+
 - "The hazard limit showed 2 but I counted 3 hazards played."
 - "Gandalf's special ability did not trigger when expected."
 - "The game froze after I clicked Enter Site."

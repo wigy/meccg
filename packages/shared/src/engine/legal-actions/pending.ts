@@ -1636,6 +1636,54 @@ function ringPlayOfferActions(
     });
   }
 
+  // ring-test-search: also offer cards from play deck and discard pile for
+  // categories that the gold ring's ring-test-search effect covers.
+  const { searchCategories } = top.kind;
+  if (searchCategories && searchCategories.length > 0) {
+    const searchSources: Array<{ pile: typeof player.hand; source: 'play-deck' | 'discard-pile' }> = [
+      { pile: player.playDeck, source: 'play-deck' },
+      { pile: player.discardPile, source: 'discard-pile' },
+    ];
+    for (const { pile, source } of searchSources) {
+      for (const card of pile) {
+        const def = defById(state, card.definitionId);
+        if (!def) continue;
+        if (!('subtype' in def) || (def as { subtype?: string }).subtype !== 'special') continue;
+        const keywords: readonly string[] = ('keywords' in def && Array.isArray((def as { keywords?: unknown }).keywords))
+          ? (def as unknown as { keywords: readonly string[] }).keywords
+          : [];
+        if (!keywords.includes('ring')) continue;
+        const category = (searchCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
+        if (!category) continue;
+        const charDupLimit = (def as unknown as { effects?: CardEffect[] }).effects?.find(
+          (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+        );
+        if (charDupLimit) {
+          const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
+          const targetChar = player.characters[characterInstanceId as string];
+          const copiesOnChar = targetChar?.items.filter(item => {
+            const iDef = defById(state, item.definitionId);
+            return iDef?.name === def.name;
+          }).length ?? 0;
+          if (copiesOnChar >= charDupLimit.max) {
+            logDetail(`ring-play-offer (search): ${def.name} blocked by duplication-limit (${copiesOnChar}/${charDupLimit.max})`);
+            continue;
+          }
+        }
+        logDetail(`ring-play-offer: offering ${def.name} (${card.instanceId as string}) from ${source} — category ${category} (ring-test-search)`);
+        actions.push({
+          action: {
+            type: 'play-ring-after-test' as const,
+            player: actor,
+            ringInstanceId: card.instanceId,
+            source,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
   return actions;
 }
 

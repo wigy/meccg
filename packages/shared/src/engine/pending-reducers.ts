@@ -37,7 +37,7 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
-import type { RingTestTableEffect } from '../types/effects.js';
+import type { RingTestTableEffect, RingTestSearchEffect } from '../types/effects.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
 
 /**
@@ -1448,6 +1448,16 @@ function applyGoldRingTestResolution(
   const eligibleCategories = tableEffect ? eligibleRingCategories(tableEffect.table, total) : [];
   logDetail(`Gold-ring test: roll total ${total} — eligible categories: ${eligibleCategories.join(', ') || 'none'}`);
 
+  // Collect search categories from ring-test-search effects (e.g. Gleaming Gold Ring
+  // lets the player search deck/discard for a lesser-ring when lesser-ring is eligible).
+  const searchEffect = effects.find((e): e is RingTestSearchEffect => (e as { type?: string }).type === 'ring-test-search');
+  const searchCategories = (searchEffect && (eligibleCategories as readonly string[]).includes(searchEffect.category))
+    ? [searchEffect.category] as const
+    : undefined;
+  if (searchCategories) {
+    logDetail(`Gold-ring test: ring-test-search active — player may search deck/discard for ${searchCategories.join(', ')}`);
+  }
+
   const postRoll = dequeueResolution(
     { ...updatePlayer(stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
     top.id,
@@ -1465,6 +1475,7 @@ function applyGoldRingTestResolution(
       eligibleCategories,
       rollTotal: total,
       storedPlacement,
+      ...(searchCategories ? { searchCategories } : {}),
     },
   });
 
@@ -1500,29 +1511,59 @@ function applyRingPlayOfferResolution(
   }
 
   const { characterInstanceId, storedPlacement } = top.kind;
-  const { ringInstanceId } = action;
+  const { ringInstanceId, source = 'hand' } = action;
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  // Locate ring in hand
-  const handIdx = player.hand.findIndex(c => c.instanceId === ringInstanceId);
-  if (handIdx < 0) {
-    return { state, error: `Ring ${ringInstanceId as string} not found in hand` };
+  // Locate ring in hand, play deck, or discard pile (ring-test-search support)
+  let ringCard: typeof player.hand[0];
+  let stateAfterRemove: GameState;
+  if (source === 'play-deck') {
+    const deckIdx = player.playDeck.findIndex(c => c.instanceId === ringInstanceId);
+    if (deckIdx < 0) {
+      return { state, error: `Ring ${ringInstanceId as string} not found in play deck` };
+    }
+    ringCard = player.playDeck[deckIdx];
+    stateAfterRemove = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      playDeck: p.playDeck.filter((_, i) => i !== deckIdx),
+    }));
+    logDetail(`ring-play-offer: found ${ringCard.definitionId as string} in play deck (ring-test-search)`);
+  } else if (source === 'discard-pile') {
+    const discardIdx = player.discardPile.findIndex(c => c.instanceId === ringInstanceId);
+    if (discardIdx < 0) {
+      return { state, error: `Ring ${ringInstanceId as string} not found in discard pile` };
+    }
+    ringCard = player.discardPile[discardIdx];
+    stateAfterRemove = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      discardPile: p.discardPile.filter((_, i) => i !== discardIdx),
+    }));
+    logDetail(`ring-play-offer: found ${ringCard.definitionId as string} in discard pile (ring-test-search)`);
+  } else {
+    const handIdx = player.hand.findIndex(c => c.instanceId === ringInstanceId);
+    if (handIdx < 0) {
+      return { state, error: `Ring ${ringInstanceId as string} not found in hand` };
+    }
+    ringCard = player.hand[handIdx];
+    stateAfterRemove = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: p.hand.filter((_, i) => i !== handIdx),
+    }));
   }
-  const ringCard = player.hand[handIdx];
+
   const ringDef = defById(state, ringCard.definitionId);
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
   // Locate the target character
-  const char = player.characters[characterInstanceId as string];
+  const char = stateAfterRemove.players[playerIndex].characters[characterInstanceId as string];
   if (!char) {
     return { state, error: `Character ${characterInstanceId as string} not found for ring placement` };
   }
   const charDef = resolveDef(state, characterInstanceId);
   logDetail(`ring-play-offer: playing ${ringName} (${ringInstanceId as string}) onto ${charDef?.name ?? (characterInstanceId as string)}${storedPlacement ? ' (stored)' : ''}`);
 
-  const newHandCards = player.hand.filter((_, i) => i !== handIdx);
   const newItem: CharacterInPlay['items'][0] = {
     instanceId: ringCard.instanceId,
     definitionId: ringCard.definitionId,
@@ -1534,9 +1575,8 @@ function applyRingPlayOfferResolution(
     items: [...char.items, newItem],
   };
 
-  const stateAfterPlay = updatePlayer(state, playerIndex, p => ({
+  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
     ...p,
-    hand: newHandCards,
     characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
   }));
 

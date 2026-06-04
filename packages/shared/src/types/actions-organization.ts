@@ -184,8 +184,14 @@ export interface PlayRingAfterTestAction {
   readonly type: 'play-ring-after-test';
   /** The ring's owner (who plays). */
   readonly player: PlayerId;
-  /** The special ring card instance from hand to play. */
+  /** The special ring card instance to play. */
   readonly ringInstanceId: CardInstanceId;
+  /**
+   * Where the ring card comes from. Defaults to `'hand'` when absent (the
+   * normal case). Set to `'play-deck'` or `'discard-pile'` when the card
+   * was found via a `ring-test-search` effect (e.g. Gleaming Gold Ring).
+   */
+  readonly source?: 'hand' | 'play-deck' | 'discard-pile';
 }
 
 /**
