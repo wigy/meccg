@@ -48,7 +48,16 @@ export type AttackSource =
    * `bearerCharacterId` is absent because the bearer is unknown until after
    * the attack resolves.
    */
-  | { readonly type: 'card-triggered-attack'; readonly cardInstanceId: CardInstanceId }
+  | {
+      readonly type: 'card-triggered-attack';
+      readonly cardInstanceId: CardInstanceId;
+      /**
+       * Attacks still to be triggered after the current one resolves
+       * (multi-attack form of `trigger-attack-on-play`). Empty / absent
+       * means this is the last (or only) attack in the sequence.
+       */
+      readonly remainingAttacks?: readonly { readonly creatureType: string; readonly strikes: number; readonly prowess: number }[];
+    }
   /**
    * Triggered by Lucky Search (tw-269) via the `deck-search-attack` DSL effect.
    * After the scout taps, cards are auto-revealed from the deck; the prowess

@@ -900,24 +900,73 @@ export interface PlayFlagEffect extends EffectBase {
 }
 
 /**
- * When present on a resource permanent event, causes the company to
- * face an automatic attack of the given type immediately after the card
- * enters play (attaches to a character). If all characters in the
- * company are tapped after combat, the card is discarded from its
- * bearer's items. Otherwise the bearer gains a `bearer-cannot-untap`
- * constraint (scoped `until-cleared`) so they remain tapped until the
- * card is stored.
- *
- * Used by *Rescue Prisoners* (tw-315): Spider, 2 strikes, prowess 7.
+ * One attack entry for the `trigger-attack-on-play` multi-attack form.
  */
-export interface TriggerAttackOnPlayEffect extends EffectBase {
-  readonly type: 'trigger-attack-on-play';
-  /** Creature type of the triggered attack (e.g. `"Spider"`). */
+export interface TriggerAttackEntry {
+  /** Creature type (e.g. `"Men"`). */
   readonly creatureType: string;
-  /** Number of strikes the attack delivers. */
+  /** Number of strikes. */
   readonly strikes: number;
   /** Prowess of each strike. */
   readonly prowess: number;
+}
+
+/**
+ * When present on a resource permanent event, causes the company to
+ * face one or more automatic attacks of the given type(s) immediately
+ * after the card enters play.
+ *
+ * **Single-attack form** (backward-compatible, used by Rescue Prisoners):
+ * `creatureType` + `strikes` + `prowess` at the top level. After combat,
+ * if no characters are untapped the card is discarded; otherwise a
+ * `select-card-bearer` pending resolution is queued — the chosen character
+ * taps, the card is attached to their items, and a `bearer-cannot-untap`
+ * constraint is added.
+ *
+ * **Multi-attack form**: provide an `attacks` array instead of the top-level
+ * fields. Each entry triggers in order; after all attacks resolve the same
+ * untapped-character check applies. The `afterAttack` field controls
+ * post-attack card placement:
+ * - `"attach-with-constraint"` (default) — existing Rescue Prisoners
+ *   behaviour: attach to bearer with `bearer-cannot-untap` constraint.
+ * - `"move-to-mp-pile"` — tap the chosen character but leave the card in
+ *   `cardsInPlay` (it already earns MPs there); no untap constraint.
+ *
+ * When `discardFactionsAtSite` is true, after bearer selection any faction
+ * cards in play belonging to the resource player that are playable at the
+ * company's current site are discarded to their owner's discard pile.
+ *
+ * Used by *Rescue Prisoners* (tw-315): single-attack form.
+ * Used by *Burning Rick, Cot, and Tree* (le-173): multi-attack form.
+ */
+export interface TriggerAttackOnPlayEffect extends EffectBase {
+  readonly type: 'trigger-attack-on-play';
+  /** Creature type of the triggered attack (single-attack form). */
+  readonly creatureType?: string;
+  /** Number of strikes the attack delivers (single-attack form). */
+  readonly strikes?: number;
+  /** Prowess of each strike (single-attack form). */
+  readonly prowess?: number;
+  /**
+   * Multi-attack form: array of attacks to trigger in sequence. When
+   * present, the top-level `creatureType`/`strikes`/`prowess` fields are
+   * ignored.
+   */
+  readonly attacks?: readonly TriggerAttackEntry[];
+  /**
+   * Post-attack card placement mode.
+   * - `"attach-with-constraint"` (default): attach to bearer's items,
+   *   add `bearer-cannot-untap` constraint (Rescue Prisoners behaviour).
+   * - `"move-to-mp-pile"`: tap bearer, leave card in `cardsInPlay` with
+   *   no untap constraint (Burning Rick behaviour).
+   */
+  readonly afterAttack?: 'attach-with-constraint' | 'move-to-mp-pile';
+  /**
+   * When true, after bearer selection discard any faction cards in play
+   * belonging to the active player that are playable at the company's
+   * current site.
+   */
+  readonly discardFactionsAtSite?: boolean;
 }
 
 /**
