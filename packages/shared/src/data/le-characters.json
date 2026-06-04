@@ -645,6 +645,10 @@
     "alignment": "ringwraith",
     "unique": true,
     "race": "troll",
+    "keywords": [
+      "Half-troll",
+      "Leader"
+    ],
     "skills": [
       "warrior",
       "ranger"
@@ -656,6 +660,52 @@
     "marshallingPoints": 3,
     "marshallingCategory": "character",
     "homesite": "Minas Morgul",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": {
+          "self.location": "Minas Morgul"
+        }
+      }
+    ],
+    "certified": "2026-06-03",
     "discardBodyCheck": [
       9
     ]
