@@ -428,6 +428,18 @@ export interface PendingResolution {
         readonly allyOwnerPlayerIndex: number;
         /** Instance ID of the source item (Bow of the Galadhrim) for logging. */
         readonly sourceItemInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Stench of Mordor: at the start of its site phase, the company must
+         * tap one untapped character if available. The resource player selects
+         * a character to tap, or passes if none are untapped.
+         */
+        readonly type: 'tap-one-character';
+        /** The company whose characters are eligible to tap. */
+        readonly companyId: CompanyId;
+        /** Definition ID of the source hazard card (Stench of Mordor). */
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 

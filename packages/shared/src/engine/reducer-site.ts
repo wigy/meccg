@@ -133,6 +133,82 @@ function enqueueSitePhaseRingAutoTests(
 }
 
 /**
+ * Fire `site-phase-company-begins` on-event effects for the given company.
+ *
+ * Scans both players' `cardsInPlay` for global permanent events (no companyId)
+ * that declare an `on-event: site-phase-company-begins` effect. The condition
+ * is evaluated against a context including:
+ *   - `company.siteRegionType` — region type of the site the company is at
+ *   - `inPlay` — list of card names currently in play
+ *
+ * When a match is found (currently only `apply: tap-one-character` is supported),
+ * a `tap-one-character` pending resolution is enqueued for the resource player.
+ * The player must then tap one untapped character in the company (or pass if none).
+ */
+function fireSitePhaseCompanyBeginsEvents(
+  state: GameState,
+  actor: PlayerId,
+  company: Company,
+): GameState {
+  if (!company.currentSite) return state;
+
+  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return state;
+
+  // Determine the region type of the company's current site.
+  const regionName = siteDef.region;
+  let siteRegionType: string | undefined;
+  if (regionName) {
+    for (const card of Object.values(state.cardPool)) {
+      if (card.cardType === 'region' && card.name === regionName) {
+        siteRegionType = (card as { regionType: string }).regionType;
+        break;
+      }
+    }
+  }
+
+  if (!siteRegionType) return state;
+
+  const inPlayNames = buildInPlayNames(state);
+  const ctx: Record<string, unknown> = {
+    company: { siteRegionType },
+    inPlay: inPlayNames,
+  };
+
+  let result = state;
+  for (let pi = 0; pi < 2; pi++) {
+    const p = result.players[pi];
+    for (const card of p.cardsInPlay) {
+      // Only global events (no companyId) fire this trigger.
+      if (card.companyId) continue;
+      const def = result.cardPool[card.definitionId as string];
+      for (const e of getCardEffects(def)) {
+        if (e.type !== 'on-event') continue;
+        if (e.event !== 'site-phase-company-begins') continue;
+        if (e.when && !matchesContext(e.when, ctx)) {
+          logDetail(`site-phase-company-begins: skipping "${def?.name ?? card.definitionId}" — condition not met (regionType=${siteRegionType})`);
+          continue;
+        }
+        if (e.apply?.type !== 'tap-one-character') continue;
+        logDetail(`site-phase-company-begins: "${def?.name ?? card.definitionId}" fires for company ${company.id as string} (regionType=${siteRegionType})`);
+        result = enqueueResolution(result, {
+          source: card.instanceId,
+          actor,
+          scope: { kind: 'company-site-subphase', companyId: company.id },
+          kind: {
+            type: 'tap-one-character',
+            companyId: company.id,
+            sourceDefinitionId: card.definitionId,
+          },
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Handle the 'select-company' action in the site phase: resource player
  * picks which company resolves its site phase next.
  *
@@ -175,6 +251,11 @@ function handleSiteSelectCompany(
   // site-phase-ring-auto-test: enqueue gold-ring-test resolutions for every
   // borne gold-ring item in the company, before the enter-or-skip decision.
   nextState = enqueueSitePhaseRingAutoTests(nextState, state.activePlayer!, company);
+
+  // site-phase-company-begins: scan all players' cardsInPlay for global
+  // permanent events that declare this trigger and enqueue tap-one-character
+  // resolutions when conditions match (e.g. Stench of Mordor).
+  nextState = fireSitePhaseCompanyBeginsEvents(nextState, state.activePlayer!, company);
 
   return { state: nextState };
 }
