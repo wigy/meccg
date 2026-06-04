@@ -234,9 +234,6 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "keywords": [
-      "shield"
-    ],
     "effects": [
       {
         "type": "absorb-wound",
