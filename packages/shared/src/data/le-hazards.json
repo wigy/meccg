@@ -640,7 +640,28 @@
     "eventType": "permanent",
     "keywords": [
       "environment"
-    ]
+    ],
+    "effects": [
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } },
+      {
+        "type": "on-event",
+        "event": "site-phase-company-begins",
+        "apply": { "type": "tap-one-character" },
+        "when": {
+          "$or": [
+            { "company.siteRegionType": "dark" },
+            {
+              "$and": [
+                { "company.siteRegionType": "shadow" },
+                { "inPlay": "Doors of Night" }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "hazard-event",

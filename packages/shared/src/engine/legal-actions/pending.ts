@@ -95,6 +95,8 @@ export function resolutionLegalActions(
       return ringPlayOfferActions(state, actor, top);
     case 'cvcc-ally-discard-roll':
       return cvccAllyDiscardRollActions(state, actor, top);
+    case 'tap-one-character':
+      return tapOneCharacterActions(state, actor, top);
   }
 }
 
@@ -1664,4 +1666,47 @@ function cvccAllyDiscardRollActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Legal actions while a `tap-one-character` resolution is pending.
+ *
+ * The resource player must tap one untapped character in the company.
+ * One `tap-character-by-effect` action is emitted per untapped character.
+ * A `pass` action is always emitted (required when no untapped characters remain).
+ */
+function tapOneCharacterActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'tap-one-character') return [];
+  const { companyId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  if (!ownerPlayer) return [];
+  const company = companyById(ownerPlayer.companies, companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const ch = ownerPlayer.characters[charId as string];
+    if (!ch || ch.status !== CardStatus.Untapped) continue;
+    const charDef = defById(state, ch.definitionId);
+    const charName = (charDef as { name?: string })?.name ?? (charId as string);
+    logDetail(`tap-one-character: offering ${charName} to tap`);
+    actions.push({
+      action: {
+        type: 'tap-character-by-effect' as const,
+        player: actor,
+        characterInstanceId: ch.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  // pass is always available (required when no untapped characters exist)
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
 }
