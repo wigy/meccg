@@ -18,10 +18,10 @@ import type {
   DuplicationLimitEffect,
   PlayConditionEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById, countCopiesInPlay } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, isCovertCompany } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -272,6 +272,9 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
     // play-target DSL: company-targeting permanent events get one action per qualifying company
     if (playTarget?.target === 'company') {
+      const companyDupLimit = def.effects?.find(
+        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+      );
       let anyTarget = false;
       for (const company of player.companies) {
         if (!company.currentSite) continue;
@@ -284,10 +287,30 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           return sum + (ch ? ch.allies.length : 0);
         }, 0);
         const memberCount = company.characters.length + allyCount;
+        // Company duplication limit: check cardsInPlay bound to this company
+        if (companyDupLimit) {
+          const existingCopies = state.players.reduce((count, p) =>
+            count + p.cardsInPlay.filter(c => {
+              const cDef = defById(state, c.definitionId);
+              return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (company.id as string);
+            }).length, 0,
+          );
+          if (existingCopies >= companyDupLimit.max) {
+            logDetail(`Permanent event ${def.name}: company duplication limit reached on ${company.id as string} (${existingCopies}/${companyDupLimit.max})`);
+            continue;
+          }
+        }
         if (playTarget.filter) {
-          const ctx = { target: { siteType, memberCount } };
+          const overt = !isCovertCompany(company, player, state);
+          const orcCount = company.characters.reduce((n, cId) => {
+            const ch = player.characters[cId as string];
+            if (!ch) return n;
+            const cDef = defById(state, ch.definitionId);
+            return n + (cDef && 'race' in cDef && (cDef as { race: string }).race === Race.Orc ? 1 : 0);
+          }, 0);
+          const ctx = { target: { siteType, memberCount, overt, orcCount } };
           if (!matchesCondition(playTarget.filter, ctx)) {
-            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount})`);
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount})`);
             continue;
           }
         }

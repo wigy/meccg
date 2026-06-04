@@ -20,7 +20,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
@@ -1630,6 +1630,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, attackBoostCtx);
+  const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
   // Total strikes resolution. Precedence:
   //   1. combat-one-strike-per-character → strikes = company.characters.length
@@ -1673,7 +1674,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackingPlayerId: hazardPlayerId,
     strikesTotal: totalStrikes,
     strikeProwess: effectiveProwess,
-    creatureBody: creatureDef.body,
+    creatureBody: effectiveBody,
     creatureRace,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
@@ -1974,8 +1975,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const inPlayNames = buildInPlayNames(current);
           const aa0 = autoAttacks[0];
           const race0 = normalizeCreatureRace(aa0.creatureType);
-          const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, { companyId: company.id });
-          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, { companyId: company.id });
+          const tidings0BoostCtx = { companyId: company.id };
+          const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, tidings0BoostCtx);
+          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, tidings0BoostCtx);
+          const body0 = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
           const aaAttackerChooses0 = aa0.combatRules?.includes('attacker-chooses-defenders') ?? false;
           logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
           const combat0: import('../types/state-combat.js').CombatState = {
@@ -1985,7 +1988,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             attackingPlayerId: hazardPlayerId,
             strikesTotal: strikes0,
             strikeProwess: prowess0,
-            creatureBody: aa0.body ?? null,
+            creatureBody: body0,
             creatureRace: race0,
             strikeAssignments: [],
             currentStrikeIndex: 0,

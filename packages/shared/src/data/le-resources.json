@@ -1320,7 +1320,43 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "target.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } },
+            { "target.overt": true },
+            { "target.orcCount": { "$gte": 2 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "target": "all-attacks"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": -1,
+        "target": "all-attacks"
+      },
+      {
+        "type": "on-event",
+        "event": "company-membership-changes",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-event",

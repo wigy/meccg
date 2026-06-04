@@ -18,6 +18,7 @@ export {
   resolveDrawModifier,
   resolveAttackProwess,
   resolveAttackStrikes,
+  resolveAttackBody,
   resolveCombatProwessBonus,
   resolveEnemyBody,
   resolveHandSize,

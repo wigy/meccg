@@ -19,7 +19,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
-import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
+import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
@@ -3518,8 +3518,10 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const def2 = destDefId2 ? defById(stateAfterCombat, destDefId2) : undefined;
         return def2 && isSiteCard(def2) ? def2 : undefined;
       })();
-      const prowess2 = resolveAttackProwess(stateAfterCombat, aa.prowess, inPlayNames2, race, true, undefined, { companyId: combat.companyId });
-      const strikes2 = resolveAttackStrikes(stateAfterCombat, aa.strikes, inPlayNames2, race, { companyId: combat.companyId });
+      const tidingsBoostCtx = { companyId: combat.companyId };
+      const prowess2 = resolveAttackProwess(stateAfterCombat, aa.prowess, inPlayNames2, race, true, undefined, tidingsBoostCtx);
+      const strikes2 = resolveAttackStrikes(stateAfterCombat, aa.strikes, inPlayNames2, race, tidingsBoostCtx);
+      const body2 = resolveAttackBody(stateAfterCombat, aa.body ?? null, inPlayNames2, race, tidingsBoostCtx);
       const aaAttackerChooses2 = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
       logDetail(`Tidings of Bold Spies: initiating attack ${attackIndex + 1}/${attacks.length}: ${aa.creatureType} (${strikes2} strikes, ${prowess2} prowess)`);
       const nextCombat: CombatState = {
@@ -3529,7 +3531,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         attackingPlayerId: combat.attackingPlayerId,
         strikesTotal: strikes2,
         strikeProwess: prowess2,
-        creatureBody: aa.body ?? null,
+        creatureBody: body2,
         creatureRace: race,
         strikeAssignments: [],
         currentStrikeIndex: 0,

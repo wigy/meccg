@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -542,8 +542,10 @@ function handleSiteAutomaticAttacks(
         const aa = duplicatableAttacks[duplicatesRun];
         const dupRace = normalizeCreatureRace(aa.creatureType);
         const inPlayNamesR = buildInPlayNames(state);
-        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true);
-        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace);
+        const dupBoostCtxR = { companyId: company.id };
+        const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
+        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, dupBoostCtxR);
+        const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
         const dupDetainmentR = isDetainmentAttack({
           attackEffects: siteDef.effects,
@@ -558,7 +560,7 @@ function handleSiteAutomaticAttacks(
           attackingPlayerId: hazardPlayer(state).id,
           strikesTotal: dupStrikesR,
           strikeProwess: dupProwessR,
-          creatureBody: aa.body ?? null,
+          creatureBody: dupBodyR,
           creatureRace: dupRace,
           strikeAssignments: [],
           currentStrikeIndex: 0,
@@ -590,8 +592,10 @@ function handleSiteAutomaticAttacks(
       const aa = autoAttacks[0];
       const inPlayNames2 = buildInPlayNames(state);
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
-      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, { companyId: company.id });
-      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, { companyId: company.id });
+      const dupBoostCtx = { companyId: company.id };
+      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
+      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, dupBoostCtx);
+      const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
       const dupDetainment = isDetainmentAttack({
@@ -607,7 +611,7 @@ function handleSiteAutomaticAttacks(
         attackingPlayerId: hazardPlayer(state).id,
         strikesTotal: dupStrikes,
         strikeProwess: dupProwess,
-        creatureBody: aa.body ?? null,
+        creatureBody: dupBody,
         creatureRace: creatureRace2,
         strikeAssignments: [],
         currentStrikeIndex: 0,
@@ -643,8 +647,10 @@ function handleSiteAutomaticAttacks(
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
-  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, { companyId: company.id });
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, { companyId: company.id });
+  const aaBoostCtx = { companyId: company.id };
+  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, aaBoostCtx);
+  const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
   // One-shot prowess boost from short-event environments like Choking
   // Shadows. Stored as an `attribute-modifier` constraint targeting
@@ -686,7 +692,7 @@ function handleSiteAutomaticAttacks(
     attackingPlayerId: hazardPlayerId,
     strikesTotal: strikesTotalValue,
     strikeProwess: effectiveProwess,
-    creatureBody: aa.body ?? null,
+    creatureBody: effectiveBody,
     creatureRace,
     strikeAssignments: preAssignedStrikes,
     currentStrikeIndex: 0,
@@ -973,6 +979,7 @@ function handleSitePlaySiteAutoAttack(
   const sitePlayedBoostCtx = { companyId: company.id, creatureInstanceId: creatureCard.instanceId };
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, undefined, sitePlayedBoostCtx);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, sitePlayedBoostCtx);
+  const effectiveSiteDynBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, sitePlayedBoostCtx);
 
   logDetail(`Site: hazard plays "${creatureDef.name}" as dynamic auto-attack (${effectiveStrikes} strikes, ${effectiveProwess} prowess) vs company ${company.id as string}`);
 
@@ -987,7 +994,7 @@ function handleSitePlaySiteAutoAttack(
     attackingPlayerId: hazardPlayerId,
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
-    creatureBody: creatureDef.body,
+    creatureBody: effectiveSiteDynBody,
     creatureRace,
     strikeAssignments: [],
     currentStrikeIndex: 0,
