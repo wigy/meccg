@@ -29,6 +29,7 @@ import type {
   CompanyModifierEffect,
   CardInstanceId,
   SiteCard,
+  CompanyId,
 } from '../../index.js';
 import { matchesCondition, matchesContext, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -203,14 +204,22 @@ export function collectEffects(
  * matching `target` scope are included (e.g. `"all-characters"` for character
  * stat computation, `"all-attacks"` for attack prowess).
  *
+ * When `defenderCompanyId` is provided (attack resolution), company-bound cards
+ * are filtered: only effects from cards bound to `defenderCompanyId` are included.
+ * When `defenderCompanyId` is omitted, company-bound cards are skipped entirely
+ * so their targeted effects do not apply globally to all companies.
+ *
  * @param state - The full game state.
  * @param targetScope - The target scope to filter for (e.g. "all-characters").
  * @param context - The resolver context for condition evaluation.
+ * @param defenderCompanyId - Optional ID of the company being attacked; scopes
+ *   company-bound card effects to only that company.
  */
 export function collectGlobalEffects(
   state: GameState,
   targetScope: string,
   context: ResolverContext,
+  defenderCompanyId?: CompanyId,
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
   const baseRecordContext = context as unknown as Record<string, unknown>;
@@ -218,6 +227,13 @@ export function collectGlobalEffects(
   // Both players' cards in play (events, factions, permanent resources, etc.)
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
+      // Company-bound cards: only include when the defending company matches.
+      // Without a defender context, skip company-bound cards entirely to
+      // prevent their targeted effects from applying globally.
+      if (card.companyId) {
+        if (!defenderCompanyId || card.companyId !== defenderCompanyId) continue;
+      }
+
       const def = resolveDef(state, card.instanceId);
       if (!def) continue;
       const effects = getCardEffects(def);
@@ -825,9 +841,9 @@ export function resolveAttackProwess(
   attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
   const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment);
-  const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
-    globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context));
+    globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
   }
   if (creatureSelf) {
     for (const effect of creatureSelf.effects) {
@@ -869,11 +885,38 @@ export function resolveAttackStrikes(
   attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
   const context = buildAttackContext(inPlayNames, creatureRace);
-  const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (attackBoostCtx) {
     globalEffects.push(...collectCreatureAttackBoostEffects(state, 'strikes', creatureRace, attackBoostCtx));
   }
   return resolveStatModifiers(globalEffects, 'strikes', baseStrikes, context);
+}
+
+/**
+ * Resolves attack body by applying global `all-attacks` stat-modifier effects
+ * with `stat: "body"` from events and cards in play. A lower body value means
+ * the creature is eliminated more easily (body check must exceed body).
+ *
+ * @param state - The full game state.
+ * @param baseBody - The creature's or automatic attack's base body (null means
+ *   no body check; returned as-is).
+ * @param inPlayNames - Names of all cards currently in play.
+ * @param creatureRace - The lowercase singular race of the attacking creature.
+ * @param attackBoostCtx - Optional company context for company-scoped modifiers.
+ * @returns The modified body value (minimum 0), or null if baseBody was null.
+ */
+export function resolveAttackBody(
+  state: GameState,
+  baseBody: number | null,
+  inPlayNames: readonly string[],
+  creatureRace?: string,
+  attackBoostCtx?: CreatureAttackBoostContext,
+): number | null {
+  if (baseBody === null) return null;
+  const context = buildAttackContext(inPlayNames, creatureRace);
+  const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
+  const modified = resolveStatModifiers(globalEffects, 'body', baseBody, context);
+  return Math.max(0, modified);
 }
 
 /**
