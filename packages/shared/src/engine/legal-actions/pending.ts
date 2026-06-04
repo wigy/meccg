@@ -1607,6 +1607,24 @@ function ringPlayOfferActions(
     // Find the ring's category from its keywords
     const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
     if (!category) continue;
+    // Duplication-limit scope "character": skip if the target character already
+    // holds the maximum number of copies of this ring (Rule text "Cannot be
+    // duplicated on a given character").
+    const charDupLimit = (def as unknown as { effects?: CardEffect[] }).effects?.find(
+      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+    );
+    if (charDupLimit) {
+      const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
+      const targetChar = player.characters[characterInstanceId as string];
+      const copiesOnChar = targetChar?.items.filter(item => {
+        const iDef = defById(state, item.definitionId);
+        return iDef?.name === def.name;
+      }).length ?? 0;
+      if (copiesOnChar >= charDupLimit.max) {
+        logDetail(`ring-play-offer: ${def.name} blocked by duplication-limit on character (${copiesOnChar}/${charDupLimit.max})`);
+        continue;
+      }
+    }
     logDetail(`ring-play-offer: offering ${def.name} (${card.instanceId as string}) — category ${category}`);
     actions.push({
       action: {
