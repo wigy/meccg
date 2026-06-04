@@ -65,3 +65,7 @@ Settings also contains an **Auto-pass** toggle that automatically takes the only
 ## Pseudo-AI Mode
 
 When starting a solo game, you can enable pseudo-AI mode. In this mode you control both sides: a separate panel appears so you can pick actions for the second player. This is useful for testing specific game situations without needing an opponent.
+
+## Keyboard
+
+There are keyboard shortcuts for many actions. To see them, press Shift.
