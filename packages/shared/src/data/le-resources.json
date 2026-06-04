@@ -1518,17 +1518,41 @@
   },
   {
     "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
     "id": "le-266",
     "name": "Grey Mountain Goblins",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GreyMountainGoblins.jpg",
-    "text": "Unique. Playable at Gondmaeglom if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Orcs of Gundabad (+2), Goblins of Goblin-gate (+2).",
-    "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Gondmaeglom"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Orcs of Gundabad"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Goblins of Goblin-gate"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Gondmaeglom if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Orcs of Gundabad (+2), Goblins of Goblin-gate (+2).",
+    "certified": "2026-06-04"
   },
   {
     "cardType": "minion-resource-faction",
