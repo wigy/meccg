@@ -18,12 +18,15 @@
  *   Letters were chosen over digits so the hand shortcuts 1..9,0 stay free.
  * - Shift (held): overlay the assigned key on every shortcut target.
  * - PageUp / PageDown: step one line back / forward through the per-game
- *   message log in the top-right panel. End jumps back to live tail.
- *   Rolling the mouse wheel while the cursor is over the panel scrolls one
- *   line per wheel tick.
+ *   message log in the top-right panel. Rolling the mouse wheel while the
+ *   cursor is over the panel scrolls one line per wheel tick.
+ * - End: open the full-screen map overlay.
  */
 
-import { pageHistoryUp, pageHistoryDown, scrollHistory, returnToLiveTail } from './render.js';
+import { pageHistoryUp, pageHistoryDown, scrollHistory } from './render.js';
+import { openFullMap } from './map-fullscreen.js';
+import { getLastView, getLastCardPool, getFocusedCompanyId, setFocusedCompanyId, setSavedFocusedCompanyId, rerender } from './company-view-state.js';
+import { areCoordinatesLoaded } from './map-coordinates.js';
 
 /** Digit keys in the order 1..9,0 — first 10 hand-card slots. */
 const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -368,6 +371,9 @@ function showShortcutLabels(): void {
 
   const toggle = document.querySelector<HTMLElement>('.company-view-toggle');
   if (toggle) placeLabel(toggle, 'Home');
+
+  const radar = document.querySelector<HTMLElement>('.map-radar');
+  if (radar) placeLabel(radar, 'End');
 
   // Own piles get Tab+letter labels.
   for (const { key, id } of TAB_PILE_BINDINGS) {
@@ -719,7 +725,24 @@ export function installKeyboardShortcuts(): void {
 
     if (e.key === 'End') {
       e.preventDefault();
-      returnToLiveTail();
+      const existing = document.querySelector<HTMLElement>('.map-fullscreen-overlay');
+      if (existing) {
+        existing.querySelector<HTMLButtonElement>('.map-fullscreen-close')?.click();
+        return;
+      }
+      const view = getLastView();
+      const pool = getLastCardPool();
+      if (view && pool && areCoordinatesLoaded()) {
+        const focusedId = getFocusedCompanyId();
+        const selfIdx = focusedId
+          ? view.self.companies.findIndex(c => c.id === focusedId)
+          : 0;
+        openFullMap(view, selfIdx < 0 ? 0 : selfIdx, pool, (idx) => {
+          setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
+          rerender();
+        });
+      }
       return;
     }
 

@@ -143,12 +143,15 @@ export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
  * Builds a {@link ResolverContext} for computing a character's effective stats.
  *
  * Includes `bearer` (the character), `target` (same character, for global
- * effects that filter by `target.race` etc.), and `inPlay` (names of all
- * events/cards in play for condition checking).
+ * effects that filter by `target.race` etc.), `inPlay` (names of all
+ * events/cards in play for condition checking), and `company.characterNames`
+ * (names of other characters in the same company, used for companion-conditional
+ * effects like the troll-triplet mind reduction).
  */
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
+  companionNames: readonly string[] = [],
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
@@ -156,6 +159,7 @@ function buildEffectiveStatsContext(
     bearer: charInfo,
     target: charInfo,
     inPlay: inPlayNames,
+    company: { characterNames: companionNames },
   };
 }
 
@@ -165,14 +169,19 @@ function buildEffectiveStatsContext(
  * Collects all effects from the character's card definition and their
  * equipped items, then resolves stat modifiers for each stat. Falls back
  * to the old hardcoded approach for items without effects arrays.
+ *
+ * @param companionNames Names of other characters in the same company (used
+ *   for companion-conditional stat modifiers like the troll-triplet mind
+ *   reduction). Pass an empty array when company composition is unknown.
  */
 function computeEffectiveStats(
   state: GameState,
   char: CharacterInPlay,
   charDef: CharacterCard,
   inPlayNames: readonly string[],
+  companionNames: readonly string[] = [],
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef, inPlayNames);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames);
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   const collected = [...charEffects, ...globalEffects];
@@ -203,6 +212,16 @@ function computeEffectiveStats(
     prowess = charDef.prowess;
     body = charDef.body;
     directInfluence = charDef.directInfluence;
+  }
+
+  // Resolve effective mind: only set if a stat-modifier for "mind" fires.
+  // charDef.mind is null for avatars; skip mind computation for them.
+  let effectiveMind: number | undefined;
+  if (hasAnyEffects && charDef.mind !== null) {
+    const mindModifiers = collected.filter(ce => ce.effect.type === 'stat-modifier' && 'stat' in ce.effect && ce.effect.stat === 'mind');
+    if (mindModifiers.length > 0) {
+      effectiveMind = resolveStatModifiers(mindModifiers, 'mind', charDef.mind, context);
+    }
   }
 
   // Per rule 9.15: prowess/body modifiers from items only apply while
@@ -263,13 +282,18 @@ function computeEffectiveStats(
     }
   }
 
-  return { prowess, body, directInfluence, corruptionPoints };
+  const result: EffectiveStats = { prowess, body, directInfluence, corruptionPoints };
+  if (effectiveMind !== undefined) {
+    return { ...result, mind: effectiveMind };
+  }
+  return result;
 }
 
 /** Returns true if two EffectiveStats are identical. */
 function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
   return a.prowess === b.prowess && a.body === b.body &&
-    a.directInfluence === b.directInfluence && a.corruptionPoints === b.corruptionPoints;
+    a.directInfluence === b.directInfluence && a.corruptionPoints === b.corruptionPoints &&
+    a.mind === b.mind;
 }
 
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
@@ -278,6 +302,29 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   let mp = ZERO_MARSHALLING_POINTS;
   let charactersChanged = false;
   const newCharacters: Record<string, CharacterInPlay> = {};
+
+  // Build a map from character instance ID → names of other characters in the
+  // same company, enabling companion-conditional stat modifiers (e.g. the
+  // troll-triplet mind reduction when Bûrat/Tûma/Wûluag are in the same company).
+  const companionNamesMap = new Map<string, string[]>();
+  for (const company of player.companies) {
+    // Collect all names in this company first
+    const namesInCompany: string[] = [];
+    for (const cid of company.characters) {
+      const ch = player.characters[cid as string];
+      if (!ch) continue;
+      const def = state.cardPool[ch.definitionId as string];
+      if (def && 'name' in def) namesInCompany.push((def as { name: string }).name);
+    }
+    // For each character, store the names of the OTHER company members
+    for (const cid of company.characters) {
+      const ch = player.characters[cid as string];
+      if (!ch) continue;
+      const def = state.cardPool[ch.definitionId as string];
+      const ownName = def && 'name' in def ? (def as { name: string }).name : null;
+      companionNamesMap.set(cid as string, namesInCompany.filter(n => n !== ownName));
+    }
+  }
 
   for (const [key, char] of Object.entries(player.characters)) {
     const charDef = resolveDef(state, char.instanceId);
@@ -293,9 +340,22 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         && c.kind.type === 'character-is-prisoner',
     );
 
-    // General influence: prisoners cost 0 GI; others under GI count normally
+    // Compute effective stats first so effective mind is available for GI.
+    const companionNames = companionNamesMap.get(key) ?? [];
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames);
+    if (statsEqual(char.effectiveStats, newStats)) {
+      newCharacters[key] = char;
+    } else {
+      newCharacters[key] = { ...char, effectiveStats: newStats };
+      charactersChanged = true;
+    }
+
+    // General influence: prisoners cost 0 GI; others under GI count normally.
+    // Use effective mind (from stat-modifier effects) when available, otherwise
+    // fall back to the base mind from the card definition.
     if (!isPrisoner && char.controlledBy === 'general' && charDef.mind !== null) {
-      generalInfluenceUsed += charDef.mind;
+      const mindCost = newStats.mind ?? charDef.mind;
+      generalInfluenceUsed += mindCost;
     }
 
     // Character MPs: prisoners contribute negative MPs
@@ -332,15 +392,6 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) mp = addMP(mp, allyDef);
-    }
-
-    // Effective stats
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames);
-    if (statsEqual(char.effectiveStats, newStats)) {
-      newCharacters[key] = char;
-    } else {
-      newCharacters[key] = { ...char, effectiveStats: newStats };
-      charactersChanged = true;
     }
   }
 

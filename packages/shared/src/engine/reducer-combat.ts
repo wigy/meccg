@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -38,6 +38,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
   switch (action.type) {
     case 'assign-strike':
       return handleAssignStrike(state, action, combat);
+    case 'allocate-cvcc-excess':
+      return handleAllocateCvccExcess(state, action, combat);
     case 'pass':
       return handleCombatPass(state, action, combat);
     case 'choose-strike-order':
@@ -243,16 +245,37 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   // CvCC assignment: no excess strikes — each attacker character backs one strike
   if (combat.isCvCC) {
     newAssignments = handleCvCCAssignment(combat, action);
-    logDetail(`CvCC: assignment updated — ${newAssignments.length} assignment(s), ${action.attackingCharacterId != null ? `attacker ${action.attackingCharacterId as string}` : 'reservation'} → defender ${action.characterId as string}`);
+    logDetail(`CvCC: assignment updated — ${newAssignments.length} assignment(s), attacker ${action.attackingCharacterId as string} → defender ${action.characterId as string}`);
 
     // Count how many attacking characters have been committed
     const pairedCount = countCvCCPairedAttackers(combat, newAssignments);
     const allPaired = pairedCount >= combat.strikesTotal;
 
+    // In defender-any, also auto-transition when no unassigned defenders remain
+    // (remaining unpaired attackers become excess, handled during strike sequence Step 2).
+    let noMoreDefenderAny = false;
+    if (!allPaired && combat.assignmentPhase === 'defender-any') {
+      const assignedDefIds = new Set(newAssignments.map(a => a.characterId as string));
+      const defPlayer = playerById(state, combat.defendingPlayerId);
+      const atkSrc = combat.attackSource;
+      const defCompany = defPlayer && atkSrc.type === 'company-attack'
+        ? companyById(defPlayer.companies, combat.companyId)
+        : null;
+      noMoreDefenderAny = defCompany
+        ? defCompany.characters.every(id => assignedDefIds.has(id as string))
+        : false;
+      if (noMoreDefenderAny) {
+        logDetail('CvCC defender-any: no unassigned defenders left, skipping remaining unpaired attackers to excess');
+      }
+    }
+
     let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
-    if (allPaired) {
+    if (allPaired || noMoreDefenderAny) {
+      // Compute excess pool: attackers beyond 1 per unique defending character
+      const uniqueDefs = new Set(newAssignments.map(a => a.characterId as string)).size;
+      const excessPool = combat.strikesTotal - uniqueDefs;
       const next = nextStrikePhase(newCombatState);
-      newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
+      newCombatState = { ...newCombatState, assignmentPhase: 'done', cvccExcessPool: excessPool > 0 ? excessPool : undefined, ...next };
     }
     return { state: { ...state, combat: newCombatState } };
   }
@@ -304,43 +327,38 @@ function countCvCCPairedAttackers(
 /**
  * Apply a CvCC strike assignment action to the current assignments array.
  *
- * Three cases:
- * 1. Defender phase: `attackingCharacterId` absent → add reservation for the defender.
- * 2. Attacker/defender-any phase with existing reservation for the defender:
- *    update the reservation to add the paired attacker.
- * 3. Attacker/defender-any phase with new defender target: add a new fully-paired entry.
+ * Every CvCC assignment always has both `characterId` AND `attackingCharacterId`
+ * set — there are no blind reservations. Both the defender phase (defender picks
+ * their char AND the attacker) and the attacker/defender-any phases create
+ * fully-paired entries directly.
  */
 function handleCvCCAssignment(
   combat: CombatState,
   action: { readonly characterId: CardInstanceId; readonly attackingCharacterId?: CardInstanceId },
 ): StrikeAssignment[] {
-  if (action.attackingCharacterId == null) {
-    // Defender phase: create reservation (no attacker yet)
-    return [...combat.strikeAssignments, {
-      characterId: action.characterId,
-      excessStrikes: 0,
-      resolved: false,
-    }];
-  }
-
-  // Attacker/defender-any phase: find existing reservation for this defender
-  const reservationIdx = combat.strikeAssignments.findIndex(
-    a => a.characterId === action.characterId && a.attackingCharacterId == null,
-  );
-  if (reservationIdx >= 0) {
-    // Update reservation to pair with attacker
-    return combat.strikeAssignments.map((a, i) =>
-      i === reservationIdx ? { ...a, attackingCharacterId: action.attackingCharacterId } : a,
-    );
-  }
-
-  // New defender target: create fully-paired entry
+  // Always create a new fully-paired entry (no reservation path)
   return [...combat.strikeAssignments, {
     characterId: action.characterId,
     attackingCharacterId: action.attackingCharacterId,
     excessStrikes: 0,
     resolved: false,
   }];
+}
+
+/** CvCC rule 3.V.ii: attacker allocates one excess strike as -1 to current strike's defender. */
+function handleAllocateCvccExcess(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'allocate-cvcc-excess') return wrongActionType(state, action, 'allocate-cvcc-excess');
+  const pool = combat.cvccExcessPool ?? 0;
+  if (pool <= 0) return { state, error: 'No excess strikes left to allocate' };
+  const sa = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!sa) return { state, error: 'No current strike to apply excess to' };
+  const updatedAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
+  );
+  logDetail(`CvCC excess allocation: -1 applied to strike ${combat.currentStrikeIndex} (${pool - 1} remaining in pool)`);
+  return {
+    state: { ...state, combat: { ...combat, strikeAssignments: updatedAssignments, cvccExcessPool: pool - 1 || undefined } },
+  };
 }
 
 /** Defender passes during strike assignment — attacker assigns remaining. */
@@ -414,19 +432,35 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     }
 
     if (combat.assignmentPhase === 'attacker') {
-      // Attacker done — check if any unpaired attackers remain for defender-any phase
+      // Attacker done — check if any unpaired attackers remain
       const pairedCount = countCvCCPairedAttackers(combat, combat.strikeAssignments);
       if (pairedCount < combat.strikesTotal) {
-        logDetail(`CvCC: attacker passed phase 2 — ${combat.strikesTotal - pairedCount} unpaired attacker(s), entering defender-any`);
-        return {
-          state: { ...state, combat: { ...combat, assignmentPhase: 'defender-any' } },
-        };
+        // Only enter defender-any if there are unassigned defending characters left.
+        // If all defenders already have an assignment, excess attackers are resolved
+        // as a prowess pool (Step 2 of each strike sequence) — skip defender-any.
+        const assignedDefIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
+        const defPlayer = playerById(state, combat.defendingPlayerId);
+        const defCompany = defPlayer
+          ? companyById(defPlayer.companies, combat.companyId)
+          : null;
+        const hasUnassignedDefs = defCompany
+          ? defCompany.characters.some(id => !assignedDefIds.has(id as string))
+          : false;
+        if (hasUnassignedDefs) {
+          logDetail(`CvCC: attacker passed phase 2 — ${combat.strikesTotal - pairedCount} unpaired attacker(s), entering defender-any`);
+          return {
+            state: { ...state, combat: { ...combat, assignmentPhase: 'defender-any' } },
+          };
+        }
+        logDetail(`CvCC: attacker passed phase 2 — unpaired attackers are excess (no unassigned defenders), skipping defender-any`);
       }
-      // All attackers paired — proceed to resolve
-      logDetail('CvCC: all attackers paired — transitioning to resolve');
+      // All attackers paired (or no unassigned defenders remain) — proceed to resolve
+      const uniqueDefs = new Set(combat.strikeAssignments.map(a => a.characterId as string)).size;
+      const excessPool = combat.strikesTotal - uniqueDefs;
+      logDetail('CvCC: transitioning to resolve');
       const next = nextStrikePhase(combat);
       return {
-        state: { ...state, combat: { ...combat, assignmentPhase: 'done', ...next } },
+        state: { ...state, combat: { ...combat, assignmentPhase: 'done', cvccExcessPool: excessPool > 0 ? excessPool : undefined, ...next } },
       };
     }
   }
@@ -813,16 +847,19 @@ function resolveStrikeCvCC(
   const defRoll = defRollResult.roll;
   const defTotal = defRoll.die1 + defRoll.die2 + defProwess;
 
-  logDetail(`CvCC dual-roll: ${atkCharName} rolls ${atkRoll.die1}+${atkRoll.die2}=${atkRoll.die1 + atkRoll.die2} + prowess ${atkProwess} = ${atkTotal}`);
-  logDetail(`CvCC dual-roll: ${defCharName} rolls ${defRoll.die1}+${defRoll.die2}=${defRoll.die1 + defRoll.die2} + prowess ${defProwess} = ${defTotal}`);
+  logDetail(`CvCC dual-roll: ${atkCharName} (${atkPlayer.name}) rolls ${atkRoll.die1}+${atkRoll.die2}=${atkRoll.die1 + atkRoll.die2} + prowess ${atkProwess} = ${atkTotal} (lastDiceRoll → players[${atkPlayerIdx}])`);
+  logDetail(`CvCC dual-roll: ${defCharName} (${defPlayer.name}) rolls ${defRoll.die1}+${defRoll.die2}=${defRoll.die1 + defRoll.die2} + prowess ${defProwess} = ${defTotal} (lastDiceRoll → players[${defPlayerIdx}])`);
 
   const effects: GameEffect[] = [
-    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`),
-    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`),
+    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`, atkTotal),
+    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`, defTotal),
   ];
 
   // Determine outcome
   const newPlayers = clonePlayers(state);
+  // Store dice rolls so the UI can display them in the text log
+  newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], lastDiceRoll: atkRoll };
+  newPlayers[defPlayerIdx] = { ...newPlayers[defPlayerIdx], lastDiceRoll: defRoll };
 
   let defResult: 'success' | 'wounded' | 'eliminated';
   let atkResult: 'success' | 'wounded' | 'eliminated';
@@ -1171,6 +1208,8 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+  const roller = combat.bodyCheckTarget === 'attacker-character' ? combat.defendingPlayerId : combat.attackingPlayerId;
+  logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
   const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
 
   // Update lastDiceRoll on the attacking player

@@ -3343,6 +3343,17 @@ h2 {
   top: -19vh;
 }
 
+/* Combat view: raise hand arc above the combat arena and tuck it lower when idle */
+.combat-active #hand-arc {
+  z-index: var(--z-hover);
+  bottom: -18vh;
+}
+
+.combat-active #hand-arc:hover,
+.combat-active #hand-arc.kbd-peek {
+  bottom: 0;
+}
+
 /* All-companies view: hide hand arcs, text log, deck boxes, and action buttons */
 .all-companies-mode #hand-arc,
 .all-companies-mode #opponent-arc,
@@ -4740,6 +4751,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
   gap: 0.5rem;
 }
 
+.combat-attacker--cvcc {
+  flex-direction: row;
+  justify-content: center;
+  gap: 1.5rem;
+  --company-scale: 1;
+}
+
 .combat-card--attacker {
   height: var(--card-table-height);
   width: auto;
@@ -4832,8 +4850,23 @@ body.all-companies-mode:has(#debug-view.hidden) {
   box-shadow: 0 0 18px 6px rgba(var(--color-target), 0.9) !important;
 }
 
+.combat-card--cvcc-selected {
+  box-shadow: 0 0 12px 4px rgba(var(--color-selected), 0.8) !important;
+  cursor: pointer;
+}
+.combat-card--cvcc-selected:hover {
+  box-shadow: 0 0 18px 6px rgba(var(--color-selected), 1) !important;
+}
+
 .combat-card--strike-assigned {
   box-shadow: 0 0 10px 3px rgba(220, 120, 50, 0.6) !important;
+}
+
+/* CvCC: defender reserved this character for a strike, but no attacker is paired yet */
+.combat-card--cvcc-reserved {
+  box-shadow: 0 0 10px 3px rgba(180, 160, 60, 0.7) !important;
+  outline: 2px dashed rgba(220, 200, 80, 0.6);
+  outline-offset: 2px;
 }
 
 .combat-card--current-strike {
@@ -4931,6 +4964,12 @@ body.all-companies-mode:has(#debug-view.hidden) {
   stroke: rgba(220, 100, 60, 0.7);
   stroke-width: 4;
   fill: none;
+}
+
+.combat-arrow--reserved {
+  stroke: rgba(200, 180, 60, 0.5);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
 }
 
 .combat-arrow--active {

@@ -159,6 +159,10 @@ export function createRadar(
     if (diamond) dotsLayer.appendChild(diamond);
   }
 
+  // CvCC combat marker — crossed swords at the defending company's site
+  const combatMarker = createCombatMarker(view, cardPool, false);
+  if (combatMarker) dotsLayer.appendChild(combatMarker);
+
   // Clicking the radar fires a custom event
   radar.addEventListener('click', () => {
     radar.dispatchEvent(new CustomEvent('map-radar-click', { bubbles: true }));
@@ -320,6 +324,43 @@ function createRadarDestinationDot(
   dot.title = `→ ${destDef.name}`;
 
   return dot;
+}
+
+/**
+ * Create a ⚔ crossed-swords marker at the CvCC combat site.
+ * Returns null when there is no active CvCC combat or the site has no coordinates.
+ * @param fullMap - true for the full-screen map (larger icon), false for the radar.
+ */
+export function createCombatMarker(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  fullMap: boolean,
+): HTMLElement | null {
+  if (!view.combat) return null;
+
+  const companyId = view.combat.companyId;
+
+  // Defending company may be ours or the opponent's depending on who is viewing.
+  const selfCompany = view.self.companies.find(c => c.id === companyId);
+  const oppCompany = view.opponent.companies.find(c => c.id === companyId);
+  const currentSite = selfCompany?.currentSite ?? oppCompany?.currentSite ?? null;
+
+  if (!currentSite) return null;
+
+  const siteDef = resolveCardDef(currentSite.instanceId, view, cardPool);
+  if (!siteDef) return null;
+
+  const name = (siteDef as { name: string }).name;
+  const coords = getCoordinates(name);
+  if (!coords) return null;
+
+  const marker = document.createElement('div');
+  marker.className = fullMap ? 'map-combat-marker map-combat-marker--full' : 'map-combat-marker';
+  marker.style.left = `${coords[0] * 100}%`;
+  marker.style.top = `${coords[1] * 100}%`;
+  marker.textContent = '⚔';
+  marker.title = `CvCC: ${name}`;
+  return marker;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

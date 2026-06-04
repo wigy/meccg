@@ -274,13 +274,33 @@ function formatOpponentCompany(
 function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLookup, indent: string): string[] {
   const lines: string[] = [];
   let attackerName: string;
-  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'played-auto-attack') {
-    attackerName = formatInstanceName(combat.attackSource.instanceId, defOf, instOf);
+  const src = combat.attackSource;
+  if (src.type === 'creature' || src.type === 'played-auto-attack') {
+    attackerName = formatInstanceName(src.instanceId, defOf, instOf);
+  } else if (src.type === 'on-guard-creature') {
+    attackerName = `On-guard: ${formatInstanceName(src.cardInstanceId, defOf, instOf)}`;
+  } else if (src.type === 'automatic-attack') {
+    attackerName = `Auto-attack #${src.attackIndex + 1} at ${formatInstanceName(src.siteInstanceId, defOf, instOf)}`;
+  } else if (src.type === 'agent') {
+    attackerName = `Agent: ${formatInstanceName(src.instanceId, defOf, instOf)}`;
+  } else if (src.type === 'card-triggered-attack') {
+    attackerName = `Card-triggered: ${formatInstanceName(src.cardInstanceId, defOf, instOf)}`;
+  } else if (src.type === 'tidings-attack') {
+    attackerName = `Tidings attack #${src.attackIndex + 1}`;
+  } else if (src.type === 'ahunt') {
+    attackerName = `Ahunt: ${formatInstanceName(src.longEventInstanceId, defOf, instOf)}`;
+  } else if (src.type === 'lucky-search-attack') {
+    attackerName = `Lucky search: ${formatInstanceName(src.scoutInstanceId, defOf, instOf)}`;
+  } else if (src.type === 'company-attack') {
+    attackerName = `CvCC from ${src.attackingCompanyId as string}`;
   } else {
-    attackerName = 'Automatic attack';
+    attackerName = 'Unknown attack';
   }
   const bodyStr = combat.creatureBody !== null ? `/${combat.creatureBody} body` : '';
-  lines.push(`${indent}COMBAT: ${attackerName} — ${combat.strikesTotal} strikes at ${combat.strikeProwess} prowess${bodyStr}`);
+  const strikeStr = combat.isCvCC
+    ? `${combat.strikesTotal} paired strikes (individual prowess)`
+    : `${combat.strikesTotal} strikes at ${combat.strikeProwess} prowess`;
+  lines.push(`${indent}COMBAT: ${attackerName} — ${strikeStr}${bodyStr}`);
   lines.push(`${indent}  Phase: ${combat.phase}${combat.phase === 'assign-strikes' ? ` (${combat.assignmentPhase})` : ''}`);
   lines.push(`${indent}  Defending company: ${combat.companyId as string} (${combat.defendingPlayerId as string})  Attacker: ${combat.attackingPlayerId as string}`);
   if (combat.bodyCheckTarget) {
@@ -300,7 +320,11 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
     const charName = formatInstanceName(sa.characterId, defOf, instOf);
     const excess = sa.excessStrikes > 0 ? ` (${sa.excessStrikes} excess, -${sa.excessStrikes} prowess)` : '';
     const result = sa.resolved ? ` → ${sa.result}` : '';
-    lines.push(`${indent}  ${marker} strike ${i + 1} → ${charName}${excess}${result}`);
+    const atkPart = sa.attackingCharacterId
+      ? ` [${formatInstanceName(sa.attackingCharacterId, defOf, instOf)} attacks]`
+      : '';
+    const cvccSuffix = combat.isCvCC ? atkPart : '';
+    lines.push(`${indent}  ${marker} strike ${i + 1} → ${charName}${excess}${cvccSuffix}${result}`);
   }
   return lines;
 }

@@ -349,6 +349,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.getElementById('enter-site-btn')?.remove();
   document.getElementById('secondary-pass-btn')?.remove();
   document.getElementById('call-council-btn')?.remove();
+  document.getElementById('skip-cvcc-btn')?.remove();
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
 
   // Find a viable pass-like or single-step action (including chain priority pass)
@@ -415,7 +416,11 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       case 'enter-or-skip': label = 'Skip'; break;
       case 'play-resources': label = 'Pass'; break;
       case 'play-minor-item': label = 'Pass'; break;
-      case 'declare-company-attack': label = 'Skip CvCC'; break;
+      case 'declare-company-attack': {
+        const hasAttack = view.legalActions.some(ea => ea.viable && ea.action.type === 'declare-company-attack');
+        label = hasAttack ? 'Skip CvCC' : 'Pass';
+        break;
+      }
       default: label = 'Continue';
     }
   } else if (view.phaseState.phase === Phase.EndOfTurn) {
@@ -494,7 +499,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   // With one target the Attack button becomes primary (most expected action),
   // and Skip CvCC is demoted to a secondary slot. With multiple targets all
   // Attack buttons are added as secondary slots alongside the Skip CvCC primary.
-  if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'declare-company-attack') {
+  if (!view.combat && view.phaseState.phase === Phase.Site && view.phaseState.step === 'declare-company-attack') {
     const attackEvals = view.legalActions.filter(
       ea => ea.viable && ea.action.type === 'declare-company-attack',
     );
@@ -503,6 +508,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       btn.onclick = () => onAction(attackEvals[0].action);
 
       const skipBtn = document.createElement('button');
+      skipBtn.id = 'skip-cvcc-btn';
       skipBtn.className = 'enter-site-btn';
       skipBtn.textContent = 'Skip CvCC';
       skipBtn.onclick = () => onAction(passAction);

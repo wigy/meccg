@@ -403,3 +403,40 @@
   border: 1px solid rgba(192, 120, 48, 0.4);
   pointer-events: none;
 }
+
+/* --------------------------------------------------------------------------
+   Combat marker — crossed swords shown at the site during combat
+   -------------------------------------------------------------------------- */
+
+.map-combat-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 10;
+  text-shadow:
+    -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
+    -2px  0   0 #000,                 2px  0   0 #000,
+    -2px  2px 0 #000, 0  2px 0 #000, 2px  2px 0 #000,
+    -1px -1px 0 #fff, 0 -1px 0 #fff, 1px -1px 0 #fff,
+    -1px  0   0 #fff,                 1px  0   0 #fff,
+    -1px  1px 0 #fff, 0  1px 0 #fff, 1px  1px 0 #fff;
+  animation: map-combat-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.map-combat-marker--full {
+  font-size: 42px;
+  text-shadow:
+    -3px -3px 0 #000, 0 -3px 0 #000, 3px -3px 0 #000,
+    -3px  0   0 #000,                 3px  0   0 #000,
+    -3px  3px 0 #000, 0  3px 0 #000, 3px  3px 0 #000,
+    -2px -2px 0 #fff, 0 -2px 0 #fff, 2px -2px 0 #fff,
+    -2px  0   0 #fff,                 2px  0   0 #fff,
+    -2px  2px 0 #fff, 0  2px 0 #fff, 2px  2px 0 #fff;
+}
+
+@keyframes map-combat-pulse {
+  from { opacity: 0.85; transform: translate(-50%, -50%) scale(0.92); }
+  to   { opacity: 1;    transform: translate(-50%, -50%) scale(1.12); }
+}
