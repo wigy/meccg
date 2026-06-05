@@ -1359,7 +1359,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           newPlayerDataRW.discardPile = [...newPlayerDataRW.discardPile, toCardInstance(item)];
         }
         const { [strike.characterId as string]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
-        newPlayerDataRW.characters = remainingCharsRW;
+        // Revert followers to general influence
+        const updatedCharsRW = { ...remainingCharsRW };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsRW[followerId as string];
+          if (follower) updatedCharsRW[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataRW.characters = updatedCharsRW;
         // Record the returned Ringwraith's definition ID for reveal restrictions
         newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
         newPlayersRW[defPlayerIndex] = newPlayerDataRW;
@@ -1429,7 +1435,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(item)];
         }
         const { [strike.characterId as string]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
-        newPlayerDataDiscard.characters = remainingCharsDiscard;
+        // Revert followers to general influence
+        const updatedCharsDiscard = { ...remainingCharsDiscard };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsDiscard[followerId as string];
+          if (follower) updatedCharsDiscard[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataDiscard.characters = updatedCharsDiscard;
         newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
         const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
         if (nextBodyCheckDiscard) {
@@ -1505,7 +1517,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
 
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
-      newPlayerData.characters = remainingChars;
+      // Revert followers to general influence
+      const updatedCharsElim = { ...remainingChars };
+      for (const followerId of charData.followers) {
+        const follower = updatedCharsElim[followerId as string];
+        if (follower) updatedCharsElim[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+      newPlayerData.characters = updatedCharsElim;
       newPlayers2[defPlayerIndex] = newPlayerData;
 
       // Per CoE rule 3.I.2: for each unwounded character in the same company,
@@ -1590,7 +1608,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(item)];
           }
           const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
-          newPlayerData2.characters = remainingCharsDisc;
+          // Revert followers to general influence
+          const updatedCharsDisc = { ...remainingCharsDisc };
+          for (const followerId of charData.followers) {
+            const follower = updatedCharsDisc[followerId as string];
+            if (follower) updatedCharsDisc[followerId as string] = { ...follower, controlledBy: 'general' };
+          }
+          newPlayerData2.characters = updatedCharsDisc;
           newPlayers3[defPlayerIndex] = newPlayerData2;
           const next4 = nextStrikePhase(combatWithDiscard);
           if (next4) {
@@ -3833,7 +3857,13 @@ function discardWoundedCharacters(
       newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
     }
     const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
-    newPlayerData.characters = remainingChars;
+    // Revert followers to general influence
+    const updatedChars = { ...remainingChars };
+    for (const followerId of charData.followers) {
+      const follower = updatedChars[followerId as string];
+      if (follower) updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+    }
+    newPlayerData.characters = updatedChars;
 
     cloned[defIdx] = newPlayerData;
     stateOut = { ...stateOut, players: cloned };
