@@ -1589,6 +1589,10 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
             newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(item)];
           }
+          for (const hazard of charData.hazards) {
+            logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+            newPlayers3[1 - defPlayerIndex] = { ...newPlayers3[1 - defPlayerIndex], discardPile: [...newPlayers3[1 - defPlayerIndex].discardPile, toCardInstance(hazard)] };
+          }
           const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
           newPlayerData2.characters = remainingCharsDisc;
           newPlayers3[defPlayerIndex] = newPlayerData2;
@@ -3831,6 +3835,10 @@ function discardWoundedCharacters(
     for (const item of charData.items) {
       logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);
       newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
+    }
+    for (const hazard of charData.hazards) {
+      logDetail(`${sourceName}: discarding hazard ${hazard.instanceId as string} from discarded character`);
+      cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
     const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
     newPlayerData.characters = remainingChars;
