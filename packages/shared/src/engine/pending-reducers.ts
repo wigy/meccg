@@ -23,7 +23,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -270,19 +270,44 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const possessionsToDiscard = action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
+    // Separate hazards (owned by opponent) from non-hazard possessions
+    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+    const hazardPossessions: CardInstance[] = [];
+    const nonHazardPossessions: CardInstance[] = [];
+    for (const id of action.possessions) {
+      const hazOwner = ownerOf(id) as string;
+      const defId = resolveInstanceId(state, id)!;
+      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
+        logDetail(`Discarding hazard ${id as string} to hazard player`);
+        hazardPossessions.push({ instanceId: id, definitionId: defId });
+      } else {
+        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+      }
+    }
+    if (hazardPossessions.length > 0) {
+      playersAfterRoll[hazardPlayerIndex] = {
+        ...playersAfterRoll[hazardPlayerIndex],
+        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
+      };
+    }
 
     const toDiscard: CardInstance[] = [
       { instanceId: characterId, definitionId: char.definitionId },
-      ...possessionsToDiscard,
+      ...nonHazardPossessions,
     ];
-    const newDiscardPile = [...player.discardPile, ...toDiscard];
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      discardPile: newDiscardPile,
+      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...toDiscard],
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   } else {
     // Roll < CP - 1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
     const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
@@ -302,19 +327,41 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const newOutOfPlayPile = [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }];
-    const newDiscardPile = [
-      ...player.discardPile,
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
+    // Separate hazards (owned by opponent) from non-hazard possessions
+    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+    const hazardPossessions: CardInstance[] = [];
+    const nonHazardPossessions: CardInstance[] = [];
+    for (const id of action.possessions) {
+      const hazOwner = ownerOf(id) as string;
+      const defId = resolveInstanceId(state, id)!;
+      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
+        logDetail(`Discarding hazard ${id as string} to hazard player`);
+        hazardPossessions.push({ instanceId: id, definitionId: defId });
+      } else {
+        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+      }
+    }
+    if (hazardPossessions.length > 0) {
+      playersAfterRoll[hazardPlayerIndex] = {
+        ...playersAfterRoll[hazardPlayerIndex],
+        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
+      };
+    }
 
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: newOutOfPlayPile,
-      discardPile: newDiscardPile,
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }],
+      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   }
 
   const cleanedState = cleanupEmptyCompanies({
@@ -980,6 +1027,15 @@ function returnCharacterToHand(
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
       }
+      for (const hazard of follower.hazards) {
+        logDetail(`Call of Home: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+        const hazOwner = ownerOf(hazard.instanceId);
+        if ((newPlayers[opponentIndex].id as string) === hazOwner) {
+          newOpponentDiscard.push(toCardInstance(hazard));
+        } else {
+          newDiscard.push(toCardInstance(hazard));
+        }
+      }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
       logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
@@ -1057,6 +1113,7 @@ function discardCharacter(
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
       for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
+      for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
     }
