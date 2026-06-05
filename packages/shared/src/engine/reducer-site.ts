@@ -1590,11 +1590,13 @@ function handleInfluenceAttemptDeclare(
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
+  if (cardIdx === -1) return { state, error: 'Faction card not found in hand' };
   const handCard = player.hand[cardIdx];
   const def = defById(state, handCard.definitionId)!;
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, error: 'Influencing character not found' };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
