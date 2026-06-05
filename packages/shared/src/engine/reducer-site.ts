@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -2124,12 +2124,23 @@ function discardInfluencedCard(
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
-      // Discard follower and their items/allies
+      // Discard follower and their items/allies/hazards
       for (const item of follower.items) {
         newDiscard.push(toCardInstance(item));
       }
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
+      }
+      for (const hazard of follower.hazards) {
+        logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded follower`);
+        const hazOwner = ownerOf(hazard.instanceId);
+        let hazOwnerIdx = players.findIndex(p => p.id === hazOwner);
+        if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+        if (hazOwnerIdx === opponentIndex) {
+          newDiscard.push(toCardInstance(hazard));
+        } else {
+          players[hazOwnerIdx] = { ...players[hazOwnerIdx], discardPile: [...players[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+        }
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];

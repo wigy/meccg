@@ -23,7 +23,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -980,6 +980,15 @@ function returnCharacterToHand(
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
       }
+      for (const hazard of follower.hazards) {
+        logDetail(`Call of Home: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+        const hazOwner = ownerOf(hazard.instanceId);
+        if ((newPlayers[opponentIndex].id as string) === hazOwner) {
+          newOpponentDiscard.push(toCardInstance(hazard));
+        } else {
+          newDiscard.push(toCardInstance(hazard));
+        }
+      }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
       logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
@@ -1057,6 +1066,7 @@ function discardCharacter(
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
       for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
+      for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
     }
