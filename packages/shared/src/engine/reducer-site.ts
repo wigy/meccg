@@ -2120,6 +2120,19 @@ function discardInfluencedCard(
   newDiscard.push(toCardInstance(targetChar));
   logDetail(`Discarded influenced character ${targetChar.instanceId}`);
 
+  // Discard hazards to their owner's discard pile
+  for (const hazard of targetChar.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from influenced character`);
+    const hazOwner = ownerOf(hazard.instanceId);
+    let hazOwnerIdx = players.findIndex(p => p.id === hazOwner);
+    if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+    if (hazOwnerIdx === opponentIndex) {
+      newDiscard.push(toCardInstance(hazard));
+    } else {
+      players[hazOwnerIdx] = { ...players[hazOwnerIdx], discardPile: [...players[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
+  }
+
   // Handle followers — try to place under GI, otherwise discard
   const newCharacters = { ...opponent.characters };
   for (const followerId of targetChar.followers) {
@@ -2141,7 +2154,7 @@ function discardInfluencedCard(
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
-      // Discard follower, their items/allies; route their hazards to hazard player
+      // Discard follower and their items/allies/hazards
       for (const item of follower.items) {
         newDiscard.push(toCardInstance(item));
       }
