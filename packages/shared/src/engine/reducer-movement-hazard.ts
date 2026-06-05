@@ -983,8 +983,6 @@ function handleAgentInfluenceAttempt(
   });
 
   return { state: stateAfterAttempt, effects: [rollEffect] };
-
-  void tapInfluenceEff;
 }
 
 /**
