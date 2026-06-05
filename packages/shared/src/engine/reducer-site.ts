@@ -2086,7 +2086,7 @@ function discardInfluencedCard(
     return;
   }
 
-  // Character target — discard character + items + allies, handle followers
+  // Character target — discard character + items + allies + hazards, handle followers
   const targetChar = opponent.characters[pending.targetInstanceId as string];
   if (!targetChar) return;
 

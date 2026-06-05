@@ -1302,7 +1302,7 @@ function runGrantApply(
       characters: c.characters.filter(ch => ch !== targetCharId),
     }));
 
-    // Build new discard pile: character + items + allies
+    // Build new discard pile: character + items + allies; hazards go to their owner
     let newDiscard = [...targetPlayerData.discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
