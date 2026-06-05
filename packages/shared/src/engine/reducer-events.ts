@@ -498,7 +498,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       }
       if (foundOwnerIndex !== -1) break;
     }
-    if (foundOwnerIndex === -1) return { state, error: `discard-in-play: target ${targetId as string} not found in any player's cardsInPlay or hazards` };
+    if (foundOwnerIndex === -1) return { state, error: 'discard-in-play target not found in any zone' };
     const owner = newState.players[foundOwnerIndex];
     let targetInstance: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId };
     if (foundCardsInPlayIdx !== -1) {
