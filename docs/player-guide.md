@@ -46,6 +46,14 @@ You can see how many cards are created and certified in the project status table
 
 All replies from the AI and the server arrive in your **Inbox** (accessible from the lobby). Check the Sent tab to follow up on messages you have already submitted.
 
+## Game Saving
+
+Games are saved automatically. If you close the browser tab, lose your connection, or the server restarts, the game is preserved and resumes exactly where it left off when both players reconnect.
+
+The save is deleted once the game ends and both players have seen the final result, so there is nothing to manage manually under normal circumstances.
+
+If you need to save and restore a specific point in a game — for example, to replay a situation during testing — use the **Save / Load** options in the Developer Tools menu (see [Developer Mode](#developer-mode) below).
+
 ## Developer Mode
 
 Because the game is still under active development, a **Developer Mode** is available for testers. Enable it in the **Settings** dialog (gear icon in the game toolbar).
