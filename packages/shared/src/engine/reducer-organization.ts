@@ -390,6 +390,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   if (!toChar) return { state, error: 'Target character not found' };
 
   const itemIndex = fromChar.items.findIndex(i => i.instanceId === itemInstId);
+  if (itemIndex === -1) return { state, error: 'Item not found on source character' };
   const item = fromChar.items[itemIndex];
   const itemDef = resolveDef(state, itemInstId);
   const fromDef = resolveDef(state, fromCharId);
@@ -455,7 +456,9 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const itemInstId = action.itemInstanceId;
 
   const char = player.characters[charId as string];
+  if (!char) return { state, error: 'Character not found' };
   const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
+  if (itemIndex === -1) return { state, error: 'Item not found on character' };
   const item = char.items[itemIndex];
   const itemDef = defById(state, item.definitionId);
   const charDef = resolveDef(state, charId);
@@ -649,6 +652,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   }
 
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
   const sideboardCard = player.sideboard[cardIdx];
   const def = defById(state, sideboardCard.definitionId)!;
   const destination = orgState.sideboardFetchDestination;

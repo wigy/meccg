@@ -81,6 +81,7 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
   const player = state.players[playerIndex];
 
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
   const sideboardCard = player.sideboard[cardIdx];
   const def = defById(state, sideboardCard.definitionId)!;
   const destination = untapState.hazardSideboardDestination!;
