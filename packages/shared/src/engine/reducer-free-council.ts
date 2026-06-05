@@ -249,7 +249,7 @@ function resolveCorruptionCheck(
   for (const id of pending.possessions) {
     const hazOwner = ownerOf(id) as string;
     const defId = resolveInstanceId(state, id)!;
-    if ((hazOwner as string) === (state.players[hazardPlayerIndex].id as string)) {
+    if (hazOwner === (state.players[hazardPlayerIndex].id as string)) {
       logDetail(`Discarding hazard ${id as string} to hazard player`);
       hazardPossessions.push({ instanceId: id, definitionId: defId });
     } else {
