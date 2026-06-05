@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
-import { ownerOf, resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -227,6 +227,7 @@ function handleSiteSelectCompany(
 
   const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIndex === -1) return { state, error: 'Company not found' };
   const company = player.companies[companyIndex];
 
   logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
@@ -404,6 +405,7 @@ function handleRevealOnGuardAttacks(
     const resourcePlayer = state.players[activeIndex];
     const company = resourcePlayer.companies[siteState.activeCompanyIndex];
     const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (ogIdx === -1) return { state, error: 'On-guard card not found' };
     const revealedCard = company.onGuardCards[ogIdx];
     const def = defById(state, revealedCard.definitionId);
     logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
@@ -1101,6 +1103,7 @@ export function applyOnGuardRevealAtResource(
   const resourcePlayer = state.players[activeIndex];
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
   const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (ogIdx === -1) return { state, error: 'On-guard card not found' };
   const revealedCard = company.onGuardCards[ogIdx];
   const def = defById(state, revealedCard.definitionId);
   logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
@@ -1587,11 +1590,13 @@ function handleInfluenceAttemptDeclare(
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
+  if (cardIdx === -1) return { state, error: 'Faction card not found in hand' };
   const handCard = player.hand[cardIdx];
   const def = defById(state, handCard.definitionId)!;
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, error: 'Influencing character not found' };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
@@ -2100,16 +2105,12 @@ function discardInfluencedCard(
   }
 
   // Dispatch hazards to their owner's discard pile
-  for (const hazard of targetChar.hazards) {
-    logDetail(`Discarding hazard ${hazard.instanceId as string} from influenced character to its owner's discard`);
-    const hazOwner = ownerOf(hazard.instanceId) as string;
-    const hazOwnerIdx = players.findIndex(p => (p.id as string) === hazOwner);
-    const idx = hazOwnerIdx === -1 ? 1 - opponentIndex : hazOwnerIdx;
-    if (idx === opponentIndex) {
-      newDiscard.push(toCardInstance(hazard));
-    } else {
-      players[idx as 0 | 1] = { ...players[idx as 0 | 1], discardPile: [...players[idx as 0 | 1].discardPile, toCardInstance(hazard)] };
-    }
+  for (const haz of targetChar.hazards) {
+    const hazOwner = ownerOf(haz.instanceId);
+    const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+    const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
+    players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
+    logDetail(`discardInfluencedCard: hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
   }
 
   // Discard the character itself
@@ -2143,6 +2144,14 @@ function discardInfluencedCard(
       }
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
+      }
+      // Dispatch follower hazards to their owner's discard pile
+      for (const haz of follower.hazards) {
+        const hazOwner = ownerOf(haz.instanceId);
+        const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+        const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
+        players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
+        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
