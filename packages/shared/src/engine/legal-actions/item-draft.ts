@@ -29,6 +29,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
   logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned, ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
+  if (allCharIds.length === 0) return evaluated;
 
   // Emit non-viable entries for already-assigned items (on characters)
   for (const char of Object.values(player.characters)) {
