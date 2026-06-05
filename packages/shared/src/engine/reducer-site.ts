@@ -2091,6 +2091,9 @@ function discardInfluencedCard(
   if (!targetChar) return;
 
   const newDiscard = [...opponent.discardPile];
+  // Hazards belong to the opposing (hazard) player — route to their discard
+  const hazardPlayerIndex = 1 - opponentIndex;
+  const newHazardDiscard = [...players[hazardPlayerIndex].discardPile];
 
   // Discard items
   for (const item of targetChar.items) {
@@ -2188,6 +2191,7 @@ function discardInfluencedCard(
     companies: newCompanies,
     discardPile: newDiscard,
   };
+  players[hazardPlayerIndex] = { ...players[hazardPlayerIndex], discardPile: newHazardDiscard };
 }
 
 
