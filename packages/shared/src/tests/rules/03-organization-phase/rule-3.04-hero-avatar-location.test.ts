@@ -16,7 +16,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  viablePlayCharacterActions, nonViablePlayCharacterActions,
+  viablePlayCharacterActions,
   PLAYER_1, PLAYER_2,
   SARUMAN, LEGOLAS,
   RIVENDELL, LORIEN, ISENGARD,
