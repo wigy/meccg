@@ -1366,7 +1366,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         }
         newPlayersRW[1 - defPlayerIndex] = { ...hazardPlayerRW, discardPile: hazardDiscardRW };
         const { [strike.characterId as string]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
-        newPlayerDataRW.characters = remainingCharsRW;
+        // Revert followers to general influence
+        const updatedCharsRW = { ...remainingCharsRW };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsRW[followerId as string];
+          if (follower) updatedCharsRW[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataRW.characters = updatedCharsRW;
         // Record the returned Ringwraith's definition ID for reveal restrictions
         newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
         newPlayersRW[defPlayerIndex] = newPlayerDataRW;
@@ -1443,7 +1449,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         }
         newPlayersDiscard[1 - defPlayerIndex] = { ...hazardPlayerDiscard, discardPile: hazardDiscardDiscard };
         const { [strike.characterId as string]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
-        newPlayerDataDiscard.characters = remainingCharsDiscard;
+        // Revert followers to general influence
+        const updatedCharsDiscard = { ...remainingCharsDiscard };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsDiscard[followerId as string];
+          if (follower) updatedCharsDiscard[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataDiscard.characters = updatedCharsDiscard;
         newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
         const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
         if (nextBodyCheckDiscard) {
@@ -1615,7 +1627,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             newPlayers3[1 - defPlayerIndex] = { ...newPlayers3[1 - defPlayerIndex], discardPile: [...newPlayers3[1 - defPlayerIndex].discardPile, toCardInstance(hazard)] };
           }
           const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
-          newPlayerData2.characters = remainingCharsDisc;
+          // Revert followers to general influence
+          const updatedCharsDisc = { ...remainingCharsDisc };
+          for (const followerId of charData.followers) {
+            const follower = updatedCharsDisc[followerId as string];
+            if (follower) updatedCharsDisc[followerId as string] = { ...follower, controlledBy: 'general' };
+          }
+          newPlayerData2.characters = updatedCharsDisc;
           newPlayers3[defPlayerIndex] = newPlayerData2;
           const next4 = nextStrikePhase(combatWithDiscard);
           if (next4) {
@@ -3857,7 +3875,13 @@ function discardWoundedCharacters(
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
     const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
-    newPlayerData.characters = remainingChars;
+    // Revert followers to general influence
+    const updatedChars = { ...remainingChars };
+    for (const followerId of charData.followers) {
+      const follower = updatedChars[followerId as string];
+      if (follower) updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+    }
+    newPlayerData.characters = updatedChars;
 
     cloned[defIdx] = newPlayerData;
     stateOut = { ...stateOut, players: cloned };
