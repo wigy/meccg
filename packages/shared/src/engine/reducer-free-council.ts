@@ -14,10 +14,10 @@ import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameActi
 import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
 
 
 /**
@@ -236,6 +236,15 @@ function resolveCorruptionCheck(
     if (follower) {
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
     }
+  }
+
+  // Dispatch hazards on this character to their owner's discard pile
+  for (const hazard of char.hazards) {
+    logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from ${charName}`);
+    const hazOwner = ownerOf(hazard.instanceId);
+    const hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
+    const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - playerIndex;
+    newPlayers[safeIdx] = { ...newPlayers[safeIdx], discardPile: [...newPlayers[safeIdx].discardPile, toCardInstance(hazard)] };
   }
 
   // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
