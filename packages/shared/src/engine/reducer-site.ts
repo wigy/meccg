@@ -2086,6 +2086,9 @@ function discardInfluencedCard(
   if (!targetChar) return;
 
   const newDiscard = [...opponent.discardPile];
+  // Hazards belong to the opposing (hazard) player — route to their discard
+  const hazardPlayerIndex = 1 - opponentIndex;
+  const newHazardDiscard = [...players[hazardPlayerIndex].discardPile];
 
   // Discard items
   for (const item of targetChar.items) {
@@ -2097,6 +2100,12 @@ function discardInfluencedCard(
   for (const ally of targetChar.allies) {
     newDiscard.push(toCardInstance(ally));
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
+  }
+
+  // Route hazards to hazard player's discard
+  for (const hazard of targetChar.hazards) {
+    newHazardDiscard.push(toCardInstance(hazard));
+    logDetail(`Discarded hazard ${hazard.instanceId} from influenced character`);
   }
 
   // Discard the character itself
@@ -2124,12 +2133,15 @@ function discardInfluencedCard(
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
-      // Discard follower and their items/allies
+      // Discard follower, their items/allies; route their hazards to hazard player
       for (const item of follower.items) {
         newDiscard.push(toCardInstance(item));
       }
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
+      }
+      for (const hazard of follower.hazards) {
+        newHazardDiscard.push(toCardInstance(hazard));
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
@@ -2153,6 +2165,7 @@ function discardInfluencedCard(
     companies: newCompanies,
     discardPile: newDiscard,
   };
+  players[hazardPlayerIndex] = { ...players[hazardPlayerIndex], discardPile: newHazardDiscard };
 }
 
 

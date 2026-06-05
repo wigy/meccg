@@ -1298,8 +1298,10 @@ function runGrantApply(
       characters: c.characters.filter(ch => ch !== targetCharId),
     }));
 
-    // Build new discard pile: character + items + allies
+    // Build new discard pile: character + items + allies; hazards go to opposing player
     let newDiscard = [...targetPlayerData.discardPile];
+    const hazardPlayerIdx = 1 - targetPlayerIndex;
+    let newHazardDiscard = [...newPlayers[hazardPlayerIdx].discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
     }
@@ -1310,6 +1312,10 @@ function runGrantApply(
     for (const ally of targetChar.allies) {
       logDetail(`Grant-action ${ctx.action.actionId}: discarding ally ${ally.instanceId as string} from ${targetName}`);
       newDiscard = [...newDiscard, toCardInstance(ally)];
+    }
+    for (const hazard of targetChar.hazards) {
+      logDetail(`Grant-action ${ctx.action.actionId}: discarding hazard ${hazard.instanceId as string} from ${targetName}`);
+      newHazardDiscard = [...newHazardDiscard, toCardInstance(hazard)];
     }
 
     // Remove character from characters map and revert followers to GI
@@ -1332,6 +1338,7 @@ function runGrantApply(
       characters: updatedChars,
       discardPile: newDiscard,
     };
+    newPlayers[hazardPlayerIdx] = { ...newPlayers[hazardPlayerIdx], discardPile: newHazardDiscard };
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
