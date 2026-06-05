@@ -17,7 +17,7 @@ import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
 
 
 /**
@@ -278,6 +278,13 @@ function resolveCorruptionCheck(
       companies: newCompanies,
       discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from discarded character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   } else {
     // Roll < CP-1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
     const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
@@ -289,6 +296,13 @@ function resolveCorruptionCheck(
       outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
       discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from eliminated character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   }
 
   return {
