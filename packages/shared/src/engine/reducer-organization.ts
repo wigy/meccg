@@ -11,7 +11,7 @@ import type { PlayFlagEffect } from '../types/effects.js';
 import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -1310,6 +1310,17 @@ function runGrantApply(
     for (const ally of targetChar.allies) {
       logDetail(`Grant-action ${ctx.action.actionId}: discarding ally ${ally.instanceId as string} from ${targetName}`);
       newDiscard = [...newDiscard, toCardInstance(ally)];
+    }
+    for (const hazard of targetChar.hazards) {
+      logDetail(`Grant-action ${ctx.action.actionId}: discarding hazard ${hazard.instanceId as string} from ${targetName}`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = targetPlayerIndex === 0 ? 1 : 0;
+      if (hazOwnerIdx === targetPlayerIndex) {
+        newDiscard = [...newDiscard, toCardInstance(hazard)];
+      } else {
+        newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+      }
     }
 
     // Remove character from characters map and revert followers to GI

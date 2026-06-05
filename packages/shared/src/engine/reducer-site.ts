@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -2102,6 +2102,19 @@ function discardInfluencedCard(
   // Discard the character itself
   newDiscard.push(toCardInstance(targetChar));
   logDetail(`Discarded influenced character ${targetChar.instanceId}`);
+
+  // Discard hazards to their owner's discard pile
+  for (const hazard of targetChar.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from influenced character`);
+    const hazOwner = ownerOf(hazard.instanceId);
+    let hazOwnerIdx = players.findIndex(p => p.id === hazOwner);
+    if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+    if (hazOwnerIdx === opponentIndex) {
+      newDiscard.push(toCardInstance(hazard));
+    } else {
+      players[hazOwnerIdx] = { ...players[hazOwnerIdx], discardPile: [...players[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
+  }
 
   // Handle followers — try to place under GI, otherwise discard
   const newCharacters = { ...opponent.characters };
