@@ -15,7 +15,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -1661,6 +1661,19 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         const charsCopy = { ...newPlayers[atkPlayerIdx].characters };
         delete charsCopy[strike.attackingCharacterId as string];
         newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], characters: charsCopy };
+        // Dispatch items and allies to attacker's discard; hazards to their owner's discard
+        for (const item of charData.items) {
+          newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], discardPile: [...newPlayers[atkPlayerIdx].discardPile, toCardInstance(item)] };
+        }
+        for (const ally of charData.allies) {
+          newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], discardPile: [...newPlayers[atkPlayerIdx].discardPile, toCardInstance(ally)] };
+        }
+        for (const hazard of charData.hazards) {
+          const hazOwner = ownerOf(hazard.instanceId);
+          let hazOwnerIdx = newPlayers.findIndex(p => (p.id as string) === (hazOwner as string));
+          if (hazOwnerIdx === -1) hazOwnerIdx = defIdx;
+          newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+        }
       }
 
       const combatWithElim = { ...newCombat, strikeAssignments: newAssignments.map((a, i) =>
