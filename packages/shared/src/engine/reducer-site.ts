@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
-import { resolveInstanceId } from '../types/state.js';
+import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -2081,7 +2081,7 @@ function discardInfluencedCard(
     return;
   }
 
-  // Character target — discard character + items + allies, handle followers
+  // Character target — discard character + items + allies + hazards, handle followers
   const targetChar = opponent.characters[pending.targetInstanceId as string];
   if (!targetChar) return;
 
@@ -2097,6 +2097,19 @@ function discardInfluencedCard(
   for (const ally of targetChar.allies) {
     newDiscard.push(toCardInstance(ally));
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
+  }
+
+  // Dispatch hazards to their owner's discard pile
+  for (const hazard of targetChar.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from influenced character to its owner's discard`);
+    const hazOwner = ownerOf(hazard.instanceId) as string;
+    const hazOwnerIdx = players.findIndex(p => (p.id as string) === hazOwner);
+    const idx = hazOwnerIdx === -1 ? 1 - opponentIndex : hazOwnerIdx;
+    if (idx === opponentIndex) {
+      newDiscard.push(toCardInstance(hazard));
+    } else {
+      players[idx as 0 | 1] = { ...players[idx as 0 | 1], discardPile: [...players[idx as 0 | 1].discardPile, toCardInstance(hazard)] };
+    }
   }
 
   // Discard the character itself

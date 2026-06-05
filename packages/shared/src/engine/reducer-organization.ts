@@ -11,7 +11,7 @@ import type { PlayFlagEffect } from '../types/effects.js';
 import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
-import { resolveInstanceId } from '../types/state.js';
+import { ownerOf, resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -1298,7 +1298,7 @@ function runGrantApply(
       characters: c.characters.filter(ch => ch !== targetCharId),
     }));
 
-    // Build new discard pile: character + items + allies
+    // Build new discard pile: character + items + allies; hazards go to their owner
     let newDiscard = [...targetPlayerData.discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
@@ -1310,6 +1310,17 @@ function runGrantApply(
     for (const ally of targetChar.allies) {
       logDetail(`Grant-action ${ctx.action.actionId}: discarding ally ${ally.instanceId as string} from ${targetName}`);
       newDiscard = [...newDiscard, toCardInstance(ally)];
+    }
+    for (const hazard of targetChar.hazards) {
+      logDetail(`Grant-action ${ctx.action.actionId}: discarding hazard ${hazard.instanceId as string} from ${targetName} to its owner's discard`);
+      const hazOwner = ownerOf(hazard.instanceId) as string;
+      let hazOwnerIdx = newPlayers.findIndex(p => (p.id as string) === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = targetPlayerIndex;
+      if (hazOwnerIdx === targetPlayerIndex) {
+        newDiscard = [...newDiscard, toCardInstance(hazard)];
+      } else {
+        newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+      }
     }
 
     // Remove character from characters map and revert followers to GI
