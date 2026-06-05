@@ -649,6 +649,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   }
 
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
   const sideboardCard = player.sideboard[cardIdx];
   const def = defById(state, sideboardCard.definitionId)!;
   const destination = orgState.sideboardFetchDestination;
