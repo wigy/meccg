@@ -1305,7 +1305,7 @@ function runGrantApply(
     // Build new discard pile: character + items + allies; hazards go to their owner
     let newDiscard = [...targetPlayerData.discardPile];
     const hazardPlayerIdx = 1 - targetPlayerIndex;
-    let newHazardDiscard = [...newPlayers[hazardPlayerIdx].discardPile];
+    const newHazardDiscard = [...newPlayers[hazardPlayerIdx].discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
     }
