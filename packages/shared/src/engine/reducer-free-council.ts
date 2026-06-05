@@ -251,18 +251,41 @@ function resolveCorruptionCheck(
   // on any failed corruption check, regardless of how close the roll was.
   const isWizardAvatar = charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef) && charDef.alignment === Alignment.Wizard;
 
+  // Separate hazards (owned by opponent) from non-hazard possessions (owned by resource player)
+  const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+  const hazardPossessions: CardInstance[] = [];
+  const nonHazardPossessions: CardInstance[] = [];
+  for (const id of pending.possessions) {
+    const hazOwner = ownerOf(id) as string;
+    const defId = resolveInstanceId(state, id)!;
+    if (hazOwner === (state.players[hazardPlayerIndex].id as string)) {
+      logDetail(`Discarding hazard ${id as string} to hazard player`);
+      hazardPossessions.push({ instanceId: id, definitionId: defId });
+    } else {
+      nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+    }
+  }
+
+  // Route hazards to the hazard player's discard
+  if (hazardPossessions.length > 0) {
+    newPlayers[hazardPlayerIndex] = {
+      ...newPlayers[hazardPlayerIndex],
+      discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...hazardPossessions],
+    };
+  }
+
   if (total >= cp - 1 && !isWizardAvatar) {
     // Roll == CP or CP-1: hero character and possessions discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
     const toDiscard: CardInstance[] = [
       { instanceId: pending.characterId, definitionId: char.definitionId },
-      ...pending.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+      ...nonHazardPossessions,
     ];
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      discardPile: [...player.discardPile, ...toDiscard],
+      discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
     };
   } else {
     // Roll < CP-1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
@@ -273,7 +296,7 @@ function resolveCorruptionCheck(
       characters: newCharacters,
       companies: newCompanies,
       outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
-      discardPile: [...player.discardPile, ...pending.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
+      discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
   }
 
