@@ -2151,7 +2151,7 @@ function discardInfluencedCard(
       newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
-      // Discard follower and their items/allies
+      // Discard follower and their items/allies/hazards
       for (const item of follower.items) {
         newDiscard.push(toCardInstance(item));
       }

@@ -1027,6 +1027,15 @@ function returnCharacterToHand(
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
       }
+      for (const hazard of follower.hazards) {
+        logDetail(`Call of Home: discarding hazard ${hazard.instanceId as string} from discarded follower`);
+        const hazOwner = ownerOf(hazard.instanceId);
+        if ((newPlayers[opponentIndex].id as string) === hazOwner) {
+          newOpponentDiscard.push(toCardInstance(hazard));
+        } else {
+          newDiscard.push(toCardInstance(hazard));
+        }
+      }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
       logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
@@ -1104,6 +1113,7 @@ function discardCharacter(
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
       for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
+      for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
     }
