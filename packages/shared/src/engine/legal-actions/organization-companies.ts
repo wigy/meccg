@@ -15,6 +15,7 @@ import type {
   SiteCard,
   PlayerState,
   CardEffect,
+  CompanyId,
 } from '../../index.js';
 import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter, Skill } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -717,7 +718,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — race-mixing restriction (rule 3.25)`);
             continue;
           }
-          if (wouldViolateLeaderRestriction(state, resultingCharIds)) {
+          if (wouldViolateLeaderRestriction(state, resultingCharIds, targetCompany.id)) {
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — leader restriction (rule 3.26)`);
             continue;
           }
@@ -810,9 +811,19 @@ function wouldViolateRaceMixing(state: GameState, charInstIds: readonly CardInst
 /**
  * Check if the given characters would violate the leader restriction
  * (CoE rule 3.26): a company may only contain one Leader-keyword character.
+ *
+ * When `companyId` is provided, checks whether the target company has a
+ * company-bound permanent event with `extra-troll-leader-slot` (e.g. *Orders
+ * from Lugbúrz*), which allows one Troll Leader in addition to one other
+ * leader (total of two leaders, one of which must be a Troll).
  */
-function wouldViolateLeaderRestriction(state: GameState, charInstIds: readonly CardInstanceId[]): boolean {
+function wouldViolateLeaderRestriction(
+  state: GameState,
+  charInstIds: readonly CardInstanceId[],
+  companyId?: CompanyId,
+): boolean {
   let leaderCount = 0;
+  let trollLeaderCount = 0;
   for (const id of charInstIds) {
     const defId = resolveInstanceId(state, id);
     const def = defId ? defById(state, defId) : undefined;
@@ -834,8 +845,30 @@ function wouldViolateLeaderRestriction(state: GameState, charInstIds: readonly C
         break;
       }
     }
-    if (isLeader) leaderCount++;
+    if (isLeader) {
+      leaderCount++;
+      if (def.race === Race.Troll) trollLeaderCount++;
+    }
   }
+
+  if (leaderCount <= 1) return false;
+
+  // When the company has an extra-troll-leader-slot permanent event, one Troll
+  // leader is permitted alongside one other leader (total two leaders allowed).
+  if (companyId && leaderCount === 2 && trollLeaderCount >= 1) {
+    const hasExtraSlot = state.players.some(p =>
+      p.cardsInPlay.some(card => {
+        if ((card.companyId as string | undefined) !== (companyId as string)) return false;
+        const def = state.cardPool[card.definitionId as string];
+        return getCardEffects(def).some(e => e.type === 'extra-troll-leader-slot');
+      }),
+    );
+    if (hasExtraSlot) {
+      logDetail(`wouldViolateLeaderRestriction: extra-troll-leader-slot active on company ${companyId as string} — allowing Troll leader alongside other leader`);
+      return false;
+    }
+  }
+
   return leaderCount > 1;
 }
 
@@ -875,7 +908,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — race-mixing restriction (rule 3.25)`);
           continue;
         }
-        if (wouldViolateLeaderRestriction(state, mergedCharIds)) {
+        if (wouldViolateLeaderRestriction(state, mergedCharIds, targetCompany.id)) {
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — leader restriction (rule 3.26)`);
           continue;
         }

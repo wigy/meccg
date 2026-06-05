@@ -445,7 +445,9 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "company" }
+      { "type": "play-target", "target": "company" },
+      { "type": "extra-troll-leader-slot" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 }
     ]
   }
 ]

@@ -1133,10 +1133,12 @@ Supported scopes:
 - `"site"` — one copy per site across all companies at the site (e.g. Rescue Prisoners).
 - `"game"` — one copy anywhere in play across both players.
 - `"player"` — one copy per player across all their characters (e.g. The Windlord Found Me).
+- `"company"` — one copy per company (e.g. Orders from Lugbúrz).
 
 ```json
 { "type": "duplication-limit", "scope": "character", "max": 1 }
 { "type": "duplication-limit", "scope": "player", "max": 1 }
+{ "type": "duplication-limit", "scope": "company", "max": 1 }
 ```
 
 ### 15. `reduce-attacks-to-one`
@@ -1164,6 +1166,25 @@ No fields beyond `type` are required.
 ```json
 { "type": "reduce-attacks-to-one" }
 ```
+
+### 15a. `extra-troll-leader-slot`
+
+Marker effect on a company-bound permanent event. While this event is in play,
+the company it is attached to may contain one Troll-race Leader-keyword character
+*in addition to* the single leader normally permitted by CoE rule 3.26. The
+exception allows exactly two leaders total, of which at least one must be a Troll.
+
+The engine reads this effect in `organization-companies.ts`
+`wouldViolateLeaderRestriction` when evaluating `move-to-company` and
+`merge-companies` actions.
+
+No fields beyond `type` are required.
+
+```json
+{ "type": "extra-troll-leader-slot" }
+```
+
+Used by *Orders from Lugbúrz* (as-94).
 
 ### 16. `play-target`
 
