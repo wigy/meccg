@@ -1670,18 +1670,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
           ) as (typeof newPlayers)[0]['characters'],
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
-          discardPile: [...newPlayers[atkPlayerIdx].discardPile, charInstance],
         };
-        // Defender gets kill MP
+        // Defender gets kill MP; eliminated character goes to defender's kill pile only
         const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
         newPlayers[defIdx] = {
           ...newPlayers[defIdx],
           killPile: [...newPlayers[defIdx].killPile, charInstance],
         };
-        // Remove character data
-        const charsCopy = { ...newPlayers[atkPlayerIdx].characters };
-        delete charsCopy[strike.attackingCharacterId as string];
-        newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], characters: charsCopy };
       }
 
       const combatWithElim = { ...newCombat, strikeAssignments: newAssignments.map((a, i) =>
