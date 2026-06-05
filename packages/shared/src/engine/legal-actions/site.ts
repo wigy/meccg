@@ -207,6 +207,7 @@ function enterOrSkipActions(
 
   const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
+  if (!company) return [];
 
   logDetail(`Company ${company.id}: offering enter-site and pass (do nothing)`);
   return [
@@ -612,6 +613,7 @@ function playResourcesActions(
   const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
   const actions: EvaluatedAction[] = [];
+  if (!company) return actions;
 
   // Look up the site's playable resource types
   const siteInstanceId = company.currentSite?.instanceId ?? null;
