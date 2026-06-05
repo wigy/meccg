@@ -1587,11 +1587,13 @@ function handleInfluenceAttemptDeclare(
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
+  if (cardIdx === -1) return { state, error: `influence-attempt: faction card ${action.factionInstanceId as string} not found in hand` };
   const handCard = player.hand[cardIdx];
   const def = defById(state, handCard.definitionId)!;
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, error: `influence-attempt: influencing character ${charId as string} not found` };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
