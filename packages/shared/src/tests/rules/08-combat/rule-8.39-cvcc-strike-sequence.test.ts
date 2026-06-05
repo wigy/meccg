@@ -23,12 +23,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
-import type { SitePhaseState } from '../../../index.js';
+import type { SitePhaseState, GameState } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, viableActions,
 } from '../../test-helpers.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
+// tw-168: Legolas Greenleaf — hero character (mind 6, homesite: Thranduil's Halls)
+const LEGOLAS_TW = 'tw-168' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;
@@ -174,5 +176,87 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     }
   });
 
-  test.todo('CvCC: attacker distributes excess strikes as -1 prowess each');
+  test('CvCC: attacker distributes excess strikes as -1 prowess each', () => {
+    // P1 has 2 attackers (Aragorn + Legolas) vs P2's single defender (Perchen).
+    // After Aragorn is assigned to Perchen, Legolas has no defender to pair with
+    // → 1 excess strike lands in cvccExcessPool. The attacker may then allocate
+    // it as -1 to the current strike before declaring their tap/untap choice.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS_TW] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [MORIA_AS],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    let s = { ...state, phaseState: sitePhaseState } as GameState;
+
+    // Pass play-resources to enter declare-company-attack
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    // Declare CvCC
+    const declareActions = viableActions(s, PLAYER_1, 'declare-company-attack');
+    const declareAction = declareActions[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // strikesTotal must be 2 (both Aragorn and Legolas are attackers)
+    expect(s.combat?.strikesTotal).toBe(2);
+
+    // Defender passes — lets attacker decide pairings
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    // Attacker assigns one of their characters to Perchen (takes first action)
+    const atkAssignActions = viableActions(s, PLAYER_1, 'assign-strike');
+    expect(atkAssignActions.length).toBeGreaterThan(0);
+    s = dispatch(s, atkAssignActions[0].action);
+
+    // No more unassigned defenders → attacker must pass to finalize
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    // One excess strike: Legolas was unpaired
+    expect(s.combat?.cvccExcessPool).toBe(1);
+
+    // allocate-cvcc-excess must be offered to the attacker before tap choice
+    const excessActions = viableActions(s, PLAYER_1, 'allocate-cvcc-excess');
+    expect(excessActions.length).toBe(1);
+
+    // After allocating, the pool is consumed and the defender's strike carries +1 excess
+    s = dispatch(s, excessActions[0].action);
+    expect(s.combat?.cvccExcessPool).toBeUndefined();
+    expect(s.combat?.strikeAssignments[0].excessStrikes).toBe(1);
+  });
 });
