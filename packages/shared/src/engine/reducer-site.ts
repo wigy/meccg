@@ -227,6 +227,7 @@ function handleSiteSelectCompany(
 
   const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIndex === -1) return { state, error: `select-company: company ${action.companyId as string} not found` };
   const company = player.companies[companyIndex];
 
   logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
@@ -404,6 +405,7 @@ function handleRevealOnGuardAttacks(
     const resourcePlayer = state.players[activeIndex];
     const company = resourcePlayer.companies[siteState.activeCompanyIndex];
     const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (ogIdx === -1) return { state, error: `reveal-on-guard: card ${action.cardInstanceId as string} not found in on-guard` };
     const revealedCard = company.onGuardCards[ogIdx];
     const def = defById(state, revealedCard.definitionId);
     logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
@@ -1101,6 +1103,7 @@ export function applyOnGuardRevealAtResource(
   const resourcePlayer = state.players[activeIndex];
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
   const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (ogIdx === -1) return { state, error: `reveal-on-guard-event: card ${action.cardInstanceId as string} not found in on-guard` };
   const revealedCard = company.onGuardCards[ogIdx];
   const def = defById(state, revealedCard.definitionId);
   logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
@@ -1587,6 +1590,7 @@ function handleInfluenceAttemptDeclare(
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
+  if (cardIdx === -1) return { state, error: `declare-faction-influence: card ${action.factionInstanceId as string} not found in hand` };
   const handCard = player.hand[cardIdx];
   const def = defById(state, handCard.definitionId)!;
 
