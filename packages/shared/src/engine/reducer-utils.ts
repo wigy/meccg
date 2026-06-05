@@ -725,13 +725,19 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
           const discardSet = new Set(toDiscard as string[]);
           const discarded = char.hazards.filter(h => discardSet.has(h.instanceId as string));
           const remaining = char.hazards.filter(h => !discardSet.has(h.instanceId as string));
+          // Remove hazards from the character
           newPlayers[pi] = {
             ...newPlayers[pi],
             characters: {
               ...newPlayers[pi].characters,
               [charId as string]: { ...newPlayers[pi].characters[charId as string], hazards: remaining },
             },
-            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
+          };
+          // Hazards are owned by the opponent (hazard player = 1 - pi)
+          const hazOwnerIdx = 1 - pi;
+          newPlayers[hazOwnerIdx] = {
+            ...newPlayers[hazOwnerIdx],
+            discardPile: [...newPlayers[hazOwnerIdx].discardPile, ...discarded.map(toCardInstance)],
           };
         }
       }
