@@ -168,7 +168,13 @@ export async function launchGame(player1: string, player2: string, options?: Lau
       });
       pseudoAiRelay = {
         onActions(callback) { actionCallbacks.push(callback); },
-        sendPick(action) { aiChild.send({ type: 'pseudo-ai-pick', action }); },
+        sendPick(action) {
+          try {
+            aiChild.send({ type: 'pseudo-ai-pick', action });
+          } catch (err) {
+            lobbyLog.log('error', { context: 'pseudo-ai-send', error: String(err) });
+          }
+        },
       };
     }
   }
