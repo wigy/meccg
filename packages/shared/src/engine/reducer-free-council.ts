@@ -238,6 +238,15 @@ function resolveCorruptionCheck(
     }
   }
 
+  // Dispatch hazards on this character to their owner's discard pile
+  for (const hazard of char.hazards) {
+    logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from ${charName}`);
+    const hazOwner = ownerOf(hazard.instanceId);
+    const hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
+    const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - playerIndex;
+    newPlayers[safeIdx] = { ...newPlayers[safeIdx], discardPile: [...newPlayers[safeIdx].discardPile, toCardInstance(hazard)] };
+  }
+
   // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
   // on any failed corruption check, regardless of how close the roll was.
   const isWizardAvatar = charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef) && charDef.alignment === Alignment.Wizard;
