@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -2099,6 +2099,15 @@ function discardInfluencedCard(
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
   }
 
+  // Dispatch hazards to their owner's discard pile
+  for (const haz of targetChar.hazards) {
+    const hazOwner = ownerOf(haz.instanceId);
+    const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+    const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
+    players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
+    logDetail(`discardInfluencedCard: hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
+  }
+
   // Discard the character itself
   newDiscard.push(toCardInstance(targetChar));
   logDetail(`Discarded influenced character ${targetChar.instanceId}`);
@@ -2130,6 +2139,14 @@ function discardInfluencedCard(
       }
       for (const ally of follower.allies) {
         newDiscard.push(toCardInstance(ally));
+      }
+      // Dispatch follower hazards to their owner's discard pile
+      for (const haz of follower.hazards) {
+        const hazOwner = ownerOf(haz.instanceId);
+        const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+        const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
+        players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
+        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId as string];
