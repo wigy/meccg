@@ -270,18 +270,36 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const possessionsToDiscard = action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }));
+    // Separate hazards (owned by opponent) from non-hazard possessions
+    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+    const hazardPossessions: CardInstance[] = [];
+    const nonHazardPossessions: CardInstance[] = [];
+    for (const id of action.possessions) {
+      const hazOwner = ownerOf(id) as string;
+      const defId = resolveInstanceId(state, id)!;
+      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
+        logDetail(`Discarding hazard ${id as string} to hazard player`);
+        hazardPossessions.push({ instanceId: id, definitionId: defId });
+      } else {
+        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+      }
+    }
+    if (hazardPossessions.length > 0) {
+      playersAfterRoll[hazardPlayerIndex] = {
+        ...playersAfterRoll[hazardPlayerIndex],
+        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
+      };
+    }
 
     const toDiscard: CardInstance[] = [
       { instanceId: characterId, definitionId: char.definitionId },
-      ...possessionsToDiscard,
+      ...nonHazardPossessions,
     ];
-    const newDiscardPile = [...player.discardPile, ...toDiscard];
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      discardPile: newDiscardPile,
+      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...toDiscard],
     };
     for (const hazard of char.hazards) {
       logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
@@ -309,18 +327,33 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const newOutOfPlayPile = [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }];
-    const newDiscardPile = [
-      ...player.discardPile,
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
+    // Separate hazards (owned by opponent) from non-hazard possessions
+    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+    const hazardPossessions: CardInstance[] = [];
+    const nonHazardPossessions: CardInstance[] = [];
+    for (const id of action.possessions) {
+      const hazOwner = ownerOf(id) as string;
+      const defId = resolveInstanceId(state, id)!;
+      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
+        logDetail(`Discarding hazard ${id as string} to hazard player`);
+        hazardPossessions.push({ instanceId: id, definitionId: defId });
+      } else {
+        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+      }
+    }
+    if (hazardPossessions.length > 0) {
+      playersAfterRoll[hazardPlayerIndex] = {
+        ...playersAfterRoll[hazardPlayerIndex],
+        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
+      };
+    }
 
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: newOutOfPlayPile,
-      discardPile: newDiscardPile,
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }],
+      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
     };
     for (const hazard of char.hazards) {
       logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
