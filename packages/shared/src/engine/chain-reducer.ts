@@ -1217,10 +1217,10 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
         // Multi-attack form: use attacks[0] for first combat, pass rest as remainingAttacks.
         // Single-attack form: use the top-level fields (backward-compatible).
-        const firstAttack = triggerEffect.attacks
+        const firstAttack = triggerEffect.attacks?.length
           ? triggerEffect.attacks[0]
           : { creatureType: triggerEffect.creatureType!, strikes: triggerEffect.strikes!, prowess: triggerEffect.prowess! };
-        const remaining = triggerEffect.attacks ? triggerEffect.attacks.slice(1) : [];
+        const remaining = triggerEffect.attacks?.length ? triggerEffect.attacks.slice(1) : [];
 
         const creatureRace = normalizeCreatureRace(firstAttack.creatureType);
         const effectiveProwess = resolveAttackProwess(
