@@ -153,4 +153,50 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
     expect(nextState.players[1].cardsInPlay.map(c => c.instanceId))
       .toContain('eye-1' as CardInstanceId);
   });
+
+  test('All resource long-events are discarded together, not just the first one', () => {
+    // P1 has two Sun instances in cardsInPlay (artificial test state — validates
+    // that the cleanup iterates all long-events, not just the first).
+    const sun1: CardInPlay = {
+      instanceId: 'sun-1' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+    const sun2: CardInPlay = {
+      instanceId: 'sun-2' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          cardsInPlay: [sun1, sun2],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    expect(state.players[0].cardsInPlay).toHaveLength(2);
+
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
+
+    // Both Sun instances must be discarded
+    expect(nextState.players[0].cardsInPlay).toHaveLength(0);
+    const discardIds = nextState.players[0].discardPile.map(c => c.instanceId);
+    expect(discardIds).toContain('sun-1' as CardInstanceId);
+    expect(discardIds).toContain('sun-2' as CardInstanceId);
+  });
 });

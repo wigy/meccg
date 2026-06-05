@@ -17,7 +17,7 @@ import { describe, test, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase, CardStatus,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, BILBO,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   expectCharStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
@@ -99,5 +99,30 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     // Opponent's character should still be tapped
     expectCharStatus(nextState, HAZARD_PLAYER, LEGOLAS, CardStatus.Tapped);
+  });
+
+  test('All tapped characters in the same company are untapped together', () => {
+    // Two characters (Aragorn, Bilbo) both tapped in the same company.
+    // The untap action must process every non-site card — both untap in one step.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [
+            { defId: ARAGORN, status: CardStatus.Tapped },
+            { defId: BILBO, status: CardStatus.Tapped },
+          ] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
   });
 });
