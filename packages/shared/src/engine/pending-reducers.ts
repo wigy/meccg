@@ -23,7 +23,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -283,6 +283,13 @@ function applyCorruptionCheckResolution(
       companies: newCompanies,
       discardPile: newDiscardPile,
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   } else {
     // Roll < CP - 1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
     const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
@@ -315,6 +322,13 @@ function applyCorruptionCheckResolution(
       outOfPlayPile: newOutOfPlayPile,
       discardPile: newDiscardPile,
     };
+    for (const hazard of char.hazards) {
+      logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
+      const hazOwner = ownerOf(hazard.instanceId);
+      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
+      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
   }
 
   const cleanedState = cleanupEmptyCompanies({
