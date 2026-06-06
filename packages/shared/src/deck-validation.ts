@@ -79,12 +79,12 @@ const MINION_RESOURCE_TYPES = new Set([
  * Validate a deck against CoE deck-construction rules.
  *
  * @param deck  The deck to validate.
- * @param pool  Card definition lookup keyed by {@link CardDefinitionId}.
+ * @param cardPool  Card definition lookup keyed by {@link CardDefinitionId}.
  * @returns     Array of structured errors. Empty array means the deck is valid.
  */
 export function validateDeck(
   deck: DeckList,
-  pool: Readonly<Record<string, CardDefinition>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
 ): DeckValidationError[] {
   const errors: DeckValidationError[] = [];
 
@@ -124,7 +124,7 @@ export function validateDeck(
   // Rule 1.08 / 1.11 — avatar characters match alignment
   for (const entry of characters) {
     if (entry.card === null) continue;
-    const def = pool[entry.card];
+    const def = cardPool[entry.card];
     if (!isCharacterCard(def) || !isAvatarCharacter(def)) continue;
     if (deck.alignment === 'hero' && def.race !== 'wizard') {
       errors.push({
@@ -149,7 +149,7 @@ export function validateDeck(
   ] as const) {
     for (const entry of section) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
       if (deck.alignment === 'hero') {
         // Agents count as hazards for hero decks — allowed in hero decks
@@ -178,7 +178,7 @@ export function validateDeck(
   if (deck.alignment === 'hero') {
     for (const entry of resources) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!def) continue;
       const allowed = HERO_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'minion-resource-item';
       if (!allowed) {
@@ -191,11 +191,32 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.20 — balrog non-avatar characters must be minion
+  if (deck.alignment === 'balrog') {
+    for (const [section, sectionKey] of [
+      [poolCards, 'pool'],
+      [characters, 'characters'],
+    ] as const) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const def = cardPool[entry.card];
+        if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
+        if (def.cardType !== 'minion-character') {
+          errors.push({
+            section: sectionKey,
+            message: `balrog deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
   // Rule 1.13 — minion resources
   if (deck.alignment === 'minion') {
     for (const entry of resources) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!def) continue;
       const allowed = MINION_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'hero-resource-item';
       if (!allowed) {
@@ -208,11 +229,27 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.21 — balrog resources must be minion
+  if (deck.alignment === 'balrog') {
+    for (const entry of resources) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (!def) continue;
+      if (!MINION_RESOURCE_TYPES.has(def.cardType)) {
+        errors.push({
+          section: 'resources',
+          message: `balrog deck: resource "${def.name}" has cardType "${def.cardType}" — must be minion-resource-*`,
+          card: entry.card,
+        });
+      }
+    }
+  }
+
   // Rule 1.24 — non-haven sites appear at most once in location deck
   const nonHavenSeen = new Set<string>();
   for (const entry of sites) {
     if (entry.card === null) continue;
-    const def = pool[entry.card];
+    const def = cardPool[entry.card];
     if (!isSiteCard(def)) continue;
     if (def.siteType === SiteType.Haven) continue;
     const cardId = entry.card as string;
@@ -236,7 +273,7 @@ export function validateDeck(
   if (deck.alignment === 'hero') {
     for (const entry of sites) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
       if (def.cardType !== 'hero-site' && def.cardType !== 'balrog-site') {
         errors.push({
@@ -252,7 +289,7 @@ export function validateDeck(
   if (deck.alignment === 'minion') {
     for (const entry of sites) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
       if (def.cardType !== 'minion-site' && def.cardType !== 'balrog-site') {
         errors.push({
@@ -282,7 +319,7 @@ export function validateDeck(
   let creatureCount = 0;
   for (const entry of hazards) {
     if (entry.card === null) continue;
-    const def = pool[entry.card];
+    const def = cardPool[entry.card];
     if (def?.cardType === 'hazard-creature') creatureCount += entry.qty;
   }
   if (creatureCount < 12) {
@@ -295,7 +332,7 @@ export function validateDeck(
   let nonAvatarCharCount = 0;
   for (const entry of characters) {
     if (entry.card === null) continue;
-    const def = pool[entry.card];
+    const def = cardPool[entry.card];
     if (isCharacterCard(def) && !isAvatarCharacter(def)) nonAvatarCharCount += entry.qty;
   }
   if (nonAvatarCharCount > 10) {
@@ -319,7 +356,7 @@ export function validateDeck(
     const fwNonHavenSeen = new Set<string>();
     for (const entry of sites) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
       if (def.cardType === 'balrog-site') {
         errors.push({
@@ -354,7 +391,7 @@ export function validateDeck(
   if (deck.alignment === 'balrog') {
     for (const entry of sites) {
       if (entry.card === null) continue;
-      const def = pool[entry.card];
+      const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
       if (def.cardType === 'hero-site' || def.cardType === 'fallen-wizard-site') {
         errors.push({
@@ -386,7 +423,7 @@ export function validateDeck(
   let poolMinorItemCount = 0;
   for (const entry of poolCards) {
     if (entry.card === null) continue;
-    const def = pool[entry.card];
+    const def = cardPool[entry.card];
     if (isCharacterCard(def) && !isAvatarCharacter(def)) {
       poolNonAvatarCharCount += entry.qty;
     } else if (isItemCard(def) && def.subtype === 'minor' && !def.unique) {
