@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { pool } from '../../test-helpers.js';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
 import { validateDeck } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
@@ -33,8 +33,8 @@ const heroDeck: DeckList = {
       { name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 },
       { name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 },
     ],
-    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
-    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...HERO_RESOURCES_30],
   },
 };
 

@@ -18,7 +18,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { pool } from '../../test-helpers.js';
+import { pool, MINION_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
 import { validateDeck } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
@@ -37,8 +37,8 @@ const baseBalrogDeck: DeckList = {
   sites: [{ name: 'Ettenmoors', card: 'le-373' as CardDefinitionId, qty: 1 }],
   deck: {
     characters: [{ name: 'Azog', card: 'ba-2' as CardDefinitionId, qty: 1 }],
-    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
-    resources: [{ name: 'Black Mace', card: 'le-299' as CardDefinitionId, qty: 30 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...MINION_RESOURCES_30],
   },
 };
 

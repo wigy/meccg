@@ -121,6 +121,69 @@ export function validateDeck(
   const poolCards = deck.pool ?? [];
   const sideboard = deck.sideboard ?? [];
 
+  // Rule 1.04 — unique card limits (across entire deck except haven sites)
+  {
+    const counts = new Map<string, number>();
+    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    for (const section of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        counts.set(entry.card as string, (counts.get(entry.card as string) ?? 0) + entry.qty);
+      }
+    }
+    for (const [cardId, count] of counts) {
+      const def = cardPool[cardId];
+      if (!def) continue;
+      if (isAvatarCharacter(def)) {
+        // Avatars allow up to 3 copies
+        if (count > 3) {
+          errors.push({
+            section: 'characters',
+            message: `avatar "${(def as { name: string }).name}" has ${count} copies (max 3)`,
+            card: cardId as CardDefinitionId,
+          });
+        }
+      } else if ('unique' in def && def.unique) {
+        if (count > 1) {
+          errors.push({
+            section: isCharacterCard(def) ? 'characters' : 'resources',
+            message: `unique card "${(def as { name: string }).name}" has ${count} copies (max 1)`,
+            card: cardId as CardDefinitionId,
+          });
+        }
+      } else {
+        if (count > 3) {
+          errors.push({
+            section: isCharacterCard(def) ? 'characters' : 'resources',
+            message: `non-unique card "${(def as { name: string }).name}" has ${count} copies (max 3)`,
+            card: cardId as CardDefinitionId,
+          });
+        }
+      }
+    }
+  }
+
+  // Rule 1.05 — total mind of agent cards ≤ 36
+  {
+    let totalAgentMind = 0;
+    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    for (const section of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const def = cardPool[entry.card];
+        if (!isCharacterCard(def)) continue;
+        if (!def.keywords?.includes('agent')) continue;
+        if (def.mind !== null) totalAgentMind += def.mind * entry.qty;
+      }
+    }
+    if (totalAgentMind > 36) {
+      errors.push({
+        section: 'general',
+        message: `total mind of agent cards is ${totalAgentMind} (max 36)`,
+      });
+    }
+  }
+
   // Rule 1.08 / 1.11 — avatar characters match alignment
   for (const entry of characters) {
     if (entry.card === null) continue;
@@ -205,6 +268,35 @@ export function validateDeck(
           errors.push({
             section: sectionKey,
             message: `balrog deck: character "${def.name}" has cardType "${def.cardType}" — must be minion-character`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
+  // Rule 1.22 — balrog character additional restrictions
+  if (deck.alignment === 'balrog') {
+    for (const [section, sectionKey] of [
+      [poolCards, 'pool'],
+      [characters, 'characters'],
+    ] as const) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const def = cardPool[entry.card];
+        if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
+        const race = def.race as string;
+        if (race !== 'orc' && race !== 'troll') {
+          errors.push({
+            section: sectionKey,
+            message: `balrog deck: character "${def.name}" has race "${race}" — must be orc or troll`,
+            card: entry.card,
+          });
+        }
+        if (def.mind !== null && def.mind >= 9 && !(entry.card as string).startsWith('ba-')) {
+          errors.push({
+            section: sectionKey,
+            message: `balrog deck: character "${def.name}" has mind ${def.mind} ≥ 9 and is not Balrog-specific`,
             card: entry.card,
           });
         }
