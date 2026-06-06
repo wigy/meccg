@@ -17,47 +17,94 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks, pool } from '../../test-helpers.js';
-import { isCharacterCard, isAvatarCharacter, Race, Alignment } from '../../../index.js';
+import { pool, MINION_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// ba-2   = Azog (orc, mind 7) — valid: orc, mind < 9
+// le-21  = Lieutenant of Dol Guldur (troll, mind 9) — invalid: mind ≥ 9 and not ba-*
+// le-4   = Calendal (elf, mind 6) — invalid: race not orc or troll
+
+const baseBalrogDeck: DeckList = {
+  id: 'test-balrog-restrictions',
+  name: 'Balrog Restrictions Test',
+  alignment: 'balrog',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Ettenmoors', card: 'le-373' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Azog', card: 'ba-2' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...MINION_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.22 — Balrog Additional Restrictions', () => {
-  test('[BALROG] Non-avatar characters can only be Orc or Troll', () => {
-    const decks = loadAllDecks().filter(d => d.alignment === 'balrog');
-    expect(decks.length).toBeGreaterThan(0);
-    for (const deck of decks) {
-      for (const section of [deck.pool, deck.deck.characters, deck.sideboard]) {
-        for (const entry of section) {
-          if (!entry.card) continue;
-          const def = pool[entry.card];
-          if (!isCharacterCard(def)) continue;
-          if (isAvatarCharacter(def)) continue;
-          expect(
-            def.race === Race.Orc || def.race === Race.Troll,
-            `deck ${deck.id}: non-avatar character "${entry.card}" (${def.name}) has disallowed race "${def.race}"`,
-          ).toBe(true);
-        }
-      }
-    }
+  test('Balrog deck with an Orc character (mind < 9) has no restriction error', () => {
+    expect(validateDeck(baseBalrogDeck, pool).filter(e =>
+      e.section === 'characters' && e.card === ('ba-2' as CardDefinitionId),
+    )).toHaveLength(0);
   });
 
-  test('[BALROG] Characters can only have mind less than 9 unless Balrog-specific', () => {
-    const decks = loadAllDecks().filter(d => d.alignment === 'balrog');
-    expect(decks.length).toBeGreaterThan(0);
-    for (const deck of decks) {
-      for (const section of [deck.pool, deck.deck.characters, deck.sideboard]) {
-        for (const entry of section) {
-          if (!entry.card) continue;
-          const def = pool[entry.card];
-          if (!isCharacterCard(def)) continue;
-          if (isAvatarCharacter(def)) continue;
-          const isBalrogSpecific = def.alignment === Alignment.Balrog;
-          if (isBalrogSpecific) continue;
-          expect(
-            def.mind !== null && def.mind !== undefined && def.mind < 9,
-            `deck ${deck.id}: character "${entry.card}" (${def.name}) has mind ${def.mind} which is >= 9 and not Balrog-specific`,
-          ).toBe(true);
-        }
-      }
-    }
+  test('Balrog deck with a non-Orc non-Troll character produces a character error', () => {
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        characters: [
+          { name: 'Azog', card: 'ba-2' as CardDefinitionId, qty: 1 },
+          { name: 'Calendal', card: 'le-4' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'characters' && e.card === ('le-4' as CardDefinitionId))).toBe(true);
+  });
+
+  test('Balrog deck with a troll character of mind 9 produces a mind error', () => {
+    // le-21 Lieutenant of Dol Guldur (troll, mind 9) — valid race but mind ≥ 9
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        characters: [
+          { name: 'Azog', card: 'ba-2' as CardDefinitionId, qty: 1 },
+          { name: 'Lieutenant of Dol Guldur', card: 'le-21' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'characters' && e.card === ('le-21' as CardDefinitionId) && e.message.includes('mind'))).toBe(true);
+  });
+
+  test('Balrog deck with an Orc faction has no faction race error', () => {
+    // le-265 = Goblins of Goblin-gate (minion-resource-faction, race=orc)
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        resources: [
+          ...MINION_RESOURCES_30,
+          { name: 'Goblins of Goblin-gate', card: 'le-265' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'resources' && e.card === ('le-265' as CardDefinitionId))).toHaveLength(0);
+  });
+
+  test('Balrog deck with a Man faction produces a faction race error', () => {
+    // le-260 = Balchoth (minion-resource-faction, race=man)
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        resources: [
+          ...MINION_RESOURCES_30,
+          { name: 'Balchoth', card: 'le-260' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'resources' && e.card === ('le-260' as CardDefinitionId))).toBe(true);
   });
 });
