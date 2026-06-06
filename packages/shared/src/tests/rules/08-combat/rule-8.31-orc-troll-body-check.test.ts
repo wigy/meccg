@@ -14,8 +14,106 @@
  * Effects that modify a character's body also modify the number on which an Orc or Troll is discarded. An applied maximum to an Orc's or Troll's body also applies to its discard number.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import { Phase, CardDefinitionId, Alignment } from '../../../index.js';
+import {
+  buildTestState, PLAYER_1, PLAYER_2, resetMint,
+  dispatch, viableActions, findCharInstanceId, companyIdAt,
+  makeShadowMHState, makeBodyCheckCombat, setCharStatus,
+  RESOURCE_PLAYER, CardStatus, LEGOLAS, RIVENDELL, LORIEN,
+} from '../../test-helpers.js';
+
+const GORBAG = 'le-11' as CardDefinitionId;  // orc, body=9, discardBodyCheck=[9]
+
+// Minion sites
+const CARN_DUM = 'le-359' as CardDefinitionId;
+const MINAS_MORGUL_LE = 'le-390' as CardDefinitionId;
 
 describe('Rule 8.31 — Orc/Troll Body Check Discard', () => {
-  test.todo('If Orc or Troll would be both discarded and eliminated from body check, discard instead; body mods apply to discard number');
+  beforeEach(() => resetMint());
+
+  test('Orc discarded (not eliminated) when body check roll matches discardBodyCheck value', () => {
+    // Gorbag (le-11): orc, body=9, discardBodyCheck=[9].
+    // Roll 9 matches discardBodyCheck → goes to discardPile (not outOfPlayPile).
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [GORBAG] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL_LE],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, GORBAG, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: gorbagId }),
+      cheatRollTotal: 9,
+    };
+
+    const [bodyCheckAction] = viableActions(readyState, PLAYER_2, 'body-check-roll');
+    const after = dispatch(readyState, bodyCheckAction.action);
+
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gorbagId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gorbagId)).toBe(false);
+  });
+
+  test('Orc eliminated when body check roll exceeds body', () => {
+    // Gorbag (le-11): orc, body=9. Roll 10 > 9 → eliminated to outOfPlayPile.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [GORBAG] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL_LE],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, GORBAG, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: gorbagId }),
+      cheatRollTotal: 10,
+    };
+
+    const [bodyCheckAction] = viableActions(readyState, PLAYER_2, 'body-check-roll');
+    const after = dispatch(readyState, bodyCheckAction.action);
+
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gorbagId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gorbagId)).toBe(false);
+  });
+
+  test.todo('Body modifiers also modify the discardBodyCheck number for Orcs and Trolls');
 });
