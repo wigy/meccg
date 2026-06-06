@@ -13,8 +13,83 @@
  * [FALLEN-WIZARD] A Fallen-wizard player's location deck may include one copy of each hero site and one copy of each minion site (including havens), and may include multiple copies of each Fallen-wizard site.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { pool } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// wh-58  = The White Towers (fallen-wizard-site, haven)
+// tw-413 = Moria (hero-site)
+// le-373 = Ettenmoors (minion-site)
+// ba-93  = Moria (balrog-site) — not valid in FW deck
+
+const baseFwDeck: DeckList = {
+  id: 'test-fw-sites',
+  name: 'FW Location Deck Test',
+  alignment: 'fallen-wizard',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 }],
+    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.28 — Fallen-Wizard Location Deck', () => {
-  test.todo('[FALLEN-WIZARD] Location deck may include hero, minion, and multiple Fallen-wizard sites');
+  test('FW deck with only fallen-wizard site has no site error', () => {
+    expect(validateDeck(baseFwDeck, pool).filter(e => e.section === 'sites')).toHaveLength(0);
+  });
+
+  test('FW deck with hero site (qty 1) has no site error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      sites: [
+        { name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 },
+        { name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 },
+      ],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sites')).toHaveLength(0);
+  });
+
+  test('FW deck with minion site (qty 1) has no site error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      sites: [
+        { name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 },
+        { name: 'Ettenmoors', card: 'le-373' as CardDefinitionId, qty: 1 },
+      ],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sites')).toHaveLength(0);
+  });
+
+  test('FW deck with fallen-wizard site (qty 2) has no site error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      sites: [{ name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 2 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sites')).toHaveLength(0);
+  });
+
+  test('FW deck with hero site (qty 2) produces a sites error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 2 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'sites' && e.card === ('tw-413' as CardDefinitionId))).toBe(true);
+  });
+
+  test('FW deck with a balrog site produces a sites error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      sites: [
+        { name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 },
+        { name: 'Moria (Balrog)', card: 'ba-93' as CardDefinitionId, qty: 1 },
+      ],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'sites' && e.card === ('ba-93' as CardDefinitionId))).toBe(true);
+  });
 });

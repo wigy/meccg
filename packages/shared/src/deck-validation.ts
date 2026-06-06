@@ -16,6 +16,7 @@ import {
   isCharacterCard,
   isAvatarCharacter,
   isSiteCard,
+  isItemCard,
 } from './types/cards.js';
 import { SiteType } from './types/common.js';
 
@@ -48,6 +49,17 @@ export interface DeckValidationError {
    */
   readonly card?: CardDefinitionId;
 }
+
+/**
+ * Minion sites that a Balrog player cannot include because a Balrog-specific
+ * version of that site exists and must be used instead (rule 1.29).
+ */
+const BALROG_RESTRICTED_MINION_SITE_IDS = new Set([
+  'le-392', // Moria (minion) → use ba-93
+  'le-359', // Carn Dûm (minion) → use ba-93 equivalent
+  'le-367', // Dol Guldur (minion) → use ba-93 equivalent
+  'le-390', // Minas Morgul (minion) → use ba-93 equivalent
+]);
 
 const HERO_RESOURCE_TYPES = new Set([
   'hero-resource-item',
@@ -299,6 +311,98 @@ export function validateDeck(
     errors.push({
       section: 'sideboard',
       message: `sideboard: ${sideboardTotal} cards (max 30 for Short Game)`,
+    });
+  }
+
+  // Rule 1.28 — fallen-wizard location deck
+  if (deck.alignment === 'fallen-wizard') {
+    const fwNonHavenSeen = new Set<string>();
+    for (const entry of sites) {
+      if (entry.card === null) continue;
+      const def = pool[entry.card];
+      if (!isSiteCard(def)) continue;
+      if (def.cardType === 'balrog-site') {
+        errors.push({
+          section: 'sites',
+          message: `fallen-wizard deck: site "${def.name}" has cardType "balrog-site" — not allowed`,
+          card: entry.card,
+        });
+        continue;
+      }
+      // FW sites may appear multiple times; hero and minion sites: 1 copy each
+      if (def.cardType !== 'fallen-wizard-site') {
+        const cardId = entry.card as string;
+        if (entry.qty > 1) {
+          errors.push({
+            section: 'sites',
+            message: `fallen-wizard deck: site "${def.name}" has qty ${entry.qty} — hero/minion sites may appear at most once`,
+            card: entry.card,
+          });
+        } else if (fwNonHavenSeen.has(cardId)) {
+          errors.push({
+            section: 'sites',
+            message: `fallen-wizard deck: site "${def.name}" appears more than once — hero/minion sites allowed at most once`,
+            card: entry.card,
+          });
+        }
+        fwNonHavenSeen.add(cardId);
+      }
+    }
+  }
+
+  // Rule 1.29 — balrog location deck
+  if (deck.alignment === 'balrog') {
+    for (const entry of sites) {
+      if (entry.card === null) continue;
+      const def = pool[entry.card];
+      if (!isSiteCard(def)) continue;
+      if (def.cardType === 'hero-site' || def.cardType === 'fallen-wizard-site') {
+        errors.push({
+          section: 'sites',
+          message: `balrog deck: site "${def.name}" has cardType "${def.cardType}" — not allowed`,
+          card: entry.card,
+        });
+      } else if (def.cardType === 'minion-site') {
+        const cardId = entry.card as string;
+        if (BALROG_RESTRICTED_MINION_SITE_IDS.has(cardId)) {
+          errors.push({
+            section: 'sites',
+            message: `balrog deck: site "${def.name}" requires the Balrog-specific version`,
+            card: entry.card,
+          });
+        } else if (def.siteType === SiteType.DarkHold) {
+          errors.push({
+            section: 'sites',
+            message: `balrog deck: dark-hold site "${def.name}" requires a Balrog-specific version`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
+  // Rule 1.32 — pool limits
+  let poolNonAvatarCharCount = 0;
+  let poolMinorItemCount = 0;
+  for (const entry of poolCards) {
+    if (entry.card === null) continue;
+    const def = pool[entry.card];
+    if (isCharacterCard(def) && !isAvatarCharacter(def)) {
+      poolNonAvatarCharCount += entry.qty;
+    } else if (isItemCard(def) && def.subtype === 'minor' && !def.unique) {
+      poolMinorItemCount += entry.qty;
+    }
+  }
+  if (poolNonAvatarCharCount > 10) {
+    errors.push({
+      section: 'pool',
+      message: `pool: ${poolNonAvatarCharCount} non-avatar characters (max 10)`,
+    });
+  }
+  if (poolMinorItemCount > 2) {
+    errors.push({
+      section: 'pool',
+      message: `pool: ${poolMinorItemCount} non-unique minor items (max 2)`,
     });
   }
 

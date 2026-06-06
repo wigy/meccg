@@ -13,8 +13,60 @@
  * A pool is a set of up to 10 non-avatar characters that adhere to any deck restrictions when considered in conjunction with the play deck and the sideboard other than total number of characters (i.e. a player may have up to 10 characters in their pool even if they already have up to 10 non-avatar characters in their play deck). A pool may also contain up to two non-unique, non-hoard minor items that adhere to any deck restrictions when considered in conjunction with the play deck and the sideboard.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { pool } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-120 = Aragorn II (hero-character, non-avatar) — valid pool character
+// tw-206 = Dagger of Westernesse (hero-resource-item, minor, non-unique) — valid pool item
+
+const baseDeck: DeckList = {
+  id: 'test-pool-rules',
+  name: 'Pool Rules Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.32 — Pool Rules', () => {
-  test.todo('Pool: up to 10 non-avatar characters + up to 2 non-unique non-hoard minor items');
+  test('Pool with 10 non-avatar characters has no pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 10 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'pool')).toHaveLength(0);
+  });
+
+  test('Pool with 11 non-avatar characters produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 11 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('max 10'))).toBe(true);
+  });
+
+  test('Pool with 2 non-unique minor items has no pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Dagger of Westernesse', card: 'tw-206' as CardDefinitionId, qty: 2 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'pool')).toHaveLength(0);
+  });
+
+  test('Pool with 3 non-unique minor items produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Dagger of Westernesse', card: 'tw-206' as CardDefinitionId, qty: 3 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('max 2'))).toBe(true);
+  });
 });
