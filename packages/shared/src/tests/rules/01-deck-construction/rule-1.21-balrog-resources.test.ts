@@ -13,8 +13,26 @@
  * [BALROG] A Balrog player's resources can only be minion resources and/or hazards that may be played as resources.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks, pool } from '../../test-helpers.js';
 
 describe('Rule 1.21 — Balrog Resources', () => {
-  test.todo('[BALROG] Resources can only be minion resources and/or hazards playable as resources');
+  test('[BALROG] Resources can only be minion resources and/or hazards playable as resources', () => {
+    const decks = loadAllDecks().filter(d => d.alignment === 'balrog');
+    expect(decks.length).toBeGreaterThan(0);
+    for (const deck of decks) {
+      for (const entry of deck.deck.resources) {
+        if (!entry.card) continue;
+        const def = pool[entry.card];
+        if (!def) continue;
+        const ct = def.cardType;
+        const isMinionResource = ct.startsWith('minion-resource-');
+        const isHazard = ct.startsWith('hazard-');
+        expect(
+          isMinionResource || isHazard,
+          `deck ${deck.id}: resource card "${entry.card}" (${def.name}) has disallowed cardType "${ct}"`,
+        ).toBe(true);
+      }
+    }
+  });
 });
