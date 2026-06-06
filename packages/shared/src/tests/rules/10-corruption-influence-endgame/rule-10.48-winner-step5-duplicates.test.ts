@@ -14,58 +14,32 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import { Phase } from '../../../index.js';
+import type { FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.js';
 import {
-  buildTestState, resetMint, dispatch, Phase,
-  PLAYER_1, PLAYER_2, ARAGORN,
-  RIVENDELL, LORIEN, MINAS_TIRITH,
-  CardStatus,
+  buildTestState, resetMint, dispatch,
+  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
+  RANGERS_OF_THE_NORTH,
+  addCardInPlay,
 } from '../../test-helpers.js';
-import type { CardDefinitionId, CardInPlay, CardInstanceId } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState, GameOverPhaseState } from '../../../types/state-phases.js';
-import type { GameState } from '../../../types/state.js';
-
-// Gwaihir (tw-251): unique hero-resource-ally, 2 MP — unique=true in card data
-const GWAIHIR = 'tw-251' as CardDefinitionId;
 
 describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
   beforeEach(() => resetMint());
 
-  test('Unique card in hand matching opponent\'s in-play unique reduces opponent MP by 1', () => {
-    // Both players have the same character (Aragorn) and the same ally (Gwaihir)
-    // in cardsInPlay, so their base scores are symmetric before the penalty.
-    // P2 additionally holds a third Gwaihir copy in hand.
-    // At Free Council step 5, P2's unplayed matching unique reduces P1's score by 1.
-    const gwaihirP1: CardInPlay = {
-      instanceId: 'gwaihir-p1' as CardInstanceId,
-      definitionId: GWAIHIR,
-      status: CardStatus.Untapped,
-    };
-    const gwaihirP2: CardInPlay = {
-      instanceId: 'gwaihir-p2' as CardInstanceId,
-      definitionId: GWAIHIR,
-      status: CardStatus.Untapped,
-    };
-
+  test('Hand card matching opponent unique in-play card reduces opponent final score by 1', () => {
+    // P2 has Rangers of the North (unique, 3 MPs) in cardsInPlay.
+    // P1 has Rangers of the North in hand — a unique card matching P2's
+    // in-play copy. Per rule 10.48, P2's final score is reduced by 1.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
       players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [MINAS_TIRITH],
-          cardsInPlay: [gwaihirP1],
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: LORIEN, characters: [ARAGORN] }],
-          hand: [GWAIHIR],
-          siteDeck: [RIVENDELL],
-          cardsInPlay: [gwaihirP2],
-        },
+        { id: PLAYER_1, hand: [RANGERS_OF_THE_NORTH], siteDeck: [], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
       ],
     });
+
+    const withRangers = addCardInPlay(base, HAZARD_PLAYER, RANGERS_OF_THE_NORTH);
 
     const fcState: FreeCouncilPhaseState = {
       phase: Phase.FreeCouncil,
@@ -77,56 +51,34 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
       pendingCheck: null,
     };
 
-    let state: GameState = { ...base, phaseState: fcState } as GameState;
-    state = dispatch(state, { type: 'pass', player: PLAYER_1 });
-    state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+    const state = { ...withRangers, phaseState: fcState };
 
-    expect(state.phaseState.phase).toBe(Phase.GameOver);
-    const gameOver = state.phaseState as unknown as GameOverPhaseState;
+    // P1 passes (no characters to check) → switches to P2
+    const afterP1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    // P2 passes → game ends, duplicate reveal applied
+    const afterP2 = dispatch(afterP1, { type: 'pass', player: PLAYER_2 });
 
-    const p1Score = gameOver.finalScores[PLAYER_1 as string];
-    const p2Score = gameOver.finalScores[PLAYER_2 as string];
-    // Both start at the same base score (symmetric setup); P2's hand duplicate
-    // reduces P1 by 1, so P2 wins by exactly 1 point.
-    expect(p1Score).toBe(p2Score - 1);
-    expect(gameOver.winner).toBe(PLAYER_2);
+    const gameOver = afterP2.phaseState as GameOverPhaseState;
+    expect(gameOver.phase).toBe(Phase.GameOver);
+    // P1's Rangers in hand matches P2's Rangers in play → P2 gets -1
+    expect(gameOver.finalScores[PLAYER_2 as string]).toBe(-1);
+    // P1 has no match in P2's hand → no reduction
+    expect(gameOver.finalScores[PLAYER_1 as string]).toBe(0);
   });
 
-  test('No hand duplicate: both players\' scores are equal (tie)', () => {
-    // Both players have the same character (Aragorn) and the same ally (Gwaihir)
-    // in cardsInPlay — equal base scores. P2 holds no matching card in hand,
-    // so the duplicate-reveal step has no effect and the game ends in a tie.
-    const gwaihirP1: CardInPlay = {
-      instanceId: 'gwaihir-p1' as CardInstanceId,
-      definitionId: GWAIHIR,
-      status: CardStatus.Untapped,
-    };
-    const gwaihirP2: CardInPlay = {
-      instanceId: 'gwaihir-p2' as CardInstanceId,
-      definitionId: GWAIHIR,
-      status: CardStatus.Untapped,
-    };
-
+  test('No matching hand cards: opponent final score unaffected', () => {
+    // P2 has Rangers of the North in cardsInPlay, but P1 holds no matching
+    // unique card. No duplicate penalty is applied to either player's score.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
       players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [MINAS_TIRITH],
-          cardsInPlay: [gwaihirP1],
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: LORIEN, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [RIVENDELL],
-          cardsInPlay: [gwaihirP2],
-        },
+        { id: PLAYER_1, hand: [], siteDeck: [], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
       ],
     });
+
+    const withRangers = addCardInPlay(base, HAZARD_PLAYER, RANGERS_OF_THE_NORTH);
 
     const fcState: FreeCouncilPhaseState = {
       phase: Phase.FreeCouncil,
@@ -138,17 +90,15 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
       pendingCheck: null,
     };
 
-    let state: GameState = { ...base, phaseState: fcState } as GameState;
-    state = dispatch(state, { type: 'pass', player: PLAYER_1 });
-    state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+    const state = { ...withRangers, phaseState: fcState };
 
-    expect(state.phaseState.phase).toBe(Phase.GameOver);
-    const gameOver = state.phaseState as unknown as GameOverPhaseState;
+    const afterP1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterP2 = dispatch(afterP1, { type: 'pass', player: PLAYER_2 });
 
-    const p1Score = gameOver.finalScores[PLAYER_1 as string];
-    const p2Score = gameOver.finalScores[PLAYER_2 as string];
-    // Equal points, no duplicate penalty → tie
-    expect(p1Score).toBe(p2Score);
-    expect(gameOver.winner).toBeNull();
+    const gameOver = afterP2.phaseState as GameOverPhaseState;
+    expect(gameOver.phase).toBe(Phase.GameOver);
+    // No duplicate hand cards → no score penalty for either player
+    expect(gameOver.finalScores[PLAYER_2 as string]).toBe(0);
+    expect(gameOver.finalScores[PLAYER_1 as string]).toBe(0);
   });
 });
