@@ -13,8 +13,25 @@
  * [HERO] A Wizard player's location deck can only include hero site cards (and the designated Balrog site cards).
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks, pool } from '../../test-helpers.js';
+import { isSiteCard } from '../../../index.js';
 
 describe('Rule 1.26 — Hero Location Deck', () => {
-  test.todo('[HERO] Location deck can only include hero site cards (and designated Balrog sites)');
+  test('[HERO] Location deck can only include hero site cards (and designated Balrog sites)', () => {
+    const decks = loadAllDecks();
+    for (const deck of decks) {
+      if (deck.alignment !== 'hero') continue;
+      for (const entry of deck.sites) {
+        if (entry.card === null) continue;
+        const def = pool[entry.card];
+        if (!isSiteCard(def)) continue;
+        const ct = def.cardType;
+        expect(
+          ct === 'hero-site' || ct === 'balrog-site',
+          `hero deck ${deck.id}: site "${entry.card}" (${def.name}) has cardType "${ct}" — must be hero-site or balrog-site`,
+        ).toBe(true);
+      }
+    }
+  });
 });
