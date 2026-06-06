@@ -29,6 +29,7 @@ import {
 } from '../../test-helpers.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
+const BILBO = 'tw-131' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;
@@ -174,5 +175,86 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     }
   });
 
-  test.todo('CvCC: attacker distributes excess strikes as -1 prowess each');
+  test('CvCC: attacker distributes excess strikes as -1 prowess each', () => {
+    // P1 (Wizard) has 2 attackers (Aragorn + Bilbo); P2 (Ringwraith) has 1 defender (Perchen).
+    // strikesTotal = 2 (attacker count). After Aragorn is paired with Perchen, no unassigned
+    // defenders remain — P1 passes. The engine skips defender-any and sets cvccExcessPool=1.
+    // P1 may then allocate that excess as a -1 modifier before resolving the strike.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [MORIA_AS],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    let s = { ...state, phaseState: sitePhaseState } as import('../../../index.js').GameState;
+
+    // Pass play-resources → declare-company-attack
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    // Declare CvCC
+    const declareActions = viableActions(s, PLAYER_1, 'declare-company-attack');
+    const declareAction = declareActions[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender passes (no pre-assignment)
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    // Attacker assigns first available character to Perchen (e.g. Aragorn)
+    const assignActions = viableActions(s, PLAYER_1, 'assign-strike');
+    expect(assignActions.length).toBeGreaterThan(0);
+    s = dispatch(s, assignActions[0].action);
+
+    // No more unassigned defenders — P1 must pass; engine skips defender-any
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    // Excess pool should be 1 (2 attackers − 1 unique defender)
+    expect(s.combat?.cvccExcessPool).toBe(1);
+
+    // P1 gets allocate-cvcc-excess action alongside resolve-strike
+    const excessActions = viableActions(s, PLAYER_1, 'allocate-cvcc-excess');
+    expect(excessActions.length).toBe(1);
+
+    // Allocate the excess: current strike gains excessStrikes = 1 (−1 to defender prowess)
+    s = dispatch(s, { type: 'allocate-cvcc-excess', player: PLAYER_1 });
+
+    const strike = s.combat?.strikeAssignments[s.combat.currentStrikeIndex];
+    expect(strike?.excessStrikes).toBe(1);
+    expect(s.combat?.cvccExcessPool).toBeUndefined();
+  });
 });
