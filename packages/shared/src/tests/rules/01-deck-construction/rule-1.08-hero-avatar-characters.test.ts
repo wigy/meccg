@@ -13,8 +13,24 @@
  * [HERO] A Wizard player's avatar characters can only be Wizard avatars.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks, pool } from '../../test-helpers.js';
+import { isCharacterCard, isAvatarCharacter } from '../../../index.js';
 
 describe('Rule 1.08 — Hero Avatar Characters', () => {
-  test.todo('[HERO] Wizard player avatar characters can only be Wizard avatars');
+  test('[HERO] Wizard player avatar characters can only be Wizard avatars', () => {
+    const decks = loadAllDecks();
+    for (const deck of decks) {
+      if (deck.alignment !== 'hero') continue;
+      for (const entry of deck.deck.characters) {
+        if (entry.card === null) continue;
+        const def = pool[entry.card];
+        if (!isCharacterCard(def) || !isAvatarCharacter(def)) continue;
+        expect(
+          def.race,
+          `hero deck ${deck.id}: avatar "${entry.card}" (${def.name}) is not a Wizard avatar`,
+        ).toBe('wizard');
+      }
+    }
+  });
 });
