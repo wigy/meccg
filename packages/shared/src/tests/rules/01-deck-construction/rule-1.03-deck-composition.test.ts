@@ -13,8 +13,20 @@
  * Each player prepares a deck that comprises four distinct sets of cards: a location deck, a play deck, a sideboard, and a pool.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks } from '../../test-helpers.js';
 
 describe('Rule 1.03 — Deck Composition', () => {
-  test.todo('Each player prepares a location deck, play deck, sideboard, and pool');
+  test('Each player prepares a location deck, play deck, sideboard, and pool', () => {
+    const decks = loadAllDecks();
+    for (const deck of decks) {
+      expect(Array.isArray(deck.sites), `deck ${deck.id}: missing location deck (sites)`).toBe(true);
+      expect(Array.isArray(deck.pool), `deck ${deck.id}: missing pool`).toBe(true);
+      expect(Array.isArray(deck.sideboard), `deck ${deck.id}: missing sideboard`).toBe(true);
+      expect(deck.deck, `deck ${deck.id}: missing play deck`).toBeDefined();
+      expect(Array.isArray(deck.deck.characters), `deck ${deck.id}: play deck missing characters`).toBe(true);
+      expect(Array.isArray(deck.deck.hazards), `deck ${deck.id}: play deck missing hazards`).toBe(true);
+      expect(Array.isArray(deck.deck.resources), `deck ${deck.id}: play deck missing resources`).toBe(true);
+    }
+  });
 });

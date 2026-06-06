@@ -15,8 +15,22 @@
  * A player may include any number of avatars in their sideboard so long as no more than one avatar has multiple copies across their combined play deck and sideboard.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks } from '../../test-helpers.js';
+
+// Maximum sideboard size for Short Game (30), Long Game (35), Campaign (40)
+const SHORT_GAME_SIDEBOARD_MAX = 30;
 
 describe('Rule 1.31 — Sideboard Rules', () => {
-  test.todo('Sideboard size depends on game length; must adhere to deck restrictions with play deck');
+  test('Sideboard size depends on game length; must adhere to deck restrictions with play deck', () => {
+    const decks = loadAllDecks();
+    for (const deck of decks) {
+      if (!deck.id.startsWith('challenge')) continue;
+      const sideboardTotal = deck.sideboard.reduce((sum, e) => sum + e.qty, 0);
+      expect(
+        sideboardTotal,
+        `deck ${deck.id}: sideboard has ${sideboardTotal} cards, max is ${SHORT_GAME_SIDEBOARD_MAX} for Short Game`,
+      ).toBeLessThanOrEqual(SHORT_GAME_SIDEBOARD_MAX);
+    }
+  });
 });
