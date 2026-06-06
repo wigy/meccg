@@ -15,8 +15,40 @@
  * A player may include any number of avatars in their sideboard so long as no more than one avatar has multiple copies across their combined play deck and sideboard.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { pool } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+const baseDeck: DeckList = {
+  id: 'test-sideboard',
+  name: 'Sideboard Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.31 — Sideboard Rules', () => {
-  test.todo('Sideboard size depends on game length; must adhere to deck restrictions with play deck');
+  test('Sideboard with 30 cards has no size error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sideboard')).toHaveLength(0);
+  });
+
+  test('Sideboard with 31 cards produces a sideboard error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 31 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'sideboard' && e.message.includes('max 30'))).toBe(true);
+  });
 });

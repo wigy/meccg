@@ -13,8 +13,45 @@
  * [HERO] A Wizard player's avatar characters can only be Wizard avatars.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { pool } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-156 = Gandalf (wizard — valid hero avatar)
+// le-50  = Adûnaphel the Ringwraith (ringwraith — invalid as hero avatar)
+
+const heroDeck: DeckList = {
+  id: 'test-hero-avatar',
+  name: 'Hero Avatar Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 12 }],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.08 — Hero Avatar Characters', () => {
-  test.todo('[HERO] Wizard player avatar characters can only be Wizard avatars');
+  test('Hero deck with a Wizard avatar has no avatar-alignment error', () => {
+    const errors = validateDeck(heroDeck, pool);
+    expect(errors.filter(e => e.section === 'characters' && e.card === ('tw-156' as CardDefinitionId))).toHaveLength(0);
+  });
+
+  test('Hero deck with a Ringwraith avatar produces a characters error', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      deck: {
+        ...heroDeck.deck,
+        characters: [{ name: 'Adûnaphel', card: 'le-50' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    const avatarErrors = errors.filter(e => e.section === 'characters' && e.card === ('le-50' as CardDefinitionId));
+    expect(avatarErrors.length).toBeGreaterThan(0);
+    expect(avatarErrors[0].message).toContain('Wizard');
+  });
 });
