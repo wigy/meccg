@@ -18,8 +18,48 @@
  * • A Spawn permanent-event
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { loadAllDecks, pool } from '../../test-helpers.js';
+import { isCharacterCard, isAvatarCharacter } from '../../../index.js';
 
 describe('Rule 1.30 — Play Deck Composition', () => {
-  test.todo('Play deck: 30-50 resources, equal hazards, up to 10 non-avatar characters, up to 3 avatars; min 12 creatures in hazards');
+  // Note: resource/hazard count balance (30-50 resources, equal hazards) and
+  // the 12-creature minimum are not validated here — only the character limits.
+  test('Play deck character section: ≤10 non-avatar characters; ≤3 avatars; not 3 different avatar types', () => {
+    const decks = loadAllDecks();
+
+    for (const deck of decks) {
+      let nonAvatarCount = 0;
+      let totalAvatarCount = 0;
+      const avatarNames = new Set<string>();
+
+      for (const entry of deck.deck.characters) {
+        if (entry.card === null) continue;
+        const def = pool[entry.card];
+        const qty = entry.qty;
+
+        if (isCharacterCard(def) && isAvatarCharacter(def)) {
+          totalAvatarCount += qty;
+          avatarNames.add(def.name);
+        } else if (isCharacterCard(def)) {
+          nonAvatarCount += qty;
+        }
+      }
+
+      expect(
+        nonAvatarCount,
+        `deck ${deck.id}: ${nonAvatarCount} non-avatar characters in deck (max 10)`,
+      ).toBeLessThanOrEqual(10);
+
+      expect(
+        totalAvatarCount,
+        `deck ${deck.id}: ${totalAvatarCount} avatar copies in deck (max 3)`,
+      ).toBeLessThanOrEqual(3);
+
+      expect(
+        avatarNames.size,
+        `deck ${deck.id}: deck has 3 different avatar types — ${[...avatarNames].join(', ')} (max 2 different)`,
+      ).toBeLessThanOrEqual(2);
+    }
+  });
 });
