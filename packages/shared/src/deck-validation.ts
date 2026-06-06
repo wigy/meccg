@@ -17,8 +17,9 @@ import {
   isAvatarCharacter,
   isSiteCard,
   isItemCard,
+  isFactionCard,
 } from './types/cards.js';
-import { SiteType } from './types/common.js';
+import { SiteType, Race } from './types/common.js';
 
 /**
  * Which part of the deck an error belongs to.
@@ -49,6 +50,73 @@ export interface DeckValidationError {
    */
   readonly card?: CardDefinitionId;
 }
+
+/**
+ * Cards that a Fallen-wizard player cannot include in any section of their
+ * deck (rule 1.18 / CoE rule 1.5.F6).
+ */
+const FALLEN_WIZARD_BANNED_CARD_IDS = new Set([
+  'le-167', // Bade to Rule
+  'as-71',  // The Balrog (ally — AS version)
+  'ba-3',   // The Balrog (ally — BA version)
+  'tw-205', // Cracks of Doom
+  'tw-239', // Favor of the Valar
+  'tw-247', // Gollum's Fate
+  'dm-141', // Hour of Need
+  'le-201', // Kill All But Not the Halflings
+  'le-203', // The Lidless Eye
+  'as-49',  // Glamour of Surpassing Excellence
+  'le-204', // Messenger of Mordor
+  'le-208', // News Must Get Through
+  'le-209', // News of the Shire
+  'tw-294', // Old Road
+  'as-56',  // The Sun Unveiled
+  'as-107', // Use Your Legs
+  'dm-164', // The Windlord Found Me
+  'td-169', // Wizard Uncloaked
+]);
+
+/**
+ * Cards that a Balrog player cannot include in any section of their
+ * deck (rule 1.23 / CoE rule 1.3.B5).
+ */
+const BALROG_BANNED_CARD_IDS = new Set([
+  'as-77',  // Above the Abyss
+  'le-167', // Bade to Rule
+  'as-71',  // The Balrog (ally — AS version)
+  'ba-3',   // The Balrog (ally — BA version)
+  'tw-12',  // Balrog of Moria
+  'wh-41',  // The Black Council
+  'as-72',  // Black Horse
+  'le-170', // Black Rider
+  'le-174', // By the Ringwraith's Word
+  'as-73',  // Creature of an Older World
+  'dm-107', // Durin's Bane
+  'le-183', // Fell Rider
+  'wh-44',  // The Fiery Blade
+  'as-126', // Helm of Fear
+  'le-190', // Heralded Lord
+  'le-201', // Kill All But NOT the Halflings
+  'le-203', // The Lidless Eye
+  'le-205', // Morgul-Blade
+  'le-209', // News of the Shire
+  'wh-46',  // Open to the Summons
+  'as-94',  // Orders from Lugburz
+  'as-96',  // Padding Feet
+  'le-223', // The Ring Leaves its Mark
+  // Ringwraith Unleashed cards
+  'le-161', 'le-162', 'le-182', 'le-193', 'le-198',
+  'le-200', 'le-222', 'le-248', 'le-257',
+  'ba-43',  // Sauron
+  'le-242', // They Ride Together
+  'as-107', // Use Your Legs
+  'le-255', // While The Yellow Face Sleeps
+]);
+
+/** Faction races permitted in a Balrog deck (rule 1.22). */
+const BALROG_ALLOWED_FACTION_RACES = new Set<Race>([
+  Race.Orc, Race.Troll, Race.Wolf, Race.Animal, Race.Dragon,
+]);
 
 /**
  * Minion sites that a Balrog player cannot include because a Balrog-specific
@@ -503,6 +571,74 @@ export function validateDeck(
           errors.push({
             section: 'sites',
             message: `balrog deck: dark-hold site "${def.name}" requires a Balrog-specific version`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
+  // Rule 1.18 — fallen-wizard banned cards
+  if (deck.alignment === 'fallen-wizard') {
+    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+      [characters, 'characters'],
+      [resources, 'resources'],
+      [hazards, 'hazards'],
+      [poolCards, 'pool'],
+      [sideboard, 'sideboard'],
+    ];
+    for (const [section, sectionKey] of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const cardId = entry.card as string;
+        if (FALLEN_WIZARD_BANNED_CARD_IDS.has(cardId)) {
+          const def = cardPool[cardId];
+          const name = def ? (def as { name: string }).name : cardId;
+          errors.push({
+            section: sectionKey,
+            message: `fallen-wizard deck: "${name}" is not allowed (rule 1.18)`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
+  // Rule 1.22 — balrog faction race restriction
+  if (deck.alignment === 'balrog') {
+    for (const entry of resources) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (!isFactionCard(def)) continue;
+      if (!BALROG_ALLOWED_FACTION_RACES.has(def.race)) {
+        errors.push({
+          section: 'resources',
+          message: `balrog deck: faction "${def.name}" has race "${def.race}" — must be orc, troll, wolf, animal, or dragon`,
+          card: entry.card,
+        });
+      }
+    }
+  }
+
+  // Rule 1.23 — balrog banned cards
+  if (deck.alignment === 'balrog') {
+    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+      [characters, 'characters'],
+      [resources, 'resources'],
+      [hazards, 'hazards'],
+      [poolCards, 'pool'],
+      [sideboard, 'sideboard'],
+    ];
+    for (const [section, sectionKey] of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const cardId = entry.card as string;
+        if (BALROG_BANNED_CARD_IDS.has(cardId)) {
+          const def = cardPool[cardId];
+          const name = def ? (def as { name: string }).name : cardId;
+          errors.push({
+            section: sectionKey,
+            message: `balrog deck: "${name}" is not allowed (rule 1.23)`,
             card: entry.card,
           });
         }

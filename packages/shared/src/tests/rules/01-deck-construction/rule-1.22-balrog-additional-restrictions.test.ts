@@ -77,5 +77,34 @@ describe('Rule 1.22 — Balrog Additional Restrictions', () => {
     expect(errors.some(e => e.section === 'characters' && e.card === ('le-21' as CardDefinitionId) && e.message.includes('mind'))).toBe(true);
   });
 
-  test.todo('[BALROG] Factions can only be Orc, Troll, Wolf, Animal, or Dragon');
+  test('Balrog deck with an Orc faction has no faction race error', () => {
+    // le-265 = Goblins of Goblin-gate (minion-resource-faction, race=orc)
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        resources: [
+          ...MINION_RESOURCES_30,
+          { name: 'Goblins of Goblin-gate', card: 'le-265' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'resources' && e.card === ('le-265' as CardDefinitionId))).toHaveLength(0);
+  });
+
+  test('Balrog deck with a Man faction produces a faction race error', () => {
+    // le-260 = Balchoth (minion-resource-faction, race=man)
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        resources: [
+          ...MINION_RESOURCES_30,
+          { name: 'Balchoth', card: 'le-260' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'resources' && e.card === ('le-260' as CardDefinitionId))).toBe(true);
+  });
 });
