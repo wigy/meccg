@@ -14,30 +14,51 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks, pool } from '../../test-helpers.js';
-import { isSiteCard, SiteType } from '../../../index.js';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-413 = Moria (hero-site, non-haven)
+// tw-421 = Rivendell (hero-site, haven)
+
+const heroDeck: DeckList = {
+  id: 'test-location-deck',
+  name: 'Location Deck Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...HERO_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.24 — Location Deck - General', () => {
-  test('Location deck contains at most one copy of each non-haven site', () => {
-    const decks = loadAllDecks();
-    expect(decks.length).toBeGreaterThan(0);
+  test('Single copy of a non-haven site produces no error', () => {
+    expect(validateDeck(heroDeck, pool).filter(e => e.section === 'sites')).toHaveLength(0);
+  });
 
-    for (const deck of decks) {
-      const nonHavenCounts = new Map<string, number>();
-      for (const entry of deck.sites) {
-        if (!entry.card) continue;
-        const def = pool[entry.card];
-        if (!isSiteCard(def)) continue;
-        if (def.siteType === SiteType.Haven) continue;
-        nonHavenCounts.set(entry.card, (nonHavenCounts.get(entry.card) ?? 0) + (entry.qty ?? 1));
-      }
+  test('Non-haven site with qty > 1 produces a sites error', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 2 }],
+    };
+    const errors = validateDeck(deck, pool);
+    const siteErrors = errors.filter(e => e.section === 'sites' && e.card === ('tw-413' as CardDefinitionId));
+    expect(siteErrors.length).toBeGreaterThan(0);
+    expect(siteErrors[0].message).toMatch(/max is 1|more than once/);
+  });
 
-      for (const [cardId, count] of nonHavenCounts) {
-        expect(
-          count,
-          `deck ${deck.id}: non-haven site "${cardId}" appears ${count} times (max 1)`,
-        ).toBe(1);
-      }
-    }
+  test('Multiple copies of a haven site are allowed (no error)', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      sites: [
+        { name: 'Rivendell', card: 'tw-421' as CardDefinitionId, qty: 4 },
+        { name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 },
+      ],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sites' && e.card === ('tw-421' as CardDefinitionId))).toHaveLength(0);
   });
 });
