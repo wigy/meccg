@@ -16,21 +16,39 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks } from '../../test-helpers.js';
+import { pool, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
 
-// Maximum sideboard size for Short Game (30), Long Game (35), Campaign (40)
-const SHORT_GAME_SIDEBOARD_MAX = 30;
+const baseDeck: DeckList = {
+  id: 'test-sideboard',
+  name: 'Sideboard Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.31 — Sideboard Rules', () => {
-  test('Sideboard size depends on game length; must adhere to deck restrictions with play deck', () => {
-    const decks = loadAllDecks();
-    for (const deck of decks) {
-      if (!deck.id.startsWith('challenge')) continue;
-      const sideboardTotal = deck.sideboard.reduce((sum, e) => sum + e.qty, 0);
-      expect(
-        sideboardTotal,
-        `deck ${deck.id}: sideboard has ${sideboardTotal} cards, max is ${SHORT_GAME_SIDEBOARD_MAX} for Short Game`,
-      ).toBeLessThanOrEqual(SHORT_GAME_SIDEBOARD_MAX);
-    }
+  test('Sideboard with 30 cards has no size error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sideboard')).toHaveLength(0);
+  });
+
+  test('Sideboard with 31 cards produces a sideboard error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 31 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'sideboard' && e.message.includes('max 30'))).toBe(true);
   });
 });
