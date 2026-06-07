@@ -174,5 +174,24 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     }
   });
 
-  test.todo('CvCC: attacker distributes excess strikes as -1 prowess each');
+  test('CvCC: attacker distributes excess strikes as -1 prowess each', () => {
+    // Start from a CvCC in resolve-strike, then simulate 1 excess strike by
+    // patching cvccExcessPool=1. The attacker should get an allocate-cvcc-excess
+    // action, and after dispatching it the current strike's excessStrikes goes to 1.
+    const base = buildCvCCInResolveStrike();
+    const state = {
+      ...base,
+      combat: { ...base.combat!, cvccExcessPool: 1 },
+    } as import('../../../index.js').GameState;
+
+    const excessActions = viableActions(state, PLAYER_1, 'allocate-cvcc-excess');
+    expect(excessActions.length).toBe(1);
+
+    const after = dispatch(state, excessActions[0].action);
+
+    // Pool decremented to undefined (falsy)
+    expect(after.combat?.cvccExcessPool).toBeFalsy();
+    // Current strike received the -1 modifier
+    expect(after.combat?.strikeAssignments[0].excessStrikes).toBe(1);
+  });
 });
