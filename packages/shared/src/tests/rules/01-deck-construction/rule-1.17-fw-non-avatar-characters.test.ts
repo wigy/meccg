@@ -14,8 +14,65 @@
  * [FALLEN-WIZARD] A Fallen-wizard player's non-Orc, non-Troll characters are treated as hero characters.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-120 = Aragorn II (hero-character) — valid in FW deck
+// le-4   = Calendal (minion-character) — also valid in FW deck
+
+const baseFwDeck: DeckList = {
+  id: 'test-fw-characters',
+  name: 'FW Characters Test',
+  alignment: 'fallen-wizard',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...HERO_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.17 — Fallen-Wizard Non-Avatar Characters', () => {
-  test.todo('[FALLEN-WIZARD] Non-avatar characters may include hero or minion; agents count as characters; non-Orc non-Troll treated as hero');
+  test('FW deck with a hero character has no character error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      deck: {
+        ...baseFwDeck.deck,
+        characters: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'characters')).toHaveLength(0);
+  });
+
+  test('FW deck with a minion character has no character error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      deck: {
+        ...baseFwDeck.deck,
+        characters: [{ name: 'Calendal', card: 'le-4' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'characters')).toHaveLength(0);
+  });
+
+  test('FW deck with both hero and minion characters has no character error', () => {
+    const deck: DeckList = {
+      ...baseFwDeck,
+      deck: {
+        ...baseFwDeck.deck,
+        characters: [
+          { name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 },
+          { name: 'Calendal', card: 'le-4' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'characters')).toHaveLength(0);
+  });
+
+  test.todo('[FALLEN-WIZARD] Agent character cards count as characters for deck-building requirements');
+  test.todo('[FALLEN-WIZARD] Non-Orc, non-Troll characters treated as hero characters in play');
 });
