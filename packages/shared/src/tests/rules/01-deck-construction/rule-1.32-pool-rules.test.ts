@@ -14,42 +14,59 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks, pool } from '../../test-helpers.js';
-import { isCharacterCard, isAvatarCharacter, isItemCard } from '../../../index.js';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-120 = Aragorn II (hero-character, non-avatar) — valid pool character
+// tw-206 = Dagger of Westernesse (hero-resource-item, minor, non-unique) — valid pool item
+
+const baseDeck: DeckList = {
+  id: 'test-pool-rules',
+  name: 'Pool Rules Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...HERO_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.32 — Pool Rules', () => {
-  test('Pool contains only non-avatar characters (up to 10) and non-unique non-hoard minor items (up to 2)', () => {
-    const decks = loadAllDecks();
+  test('Pool with 10 non-avatar characters has no pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 10 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'pool')).toHaveLength(0);
+  });
 
-    for (const deck of decks) {
-      let nonAvatarCharCount = 0;
-      let minorItemCount = 0;
+  test('Pool with 11 non-avatar characters produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 11 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('max 10'))).toBe(true);
+  });
 
-      for (const entry of deck.pool) {
-        if (entry.card === null) continue;
-        const def = pool[entry.card];
-        const qty = entry.qty;
+  test('Pool with 2 non-unique minor items has no pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Dagger of Westernesse', card: 'tw-206' as CardDefinitionId, qty: 2 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'pool')).toHaveLength(0);
+  });
 
-        if (isCharacterCard(def) && !isAvatarCharacter(def)) {
-          nonAvatarCharCount += qty;
-        } else if (isItemCard(def) && def.subtype === 'minor' && !def.unique && !(def.keywords?.includes('hoard'))) {
-          minorItemCount += qty;
-        } else {
-          expect.fail(
-            `deck ${deck.id}: pool entry "${entry.card}" (${def?.cardType ?? 'unknown'}) is neither a non-avatar character nor a non-unique non-hoard minor item`,
-          );
-        }
-      }
-
-      expect(
-        nonAvatarCharCount,
-        `deck ${deck.id}: pool has ${nonAvatarCharCount} non-avatar characters (max 10)`,
-      ).toBeLessThanOrEqual(10);
-
-      expect(
-        minorItemCount,
-        `deck ${deck.id}: pool has ${minorItemCount} non-unique non-hoard minor items (max 2)`,
-      ).toBeLessThanOrEqual(2);
-    }
+  test('Pool with 3 non-unique minor items produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Dagger of Westernesse', card: 'tw-206' as CardDefinitionId, qty: 3 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('max 2'))).toBe(true);
   });
 });
