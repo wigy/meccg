@@ -29,7 +29,6 @@ import {
 } from '../../test-helpers.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
-const BILBO = 'tw-131' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;
