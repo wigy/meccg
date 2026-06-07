@@ -19,47 +19,68 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks, pool } from '../../test-helpers.js';
-import { isCharacterCard, isAvatarCharacter } from '../../../index.js';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+const validDeck: DeckList = {
+  id: 'test-deck-composition',
+  name: 'Deck Composition Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [...HERO_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.30 — Play Deck Composition', () => {
-  // Note: resource/hazard count balance (30-50 resources, equal hazards) and
-  // the 12-creature minimum are not validated here — only the character limits.
-  test('Play deck character section: ≤10 non-avatar characters; ≤3 avatars; not 3 different avatar types', () => {
-    const decks = loadAllDecks();
+  test('Valid deck (30 resources, 12 creatures, 0 non-avatar characters) has no composition error', () => {
+    expect(validateDeck(validDeck, pool).filter(e => ['resources', 'hazards', 'characters'].includes(e.section))).toHaveLength(0);
+  });
 
-    for (const deck of decks) {
-      let nonAvatarCount = 0;
-      let totalAvatarCount = 0;
-      const avatarNames = new Set<string>();
+  test('Fewer than 30 resources produces a resources error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: { ...validDeck.deck, resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 29 }] },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'resources' && e.message.includes('min 30'))).toBe(true);
+  });
 
-      for (const entry of deck.deck.characters) {
-        if (entry.card === null) continue;
-        const def = pool[entry.card];
-        const qty = entry.qty;
+  test('More than 50 resources produces a resources error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: { ...validDeck.deck, resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 51 }] },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'resources' && e.message.includes('max 50'))).toBe(true);
+  });
 
-        if (isCharacterCard(def) && isAvatarCharacter(def)) {
-          totalAvatarCount += qty;
-          avatarNames.add(def.name);
-        } else if (isCharacterCard(def)) {
-          nonAvatarCount += qty;
-        }
-      }
+  test('Fewer than 12 creatures in hazards produces a hazards error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: { ...validDeck.deck, hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 11 }] },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(true);
+  });
 
-      expect(
-        nonAvatarCount,
-        `deck ${deck.id}: ${nonAvatarCount} non-avatar characters in deck (max 10)`,
-      ).toBeLessThanOrEqual(10);
-
-      expect(
-        totalAvatarCount,
-        `deck ${deck.id}: ${totalAvatarCount} avatar copies in deck (max 3)`,
-      ).toBeLessThanOrEqual(3);
-
-      expect(
-        avatarNames.size,
-        `deck ${deck.id}: deck has 3 different avatar types — ${[...avatarNames].join(', ')} (max 2 different)`,
-      ).toBeLessThanOrEqual(2);
-    }
+  test('More than 10 non-avatar characters produces a characters error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        characters: [
+          { name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 },
+          { name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 11 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'characters' && e.message.includes('max 10'))).toBe(true);
   });
 });
