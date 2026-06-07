@@ -14,41 +14,70 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks, pool } from '../../test-helpers.js';
-import { isAvatarCharacter } from '../../../index.js';
+import { pool, HERO_RESOURCES_30 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
+
+// tw-120 = Aragorn II (hero-character, unique)
+// tw-020 = Cave-drake (hazard-creature, non-unique)
+// tw-156 = Gandalf (wizard, avatar — max 3 copies allowed)
+// tw-243 = Gates of Morning (hero-resource-event, non-unique)
+
+const validDeck: DeckList = {
+  id: 'test-unique-limits',
+  name: 'Unique Card Limits Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 }],
+    hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 3 }],
+    resources: [...HERO_RESOURCES_30],
+  },
+};
 
 describe('Rule 1.04 — Unique Card Limits', () => {
-  test('Max one copy of each unique non-avatar card; max three copies of each non-unique card (except havens)', () => {
-    const decks = loadAllDecks();
+  test('Valid deck with 1 unique and 3 non-unique has no copy-limit error', () => {
+    expect(validateDeck(validDeck, pool).filter(e =>
+      e.message.includes('copies') || e.message.includes('copy'),
+    )).toHaveLength(0);
+  });
 
-    for (const deck of decks) {
-      // Count copies of each card across pool + play deck + sideboard.
-      // Haven cards in the sites section are exempt and not counted here.
-      const counts = new Map<string, number>();
-      for (const section of [deck.pool, deck.deck.characters, deck.deck.hazards, deck.deck.resources, deck.sideboard]) {
-        for (const entry of section) {
-          if (entry.card !== null) {
-            counts.set(entry.card, (counts.get(entry.card) ?? 0) + entry.qty);
-          }
-        }
-      }
+  test('Unique non-avatar card with qty 2 produces an error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        characters: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 2 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.card === ('tw-120' as CardDefinitionId) && e.message.includes('max 1'))).toBe(true);
+  });
 
-      for (const [cardId, count] of counts) {
-        const def = pool[cardId];
-        if (isAvatarCharacter(def)) continue; // avatars (wizards, ringwraiths, etc.) may have 3 copies
+  test('Non-unique card with qty 4 produces an error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [{ name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 4 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.card === ('tw-020' as CardDefinitionId) && e.message.includes('max 3'))).toBe(true);
+  });
 
-        if (def && 'unique' in def && def.unique) {
-          expect(
-            count,
-            `deck ${deck.id}: unique card "${cardId}" has ${count} copies (max 1)`,
-          ).toBe(1);
-        } else {
-          expect(
-            count,
-            `deck ${deck.id}: non-unique card "${cardId}" has ${count} copies (max 3)`,
-          ).toBeLessThanOrEqual(3);
-        }
-      }
-    }
+  test('Avatar (wizard) with qty 3 produces no copy-limit error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 3 }],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e =>
+      e.card === ('tw-156' as CardDefinitionId) && e.message.includes('copies'),
+    )).toHaveLength(0);
   });
 });

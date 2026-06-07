@@ -21,3 +21,5 @@ export { canonicalActionKey, stampActionIds } from './engine/action-id.js';
 export { startCapture, flushCapture } from './engine/legal-actions/log.js';
 export { createGame, createGameQuickStart, applyDraftResults } from './engine/init.js';
 export type { GameConfig, PlayerConfig, QuickStartGameConfig, QuickStartPlayerConfig } from './engine/init.js';
+export { validateDeck } from './deck-validation.js';
+export type { DeckValidationError, DeckSection } from './deck-validation.js';
