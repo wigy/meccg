@@ -16,20 +16,39 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadAllDecks } from '../../test-helpers.js';
+import { pool, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { validateDeck } from '../../../index.js';
+import type { DeckList, CardDefinitionId } from '../../../index.js';
 
-/** Maximum sideboard size for a Short Game (also Starter Game). */
-const SHORT_GAME_SIDEBOARD_LIMIT = 30;
+const baseDeck: DeckList = {
+  id: 'test-sideboard',
+  name: 'Sideboard Test',
+  alignment: 'hero',
+  pool: [],
+  sideboard: [],
+  sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
+  deck: {
+    characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
+    hazards: [...HAZARD_CREATURES_12],
+    resources: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+  },
+};
 
 describe('Rule 1.31 — Sideboard Rules', () => {
-  test('Sideboard does not exceed 30-card Short Game limit', () => {
-    const decks = loadAllDecks();
-    for (const deck of decks) {
-      const total = deck.sideboard.reduce((sum, entry) => sum + entry.qty, 0);
-      expect(
-        total,
-        `deck ${deck.id}: sideboard has ${total} cards (max ${SHORT_GAME_SIDEBOARD_LIMIT} for Short Game)`,
-      ).toBeLessThanOrEqual(SHORT_GAME_SIDEBOARD_LIMIT);
-    }
+  test('Sideboard with 30 cards has no size error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 30 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'sideboard')).toHaveLength(0);
+  });
+
+  test('Sideboard with 31 cards produces a sideboard error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      sideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 31 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'sideboard' && e.message.includes('max 30'))).toBe(true);
   });
 });
