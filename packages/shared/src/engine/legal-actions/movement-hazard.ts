@@ -1022,7 +1022,9 @@ function playHazardsActions(
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const activeIdx = getPlayerIndex(state, state.activePlayer!);
-  const targetCompanyId = state.players[activeIdx].companies[mhState.activeCompanyIndex].id;
+  const targetCompanyRef = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  if (!targetCompanyRef) return actions;
+  const targetCompanyId = targetCompanyRef.id;
   const liveLimit = currentHazardLimit(state, mhState, targetCompanyId);
   const limitReached = mhState.hazardsPlayedThisCompany >= liveLimit;
 

@@ -983,8 +983,6 @@ function handleAgentInfluenceAttempt(
   });
 
   return { state: stateAfterAttempt, effects: [rollEffect] };
-
-  void tapInfluenceEff;
 }
 
 /**
@@ -2328,6 +2326,7 @@ function handleSelectCompany(
 
   const player = playerById(state, state.activePlayer)!;
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIndex === -1) return { state, error: 'Company not found' };
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 

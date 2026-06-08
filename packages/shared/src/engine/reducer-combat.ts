@@ -1349,7 +1349,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         // Move the Ringwraith card instance to the player's hand (not eliminated)
         const rwInstance = toCardInstance(charData);
         newPlayerDataRW.hand = [...newPlayerDataRW.hand, rwInstance];
-        // Discard allies and items on the returned Ringwraith
+        // Discard allies, items, and hazards on the returned Ringwraith
         for (const ally of charData.allies) {
           logDetail(`Discarding ally ${ally.instanceId as string} from returned Ringwraith`);
           newPlayerDataRW.discardPile = [...newPlayerDataRW.discardPile, toCardInstance(ally)];
@@ -1358,8 +1358,21 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           logDetail(`Discarding item ${item.instanceId as string} from returned Ringwraith`);
           newPlayerDataRW.discardPile = [...newPlayerDataRW.discardPile, toCardInstance(item)];
         }
+        const hazardPlayerRW = newPlayersRW[1 - defPlayerIndex];
+        let hazardDiscardRW = [...hazardPlayerRW.discardPile];
+        for (const hazard of charData.hazards) {
+          logDetail(`Discarding hazard ${hazard.instanceId as string} from returned Ringwraith`);
+          hazardDiscardRW = [...hazardDiscardRW, toCardInstance(hazard)];
+        }
+        newPlayersRW[1 - defPlayerIndex] = { ...hazardPlayerRW, discardPile: hazardDiscardRW };
         const { [strike.characterId as string]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
-        newPlayerDataRW.characters = remainingCharsRW;
+        // Revert followers to general influence
+        const updatedCharsRW = { ...remainingCharsRW };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsRW[followerId as string];
+          if (follower) updatedCharsRW[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataRW.characters = updatedCharsRW;
         // Record the returned Ringwraith's definition ID for reveal restrictions
         newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
         newPlayersRW[defPlayerIndex] = newPlayerDataRW;
@@ -1428,8 +1441,21 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
           newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(item)];
         }
+        const hazardPlayerDiscard = newPlayersDiscard[1 - defPlayerIndex];
+        let hazardDiscardDiscard = [...hazardPlayerDiscard.discardPile];
+        for (const hazard of charData.hazards) {
+          logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+          hazardDiscardDiscard = [...hazardDiscardDiscard, toCardInstance(hazard)];
+        }
+        newPlayersDiscard[1 - defPlayerIndex] = { ...hazardPlayerDiscard, discardPile: hazardDiscardDiscard };
         const { [strike.characterId as string]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
-        newPlayerDataDiscard.characters = remainingCharsDiscard;
+        // Revert followers to general influence
+        const updatedCharsDiscard = { ...remainingCharsDiscard };
+        for (const followerId of charData.followers) {
+          const follower = updatedCharsDiscard[followerId as string];
+          if (follower) updatedCharsDiscard[followerId as string] = { ...follower, controlledBy: 'general' };
+        }
+        newPlayerDataDiscard.characters = updatedCharsDiscard;
         newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
         const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
         if (nextBodyCheckDiscard) {
@@ -1498,15 +1524,22 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       const elimCharDefId = resolveInstanceId(state, strike.characterId);
       newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
 
-      // Discard allies and hazards on the eliminated character immediately
+      // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
       for (const ally of charData.allies) {
         logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
         newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
       }
-
-      const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
-      newPlayerData.characters = remainingChars;
       newPlayers2[defPlayerIndex] = newPlayerData;
+      const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
+      let hazardDiscardElim = [...hazardPlayerElim.discardPile];
+      for (const hazard of charData.hazards) {
+        logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
+        hazardDiscardElim = [...hazardDiscardElim, toCardInstance(hazard)];
+      }
+      newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
+
+      const { [strike.characterId as string]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
+      newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: remainingChars };
 
       // Per CoE rule 3.I.2: for each unwounded character in the same company,
       // an item the eliminated character controlled may be transferred (one per recipient).
@@ -1589,8 +1622,18 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
             newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(item)];
           }
+          for (const hazard of charData.hazards) {
+            logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+            newPlayers3[1 - defPlayerIndex] = { ...newPlayers3[1 - defPlayerIndex], discardPile: [...newPlayers3[1 - defPlayerIndex].discardPile, toCardInstance(hazard)] };
+          }
           const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
-          newPlayerData2.characters = remainingCharsDisc;
+          // Revert followers to general influence
+          const updatedCharsDisc = { ...remainingCharsDisc };
+          for (const followerId of charData.followers) {
+            const follower = updatedCharsDisc[followerId as string];
+            if (follower) updatedCharsDisc[followerId as string] = { ...follower, controlledBy: 'general' };
+          }
+          newPlayerData2.characters = updatedCharsDisc;
           newPlayers3[defPlayerIndex] = newPlayerData2;
           const next4 = nextStrikePhase(combatWithDiscard);
           if (next4) {
@@ -1649,18 +1692,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
           ) as (typeof newPlayers)[0]['characters'],
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
-          discardPile: [...newPlayers[atkPlayerIdx].discardPile, charInstance],
         };
-        // Defender gets kill MP
+        // Defender gets kill MP; eliminated character goes to defender's kill pile only
         const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
         newPlayers[defIdx] = {
           ...newPlayers[defIdx],
           killPile: [...newPlayers[defIdx].killPile, charInstance],
         };
-        // Remove character data
-        const charsCopy = { ...newPlayers[atkPlayerIdx].characters };
-        delete charsCopy[strike.attackingCharacterId as string];
-        newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], characters: charsCopy };
       }
 
       const combatWithElim = { ...newCombat, strikeAssignments: newAssignments.map((a, i) =>
@@ -3832,8 +3870,18 @@ function discardWoundedCharacters(
       logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);
       newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
     }
+    for (const hazard of charData.hazards) {
+      logDetail(`${sourceName}: discarding hazard ${hazard.instanceId as string} from discarded character`);
+      cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
+    }
     const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
-    newPlayerData.characters = remainingChars;
+    // Revert followers to general influence
+    const updatedChars = { ...remainingChars };
+    for (const followerId of charData.followers) {
+      const follower = updatedChars[followerId as string];
+      if (follower) updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+    }
+    newPlayerData.characters = updatedChars;
 
     cloned[defIdx] = newPlayerData;
     stateOut = { ...stateOut, players: cloned };
