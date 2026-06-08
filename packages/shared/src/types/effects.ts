@@ -1154,7 +1154,7 @@ export interface PlayTargetEffect extends EffectBase {
    * scopes to the active player's own characters; hazard-side
    * `character` scopes to the active company's characters.
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
@@ -2409,7 +2409,9 @@ export type CardEffect =
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
   | ExtraTrollLeaderSlotEffect
-  | StartingCompanyPlacementEffect;
+  | StartingCompanyPlacementEffect
+  | SummonsFromLongSleepEffect
+  | StayHerAppetiteEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2747,4 +2749,33 @@ export interface ExtraTrollLeaderSlotEffect extends EffectBase {
  */
 export interface StartingCompanyPlacementEffect extends EffectBase {
   readonly type: 'starting-company-placement';
+}
+
+/**
+ * Marks a hazard permanent-event as a "Summons from Long Sleep" reservation
+ * slot (as-39). While this card is in play the hazard player may:
+ *  1. Move one Dragon or Drake hazard creature from hand into this slot
+ *     (free action, does not count against the hazard limit).
+ *  2. Play the reserved creature from this slot as though it were in hand
+ *     (counts against the hazard limit; creature attacks with +2 prowess).
+ * The permanent-event is discarded after the reserved creature resolves combat.
+ */
+export interface SummonsFromLongSleepEffect extends EffectBase {
+  readonly type: 'summons-from-long-sleep';
+}
+
+/**
+ * Hazard short-event effect for Stay Her Appetite (le-140).
+ *
+ * When this short event resolves against a company containing the targeted
+ * ally, the engine enqueues a `stay-her-appetite-roll` pending resolution:
+ *  1. Roll 2d6 (the condition roll).
+ *  2. If roll + ally.mind > opponent.unusedGI + bearerChar.unusedDI + 5:
+ *     roll again for prowess (ally.prowess + 2d6), then initiate a
+ *     detainment attack (1 strike, computed prowess) against the ally's
+ *     controlling character.
+ *  3. If the attack is NOT defeated, the ally is discarded.
+ */
+export interface StayHerAppetiteEffect extends EffectBase {
+  readonly type: 'stay-her-appetite';
 }

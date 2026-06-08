@@ -599,6 +599,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       sideboardAccessedDuringUntap: false,
       deckExhaustPending: false,
       deckExhaustExchangeCount: 0,
+      reservedCreatures: [],
     };
   });
 

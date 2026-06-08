@@ -97,7 +97,24 @@ export function resolutionLegalActions(
       return cvccAllyDiscardRollActions(state, actor, top);
     case 'tap-one-character':
       return tapOneCharacterActions(state, actor, top);
+    case 'stay-her-appetite-roll':
+      return stayHerAppetiteRollActions(state, actor, top);
   }
+}
+
+/**
+ * Legal actions while a `stay-her-appetite-roll` pending resolution is at the
+ * top of the queue. The hazard player rolls 2d6 to see if the ally detainment
+ * attack triggers.
+ */
+function stayHerAppetiteRollActions(
+  state: GameState,
+  actor: PlayerId,
+  _top: PendingResolution,
+): EvaluatedAction[] {
+  const isHazardPlayer = state.activePlayer !== actor;
+  if (!isHazardPlayer) return [];
+  return viable([{ type: 'stay-her-appetite-roll', player: actor }]);
 }
 
 /**

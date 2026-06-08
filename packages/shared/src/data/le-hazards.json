@@ -628,7 +628,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StayHerAppetite.jpg",
     "text": "Playable on an ally. Make a roll. If the result plus the ally’s mind is greater than your opponent’s unused general influence plus its controlling character’s unused direct influence plus 5, the ally attacks its controlling character (detainment attack against a hero). This attack has 1 strike and prowess equal to the ally’s normal prowess plus a dice roll. Discard the ally if it attacks and is not defeated.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      { "type": "play-target", "target": "ally" },
+      { "type": "stay-her-appetite" }
+    ]
   },
   {
     "cardType": "hazard-event",

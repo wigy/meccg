@@ -134,6 +134,11 @@ export interface PlayHazardAction {
    * and discarded at end of turn (rule 9.04).
    */
   readonly homeSiteInstanceId?: CardInstanceId;
+  /**
+   * For Stay Her Appetite (le-140): the ally instance being targeted.
+   * The ally must be in the target company's characters' ally lists.
+   */
+  readonly targetAllyId?: CardInstanceId;
 }
 
 /**
@@ -913,4 +918,48 @@ export interface TakeTrophyAction {
   readonly characterId: CardInstanceId;
   /** The creature instance being taken as a trophy. */
   readonly creatureInstanceId: CardInstanceId;
+}
+
+/**
+ * Move a Dragon or Drake hazard creature from hand into the Summons from Long
+ * Sleep (as-39) reservation slot. Does not count against the hazard limit.
+ */
+export interface ReserveCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'reserve-creature';
+  /** The hazard player making the reservation. */
+  readonly player: PlayerId;
+  /** The Dragon/Drake creature card instance being reserved. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The AS-39 permanent-event instance that provides the reservation slot. */
+  readonly sourceCardInstanceId: CardInstanceId;
+}
+
+/**
+ * Play a Dragon or Drake hazard creature from the Summons from Long Sleep
+ * (as-39) reservation slot, treating it as though it were in hand.
+ * Counts against the hazard limit; creature attacks with +2 prowess.
+ */
+export interface PlayReservedCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'play-reserved-creature';
+  /** The hazard player playing the reserved creature. */
+  readonly player: PlayerId;
+  /** The AS-39 permanent-event instance whose reserved creature is being played. */
+  readonly sourceCardInstanceId: CardInstanceId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
+ * Roll 2d6 to resolve a Stay Her Appetite (le-140) condition check.
+ * Resolves the queued `stay-her-appetite-roll` pending resolution.
+ */
+export interface StayHerAppetiteRollAction {
+  /** Action discriminant. */
+  readonly type: 'stay-her-appetite-roll';
+  /** The hazard player making the roll. */
+  readonly player: PlayerId;
 }

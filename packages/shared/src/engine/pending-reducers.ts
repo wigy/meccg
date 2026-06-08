@@ -97,6 +97,8 @@ export function applyResolution(
       return applyCvccAllyDiscardRollResolution(state, action, top);
     case 'tap-one-character':
       return applyTapOneCharacterResolution(state, action, top);
+    case 'stay-her-appetite-roll':
+      return applyStayHerAppetiteRollResolution(state, action, top);
   }
 }
 
@@ -2366,4 +2368,137 @@ function applyTapOneCharacterResolution(
   }));
 
   return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a queued `stay-her-appetite-roll` resolution (Stay Her Appetite, le-140).
+ *
+ * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
+ * controllerChar.unusedDI + 5, a second 2d6 roll determines the attack prowess
+ * (ally.prowess + roll2), then a detainment attack is initiated against the
+ * ally's controlling character. The ally is discarded after combat if the
+ * attack was not fully defeated.
+ */
+function applyStayHerAppetiteRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'stay-her-appetite-roll') {
+    return { state, error: `Pending stay-her-appetite-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'stay-her-appetite-roll') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending stay-her-appetite-roll' };
+  }
+
+  const {
+    allyInstanceId, allyOwnerPlayerIndex, hostCharacterInstanceId,
+    allyMind, allyProwess, opponentUnusedGI, controllerUnusedDI,
+    companyId, sourceDefinitionId,
+  } = top.kind;
+
+  const sourceName = (defById(state, sourceDefinitionId) as { name?: string })?.name ?? 'Stay Her Appetite';
+
+  // Condition roll
+  const { roll: roll1, rng: rng1, cheatRollTotal: cheat1 } = roll2d6(state);
+  const roll1Total = roll1.die1 + roll1.die2;
+  const threshold = opponentUnusedGI + controllerUnusedDI + 5;
+  const conditionMet = (roll1Total + allyMind) > threshold;
+
+  const roll1Effect = diceRollEffect(
+    state.players[1 - allyOwnerPlayerIndex].name,
+    roll1,
+    `${sourceName}: condition roll (${roll1Total} + mind ${allyMind} vs GI ${opponentUnusedGI} + DI ${controllerUnusedDI} + 5 = ${threshold})`,
+  );
+
+  logDetail(`${sourceName}: rolled ${roll1Total} + mind ${allyMind} = ${roll1Total + allyMind} vs ${threshold} → ${conditionMet ? 'ATTACK TRIGGERED' : 'no effect'}`);
+
+  const stateAfterRoll1 = updatePlayer(
+    { ...state, rng: rng1, cheatRollTotal: cheat1 },
+    1 - allyOwnerPlayerIndex,
+    p => ({ ...p, lastDiceRoll: roll1 }),
+  );
+
+  if (!conditionMet) {
+    let postRoll = dequeueResolution(stateAfterRoll1, top.id);
+    if (postRoll.chain) {
+      const chain = postRoll.chain;
+      const src = top.source;
+      const newEntries = chain.entries.map(e =>
+        e.payload.type === 'short-event' && !e.resolved && e.card?.instanceId === src
+          ? { ...e, resolved: true } : e,
+      );
+      postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+      const continued = autoResolve(postRoll);
+      return { state: continued.state, effects: [roll1Effect, ...(continued.effects ?? [])] };
+    }
+    return { state: postRoll, effects: [roll1Effect] };
+  }
+
+  // Prowess roll
+  const { roll: roll2, rng: rng2, cheatRollTotal: cheat2 } = roll2d6(stateAfterRoll1);
+  const roll2Total = roll2.die1 + roll2.die2;
+  const attackProwess = allyProwess + roll2Total;
+
+  const roll2Effect = diceRollEffect(
+    state.players[1 - allyOwnerPlayerIndex].name,
+    roll2,
+    `${sourceName}: prowess roll (${allyProwess} + ${roll2Total} = ${attackProwess})`,
+  );
+
+  logDetail(`${sourceName}: attack prowess = ally ${allyProwess} + roll ${roll2Total} = ${attackProwess}`);
+
+  const stateAfterRoll2 = updatePlayer(
+    { ...stateAfterRoll1, rng: rng2, cheatRollTotal: cheat2 },
+    1 - allyOwnerPlayerIndex,
+    p => ({ ...p, lastDiceRoll: roll2 }),
+  );
+
+  // Dequeue resolution then set up combat
+  const stateDequeued = dequeueResolution(stateAfterRoll2, top.id);
+
+  const combat: import('../types/state-combat.js').CombatState = {
+    attackSource: {
+      type: 'stay-her-appetite-attack',
+      eventDefinitionId: sourceDefinitionId,
+      allyInstanceId,
+      allyOwnerPlayerIndex,
+      hostCharacterInstanceId,
+    },
+    companyId,
+    defendingPlayerId: state.players[allyOwnerPlayerIndex].id,
+    attackingPlayerId: state.players[1 - allyOwnerPlayerIndex].id,
+    strikesTotal: 1,
+    strikeProwess: attackProwess,
+    creatureBody: null,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: true,
+    forceSingleTarget: true,
+  };
+
+  logDetail(`${sourceName}: initiating detainment attack (${attackProwess} prowess) against character ${hostCharacterInstanceId as string}`);
+
+  // Mark the originating short-event chain entry as resolved and complete the chain
+  // so combat can proceed without the chain blocking legal action computation.
+  let stateWithCombat = { ...stateDequeued, combat };
+  if (stateWithCombat.chain) {
+    const chain = stateWithCombat.chain;
+    const src = top.source;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event' && !e.resolved && e.card?.instanceId === src
+        ? { ...e, resolved: true } : e,
+    );
+    stateWithCombat = { ...stateWithCombat, chain: { ...chain, entries: newEntries } };
+  }
+  const continued = autoResolve(stateWithCombat);
+
+  return {
+    state: continued.state,
+    effects: [roll1Effect, roll2Effect, ...(continued.effects ?? [])],
+  };
 }

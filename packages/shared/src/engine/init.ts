@@ -235,6 +235,7 @@ function initPlayerPreDraft(
     sideboardAccessedDuringUntap: false,
     deckExhaustPending: false,
     deckExhaustExchangeCount: 0,
+    reservedCreatures: [],
   };
 
   return [playerState, rng];
@@ -566,6 +567,7 @@ function initPlayerWithCharacters(
     sideboardAccessedDuringUntap: false,
     deckExhaustPending: false,
     deckExhaustExchangeCount: 0,
+    reservedCreatures: [],
   };
 
   return [playerState, rng];
