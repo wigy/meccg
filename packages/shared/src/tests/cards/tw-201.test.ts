@@ -217,8 +217,8 @@ describe('Book of Mazarbul (tw-201)', () => {
 
     const gandalf = Object.values(afterStore.players[0].characters)[0];
     expect(gandalf.items).toHaveLength(0);
-    expect(afterStore.players[0].outOfPlayPile).toHaveLength(1);
-    expect(afterStore.players[0].outOfPlayPile[0].definitionId).toBe(BOOK_OF_MAZARBUL);
+    expect(afterStore.players[0].killPile).toHaveLength(1);
+    expect(afterStore.players[0].killPile[0].definitionId).toBe(BOOK_OF_MAZARBUL);
   });
 
   // ─── Effect 3: sage bearer taps for +1 hand size until next untap ────────

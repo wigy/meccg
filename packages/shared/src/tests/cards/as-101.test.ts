@@ -109,7 +109,7 @@ describe('Tokens to Show (as-101)', () => {
     expect(storeActions.length).toBeGreaterThan(0);
   });
 
-  test('store-item executes correctly during EOT — item moves to out-of-play', () => {
+  test('store-item executes correctly during EOT — item moves to MP pile', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.EndOfTurn,
@@ -131,7 +131,7 @@ describe('Tokens to Show (as-101)', () => {
       .find(c => c.definitionId === PERCHEN);
     expect(perchenChar).toBeDefined();
     expect(perchenChar!.items.some(i => i.definitionId === SABLE_SHIELD)).toBe(false);
-    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile.some(
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(
       i => i.definitionId === SABLE_SHIELD,
     )).toBe(true);
   });

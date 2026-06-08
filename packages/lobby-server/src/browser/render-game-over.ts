@@ -66,7 +66,18 @@ function collectMPCards(
 
   for (const card of killPile) {
     const def = cardPool[card.definitionId as string];
-    if (def && 'killMarshallingPoints' in def) {
+    if (!def) continue;
+    // Stored items have a storable-at effect that overrides or provides MP.
+    const storableEffect = (def as { effects?: { type: string; marshallingPoints?: number }[] }).effects?.find(
+      (e: { type: string }) => e.type === 'storable-at',
+    ) as { type: string; marshallingPoints?: number } | undefined;
+    if (storableEffect) {
+      const mp = storableEffect.marshallingPoints ?? (('marshallingPoints' in def) ? (def as { marshallingPoints: number }).marshallingPoints : 0);
+      const cat = ('marshallingCategory' in def) ? (def as { marshallingCategory: string }).marshallingCategory : 'misc';
+      result[cat]?.push({ defId: card.definitionId as string, mp });
+      continue;
+    }
+    if ('killMarshallingPoints' in def) {
       result.kill.push({ defId: card.definitionId as string, mp: (def as { killMarshallingPoints: number }).killMarshallingPoints });
     }
   }

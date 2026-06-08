@@ -356,8 +356,8 @@ describe('Red Book of Westmarch (tw-313)', () => {
     expect(bilbo.items).toHaveLength(0);
 
     // Item added to out-of-play pile
-    expect(afterStore.players[0].outOfPlayPile).toHaveLength(1);
-    expect(afterStore.players[0].outOfPlayPile[0].definitionId).toBe(RED_BOOK);
+    expect(afterStore.players[0].killPile).toHaveLength(1);
+    expect(afterStore.players[0].killPile[0].definitionId).toBe(RED_BOOK);
 
     // Storing enqueues a corruption check on the bearer
     const cc = afterStore.pendingResolutions.find(r => r.kind.type === 'corruption-check');

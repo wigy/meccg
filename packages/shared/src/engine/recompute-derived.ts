@@ -431,25 +431,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (def) mp = addMP(mp, def);
   }
 
-  // Kill pile: defeated creatures earn kill MP — except, per METD §4.1,
-  // a player who defeats a manifestation they themselves played awards
-  // no MPs. Owner is derivable in O(1) from the instance ID prefix.
+  // Kill/MP pile: defeated creatures and items stored at Havens (CoE rule
+  // 2.II.4.1 places stored items in the marshalling point pile). Defeated
+  // creatures earn kill MP — except, per METD §4.1, a player who defeats a
+  // manifestation they themselves played awards no MPs. Owner is derivable in
+  // O(1) from the instance ID prefix.
   for (const card of player.killPile) {
-    const def = resolveDef(state, card.instanceId);
-    if (!def || !('killMarshallingPoints' in def)) continue;
-    const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
-    if (killMP === 0) continue;
-    const mid = manifestIdOf(def);
-    if (mid && ownerOf(card.instanceId) === player.id) continue;
-    mp = { ...mp, kill: mp.kill + killMP };
-  }
-
-  // Out-of-play pile: holds eliminated characters, items stored at sites,
-  // and sites stored via stolen-knowledge.
-  // - Items with a `storable-at` effect earn their override MP (or base MP).
-  // - Sites with `stolen-knowledge` earn misc MPs as declared in the effect.
-  // - Eliminated cards may carry `mp-modifier` effects with reason "elimination".
-  for (const card of player.outOfPlayPile) {
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
     const effects = (def as { effects?: readonly CardEffect[] }).effects;
@@ -475,6 +462,24 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       }
       continue;
     }
+
+    // Defeated creatures earn kill MP.
+    if (!('killMarshallingPoints' in def)) continue;
+    const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
+    if (killMP === 0) continue;
+    const mid = manifestIdOf(def);
+    if (mid && ownerOf(card.instanceId) === player.id) continue;
+    mp = { ...mp, kill: mp.kill + killMP };
+  }
+
+  // Out-of-play pile: holds eliminated characters and sites stored via
+  // stolen-knowledge.
+  // - Sites with `stolen-knowledge` earn misc MPs as declared in the effect.
+  // - Eliminated cards may carry `mp-modifier` effects with reason "elimination".
+  for (const card of player.outOfPlayPile) {
+    const def = resolveDef(state, card.instanceId);
+    if (!def) continue;
+    const effects = (def as { effects?: readonly CardEffect[] }).effects;
 
     // Sites stored via stolen-knowledge earn misc MPs.
     const stolenKnowledgeEffect = effects?.find(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge') as
