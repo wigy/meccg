@@ -1119,7 +1119,11 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * Returns true if the given company is covert, false if overt.
  *
  * A company is overt if it contains:
- * - Any character with Race.Orc or Race.Troll (rule glossary: "overt").
+ * - Any (non-Half-orc) character with Race.Orc or Race.Troll (rule glossary: "overt").
+ * - A Half-orc **together with** a character that is neither a Man nor a Half-orc.
+ *   A Half-orc on its own — or accompanied only by Men and other Half-orcs — does
+ *   NOT make the company overt (glossary "half-orc"). Half-orcs carry the
+ *   `Half-orc` keyword; their `race` is still `orc` for every other purpose.
  * - The Balrog avatar (an avatar character of a Balrog-alignment player).
  * - Any ally carrying a `company-overt` effect (e.g. Regiment of Black Crows,
  *   Great Bats, Great Lord of Goblin-gate, Last Child of Ungoliant).
@@ -1137,14 +1141,26 @@ export function isCovertCompany(
 ): boolean {
   const overtRaces = new Set<Race>([Race.Orc, Race.Troll]);
 
+  // A Half-orc only makes a company overt when accompanied by a character that
+  // is neither a Man nor a Half-orc. Track both facts across the company and
+  // evaluate the combination after the loop (glossary "half-orc"/"overt").
+  let hasHalfOrc = false;
+  let hasNonManNonHalfOrc = false;
+
   for (const charId of company.characters) {
     const charData = player.characters[charId as string];
     if (!charData) continue;
 
     const charDef = defById(state, charData.definitionId);
     if (charDef && isCharacterCard(charDef)) {
-      // Orc/Troll race makes company overt
-      if (overtRaces.has(charDef.race)) return false;
+      const isHalfOrc = (charDef.keywords ?? []).includes('Half-orc');
+      if (isHalfOrc) {
+        hasHalfOrc = true;
+      } else {
+        // Orc/Troll race makes company overt (true Orcs/Trolls only — never Half-orcs).
+        if (overtRaces.has(charDef.race)) return false;
+        if (charDef.race !== Race.Man) hasNonManNonHalfOrc = true;
+      }
       // Balrog avatar (avatar character in a Balrog-alignment game) makes company overt
       if (isAvatarCharacter(charDef) && player.alignment === 'balrog') return false;
     }
@@ -1158,6 +1174,10 @@ export function isCovertCompany(
       }
     }
   }
+
+  // A Half-orc accompanied by a character that is neither a Man nor a Half-orc
+  // makes the company overt (glossary "overt").
+  if (hasHalfOrc && hasNonManNonHalfOrc) return false;
 
   // Fell Rider mode card: permanent event bound to this company with a
   // `company-overt` effect makes the Ringwraith company overt (MELE §1.2).

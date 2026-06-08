@@ -3690,7 +3690,10 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       if (!char) continue;
       const def = defById(stateAfterCombat, char.definitionId);
       if (!def || !isCharacterCard(def)) continue;
-      if (def.race === Race.Orc || def.race === Race.Troll) {
+      // Half-orcs cannot take trophies (METW §3.IV.1.1) even though their race is
+      // `orc` — they carry the `Half-orc` keyword to mark the exception.
+      const isHalfOrc = (def.keywords ?? []).includes('Half-orc');
+      if ((def.race === Race.Orc || def.race === Race.Troll) && !isHalfOrc) {
         trophyEligible.push(charId as import('../types/common.js').CardInstanceId);
       }
     }
