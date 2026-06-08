@@ -17,7 +17,7 @@ import {
   buildTestState, resetMint, Phase, dispatch, reduce,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
-  LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
+  LORIEN, MORIA, MINAS_TIRITH, RIVENDELL, BREE,
   viableActions,
 } from '../../test-helpers.js';
 import type { GameState, MergeCompaniesAction } from '../../../index.js';
@@ -149,5 +149,72 @@ describe('Rule 3.30 — Join Companies', () => {
 
     expect(after.players[0].companies).toHaveLength(1);
     expect(after.players[0].companies[0].characters).toHaveLength(4);
+  });
+
+  test('merging cancels source company movement — its destination site card is returned to the site deck', () => {
+    // Regression: when a company with a planned destination is merged into
+    // another company, the source company's destination site card was silently
+    // dropped (neither kept in any company nor returned to the deck), making it
+    // permanently unplayable for the rest of the game.
+    //
+    // Setup: company A has Bree as its planned destination (removed from deck).
+    //        company B has no planned destination. Both are at Rivendell.
+    //        Merging A into B must return the Bree site card to the deck.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            // Company A: has Bree as planned destination (NOT in siteDeck — it was pulled)
+            { site: RIVENDELL, characters: [ARAGORN], destinationSite: BREE },
+            // Company B: no destination, at same site
+            { site: RIVENDELL, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [MORIA], // Bree is NOT here — it's in company A's destination
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    // Make both companies share the same Rivendell site instance
+    const sharedRivendell = built.players[0].companies[0].currentSite!;
+    const state: GameState = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          companies: built.players[0].companies.map((c, i) =>
+            i === 1 ? { ...c, currentSite: sharedRivendell, siteCardOwned: false } : c,
+          ),
+        },
+        built.players[1],
+      ],
+    };
+
+    const companyA = state.players[0].companies[0]; // has Bree destination
+    const companyB = state.players[0].companies[1]; // no destination
+
+    // Capture the Bree instance ID from company A's destination
+    const breeInstanceId = companyA.destinationSite!.instanceId;
+
+    // Before merge: Bree is in company A's destination, not in deck
+    expect(state.players[0].siteDeck.find(s => s.instanceId === breeInstanceId)).toBeUndefined();
+    expect(companyA.destinationSite!.instanceId).toBe(breeInstanceId);
+
+    const after = dispatch(state, {
+      type: 'merge-companies',
+      player: PLAYER_1,
+      sourceCompanyId: companyA.id,
+      targetCompanyId: companyB.id,
+    });
+
+    // After merge: Bree site card must be back in the site deck
+    expect(after.players[0].siteDeck.find(s => s.instanceId === breeInstanceId)).toBeDefined();
+    // Merged company should have no destination (it was company B's, which had none)
+    expect(after.players[0].companies[0].destinationSite).toBeNull();
+    expect(after.players[0].companies).toHaveLength(1);
   });
 });

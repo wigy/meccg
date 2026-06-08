@@ -1818,6 +1818,25 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
       return c;
     });
 
+  // If the source company had a planned destination, that site card was pulled from
+  // the site deck when plan-movement was executed. Merging cancels the source's
+  // planned movement, so return the site card to the deck — unless the same card
+  // instance is still referenced by another company (rules 3.37 / 3.39).
+  let siteDeck = player.siteDeck;
+  if (sourceCompany.destinationSite) {
+    const srcDestId = sourceCompany.destinationSite.instanceId;
+    const anotherCompanyHasIt = player.companies.some(
+      c => c.id !== action.sourceCompanyId
+        && (c.currentSite?.instanceId === srcDestId || c.destinationSite?.instanceId === srcDestId),
+    );
+    if (anotherCompanyHasIt) {
+      logDetail(`Merge companies: source company had destination ${srcDestId as string} but it is still in play at another company — not returning to site deck`);
+    } else {
+      logDetail(`Merge companies: source company had destination ${srcDestId as string} — returning to site deck`);
+      siteDeck = [...player.siteDeck, toCardInstance(sourceCompany.destinationSite)];
+    }
+  }
+
   // Reverse: split each GI character from the source back out of the target
   const reverses: GameAction[] = sourceCompany.characters
     .filter(id => {
@@ -1838,7 +1857,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   });
 
   let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })),
     reverseActions: [...state.reverseActions, ...reverses],
   })), [action.sourceCompanyId, action.targetCompanyId]);
 
