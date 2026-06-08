@@ -446,6 +446,13 @@ Events:
   - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
   - `discard-self` — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
 - `organization-phase-start` -- fires during the Untap → Organization transition immediately after `untap-phase-end` processing. The reducer (`reducer-untap.ts` `advanceToOrganization`) scans **every** player's `cardsInPlay` for company-bound permanent events (cards with a `companyId`) carrying this on-event. The condition is evaluated against a combined context: `{ company: { siteType, atHaven: boolean }, player: { avatarId: string | null } }` where `atHaven` is `true` when the bound company's current site is a haven/darkhaven, and `avatarId` is the definition ID of the player's ringwraith/wizard avatar character (or `null` if none is in play). Supports `apply: { type: "discard-self" }` to move the card to its owner's discard pile. Used by *Nothing to Eat or Drink* (le-128), which discards itself when the company is at a haven; and by *Orders from Lugbúrz* (as-94), which discards itself when `player.avatarId` is `"le-56"` (Ren the Ringwraith).
+- `leader-leaves-company` -- fires in the Organization phase whenever a character with the `Leader` keyword departs the bound company, for any reason: `split-company`, `move-to-company` (source company), `merge-companies` (source company), or combat elimination. The reducer calls `sweepLeaderLeavesCompanyEvents(state, [affectedCompanyId])` in `reducer-utils.ts`, which scans every player's `cardsInPlay` for permanent events bound to the affected company carrying this on-event with `apply: { type: "discard-self" }` and moves matching cards to their owner's discard pile. The "is leader" check uses the card's definition `keywords` array (contains `"Leader"`); it is evaluated *before* the state transition so the departing character is still findable. Only supports `apply: { type: "discard-self" }`. No `when` condition is evaluated. Used by *Orders from Lugbúrz* (as-94).
+
+  ```json
+  { "type": "on-event", "event": "leader-leaves-company",
+    "apply": { "type": "discard-self" } }
+  ```
+
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
 - `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`). Supports `apply: { "type": "discard-self" }` to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated.
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
@@ -1188,6 +1195,27 @@ No fields beyond `type` are required.
 
 ```json
 { "type": "extra-troll-leader-slot" }
+```
+
+Used by *Orders from Lugbúrz* (as-94).
+
+### 15b. `starting-company-placement`
+
+Marker effect on a minion permanent event in a player's play deck. During the
+item-draft setup step, the engine offers a `place-starting-company-event` action
+for each company the player has formed. Executing this action moves the card from
+the play deck directly into `cardsInPlay` bound to the chosen company and
+increments `ItemDraftPlayerState.startingEventsPlaced`, which counts against the
+same `MAX_STARTING_ITEMS` cap as minor items. This lets the card replace a minor
+item in starting-company setup (CoE rule equivalent: "May be played with a
+starting company in lieu of a minor item").
+
+The effect is a pure marker — no fields beyond `type` are required. The engine
+reads it in `legal-actions/item-draft.ts` when generating `place-starting-company-event`
+actions, and the corresponding reducer handles placement in `reducer-setup.ts`.
+
+```json
+{ "type": "starting-company-placement" }
 ```
 
 Used by *Orders from Lugbúrz* (as-94).

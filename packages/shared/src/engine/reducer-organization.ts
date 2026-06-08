@@ -13,7 +13,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -1593,6 +1593,12 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
  * out of the source company into a new company at the same site.
  * Validates that the source company retains at least one character.
  */
+
+/** Returns true if the card definition represents a Leader-keyword character. */
+function isLeaderCharacter(def: ReturnType<typeof defById>): boolean {
+  return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('Leader'));
+}
+
 function handleSplitCompany(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'split-company') return wrongActionType(state, action, 'split-company');
 
@@ -1671,12 +1677,20 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
     targetCompanyId: action.sourceCompanyId,
   };
 
-  return {
-    state: sweepCompanyMembershipChangedEvents({
-      ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
-      reverseActions: [...state.reverseActions, reverseAction],
-    }, [sourceCompany.id]),
-  };
+  const charDef = defById(state, char.definitionId);
+  const splittingIsLeader = isLeaderCharacter(charDef);
+
+  let result = sweepCompanyMembershipChangedEvents({
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
+    reverseActions: [...state.reverseActions, reverseAction],
+  }, [sourceCompany.id]);
+
+  if (splittingIsLeader) {
+    logDetail(`Split company: splitting character is a Leader — sweeping leader-leaves-company events on ${sourceCompany.id as string}`);
+    result = sweepLeaderLeavesCompanyEvents(result, [sourceCompany.id]);
+  }
+
+  return { state: result };
 }
 
 /**
@@ -1745,12 +1759,20 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
     targetCompanyId: action.sourceCompanyId,
   };
 
-  return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-      ...updatePlayer(state, playerIndex, p => ({ ...p, companies: filteredCompanies })),
-      reverseActions: [...state.reverseActions, reverseAction],
-    })), [action.sourceCompanyId, action.targetCompanyId]),
-  };
+  const movingCharDef = defById(state, char.definitionId);
+  const movingIsLeader = isLeaderCharacter(movingCharDef);
+
+  let moveResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies: filteredCompanies })),
+    reverseActions: [...state.reverseActions, reverseAction],
+  })), [action.sourceCompanyId, action.targetCompanyId]);
+
+  if (movingIsLeader) {
+    logDetail(`Move to company: moving character is a Leader — sweeping leader-leaves-company events on ${action.sourceCompanyId as string}`);
+    moveResult = sweepLeaderLeavesCompanyEvents(moveResult, [action.sourceCompanyId]);
+  }
+
+  return { state: moveResult };
 }
 
 /**
@@ -1809,12 +1831,23 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
       characterId: charId,
     }));
 
-  return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-      ...updatePlayer(state, playerIndex, p => ({ ...p, companies })),
-      reverseActions: [...state.reverseActions, ...reverses],
-    })), [action.sourceCompanyId, action.targetCompanyId]),
-  };
+  // Check if any character in the source company is a leader
+  const sourceHasLeader = sourceCompany.characters.some(id => {
+    const c = player.characters[id as string];
+    return c && isLeaderCharacter(defById(state, c.definitionId));
+  });
+
+  let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies })),
+    reverseActions: [...state.reverseActions, ...reverses],
+  })), [action.sourceCompanyId, action.targetCompanyId]);
+
+  if (sourceHasLeader) {
+    logDetail(`Merge companies: source company had a Leader — sweeping leader-leaves-company events on ${action.sourceCompanyId as string}`);
+    mergeResult = sweepLeaderLeavesCompanyEvents(mergeResult, [action.sourceCompanyId]);
+  }
+
+  return { state: mergeResult };
 }
 
 /**

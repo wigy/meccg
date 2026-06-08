@@ -459,6 +459,12 @@
         "event": "organization-phase-start",
         "when": { "player.avatarId": "le-56" },
         "apply": { "type": "discard-self" }
+      },
+      { "type": "starting-company-placement" },
+      {
+        "type": "on-event",
+        "event": "leader-leaves-company",
+        "apply": { "type": "discard-self" }
       }
     ]
   }

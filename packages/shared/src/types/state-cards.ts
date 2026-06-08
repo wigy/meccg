@@ -350,6 +350,8 @@ export interface ItemDraftPlayerState {
   readonly unassignedItems: readonly CardInstance[];
   /** Whether this player has finished assigning items (or had none). */
   readonly done: boolean;
+  /** Number of starting company events placed (counts against MAX_STARTING_ITEMS). */
+  readonly startingEventsPlaced?: number;
 }
 
 /**

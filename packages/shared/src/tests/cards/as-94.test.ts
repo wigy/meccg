@@ -15,32 +15,35 @@
  *
  * Effects:
  *   1. play-target: company
- *   2. extra-troll-leader-slot: company may hold one Troll leader + one other leader
- *   3. duplication-limit: scope "company", max 1
- *   4. company-modifier: +1 corruption check when company.hasTrollLeader
- *   5. on-event: organization-phase-start discard-self when player.avatarId === "le-56"
+ *   2. starting-company-placement: eligible for item-draft setup placement
+ *   3. extra-troll-leader-slot: company may hold one Troll leader + one other leader
+ *   4. duplication-limit: scope "company", max 1
+ *   5. company-modifier: +1 corruption check when company.hasTrollLeader
+ *   6. on-event: organization-phase-start discard-self when player.avatarId === "le-56"
+ *   7. on-event: leader-leaves-company discard-self
  *
  * Engine support table:
- * | # | Rule                                                | Status          | Notes                                                   |
- * |---|-----------------------------------------------------|-----------------|----------------------------------------------------------|
- * | 1 | Playable on a company                               | IMPLEMENTED     | play-target: company                                     |
- * | 2 | May be played with a starting company in lieu of item| NOT IMPLEMENTED| item-draft phase does not support placing deck resources |
- * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED     | extra-troll-leader-slot effect                           |
- * | 4 | +1 CC when company has a Troll leader               | IMPLEMENTED     | company-modifier check:corruption when.hasTrollLeader    |
- * | 5 | Discard if Ren is your Ringwraith                   | IMPLEMENTED     | on-event:organization-phase-start when player.avatarId   |
- * | 6 | Discard when a leader leaves the company            | NOT IMPLEMENTED | no character-leaves-company trigger in engine            |
- * | 7 | Cannot be duplicated on a given company             | IMPLEMENTED     | duplication-limit: scope "company"                       |
+ * | # | Rule                                                | Status      | Notes                                                 |
+ * |---|-----------------------------------------------------|-------------|-------------------------------------------------------|
+ * | 1 | Playable on a company                               | IMPLEMENTED | play-target: company                                  |
+ * | 2 | May be played with a starting company in lieu of item| IMPLEMENTED| starting-company-placement effect + item-draft action |
+ * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED | extra-troll-leader-slot effect                        |
+ * | 4 | +1 CC when company has a Troll leader               | IMPLEMENTED | company-modifier check:corruption when.hasTrollLeader |
+ * | 5 | Discard if Ren is your Ringwraith                   | IMPLEMENTED | on-event:organization-phase-start when player.avatarId|
+ * | 6 | Discard when a leader leaves the company            | IMPLEMENTED | on-event:leader-leaves-company discard-self           |
+ * | 7 | Cannot be duplicated on a given company             | IMPLEMENTED | duplication-limit: scope "company"                    |
  *
- * Playable: PARTIALLY (not certified — rules 2 and 6 unimplemented)
+ * Playable: CERTIFIED
  *
  * Fixtures:
  *   PERCHEN (as-4)                   — minion man scout/diplomat, mind 5
  *   GORBAG (le-11)                   — minion orc Leader (Uruk-hai), mind 6
  *   LIEUTENANT_OF_DOL_GULDUR (le-21) — minion troll Leader (Olog-hai), mind 9
+ *   OLD_TREASURE (as-129)            — minion minor item (for item-draft setup)
  *   REN (le-56)                      — Ren the Ringwraith (ringwraith avatar, mind null)
  *   MINAS_MORGUL (le-390)            — minion darkhaven (haven — used for play tests)
  *   DOL_GULDUR (le-367)              — minion haven (opponent site)
- *   MORIA (tw-413)                   — shadow-hold (non-haven — used for leader tests)
+ *   MORIA_LE (le-392)                — shadow-hold (non-haven — used for leader tests)
  *   ASTERNAK (le-1)                  — minion man diplomat, opponent character
  */
 
@@ -56,14 +59,19 @@ import {
   runActions,
   findCharInstanceId,
   enqueueCorruptionCheck,
+  createGame,
+  pool,
+  draftInstId,
+  dispatch,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
-import type { CardDefinitionId, PlayPermanentEventAction, MergeCompaniesAction, CompanyId, CorruptionCheckAction } from '../../index.js';
+import { computeLegalActions, SetupStep } from '../../index.js';
+import type { CardDefinitionId, PlayPermanentEventAction, MergeCompaniesAction, CompanyId, CorruptionCheckAction, GameConfig } from '../../index.js';
 
 const ORDERS_FROM_LUGBURZ = 'as-94' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
 const GORBAG = 'le-11' as CardDefinitionId;
 const LIEUTENANT_DOL_GULDUR = 'le-21' as CardDefinitionId;
+const OLD_TREASURE = 'as-129' as CardDefinitionId;
 const REN_THE_RINGWRAITH = 'le-56' as CardDefinitionId;
 const ASTERNAK = 'le-1' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;   // darkhaven (haven)
@@ -360,9 +368,168 @@ describe('Orders from Lugbúrz (as-94)', () => {
     )).toBe(true);
   });
 
-  // ── Rules 2 and 6: Not yet implemented ────────────────────────────────────
+  // ── Rule 2: May be placed from play deck during item-draft in lieu of a minor item ──
 
-  test.todo('playable-as-starting-item: may replace a minor item in starting company setup');
+  test('place-starting-company-event action offered during item draft when Orders from Lugbúrz is in play deck', () => {
+    // Build a ringwraith game with OLD_TREASURE in the draftPool and ORDERS_FROM_LUGBURZ in the playDeck
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Ringwraith,
+          draftPool: [PERCHEN, OLD_TREASURE],
+          playDeck: [ORDERS_FROM_LUGBURZ],
+          siteDeck: [MINAS_MORGUL, DOL_GULDUR, VARIAG_CAMP],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ASTERNAK],
+          playDeck: [],
+          siteDeck: [DOL_GULDUR, MINAS_MORGUL, VARIAG_CAMP],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
 
-  test.todo('discard-when-leader-leaves: discard when any leader leaves the bound company');
+    // Character draft: pick PERCHEN for P1, ASTERNAK for P2, then both stop
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, PERCHEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ASTERNAK) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    // Should now be in item-draft (P1 has OLD_TREASURE to assign)
+    expect(state.phaseState.phase).toBe('setup');
+    if (state.phaseState.phase !== 'setup') return;
+    expect(state.phaseState.setupStep.step).toBe(SetupStep.ItemDraft);
+
+    // P1 must be offered a place-starting-company-event action for ORDERS_FROM_LUGBURZ
+    const actions = computeLegalActions(state, PLAYER_1);
+    const placeActions = actions.filter(a => a.viable && a.action.type === 'place-starting-company-event');
+    expect(placeActions.length).toBeGreaterThanOrEqual(1);
+    if (placeActions.length === 0) return;
+    expect((placeActions[0].action as { cardDefId: CardDefinitionId }).cardDefId).toBe(ORDERS_FROM_LUGBURZ);
+  });
+
+  test('placed Orders from Lugbúrz is in cardsInPlay bound to the company after setup', () => {
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Ringwraith,
+          draftPool: [PERCHEN, OLD_TREASURE],
+          playDeck: [ORDERS_FROM_LUGBURZ],
+          siteDeck: [MINAS_MORGUL, DOL_GULDUR, VARIAG_CAMP],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ASTERNAK],
+          playDeck: [],
+          siteDeck: [DOL_GULDUR, MINAS_MORGUL, VARIAG_CAMP],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, PERCHEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ASTERNAK) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== SetupStep.ItemDraft) return;
+    const companyId = state.players[0].companies[0].id;
+    const placeActions = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'place-starting-company-event',
+    );
+    if (placeActions.length === 0) return;
+
+    state = dispatch(state, placeActions[0].action);
+
+    expect(state.players[0].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ && c.companyId === companyId,
+    )).toBe(true);
+    expect(state.players[0].playDeck.some(c => c.definitionId === ORDERS_FROM_LUGBURZ)).toBe(false);
+  });
+
+  // ── Rule 6: Discard when a leader leaves the bound company ────────────────
+
+  test('discards when a Troll leader leaves via split-company', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_LE, characters: [LIEUTENANT_DOL_GULDUR, PERCHEN] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+    const lieutenantId = findCharInstanceId(withCard, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR);
+
+    const after = dispatch(withCard, {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: companyId,
+      characterId: lieutenantId,
+    });
+
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(true);
+  });
+
+  test('not discarded when a non-leader leaves via split-company', () => {
+    // PERCHEN is not a leader — splitting them out must not discard the event
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_LE, characters: [LIEUTENANT_DOL_GULDUR, PERCHEN] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+    const perchenId = findCharInstanceId(withCard, RESOURCE_PLAYER, PERCHEN);
+
+    const after = dispatch(withCard, {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: companyId,
+      characterId: perchenId,
+    });
+
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(true);
+  });
 });

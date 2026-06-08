@@ -2408,7 +2408,8 @@ export type CardEffect =
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
-  | ExtraTrollLeaderSlotEffect;
+  | ExtraTrollLeaderSlotEffect
+  | StartingCompanyPlacementEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2732,4 +2733,18 @@ export interface ProtectFromBodyCheckEffect extends EffectBase {
  */
 export interface ExtraTrollLeaderSlotEffect extends EffectBase {
   readonly type: 'extra-troll-leader-slot';
+}
+
+/**
+ * Marks a permanent-event resource card as eligible for placement on a
+ * starting company during the item-draft setup phase, consuming one item
+ * slot (counts against MAX_STARTING_ITEMS).
+ *
+ * Allows the card to be placed directly from the play deck onto a company
+ * instead of assigning a minor item.
+ *
+ * Used by *Orders from Lugbúrz* (as-94).
+ */
+export interface StartingCompanyPlacementEffect extends EffectBase {
+  readonly type: 'starting-company-placement';
 }

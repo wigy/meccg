@@ -6,6 +6,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import type { CardEffect } from '../../types/effects.js';
 import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
 import { logDetail } from './log.js';
 import { defById } from '../reducer-utils.js';
@@ -23,10 +24,11 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
 
   const player = state.players[playerIndex];
   const allCharIds = player.companies.flatMap(c => c.characters);
+  const startingEventsPlaced = itemDraft.startingEventsPlaced ?? 0;
   const assignedCount = Object.values(player.characters).reduce(
     (sum, char) => sum + char.items.length, 0,
-  );
-  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned, ${allCharIds.length} character(s) available`);
+  ) + startingEventsPlaced;
+  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned (including ${startingEventsPlaced} starting event(s)), ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
   if (allCharIds.length === 0) return evaluated;
@@ -85,6 +87,32 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
         action: { type: 'assign-starting-item', player: playerId, itemDefId: defId, characterInstanceId: charId },
         viable: true,
       });
+    }
+  }
+
+  // Offer starting-company-event placements from the play deck
+  if (assignedCount < MAX_STARTING_ITEMS) {
+    const seenEventDefIds = new Set<string>();
+    for (const deckCard of player.playDeck) {
+      const defId = deckCard.definitionId;
+      if (seenEventDefIds.has(defId as string)) continue;
+      const def = defById(state, defId);
+      const isItem = isItemCard(def);
+      const effects = isItem ? [] : ((def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? []);
+      if (!effects.some(e => e.type === 'starting-company-placement')) continue;
+      seenEventDefIds.add(defId as string);
+      for (const company of player.companies) {
+        // Skip if already placed on this company
+        const alreadyOnCompany = player.cardsInPlay.some(
+          c => c.companyId === company.id && c.definitionId === defId,
+        );
+        if (alreadyOnCompany) continue;
+        evaluated.push({
+          action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id },
+          viable: true,
+        });
+        logDetail(`Starting company event '${def?.name ?? defId as string}' offered for company ${company.id as string}`);
+      }
     }
   }
 

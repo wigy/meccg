@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -3640,7 +3640,19 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   }
 
   // No trophy offer — apply rule 8.22 alignment-based routing now.
-  const stateWithRule8_22 = applyRule8_22AfterTrophyDecision(stateAfterCombat, combat);
+  let stateWithRule8_22 = applyRule8_22AfterTrophyDecision(stateAfterCombat, combat);
+
+  // Sweep leader-leaves-company events for any eliminated leaders
+  const anyLeaderEliminated = combat.strikeAssignments.some(a => {
+    if (a.result !== 'eliminated') return false;
+    const defId = resolveInstanceId(stateWithRule8_22, a.characterId);
+    const def = defId ? defById(stateWithRule8_22, defId) : undefined;
+    return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('Leader'));
+  });
+  if (anyLeaderEliminated) {
+    logDetail(`finalizeCombat: an eliminated character is a Leader — sweeping leader-leaves-company events on company ${combat.companyId as string}`);
+    stateWithRule8_22 = sweepLeaderLeavesCompanyEvents(stateWithRule8_22, [combat.companyId]);
+  }
 
   return {
     state: stateWithRule8_22,

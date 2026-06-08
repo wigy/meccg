@@ -8,6 +8,7 @@
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
 import type { TwoDiceSix } from '../index.js';
+import type { CardInPlay } from '../types/state-cards.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -310,15 +311,59 @@ function handleItemDraft(
     };
   }
 
+  // Compute assigned count including starting events placed
+  const player = state.players[playerIndex];
+  const assignedCount = Object.values(player.characters).reduce(
+    (sum, char) => sum + char.items.length, 0,
+  ) + (itemDraft.startingEventsPlaced ?? 0);
+
+  // Handle place-starting-company-event
+  if (action.type === 'place-starting-company-event') {
+    if (assignedCount >= MAX_STARTING_ITEMS) {
+      return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
+    }
+    const deckCard = player.playDeck.find(c => c.definitionId === action.cardDefId);
+    if (!deckCard) {
+      return { state, error: 'Card not found in play deck' };
+    }
+    const targetCompany = player.companies.find(c => c.id === action.companyId);
+    if (!targetCompany) {
+      return { state, error: 'Company not found' };
+    }
+    const newPlayDeck = player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
+    const eventInPlay: CardInPlay = {
+      instanceId: deckCard.instanceId,
+      definitionId: deckCard.definitionId,
+      status: CardStatus.Untapped,
+      companyId: action.companyId,
+    };
+    const newItemDraft: ItemDraftPlayerState = {
+      ...itemDraft,
+      startingEventsPlaced: (itemDraft.startingEventsPlaced ?? 0) + 1,
+    };
+    const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+    newItemDraftState[playerIndex] = newItemDraft;
+    const stateWithCard = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      playDeck: newPlayDeck,
+      cardsInPlay: [...p.cardsInPlay, eventInPlay],
+    }));
+    if (newItemDraftState[0].done && newItemDraftState[1].done) {
+      return { state: transitionAfterItemDraft(stateWithCard, stepState.remainingPool) };
+    }
+    return {
+      state: {
+        ...stateWithCard,
+        phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
+      },
+    };
+  }
+
   if (action.type !== 'assign-starting-item') {
     return wrongActionType(state, action, 'assign-starting-item', 'item draft');
   }
 
   // Enforce starting item limit
-  const player = state.players[playerIndex];
-  const assignedCount = Object.values(player.characters).reduce(
-    (sum, char) => sum + char.items.length, 0,
-  );
   if (assignedCount >= MAX_STARTING_ITEMS) {
     return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
   }

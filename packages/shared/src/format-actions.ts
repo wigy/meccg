@@ -488,6 +488,8 @@ export function describeAction(
       return `${action.player as string} rolls to determine if shield ${action.itemInstanceId as string} is discarded`;
     case 'tap-character-by-effect':
       return `${action.player as string} taps character ${action.characterInstanceId as string} (hazard effect)`;
+    case 'place-starting-company-event':
+      return `${action.player as string} places ${action.cardDefId as string} on company ${action.companyId as string} as a starting event`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

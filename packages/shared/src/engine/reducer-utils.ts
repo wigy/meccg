@@ -881,6 +881,54 @@ export function sweepCompanyMembershipChangedEvents(
 }
 
 /**
+ * Fires the `leader-leaves-company` event against every company-targeted
+ * permanent event (cardsInPlay with a matching `companyId`) that carries an
+ * `on-event: leader-leaves-company` + `discard-self` apply. Used by
+ * *Orders from Lugbúrz* (as-94), which must be discarded whenever a leader
+ * leaves the company it was played on.
+ *
+ * Call after any action that removes a leader character from a company,
+ * passing every affected company ID.
+ */
+export function sweepLeaderLeavesCompanyEvents(
+  state: GameState,
+  affectedCompanyIds: readonly CompanyId[],
+): GameState {
+  if (affectedCompanyIds.length === 0) return state;
+  const affected = new Set(affectedCompanyIds.map(id => id as string));
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const toDiscard: CardInstanceId[] = [];
+    for (const card of player.cardsInPlay) {
+      if (!affected.has(card.companyId as string)) continue;
+      const def = state.cardPool[card.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
+      const trigger = getOnEventEffects(def, 'leader-leaves-company').find(
+        e => e.apply?.type === 'discard-self',
+      );
+      if (trigger) {
+        logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
+        toDiscard.push(card.instanceId);
+      }
+    }
+    if (toDiscard.length > 0) {
+      changed = true;
+      const discardSet = new Set(toDiscard as string[]);
+      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
+      newPlayers[pi] = {
+        ...newPlayers[pi],
+        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
+        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
+      };
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
  * Generate a unique company ID for a player by finding the highest existing
  * index among their companies and incrementing it. This avoids ID collisions
  * that can occur when companies are merged (removing lower-indexed IDs) and

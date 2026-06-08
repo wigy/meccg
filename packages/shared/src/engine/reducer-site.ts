@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { BARAD_DUR_MINION } from '../card-ids.js';
@@ -2000,13 +2000,29 @@ export function resolveOpponentInfluenceDefend(
     } else {
       influencedCompanyId = findCharacterCompany(opponent2.companies, attempt.targetInstanceId)?.id;
     }
+
+    // Check if the influenced target is a leader (for leader-leaves-company sweep)
+    let influencedIsLeader = false;
+    if (attempt.targetKind !== 'ally') {
+      const targetChar = opponent2.characters[attempt.targetInstanceId as string];
+      if (targetChar) {
+        const targetDef = defById(state, targetChar.definitionId);
+        influencedIsLeader = !!(targetDef && isCharacterCard(targetDef) && (targetDef.keywords ?? []).includes('Leader'));
+      }
+    }
+
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
 
     const afterInfluence = cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal });
+    let afterSweep = influencedCompanyId
+      ? sweepCompanyMembershipChangedEvents(afterInfluence, [influencedCompanyId])
+      : afterInfluence;
+    if (influencedIsLeader && influencedCompanyId) {
+      logDetail(`Opponent influence: influenced character is a Leader — sweeping leader-leaves-company events on ${influencedCompanyId as string}`);
+      afterSweep = sweepLeaderLeavesCompanyEvents(afterSweep, [influencedCompanyId]);
+    }
     return {
-      state: influencedCompanyId
-        ? sweepCompanyMembershipChangedEvents(afterInfluence, [influencedCompanyId])
-        : afterInfluence,
+      state: afterSweep,
       effects: [rollEffect],
     };
   }
