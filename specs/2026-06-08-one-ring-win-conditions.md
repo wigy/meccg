@@ -1,6 +1,4 @@
-# Spec: The One Ring winning condition for every alignment
-
-Status: **Draft** · Author: planning pass · Date: 2026-06-08
+# The One Ring Winning Condition (All Alignments) — Spec
 
 ## 1. Goal
 
