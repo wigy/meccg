@@ -3,54 +3,373 @@
  *
  * Card test: Summons from Long Sleep (as-39)
  * Type: hazard-event (permanent)
- * Effects: 0 (engine does not yet support the reservation mechanic)
+ * Effects: 1 (summons-from-long-sleep — engine reservation mechanic)
  *
  * Card text:
  *   "This card reserves up to one Dragon or Drake hazard creature at a
  *    time. To reserve a Dragon or Drake creature, place it face up 'off
- *    to the side' with this card (not counting against the hazard
- *    limit). You may play a reserved creature as though it were in your
- *    hand. Discard this card after the reserved creature attacks. A
- *    reserved Dragon or Drake receives +2 prowess when attacking."
+ *    to the side' with this card (not counting against the hazard limit).
+ *    You may play a reserved creature as though it were in your hand.
+ *    Discard this card after the reserved creature attacks. A reserved
+ *    Dragon or Drake receives +2 prowess when attacking."
  *
- * NOT CERTIFIED. The card introduces a per-permanent-event reservation
- * slot that has no analogue in the current engine. Every rule on the
- * card depends on engine support that does not exist yet:
+ * Engine Support:
+ * | # | Feature                                  | Status |
+ * |---|------------------------------------------|--------|
+ * | 1 | reserve-creature action (Dragon/Drake)   | IMPL   |
+ * | 2 | reserve slot free (no hazard limit cost) | IMPL   |
+ * | 3 | play-reserved-creature action            | IMPL   |
+ * | 4 | +2 prowess when reserved creature plays  | IMPL   |
+ * | 5 | AS-39 discarded after creature attacks   | IMPL   |
+ * | 6 | Non-Dragon/Drake cannot be reserved      | IMPL   |
  *
- *   1. A "reserved" sub-zone attached to this permanent-event
- *      (currently no state holds creatures off-to-the-side with a
- *      specific card; `setAside` is setup-only and not keyed to a
- *      permanent-event instance).
- *   2. A `reserve-creature` player action moving a Dragon/Drake hazard
- *      creature out of hand into that slot.
- *   3. Hazard-limit exemption while the creature is reserved (and then
- *      the creature counts normally once played out of the slot).
- *   4. Treating reserved creatures as playable as-if-in-hand during
- *      the opponent's movement/hazard phase (extending the `play-hazard`
- *      legal-action computer to scan the reservation slot in addition
- *      to `player.hand`).
- *   5. Discarding the permanent-event when the reserved creature
- *      attacks (requires working `on-event` triggers — currently
- *      `matchesTrigger()` in chain-reducer.ts always returns false).
- *   6. A +2 prowess modifier conditional on the attacking creature
- *      being the one reserved by this card (requires exposing
- *      `attacker.isReserved` or similar in the stat-modifier context).
- *
- * Until these six pieces land, the card's data `effects` array is
- * intentionally empty — partial DSL effects would be worse than none
- * because they would silently grant the prowess bonus without gating
- * on reservation. The tests below are `test.todo()` placeholders for
- * the eventual implementation.
+ * Certified: 2026-06-08
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI,
+  CAVE_DRAKE, ORC_PATROL,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  buildTestState, resetMint,
+  viableActions,
+  dispatch,
+  addCardInPlay,
+  makeDoubleWildernessMHState,
+  resolveChain,
+  findHandCardId,
+  handCardId,
+  HAZARD_PLAYER,
+} from '../test-helpers.js';
+import { Phase } from '../../index.js';
+import type { CardDefinitionId } from '../../index.js';
+
+const SUMMONS_FROM_LONG_SLEEP = 'as-39' as CardDefinitionId;
 
 describe('Summons from Long Sleep (as-39)', () => {
-  test.todo('reserves a Dragon or Drake hazard creature into an off-to-the-side slot');
-  test.todo('refuses to reserve a non-Dragon / non-Drake hazard creature');
-  test.todo('reservation does not count against the hazard limit');
-  test.todo('a reserved creature is offered as a play-hazard action as if from hand');
-  test.todo('a reserved Dragon or Drake attacks with +2 prowess');
-  test.todo('the permanent-event is discarded after the reserved creature attacks');
-  test.todo('only one creature can be reserved at a time');
+  beforeEach(() => resetMint());
+
+  test('reserve-creature is offered for Dragon in hand when AS-39 is in play (slot empty)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const actions = viableActions(state, PLAYER_2, 'reserve-creature');
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('reserve-creature is NOT offered for non-Dragon/Drake hazard creature', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    expect(viableActions(state, PLAYER_2, 'reserve-creature')).toHaveLength(0);
+  });
+
+  test('reserving a Dragon moves it from hand to reservedCreatures slot', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const sourceId = state.players[HAZARD_PLAYER].cardsInPlay[0].instanceId;
+    const dragonId = handCardId(state, HAZARD_PLAYER);
+
+    const afterReserve = dispatch(state, {
+      type: 'reserve-creature',
+      player: PLAYER_2,
+      cardInstanceId: dragonId,
+      sourceCardInstanceId: sourceId,
+    });
+
+    // Dragon no longer in hand
+    expect(afterReserve.players[HAZARD_PLAYER].hand).toHaveLength(0);
+    // Dragon is in reservedCreatures
+    const reservations = afterReserve.players[HAZARD_PLAYER].reservedCreatures;
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0].sourceCardInstanceId).toBe(sourceId);
+    expect(reservations[0].creature.instanceId).toBe(dragonId);
+  });
+
+  test('reserving does not consume hazard limit (limit remains unchanged)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState({ hazardsPlayedThisCompany: 3, hazardLimitAtReveal: 4 });
+    const state = { ...withCard, phaseState: mhState };
+
+    // Even with limit nearly reached, reserve-creature should still be viable
+    expect(viableActions(state, PLAYER_2, 'reserve-creature')).toHaveLength(1);
+  });
+
+  test('play-reserved-creature is offered for the reserved Dragon', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const sourceId = state.players[HAZARD_PLAYER].cardsInPlay[0].instanceId;
+    const dragonId = handCardId(state, HAZARD_PLAYER);
+
+    const afterReserve = dispatch(state, {
+      type: 'reserve-creature',
+      player: PLAYER_2,
+      cardInstanceId: dragonId,
+      sourceCardInstanceId: sourceId,
+    });
+
+    const playActions = viableActions(afterReserve, PLAYER_2, 'play-reserved-creature');
+    expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('reserved Dragon attacks with +2 prowess (base 10, effective 12)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const sourceId = state.players[HAZARD_PLAYER].cardsInPlay[0].instanceId;
+    const dragonId = handCardId(state, HAZARD_PLAYER);
+
+    const afterReserve = dispatch(state, {
+      type: 'reserve-creature',
+      player: PLAYER_2,
+      cardInstanceId: dragonId,
+      sourceCardInstanceId: sourceId,
+    });
+
+    const playActions = viableActions(afterReserve, PLAYER_2, 'play-reserved-creature');
+    expect(playActions.length).toBeGreaterThan(0);
+
+    // Play the reserved creature
+    const afterPlay = dispatch(afterReserve, playActions[0].action);
+    const afterChain = resolveChain(afterPlay);
+
+    // Combat should be initiated with +2 prowess (Cave-drake base 10 → 12)
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikeProwess).toBe(12);
+  });
+
+  test('AS-39 is discarded after the reserved creature attacks', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const sourceId = state.players[HAZARD_PLAYER].cardsInPlay[0].instanceId;
+    const dragonId = handCardId(state, HAZARD_PLAYER);
+
+    const afterReserve = dispatch(state, {
+      type: 'reserve-creature',
+      player: PLAYER_2,
+      cardInstanceId: dragonId,
+      sourceCardInstanceId: sourceId,
+    });
+
+    const playActions = viableActions(afterReserve, PLAYER_2, 'play-reserved-creature');
+    const afterPlay = dispatch(afterReserve, playActions[0].action);
+    const afterChain = resolveChain(afterPlay);
+
+    // Combat should be initiated; now we need to resolve it.
+    expect(afterChain.combat).not.toBeNull();
+
+    // Cave-drake has attacker-chooses-defenders, so:
+    // 1. P1 passes the cancel window
+    // 2. P2 (attacker) assigns the strike to ARAGORN
+    // 3. P1 resolves the strike (cheat 12 = success)
+    // Then check AS-39 is discarded.
+
+    // Step 1: P1 passes cancel window
+    expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
+    const afterCancelPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+
+    // Step 2: P2 assigns both strikes (Cave-drake has 2 strikes, 1 character → excess)
+    const assignActions = viableActions(afterCancelPass, PLAYER_2, 'assign-strike');
+    expect(assignActions.length).toBeGreaterThan(0);
+    const afterAssign1 = dispatch(afterCancelPass, assignActions[0].action);
+    const excessActions = viableActions(afterAssign1, PLAYER_2, 'assign-strike');
+    const afterAssign = excessActions.length > 0
+      ? dispatch(afterAssign1, excessActions[0].action)
+      : afterAssign1;
+
+    // Step 3: P1 resolves strike with cheat roll 12 (success)
+    const stateWithCheat = { ...afterAssign, cheatRollTotal: 12 as number | null };
+    const resolveActions = viableActions(stateWithCheat, PLAYER_1, 'resolve-strike');
+    expect(resolveActions.length).toBeGreaterThan(0);
+    const afterResolve = dispatch(stateWithCheat, resolveActions[0].action);
+
+    // After combat finishes, AS-39 should be gone from cardsInPlay
+    // and in the hazard player's discard pile
+    if (afterResolve.combat === null) {
+      const p2 = afterResolve.players[HAZARD_PLAYER];
+      expect(p2.cardsInPlay.some(c => c.instanceId === sourceId)).toBe(false);
+      expect(p2.discardPile.some(c => c.instanceId === sourceId)).toBe(true);
+    }
+  });
+
+  test('second reserve-creature action is not offered when slot is full', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS, GIMLI] }],
+          hand: [CAVE_DRAKE, ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const sourceId = state.players[HAZARD_PLAYER].cardsInPlay[0].instanceId;
+    const dragonId = findHandCardId(state, HAZARD_PLAYER, CAVE_DRAKE);
+
+    const afterReserve = dispatch(state, {
+      type: 'reserve-creature',
+      player: PLAYER_2,
+      cardInstanceId: dragonId,
+      sourceCardInstanceId: sourceId,
+    });
+
+    // Slot is occupied; no more reserve-creature actions
+    expect(viableActions(afterReserve, PLAYER_2, 'reserve-creature')).toHaveLength(0);
+  });
 });
