@@ -958,7 +958,8 @@
     "homesite": "Any site in Imlad Morgul",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "certified": "2026-06-08"
   },
   {
     "cardType": "minion-character",
