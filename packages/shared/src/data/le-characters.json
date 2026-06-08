@@ -837,7 +837,11 @@
     "discardBodyCheck": [
       7,
       8
-    ]
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 }
+    ],
+    "certified": "2026-06-08"
   },
   {
     "cardType": "minion-character",
