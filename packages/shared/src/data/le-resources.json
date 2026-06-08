@@ -1001,7 +1001,27 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      {
+        "siteType": "ruins-and-lairs",
+        "when": {
+          "site.autoAttack.race": "wolf"
+        }
+      },
+      {
+        "siteType": "shadow-hold",
+        "when": {
+          "site.autoAttack.race": "orc"
+        }
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-event",
