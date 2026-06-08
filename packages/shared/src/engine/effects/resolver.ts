@@ -61,6 +61,13 @@ export interface ResolverContext {
      * to gate effects on company membership (e.g. troll-trio mind reduction).
      */
     readonly companionDefinitionIds?: readonly string[];
+    /**
+     * The Ringwraith mode currently established for the bearer's company by an
+     * in-play mode card (Black Rider / Fell Rider / Heralded Lord). Used by
+     * Ringwraith avatar per-mode stat modifiers, e.g.
+     * `{ "bearer.ringwraithMode": "heralded-lord" }` (Hoarmûrath le-53).
+     */
+    readonly ringwraithMode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
@@ -1062,12 +1069,19 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
   let total = HAND_SIZE;
 
   for (const company of player.companies) {
-    // Determine the site name for this company
+    // Determine the site name (and whether it is a Darkhaven) for this company.
+    // A Darkhaven is a dark-side haven (minion or balrog), as opposed to a hero
+    // haven. Hand-size effects keyed to "at a Darkhaven" (e.g. Hoarmûrath le-53)
+    // gate on `self.atDarkhaven` rather than a specific site name.
     let siteName: string | undefined;
+    let atDarkhaven = false;
     if (company.currentSite) {
       const siteDef = state.cardPool[company.currentSite.definitionId as string];
       if (siteDef && 'name' in siteDef) {
         siteName = (siteDef as SiteCard).name;
+        const site = siteDef as SiteCard;
+        atDarkhaven = site.siteType === 'haven'
+          && (site.cardType === 'minion-site' || site.cardType === 'balrog-site');
       }
     }
 
@@ -1078,10 +1092,10 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
       const charDef = resolveDef(state, char.instanceId);
       if (!charDef || !isCharacterCard(charDef)) continue;
 
-      // Build context with self.location for condition matching
+      // Build context with self.location / self.atDarkhaven for condition matching
       const context: ResolverContext = {
         reason: 'hand-size',
-        self: { location: siteName },
+        self: { location: siteName, atDarkhaven },
         bearer: buildBearerContext(charDef),
       };
 

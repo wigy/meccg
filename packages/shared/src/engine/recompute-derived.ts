@@ -25,6 +25,8 @@ import type {
   CardEffect,
   FactionCard,
   Alignment,
+  CompanyId,
+  RingwraithModeEffect,
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
@@ -154,15 +156,43 @@ function buildEffectiveStatsContext(
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
+  ringwraithMode?: RingwraithModeEffect['mode'],
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: { ...charInfo, companionDefinitionIds },
+    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
   };
+}
+
+/**
+ * Resolves the Ringwraith mode currently established for a company by an in-play
+ * mode card (Black Rider / Fell Rider / Heralded Lord) bound to it via
+ * `CardInPlay.companyId`. Returns undefined when no mode card is bound.
+ *
+ * Exposed to the effective-stats resolver as `bearer.ringwraithMode` so a
+ * Ringwraith avatar's per-mode `stat-modifier` effects can fire (e.g. Hoarmûrath
+ * le-53: +1 DI in Heralded Lord mode, +2 prowess in Fell Rider mode).
+ */
+function resolveCompanyRingwraithMode(
+  state: GameState,
+  player: PlayerState,
+  companyId: CompanyId | undefined,
+): RingwraithModeEffect['mode'] | undefined {
+  if (companyId === undefined) return undefined;
+  for (const card of player.cardsInPlay) {
+    if (card.companyId !== companyId) continue;
+    const def = state.cardPool[card.definitionId as string];
+    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+    if (!effects) continue;
+    for (const eff of effects) {
+      if (eff.type === 'ringwraith-mode') return eff.mode;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -184,8 +214,9 @@ function computeEffectiveStats(
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
+  ringwraithMode?: RingwraithModeEffect['mode'],
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   const collected = [...charEffects, ...globalEffects];
@@ -356,7 +387,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         return compChar.definitionId as string;
       })
       .filter((id): id is string => id !== null);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds);
+    const ringwraithMode = resolveCompanyRingwraithMode(state, player, charCompany?.id);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {

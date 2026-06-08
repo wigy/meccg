@@ -1120,7 +1120,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      {"type": "ringwraith-mode"}
+      {"type": "ringwraith-mode", "mode": "black-rider"}
     ]
   },
   {
@@ -1171,7 +1171,7 @@
     "effects": [
       {"type": "stat-modifier", "stat": "prowess", "value": 2},
       {"type": "stat-modifier", "stat": "direct-influence", "value": -3},
-      {"type": "ringwraith-mode"},
+      {"type": "ringwraith-mode", "mode": "fell-rider"},
       {"type": "company-overt"}
     ]
   },
@@ -1213,7 +1213,7 @@
     "effects": [
       {"type": "stat-modifier", "stat": "prowess", "value": -2},
       {"type": "stat-modifier", "stat": "direct-influence", "value": 3},
-      {"type": "ringwraith-mode"}
+      {"type": "ringwraith-mode", "mode": "heralded-lord"}
     ]
   },
   {

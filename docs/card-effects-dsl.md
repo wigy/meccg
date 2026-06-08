@@ -203,11 +203,21 @@ Operations:
 
 ### 6. `hand-size-modifier`
 
-Modifies the player's hand size.
+Modifies the player's hand size. Evaluated by `resolveHandSize`, which builds a
+per-character context exposing `self.location` (the bearer's current site name)
+and `self.atDarkhaven` (`true` when the bearer's current site is a dark-side
+haven — a `minion-site` or `balrog-site` with `siteType: "haven"`). Use
+`self.location` for a named-site gate (e.g. Elrond at Rivendell) and
+`self.atDarkhaven` for the generic "at a Darkhaven" gate (e.g. Hoarmûrath le-53).
 
 ```json
 { "type": "hand-size-modifier", "value": 1,
   "when": { "self.location": "Rivendell" } }
+```
+
+```json
+{ "type": "hand-size-modifier", "value": 1,
+  "when": { "self.atDarkhaven": true } }
 ```
 
 ### 6a. `character-stat-modifier` constraint kind
@@ -3199,18 +3209,32 @@ company (`CardInPlay.companyId`), the company may move to non-Darkhaven sites.
 Without a mode card in play, a Ringwraith company is restricted to
 Darkhaven-to-Darkhaven movement only (MELE §1.2).
 
-This effect carries no additional data — its presence is the entire payload.
-The engine reads it when computing legal movement actions.
+The engine reads its presence when computing legal movement actions. The
+optional `mode` field identifies which mode the card establishes; it is exposed
+to the effective-stats resolver as `bearer.ringwraithMode` (via
+`resolveCompanyRingwraithMode` in `recompute-derived.ts`), so a Ringwraith avatar
+can carry per-mode `stat-modifier` effects gated on the current mode.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| (none) | — | Presence of the effect is the payload. |
+| `mode` | optional | `"black-rider"`, `"fell-rider"`, or `"heralded-lord"`. Surfaced as `bearer.ringwraithMode` during effective-stats resolution. |
 
 ```json
-{ "type": "ringwraith-mode" }
+{ "type": "ringwraith-mode", "mode": "fell-rider" }
 ```
 
-Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190).
+A Ringwraith avatar then gates per-mode stat changes on the bound mode card, e.g.
+Hoarmûrath (le-53): `+1 direct influence in Heralded Lord mode`, `+2 prowess in
+Fell Rider mode`:
+
+```json
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 1,
+  "when": { "bearer.ringwraithMode": "heralded-lord" } }
+```
+
+Used by: Black Rider (le-170), Fell Rider (le-183), Heralded Lord (le-190). The
+`bearer.ringwraithMode` context path is consumed by Ringwraith avatar cards such
+as Hoarmûrath (le-53).
 
 ---
 
