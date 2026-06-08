@@ -6,7 +6,7 @@
  */
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag, isAvatarCharacter, isCharacterCard } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -438,6 +438,15 @@ function advanceToOrganization(state: GameState): ReducerResult {
 
   for (let pi = 0; pi < 2; pi++) {
     const p = advanced.players[pi];
+    // Resolve this player's avatar definition ID for organization-phase-start conditions
+    let playerAvatarId: string | null = null;
+    for (const char of Object.values(p.characters)) {
+      const charDef = advanced.cardPool[char.definitionId as string];
+      if (charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef)) {
+        playerAvatarId = char.definitionId as string;
+        break;
+      }
+    }
     const toDiscard: typeof p.cardsInPlay[0][] = [];
     for (const card of p.cardsInPlay) {
       const cid = card.companyId as string | undefined;
@@ -450,7 +459,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (oe.event !== 'organization-phase-start') continue;
         if (oe.apply?.type !== 'discard-self') continue;
         const siteType = companyToSiteType.get(cid) ?? null;
-        const ctx = { company: { siteType, atHaven: siteType === SiteType.Haven } };
+        const ctx = { company: { siteType, atHaven: siteType === SiteType.Haven }, player: { avatarId: playerAvatarId } };
         if (oe.when && !matchesContext(oe.when, ctx)) continue;
         logDetail(`organization-phase-start: discarding "${eDef.name ?? card.definitionId}" from company ${cid} (siteType=${siteType ?? 'none'})`);
         toDiscard.push(card);

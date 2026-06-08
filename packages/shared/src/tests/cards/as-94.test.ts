@@ -17,24 +17,27 @@
  *   1. play-target: company
  *   2. extra-troll-leader-slot: company may hold one Troll leader + one other leader
  *   3. duplication-limit: scope "company", max 1
+ *   4. company-modifier: +1 corruption check when company.hasTrollLeader
+ *   5. on-event: organization-phase-start discard-self when player.avatarId === "le-56"
  *
  * Engine support table:
- * | # | Rule                                                | Status          | Notes                                               |
- * |---|-----------------------------------------------------|-----------------|-----------------------------------------------------|
- * | 1 | Playable on a company                               | IMPLEMENTED     | play-target: company                                |
- * | 2 | May be played with a starting company in lieu of item| NOT IMPLEMENTED| no DSL type / engine support                        |
- * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED     | extra-troll-leader-slot effect                      |
- * | 4 | +1 CC for followers of Troll leaders                | NOT IMPLEMENTED | "followers of Troll leaders" condition not supported|
- * | 5 | Discard if Ren is your Ringwraith                   | NOT IMPLEMENTED | ringwraith identity conditions not in engine        |
- * | 6 | Discard when a leader leaves the company            | NOT IMPLEMENTED | company-membership-changes has no conditional discard|
- * | 7 | Cannot be duplicated on a given company             | IMPLEMENTED     | duplication-limit: scope "company"                  |
+ * | # | Rule                                                | Status          | Notes                                                   |
+ * |---|-----------------------------------------------------|-----------------|----------------------------------------------------------|
+ * | 1 | Playable on a company                               | IMPLEMENTED     | play-target: company                                     |
+ * | 2 | May be played with a starting company in lieu of item| NOT IMPLEMENTED| item-draft phase does not support placing deck resources |
+ * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED     | extra-troll-leader-slot effect                           |
+ * | 4 | +1 CC when company has a Troll leader               | IMPLEMENTED     | company-modifier check:corruption when.hasTrollLeader    |
+ * | 5 | Discard if Ren is your Ringwraith                   | IMPLEMENTED     | on-event:organization-phase-start when player.avatarId   |
+ * | 6 | Discard when a leader leaves the company            | NOT IMPLEMENTED | no character-leaves-company trigger in engine            |
+ * | 7 | Cannot be duplicated on a given company             | IMPLEMENTED     | duplication-limit: scope "company"                       |
  *
- * Playable: PARTIALLY (not certified — rules 2, 4, 5, 6 unimplemented)
+ * Playable: PARTIALLY (not certified — rules 2 and 6 unimplemented)
  *
  * Fixtures:
  *   PERCHEN (as-4)                   — minion man scout/diplomat, mind 5
  *   GORBAG (le-11)                   — minion orc Leader (Uruk-hai), mind 6
  *   LIEUTENANT_OF_DOL_GULDUR (le-21) — minion troll Leader (Olog-hai), mind 9
+ *   REN (le-56)                      — Ren the Ringwraith (ringwraith avatar, mind null)
  *   MINAS_MORGUL (le-390)            — minion darkhaven (haven — used for play tests)
  *   DOL_GULDUR (le-367)              — minion haven (opponent site)
  *   MORIA (tw-413)                   — shadow-hold (non-haven — used for leader tests)
@@ -50,13 +53,18 @@ import {
   RESOURCE_PLAYER,
   addCardInPlay,
   Alignment,
+  runActions,
+  findCharInstanceId,
+  enqueueCorruptionCheck,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayPermanentEventAction, MergeCompaniesAction, CompanyId } from '../../index.js';
+import { computeLegalActions } from '../../index.js';
+import type { CardDefinitionId, PlayPermanentEventAction, MergeCompaniesAction, CompanyId, CorruptionCheckAction } from '../../index.js';
 
 const ORDERS_FROM_LUGBURZ = 'as-94' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
 const GORBAG = 'le-11' as CardDefinitionId;
 const LIEUTENANT_DOL_GULDUR = 'le-21' as CardDefinitionId;
+const REN_THE_RINGWRAITH = 'le-56' as CardDefinitionId;
 const ASTERNAK = 'le-1' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;   // darkhaven (haven)
 const DOL_GULDUR = 'le-367' as CardDefinitionId;     // haven (opponent site)
@@ -219,13 +227,142 @@ describe('Orders from Lugbúrz (as-94)', () => {
     expect(actions).toHaveLength(0);
   });
 
-  // ── Rules 2, 4, 5, 6: Not yet implemented ─────────────────────────────────
+  // ── Rule 4: +1 to corruption checks when company has a Troll leader ─────────
+
+  test('+1 corruption modifier on company member when Lieutenant of Dol Guldur (troll leader) is in the company', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [PERCHEN, LIEUTENANT_DOL_GULDUR] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+
+    const perchenId = findCharInstanceId(withCard, RESOURCE_PLAYER, PERCHEN);
+    const withCheck = enqueueCorruptionCheck(withCard, PLAYER_1, perchenId);
+
+    const actions = computeLegalActions(withCheck, PLAYER_1);
+    const ccActions = actions
+      .filter(a => a.viable && a.action.type === 'corruption-check')
+      .map(a => a.action as CorruptionCheckAction)
+      .filter(a => a.characterId === perchenId);
+
+    expect(ccActions).toHaveLength(1);
+    expect(ccActions[0].corruptionModifier).toBe(1);
+  });
+
+  test('no +1 modifier on corruption check when company has no Troll leader', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [PERCHEN, GORBAG] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+
+    const perchenId = findCharInstanceId(withCard, RESOURCE_PLAYER, PERCHEN);
+    const withCheck = enqueueCorruptionCheck(withCard, PLAYER_1, perchenId);
+
+    const actions = computeLegalActions(withCheck, PLAYER_1);
+    const ccActions = actions
+      .filter(a => a.viable && a.action.type === 'corruption-check')
+      .map(a => a.action as CorruptionCheckAction)
+      .filter(a => a.characterId === perchenId);
+
+    expect(ccActions).toHaveLength(1);
+    expect(ccActions[0].corruptionModifier).toBe(0);
+  });
+
+  // ── Rule 5: Discard if Ren the Ringwraith is the player's avatar ──────────
+
+  test('discards at organization-phase-start when Ren the Ringwraith is the player avatar', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [REN_THE_RINGWRAITH, PERCHEN] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+
+    const afterOrg = runActions(withCard, [
+      { type: 'untap', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+
+    expect(afterOrg.phaseState.phase).toBe(Phase.Organization);
+    expect(afterOrg.players[RESOURCE_PLAYER].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(false);
+    expect(afterOrg.players[RESOURCE_PLAYER].discardPile.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(true);
+  });
+
+  test('not discarded when a different ringwraith is the player avatar', () => {
+    // LIEUTENANT_DOL_GULDUR is not a ringwraith avatar, but we use PERCHEN (no avatar) —
+    // the event should survive when Ren is not the avatar.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const withCard = addCardInPlay(state, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, companyId);
+
+    const afterOrg = runActions(withCard, [
+      { type: 'untap', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+
+    expect(afterOrg.phaseState.phase).toBe(Phase.Organization);
+    expect(afterOrg.players[RESOURCE_PLAYER].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_LUGBURZ,
+    )).toBe(true);
+  });
+
+  // ── Rules 2 and 6: Not yet implemented ────────────────────────────────────
 
   test.todo('playable-as-starting-item: may replace a minor item in starting company setup');
-
-  test.todo('+1 to corruption checks by followers of Troll leaders in the company');
-
-  test.todo('discard-if-ren: discard immediately if the player\'s Ringwraith is Ren');
 
   test.todo('discard-when-leader-leaves: discard when any leader leaves the bound company');
 });

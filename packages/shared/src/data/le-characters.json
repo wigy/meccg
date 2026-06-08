@@ -1054,6 +1054,71 @@
   },
   {
     "cardType": "minion-character",
+    "id": "le-55",
+    "name": "Khamûl the Ringwraith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/KhamultheRingwraith.jpg",
+    "text": "Unique. Manifestation of Khamûl the Easterling. Can use sorcery. -2 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. -2 to the body of any Elf character targeted by a strike from Khamûl. As your Ringwraith, one Ringwraith follower in his company may be controlled with no influence.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "ringwraith",
+    "skills": [
+      "warrior",
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 9,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 4,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "homesite": "Dol Guldur"
+  },
+  {
+    "cardType": "minion-character",
+    "id": "le-56",
+    "name": "Ren the Ringwraith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RentheRingwraith.jpg",
+    "text": "Unique. Manifestation of Ren the Unclean. Can use sorcery and shadow-magic. -2 direct influence in Heralded Lord mode. +2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, he may tap during your organization phase to modify all corruption checks made this turn by your characters by -1 or +1.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "ringwraith",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 8,
+    "body": 10,
+    "mind": null,
+    "directInfluence": 4,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "homesite": "Any site in Gorgoroth"
+  },
+  {
+    "cardType": "minion-character",
+    "id": "le-57",
+    "name": "Ûvatha the Ringwraith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UvathatheRingwraith.jpg",
+    "text": "Unique. Manifestation of Ûvatha the Horseman. Can use spirit-magic. -3 direct influence in Heralded Lord mode. -1 prowess in Fell Rider mode. He may join another Ringwraith's company during your organization phase and requires no influence to control. As your Ringwraith, if at a Darkhaven, he may tap to untap one character in any one of your companies.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "ringwraith",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 9,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 5,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "homesite": "Any site in Khand"
+  },
+  {
+    "cardType": "minion-character",
     "id": "le-58",
     "name": "The Witch-king",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWitchking.jpg",
