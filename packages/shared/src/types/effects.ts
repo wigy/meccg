@@ -296,6 +296,18 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly freeCouncil?: boolean;
   /**
+   * When true, the ability may be activated by the active (resource)
+   * player during the *enter-or-skip* step of their own site phase —
+   * the decision window immediately before a company commits to facing
+   * a site's automatic-attacks. Used by *Blasting Fire* (wh-51), which
+   * is discarded at this moment to cancel all of the site's
+   * automatic-attacks against the bearer's company. Distinct from
+   * {@link anyPhase} (which would also expose the ability during
+   * organization / M-H) because canceling automatic-attacks is only
+   * meaningful at this one point in the site phase.
+   */
+  readonly activeSitePhase?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and
@@ -1236,8 +1248,21 @@ export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
   /** Site names where the item can be played. Mutually exclusive with `filter`. */
   readonly sites?: readonly string[];
-  /** Generic site filter, evaluated against `{ site: siteDef }`. */
+  /**
+   * Generic site filter, evaluated against `{ site: siteDef }`. The site
+   * context is augmented with `autoAttackRaces` — the normalized races of
+   * the site's automatic-attacks — so a filter can match "a site with a
+   * Dwarf automatic-attack" via `{ "site.autoAttackRaces": { "$includes": "dwarf" } }`.
+   */
   readonly filter?: Condition;
+  /**
+   * When true, the item may be played even when its company's current
+   * site is Tapped (the normal tapped-site gate is bypassed). The
+   * site-restriction (`sites` / `filter`) must still match. Used by
+   * *Blasting Fire* (wh-51): "Playable at a tapped or untapped
+   * Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
+   */
+  readonly allowTapped?: boolean;
 }
 
 /**

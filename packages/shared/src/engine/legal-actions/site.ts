@@ -100,6 +100,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // already been selected by this step, so activeCompanyIndex is valid.
     if (isActive) {
       base.push(...playResourceShortEventActions(state, playerId, new Set(), 'site'));
+      // Active-player site-phase grant-actions usable at the enter-or-skip
+      // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
+      // before the company commits to facing them).
+      base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
@@ -995,7 +999,15 @@ function playResourcesActions(
       const thoroughSearchBonus = siteState.thoroughSearchAvailable
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major' || itemDef.subtype === 'gold-ring');
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus) {
+      // item-play-site allowTapped: the item itself permits play at a
+      // tapped site (e.g. Blasting Fire). The site-restriction below still
+      // gates *which* tapped sites qualify.
+      const itemSiteRestriction = itemDef.effects?.find(
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+      );
+      const itemAllowsTapped = itemSiteRestriction?.allowTapped === true;
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1005,15 +1017,19 @@ function playResourcesActions(
         continue;
       }
 
-      const siteRestriction = itemDef.effects?.find(
-        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
-      );
+      const siteRestriction = itemSiteRestriction;
       if (siteRestriction) {
         const matchesSiteList = siteRestriction.sites
           ? siteRestriction.sites.includes(siteName)
           : false;
+        // Augment the filter's site context with the normalized races of
+        // the site's automatic-attacks, so a restriction can match e.g.
+        // "a site with a Dwarf automatic-attack".
+        const autoAttackRaces = siteDef && isSiteCard(siteDef)
+          ? siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType))
+          : [];
         const matchesFilter = siteRestriction.filter
-          ? matchesContext(siteRestriction.filter, { site: siteDef })
+          ? matchesContext(siteRestriction.filter, { site: { ...siteDef, autoAttackRaces } })
           : false;
         // Either form satisfies; if both are absent the restriction is
         // empty and trivially fails (a malformed effect).
@@ -1393,6 +1409,19 @@ function playResourcesActions(
             if (constraint.target.characterId !== ch.instanceId) continue;
             infModifier += constraint.kind.value;
             infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
+          }
+
+          // Site-wide influence modifiers (Blasting Fire wh-51): every
+          // influence attempt against a faction at the company's current
+          // site is modified for the rest of the turn.
+          const currentSiteDefId = company.currentSite?.definitionId;
+          if (currentSiteDefId) {
+            for (const constraint of state.activeConstraints) {
+              if (constraint.kind.type !== 'influence-at-site-modifier') continue;
+              if (constraint.kind.siteDefinitionId !== currentSiteDefId) continue;
+              infModifier += constraint.kind.value;
+              infParts.push(`site influence bonus ${formatSignedNumber(constraint.kind.value)}`);
+            }
           }
         }
         const infNeed = factionDef.influenceNumber - infModifier;

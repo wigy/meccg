@@ -63,11 +63,15 @@ import { canPayCost } from '../cost-evaluator.js';
  *  - `'freeCouncil'` — only effects flagged `freeCouncil: true`.
  *    Emitted for either player during the Free Council's
  *    corruption-checks step. Used by Magical Harp.
+ *  - `'activeSitePhase'` — only effects flagged `activeSitePhase: true`.
+ *    Emitted for the active (resource) player during the enter-or-skip
+ *    step of their own site phase. Used by Blasting Fire (wh-51).
  */
 export type GrantActionPhaseFilter =
   | 'anyPhase'
   | 'opposingSitePhase'
-  | 'freeCouncil';
+  | 'freeCouncil'
+  | 'activeSitePhase';
 
 /**
  * Whether `effect` passes the given {@link GrantActionPhaseFilter}.
@@ -81,6 +85,7 @@ function matchesPhaseFilter(
   if (filter === 'anyPhase') return effect.anyPhase === true;
   if (filter === 'opposingSitePhase') return effect.opposingSitePhase === true;
   if (filter === 'freeCouncil') return effect.freeCouncil === true;
+  if (filter === 'activeSitePhase') return effect.activeSitePhase === true;
   return false;
 }
 
