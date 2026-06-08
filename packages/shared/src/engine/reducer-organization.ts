@@ -441,7 +441,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
 /**
  * Handle store-item during organization.
  *
- * Moves an item from a character to the player's out-of-play pile. The
+ * Moves an item from a character to the player's marshalling point pile. The
  * character must be at a site matching the item's storable-at effect.
  * Stored items continue to earn marshalling points (via the item's
  * `storable-at` effect); the initial bearer makes a corruption check.
@@ -480,7 +480,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const stateAfterStore: GameState = updatePlayer(state, playerIndex, p => ({
     ...p,
     characters: newCharacters,
-    outOfPlayPile: [...p.outOfPlayPile, storedCard],
+    killPile: [...p.killPile, storedCard],
   }));
 
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {

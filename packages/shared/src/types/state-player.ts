@@ -54,13 +54,16 @@ export interface PlayerState {
   readonly siteDiscardPile: readonly CardInstance[];
   /** Reserve cards that can be fetched under specific game conditions. */
   readonly sideboard: readonly CardInstance[];
-  /** Defeated creature cards earning kill marshalling points. */
+  /**
+   * Marshalling point pile: defeated creatures and stored items (CoE rule
+   * 2.II.4.1 places successfully stored items here). Labeled "MP Pile" in the
+   * UI.
+   */
   readonly killPile: readonly CardInstance[];
   /**
-   * Cards that are no longer in play but still tracked for marshalling points.
-   * Holds eliminated characters (MP-modifier effects) and items stored at
-   * sites for safekeeping (stored items continue to earn MP via their
-   * `storable-at` effect).
+   * Cards that are no longer in play: eliminated characters (tracked for
+   * MP-modifier effects with reason "elimination") and sites stored via
+   * stolen-knowledge. Stored items go to `killPile` per CoE rule 2.II.4.1.
    */
   readonly outOfPlayPile: readonly CardInstance[];
   /** All companies this player controls on the map. */

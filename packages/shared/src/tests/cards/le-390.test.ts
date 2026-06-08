@@ -372,8 +372,8 @@ describe('Minas Morgul (le-390)', () => {
     const afterStore = dispatch(state, store);
 
     // Gold ring moved to out-of-play pile (stored)
-    expect(afterStore.players[0].outOfPlayPile).toHaveLength(1);
-    expect(afterStore.players[0].outOfPlayPile[0].definitionId).toBe(THE_LEAST_OF_GOLD_RINGS);
+    expect(afterStore.players[0].killPile).toHaveLength(1);
+    expect(afterStore.players[0].killPile[0].definitionId).toBe(THE_LEAST_OF_GOLD_RINGS);
 
     // Corruption check AND gold-ring-test both pending
     const ringTest = afterStore.pendingResolutions.find(r => r.kind.type === 'gold-ring-test');

@@ -175,8 +175,8 @@ describe('Red Book of Westmarch (le-339)', () => {
     expect(gorbag.items).toHaveLength(0);
 
     // Item added to out-of-play pile
-    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile).toHaveLength(1);
-    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile[0].definitionId).toBe(RED_BOOK);
+    expect(afterStore.players[RESOURCE_PLAYER].killPile).toHaveLength(1);
+    expect(afterStore.players[RESOURCE_PLAYER].killPile[0].definitionId).toBe(RED_BOOK);
 
     // Storing enqueues a corruption check on the bearer
     const cc = afterStore.pendingResolutions.find(r => r.kind.type === 'corruption-check');

@@ -159,12 +159,12 @@ describe('Scroll of Isildur (le-343)', () => {
 
     const luitprandId = findCharInstanceId(base, RESOURCE_PLAYER, LUITPRAND);
 
-    // Simulate org-phase store path: gold ring moved to outOfPlayPile
+    // Simulate org-phase store path: gold ring moved to killPile (MP pile)
     const ringInstance: { instanceId: CardInstanceId; definitionId: CardDefinitionId } = {
       instanceId: mint(),
       definitionId: LEAST_OF_GOLD_RINGS,
     };
-    const withRingStored = addToPile(base, RESOURCE_PLAYER, 'outOfPlayPile', ringInstance);
+    const withRingStored = addToPile(base, RESOURCE_PLAYER, 'killPile', ringInstance);
 
     // Enqueue gold-ring-test with no site modifier (rollModifier = 0)
     const withPending = enqueueGoldRingTest(
@@ -211,7 +211,7 @@ describe('Scroll of Isildur (le-343)', () => {
       instanceId: mint(),
       definitionId: LEAST_OF_GOLD_RINGS,
     };
-    const withRingStored = addToPile(base, RESOURCE_PLAYER, 'outOfPlayPile', ringInstance);
+    const withRingStored = addToPile(base, RESOURCE_PLAYER, 'killPile', ringInstance);
     const withPending = enqueueGoldRingTest(
       withRingStored, PLAYER_1, ringInstance.instanceId, grishnakhId,
     );
@@ -272,7 +272,7 @@ describe('Scroll of Isildur (le-343)', () => {
     expect(storeActions).toHaveLength(0);
   });
 
-  test('5 marshalling points awarded when Scroll is stored (in outOfPlayPile)', () => {
+  test('5 marshalling points awarded when Scroll is stored (in killPile, the MP pile)', () => {
     const base = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -289,13 +289,13 @@ describe('Scroll of Isildur (le-343)', () => {
     });
 
     const scrollInstance = { instanceId: mint(), definitionId: SCROLL_OF_ISILDUR_MINION };
-    const withScrollStored = addToPile(base, RESOURCE_PLAYER, 'outOfPlayPile', scrollInstance);
+    const withScrollStored = addToPile(base, RESOURCE_PLAYER, 'killPile', scrollInstance);
     const state = recomputeDerived(withScrollStored);
 
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(5);
   });
 
-  test('dispatching store-item at Barad-dûr moves Scroll to outOfPlayPile', () => {
+  test('dispatching store-item at Barad-dûr moves Scroll to killPile (MP pile)', () => {
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -316,8 +316,8 @@ describe('Scroll of Isildur (le-343)', () => {
     const storeAction = viableActions(state, PLAYER_1, 'store-item')[0].action;
     const afterStore = dispatch(state, storeAction);
 
-    // Scroll should be in outOfPlayPile
-    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile.some(
+    // Scroll should be in killPile (MP pile)
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(
       c => c.definitionId === SCROLL_OF_ISILDUR_MINION,
     )).toBe(true);
     // Scroll should no longer be on Grishnákh

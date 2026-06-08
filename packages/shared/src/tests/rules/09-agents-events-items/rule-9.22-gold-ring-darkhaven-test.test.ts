@@ -34,7 +34,7 @@ describe('Rule 9.22 — Gold Ring Auto-Test at Darkhaven', () => {
   beforeEach(() => resetMint());
 
   test('Darkhaven stored gold ring: -2 modifier applied to roll', () => {
-    // At a Darkhaven, the gold ring is in outOfPlayPile (stored), and the
+    // At a Darkhaven, the gold ring is in killPile (stored, MP pile), and the
     // gold-ring-test pending has rollModifier = -2.
     // Roll 2 with -2 modifier = 0 total; lesser-ring (any result) is still eligible.
     const base = buildTestState({
@@ -48,12 +48,12 @@ describe('Rule 9.22 — Gold Ring Auto-Test at Darkhaven', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
 
-    // Simulate the Darkhaven store-item path: ring is in outOfPlayPile
+    // Simulate the Darkhaven store-item path: ring is in killPile (MP pile)
     const ringInstance: { instanceId: CardInstanceId; definitionId: CardDefinitionId } = {
       instanceId: mint(),
       definitionId: PRECIOUS_GOLD_RING,
     };
-    const p0 = { ...base.players[0], outOfPlayPile: [...base.players[0].outOfPlayPile, ringInstance] };
+    const p0 = { ...base.players[0], killPile: [...base.players[0].killPile, ringInstance] };
     const withRingStored = { ...base, players: [p0, base.players[1]] as unknown as typeof base.players };
 
     const withHand = addCardToHand(withRingStored, RESOURCE_PLAYER, LESSER_RING);
@@ -88,7 +88,7 @@ describe('Rule 9.22 — Gold Ring Auto-Test at Darkhaven', () => {
       instanceId: mint(),
       definitionId: PRECIOUS_GOLD_RING,
     };
-    const p0b = { ...base.players[0], outOfPlayPile: [...base.players[0].outOfPlayPile, ringInstance] };
+    const p0b = { ...base.players[0], killPile: [...base.players[0].killPile, ringInstance] };
     const withRingStored = { ...base, players: [p0b, base.players[1]] as unknown as typeof base.players };
 
     // Directly enqueue ring-play-offer with storedPlacement: true to test the

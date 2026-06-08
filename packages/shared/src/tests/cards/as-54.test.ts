@@ -105,7 +105,7 @@ describe('Safe from the Shadow (as-54)', () => {
     const aragornEntry = Object.values(aragornChar).find(c => c.definitionId === ARAGORN);
     expect(aragornEntry).toBeDefined();
     expect(aragornEntry!.items.some(i => i.definitionId === RED_BOOK_OF_WESTMARCH)).toBe(false);
-    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile.some(
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(
       i => i.definitionId === RED_BOOK_OF_WESTMARCH,
     )).toBe(true);
   });

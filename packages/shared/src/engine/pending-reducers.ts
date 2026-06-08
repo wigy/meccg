@@ -1425,24 +1425,24 @@ function applyGoldRingTestResolution(
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
 
-  // Locate the gold ring. Org-phase store-item path: ring is in outOfPlayPile.
-  // Site-phase auto-test path: ring was just played and sits in a character's
-  // items array. Search both locations.
-  const ringInOutOfPlay = player.outOfPlayPile.findIndex(c => c.instanceId === goldRingInstanceId);
+  // Locate the gold ring. Org-phase store-item path: ring is in killPile (the
+  // MP pile). Site-phase auto-test path: ring was just played and sits in a
+  // character's items array. Search both locations.
+  const ringInKillPile = player.killPile.findIndex(c => c.instanceId === goldRingInstanceId);
 
-  let ringCard: typeof player.outOfPlayPile[0];
+  let ringCard: typeof player.killPile[0];
   let stateAfterRing: GameState;
-  // True when the ring came from outOfPlayPile — it was stored at a Darkhaven
+  // True when the ring came from killPile — it was stored at a Darkhaven
   // (Rule 9.22), so the replacement enters play stored rather than attached.
   let storedPlacement: boolean;
 
-  if (ringInOutOfPlay !== -1) {
-    ringCard = player.outOfPlayPile[ringInOutOfPlay];
-    const newOutOfPlay = [...player.outOfPlayPile];
-    newOutOfPlay.splice(ringInOutOfPlay, 1);
+  if (ringInKillPile !== -1) {
+    ringCard = player.killPile[ringInKillPile];
+    const newKillPile = [...player.killPile];
+    newKillPile.splice(ringInKillPile, 1);
     stateAfterRing = updatePlayer(state, actorIndex, p => ({
       ...p,
-      outOfPlayPile: newOutOfPlay,
+      killPile: newKillPile,
       discardPile: [...p.discardPile, ringCard],
     }));
     storedPlacement = true;
