@@ -252,7 +252,7 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.08 / 1.11 — avatar characters match alignment
+  // Rule 1.08 / 1.11 / 1.16 / 1.19 — avatar characters match alignment
   for (const entry of characters) {
     if (entry.card === null) continue;
     const def = cardPool[entry.card];
@@ -268,6 +268,20 @@ export function validateDeck(
       errors.push({
         section: 'characters',
         message: `minion deck: avatar "${def.name}" must be a Ringwraith (race is "${def.race}")`,
+        card: entry.card,
+      });
+    }
+    if (deck.alignment === 'fallen-wizard' && def.alignment !== 'fallen-wizard') {
+      errors.push({
+        section: 'characters',
+        message: `fallen-wizard deck: avatar "${def.name}" must be a Fallen-wizard avatar (alignment is "${def.alignment}")`,
+        card: entry.card,
+      });
+    }
+    if (deck.alignment === 'balrog' && def.alignment !== 'balrog') {
+      errors.push({
+        section: 'characters',
+        message: `balrog deck: avatar "${def.name}" must be a Balrog avatar (alignment is "${def.alignment}")`,
         card: entry.card,
       });
     }
