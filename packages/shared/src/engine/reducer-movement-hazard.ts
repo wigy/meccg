@@ -186,6 +186,12 @@ function handlePlayHazards(
   // --- Pay hazard limit to untap a cardsInPlay hazard permanent event (Power Built by Waiting) ---
   if (action.type === 'pay-hazard-limit-to-untap-card') return handlePayHazardLimitToUntapCard(state, action, mhState);
 
+  // --- Reserve a Dragon/Drake creature in the Summons from Long Sleep (as-39) slot ---
+  if (action.type === 'reserve-creature') return handleReserveCreature(state, action, mhState);
+
+  // --- Play a reserved creature from the Summons from Long Sleep (as-39) slot ---
+  if (action.type === 'play-reserved-creature') return handlePlayReservedCreature(state, action, mhState);
+
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
   let result: ReducerResult;
@@ -1282,6 +1288,9 @@ function handlePlayHazardCard(
         : {}),
       ...(action.type === 'play-hazard' && action.targetCharacterId
         ? { targetCharacterId: action.targetCharacterId }
+        : {}),
+      ...(action.type === 'play-hazard' && action.targetAllyId
+        ? { targetAllyId: action.targetAllyId }
         : {}),
     };
     if (newState.chain === null) {
@@ -2693,6 +2702,131 @@ function handlePayHazardLimitToUntapCard(
       phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount },
     },
   };
+}
+
+/**
+ * Handle reserve-creature: hazard player places a Dragon or Drake from hand
+ * into the Summons from Long Sleep (as-39) reservation slot.
+ *
+ * Free action — does NOT count against the hazard limit. The creature
+ * leaves the hand and enters player.reservedCreatures keyed to the AS-39
+ * permanent-event instance.
+ */
+function handleReserveCreature(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').ReserveCreatureAction,
+  _mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIdx];
+
+  // Validate AS-39 is in cardsInPlay
+  const as39 = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.sourceCardInstanceId);
+  if (!as39) return { state, error: `reserve-creature: AS-39 card ${action.sourceCardInstanceId as string} not found in cardsInPlay` };
+
+  // Validate no creature already reserved
+  const alreadyReserved = hazardPlayer.reservedCreatures.some(
+    r => r.sourceCardInstanceId === action.sourceCardInstanceId,
+  );
+  if (alreadyReserved) return { state, error: `reserve-creature: AS-39 slot already occupied` };
+
+  // Find creature in hand
+  const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: `reserve-creature: card ${action.cardInstanceId as string} not found in hand` };
+
+  const def = defById(state, handCard.definitionId);
+  if (!def || def.cardType !== 'hazard-creature') return { state, error: `reserve-creature: ${handCard.definitionId as string} is not a hazard-creature` };
+
+  const creatureDef = def;
+  const race = creatureDef.race.toLowerCase();
+  if (race !== 'dragon' && race !== 'drake') {
+    return { state, error: `reserve-creature: only Dragon or Drake can be reserved (got ${race})` };
+  }
+
+  logDetail(`Summons from Long Sleep: reserving "${creatureDef.name}" (${race}) — does not count against hazard limit`);
+
+  return {
+    state: updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      reservedCreatures: [
+        ...p.reservedCreatures,
+        { sourceCardInstanceId: action.sourceCardInstanceId, creature: handCard },
+      ],
+    })),
+  };
+}
+
+/**
+ * Handle play-reserved-creature: hazard player plays the Dragon or Drake
+ * reserved in the AS-39 slot as though it were in hand.
+ *
+ * Counts against the hazard limit. The creature enters the chain with a
+ * +2 prowess bonus and a reference to the AS-39 card so it is discarded
+ * after combat.
+ */
+function handlePlayReservedCreature(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').PlayReservedCreatureAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayerState = state.players[hazardIdx];
+
+  // Find reservation entry
+  const reservationEntry = hazardPlayerState.reservedCreatures.find(
+    r => r.sourceCardInstanceId === action.sourceCardInstanceId,
+  );
+  if (!reservationEntry) {
+    return { state, error: `play-reserved-creature: no reserved creature for AS-39 ${action.sourceCardInstanceId as string}` };
+  }
+
+  const creatureCard = reservationEntry.creature;
+  const def = defById(state, creatureCard.definitionId);
+  if (!def || def.cardType !== 'hazard-creature') {
+    return { state, error: `play-reserved-creature: reserved card is not a hazard-creature` };
+  }
+
+  // Check hazard limit
+  const liveLimit = currentHazardLimit(state, mhState, action.targetCompanyId);
+  if (mhState.hazardsPlayedThisCompany >= liveLimit) {
+    return { state, error: `play-reserved-creature: hazard limit reached (${liveLimit})` };
+  }
+
+  // Validate chain is null (creatures must initiate new chain)
+  if (state.chain !== null) {
+    return { state, error: `play-reserved-creature: creatures must initiate a new chain` };
+  }
+
+  logDetail(`Summons from Long Sleep: playing reserved creature "${(def).name}" (+2 prowess) against company ${action.targetCompanyId as string} (${mhState.hazardsPlayedThisCompany + 1}/${liveLimit})`);
+
+  // Remove creature from reservation slot
+  let newState = updatePlayer(state, hazardIdx, p => ({
+    ...p,
+    reservedCreatures: p.reservedCreatures.filter(
+      r => r.sourceCardInstanceId !== action.sourceCardInstanceId,
+    ),
+  }));
+
+  // Increment hazard count
+  newState = {
+    ...newState,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      resourcePlayerPassed: false,
+    },
+  };
+
+  // Initiate chain with +2 prowess bonus and reservingCardInstanceId
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'creature',
+    prowessBonus: 2,
+    reservingCardInstanceId: action.sourceCardInstanceId,
+  };
+  newState = initiateChain(newState, action.player, creatureCard, payload);
+
+  return { state: newState };
 }
 
 /**

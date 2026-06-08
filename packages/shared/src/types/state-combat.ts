@@ -9,6 +9,7 @@
 import {
   PlayerId,
   CardInstanceId,
+  CardDefinitionId,
   CompanyId,
   RegionType,
   SiteType,
@@ -29,7 +30,32 @@ import type { CardEffect } from './effects.js';
  * - An ahunt long-event creating a dragon attack during order-effects.
  */
 export type AttackSource =
-  | { readonly type: 'creature'; readonly instanceId: CardInstanceId }
+  | {
+      readonly type: 'creature';
+      readonly instanceId: CardInstanceId;
+      /**
+       * When set, this creature was played from a Summons from Long Sleep (as-39)
+       * reservation slot. After combat resolves, the AS-39 permanent-event with
+       * this instance ID is discarded regardless of the attack outcome.
+       */
+      readonly reservingCardInstanceId?: CardInstanceId;
+    }
+  | {
+      /**
+       * Triggered by Stay Her Appetite (le-140): an ally attacks its own
+       * controlling character with a detainment attack (1 strike, prowess
+       * = ally.prowess + dice roll). If the attack is NOT fully defeated,
+       * the ally is discarded.
+       */
+      readonly type: 'stay-her-appetite-attack';
+      readonly eventDefinitionId: CardDefinitionId;
+      /** The ally being forced to attack its bearer. */
+      readonly allyInstanceId: CardInstanceId;
+      /** Player index of the ally's owner (resource player). */
+      readonly allyOwnerPlayerIndex: number;
+      /** The character the ally is attached to and will attack. */
+      readonly hostCharacterInstanceId: CardInstanceId;
+    }
   | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number }
   | { readonly type: 'on-guard-creature'; readonly cardInstanceId: CardInstanceId }
   | { readonly type: 'played-auto-attack'; readonly instanceId: CardInstanceId; readonly siteInstanceId: CardInstanceId }
@@ -521,8 +547,27 @@ export interface HavenJumpOrigin {
  * resolver knows how to apply the entry when it resolves.
  */
 export type ChainEntryPayload =
-  | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId; readonly targetCharacterId?: CardInstanceId; readonly targetFactionInstanceId?: CardInstanceId }
-  | { readonly type: 'creature' }
+  | {
+      readonly type: 'short-event';
+      readonly targetInstanceId?: CardInstanceId;
+      readonly targetCharacterId?: CardInstanceId;
+      readonly targetFactionInstanceId?: CardInstanceId;
+      /** For Stay Her Appetite (le-140): the ally being targeted. */
+      readonly targetAllyId?: CardInstanceId;
+    }
+  | {
+      readonly type: 'creature';
+      /**
+       * For Summons from Long Sleep (as-39): prowess bonus (+2) applied on
+       * top of the creature's resolved prowess when initiating combat.
+       */
+      readonly prowessBonus?: number;
+      /**
+       * For Summons from Long Sleep (as-39): the permanent-event instance to
+       * discard after this creature's combat resolves.
+       */
+      readonly reservingCardInstanceId?: CardInstanceId;
+    }
   | {
       readonly type: 'permanent-event';
       readonly targetCharacterId?: CardInstanceId;

@@ -3353,4 +3353,91 @@ event resolution.
 }
 ```
 
+---
+
+### 40. `summons-from-long-sleep`
+
+Marks a hazard permanent-event as a Dragon/Drake reservation card (AS-39 mechanic).
+
+While this card is in the hazard player's `cardsInPlay` with an empty reservation slot,
+the hazard player may take a free `reserve-creature` action to move any Dragon or Drake
+hazard creature from their hand into the slot (not counting against the hazard limit).
+
+While a creature is reserved, the hazard player may play it via `play-reserved-creature`
+as if it were in hand (counts one against the hazard limit, subject to normal keying
+checks). The reserved creature gains +2 prowess when attacking.
+
+After the reserved creature attacks, this permanent-event is discarded from `cardsInPlay`.
+The reservation slot only holds one creature at a time.
+
+No additional fields beyond `type`.
+
+```json
+{ "type": "summons-from-long-sleep" }
+```
+
+Implemented in:
+
+- `engine/legal-actions/movement-hazard.ts` (`summonsFromLongSleepActions`): generates
+  `reserve-creature` and `play-reserved-creature` legal actions.
+- `engine/reducer-movement-hazard.ts` (`handleReserveCreature`, `handlePlayReservedCreature`):
+  moves creatures between `hand` and `player.reservedCreatures`, initiates the chain with
+  `prowessBonus: 2`.
+- `engine/reducer-combat.ts` (`finalizeCombat`): discards the AS-39 permanent-event after
+  the reserved creature's attack completes (detects `reservingCardInstanceId` on the
+  `creature` attack source).
+
+State model: `player.reservedCreatures` is a `readonly` array of
+`{ sourceCardInstanceId, creature: CardInstance }` entries, keyed by the AS-39 instance.
+
+Used by: *Summons from Long Sleep* (as-39).
+
+---
+
+### 41. `stay-her-appetite`
+
+Marks a hazard short-event as the Stay Her Appetite (le-140) detainment mechanic.
+Must be combined with `{ "type": "play-target", "target": "ally" }` on the same card
+so the legal-action computer offers one `play-hazard` action per ally in the active
+company (the ally's instance ID is carried in `action.targetAllyId`).
+
+When the chain entry resolves, the engine:
+
+1. Looks up the ally's host character in the resource player's company.
+2. Computes the threshold: `opponentUnusedGI + controllerUnusedDI + 5`.
+3. Enqueues a `stay-her-appetite-roll` pending resolution (hazard player rolls).
+
+At roll time a 2d6 **condition roll** is made. If `roll + ally.mind > threshold` a
+second 2d6 **prowess roll** determines the attack's prowess (`ally.prowess + roll2`),
+and a 1-strike detainment attack against the host character is initiated.
+
+After combat, if the attack was not fully defeated, the ally is discarded from the
+host character.
+
+```json
+{ "type": "stay-her-appetite" }
+```
+
+`play-target` entry for the same card:
+
+```json
+{ "type": "play-target", "target": "ally" }
+```
+
+Implemented in:
+
+- `engine/legal-actions/movement-hazard.ts`: generates `play-hazard` actions with
+  `targetAllyId` for each ally in the active company when the card has `play-target
+  target:ally`.
+- `engine/chain-reducer.ts`: detects `targetAllyId` + `stay-her-appetite` effect on
+  short-event resolution; enqueues `stay-her-appetite-roll` pending resolution.
+- `engine/legal-actions/pending.ts` (`stayHerAppetiteRollActions`): offers the roll
+  action to the hazard player.
+- `engine/pending-reducers.ts` (`applyStayHerAppetiteRollResolution`): resolves the
+  condition and prowess rolls, optionally initiating `CombatState`.
+- `engine/reducer-combat.ts` (`finalizeCombat`): discards the ally when the attack
+  source is `stay-her-appetite-attack` and `!allDefeated`.
+
+Used by: *Stay Her Appetite* (le-140).
+
 Used by: *By the Ringwraith's Word* (le-174).

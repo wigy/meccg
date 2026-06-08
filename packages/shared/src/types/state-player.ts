@@ -19,7 +19,7 @@ import type {
   Company,
   MarshallingPointTotals,
 } from './state-cards.js';
-import type { CardDefinitionId } from './common.js';
+import type { CardDefinitionId, CardInstanceId } from './common.js';
 import type { AgentInPlay } from './state-agents.js';
 
 // ---- Per-player state ----
@@ -131,4 +131,15 @@ export interface PlayerState {
    * Cleared when the returned Ringwraith is re-played.
    */
   readonly ringwraithReturnedToHand?: CardDefinitionId;
+  /**
+   * Creatures currently reserved by Summons from Long Sleep (as-39) cards in
+   * cardsInPlay. Each entry links the reserved creature instance to the
+   * permanent-event card that reserved it. Reserved creatures do not reside
+   * in any normal zone (hand, deck, etc.) and are exempt from the hazard
+   * limit while reserved.
+   */
+  readonly reservedCreatures: readonly {
+    readonly sourceCardInstanceId: CardInstanceId;
+    readonly creature: CardInstance;
+  }[];
 }

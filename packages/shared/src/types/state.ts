@@ -270,6 +270,11 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
         if (card.instanceId === instanceId) return card.definitionId;
       }
     }
+
+    // Reserved creatures (Summons from Long Sleep / as-39)
+    for (const r of player.reservedCreatures) {
+      if (r.creature.instanceId === instanceId) return r.creature.definitionId;
+    }
   }
 
 

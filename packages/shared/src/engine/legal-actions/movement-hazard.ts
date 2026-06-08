@@ -1006,6 +1006,188 @@ function tapHazardCardForLimitActions(
 }
 
 /**
+ * Generate reserve-creature and play-reserved-creature actions for
+ * Summons from Long Sleep (as-39) permanent-event cards in play.
+ *
+ * - `reserve-creature`: free action that moves a Dragon/Drake from hand
+ *   into the AS-39 slot (no hazard limit cost).
+ * - `play-reserved-creature`: plays the reserved creature as-if-from-hand
+ *   (costs one hazard limit slot; +2 prowess applied at chain resolution).
+ */
+function summonsFromLongSleepActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+  limitReached: boolean,
+  liveLimit: number,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId)!;
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIdx];
+  const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!targetCompany) return actions;
+
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const shaEffect = getCardEffects(def).find(
+      e => e.type === 'summons-from-long-sleep',
+    );
+    if (!shaEffect) continue;
+
+    const defName = (def as { name?: string })?.name ?? (card.definitionId as string);
+    const slotOccupied = player.reservedCreatures.some(
+      r => r.sourceCardInstanceId === card.instanceId,
+    );
+
+    // reserve-creature: offer for each Dragon/Drake in hand (free, slot must be empty)
+    if (!slotOccupied) {
+      for (const handCard of player.hand) {
+        const hDef = defById(state, handCard.definitionId);
+        if (!hDef || hDef.cardType !== 'hazard-creature') continue;
+        const race = (hDef).race.toLowerCase();
+        if (race !== 'dragon' && race !== 'drake') continue;
+        const hName = (hDef as { name?: string })?.name ?? (handCard.definitionId as string);
+        logDetail(`${defName}: offering reserve-creature for "${hName}" (slot empty, free action)`);
+        actions.push({
+          action: {
+            type: 'reserve-creature' as const,
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            sourceCardInstanceId: card.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+
+    // play-reserved-creature: offer if slot has a creature and chain is null
+    const reservation = player.reservedCreatures.find(
+      r => r.sourceCardInstanceId === card.instanceId,
+    );
+    if (reservation) {
+      const creatureDef = defById(state, reservation.creature.definitionId);
+      const creatureName = (creatureDef as { name?: string })?.name ?? (reservation.creature.definitionId as string);
+
+      // Must initiate a new chain
+      if (state.chain !== null) {
+        logDetail(`${defName}: play-reserved-creature "${creatureName}" not available — chain in progress`);
+        actions.push({
+          action: {
+            type: 'play-reserved-creature' as const,
+            player: playerId,
+            sourceCardInstanceId: card.instanceId,
+            targetCompanyId,
+          },
+          viable: false,
+          reason: 'Creatures must initiate a new chain',
+        });
+        continue;
+      }
+
+      if (limitReached) {
+        logDetail(`${defName}: play-reserved-creature "${creatureName}" not available — hazard limit reached`);
+        actions.push({
+          action: {
+            type: 'play-reserved-creature' as const,
+            player: playerId,
+            sourceCardInstanceId: card.instanceId,
+            targetCompanyId,
+          },
+          viable: false,
+          reason: `Hazard limit reached (${liveLimit})`,
+        });
+        continue;
+      }
+
+      // Keying check (treat as if from hand)
+      if (creatureDef && creatureDef.cardType === 'hazard-creature') {
+        const cancelSiteName = cancelAttacksSiteName(state, targetCompany);
+        if (cancelSiteName) {
+          logDetail(`${defName}: play-reserved-creature "${creatureName}" blocked by site-rule on ${cancelSiteName}`);
+          actions.push({
+            action: {
+              type: 'play-reserved-creature' as const,
+              player: playerId,
+              sourceCardInstanceId: card.instanceId,
+              targetCompanyId,
+            },
+            viable: false,
+            reason: `Attacks against this company are canceled at ${cancelSiteName}`,
+          });
+          continue;
+        }
+
+        const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
+          || siteAllowsCreatureByRace(state, targetCompany, (creatureDef).race);
+
+        if (matches.length === 0 && !keyingBypassed) {
+          const keyError = describeKeyingRequirement(creatureDef);
+          logDetail(`${defName}: play-reserved-creature "${creatureName}" not keyable: ${keyError}`);
+          actions.push({
+            action: {
+              type: 'play-reserved-creature' as const,
+              player: playerId,
+              sourceCardInstanceId: card.instanceId,
+              targetCompanyId,
+            },
+            viable: false,
+            reason: keyError,
+          });
+          continue;
+        }
+
+        if (matches.length === 0 && keyingBypassed) {
+          logDetail(`${defName}: play-reserved-creature "${creatureName}" keyable via keying-bypass`);
+          actions.push({
+            action: {
+              type: 'play-reserved-creature' as const,
+              player: playerId,
+              sourceCardInstanceId: card.instanceId,
+              targetCompanyId,
+              keyedBy: { method: 'keying-bypass', value: (creatureDef).race },
+            },
+            viable: true,
+          });
+          continue;
+        }
+
+        for (const match of matches) {
+          logDetail(`${defName}: play-reserved-creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
+          actions.push({
+            action: {
+              type: 'play-reserved-creature' as const,
+              player: playerId,
+              sourceCardInstanceId: card.instanceId,
+              targetCompanyId,
+              keyedBy: match,
+            },
+            viable: true,
+          });
+        }
+        continue;
+      }
+
+      logDetail(`${defName}: play-reserved-creature "${creatureName}" — offering action`);
+      actions.push({
+        action: {
+          type: 'play-reserved-creature' as const,
+          player: playerId,
+          sourceCardInstanceId: card.instanceId,
+          targetCompanyId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -1403,6 +1585,31 @@ function playHazardsActions(
               action: { ...action, targetCharacterId: charId },
               viable: true,
             });
+          }
+          continue;
+        }
+
+        // Ally-targeting short events (e.g. Stay Her Appetite, le-140):
+        // one action per ally in any character of the target company.
+        if (shortPlayTarget?.target === 'ally') {
+          let hasAllyTarget = false;
+          for (const charId of targetCompany.characters) {
+            const charData = resourcePlayer.characters[charId as string];
+            if (!charData) continue;
+            for (const ally of charData.allies) {
+              const allyDef = defById(state, ally.definitionId);
+              const allyName = (allyDef as { name?: string })?.name ?? (ally.definitionId as string);
+              logDetail(`Hazard short-event "${def.name}" playable on ally "${allyName}" (${ally.instanceId as string})`);
+              actions.push({
+                action: { ...action, targetAllyId: ally.instanceId },
+                viable: true,
+              });
+              hasAllyTarget = true;
+            }
+          }
+          if (!hasAllyTarget) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no allies in company`);
+            actions.push({ action, viable: false, reason: 'No allies in company' });
           }
           continue;
         }
@@ -1892,6 +2099,10 @@ function playHazardsActions(
     // --- Power Built by Waiting (as-34): tap cardsInPlay card for +hazard limit ---
     // --- Power Built by Waiting (as-34): spend hazard limit to untap cardsInPlay card ---
     actions.push(...tapHazardCardForLimitActions(state, playerId, mhState, targetCompanyId, liveLimit));
+
+    // --- Summons from Long Sleep (as-39): reserve a Dragon/Drake from hand (free) ---
+    // --- Summons from Long Sleep (as-39): play a reserved creature (costs hazard limit) ---
+    actions.push(...summonsFromLongSleepActions(state, playerId, mhState, targetCompanyId, limitReached, liveLimit));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and

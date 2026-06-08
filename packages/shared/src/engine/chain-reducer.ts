@@ -15,10 +15,11 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
+import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1614,9 +1615,16 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
   const cancelByTapAllowTarget = cancelByTapEffect?.allowTargetToCancel ?? false;
 
+  const reservingCardInstanceId = entry.payload.type === 'creature'
+    ? entry.payload.reservingCardInstanceId
+    : undefined;
   const attackSource = state.phaseState.phase === 'site'
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
-    : { type: 'creature' as const, instanceId: entry.card!.instanceId };
+    : {
+        type: 'creature' as const,
+        instanceId: entry.card!.instanceId,
+        ...(reservingCardInstanceId ? { reservingCardInstanceId } : {}),
+      };
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(creatureDef.race);
@@ -1628,7 +1636,8 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
     : undefined;
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
-  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx);
+  const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, attackBoostCtx);
   const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
@@ -1944,6 +1953,69 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         },
       });
       return { state: current, needsInput: true };
+    }
+  }
+
+  // Stay Her Appetite (le-140): hazard short-event targeting an ally.
+  // Enqueue a stay-her-appetite-roll pending resolution so the hazard player
+  // rolls 2d6 for the condition check.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetAllyId) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const shaEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').StayHerAppetiteEffect => e.type === 'stay-her-appetite',
+    );
+    if (shaEffect) {
+      const allyInstId = entry.payload.targetAllyId;
+      const activeIdx = getPlayerIndex(current, current.activePlayer!);
+      const resourcePlayer = current.players[activeIdx];
+      const hazardIdx = 1 - activeIdx;
+      const hazardPlayerState = current.players[hazardIdx];
+
+      // Find the host character and ally
+      let hostCharId: import('../index.js').CardInstanceId | null = null;
+      for (const [charId, char] of Object.entries(resourcePlayer.characters)) {
+        if (char.allies.some(a => a.instanceId === allyInstId)) {
+          hostCharId = charId as import('../index.js').CardInstanceId;
+          break;
+        }
+      }
+
+      if (hostCharId) {
+        const allyDefId = resolveInstanceId(current, allyInstId);
+        const allyDef = allyDefId ? defById(current, allyDefId) : undefined;
+        if (allyDef && isAllyCard(allyDef)) {
+          const activeCompanyIdx = current.phaseState.phase === 'movement-hazard'
+            ? (current.phaseState as { activeCompanyIndex: number }).activeCompanyIndex
+            : 0;
+          const targetCompany = resourcePlayer.companies[activeCompanyIdx];
+          const controllerUnusedDI = availableDI(current, hostCharId, resourcePlayer);
+          const opponentUnusedGI = GENERAL_INFLUENCE + hazardPlayerState.generalInfluenceBonus - hazardPlayerState.generalInfluenceUsed;
+
+          logDetail(`Stay Her Appetite: targeting ally "${allyDef.name}" (mind ${allyDef.mind}, prowess ${allyDef.prowess}) on character ${hostCharId as string}; opp.GI=${opponentUnusedGI}, controller.DI=${controllerUnusedDI}`);
+
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: hazardPlayerState.id,
+            scope: { kind: 'phase', phase: Phase.MovementHazard },
+            kind: {
+              type: 'stay-her-appetite-roll',
+              allyInstanceId: allyInstId,
+              allyOwnerPlayerIndex: activeIdx,
+              hostCharacterInstanceId: hostCharId,
+              allyMind: allyDef.mind,
+              allyProwess: allyDef.prowess,
+              opponentUnusedGI,
+              controllerUnusedDI,
+              companyId: targetCompany.id,
+              sourceDefinitionId: entry.card.definitionId,
+            },
+          });
+          return { state: current, needsInput: true };
+        }
+      }
     }
   }
 

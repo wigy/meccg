@@ -490,6 +490,12 @@ export function describeAction(
       return `${action.player as string} taps character ${action.characterInstanceId as string} (hazard effect)`;
     case 'place-starting-company-event':
       return `${action.player as string} places ${action.cardDefId as string} on company ${action.companyId as string} as a starting event`;
+    case 'reserve-creature':
+      return `${action.player as string} reserves creature ${action.cardInstanceId as string} via ${action.sourceCardInstanceId as string}`;
+    case 'play-reserved-creature':
+      return `${action.player as string} plays reserved creature from ${action.sourceCardInstanceId as string} against company ${action.targetCompanyId as string}`;
+    case 'stay-her-appetite-roll':
+      return `${action.player as string} rolls for Stay Her Appetite`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

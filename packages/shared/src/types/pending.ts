@@ -460,6 +460,34 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Definition ID of the source hazard card (Stench of Mordor). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
+         * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
+         * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =
+         * ally.prowess + 2d6) is initiated against the ally's controlling character.
+         * The ally is discarded if the attack is not fully defeated.
+         */
+        readonly type: 'stay-her-appetite-roll';
+        /** The targeted ally instance. */
+        readonly allyInstanceId: CardInstanceId;
+        /** Player index of the ally's owner (resource player). */
+        readonly allyOwnerPlayerIndex: number;
+        /** The character the ally is attached to. */
+        readonly hostCharacterInstanceId: CardInstanceId;
+        /** Pre-computed ally mind value (from definition). */
+        readonly allyMind: number;
+        /** Pre-computed ally base prowess (from definition). */
+        readonly allyProwess: number;
+        /** Opponent (hazard player) unused general influence. */
+        readonly opponentUnusedGI: number;
+        /** Controlling character's unused direct influence. */
+        readonly controllerUnusedDI: number;
+        /** The company the ally is in. */
+        readonly companyId: CompanyId;
+        /** Definition ID of le-140 (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 
