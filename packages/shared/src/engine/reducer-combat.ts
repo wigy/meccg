@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, isHalfOrc, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect, AbsorbWoundEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -3690,7 +3690,9 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       if (!char) continue;
       const def = defById(stateAfterCombat, char.definitionId);
       if (!def || !isCharacterCard(def)) continue;
-      if (def.race === Race.Orc || def.race === Race.Troll) {
+      // Half-orcs count as Orcs for most purposes but may NOT take trophies
+      // (CoE 3.IV.1.1; glossary "Half-orc").
+      if ((def.race === Race.Orc || def.race === Race.Troll) && !isHalfOrc(def)) {
         trophyEligible.push(charId as import('../types/common.js').CardInstanceId);
       }
     }

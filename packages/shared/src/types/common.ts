@@ -216,6 +216,11 @@ export type CheckKind =
  * - `ritual` — METD ritual-tagged events.
  * - `light-enchantment`, `dark-enchantment` — METD enchantment categories.
  * - `Leader`, `Uruk-hai`, `Olog-hai` — minion character subgroupings.
+ * - `Half-orc` — race-keyword: the character counts as an Orc for all purposes
+ *   *except* that it never makes its company overt and may not take trophies
+ *   (CoE glossary "Half-orc"; CRF-22: "Half-orcs do not [make a company overt]").
+ *   Consumed by `isCovertCompany` (reducer-utils) and the trophy-offer logic
+ *   (reducer-combat); see {@link isHalfOrc}.
  * - `agent` — character is an agent (counts as both character and hazard for deck-building; has home sites).
  *
  * **Legacy / superseded:**
@@ -239,6 +244,7 @@ export type Keyword =
   | 'Leader'
   | 'Uruk-hai'
   | 'Olog-hai'
+  | 'Half-orc'
   | 'agent'
   | 'dragon-manifestation'
   | 'corruption'

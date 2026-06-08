@@ -141,6 +141,18 @@ export function isAvatarCharacter(card: CardDefinition | undefined): boolean {
 }
 
 /**
+ * Returns true if the character carries the `Half-orc` race-keyword. A Half-orc
+ * counts as an Orc for all purposes (race is recorded as Orc) *except* that it
+ * never makes its company overt and may not take trophies (CoE glossary
+ * "Half-orc"; CRF-22 ruling: "Half-orcs do not [make a company overt]"). The
+ * keyword — not a distinct `Race` value — carries that exception so that all
+ * other Orc rules (body-check discard, detainment, deck-building) keep applying.
+ */
+export function isHalfOrc(card: CardDefinition | undefined): boolean {
+  return isCharacterCard(card) && (card.keywords?.includes('Half-orc') ?? false);
+}
+
+/**
  * Union of all item card types (hero and minion). Use this when code
  * needs to handle items generically regardless of alignment.
  */
