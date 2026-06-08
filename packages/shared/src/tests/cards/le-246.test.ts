@@ -383,7 +383,7 @@ describe('To Satisfy the Questioner (le-246)', () => {
       ],
     });
     const stored = addToPile(
-      base, RESOURCE_PLAYER, 'outOfPlayPile',
+      base, RESOURCE_PLAYER, 'killPile',
       { instanceId: mint(), definitionId: TO_SATISFY },
     );
     const state = recomputeDerived(stored);

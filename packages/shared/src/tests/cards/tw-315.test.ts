@@ -261,7 +261,7 @@ describe('Rescue Prisoners (tw-315)', () => {
     });
     // Place Rescue Prisoners in the out-of-play pile (stored state)
     const stored = addToPile(
-      base, RESOURCE_PLAYER, 'outOfPlayPile',
+      base, RESOURCE_PLAYER, 'killPile',
       { instanceId: mint(), definitionId: RESCUE_PRISONERS },
     );
     const state = recomputeDerived(stored);

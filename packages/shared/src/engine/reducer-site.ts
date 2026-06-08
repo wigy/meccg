@@ -1490,7 +1490,7 @@ function handleSitePlayHeroResource(
   // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
   // site that declares this rule immediately enqueues a gold-ring-test resolution.
   // The ring stays on the character until the test fires (unlike the org-phase
-  // store-item path which moves it to outOfPlayPile first).
+  // store-item path which moves it to killPile first).
   if (isItem) {
     const itemSubtype = 'subtype' in def ? (def as { subtype?: string }).subtype : undefined;
     const afterAttachPlayer = afterAttach.players[playerIndex];

@@ -267,7 +267,7 @@ describe('dm-164 The Windlord Found Me', () => {
       ],
     });
     const stored = addToPile(
-      base, RESOURCE_PLAYER, 'outOfPlayPile',
+      base, RESOURCE_PLAYER, 'killPile',
       { instanceId: mint(), definitionId: WINDLORD },
     );
     const state = recomputeDerived(stored);

@@ -24,6 +24,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SCROLL_OF_ISILDUR,
   RESOURCE_PLAYER,
+  dispatch,
 } from '../../test-helpers.js';
 import type { StoreItemAction } from '../../../types/actions-organization.js';
 
@@ -150,5 +151,47 @@ describe('Rule 3.32 — Storing Cards', () => {
     const moriaStores = viableFor(atMoria, PLAYER_1)
       .filter(a => a.action.type === 'store-item');
     expect(moriaStores).toHaveLength(0);
+  });
+
+  test('Stored item is placed in the marshalling point pile (killPile), not eliminated pile', () => {
+    // CoE rule 2.II.4.1: "the item is successfully stored and is placed in its
+    // player's marshalling point pile." The MP pile in the engine is killPile
+    // (labeled "MP Pile" in the UI), NOT outOfPlayPile ("Eliminated").
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [RED_BOOK_OF_WESTMARCH] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const bookInstId = state.players[RESOURCE_PLAYER].characters[bilboId as string].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === bookInstId);
+    expect(storeAction).toBeDefined();
+
+    const afterStore = dispatch(state, storeAction!.action);
+
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(
+      c => c.instanceId === bookInstId,
+    )).toBe(true);
+    expect(afterStore.players[RESOURCE_PLAYER].outOfPlayPile.some(
+      c => c.instanceId === bookInstId,
+    )).toBe(false);
   });
 });

@@ -125,7 +125,7 @@ describe('Sapling of the White Tree (tw-322)', () => {
     expect(storeActions).toHaveLength(0);
   });
 
-  test('dispatching store-item removes item from character and adds to outOfPlayPile', () => {
+  test('dispatching store-item removes item from character and adds to killPile (MP pile)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -152,9 +152,9 @@ describe('Sapling of the White Tree (tw-322)', () => {
     const aragornChar = Object.values(player.characters)[0];
     expect(aragornChar.items).toHaveLength(0);
 
-    // Item added to out-of-play pile
-    expect(player.outOfPlayPile).toHaveLength(1);
-    expect(player.outOfPlayPile[0].definitionId).toBe(SAPLING_OF_THE_WHITE_TREE);
+    // Item added to MP pile (killPile)
+    expect(player.killPile).toHaveLength(1);
+    expect(player.killPile[0].definitionId).toBe(SAPLING_OF_THE_WHITE_TREE);
   });
 
   test('storing triggers a corruption check on the bearer', () => {
