@@ -444,6 +444,7 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-08",
     "effects": [
       { "type": "play-target", "target": "company" },
       { "type": "extra-troll-leader-slot" },
