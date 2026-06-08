@@ -1285,7 +1285,10 @@ function playResourcesActions(
       const factionDef: FactionCard = def;
       evaluatedInstances.add(cardInstanceId as string);
 
-      if (siteIsTapped) {
+      // Most factions require an untapped site (the influence attempt taps it).
+      // Snaga-hai (le-286) is "playable at any tapped or untapped Shadow-hold"
+      // and carries the `playable-at-tapped-site` flag to override this rule.
+      if (siteIsTapped && !hasPlayFlag(factionDef, 'playable-at-tapped-site')) {
         logDetail(`Faction ${factionDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1308,8 +1311,10 @@ function playResourcesActions(
         continue;
       }
 
-      // Check uniqueness — only one copy of a unique faction can be in play
-      const alreadyInPlay = state.players.some(p =>
+      // Check uniqueness — only one copy of a *unique* faction can be in play.
+      // Non-unique factions (e.g. Snaga-hai, le-286) may have multiple copies
+      // in play, so the duplicate check only applies when the faction is unique.
+      const alreadyInPlay = factionDef.unique && state.players.some(p =>
         p.cardsInPlay.some(c => {
           const cDef = defById(state, c.definitionId);
           return cDef && cDef.name === factionDef.name;

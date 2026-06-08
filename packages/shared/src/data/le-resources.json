@@ -1733,9 +1733,21 @@
     "unique": false,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "siteType": "shadow-hold"
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-faction",
