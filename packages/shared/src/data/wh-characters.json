@@ -8,6 +8,9 @@
     "alignment": "ringwraith",
     "unique": false,
     "race": "orc",
+    "keywords": [
+      "Half-orc"
+    ],
     "skills": [
       "warrior",
       "scout"
@@ -21,7 +24,8 @@
     "homesite": "Any Dark-hold",
     "discardBodyCheck": [
       9
-    ]
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-character",
