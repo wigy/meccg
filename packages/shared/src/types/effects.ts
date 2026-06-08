@@ -2404,6 +2404,7 @@ export type CardEffect =
   | RingTestSearchEffect
   | GrantSkillEffect
   | CompanyOvertEffect
+  | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
@@ -2659,6 +2660,39 @@ export interface GrantSkillEffect extends EffectBase {
  */
 export interface CompanyOvertEffect extends EffectBase {
   readonly type: 'company-overt';
+}
+
+/**
+ * Tap an in-play ally during combat to grant an attack-scoped stat boost to
+ * every character in the ally's own company that satisfies the optional
+ * `filter`. The modifier lasts only for the current attack (it is applied as
+ * one `character-stat-modifier` active constraint per matching character with
+ * `scope: { kind: 'attack' }`, swept when the attack finalizes) — the same
+ * machinery as {@link CompanyCombatBoostEffect}, but triggered by tapping an
+ * in-play ally rather than playing a short event from hand.
+ *
+ * Unlike `company-combat-boost`, this applies to the ally's *own* company
+ * whichever side of the combat it is on (the defending company in creature
+ * combat, or either company in company-vs-company combat), so it covers
+ * "against one attack **or** in company versus company combat".
+ *
+ * Example: Great Lord of Goblin-gate (as-75) — "Tap to give +2 prowess to all
+ * Orcs in its company: against one attack or in company versus company combat."
+ */
+export interface CombatTapCompanyBoostEffect extends EffectBase {
+  readonly type: 'combat-tap-company-boost';
+  /** The stat to modify (`"prowess"` or `"body"`). */
+  readonly stat: 'prowess' | 'body';
+  /** The modifier value (positive to boost, negative to penalise). */
+  readonly value: number;
+  /**
+   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
+   * for each character in the ally's company. Only matching characters receive
+   * the modifier. When absent, every character in the company receives it.
+   */
+  readonly filter?: Condition;
+  /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
+  readonly cost: ActionCost;
 }
 
 /**

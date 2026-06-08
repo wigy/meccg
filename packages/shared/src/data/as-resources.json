@@ -402,12 +402,28 @@
     "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": [],
+    "playableAt": [
+      {
+        "site": "Goblin-gate"
+      }
+    ],
     "effects": [
       {
         "type": "company-overt"
+      },
+      {
+        "type": "combat-tap-company-boost",
+        "stat": "prowess",
+        "value": 2,
+        "filter": {
+          "target.race": "orc"
+        },
+        "cost": {
+          "tap": "self"
+        }
       }
-    ]
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-event",
