@@ -19,6 +19,7 @@ export type {
   DraftPickAction,
   DraftStopAction,
   AssignStartingItemAction,
+  PlaceStartingCompanyEventAction,
   AddCharacterToDeckAction,
   ShufflePlayDeckAction,
   SelectStartingSiteAction,
@@ -148,7 +149,7 @@ export type {
 } from './actions-universal.js';
 
 // ---- Import concrete types for the union ----
-import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
+import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, PlaceStartingCompanyEventAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
 import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction, GlamourHazardRollAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
@@ -170,6 +171,7 @@ export type GameAction =
   | DraftPickAction
   | DraftStopAction
   | AssignStartingItemAction
+  | PlaceStartingCompanyEventAction
   | AddCharacterToDeckAction
   | ShufflePlayDeckAction
   | SelectStartingSiteAction

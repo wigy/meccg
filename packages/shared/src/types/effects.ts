@@ -2407,7 +2407,9 @@ export type CardEffect =
   | RingwraithModeEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
-  | ProtectFromBodyCheckEffect;
+  | ProtectFromBodyCheckEffect
+  | ExtraTrollLeaderSlotEffect
+  | StartingCompanyPlacementEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -2714,4 +2716,35 @@ export interface GrantKeywordEffect extends EffectBase {
  */
 export interface ProtectFromBodyCheckEffect extends EffectBase {
   readonly type: 'protect-from-body-check';
+}
+
+/**
+ * Declares that the company this permanent event is bound to may contain one
+ * Troll-race Leader-keyword character in addition to the one leader already
+ * permitted by CoE rule 3.26 (one-leader-per-company). Without this effect a
+ * company may have at most one character with the Leader keyword; with this
+ * effect it may have exactly two leaders provided one of them is a Troll.
+ *
+ * The engine reads this effect when checking whether adding a character to a
+ * company would violate the leader restriction (see
+ * `organization-companies.ts` `wouldViolateLeaderRestriction`).
+ *
+ * Used by *Orders from Lugbúrz* (as-94).
+ */
+export interface ExtraTrollLeaderSlotEffect extends EffectBase {
+  readonly type: 'extra-troll-leader-slot';
+}
+
+/**
+ * Marks a permanent-event resource card as eligible for placement on a
+ * starting company during the item-draft setup phase, consuming one item
+ * slot (counts against MAX_STARTING_ITEMS).
+ *
+ * Allows the card to be placed directly from the play deck onto a company
+ * instead of assigning a minor item.
+ *
+ * Used by *Orders from Lugbúrz* (as-94).
+ */
+export interface StartingCompanyPlacementEffect extends EffectBase {
+  readonly type: 'starting-company-placement';
 }

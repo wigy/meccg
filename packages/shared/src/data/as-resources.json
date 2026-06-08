@@ -445,7 +445,27 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "company" }
+      { "type": "play-target", "target": "company" },
+      { "type": "extra-troll-leader-slot" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "company-modifier",
+        "check": "corruption",
+        "value": 1,
+        "when": { "company.hasTrollLeader": true }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": { "player.avatarId": "le-56" },
+        "apply": { "type": "discard-self" }
+      },
+      { "type": "starting-company-placement" },
+      {
+        "type": "on-event",
+        "event": "leader-leaves-company",
+        "apply": { "type": "discard-self" }
+      }
     ]
   }
 ]

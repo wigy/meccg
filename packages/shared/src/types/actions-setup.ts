@@ -60,6 +60,21 @@ export interface AssignStartingItemAction {
   readonly characterInstanceId: CardInstanceId;
 }
 
+/**
+ * Place a permanent-event resource from the play deck onto a starting
+ * company during the item-draft setup phase, consuming one item slot.
+ * The card must have the {@link StartingCompanyPlacementEffect} effect.
+ */
+export interface PlaceStartingCompanyEventAction {
+  readonly type: 'place-starting-company-event';
+  /** The player placing the event. */
+  readonly player: PlayerId;
+  /** The definition ID of the card in the play deck to place. */
+  readonly cardDefId: CardDefinitionId;
+  /** The company the event will be placed on. */
+  readonly companyId: CompanyId;
+}
+
 // ---- Character deck draft phase ----
 
 /**

@@ -896,11 +896,18 @@ function corruptionCheckActions(
   const sourceKeywords: readonly string[] = sourceDef && 'keywords' in sourceDef && Array.isArray((sourceDef as { keywords?: readonly string[] }).keywords)
     ? (sourceDef as { keywords: readonly string[] }).keywords
     : [];
-  const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords } };
-
   // DSL check-modifier effects from the character's own definition, items, and hazards.
   const company = findCharacterCompany(player.companies, characterId);
   const companyCharCount = company ? company.characters.length : 1;
+  const hasTrollLeader = company?.characters.some(cid => {
+    const compChar = player.characters[cid as string];
+    if (!compChar) return false;
+    const def = resolveDef(state, compChar.instanceId);
+    return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('Leader');
+  }) ?? false;
+
+  const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords }, company: { hasTrollLeader, characterCount: companyCharCount } };
+
   const allEffects = collectCharacterEffects(state, char, checkContext);
   const dslModifier = resolveCheckModifier(allEffects, 'corruption', { company: { characterCount: companyCharCount } });
   if (dslModifier !== 0) {
