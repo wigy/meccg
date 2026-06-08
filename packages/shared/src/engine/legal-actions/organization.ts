@@ -1340,6 +1340,18 @@ function eligiblePlayOptionTargets(
         && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
       continue;
     }
+    // Enforce the optional company-size cap (e.g. Sneakin' / Stealth:
+    // "company size less than 3" → maxCompanySize 2). Hobbits count as
+    // half via computeCompanySize. This mirrors the end-of-org path so
+    // cards playable during the normal organization window respect the
+    // same size restriction.
+    if (playTarget.maxCompanySize !== undefined) {
+      const company = findCharacterCompany(player.companies, charId);
+      if (company && computeCompanySize(state, company) > playTarget.maxCompanySize) {
+        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${computeCompanySize(state, company)} > max ${playTarget.maxCompanySize}`);
+        continue;
+      }
+    }
     out.push(charId);
   }
   return out;
