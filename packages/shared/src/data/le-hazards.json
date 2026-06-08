@@ -587,28 +587,68 @@
           "$or": [
             {
               "$and": [
-                { "target.alignment": { "$in": ["ringwraith", "fallen-wizard", "balrog"] } },
-                { "target.siteType": { "$in": ["free-hold", "border-hold"] } }
+                {
+                  "target.alignment": {
+                    "$in": [
+                      "ringwraith",
+                      "fallen-wizard",
+                      "balrog"
+                    ]
+                  }
+                },
+                {
+                  "target.siteType": {
+                    "$in": [
+                      "free-hold",
+                      "border-hold"
+                    ]
+                  }
+                }
               ]
             },
             {
               "$and": [
-                { "target.alignment": "wizard" },
-                { "target.siteType": { "$in": ["shadow-hold", "dark-hold"] } }
+                {
+                  "target.alignment": "wizard"
+                },
+                {
+                  "target.siteType": {
+                    "$in": [
+                      "shadow-hold",
+                      "dark-hold"
+                    ]
+                  }
+                }
               ]
             }
           ]
         }
       },
-      { "type": "company-modifier", "stat": "prowess", "value": -1 },
-      { "type": "company-modifier", "stat": "body", "value": -1 },
+      {
+        "type": "company-modifier",
+        "stat": "prowess",
+        "value": -1
+      },
+      {
+        "type": "company-modifier",
+        "stat": "body",
+        "value": -1
+      },
       {
         "type": "on-event",
         "event": "organization-phase-start",
-        "apply": { "type": "discard-self" },
-        "when": { "company.siteType": "haven" }
+        "apply": {
+          "type": "discard-self"
+        },
+        "when": {
+          "company.siteType": "haven"
+        }
       },
-      { "type": "duplication-limit", "scope": "company", "max": 1 }
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
     ],
     "certified": "2026-05-24"
   },
@@ -630,9 +670,15 @@
     "unique": false,
     "eventType": "short",
     "effects": [
-      { "type": "play-target", "target": "ally" },
-      { "type": "stay-her-appetite" }
-    ]
+      {
+        "type": "play-target",
+        "target": "ally"
+      },
+      {
+        "type": "stay-her-appetite"
+      }
+    ],
+    "certified": "2026-06-08"
   },
   {
     "cardType": "hazard-event",
@@ -646,19 +692,37 @@
       "environment"
     ],
     "effects": [
-      { "type": "duplication-limit", "scope": "game", "max": 1 },
-      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "discard-self"
+        }
+      },
       {
         "type": "on-event",
         "event": "site-phase-company-begins",
-        "apply": { "type": "tap-one-character" },
+        "apply": {
+          "type": "tap-one-character"
+        },
         "when": {
           "$or": [
-            { "company.siteRegionType": "dark" },
+            {
+              "company.siteRegionType": "dark"
+            },
             {
               "$and": [
-                { "company.siteRegionType": "shadow" },
-                { "inPlay": "Doors of Night" }
+                {
+                  "company.siteRegionType": "shadow"
+                },
+                {
+                  "inPlay": "Doors of Night"
+                }
               ]
             }
           ]
@@ -676,8 +740,18 @@
     "unique": false,
     "eventType": "permanent",
     "effects": [
-      { "type": "duplication-limit", "scope": "game", "max": 1 },
-      { "type": "on-event", "event": "play-deck-exhausted", "apply": { "type": "discard-self" } },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "discard-self"
+        }
+      },
       {
         "type": "on-event",
         "event": "end-of-turn",
@@ -688,14 +762,20 @@
           "from": "discard",
           "to": "deck",
           "shuffleAfter": true,
-          "filter": { "cardType": "hazard-creature", "race": "men" },
+          "filter": {
+            "cardType": "hazard-creature",
+            "race": "men"
+          },
           "count": 1
         }
       },
       {
         "type": "hazard-maintenance",
         "trigger": "opponent-long-event-end",
-        "handCardFilter": { "cardType": "hazard-creature", "race": "men" }
+        "handCardFilter": {
+          "cardType": "hazard-creature",
+          "race": "men"
+        }
       }
     ],
     "certified": "2026-05-19"
