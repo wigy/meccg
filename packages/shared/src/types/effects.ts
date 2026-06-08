@@ -2666,10 +2666,16 @@ export interface CompanyOvertEffect extends EffectBase {
  * Heralded Lord). When in play bound to a company, the Ringwraith company is
  * permitted to move to non-Darkhaven sites. Without a mode card in play the
  * Ringwraith company is restricted to Darkhaven-to-Darkhaven movement only.
- * This effect carries no additional data — its presence is the entire payload.
+ *
+ * The optional `mode` identifies which mode the card establishes. It is exposed
+ * to the effective-stats resolver as `bearer.ringwraithMode`, so a Ringwraith
+ * avatar can carry per-mode `stat-modifier` effects (e.g. Hoarmûrath le-53:
+ * `+1 direct influence in Heralded Lord mode`, `+2 prowess in Fell Rider mode`).
  */
 export interface RingwraithModeEffect extends EffectBase {
   readonly type: 'ringwraith-mode';
+  /** Which mode this card establishes when bound to a company. */
+  readonly mode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
 }
 
 /**

@@ -1033,7 +1033,27 @@
     "directInfluence": 3,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Udûn"
+    "homesite": "Any site in Udûn",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": { "self.atDarkhaven": true }
+      }
+    ],
+    "certified": "2026-06-08"
   },
   {
     "cardType": "minion-character",
