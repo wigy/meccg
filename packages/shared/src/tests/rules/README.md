@@ -6,23 +6,23 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 159 | 150 | 51.5% |
+| 309 | 189 | 120 | 61.2% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 16 | 27.1% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 37 | 62.7% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 11 | 84.6% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 25 | 52.1% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 26 | 54.2% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 18 | 52.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 24 | 57.1% |
-| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 23 | 74.2% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 21 | 39.6% |
+| 08 | [Combat](08-combat/) | 42 | 27 | 64.3% |
+| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
 
 ## Detailed Test Matrix
 
@@ -33,36 +33,36 @@
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☐ |
 | 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
-| 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☐ |
+| 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☑ |
 | 1.04 | Deck Construction & Setup | [Unique Card Limits](01-deck-construction/rule-1.04-unique-card-limits.test.ts) | ☑ |
 | 1.05 | Deck Construction & Setup | [Agent Mind Limit](01-deck-construction/rule-1.05-agent-mind-limit.test.ts) | ☑ |
 | 1.06 | Deck Construction & Setup | [Dual Resource Hazard](01-deck-construction/rule-1.06-dual-resource-hazard.test.ts) | ☐ |
 | 1.07 | Deck Construction & Setup | [Avatar Specific Cards](01-deck-construction/rule-1.07-avatar-specific-cards.test.ts) | ☐ |
-| 1.08 | Deck Construction & Setup | [Hero Avatar Characters](01-deck-construction/rule-1.08-hero-avatar-characters.test.ts) | ☐ |
-| 1.09 | Deck Construction & Setup | [Hero Non Avatar Characters](01-deck-construction/rule-1.09-hero-non-avatar-characters.test.ts) | ☐ |
-| 1.10 | Deck Construction & Setup | [Hero Resources](01-deck-construction/rule-1.10-hero-resources.test.ts) | ☐ |
-| 1.11 | Deck Construction & Setup | [Minion Avatar Characters](01-deck-construction/rule-1.11-minion-avatar-characters.test.ts) | ☐ |
-| 1.12 | Deck Construction & Setup | [Minion Characters](01-deck-construction/rule-1.12-minion-characters.test.ts) | ☐ |
-| 1.13 | Deck Construction & Setup | [Minion Resources](01-deck-construction/rule-1.13-minion-resources.test.ts) | ☐ |
-| 1.14 | Deck Construction & Setup | [Fw Deck Restrictions](01-deck-construction/rule-1.14-fw-deck-restrictions.test.ts) | ☐ |
+| 1.08 | Deck Construction & Setup | [Hero Avatar Characters](01-deck-construction/rule-1.08-hero-avatar-characters.test.ts) | ☑ |
+| 1.09 | Deck Construction & Setup | [Hero Non Avatar Characters](01-deck-construction/rule-1.09-hero-non-avatar-characters.test.ts) | ☑ |
+| 1.10 | Deck Construction & Setup | [Hero Resources](01-deck-construction/rule-1.10-hero-resources.test.ts) | ☑ |
+| 1.11 | Deck Construction & Setup | [Minion Avatar Characters](01-deck-construction/rule-1.11-minion-avatar-characters.test.ts) | ☑ |
+| 1.12 | Deck Construction & Setup | [Minion Characters](01-deck-construction/rule-1.12-minion-characters.test.ts) | ☑ |
+| 1.13 | Deck Construction & Setup | [Minion Resources](01-deck-construction/rule-1.13-minion-resources.test.ts) | ☑ |
+| 1.14 | Deck Construction & Setup | [Fw Deck Restrictions](01-deck-construction/rule-1.14-fw-deck-restrictions.test.ts) | ☑ |
 | 1.15 | Deck Construction & Setup | [Fw Hazard Resource Split](01-deck-construction/rule-1.15-fw-hazard-resource-split.test.ts) | ☐ |
-| 1.16 | Deck Construction & Setup | [Fw Avatar Characters](01-deck-construction/rule-1.16-fw-avatar-characters.test.ts) | ☐ |
-| 1.17 | Deck Construction & Setup | [Fw Non Avatar Characters](01-deck-construction/rule-1.17-fw-non-avatar-characters.test.ts) | ☐ |
-| 1.18 | Deck Construction & Setup | [Fw Banned Cards](01-deck-construction/rule-1.18-fw-banned-cards.test.ts) | ☐ |
-| 1.19 | Deck Construction & Setup | [Balrog Avatar Characters](01-deck-construction/rule-1.19-balrog-avatar-characters.test.ts) | ☐ |
-| 1.20 | Deck Construction & Setup | [Balrog Non Avatar Characters](01-deck-construction/rule-1.20-balrog-non-avatar-characters.test.ts) | ☐ |
-| 1.21 | Deck Construction & Setup | [Balrog Resources](01-deck-construction/rule-1.21-balrog-resources.test.ts) | ☐ |
-| 1.22 | Deck Construction & Setup | [Balrog Additional Restrictions](01-deck-construction/rule-1.22-balrog-additional-restrictions.test.ts) | ☐ |
-| 1.23 | Deck Construction & Setup | [Balrog Banned Cards](01-deck-construction/rule-1.23-balrog-banned-cards.test.ts) | ☐ |
-| 1.24 | Deck Construction & Setup | [Location Deck General](01-deck-construction/rule-1.24-location-deck-general.test.ts) | ☐ |
+| 1.16 | Deck Construction & Setup | [Fw Avatar Characters](01-deck-construction/rule-1.16-fw-avatar-characters.test.ts) | ◐ |
+| 1.17 | Deck Construction & Setup | [Fw Non Avatar Characters](01-deck-construction/rule-1.17-fw-non-avatar-characters.test.ts) | ◐ |
+| 1.18 | Deck Construction & Setup | [Fw Banned Cards](01-deck-construction/rule-1.18-fw-banned-cards.test.ts) | ☑ |
+| 1.19 | Deck Construction & Setup | [Balrog Avatar Characters](01-deck-construction/rule-1.19-balrog-avatar-characters.test.ts) | ◐ |
+| 1.20 | Deck Construction & Setup | [Balrog Non Avatar Characters](01-deck-construction/rule-1.20-balrog-non-avatar-characters.test.ts) | ☑ |
+| 1.21 | Deck Construction & Setup | [Balrog Resources](01-deck-construction/rule-1.21-balrog-resources.test.ts) | ◐ |
+| 1.22 | Deck Construction & Setup | [Balrog Additional Restrictions](01-deck-construction/rule-1.22-balrog-additional-restrictions.test.ts) | ☑ |
+| 1.23 | Deck Construction & Setup | [Balrog Banned Cards](01-deck-construction/rule-1.23-balrog-banned-cards.test.ts) | ☑ |
+| 1.24 | Deck Construction & Setup | [Location Deck General](01-deck-construction/rule-1.24-location-deck-general.test.ts) | ☑ |
 | 1.25 | Deck Construction & Setup | [Location Deck Balrog Sites](01-deck-construction/rule-1.25-location-deck-balrog-sites.test.ts) | ☐ |
-| 1.26 | Deck Construction & Setup | [Hero Location Deck](01-deck-construction/rule-1.26-hero-location-deck.test.ts) | ☐ |
-| 1.27 | Deck Construction & Setup | [Minion Location Deck](01-deck-construction/rule-1.27-minion-location-deck.test.ts) | ☐ |
-| 1.28 | Deck Construction & Setup | [Fw Location Deck](01-deck-construction/rule-1.28-fw-location-deck.test.ts) | ☐ |
-| 1.29 | Deck Construction & Setup | [Balrog Location Deck](01-deck-construction/rule-1.29-balrog-location-deck.test.ts) | ☐ |
-| 1.30 | Deck Construction & Setup | [Play Deck Composition](01-deck-construction/rule-1.30-play-deck-composition.test.ts) | ☐ |
-| 1.31 | Deck Construction & Setup | [Sideboard Rules](01-deck-construction/rule-1.31-sideboard-rules.test.ts) | ☐ |
-| 1.32 | Deck Construction & Setup | [Pool Rules](01-deck-construction/rule-1.32-pool-rules.test.ts) | ☐ |
+| 1.26 | Deck Construction & Setup | [Hero Location Deck](01-deck-construction/rule-1.26-hero-location-deck.test.ts) | ☑ |
+| 1.27 | Deck Construction & Setup | [Minion Location Deck](01-deck-construction/rule-1.27-minion-location-deck.test.ts) | ☑ |
+| 1.28 | Deck Construction & Setup | [Fw Location Deck](01-deck-construction/rule-1.28-fw-location-deck.test.ts) | ☑ |
+| 1.29 | Deck Construction & Setup | [Balrog Location Deck](01-deck-construction/rule-1.29-balrog-location-deck.test.ts) | ☑ |
+| 1.30 | Deck Construction & Setup | [Play Deck Composition](01-deck-construction/rule-1.30-play-deck-composition.test.ts) | ☑ |
+| 1.31 | Deck Construction & Setup | [Sideboard Rules](01-deck-construction/rule-1.31-sideboard-rules.test.ts) | ☑ |
+| 1.32 | Deck Construction & Setup | [Pool Rules](01-deck-construction/rule-1.32-pool-rules.test.ts) | ☑ |
 | 1.33 | Deck Construction & Setup | [Fw Pool Stage Resources](01-deck-construction/rule-1.33-fw-pool-stage-resources.test.ts) | ☐ |
 | 1.34 | Deck Construction & Setup | [Declaring Alignments](01-deck-construction/rule-1.34-declaring-alignments.test.ts) | ☐ |
 | 1.35 | Deck Construction & Setup | [Cards Vs Ringwraith](01-deck-construction/rule-1.35-cards-vs-ringwraith.test.ts) | ☐ |
@@ -80,7 +80,7 @@
 | 1.47 | Deck Construction & Setup | [Starting Sites](01-deck-construction/rule-1.47-starting-sites.test.ts) | ☑ |
 | 1.48 | Deck Construction & Setup | [Hero Starting Site](01-deck-construction/rule-1.48-hero-starting-site.test.ts) | ☑ |
 | 1.49 | Deck Construction & Setup | [Minion Starting Sites](01-deck-construction/rule-1.49-minion-starting-sites.test.ts) | ☑ |
-| 1.50 | Deck Construction & Setup | [Fw Starting Site](01-deck-construction/rule-1.50-fw-starting-site.test.ts) | ☐ |
+| 1.50 | Deck Construction & Setup | [Fw Starting Site](01-deck-construction/rule-1.50-fw-starting-site.test.ts) | ☑ |
 | 1.51 | Deck Construction & Setup | [Balrog Starting Sites](01-deck-construction/rule-1.51-balrog-starting-sites.test.ts) | ☑ |
 | 1.52 | Deck Construction & Setup | [Starting Hands](01-deck-construction/rule-1.52-starting-hands.test.ts) | ☑ |
 | 1.53 | Deck Construction & Setup | [Hand Size Modifications](01-deck-construction/rule-1.53-hand-size-modifications.test.ts) | ☑ |
@@ -106,8 +106,8 @@
 | 3.01 | Organization Phase | [Organizing Declaration](03-organization-phase/rule-3.01-organizing-declaration.test.ts) | ☐ |
 | 3.02 | Organization Phase | [Play Discard Character](03-organization-phase/rule-3.02-play-discard-character.test.ts) | ☑ |
 | 3.03 | Organization Phase | [Avatar Play Location](03-organization-phase/rule-3.03-avatar-play-location.test.ts) | ☑ |
-| 3.04 | Organization Phase | [Hero Avatar Location](03-organization-phase/rule-3.04-hero-avatar-location.test.ts) | ☐ |
-| 3.05 | Organization Phase | [Minion Avatar Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ☐ |
+| 3.04 | Organization Phase | [Hero Avatar Location](03-organization-phase/rule-3.04-hero-avatar-location.test.ts) | ◐ |
+| 3.05 | Organization Phase | [Minion Avatar Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ◐ |
 | 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
 | 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☐ |
 | 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ☐ |
@@ -143,7 +143,7 @@
 | 3.38 | Organization Phase | [Same Destination Restriction](03-organization-phase/rule-3.38-same-destination-restriction.test.ts) | ☑ |
 | 3.39 | Organization Phase | [Movement To Existing Site](03-organization-phase/rule-3.39-movement-to-existing-site.test.ts) | ☑ |
 | 3.40 | Organization Phase | [Haven Movement](03-organization-phase/rule-3.40-haven-movement.test.ts) | ☑ |
-| 3.41 | Organization Phase | [Ringwraith Movement](03-organization-phase/rule-3.41-ringwraith-movement.test.ts) | ☐ |
+| 3.41 | Organization Phase | [Ringwraith Movement](03-organization-phase/rule-3.41-ringwraith-movement.test.ts) | ☑ |
 | 3.42 | Organization Phase | [Fw Site Usage](03-organization-phase/rule-3.42-fw-site-usage.test.ts) | ☐ |
 | 3.43 | Organization Phase | [Starter Movement](03-organization-phase/rule-3.43-starter-movement.test.ts) | ☑ |
 | 3.44 | Organization Phase | [Region Movement](03-organization-phase/rule-3.44-region-movement.test.ts) | ☑ |
@@ -235,13 +235,13 @@
 | 8.22 | Combat | [Creature Mp By Alignment](08-combat/rule-8.22-creature-mp-by-alignment.test.ts) | ☑ |
 | 8.23 | Combat | [Attack As Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
 | 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |
-| 8.25 | Combat | [Defender No Actions](08-combat/rule-8.25-defender-no-actions.test.ts) | ☐ |
+| 8.25 | Combat | [Defender No Actions](08-combat/rule-8.25-defender-no-actions.test.ts) | ☑ |
 | 8.26 | Combat | [Company Check At Attack](08-combat/rule-8.26-company-check-at-attack.test.ts) | ☐ |
-| 8.27 | Combat | [No Return During Attack](08-combat/rule-8.27-no-return-during-attack.test.ts) | ☐ |
+| 8.27 | Combat | [No Return During Attack](08-combat/rule-8.27-no-return-during-attack.test.ts) | ☑ |
 | 8.28 | Combat | [Body Check](08-combat/rule-8.28-body-check.test.ts) | ☑ |
 | 8.29 | Combat | [Ringwraith Body Check](08-combat/rule-8.29-ringwraith-body-check.test.ts) | ☑ |
 | 8.30 | Combat | [Character Eliminated](08-combat/rule-8.30-character-eliminated.test.ts) | ☑ |
-| 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☐ |
+| 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ◐ |
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
 | 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
@@ -249,7 +249,7 @@
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☑ |
 | 8.38 | Combat | [Cvcc Rules](08-combat/rule-8.38-cvcc-rules.test.ts) | ☑ |
-| 8.39 | Combat | [Cvcc Strike Sequence](08-combat/rule-8.39-cvcc-strike-sequence.test.ts) | ◐ |
+| 8.39 | Combat | [Cvcc Strike Sequence](08-combat/rule-8.39-cvcc-strike-sequence.test.ts) | ☑ |
 | 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☑ |
 | 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☑ |
 | 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☑ |
@@ -263,15 +263,15 @@
 | 9.06 | Agents, Events, Items & Rings | [Agent Tapped Effect](09-agents-events-items/rule-9.06-agent-tapped-effect.test.ts) | ☑ |
 | 9.07 | Agents, Events, Items & Rings | [Agent Haven Restriction](09-agents-events-items/rule-9.07-agent-haven-restriction.test.ts) | ☑ |
 | 9.08 | Agents, Events, Items & Rings | [Agent Alignment Movement](09-agents-events-items/rule-9.08-agent-alignment-movement.test.ts) | ☑ |
-| 9.09 | Agents, Events, Items & Rings | [Short Events](09-agents-events-items/rule-9.09-short-events.test.ts) | ☐ |
+| 9.09 | Agents, Events, Items & Rings | [Short Events](09-agents-events-items/rule-9.09-short-events.test.ts) | ☑ |
 | 9.10 | Agents, Events, Items & Rings | [Short Event No Effect](09-agents-events-items/rule-9.10-short-event-no-effect.test.ts) | ☐ |
-| 9.11 | Agents, Events, Items & Rings | [Short Event Duplication](09-agents-events-items/rule-9.11-short-event-duplication.test.ts) | ☐ |
+| 9.11 | Agents, Events, Items & Rings | [Short Event Duplication](09-agents-events-items/rule-9.11-short-event-duplication.test.ts) | ☑ |
 | 9.12 | Agents, Events, Items & Rings | [Long Events](09-agents-events-items/rule-9.12-long-events.test.ts) | ☑ |
 | 9.13 | Agents, Events, Items & Rings | [Permanent Events](09-agents-events-items/rule-9.13-permanent-events.test.ts) | ☑ |
 | 9.14 | Agents, Events, Items & Rings | [Fw Stage Event Rules](09-agents-events-items/rule-9.14-fw-stage-event-rules.test.ts) | ☐ |
 | 9.15 | Agents, Events, Items & Rings | [Item Usage](09-agents-events-items/rule-9.15-item-usage.test.ts) | ☑ |
 | 9.16 | Agents, Events, Items & Rings | [Switching Items](09-agents-events-items/rule-9.16-switching-items.test.ts) | ☐ |
-| 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☐ |
+| 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☑ |
 | 9.18 | Agents, Events, Items & Rings | [Item Movement Restrictions](09-agents-events-items/rule-9.18-item-movement-restrictions.test.ts) | ☐ |
 | 9.19 | Agents, Events, Items & Rings | [Ally Item Restriction](09-agents-events-items/rule-9.19-ally-item-restriction.test.ts) | ☑ |
 | 9.20 | Agents, Events, Items & Rings | [Alignment Item Usage](09-agents-events-items/rule-9.20-alignment-item-usage.test.ts) | ☐ |
@@ -326,12 +326,12 @@
 | 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling The Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☑ |
 | 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☑ |
 | 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☐ |
-| 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ☐ |
-| 10.44 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step1 Corruption](10-corruption-influence-endgame/rule-10.44-winner-step1-corruption.test.ts) | ☐ |
+| 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ◐ |
+| 10.44 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step1 Corruption](10-corruption-influence-endgame/rule-10.44-winner-step1-corruption.test.ts) | ☑ |
 | 10.45 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step2 Total Mp](10-corruption-influence-endgame/rule-10.45-winner-step2-total-mp.test.ts) | ☑ |
 | 10.46 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step3 Doubling](10-corruption-influence-endgame/rule-10.46-winner-step3-doubling.test.ts) | ☑ |
 | 10.47 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step4 Half Rule](10-corruption-influence-endgame/rule-10.47-winner-step4-half-rule.test.ts) | ☑ |
-| 10.48 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step5 Duplicates](10-corruption-influence-endgame/rule-10.48-winner-step5-duplicates.test.ts) | ☐ |
+| 10.48 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step5 Duplicates](10-corruption-influence-endgame/rule-10.48-winner-step5-duplicates.test.ts) | ☑ |
 | 10.49 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step6 Avatar Penalty](10-corruption-influence-endgame/rule-10.49-winner-step6-avatar-penalty.test.ts) | ☑ |
 | 10.50 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step7 Compare](10-corruption-influence-endgame/rule-10.50-winner-step7-compare.test.ts) | ☑ |
 | 10.51 | Corruption, Influence, Actions/Timing & Ending the Game | [Mp General Rules](10-corruption-influence-endgame/rule-10.51-mp-general-rules.test.ts) | ☑ |

@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.37.0 — 2026-06-08
+
+Challenge Deck G
+
+### Card Certification
+
+- Certify Dwar the Ringwraith (le-52), Bold Thrust (le-172), Burning Rick, Cot, and Tree (le-173), Diversion (le-180), I'll Report You (le-196), Under His Blow (le-247), Swarm of Bats (le-237), Swift Strokes (le-238)
+- Certify Grey Mountain Goblins (le-266), Ice-orcs (le-270), Orcs of Gundabad (le-276)
+- Certify Gleaming Gold Ring (le-311), The Arkenstone (le-418), Thrór's Map (as-134)
+- Certify Dire Wolves (le-68), Giant Spiders (le-75), Wargs (le-98), Watcher in the Water (le-99), Wolves (tw-114)
+- Certify Summons from Long Sleep (as-39), Stay Her Appetite (le-140), Bûrat (as-1), Orders from Lugbúrz (as-94)
+
+### Game Engine
+
+- Fix a large class of "card disappearance" bugs: dispatch hazards attached to characters that are eliminated, discarded, influenced away, or removed during combat (including CvCC) to the hazard player's discard pile
+- Revert followers to general influence (or discard their hazards) when their controlling character dies or is discarded
+- Return the destination site to the location deck when a moving company is merged into another
+- Stored items now go to the marshalling-point (kill) pile
+- Add missing `findIndex`/`-1` guards across site, organization, untap, movement-hazard, event, influence, and sideboard reducers to prevent crashes
+- Implement `validateDeck()` with structured per-section `DeckValidationError`, covering deck-construction rules (unique/mind limits, avatar alignment, banned cards, faction race, location-deck site types, pool limits)
+
+### Rules Tests
+
+- Implement rule tests across deck construction (1.04, 1.05, 1.09, 1.10, 1.12, 1.13, 1.14, 1.16, 1.17, 1.19, 1.20, 1.26, 1.27, 1.28, 1.50), organization (3.04, 3.05, 3.41), combat (8.25, 8.27, 8.39), and events (9.09, 9.11)
+- Specs for the One Ring win condition across every alignment, plus result recording
+
+### Web Client
+
+- Show "no tap, −3 to roll" label for the noTap grant-action variant
+- Remove the "You have NEW mail" system notification on mail delivery
+
+### Decks
+
+- Remove unplayable Palantír/Scroll resources from Challenge Deck F; fix incorrect site card IDs in minion challenge decks
+
+### Infrastructure
+
+- Guard the pseudo-AI launcher against `ERR_IPC_CHANNEL_CLOSED`
+- Add a Game Saving section to the player guide
+
 ## 0.36.0 — 2026-06-04
 
 Challenge Deck F

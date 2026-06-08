@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 159 | 309 | 51.5% |
-| Card tests | 438 | 450 | 97.3% |
-| Cards created | 704 | 1683 | 41.8% |
-| Cards certified | 445 | 704 | 63.2% |
-| **Total** | **1746** | **3146** | **55.5%** |
+| Rule tests | 189 | 309 | 61.2% |
+| Card tests | 461 | 470 | 98.1% |
+| Cards created | 708 | 1683 | 42.1% |
+| Cards certified | 468 | 708 | 66.1% |
+| **Total** | **1826** | **3170** | **57.6%** |
 
 ### Deck Catalog
 
@@ -36,11 +36,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (F) Spies and Traitors | minion | 112 | 112 (100.0%) | 109 (97.3%) |
-| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 70 (63.6%) |
-| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 56 (50.9%) |
-| (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 47 (42.7%) |
-| (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 63 (57.3%) |
+| (F) Spies and Traitors | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 57 (51.8%) |
+| (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 48 (43.6%) |
+| (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 69 (62.7%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |

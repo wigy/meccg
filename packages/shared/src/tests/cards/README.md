@@ -6,41 +6,41 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 450 | 438 | 12 | 97.3% |
+| 470 | 461 | 9 | 98.1% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 32 | 29 | 90.6% |
+| AS | 33 | 33 | 100.0% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 39 | 100.0% |
-| LE | 98 | 96 | 98.0% |
+| LE | 116 | 114 | 98.3% |
 | TD | 49 | 49 | 100.0% |
-| TW | 226 | 221 | 97.8% |
+| TW | 227 | 222 | 97.8% |
 | WH | 4 | 4 | 100.0% |
 
 ## Detailed Test Matrix
 
 | Card | Name | Type | Effects | Status |
 |:-----|:-----|:-----|:-------:|:------:|
-| as-1 | Bûrat | — | 6 | ◐ |
+| as-1 | Bûrat | — | 12 | ☑ |
 | as-3 | Mîonid | — | 2 | ☑ |
 | as-4 | Perchen | — | 3 | ☑ |
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
-| as-24 | Alone and Unadvised | — | 11 | ☑ |
+| as-24 | Alone and Unadvised | — | 12 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
-| as-39 | Summons from Long Sleep | — | 8 | ☐ |
+| as-39 | Summons from Long Sleep | — | 8 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
-| as-94 | Orders from Lugbúrz | — | 8 | ◐ |
+| as-94 | Orders from Lugbúrz | — | 13 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-123 | Dwarven Ring of Thélor's Tribe | — | 14 | ☑ |
@@ -54,8 +54,9 @@
 | as-140 | Nûrniag Camp | — | 5 | ☑ |
 | as-141 | Raider-hold | — | 5 | ☑ |
 | as-142 | The Worthy Hills | — | 12 | ☑ |
-| as-144 | Eagles' Eyrie | — | 6 | ☑ |
+| as-144 | Eagles' Eyrie | — | 8 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
+| as-134 | Thrór’s Map | — | 4 | ☑ |
 | ba-2 | Azog | — | 2 | ☐ |
 | ba-4 | Bolg | — | 2 | ☐ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
@@ -90,13 +91,13 @@
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
-| dm-124 | The Dwarves Are upon You! | — | 6 | ☑ |
+| dm-124 | The Dwarves Are upon You! | — | 7 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 12 | ☑ |
-| dm-142 | Hundreds of Butterflies | — | 7 | ☑ |
+| dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
 | dm-155 | Rebuild the Town | — | 5 | ☑ |
 | dm-159 | Smoke Rings | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 19 | ☑ |
-| dm-179 | Noble Hound | — | 4 | ☑ |
+| dm-179 | Noble Hound | — | 7 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
@@ -139,20 +140,19 @@
 | le-132 | Rebel-talk | — | 10 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-141 | Stench of Mordor | — | 10 | ☑ |
-| le-142 | Thrice Outnumbered | — | 4 | ☑ |
-| le-143 | Tidings of Bold Spies | — | — | ☑ |
+| le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
-| le-174 | By the Ringwraith's Word | — | 14 | ☑ |
+| le-174 | By the Ringwraith's Word | — | 17 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
-| le-212 | Not Slay Needlessly | — | 9 | ☑ |
+| le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-219 | Poisonous Despair | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
-| le-226 | Secrets of Their Forging | — | 18 | ☑ |
+| le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-241 | That's Been Heard Before Tonight | — | 13 | ☑ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
@@ -194,7 +194,26 @@
 | le-408 | Thranduil's Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
-| le-pending-effects-parity | — | — | 1 | ☐ |
+| le-pending-effects-parity | le-pending-effects-parity | — | 1 | ☐ |
+| le-52 | Dwar the Ringwraith | — | 8 | ☑ |
+| le-68 | Dire Wolves | — | 5 | ☑ |
+| le-75 | Giant Spiders | — | 8 | ☑ |
+| le-98 | Wargs | — | 5 | ☑ |
+| le-99 | Watcher in the Water | — | 9 | ☑ |
+| le-140 | Stay Her Appetite | — | 5 | ☑ |
+| le-143 | Tidings of Bold Spies | — | 7 | ☑ |
+| le-172 | Bold Thrust | — | 7 | ☑ |
+| le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
+| le-180 | Diversion | — | 9 | ☑ |
+| le-196 | I’ll Report You | — | 15 | ☑ |
+| le-237 | Swarm of Bats | — | 13 | ☑ |
+| le-238 | Swift Strokes | — | 6 | ☑ |
+| le-247 | Under His Blow | — | 5 | ☑ |
+| le-266 | Grey Mountain Goblins | — | 9 | ☑ |
+| le-270 | Ice-orcs | — | 8 | ☑ |
+| le-276 | Orcs of Gundabad | — | 9 | ☑ |
+| le-311 | Gleaming Gold Ring | — | 22 | ☑ |
+| le-418 | The Arkenstone | — | 16 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
@@ -263,7 +282,7 @@
 | tw-40 | Giant Spiders | — | 8 | ☑ |
 | tw-053 | — | — | 6 | ☑ |
 | tw-60 | Lure of the Senses | — | 1 | ☑ |
-| tw-060 | — | — | 6 | ☑ |
+| tw-060 | — | — | 7 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-067 | — | — | 6 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
@@ -284,7 +303,6 @@
 | tw-116 | Adrazar | — | 3 | ☑ |
 | tw-117 | Alatar | — | 14 | ☑ |
 | tw-118 | Anborn | — | 3 | ☑ |
-| tw-119 | Annalena | — | — | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
 | tw-122 | Arwen | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
@@ -303,7 +321,7 @@
 | tw-145 | Elrond | — | 4 | ☑ |
 | tw-147 | Éowyn | — | 7 | ☑ |
 | tw-148 | Erkenbrand | — | 3 | ☑ |
-| tw-149 | Faramir | — | 1 | ☑ |
+| tw-149 | Faramir | — | 2 | ☑ |
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
@@ -328,13 +346,13 @@
 | tw-182 | Théoden | — | 3 | ☑ |
 | tw-183 | Thorin II | — | 7 | ☑ |
 | tw-184 | Thranduil | — | 2 | ☑ |
-| tw-189 | A Friend or Three | — | 10 | ☑ |
+| tw-189 | A Friend or Three | — | 11 | ☑ |
 | tw-190 | Align Palantír | — | 9 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 3 | ☑ |
 | tw-197 | Beornings | — | 3 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
-| tw-204 | Concealment | — | 9 | ☑ |
+| tw-204 | Concealment | — | 11 | ☑ |
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
@@ -345,10 +363,10 @@
 | tw-240 | Fellowship | — | 10 | ☑ |
 | tw-243 | Gates of Morning | — | 9 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
-| tw-245 | Goldberry | — | 14 | ☑ |
+| tw-245 | Goldberry | — | 15 | ☑ |
 | tw-246 | Gollum | — | 16 | ☑ |
 | tw-248 | Great Ship | — | 12 | ☑ |
-| tw-249 | Great-road | — | 7 | ☑ |
+| tw-249 | Great-road | — | 8 | ☑ |
 | tw-250 | Great-shield of Rohan | — | 9 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-253 | Halfling Strength | — | 12 | ☑ |
@@ -357,16 +375,16 @@
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
 | tw-266 | Lesser Ring | — | 4 | ◐ |
-| tw-269 | Lucky Search | — | 12 | ☑ |
+| tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 8 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
 | tw-276 | Men of Anfalas | — | 2 | ☑ |
 | tw-277 | Men of Anórien | — | 2 | ☑ |
 | tw-278 | Men of Dorwinion | — | 2 | ☑ |
 | tw-280 | Men of Lebennin | — | 2 | ☑ |
-| tw-288 | Muster | — | 8 | ☑ |
+| tw-288 | Muster | — | 11 | ☑ |
 | tw-289 | Narsil | — | 6 | ☑ |
-| tw-292 | New Friendship | — | 9 | ☑ |
+| tw-292 | New Friendship | — | 13 | ☑ |
 | tw-295 | Orcrist | — | 5 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-307 | Quickbeam | — | 7 | ☑ |
@@ -391,7 +409,7 @@
 | tw-347 | The One Ring | — | 5 | ☐ |
 | tw-348 | The White Tree | — | 11 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
-| tw-351 | Torque of Hues | — | 9 | ☑ |
+| tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
 | tw-353 | Treebeard | — | 4 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
@@ -470,7 +488,9 @@
 | tw-493 | Neeker-breekers | — | 14 | ☑ |
 | tw-494 | Black Arrow | — | 8 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
-| wh-33 | Noble Steed | — | 9 | ☑ |
+| tw-114 | Wolves | — | 3 | ☑ |
+| tw-119 | Annalena | — | 2 | ☑ |
+| wh-33 | Noble Steed | — | 10 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 5 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
