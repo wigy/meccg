@@ -309,7 +309,7 @@ export interface ActivateGrantedAction {
   readonly type: 'activate-granted-action';
   /** The player activating the ability. */
   readonly player: PlayerId;
-  /** The character performing the action (will be tapped as cost). */
+  /** The character performing the action (tapped as cost, unless `noTap` is set). */
   readonly characterId: CardInstanceId;
   /** The card providing the grant-action effect. */
   readonly sourceCardId: CardInstanceId;
