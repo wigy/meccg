@@ -7,7 +7,7 @@
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
-import type { ItemInPlay } from '../types/state-cards.js';
+import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect, AbsorbWoundEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -26,6 +26,21 @@ import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired,
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
+/**
+ * When a follower character leaves play, removes their ID from their leader's
+ * followers list. This prevents stale follower references after elimination.
+ */
+function pruneLeaderFollowers(
+  chars: Record<string, CharacterInPlay>,
+  eliminatedId: CardInstanceId,
+  controlledBy: 'general' | CardInstanceId,
+): Record<string, CharacterInPlay> {
+  if (controlledBy === 'general') return chars;
+  const leaderId = controlledBy as string;
+  const leader = chars[leaderId];
+  if (!leader) return chars;
+  return { ...chars, [leaderId]: { ...leader, followers: leader.followers.filter(f => f !== eliminatedId) } };
+}
 
 /**
  * Dispatch a combat action to the appropriate handler based on the
@@ -1372,7 +1387,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           const follower = updatedCharsRW[followerId as string];
           if (follower) updatedCharsRW[followerId as string] = { ...follower, controlledBy: 'general' };
         }
-        newPlayerDataRW.characters = updatedCharsRW;
+        newPlayerDataRW.characters = pruneLeaderFollowers(updatedCharsRW, strike.characterId, charData.controlledBy);
         // Record the returned Ringwraith's definition ID for reveal restrictions
         newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
         newPlayersRW[defPlayerIndex] = newPlayerDataRW;
@@ -1455,7 +1470,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           const follower = updatedCharsDiscard[followerId as string];
           if (follower) updatedCharsDiscard[followerId as string] = { ...follower, controlledBy: 'general' };
         }
-        newPlayerDataDiscard.characters = updatedCharsDiscard;
+        newPlayerDataDiscard.characters = pruneLeaderFollowers(updatedCharsDiscard, strike.characterId, charData.controlledBy);
         newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
         const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
         if (nextBodyCheckDiscard) {
@@ -1539,7 +1554,8 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
 
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
-      newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: remainingChars };
+      const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
+      newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
 
       // Per CoE rule 3.I.2: for each unwounded character in the same company,
       // an item the eliminated character controlled may be transferred (one per recipient).
@@ -1633,7 +1649,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             const follower = updatedCharsDisc[followerId as string];
             if (follower) updatedCharsDisc[followerId as string] = { ...follower, controlledBy: 'general' };
           }
-          newPlayerData2.characters = updatedCharsDisc;
+          newPlayerData2.characters = pruneLeaderFollowers(updatedCharsDisc, strike.characterId, charData.controlledBy);
           newPlayers3[defPlayerIndex] = newPlayerData2;
           const next4 = nextStrikePhase(combatWithDiscard);
           if (next4) {
@@ -1686,11 +1702,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       const atkCompany = newPlayers[atkPlayerIdx].companies.find(c => c.id === atkCompanySource.attackingCompanyId);
       if (atkCompany) {
         const updatedCompany = { ...atkCompany, characters: atkCompany.characters.filter(id => id !== strike.attackingCharacterId) };
+        const atkRemainingChars = Object.fromEntries(
+          Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
+        ) as (typeof newPlayers)[0]['characters'];
         newPlayers[atkPlayerIdx] = {
           ...newPlayers[atkPlayerIdx],
-          characters: Object.fromEntries(
-            Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
-          ) as (typeof newPlayers)[0]['characters'],
+          characters: pruneLeaderFollowers(atkRemainingChars, strike.attackingCharacterId, charData.controlledBy),
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
         };
         // Defender gets kill MP; eliminated character goes to defender's kill pile only
@@ -3008,6 +3025,26 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
+  // AS-39 Summons from Long Sleep: if the attacking creature was played from a
+  // reserved slot (reservingCardInstanceId present), discard the AS-39 card after combat.
+  if (combat.attackSource.type === 'creature' && combat.attackSource.reservingCardInstanceId) {
+    const reservingId = combat.attackSource.reservingCardInstanceId;
+    const atkIdx2 = getPlayerIndex(state, combat.attackingPlayerId);
+    const reservingCard = newPlayers[atkIdx2].cardsInPlay.find(c => c.instanceId === reservingId);
+    if (reservingCard) {
+      const reservingName = cardName(state, reservingCard.definitionId, '?');
+      logDetail(`AS-39 Summons from Long Sleep: creature played from reserved slot — discarding "${reservingName}" after combat`);
+      newPlayers[atkIdx2] = {
+        ...newPlayers[atkIdx2],
+        cardsInPlay: newPlayers[atkIdx2].cardsInPlay.filter(c => c.instanceId !== reservingId),
+        reservedCreatures: newPlayers[atkIdx2].reservedCreatures.filter(r => r.sourceCardInstanceId !== reservingId),
+        discardPile: [...newPlayers[atkIdx2].discardPile, toCardInstance(reservingCard)],
+      };
+    } else {
+      logDetail(`AS-39 Summons from Long Sleep: reserving card ${reservingId as string} already removed`);
+    }
+  }
+
   logDetail('Combat finalized — returning to enclosing phase');
 
   // Check for on-event: character-wounded-by-self effects on the attack source.
@@ -3180,6 +3217,37 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     if (anyDiscarded) {
       stateAfterCombat = updatePlayer(stateAfterCombat, defPlayerIdx, () => defPlayer);
     }
+  }
+
+  // LE-140 Stay Her Appetite: if the detainment attack was not fully defeated,
+  // the ally that triggered the attack is discarded.
+  if (combat.attackSource.type === 'stay-her-appetite-attack' && !allDefeated) {
+    const { allyInstanceId, allyOwnerPlayerIndex, hostCharacterInstanceId } = combat.attackSource;
+    stateAfterCombat = updatePlayer(stateAfterCombat, allyOwnerPlayerIndex, p => {
+      const hostChar = p.characters[hostCharacterInstanceId as string];
+      if (!hostChar) {
+        logDetail(`LE-140 Stay Her Appetite: host character ${hostCharacterInstanceId as string} not found — cannot discard ally`);
+        return p;
+      }
+      const ally = hostChar.allies.find(a => a.instanceId === allyInstanceId);
+      if (!ally) {
+        logDetail(`LE-140 Stay Her Appetite: ally ${allyInstanceId as string} not on host character — already discarded?`);
+        return p;
+      }
+      const allyName = cardName(stateAfterCombat, ally.definitionId, '?');
+      logDetail(`LE-140 Stay Her Appetite: attack not defeated — discarding ally "${allyName}"`);
+      return {
+        ...p,
+        characters: {
+          ...p.characters,
+          [hostCharacterInstanceId as string]: {
+            ...hostChar,
+            allies: hostChar.allies.filter(a => a.instanceId !== allyInstanceId),
+          },
+        },
+        discardPile: [...p.discardPile, toCardInstance(ally)],
+      };
+    });
   }
 
   // Check for on-event: attack-not-defeated effects on the attack source.

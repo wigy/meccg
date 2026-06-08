@@ -640,6 +640,13 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
 
+      // Validate all followers are actually in this company (guards against stale state)
+      const followersInCompany = char.followers.every(f => company.characters.some(c => c === f));
+      if (!followersInCompany) {
+        logDetail(`  → skip: ${charDef.name} has followers not in this company (stale state)`);
+        continue;
+      }
+
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
       const candidate: GameAction = {
         type: 'split-company',
