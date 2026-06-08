@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard, isHalfOrc } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -1119,7 +1119,9 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * Returns true if the given company is covert, false if overt.
  *
  * A company is overt if it contains:
- * - Any character with Race.Orc or Race.Troll (rule glossary: "overt").
+ * - Any character with Race.Orc or Race.Troll (rule glossary: "overt"), EXCEPT
+ *   Half-orcs, which never make a company overt (CRF-22: "some allies can make a
+ *   company overt, but Half-orcs do not"). See {@link isHalfOrc}.
  * - The Balrog avatar (an avatar character of a Balrog-alignment player).
  * - Any ally carrying a `company-overt` effect (e.g. Regiment of Black Crows,
  *   Great Bats, Great Lord of Goblin-gate, Last Child of Ungoliant).
@@ -1143,8 +1145,8 @@ export function isCovertCompany(
 
     const charDef = defById(state, charData.definitionId);
     if (charDef && isCharacterCard(charDef)) {
-      // Orc/Troll race makes company overt
-      if (overtRaces.has(charDef.race)) return false;
+      // Orc/Troll race makes company overt — but a Half-orc never does
+      if (overtRaces.has(charDef.race) && !isHalfOrc(charDef)) return false;
       // Balrog avatar (avatar character in a Balrog-alignment game) makes company overt
       if (isAvatarCharacter(charDef) && player.alignment === 'balrog') return false;
     }
