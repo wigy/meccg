@@ -14,12 +14,12 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { pool, HAZARD_CREATURES_12, MINION_RESOURCES_30 } from '../../test-helpers.js';
+import { pool, MINION_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
 import { validateDeck } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
-// le-50 = Adûnaphel (ringwraith avatar, mind: null — invalid in balrog deck)
-// le-373 = Ettenmoors (minion-site — valid in balrog deck)
+// le-50  = Adûnaphel the Ringwraith (ringwraith avatar — invalid in balrog deck)
+// le-373 = Ettenmoors (minion-site)
 
 const baseBalrogDeck: DeckList = {
   id: 'test-balrog-avatar',
