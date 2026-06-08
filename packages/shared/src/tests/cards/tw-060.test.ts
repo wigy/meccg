@@ -41,6 +41,7 @@ import {
   viableActions, viableFor, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CorruptionCheckAction } from '../../index.js';
+import { describeAction } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 describe('Lure of the Senses (tw-60)', () => {
@@ -204,5 +205,27 @@ describe('Lure of the Senses (tw-60)', () => {
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
     expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(LURE_OF_THE_SENSES);
+  });
+
+  test('no-tap variant action label does not say "taps" — character already tapped gets correct description', () => {
+    // Regression: format-actions previously always showed "(character taps)"
+    // even for the noTap=true variant, confusing players whose character
+    // was already tapped when they chose the no-tap (-3) removal option.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withLure = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES);
+    const actions = viableActions(withLure, PLAYER_1, 'activate-granted-action');
+    const noTapAction = actions.find(ea => (ea.action as ActivateGrantedAction).noTap === true)!.action;
+
+    const label = describeAction(noTapAction, {}, undefined);
+    expect(label).not.toContain('taps');
+    expect(label).toContain('no tap');
   });
 });

@@ -377,7 +377,9 @@ export function describeAction(
     case 'finished':
       return `Finished`;
     case 'activate-granted-action':
-      return `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
+      return action.noTap
+        ? `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)}, no tap, −3 to roll)`
+        : `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
     case 'faction-influence-roll':
       return `Roll influence: ${action.explanation}`;
     case 'cancel-attack':
