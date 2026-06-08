@@ -56,5 +56,45 @@ describe('Rule 1.20 — Balrog Non-Avatar Characters', () => {
     expect(errors.some(e => e.section === 'characters' && e.card === ('tw-120' as CardDefinitionId))).toBe(true);
   });
 
-  test.todo('[BALROG] Agent characters are treated as hazards and count as half a creature for deck-building');
+  test('[BALROG] Agents in hazards section count as half a creature toward the 12-creature minimum', () => {
+    // 11 hazard-creatures + 2 agents × 0.5 = 12 → no creature-count error
+    // dm-3 = Bill Ferny (minion-character, agent, unique)
+    // dm-5 = Deallus (minion-character, agent, unique)
+    const deckAtMinimum: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        hazards: [
+          { name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-patrol', card: 'tw-074' as CardDefinitionId, qty: 3 },
+          { name: 'Barrow-wight', card: 'tw-015' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-guard', card: 'tw-072' as CardDefinitionId, qty: 2 },
+          { name: 'Bill Ferny', card: 'dm-3' as CardDefinitionId, qty: 1 },
+          { name: 'Deallus', card: 'dm-5' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const creatureErrors = validateDeck(deckAtMinimum, pool).filter(e => e.section === 'hazards');
+    expect(creatureErrors).toHaveLength(0);
+  });
+
+  test('[BALROG] Fewer than 12 creature-equivalents (counting agents as 0.5) produces a hazards error', () => {
+    // 10 hazard-creatures + 1 agent × 0.5 = 10.5 < 12 → creature-count error
+    const deckBelowMinimum: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        hazards: [
+          { name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-patrol', card: 'tw-074' as CardDefinitionId, qty: 3 },
+          { name: 'Barrow-wight', card: 'tw-015' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-guard', card: 'tw-072' as CardDefinitionId, qty: 1 },
+          { name: 'Bill Ferny', card: 'dm-3' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const creatureErrors = validateDeck(deckBelowMinimum, pool).filter(e => e.section === 'hazards');
+    expect(creatureErrors.length).toBeGreaterThan(0);
+    expect(creatureErrors[0].message).toContain('creatures');
+  });
 });

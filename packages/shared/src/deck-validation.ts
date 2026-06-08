@@ -252,6 +252,50 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.14 — fallen-wizard stricter copy limits
+  // Applies on top of rule 1.04: non-unique characters and non-Stage resources
+  // are limited to 2 copies. Stage resources (alignment === 'fallen-wizard' on
+  // the card) retain the standard max of 3.
+  if (deck.alignment === 'fallen-wizard') {
+    const fw14Counts = new Map<string, number>();
+    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    for (const section of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        fw14Counts.set(entry.card as string, (fw14Counts.get(entry.card as string) ?? 0) + entry.qty);
+      }
+    }
+    for (const [cardId, count] of fw14Counts) {
+      const def = cardPool[cardId];
+      if (!def) continue;
+      if ('unique' in def && def.unique) continue;
+      if (isAvatarCharacter(def)) continue;
+      // Cast once to access name/cardType without TypeScript narrowing to never
+      const defTyped = def as { name: string; cardType: string; alignment?: string };
+      if (isCharacterCard(def)) {
+        if (count > 2) {
+          errors.push({
+            section: 'characters',
+            message: `fallen-wizard deck: non-unique character "${defTyped.name}" has ${count} copies (max 2, rule 1.14)`,
+            card: cardId as CardDefinitionId,
+          });
+        }
+      } else {
+        // Stage resources (alignment === 'fallen-wizard') keep the default max of 3
+        if (defTyped.alignment === 'fallen-wizard') continue;
+        if (HERO_RESOURCE_TYPES.has(defTyped.cardType) || MINION_RESOURCE_TYPES.has(defTyped.cardType)) {
+          if (count > 2) {
+            errors.push({
+              section: 'resources',
+              message: `fallen-wizard deck: non-unique resource "${defTyped.name}" has ${count} copies (max 2, rule 1.14)`,
+              card: cardId as CardDefinitionId,
+            });
+          }
+        }
+      }
+    }
+  }
+
   // Rule 1.08 / 1.11 / 1.16 / 1.19 — avatar characters match alignment
   for (const entry of characters) {
     if (entry.card === null) continue;
@@ -494,7 +538,12 @@ export function validateDeck(
   for (const entry of hazards) {
     if (entry.card === null) continue;
     const def = cardPool[entry.card];
-    if (def?.cardType === 'hazard-creature') creatureCount += entry.qty;
+    if (def?.cardType === 'hazard-creature') {
+      creatureCount += entry.qty;
+    } else if (deck.alignment === 'balrog' && isCharacterCard(def) && def.keywords?.includes('agent')) {
+      // Rule 1.20: Balrog agents in the hazards section count as half a creature each
+      creatureCount += entry.qty * 0.5;
+    }
   }
   if (creatureCount < 12) {
     errors.push({
