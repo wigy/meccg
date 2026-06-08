@@ -73,6 +73,18 @@ describe('Rule 1.17 — Fallen-Wizard Non-Avatar Characters', () => {
     expect(validateDeck(deck, pool).filter(e => e.section === 'characters')).toHaveLength(0);
   });
 
-  test.todo('[FALLEN-WIZARD] Agent character cards count as characters for deck-building requirements');
+  test('[FALLEN-WIZARD] Agent character in deck characters section produces no alignment error', () => {
+    // dm-3 = Bill Ferny (minion-character, agent, unique) — agents are character cards
+    // for deck-building in FW decks (unlike hero decks where they count as hazards)
+    const deck: DeckList = {
+      ...baseFwDeck,
+      deck: {
+        ...baseFwDeck.deck,
+        characters: [{ name: 'Bill Ferny', card: 'dm-3' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'characters' && e.card === ('dm-3' as CardDefinitionId))).toHaveLength(0);
+  });
+
   test.todo('[FALLEN-WIZARD] Non-Orc, non-Troll characters treated as hero characters in play');
 });
