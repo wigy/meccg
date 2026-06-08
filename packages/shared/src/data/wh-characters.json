@@ -64,6 +64,9 @@
       "warrior",
       "scout"
     ],
+    "keywords": [
+      "Uruk-hai"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 4,
@@ -73,6 +76,7 @@
     "homesite": "Isengard",
     "discardBodyCheck": [
       8
-    ]
+    ],
+    "certified": "2026-06-08"
   }
 ]
