@@ -54,7 +54,7 @@ const SHAGRAT = 'le-39' as CardDefinitionId;    // minion-character, orc
 const DOL_GULDUR = 'le-367' as CardDefinitionId;    // minion-site, haven
 const ETTENMOORS = 'le-373' as CardDefinitionId;    // minion-site, ruins-and-lairs
 const RED_BOOK = 'le-339' as CardDefinitionId;          // minion item, corruptionPoints: 2
-const STRANGE_RATIONS = 'le-345' as CardDefinitionId;  // minion item, corruptionPoints: 0
+const STRANGE_RATIONS = 'le-345' as CardDefinitionId;  // minion item, corruptionPoints: 1
 
 describe('Covetous Thoughts (le-107)', () => {
   beforeEach(() => resetMint());
@@ -321,8 +321,8 @@ describe('Covetous Thoughts (le-107)', () => {
   });
 
   test('end-of-turn: enqueues one check per item — two items produce two checks', () => {
-    // Shagrat bears two items (Red Book cp 2 + Strange Rations cp 0).
-    // Gorbag must make two checks: one with modifier -2, one with modifier 0.
+    // Shagrat bears two items (Red Book cp 2 + Strange Rations cp 1).
+    // Gorbag must make two checks: one with modifier -2, one with modifier -1.
     const base = buildSitePhaseState({
       site: DOL_GULDUR,
       characters: [GORBAG, SHAGRAT],
@@ -336,8 +336,8 @@ describe('Covetous Thoughts (le-107)', () => {
     expect(next.phaseState.phase).toBe(Phase.EndOfTurn);
     const pending = next.pendingResolutions.filter(r => r.actor === PLAYER_1);
     expect(pending).toHaveLength(2);
-    const modifiers = pending.map(r => (r.kind as { modifier: number }).modifier).sort();
-    expect(modifiers).toEqual([-2, 0]);
+    const modifiers = pending.map(r => (r.kind as { modifier: number }).modifier).sort((a, b) => a - b);
+    expect(modifiers).toEqual([-2, -1]);
   });
 
   test('end-of-turn: bearer own items do not trigger checks', () => {
