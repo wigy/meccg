@@ -1112,6 +1112,32 @@ function playResourcesActions(
           e.type === 'play-target' && e.target === 'character',
       );
 
+      // Company-scope duplication limit: count copies of this item already
+      // borne by any character in the active company. Backs "Cannot be
+      // duplicated in a given company" (e.g. Records Unread as-130).
+      const itemCompanyDupLimit = itemDef.effects?.find(
+        (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+      );
+      if (itemCompanyDupLimit) {
+        const copiesInCompany = company.characters.reduce((count, charInstId) => {
+          const ch = player.characters[charInstId as string];
+          if (!ch) return count;
+          return count + ch.items.filter(item => {
+            const iDef = defById(state, item.definitionId);
+            return iDef && iDef.name === itemDef.name;
+          }).length;
+        }, 0);
+        if (copiesInCompany >= itemCompanyDupLimit.max) {
+          logDetail(`Item ${itemDef.name}: company duplication limit reached (${copiesInCompany}/${itemCompanyDupLimit.max})`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${itemDef.name}: cannot be duplicated in a given company`,
+          });
+          continue;
+        }
+      }
+
       // One action per untapped character that could carry the item
       for (const ch of untappedCharacters) {
         const charDef = defById(state, ch.definitionId);

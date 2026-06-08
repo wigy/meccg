@@ -10,6 +10,9 @@
  * - `card.isItem` — whether this card is an item type
  * - `card.unique` — whether this card is unique
  * - `card.isHoard` — whether this card is a hoard item (METD §3)
+ * - `card.noStartingCompany` — whether the card carries the
+ *   `no-starting-company` play-flag ("Cannot be included with a starting
+ *   company", e.g. Records Unread as-130)
  * - `ctx.assignedCount` — number of items already assigned by this player
  * - `ctx.maxStartingItems` — maximum starting items allowed (2)
  */
@@ -37,6 +40,11 @@ export const ITEM_DRAFT_RULES: RuleSet = {
       id: 'not-hoard',
       condition: { 'card.isHoard': false },
       failMessage: '{{card.name}} is a hoard item and cannot be a starting item',
+    },
+    {
+      id: 'no-starting-company',
+      condition: { 'card.noStartingCompany': { $ne: true } },
+      failMessage: '{{card.name}} cannot be included with a starting company',
     },
     {
       id: 'item-limit',

@@ -896,6 +896,28 @@ function siteHasItemWithKeyword(
 }
 
 /**
+ * Returns true when an active `site-resource-unlocked` constraint owned by
+ * `playerId` makes resource category `subtype` (e.g. `"information"`)
+ * playable at sites of type `siteType` (e.g. `"shadow-hold"`). Backs
+ * Records Unread (as-130) mode B, which discards the item to "make
+ * Information playable at any Shadow-hold" for the rest of the turn.
+ */
+function isSiteResourceUnlocked(
+  state: GameState,
+  playerId: PlayerId,
+  siteType: string,
+  subtype: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'site-resource-unlocked'
+    && c.kind.siteType === siteType
+    && c.kind.subtype === subtype
+    && c.target.kind === 'player'
+    && c.target.playerId === playerId,
+  );
+}
+
+/**
  * Enumerates candidate target cards for a grant-action's `targets`
  * descriptor. Walks the declared scope relative to the bearer character
  * and applies the optional DSL filter to each candidate's card
@@ -1638,6 +1660,14 @@ export function playResourceShortEventActions(
             siteHasResource = (siteDef.playableResources ?? []).includes(
               siteHasResourceCondition.subtype as Parameters<typeof siteDef.playableResources.includes>[0],
             );
+            // Records Unread (as-130) mode B: a `site-resource-unlocked`
+            // constraint (e.g. Information at any Shadow-hold) makes the
+            // category playable at matching site types even when the site
+            // does not list it natively.
+            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef.siteType, siteHasResourceCondition.subtype)) {
+              logDetail(`${def.name}: ${siteHasResourceCondition.subtype} unlocked at ${siteDef.siteType} via site-resource-unlocked constraint`);
+              siteHasResource = true;
+            }
           }
         }
       }
