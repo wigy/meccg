@@ -130,8 +130,12 @@ export interface HeroFactionCard {
   readonly name: string;
   /** Full URL to the card's remastered image in the meccg-remaster repository. */
   readonly image: string;
-  /** Factions are always unique -- only one player can control each faction. */
-  readonly unique: true;
+  /**
+   * Whether this faction is unique. Most factions are unique (only one copy
+   * may be in play), but a few (e.g. Snaga-hai) are non-unique and allow
+   * multiple copies in play. Authoritative source is `attributes.unique`.
+   */
+  readonly unique: boolean;
   /** Victory points scored at the Free Council for controlling this faction. */
   readonly marshallingPoints: number;
   /** Always 'faction' -- used for scoring category calculations. */
@@ -302,8 +306,12 @@ export interface MinionFactionCard {
   readonly name: string;
   /** Full URL to the card's remastered image in the meccg-remaster repository. */
   readonly image: string;
-  /** Factions are always unique. */
-  readonly unique: true;
+  /**
+   * Whether this faction is unique. Most minion factions are unique (only one
+   * copy may be in play), but a few (e.g. Snaga-hai) are non-unique and allow
+   * multiple copies in play. Authoritative source is `attributes.unique`.
+   */
+  readonly unique: boolean;
   /** Victory points scored for controlling this faction. */
   readonly marshallingPoints: number;
   /** Always 'faction' -- used for scoring category calculations. */

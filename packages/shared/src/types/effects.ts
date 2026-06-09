@@ -902,10 +902,11 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   automatic-attacks or hazard creatures whose `keyedTo` includes the
  *   site type of the company's current or destination site (e.g. Quickbeam,
  *   Treebeard).
- * - `playable-at-tapped-site` — the ally may be played at a site that is
- *   already tapped (overrides the default "allies require untapped site" rule).
- *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
- *   non-Haven sites in its region list.
+ * - `playable-at-tapped-site` — the card (ally or faction) may be played at a
+ *   site that is already tapped (overrides the default "allies/factions require
+ *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
+ *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
+ *   which is playable at "any tapped or untapped Shadow-hold".
  */
 export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
 
