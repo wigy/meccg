@@ -712,6 +712,8 @@ function handleSiteAutomaticAttacks(
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
+    // Vile Fumes' Gas attack carries `uncancelable` ("cannot be canceled").
+    ...(aa.uncancelable ? { uncancelable: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };

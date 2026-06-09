@@ -289,6 +289,14 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly opposingSitePhase?: boolean;
   /**
+   * When true, the ability may be activated by the **active** player
+   * during their own site phase (the bearer is the active / resource
+   * player). Distinct from {@link opposingSitePhase}, which is for the
+   * non-active player. Used by *Vile Fumes* (wh-54): "Discard during the
+   * site phase … to make all versions of the site Ruins & Lairs".
+   */
+  readonly sitePhase?: boolean;
+  /**
    * When true, the ability may additionally be activated during the
    * Free Council (endgame) corruption-checks step, by either player.
    * Used by Magical Harp's "may also be so tapped during ... the Free
@@ -551,6 +559,31 @@ export interface TriggeredAction {
    * for Gwaihir-granted flights.
    */
   readonly specialMovement?: 'gwaihir';
+  /**
+   * For `transform-site` type: the {@link SiteType} all versions of the
+   * bearer's current site are overridden to (e.g. `"ruins-and-lairs"`).
+   * Applied as an `until-cleared` `attribute-modifier` on `site.type`
+   * filtered by the site's definition ID ("all versions"). Used by
+   * *Vile Fumes* (wh-54).
+   */
+  readonly overrideType?: string;
+  /**
+   * For `transform-site` type: the bespoke automatic-attack that
+   * replaces the transformed site's printed attacks (via a
+   * `replace-automatic-attacks` constraint). Used by *Vile Fumes*
+   * (wh-54): "Gas—each character faces 1 strike with 7 prowess (cannot
+   * be canceled)".
+   */
+  readonly attack?: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+    /** When true, the attack cannot be canceled (sets `combat.uncancelable`). */
+    readonly uncancelable?: boolean;
+    /** When true, every character in the company faces one strike. */
+    readonly eachCharacter?: boolean;
+  };
   /**
    * For `increment-company-extra-region-distance` type: how much to
    * add to the bearer's company `extraRegionDistance`. Movement code
@@ -1236,8 +1269,20 @@ export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
   /** Site names where the item can be played. Mutually exclusive with `filter`. */
   readonly sites?: readonly string[];
-  /** Generic site filter, evaluated against `{ site: siteDef }`. */
+  /**
+   * Generic site filter, evaluated against a context exposing the site
+   * definition plus derived facts: `site.type` (the {@link SiteType}),
+   * `site.tapped` (boolean), and `site.autoAttackRaces` (lowercase
+   * normalized creature races of the site's automatic-attacks, e.g.
+   * `["dwarf"]`). Mutually exclusive with `sites`.
+   */
   readonly filter?: Condition;
+  /**
+   * When true, the item may be played even if the site is already tapped
+   * (overriding the normal untapped-site requirement). Used by *Vile
+   * Fumes* (wh-54): "Playable at a tapped or untapped Shadow-hold …".
+   */
+  readonly allowWhenTapped?: boolean;
 }
 
 /**

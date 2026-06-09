@@ -1137,6 +1137,10 @@ function applyOneConstraint(
       return base;
     case 'skip-automatic-attacks':
       return base;
+    case 'replace-automatic-attacks':
+      // Consumed directly by `manifestations.ts` `getActiveAutoAttacks` —
+      // no broad legal-action filtering needed here.
+      return base;
     case 'corruption-removal-locked':
       // Consulted directly by the corruption-removal action emitter
       // (see legal-actions/site.ts / organization.ts) — no broad

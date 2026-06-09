@@ -54,6 +54,13 @@ export interface AutomaticAttack {
   /** Combat rules that modify how this attack plays out (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
   /**
+   * When true, this attack cannot be canceled — the engine sets
+   * `combat.uncancelable` so no `cancel-attack` action is offered. Used by
+   * the Gas attack that *Vile Fumes* (wh-54) installs on a transformed site
+   * ("cannot be canceled").
+   */
+  readonly uncancelable?: boolean;
+  /**
    * If this attack originates from a permanent-event in play (not from the
    * site card itself), the instance ID of that event. Used by finalizeCombat
    * to trigger `onDefeat` logic (e.g. Balrog of Moria removal from play).

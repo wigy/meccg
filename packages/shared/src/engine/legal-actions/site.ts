@@ -134,7 +134,14 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // Opponent-influence-defend and on-guard-window are now produced
     // via the unified pending-resolution dispatcher in
     // `legal-actions/index.ts` before this function is reached.
-    return playResourcesActions(state, playerId, siteState);
+    const base = playResourcesActions(state, playerId, siteState);
+    if (isActive) {
+      // Active player may activate `sitePhase: true` grant-actions on
+      // their carried items during their own site phase (e.g. Vile Fumes'
+      // discard-to-transform feature).
+      base.push(...grantedActionActivations(state, playerId, 'sitePhase'));
+    }
+    return base;
   }
 
   // TODO: play-minor-item
@@ -995,7 +1002,13 @@ function playResourcesActions(
       const thoroughSearchBonus = siteState.thoroughSearchAvailable
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major' || itemDef.subtype === 'gold-ring');
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus) {
+      // item-play-site allowWhenTapped: the item itself may be played at a
+      // tapped site (e.g. Vile Fumes — "tapped or untapped Shadow-hold …").
+      const itemAllowsWhenTapped = (itemDef.effects ?? []).some(
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site' && e.allowWhenTapped === true,
+      );
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsWhenTapped) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -1012,8 +1025,20 @@ function playResourcesActions(
         const matchesSiteList = siteRestriction.sites
           ? siteRestriction.sites.includes(siteName)
           : false;
+        // Enrich the filter context with derived site facts so item-play
+        // filters can gate on the site's type, tapped state, and the races
+        // of its automatic-attacks (e.g. Vile Fumes — "a site with a Dwarf
+        // automatic-attack").
+        const siteFilterCtx = siteDef && isSiteCard(siteDef)
+          ? { site: {
+              ...siteDef,
+              type: siteDef.siteType,
+              tapped: siteIsTapped,
+              autoAttackRaces: siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType)),
+            } }
+          : { site: siteDef };
         const matchesFilter = siteRestriction.filter
-          ? matchesContext(siteRestriction.filter, { site: siteDef })
+          ? matchesContext(siteRestriction.filter, siteFilterCtx)
           : false;
         // Either form satisfies; if both are absent the restriction is
         // empty and trivially fails (a malformed effect).

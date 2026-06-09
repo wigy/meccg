@@ -1244,6 +1244,72 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'transform-site') {
+    // Vile Fumes (wh-54): discard the item to permanently transform the
+    // bearer's current site. Two `until-cleared` constraints, both filtered
+    // by the site's definition ID so they affect "all versions of the site":
+    //   1. attribute-modifier on `site.type` → Ruins & Lairs.
+    //   2. replace-automatic-attacks → the bespoke Gas attack.
+    // The item itself has already been discarded by the `cost.discard` step.
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const siteInstance = company.currentSite;
+    if (!siteInstance) {
+      return { error: `${ctx.charName}'s company has no current site` };
+    }
+    const overrideType = apply.overrideType;
+    const attack = apply.attack;
+    if (!overrideType || !attack) {
+      return { error: `transform-site requires 'overrideType' and 'attack' on ${ctx.sourceName}` };
+    }
+    const siteDefId = siteInstance.definitionId;
+    const companyId = company.id;
+    const sourceId = ctx.action.sourceCardId;
+    const sourceDefId = ctx.sourceCardDefinitionId;
+    const siteName = defById(state, siteDefId)?.name ?? '?';
+    logDetail(`Grant-action ${ctx.action.actionId}: transforming all versions of ${siteName} → ${overrideType}; automatic-attacks replaced with ${attack.creatureType} (${attack.strikes} strike, ${attack.prowess} prowess${attack.uncancelable ? ', uncancelable' : ''})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => addConstraint(s, {
+          source: sourceId,
+          sourceDefinitionId: sourceDefId,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'company', companyId },
+          kind: {
+            type: 'attribute-modifier',
+            attribute: 'site.type',
+            op: 'override',
+            value: overrideType,
+            filter: { 'site.definitionId': siteDefId },
+          },
+        }),
+        s => addConstraint(s, {
+          source: sourceId,
+          sourceDefinitionId: sourceDefId,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'company', companyId },
+          kind: {
+            type: 'replace-automatic-attacks',
+            siteDefinitionId: siteDefId,
+            attack: {
+              creatureType: attack.creatureType,
+              strikes: attack.strikes,
+              prowess: attack.prowess,
+              ...(attack.body !== undefined ? { body: attack.body } : {}),
+              ...(attack.uncancelable ? { uncancelable: true } : {}),
+              ...(attack.eachCharacter ? { eachCharacter: true } : {}),
+            },
+          },
+        }),
+      ],
+    };
+  }
+
   if (apply.type === 'shuffle-deck-top') {
     // Shuffle the top N cards of the target player's play deck, keeping
     // them at the top in a new random order. Used by Palantír of Minas

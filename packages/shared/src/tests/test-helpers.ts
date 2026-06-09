@@ -890,6 +890,55 @@ export function buildSitePhaseState(opts: {
 }
 
 /**
+ * Build a minion (Ringwraith) site-phase state at the play-resources step
+ * with one company at `site`. Mirrors {@link buildSitePhaseState} but for
+ * minion card tests, where alignment-sensitive logic (detainment, item MP,
+ * dark-haven gates) must run against a Ringwraith company. P1 is the active
+ * resource player; P2 is a placeholder minion company at a haven.
+ */
+export function buildMinionSitePhaseState(opts: {
+  characters: CharacterEntry[];
+  site: CardDefinitionId;
+  hand?: CardDefinitionId[];
+  siteStatus?: CardStatus;
+}): GameState {
+  const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+  const DOL_GULDUR = 'le-367' as CardDefinitionId;
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], siteDeck: [MINAS_MORGUL] },
+      { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [] }], hand: [], siteDeck: [MINAS_MORGUL] },
+    ],
+    phase: Phase.Site,
+  });
+
+  if (opts.siteStatus) {
+    (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'play-resources',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: true,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+  return { ...state, phaseState: sitePhaseState };
+}
+
+/**
  * Build a state in the site phase at an arbitrary step with configurable
  * hands for BOTH players. `buildSitePhaseState` only wires up the resource
  * player's hand; this variant is used when tests need creatures in the

@@ -763,6 +763,8 @@ const CREATURE_TYPE_TO_RACE: Record<string, string> = {
   wolves: 'wolf',
   orcs: 'orc',
   trolls: 'troll',
+  dwarves: 'dwarf',
+  dwarf: 'dwarf',
   undead: 'undead',
   men: 'man',
   animals: 'animal',

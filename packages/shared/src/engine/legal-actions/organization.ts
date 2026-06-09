@@ -63,11 +63,14 @@ import { canPayCost } from '../cost-evaluator.js';
  *  - `'freeCouncil'` — only effects flagged `freeCouncil: true`.
  *    Emitted for either player during the Free Council's
  *    corruption-checks step. Used by Magical Harp.
+ *  - `'sitePhase'` — only effects flagged `sitePhase: true`. Emitted for
+ *    the **active** player during their own site phase. Used by Vile Fumes.
  */
 export type GrantActionPhaseFilter =
   | 'anyPhase'
   | 'opposingSitePhase'
-  | 'freeCouncil';
+  | 'freeCouncil'
+  | 'sitePhase';
 
 /**
  * Whether `effect` passes the given {@link GrantActionPhaseFilter}.
@@ -81,6 +84,7 @@ function matchesPhaseFilter(
   if (filter === 'anyPhase') return effect.anyPhase === true;
   if (filter === 'opposingSitePhase') return effect.opposingSitePhase === true;
   if (filter === 'freeCouncil') return effect.freeCouncil === true;
+  if (filter === 'sitePhase') return effect.sitePhase === true;
   return false;
 }
 
@@ -854,6 +858,7 @@ function buildGrantActionContext(
         .some(a => a.creatureType === 'Dragon')
     : false;
   const siteCtx = siteName ? {
+    type: siteType,
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,

@@ -199,6 +199,26 @@ export function getActiveAutoAttacks(
     }
   }
 
+  // Vile Fumes (wh-54): a `replace-automatic-attacks` constraint matching
+  // this site definition replaces the entire attack list with its single
+  // bespoke attack (Gas). "Its normal automatic-attacks are replaced with:
+  // Gas …". Applies to all versions of the site (matched by definition ID).
+  const replace = state.activeConstraints.find(
+    c => c.kind.type === 'replace-automatic-attacks' && c.kind.siteDefinitionId === siteDef.id,
+  );
+  if (replace && replace.kind.type === 'replace-automatic-attacks') {
+    const a = replace.kind.attack;
+    logDetail(`replace-automatic-attacks: ${siteDef.name} automatic-attacks replaced with ${a.creatureType} (${a.strikes} strike, ${a.prowess} prowess${a.uncancelable ? ', uncancelable' : ''})`);
+    return [{
+      creatureType: a.creatureType,
+      strikes: a.strikes,
+      prowess: a.prowess,
+      ...(a.body !== undefined ? { body: a.body } : {}),
+      ...(a.uncancelable ? { uncancelable: true } : {}),
+      ...(a.eachCharacter ? { combatRules: ['each-character'] as const } : {}),
+    }];
+  }
+
   return combined;
 }
 
