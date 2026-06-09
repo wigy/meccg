@@ -17,7 +17,7 @@ import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPi
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveDef } from './effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
 import { applyCost } from './cost-evaluator.js';
 
@@ -51,6 +51,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'start-sideboard-to-discard': handleStartSideboard,
   'fetch-from-sideboard': handleFetchFromSideboard,
   'activate-granted-action': handleActivateGrantedAction,
+  'test-ring-at-site': handleTestRingAtSite,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -707,6 +708,81 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
   return handleGrantActionApply(state, action);
+}
+
+/**
+ * Handle `test-ring-at-site`: a sage taps to test a gold-ring item at a site
+ * whose `sage-tap-ring-test` site-rule grants the ability (Mount Doom, le-393).
+ *
+ * Validates that the named sage is an untapped sage in a company at such a
+ * site, that the target is a gold-ring item borne by a character in that same
+ * company, taps the sage, and enqueues the shared `gold-ring-test` resolution
+ * with the site's roll modifier. The resolution handles the 2d6 roll, discards
+ * the ring, and offers a matching special ring — identical to every other
+ * ring-test path.
+ */
+function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'test-ring-at-site') return wrongActionType(state, action, 'test-ring-at-site');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const sage = player.characters[action.characterId as string];
+  if (!sage) return { state, error: 'test-ring-at-site: sage not found' };
+  if (sage.status !== CardStatus.Untapped) return { state, error: 'test-ring-at-site: sage is tapped' };
+
+  const sageDef = defById(state, sage.definitionId);
+  if (!sageDef || !isCharacterCard(sageDef)) return { state, error: 'test-ring-at-site: sage is not a character' };
+  const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+  if (!skills.includes('sage')) return { state, error: 'test-ring-at-site: character is not a sage' };
+
+  const company = findCharacterCompany(player.companies, action.characterId);
+  if (!company?.currentSite) return { state, error: 'test-ring-at-site: sage is not at a site' };
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) {
+    return { state, error: 'test-ring-at-site: current site has no effects' };
+  }
+  const rule = siteDef.effects.find(
+    e => e.type === 'site-rule' && (e as { rule?: string }).rule === 'sage-tap-ring-test',
+  );
+  if (!rule) return { state, error: 'test-ring-at-site: site does not grant sage-tap-ring-test' };
+  const rollModifier = (rule as { rollModifier: number }).rollModifier;
+
+  // Locate the gold-ring item and its bearer within the same company.
+  let bearerId: CardInstanceId | null = null;
+  for (const charInstId of company.characters) {
+    const char = player.characters[charInstId as string];
+    if (!char) continue;
+    const item = char.items.find(i => i.instanceId === action.targetCardId);
+    if (!item) continue;
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef || !('subtype' in itemDef) || (itemDef as { subtype?: string }).subtype !== 'gold-ring') {
+      return { state, error: 'test-ring-at-site: target item is not a gold ring' };
+    }
+    bearerId = charInstId;
+    break;
+  }
+  if (bearerId === null) {
+    return { state, error: 'test-ring-at-site: gold ring not borne in the sage\'s company' };
+  }
+
+  // Tap the sage (the cost), then enqueue the shared ring-test resolution.
+  const tappedState = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, action.characterId, c => ({ ...c, status: CardStatus.Tapped })));
+  logDetail(`test-ring-at-site: ${sageDef.name} taps to test a gold ring at ${siteDef.name} (modifier ${formatSignedNumber(rollModifier)})`);
+  return {
+    state: enqueueResolution(tappedState, {
+      source: action.targetCardId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: state.phaseState.phase },
+      kind: {
+        type: 'gold-ring-test',
+        goldRingInstanceId: action.targetCardId,
+        rollModifier,
+        characterInstanceId: bearerId,
+      },
+    }),
+  };
 }
 
 // handleOrganizationCorruptionCheck moved to engine/pending-reducers.ts

@@ -312,7 +312,80 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
 
+  // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
+  actions.push(...siteSageRingTestActivations(state, playerId));
+
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Emit `test-ring-at-site` activations for the `sage-tap-ring-test` site-rule
+ * (e.g. Mount Doom, le-393: "Any sage may tap to test a ring at this site,
+ * modifying the result by -3.").
+ *
+ * For each of the player's companies whose current site declares the rule,
+ * collect the gold-ring items borne by characters in that company and offer
+ * one activation per (untapped sage, gold-ring) pair. The sage need not bear
+ * the ring — like Gandalf, any sage may test a ring borne anywhere in the
+ * company. Tapping the sage is the cost; the test itself (roll, discard,
+ * special-ring offer) reuses the shared `gold-ring-test` resolution.
+ */
+export function siteSageRingTestActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+    if (!siteDefId) continue;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) continue;
+    const rule = siteDef.effects.find(
+      e => e.type === 'site-rule' && (e as { rule?: string }).rule === 'sage-tap-ring-test',
+    );
+    if (!rule) continue;
+
+    // Gold-ring items borne by any character in this company.
+    const ringInstanceIds: CardInstanceId[] = [];
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      for (const item of char.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+          ringInstanceIds.push(item.instanceId);
+        }
+      }
+    }
+    if (ringInstanceIds.length === 0) {
+      logDetail(`sage-tap-ring-test at ${siteDef.name}: no gold-ring items borne in company ${company.id as string}`);
+      continue;
+    }
+
+    // One activation per untapped sage × gold-ring.
+    for (const charInstId of company.characters) {
+      const sage = player.characters[charInstId as string];
+      if (!sage || sage.status !== CardStatus.Untapped) continue;
+      const sageDef = defById(state, sage.definitionId);
+      if (!sageDef || !isCharacterCard(sageDef)) continue;
+      const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+      if (!skills.includes('sage')) continue;
+      for (const ringInstanceId of ringInstanceIds) {
+        logDetail(`sage-tap-ring-test at ${siteDef.name}: ${sageDef.name} may tap to test a gold ring (modifier ${formatSignedNumber((rule as { rollModifier: number }).rollModifier)})`);
+        actions.push({
+          action: {
+            type: 'test-ring-at-site',
+            player: playerId,
+            characterId: charInstId,
+            targetCardId: ringInstanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
   return actions;
 }
 
