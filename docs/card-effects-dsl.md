@@ -2877,7 +2877,7 @@ dynamic step.
 | `attack.strikes` | yes | Number of strikes. |
 | `attack.prowess` | yes | Prowess of each strike. |
 | `attack.body` | no | Body value for body checks. Absent = no body check (e.g. Balrog of Moria `18/-`). |
-| `attack.combatRules` | no | Array of combat-rule strings (e.g. `["attacker-chooses-defenders"]`). |
+| `attack.combatRules` | no | Array of combat-rule strings (see [Site auto-attack `combatRules`](#site-auto-attack-combatrules) for supported values, e.g. `["attacker-chooses-defenders"]`). |
 | `onDefeat` | no | `"remove-from-play"`: defeating this attack moves the card from play to the defeating player's kill pile (awarding kill MPs). Absent = card stays in play. |
 | `discardAfterUse` | no | When `true`, after this auto-attack resolves (regardless of win or loss), the permanent event card is moved from the hazard player's `cardsInPlay` to their discard pile. No kill MPs are awarded. Used by Nazgûl permanent-events at Under-deeps sites ("discard after use — ignore result of defeat"). |
 
@@ -2911,6 +2911,31 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
   "discardAfterUse": true
 }
 ```
+
+### Site auto-attack `combatRules`
+
+A site's printed `automaticAttacks[]` entries (and the runtime-injected
+attacks above) may carry a `combatRules` string array. Each string toggles
+one combat override when that attack is initiated in `engine/reducer-site.ts`.
+Unlike the `combat-*` effect types in [Combat-rule effects](#12-combat-rule-effects)
+— which sit in a card's `effects[]` array — these are bare strings on the
+attack record itself. Supported values:
+
+- `"attacker-chooses-defenders"` — the attacking player assigns strikes
+  (sets `attackerChoosesDefenders` on the combat).
+- `"each-character"` — each character in the company faces one strike
+  (`strikesTotal = company size`, strikes pre-assigned one per character).
+- `"cannot-be-canceled"` — the attack cannot be canceled by any card effect
+  (sets `uncancelable`, suppressing `cancel-attack` actions). Card text:
+  "(cannot be canceled)". Used by the Spider at *Shelob's Lair* (le-402).
+- `"wound-eliminates"` — any character or ally this attack wounds is
+  immediately eliminated instead of merely wounded; no body check is rolled
+  (sets `woundEliminates`). Effects that replace the wound entirely
+  (absorb-wound, take-prisoner, discard-item) take precedence and suppress
+  it; detainment strikes tap rather than wound and never trigger it. Card
+  text: "any character wounded is immediately eliminated". Used by the
+  Spider at *Shelob's Lair* (le-402). Implemented in `reducer-combat.ts`
+  (`resolveStrikeCore` → `eliminateCombatantFromStrike`).
 
 ### 42. `deck-search-attack`
 

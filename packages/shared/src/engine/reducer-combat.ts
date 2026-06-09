@@ -694,6 +694,20 @@ function resolveStrikeCore(
       : a,
   );
 
+  // wound-eliminates (Shelob's Lair spider, le-402): a wound dealt by this
+  // attack eliminates the combatant immediately — no body check. Effects that
+  // replace the wound entirely (absorb-wound and discard-item set result to
+  // 'success'; take-prisoner is excluded explicitly) were handled above, so
+  // only a genuine wound reaches here. Detainment strikes tap, never wound.
+  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !takePrisonerResult) {
+    logDetail(`wound-eliminates: ${strike.characterId as string} wounded by ${combat.creatureRace ?? 'attack'} — immediately eliminated (no body check)`);
+    return eliminateCombatantFromStrike(
+      { ...state, rng, cheatRollTotal },
+      { ...combat, strikeAssignments: newAssignments },
+      effects,
+    );
+  }
+
   // Apply tap/wound to character or ally
   const newPlayers = clonePlayers(state);
   if (preAppliedDefender) newPlayers[defPlayerIndex] = preAppliedDefender;
@@ -816,6 +830,145 @@ function resolveStrikeCore(
     state: { ...postPrisonerState, combat: newCombat },
     effects,
   };
+}
+
+/**
+ * Eliminate the combatant (character or ally) targeted by the current strike,
+ * regardless of any body check. Shared by the failed-body-check path
+ * (`effectiveRoll > body`) and by "immediate elimination" attack rules such as
+ * the Spider at Shelob's Lair (le-402, `wound-eliminates`). Per CoE rule 3.i.5
+ * any remaining unresolved strikes against the same combatant auto-resolve as
+ * successful; per CoE rule 3.I.2 each unwounded companion may salvage one of the
+ * eliminated character's items. Allies are eliminated to the out-of-play pile
+ * (CoE 2.V.2.2); their host's other cards are untouched.
+ *
+ * The current strike assignment is marked `'eliminated'`; the caller is
+ * responsible for having already recorded it as `resolved` if needed.
+ *
+ * @param state - Current game state. For body checks this is the post-roll
+ *   state; for immediate elimination it is the post-strike state.
+ * @param combat - The active combat state (its `strikeAssignments` are rewritten).
+ * @param effects - Accumulated game effects (e.g. dice rolls) to thread through.
+ */
+function eliminateCombatantFromStrike(
+  state: GameState,
+  combat: CombatState,
+  effects: GameEffect[],
+): ReducerResult {
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const charData = defPlayer.characters[strike.characterId as string];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  const allyMatch = !charData && company
+    ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+    : undefined;
+
+  // Per CoE rule 3.i.5: remaining unresolved strikes assigned to the same
+  // combatant are considered successful (defeated by the defender).
+  const newAssignments = combat.strikeAssignments.map((a, i) => {
+    if (i === combat.currentStrikeIndex) return { ...a, resolved: true, result: 'eliminated' as const };
+    if (!a.resolved && a.characterId === strike.characterId) {
+      logDetail(`Strike ${i} auto-resolved as successful (eliminated combatant, CoE 3.i.5)`);
+      return { ...a, resolved: true, result: 'success' as const };
+    }
+    return a;
+  });
+
+  const newPlayers2 = clonePlayers(state);
+  const newPlayerData = { ...defPlayer };
+  const combatWithElim = { ...combat, strikeAssignments: newAssignments };
+
+  if (allyMatch) {
+    // Ally eliminated — remove from host character and send to eliminated pile.
+    const hostChar = newPlayerData.characters[allyMatch.hostCharId as string];
+    if (hostChar) {
+      const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
+      newPlayerData.characters = {
+        ...newPlayerData.characters,
+        [allyMatch.hostCharId as string]: { ...hostChar, allies: newAllies },
+      };
+    }
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, {
+      instanceId: strike.characterId,
+      definitionId: allyMatch.ally.definitionId,
+    }];
+    newPlayers2[defPlayerIndex] = newPlayerData;
+
+    const next2a = nextStrikePhase(combatWithElim);
+    if (next2a) {
+      return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
+    }
+    return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+  }
+
+  // Character eliminated — remove from company and add to eliminated pile
+  if (company) {
+    newPlayerData.companies = newPlayerData.companies.map(c =>
+      c.id === combat.companyId
+        ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+        : c,
+    );
+  }
+  const elimCharDefId = resolveInstanceId(state, strike.characterId);
+  newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+
+  // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
+  for (const ally of charData.allies) {
+    logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
+    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  }
+  newPlayers2[defPlayerIndex] = newPlayerData;
+  const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
+  let hazardDiscardElim = [...hazardPlayerElim.discardPile];
+  for (const hazard of charData.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
+    hazardDiscardElim = [...hazardDiscardElim, toCardInstance(hazard)];
+  }
+  newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
+
+  const { [strike.characterId as string]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
+  const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
+  newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
+
+  // Per CoE rule 3.I.2: for each unwounded character in the same company,
+  // an item the eliminated character controlled may be transferred (one per recipient).
+  const salvageItems = charData.items;
+  const unwoundedRecipients: CardInstanceId[] = company
+    ? company.characters
+      .filter(ch => ch !== strike.characterId)
+      .filter(ch => {
+        const cd = newPlayerData.characters[ch as string];
+        return cd && cd.status !== CardStatus.Inverted;
+      })
+    : [];
+
+  if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
+    logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
+    const combatWithSalvage: CombatState = {
+      ...combatWithElim,
+      phase: 'item-salvage',
+      salvageItems,
+      salvageRecipients: unwoundedRecipients,
+    };
+    return { state: { ...state, players: newPlayers2, combat: combatWithSalvage }, effects };
+  }
+
+  // No items or no recipients — discard all items immediately
+  for (const item of salvageItems) {
+    logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
+    newPlayers2[defPlayerIndex] = {
+      ...newPlayers2[defPlayerIndex],
+      discardPile: [...newPlayers2[defPlayerIndex].discardPile, toCardInstance(item)],
+    };
+  }
+
+  // Advance to next strike or finalize
+  const next2 = nextStrikePhase(combatWithElim);
+  if (next2) {
+    return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
+  }
+  return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
 }
 
 /** Resolve the current strike — roll dice and determine outcome. */
@@ -1496,120 +1649,8 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     }
 
     if (effectiveRoll > body) {
-      // Combatant eliminated
-      logDetail(`${allyMatch ? 'Ally' : 'Character'} eliminated`);
-      // Per CoE rule 3.i.5: remaining unresolved strikes assigned to the
-      // same combatant are considered successful (defeated by the defender).
-      const newAssignments = combat.strikeAssignments.map((a, i) => {
-        if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
-        if (!a.resolved && a.characterId === strike.characterId) {
-          logDetail(`Strike ${i} auto-resolved as successful (eliminated combatant, CoE 3.i.5)`);
-          return { ...a, resolved: true, result: 'success' as const };
-        }
-        return a;
-      });
-
-      const newPlayers2 = clonePlayers(stateWithRoll);
-      const newPlayerData = { ...defPlayer };
-      const combatWithElim = { ...combat, strikeAssignments: newAssignments };
-
-      if (allyMatch) {
-        // Ally eliminated — remove from host character and send to eliminated
-        // pile. Per CoE 2.V.2.2 allies are treated as characters for combat,
-        // so a failed body check eliminates them (to outOfPlayPile) rather
-        // than discarding (which is what happens when the host leaves play
-        // per CoE 2.V.2.3).
-        const hostChar = newPlayerData.characters[allyMatch.hostCharId as string];
-        if (hostChar) {
-          const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
-          newPlayerData.characters = {
-            ...newPlayerData.characters,
-            [allyMatch.hostCharId as string]: { ...hostChar, allies: newAllies },
-          };
-        }
-        newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, {
-          instanceId: strike.characterId,
-          definitionId: allyMatch.ally.definitionId,
-        }];
-        newPlayers2[defPlayerIndex] = newPlayerData;
-
-        // Allies don't have items to salvage — advance to next strike or finalize
-        const next2a = nextStrikePhase(combatWithElim);
-        if (next2a) {
-          return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
-        }
-        return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
-      }
-
-      // Character eliminated — remove from company and add to eliminated pile
-      if (company) {
-        const newCompanies = newPlayerData.companies.map(c =>
-          c.id === combat.companyId
-            ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
-            : c,
-        );
-        newPlayerData.companies = newCompanies;
-      }
-      // Move character to eliminated pile
-      const elimCharDefId = resolveInstanceId(state, strike.characterId);
-      newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
-
-      // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
-      for (const ally of charData.allies) {
-        logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
-        newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
-      }
-      newPlayers2[defPlayerIndex] = newPlayerData;
-      const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
-      let hazardDiscardElim = [...hazardPlayerElim.discardPile];
-      for (const hazard of charData.hazards) {
-        logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
-        hazardDiscardElim = [...hazardDiscardElim, toCardInstance(hazard)];
-      }
-      newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
-
-      const { [strike.characterId as string]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
-      const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
-      newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
-
-      // Per CoE rule 3.I.2: for each unwounded character in the same company,
-      // an item the eliminated character controlled may be transferred (one per recipient).
-      const salvageItems = charData.items;
-      const unwoundedRecipients: CardInstanceId[] = company
-        ? company.characters
-          .filter(ch => ch !== strike.characterId)
-          .filter(ch => {
-            const cd = newPlayerData.characters[ch as string];
-            return cd && cd.status !== CardStatus.Inverted;
-          })
-        : [];
-
-      if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
-        logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
-        const combatWithSalvage: CombatState = {
-          ...combatWithElim,
-          phase: 'item-salvage',
-          salvageItems,
-          salvageRecipients: unwoundedRecipients,
-        };
-        return { state: { ...stateWithRoll, players: newPlayers2, combat: combatWithSalvage }, effects };
-      }
-
-      // No items or no recipients — discard all items immediately
-      for (const item of salvageItems) {
-        logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
-        newPlayers2[defPlayerIndex] = {
-          ...newPlayers2[defPlayerIndex],
-          discardPile: [...newPlayers2[defPlayerIndex].discardPile, toCardInstance(item)],
-        };
-      }
-
-      // Advance to next strike or finalize
-      const next2 = nextStrikePhase(combatWithElim);
-      if (next2) {
-        return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
-      }
-      return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
+      logDetail(`${allyMatch ? 'Ally' : 'Character'} eliminated (body check roll ${effectiveRoll} > body ${body})`);
+      return eliminateCombatantFromStrike(stateWithRoll, combat, effects);
     }
 
     // Check for on-event: character-body-check-equals-body on the attack source.

@@ -443,6 +443,15 @@ export interface CombatState {
    */
   readonly uncancelable?: boolean;
   /**
+   * When true, any character (or ally) this attack wounds is immediately
+   * eliminated instead of merely wounded — no body check is rolled.
+   * Set by the `wound-eliminates` auto-attack combat rule (e.g. the Spider
+   * at *Shelob's Lair* le-402: "any character wounded is immediately
+   * eliminated"). Detainment strikes tap rather than wound, so they never
+   * trigger this.
+   */
+  readonly woundEliminates?: boolean;
+  /**
    * When true, this attack was reduced from multiple attacks by
    * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the
    * `attack-defeated` condition context so the card can self-discard
