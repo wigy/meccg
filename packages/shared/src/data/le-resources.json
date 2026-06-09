@@ -1308,7 +1308,45 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "scout"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        },
+        "maxCompanySize": 2,
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-event",
