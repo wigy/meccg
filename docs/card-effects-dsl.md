@@ -1119,6 +1119,16 @@ strings to chase through the engine.
   mind base. Card text is "His prowess against such a strike is equal to
   his mind attribute" (e.g. Neeker-breekers). (implemented in
   `reducer-combat.ts`)
+- `combat-tap-low-mind` — after each strike of this attack resolves, every
+  facing **character** (not ally) whose mind attribute is ≤ the attack's
+  strike prowess must tap if it is still untapped. Avatars (mind === null) and
+  characters who were wounded by the strike (now inverted, hence not untapped)
+  are unaffected. A canceled strike never resolves, so it never taps. The
+  threshold is the live strike prowess read at resolution time — no fields
+  beyond `type`. Card text is "Any character facing a strike whose mind is
+  equal to or lower than the strike's prowess must tap if untapped following
+  the strike (unless the strike is canceled)" (e.g. Wisp of Pale Sheen,
+  dm-113). (implemented in `reducer-combat.ts`, wired in `chain-reducer.ts`)
 - `combat-detainment` — marks the attack as detainment (CoE §3.II).
   Detainment strikes tap the character instead of wounding/eliminating,
   suppress the character body check (rule 3.II.1), do not trigger
@@ -1136,6 +1146,7 @@ strings to chase through the engine.
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
 { "type": "combat-one-strike-per-character" }
+{ "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
 {
   "type": "combat-detainment",
