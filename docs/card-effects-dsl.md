@@ -64,6 +64,19 @@ player while attached to the Ringwraith.
 The `strikes` stat is used with `target: "all-attacks"` to modify the number
 of strikes on creature and automatic attacks (e.g. Wake of War).
 
+The optional `op` field controls how `value` combines with the running stat
+total: `"add"` (the default) does `result += value`, while `"multiply"` does
+`result *= value`. All multiplicative modifiers are applied **after** every
+additive one, so a "doubled"-style effect acts on the already-modified total.
+Example — Plague of Wights (le-130) doubles the strikes of each Undead attack
+when Doors of Night is in play:
+
+```json
+{ "type": "stat-modifier", "stat": "strikes", "op": "multiply", "value": 2,
+  "target": "all-attacks",
+  "when": { "$and": [ { "enemy.race": "undead" }, { "inPlay": "Doors of Night" } ] } }
+```
+
 Optional `target` scopes:
 
 - `"all-characters"` — applies to every character in play
