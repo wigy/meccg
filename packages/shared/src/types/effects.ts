@@ -130,6 +130,15 @@ export interface StatModifierEffect extends EffectBase {
   readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
+  /**
+   * How `value` combines with the running stat total.
+   * - `"add"` (default) — `result += value` (the common +N / -N modifier).
+   * - `"multiply"` — `result *= value`, applied **after** all additive
+   *   modifiers. Used for "doubled"-style effects, e.g. Plague of Wights
+   *   (le-130) doubles the number of strikes of each Undead attack when
+   *   Doors of Night is in play (`op: "multiply", value: 2`).
+   */
+  readonly op?: 'add' | 'multiply';
   /** Maximum resulting stat value. Can be a MathJS expression. */
   readonly max?: ValueExpr;
   /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
