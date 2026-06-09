@@ -319,6 +319,22 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap an in-play ally during combat to grant an attack-scoped stat boost to
+ * matching characters in the ally's own company (e.g. Great Lord of
+ * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").
+ * The ally carries a `combat-tap-company-boost` effect; activating it taps the
+ * ally and adds attack-scoped `character-stat-modifier` constraints.
+ */
+export interface TapAllyCombatBoostAction {
+  /** Action discriminant. */
+  readonly type: 'tap-ally-combat-boost';
+  /** The player who owns the ally being tapped. */
+  readonly player: PlayerId;
+  /** The in-play ally being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only legal during the
  * assign-strikes phase before any strikes have been assigned.

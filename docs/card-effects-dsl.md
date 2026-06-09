@@ -3232,6 +3232,51 @@ Goblin-gate (as-75), Last Child of Ungoliant (le-153).
 
 ---
 
+### 53b. `combat-tap-company-boost`
+
+Tap an in-play ally **during combat** to grant an attack-scoped stat boost to
+every character in the ally's own company that satisfies the optional `filter`.
+The boost lasts only for the current attack: it is applied as one
+`character-stat-modifier` active constraint per matching character with
+`scope: { kind: 'attack' }`, swept when the attack finalizes (`attack-end`
+boundary) — the same machinery as `company-combat-boost`, but triggered by
+tapping an in-play ally rather than playing a short event from hand.
+
+Unlike `company-combat-boost` (which always targets the *defending* company and
+is played from hand), this applies to the ally's **own** company whichever side
+of the combat it is on: the defending company in creature combat, or either
+company in company-vs-company combat. This covers card text of the form
+"against one attack **or** in company versus company combat".
+
+The owning player may tap the ally during the assign-strikes and resolve-strike
+windows when the ally is untapped, its company is involved in the current
+combat, and at least one company member matches the filter. Each ally may apply
+its boost only once per attack (a second activation is rejected while an
+attack-scoped constraint from that ally instance is live).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `stat` | yes | `"prowess"` or `"body"`. |
+| `value` | yes | Modifier value (positive boosts, negative penalises). |
+| `filter` | no | DSL condition matched against `{ target: { race, name, skills } }` per company member. When absent, every member is boosted. |
+| `cost` | yes | Always `{ "tap": "self" }` (the ally taps itself). |
+
+```json
+{ "type": "combat-tap-company-boost", "stat": "prowess", "value": 2,
+  "filter": { "target.race": "orc" },
+  "cost": { "tap": "self" } }
+```
+
+Used by Great Lord of Goblin-gate (as-75): "Tap to give +2 prowess to all Orcs
+in its company: against one attack or in company versus company combat."
+
+Implemented in `engine/legal-actions/combat.ts` (`tapAllyCombatBoostActions`,
+wired into the assign-strikes and resolve-strike windows of `combatActions`),
+`engine/reducer-combat.ts` (`handleTapAllyCombatBoost`), and `engine/reducer.ts`
+(`tap-ally-combat-boost` routed to the combat handler).
+
+---
+
 ### 54. `grant-skill`
 
 Grants a named character skill to the item's bearer while the item is in play.
