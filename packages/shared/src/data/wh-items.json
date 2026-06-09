@@ -13,7 +13,45 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "keywords": ["Technology"],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "allowTapped": true,
+        "filter": {
+          "$or": [
+            { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } },
+            { "site.autoAttackRaces": { "$includes": "dwarf" } }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "blasting-fire-discard",
+        "activeSitePhase": true,
+        "cost": { "discard": "self" },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "skip-automatic-attacks",
+              "scope": "company-site-phase",
+              "target": "bearer-company"
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "influence-at-site-modifier",
+              "value": 2,
+              "scope": "turn",
+              "target": "bearer-company"
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-item",

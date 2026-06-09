@@ -904,8 +904,24 @@ function runGrantApply(
     // payload-carrying kinds — currently only `company-stat-modifier`
     // used by discard-to-boost items (Orc-draughts et al.) — read their
     // fields off the apply clause.
-    const kind = buildPayloadConstraintKind(constraintKind, apply)
+    let kind = buildPayloadConstraintKind(constraintKind, apply)
       ?? constraintKindWithoutPayload(constraintKind);
+    // Site-bound constraint kinds resolve their `siteDefinitionId` from the
+    // bearer's company's current site (e.g. Blasting Fire wh-51, discarded
+    // during the site phase to act on the site the company is facing).
+    if (!kind && (constraintKind === 'skip-automatic-attacks' || constraintKind === 'influence-at-site-modifier')) {
+      const bearerCompany = findCharacterCompany(newPlayers[ctx.playerIndex].companies, ctx.action.characterId);
+      const siteDefId = bearerCompany?.currentSite?.definitionId;
+      if (!siteDefId) {
+        return { error: `add-constraint: ${constraintKind} requires the bearer's company to be at a site (${ctx.sourceName})` };
+      }
+      if (constraintKind === 'skip-automatic-attacks') {
+        kind = { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
+      } else {
+        const value = typeof apply.value === 'number' ? apply.value : 0;
+        kind = { type: 'influence-at-site-modifier', siteDefinitionId: siteDefId, value };
+      }
+    }
     if (!kind) {
       return { error: `add-constraint: unsupported constraint kind "${constraintKind}" from grant-action (${ctx.sourceName})` };
     }
