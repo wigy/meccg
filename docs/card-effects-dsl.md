@@ -1489,6 +1489,24 @@ Rules:
   { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3 }
   ```
 
+- `sage-tap-ring-test` — an active, player-initiated ring test granted by the
+  site. During the **organization phase**, for each of the player's companies
+  whose current site declares this rule, any untapped **sage** in that company
+  may tap (`test-ring-at-site` action) to test a gold-ring item borne by a
+  character in the same company. Tapping the sage is the cost; the test reuses
+  the shared `gold-ring-test` resolution (2d6 roll with `rollModifier` applied,
+  ring discarded, matching special ring offered). Unlike `auto-test-gold-ring`
+  (fires on store) and `site-phase-ring-auto-test` (fires automatically at
+  company selection), this rule is optional and chosen by the player. Emitted by
+  `legal-actions/organization.ts` `siteSageRingTestActivations()` and consumed by
+  `engine/reducer-organization.ts` `handleTestRingAtSite()`. Used by *Mount Doom*
+  (le-393) — "Any sage may tap to test a ring at this site, modifying the result
+  by -3."
+
+  ```json
+  { "type": "site-rule", "rule": "sage-tap-ring-test", "rollModifier": -3 }
+  ```
+
 - `dynamic-auto-attack` — when a company enters this site, the opponent
   may play one non-unique hazard creature from hand as the site's automatic-attack.
   The `keying` filter lists the site-types and region-types that satisfy

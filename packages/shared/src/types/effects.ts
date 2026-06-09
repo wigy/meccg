@@ -1319,6 +1319,7 @@ export type SiteRuleEffect =
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
   | SitePhaseRingAutoTestSiteRule
+  | SageTapRingTestSiteRule
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
@@ -1449,6 +1450,25 @@ export interface SitePhaseRingAutoTestSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'site-phase-ring-auto-test';
   /** Roll modifier applied to every auto-test (e.g. -3 for Barad-dûr). */
+  readonly rollModifier: number;
+}
+
+/**
+ * Grants an active, optional ring-test ability at this site: any untapped
+ * sage in a company located at the site may tap to test a gold-ring item
+ * borne by a character in that company, applying the given roll modifier to
+ * the 2d6 ring-test result. Unlike `auto-test-gold-ring` (fires on store)
+ * and `site-phase-ring-auto-test` (fires automatically at company selection),
+ * this rule is player-initiated during the organization phase — the sage
+ * chooses if and which ring to test.
+ *
+ * Example — Mount Doom (le-393): "Any sage may tap to test a ring at this
+ * site, modifying the result by -3."
+ */
+export interface SageTapRingTestSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'sage-tap-ring-test';
+  /** Roll modifier applied to the 2d6 ring-test (e.g. -3 for Mount Doom). */
   readonly rollModifier: number;
 }
 
