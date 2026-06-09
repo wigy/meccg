@@ -850,7 +850,21 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-09",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
+        "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": { "enemy.race": { "$ne": "nazgul" } }
+      }
+    ]
   },
   {
     "cardType": "minion-site",
