@@ -1398,6 +1398,10 @@ function buildPayloadConstraintKind(
     if (typeof apply.value !== 'number') return null;
     return { type: 'hand-size-modifier', value: apply.value };
   }
+  if (name === 'site-resource-unlocked') {
+    if (typeof apply.siteType !== 'string' || typeof apply.subtype !== 'string') return null;
+    return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
+  }
   return null;
 }
 

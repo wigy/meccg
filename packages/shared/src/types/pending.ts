@@ -860,6 +860,22 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Records Unread (as-130): a player discarded the item to "make
+         * Information playable at any Shadow-hold". While this constraint
+         * is active, a resource of category {@link subtype} (e.g.
+         * `"information"`) may be played at any site whose type matches
+         * {@link siteType} (e.g. `"shadow-hold"`), even when that site does
+         * not normally list the category in its `playableResources`.
+         * Targeted at the discarding player and scoped to `turn`.
+         */
+        readonly type: 'site-resource-unlocked';
+        /** Site type at which the resource category becomes playable. */
+        readonly siteType: string;
+        /** Resource category unlocked (e.g. `"information"`). */
+        readonly subtype: string;
+      }
+    | {
+        /**
          * Great-road (tw-249): the hazard player may draw up to twice the
          * normal number of cards during this company's M/H phase. The
          * multiplier is applied in `transitionToDrawCards` after the base

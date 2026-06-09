@@ -42,8 +42,11 @@ Follow these steps:
    - `stat-modifier` — prowess, body, direct-influence, corruption-points modifiers with value expressions, max caps, and override mechanism (`packages/shared/src/engine/effects/resolver.ts`). Direct-influence modifiers are also resolved during faction-influence-check (in `reducer.ts` and `site.ts`) and influence-check (in `organization.ts` `availableDI`).
    - `check-modifier` — bonus/penalty to corruption, faction-influence checks (`resolver.ts`). For corruption-check resolutions the modifier is collected from attached hazards **and** items (`legal-actions/pending.ts`), with a context exposing `source.keywords` (the keywords on the card that enqueued the check) so items can gate on "spell", "ritual", etc.
    - `company-modifier` — applies stat modifiers to all characters in bearer's company (`resolver.ts`)
-   - `duplication-limit` — prevents multiple copies in scope "game" (`packages/shared/src/engine/reducer.ts`)
+   - `duplication-limit` — enforced for scopes "game", "player", "site", "character", and "company" (the company scope covers both allies and items, in `legal-actions/site.ts`) plus combat scopes "turn"/"attack"
    - `absorb-wound` — prevents wound from a successful strike; attacker rolls to potentially discard the item (`packages/shared/src/engine/reducer-combat.ts` `resolveStrike` + `handleShieldDiscardRoll`)
+   - `grant-action` — activatable abilities from characters/items/allies/hazards (`legal-actions/organization.ts` `grantedActionActivations`, reducer in `reducer-organization.ts` `runGrantApply`). Supported applies include `untap-site`, `set-character-status`, `shuffle-deck-top`, `discard-target-character`, `roll-then-apply`, `enqueue-corruption-check`, `enqueue-pending-fetch`, and `add-constraint`. The `when` gate is evaluated against a context exposing `bearer.*`, `company.*`, `site.*` (`siteType`, `isTapped`, `hasDragonAutoAttack`, `hasOneRing`).
+   - `add-constraint` (grant-action / on-event apply) — adds an active constraint. Payload kinds include `company-stat-modifier`, `hand-size-modifier`, and `site-resource-unlocked` (Records Unread: makes a resource category playable at a site type for the rest of the turn; consulted by the `site-has-resource` play-condition check).
+   - `play-flag` — closed keyword set consulted at play/setup time. Includes `no-starting-company` (item-draft rejects the card as a starting minor item; `rules/definitions/item-draft.ts` + `legal-actions/item-draft.ts`).
 
    **Partially implemented:**
    - `mp-modifier` — works for elimination pile with numeric values only; expression strings are ignored (`packages/shared/src/engine/recompute-derived.ts`)
@@ -54,7 +57,6 @@ Follow these steps:
    **Not implemented (type-only):**
    - `enemy-modifier` — no engine code
    - `hand-size-modifier` — hard-coded HAND_SIZE constant used everywhere
-   - `grant-action` — no engine code
    - `cancel-strike` — no engine code
 
 5. **Check conditions:** For each effect with a `when` condition, verify that the condition uses only supported operators and context paths. All operators ($includes, $gt, $gte, $lt, $lte, $ne, $in, $and, $or, $not) are implemented in `packages/shared/src/effects/condition-matcher.ts`. Check that the context paths referenced (e.g. `bearer.race`, `enemy.race`) are actually populated by the resolver.

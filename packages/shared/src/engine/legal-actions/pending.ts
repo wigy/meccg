@@ -1169,6 +1169,11 @@ function applyOneConstraint(
       // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
       // to allow major and hoard items — no broad legal-action filtering here.
       return base;
+    case 'site-resource-unlocked':
+      // Consulted directly by `playResourceShortEventActions` in
+      // `legal-actions/organization.ts` (Records Unread: Information at any
+      // Shadow-hold) — no broad legal-action filtering needed here.
+      return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
       // no broad legal-action filtering needed here.

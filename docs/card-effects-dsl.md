@@ -406,6 +406,16 @@ Example (Gandalf's gold-ring test):
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "untap-bearer",
   "cost": { "discard": "self" } }
+{ "type": "grant-action", "action": "untap-site",
+  "cost": { "discard": "self" },
+  "when": { "bearer.siteType": "shadow-hold", "site.isTapped": true },
+  "apply": { "type": "untap-site" } }
+{ "type": "grant-action", "action": "unlock-information-at-shadow-holds",
+  "cost": { "discard": "self" },
+  "apply": { "type": "add-constraint",
+    "constraint": "site-resource-unlocked",
+    "scope": "turn", "target": "player",
+    "siteType": "shadow-hold", "subtype": "information" } }
 { "type": "grant-action", "action": "extra-region-movement",
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "saruman-fetch-spell",
@@ -1145,6 +1155,28 @@ Constrains when or where a card can enter play.
 { "type": "play-restriction", "rule": "home-site-only",
   "when": { "$not": { "reason": "starting-character" } } }
 ```
+
+**Starting-company exclusion.** "Cannot be included with a starting
+company" (e.g. Records Unread as-130) is modelled with the
+`no-starting-company` play-flag, not a play-restriction rule. The
+item-draft eligibility ruleset (`ITEM_DRAFT_RULES`) rejects any item
+carrying the flag, so it can never be assigned as a starting minor item
+but plays normally from hand during the game.
+
+```json
+{ "type": "play-flag", "flag": "no-starting-company" }
+```
+
+### 13a. `site-resource-unlocked` active constraint
+
+Produced by an `add-constraint` apply (see the Records Unread mode-B
+grant-action above). While active, a resource category (`subtype`, e.g.
+`"information"`) becomes playable at every site of the given `siteType`
+(e.g. `"shadow-hold"`) for the constraint's target player, even when
+those sites do not list the category in `playableResources`. Consulted by
+the `site-has-resource` play-condition check in
+`legal-actions/organization.ts`. Records Unread targets the discarding
+`player` and scopes the unlock to `turn`.
 
 ### 14. `duplication-limit`
 

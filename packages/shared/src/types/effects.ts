@@ -529,6 +529,19 @@ export interface TriggeredAction {
    */
   readonly perOthersItem?: boolean;
   /**
+   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
+   * site type at which a resource category becomes playable for the rest
+   * of the constraint's scope (e.g. `"shadow-hold"`). Used by Records
+   * Unread (as-130): "make Information playable at any Shadow-hold".
+   */
+  readonly siteType?: string;
+  /**
+   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
+   * resource category being unlocked at {@link siteType} (e.g.
+   * `"information"`).
+   */
+  readonly subtype?: string;
+  /**
    * Selector for which entity the apply acts on. Interpretation is
    * context-specific — for `grant-action` applies, `"bearer"` means the
    * character holding the source card. Absent selectors fall back to
@@ -882,7 +895,7 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
  *   non-Haven sites in its region list.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
