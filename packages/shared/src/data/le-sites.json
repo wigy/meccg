@@ -1108,10 +1108,40 @@
       "minor",
       "major"
     ],
-    "automaticAttacks": [],
+    "keywords": [
+      "hoard"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 2,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Spider",
+        "strikes": 1,
+        "prowess": 16,
+        "combatRules": [
+          "cannot-be-canceled",
+          "wound-eliminates"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "enemy.race": {
+            "$ne": "nazgul"
+          }
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-site",
