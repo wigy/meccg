@@ -265,7 +265,13 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["shadow", "dark"],
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "hazard-creature",
