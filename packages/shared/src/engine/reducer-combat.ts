@@ -735,6 +735,19 @@ function resolveStrikeCore(
           status: CardStatus.Tapped,
         };
       }
+
+      // tap-low-mind (e.g. Wisp of Pale Sheen dm-113): "Any character facing a
+      // strike whose mind is equal to or lower than the strike's prowess must
+      // tap if untapped following the strike." Applies to characters (not
+      // allies) regardless of strike outcome; wounded characters are now
+      // inverted (not untapped) so are unaffected, as are avatars (mind null).
+      if (combat.tapLowMindAfterStrike && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+        const finalChar = newCharacters[strike.characterId as string] ?? charData;
+        if (charDef.mind <= combat.strikeProwess && finalChar.status === CardStatus.Untapped) {
+          logDetail(`tap-low-mind: ${charLabel} mind ${charDef.mind} ≤ strike prowess ${combat.strikeProwess} — tapping following the strike`);
+          newCharacters[strike.characterId as string] = { ...finalChar, status: CardStatus.Tapped };
+        }
+      }
     }
   }
   newPlayers[defPlayerIndex] = { ...workingDefender, characters: newCharacters, lastDiceRoll: roll };

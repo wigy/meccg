@@ -135,6 +135,16 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "shadow", "dark", "coastal"],
+        "siteTypes": ["ruins-and-lairs", "shadow-hold"]
+      }
+    ],
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" },
+      { "type": "combat-tap-low-mind" }
+    ],
+    "certified": "2026-06-09"
   }
 ]

@@ -471,6 +471,13 @@ export interface CombatState {
    */
   readonly defenderProwessFromMind?: boolean;
   /**
+   * When true, after each strike resolves every facing character whose mind
+   * attribute is ≤ the attack's strike prowess must tap if still untapped
+   * (e.g. Wisp of Pale Sheen). Set by `combat-tap-low-mind`. Avatars
+   * (mind === null) and wounded (inverted) characters are unaffected.
+   */
+  readonly tapLowMindAfterStrike?: boolean;
+  /**
    * Character instance IDs protected from strike assignment by a
    * `protect-from-strike-assignment` effect (e.g. Ruse mode B).
    * Characters in this set cannot be assigned any strike from the current

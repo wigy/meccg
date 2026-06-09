@@ -834,6 +834,22 @@ export interface CombatDetainmentEffect extends EffectBase {
 }
 
 /**
+ * After each strike of this attack resolves, every facing character whose
+ * mind attribute is less than or equal to the strike's prowess must tap if
+ * it is still untapped. Wounded characters (now inverted) and avatar
+ * characters (mind === null) are unaffected; a strike that is canceled never
+ * resolves, so it never triggers the tap. Card text is "Any character facing
+ * a strike whose mind is equal to or lower than the strike's prowess must tap
+ * if untapped following the strike (unless the strike is canceled)"
+ * (e.g. Wisp of Pale Sheen, dm-113). Presence of this effect is the entire
+ * payload — the threshold is the attack's strike prowess, read at resolution
+ * time. (implemented in `reducer-combat.ts`)
+ */
+export interface CombatTapLowMindEffect extends EffectBase {
+  readonly type: 'combat-tap-low-mind';
+}
+
+/**
  * Closed set of presence-only flags that toggle uniform play-time
  * behaviors in the engine. Each flag is a single keyword, matched
  * exactly — no card-specific dispatch, just "does the card declare
@@ -2359,6 +2375,7 @@ export type CardEffect =
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
+  | CombatTapLowMindEffect
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
