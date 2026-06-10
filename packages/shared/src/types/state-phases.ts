@@ -15,6 +15,7 @@ import {
   RegionType,
   SiteType,
   MovementType,
+  WinReason,
 } from './common.js';
 // ViewCard is used indirectly via SiteSelectionPlayerState
 import type {
@@ -757,6 +758,12 @@ export interface GameOverPhaseState {
   readonly finalScores: Readonly<Record<string, number>>;
   /** Players who have acknowledged the result by sending 'finished'. */
   readonly finishedPlayers: readonly string[];
+  /**
+   * How the game was decided. For a One Ring win the `winner` above is
+   * forced (not derived from `finalScores`); `finalScores` is still computed
+   * for the result screen. See {@link WinReason}.
+   */
+  readonly winReason: WinReason;
 }
 
 /**

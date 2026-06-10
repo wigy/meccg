@@ -595,6 +595,42 @@ Apply types:
                "target": "company-shadow-magic-user" } }
   ```
 
+  An optional `onSuccess` field carries a follow-up {@link TriggeredAction}
+  that runs when the check **passes** (CoE rule 10.39 hook). It is threaded
+  onto the pending `corruption-check` resolution and executed by the
+  resolver's pass branch (`pending-reducers.ts`
+  `applyCorruptionCheckResolution`). Used by *Cracks of Doom* (tw-205): a
+  successful −4 corruption check on the Ring's bearer wins the game.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-corruption-check", "modifier": -4,
+               "onSuccess": { "type": "win-game", "via": "one-ring" } } }
+  ```
+
+- `win-game` -- end the game immediately as a win for the controller of the
+  source card (CoE rule 10.39 / MELE §1). `via` is currently always
+  `"one-ring"`. Resolves through the shared `endGame` primitive
+  (`reducer-free-council.ts`), which forces the winner regardless of
+  marshalling points; final scores are still computed for the result screen.
+  The recorded {@link WinReason} carries the controller's alignment and the
+  source card id. This single apply is the win mechanism behind all four CoE
+  10.39 cards — Cracks of Doom (tw-205, via corruption-check `onSuccess`),
+  Gollum's Fate (tw-247, directly under `self-enters-play`), A New Ringlord
+  (wh-60, via an end-of-turn `roll-then-apply` `onSuccess`), and Challenge the
+  Power (ba-52, via an on-play `roll-then-apply` `onSuccess`) — so each card
+  declares only its conditions and roll thresholds, never bespoke win
+  plumbing. The Ringwraith positional win at Barad-dûr funnels through the
+  same `endGame` primitive from `reducer-end-of-turn.ts` (no card, so the
+  recorded `card` is `null`). Implemented in `reducer-events.ts`
+  (`applyShortEventOnEntersPlay`), `pending-reducers.ts`
+  (`applyCorruptionCheckResolution`), and the end-of-turn scanner.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "win-game", "via": "one-ring" } }
+  ```
+
 - `heal-target-character` -- under `on-event: self-enters-play` on a
   character-attached permanent event, changes the target character's status
   from `Inverted` (wounded) to `Tapped`. Has no effect if the character is
@@ -1862,6 +1898,26 @@ check) and `reducer-events.ts` (discard execution).
 
 ```json
 { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" }
+```
+
+- `active-company` — for site-phase resource short-events: a generic DSL
+  `condition` evaluated against the active company's aggregate context
+  `{ site: { name, type }, company: { itemNames, characterNames, allyNames } }`.
+  `itemNames`/`allyNames` are the names of every item / ally borne by any
+  character in the company. Lets a card express a positional play
+  prerequisite without a per-card keyword. Used by the CoE 10.39 win cards:
+  Cracks of Doom (tw-205) requires The One Ring at Mount Doom; Gollum's Fate
+  (tw-247) additionally requires Gollum. Implemented in
+  `legal-actions/organization.ts` (`playResourceShortEventActions`,
+  `buildActiveCompanyContext`).
+
+```json
+{ "type": "play-condition", "requires": "active-company",
+  "condition": { "$and": [
+    { "site.name": "Mount Doom" },
+    { "company.itemNames": { "$includes": "The One Ring" } },
+    { "company.allyNames": { "$includes": "Gollum" } }
+  ] } }
 ```
 
 ### 24. `creature-race-choice`

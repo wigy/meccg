@@ -31,6 +31,7 @@ import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
+import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1193,6 +1194,22 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
             modifier,
             reason: def?.name ?? '?',
           });
+        }
+      } else if (effect.apply.type === 'win-condition-roll') {
+        // Challenge the Power (ba-52): roll immediately on entering play.
+        // The card is attached to the avatar (targetCharId); the roll table
+        // decides eliminate / discard / keep / win. (CoE 10.39.)
+        if (targetCharId) {
+          const rollResult = resolveWinConditionRoll(newState, {
+            sourceInstanceId: card.instanceId,
+            sourceDefinitionId: card.definitionId,
+            ownerPlayerIndex: playerIndex,
+            avatarCharId: targetCharId,
+            apply: effect.apply,
+          });
+          newState = rollResult.state;
+        } else {
+          logDetail(`"${def?.name ?? '?'}" win-condition-roll: no avatar target — fizzle`);
         }
       }
   }

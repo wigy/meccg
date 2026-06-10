@@ -157,6 +157,14 @@ export interface PendingResolution {
          * (e.g. The Ring's Betrayal). Absent for standard checks.
          */
         readonly failureMode?: 'discard-ring-only';
+        /**
+         * Follow-up effect run when the check *passes* (CoE 10.39 hook).
+         * Used by Cracks of Doom (tw-205): a successful −4 corruption check
+         * on the Ring's bearer wins the game. The resolver runs this apply
+         * after the pass branch instead of merely dequeuing. Absent for
+         * standard checks.
+         */
+        readonly onSuccess?: TriggeredAction;
       }
     | {
         readonly type: 'order-effects';

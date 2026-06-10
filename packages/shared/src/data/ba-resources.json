@@ -1,0 +1,40 @@
+[
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "balrog",
+    "id": "ba-52",
+    "name": "Challenge the Power",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ChallengeThePower.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 2,
+    "marshallingCategory": "misc",
+    "text": "Balrog specific. Playable on The Balrog if he bears The One Ring. Make a roll adding one for each sage in his company and for each other Challenge the Power in play. If the result is: less than 7, The Balrog is eliminated; 7 or 8, discard this card; 9 or 10, you gain 2 marshalling points and The One Ring affects The Balrog; greater than 10, you win the game. Cannot be duplicated on a given turn.",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": true },
+            { "target.itemNames": { "$includes": "The One Ring" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "win-condition-roll",
+          "rollModifiers": ["sages-in-company", "other-copies-in-play"],
+          "bands": [
+            { "lt": 7, "outcome": "eliminate-avatar" },
+            { "lte": 8, "outcome": "discard-self" },
+            { "lte": 10, "outcome": "keep" },
+            { "gt": 10, "outcome": "win-game" }
+          ]
+        }
+      }
+    ]
+  }
+]

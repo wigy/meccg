@@ -62,6 +62,7 @@ import dmSites from './dm-sites.json';
 import baCharacters from './ba-characters.json';
 import baSites from './ba-sites.json';
 import baHazards from './ba-hazards.json';
+import baResources from './ba-resources.json';
 
 /**
  * Pre-merged array of every card definition across all categories and sets.
@@ -111,6 +112,8 @@ const allCards: readonly CardDefinition[] = [
   ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),
   ...(baHazards as unknown as CardDefinition[]),
+  ...(baResources as unknown as CardDefinition[]),
+  // Against the Shadow resources/items (loaded here alongside BA)
   ...(asResources as unknown as CardDefinition[]),
   ...(asItems as unknown as CardDefinition[]),
 ];

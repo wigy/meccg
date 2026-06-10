@@ -2,6 +2,47 @@
   {
     "cardType": "hero-resource-event",
     "alignment": "fallen-wizard",
+    "id": "wh-60",
+    "name": "A New Ringlord",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ANewRinglord.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "text": "Playable on your Fallen-wizard if he has The One Ring at one of your Wizardhavens. Only one A New Ringlord may be played in a given turn. Make a roll during each of your end-of-turn phases if your Fallen-wizard is bearing The One Ring and is at a Ruins & Lairs where Information is playable. Add 1 for each A New Ringlord you have in play. If the result is less than 6, your Fallen-wizard is eliminated. If the result is greater than 9, you win the game.",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["haven"]
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": true },
+            { "target.itemNames": { "$includes": "The One Ring" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "owner-end-of-turn",
+        "apply": {
+          "type": "win-condition-roll",
+          "rollModifiers": ["copies-in-play"],
+          "bands": [
+            { "lt": 6, "outcome": "eliminate-avatar" },
+            { "gt": 9, "outcome": "win-game" }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "fallen-wizard",
     "id": "wh-75",
     "name": "Hidden Haven",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/HiddenHaven.jpg",
