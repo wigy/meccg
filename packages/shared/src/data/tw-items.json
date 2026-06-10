@@ -52,7 +52,6 @@
     "unique": true,
     "subtype": "minor",
     "keywords": [
-      "starting-item",
       "weapon"
     ],
     "marshallingPoints": 0,

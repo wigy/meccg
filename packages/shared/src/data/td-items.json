@@ -649,9 +649,6 @@
     "alignment": "wizard",
     "unique": true,
     "subtype": "minor",
-    "keywords": [
-      "starting-item"
-    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
