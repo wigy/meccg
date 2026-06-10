@@ -1947,6 +1947,39 @@ h2 {
   font-size: 0.9rem;
 }
 
+.card-browser-toggles {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-browser-toggle {
+  padding: 0.25rem 0.45rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: #16213e;
+  border: 1px solid #3a4a6b;
+  border-radius: 4px;
+  cursor: pointer;
+  filter: grayscale(1);
+  opacity: 0.45;
+  transition: transform 0.05s ease, opacity 0.1s ease;
+}
+
+.card-browser-toggle:hover {
+  opacity: 0.75;
+}
+
+.card-browser-toggle:active {
+  transform: translateY(1px) scale(0.92);
+}
+
+.card-browser-toggle--active {
+  filter: none;
+  opacity: 1;
+  border-color: #c4a35a;
+}
+
 .card-browser-body {
   display: flex;
   gap: 1rem;

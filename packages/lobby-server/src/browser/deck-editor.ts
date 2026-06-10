@@ -46,30 +46,49 @@ function renderSection(section: DeckSection, deckId: string): void {
     addBtn.textContent = '+';
     addBtn.title = 'Add a character card';
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
-      (def) => CHARACTER_CARD_TYPES.has(def.cardType)
-        && matchesDeckAlignment(def, editingDeck?.alignment ?? '')));
+      (def) => CHARACTER_CARD_TYPES.has(def.cardType),
+      characterToggles(editingDeck?.alignment ?? '')));
     titleEl.appendChild(addBtn);
   }
 }
 
-/** Card-type prefixes a deck of a given alignment may use. */
-const ALIGNMENT_CARD_PREFIXES: Record<string, string[]> = {
-  hero: ['hero-'],
-  minion: ['minion-'],
-  'fallen-wizard': ['hero-', 'minion-'],
-  balrog: ['minion-'],
-};
+/** A card category toggle shown as an icon button in the card browser. */
+interface BrowserToggle {
+  icon: string;
+  title: string;
+  match: (def: CardDefinition) => boolean;
+  active: boolean;
+}
 
 /**
- * Check whether a card is usable in a deck of the given alignment.
- * Cards without a hero/minion-prefixed type (e.g. hazards, regions) and
- * unknown alignments are never filtered out.
+ * Build the character category toggles for the card browser. The deck's
+ * alignment decides which categories start enabled; the rest can be
+ * toggled on to browse beyond the deck's own alignment.
  */
-function matchesDeckAlignment(def: CardDefinition, alignment: string): boolean {
-  if (!def.cardType.startsWith('hero-') && !def.cardType.startsWith('minion-')) return true;
-  const prefixes = ALIGNMENT_CARD_PREFIXES[alignment];
-  if (!prefixes) return true;
-  return prefixes.some(p => def.cardType.startsWith(p));
+function characterToggles(alignment: string): BrowserToggle[] {
+  const traits = (def: CardDefinition) => def as unknown as {
+    cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
+  };
+  const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
+  // Unknown alignment: enable everything.
+  const on = (...alignments: string[]) => alignments.includes(alignment)
+    || !['hero', 'minion', 'fallen-wizard', 'balrog'].includes(alignment);
+  return [
+    { icon: '\u{1F9DD}', title: 'Hero characters', active: on('hero', 'fallen-wizard'),
+      match: d => traits(d).cardType === 'hero-character' && traits(d).race !== 'wizard' },
+    { icon: '\u{1F479}', title: 'Minion characters (non-agent)', active: on('minion', 'fallen-wizard', 'balrog'),
+      match: d => traits(d).cardType === 'minion-character' && traits(d).race !== 'ringwraith' && !isAgent(d) },
+    { icon: '\u{1F575}️', title: 'Agents', active: on('minion', 'fallen-wizard', 'balrog'),
+      match: d => traits(d).cardType === 'minion-character' && isAgent(d) },
+    { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: on('hero'),
+      match: d => traits(d).race === 'wizard' && traits(d).alignment === 'wizard' },
+    { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: on('minion'),
+      match: d => traits(d).race === 'ringwraith' },
+    { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: on('fallen-wizard'),
+      match: d => traits(d).alignment === 'fallen-wizard' },
+    { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: on('balrog'),
+      match: d => traits(d).race === 'balrog' },
+  ];
 }
 
 /** Persist the deck currently being edited. Returns true on success. */
@@ -138,6 +157,7 @@ function addCardToSection(cardId: string, section: DeckSection, deckId: string):
 function openCardBrowser(
   section: DeckSection, deckId: string, browserTitle: string,
   cardFilter: (def: CardDefinition) => boolean,
+  toggles: BrowserToggle[] = [],
 ): void {
   const cards = Object.entries(cardPool)
     .filter(([, def]) => cardFilter(def))
@@ -163,6 +183,24 @@ function openCardBrowser(
   search.className = 'card-browser-search';
   search.placeholder = 'Search by name, card text, or keyword…';
   dialog.appendChild(search);
+
+  if (toggles.length > 0) {
+    const togglesEl = document.createElement('div');
+    togglesEl.className = 'card-browser-toggles';
+    for (const t of toggles) {
+      const btn = document.createElement('button');
+      btn.className = 'card-browser-toggle' + (t.active ? ' card-browser-toggle--active' : '');
+      btn.textContent = t.icon;
+      btn.title = t.title;
+      btn.addEventListener('click', () => {
+        t.active = !t.active;
+        btn.classList.toggle('card-browser-toggle--active', t.active);
+        renderList();
+      });
+      togglesEl.appendChild(btn);
+    }
+    dialog.appendChild(togglesEl);
+  }
 
   const body = document.createElement('div');
   body.className = 'card-browser-body';
@@ -232,6 +270,7 @@ function openCardBrowser(
     list.innerHTML = '';
     const filter = search.value.trim().toLowerCase();
     for (const [cardId, def] of cards) {
+      if (toggles.length > 0 && !toggles.some(t => t.active && t.match(def))) continue;
       if (filter && !matchesSearch(def, filter)) continue;
       const item = document.createElement('div');
       item.className = 'card-browser-item';
