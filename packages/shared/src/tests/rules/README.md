@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 189 | 120 | 61.2% |
+| 309 | 188 | 121 | 60.8% |
 
 ## Section Breakdown
 
@@ -22,7 +22,7 @@
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 27 | 64.3% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 22 | 41.5% |
 
 ## Detailed Test Matrix
 
@@ -322,7 +322,7 @@
 | 10.36 | Corruption, Influence, Actions/Timing & Ending the Game | [Attribute Modification Passives](10-corruption-influence-endgame/rule-10.36-attribute-modification-passives.test.ts) | ☐ |
 | 10.37 | Corruption, Influence, Actions/Timing & Ending the Game | [Game Condition Inactive](10-corruption-influence-endgame/rule-10.37-game-condition-inactive.test.ts) | ☐ |
 | 10.38 | Corruption, Influence, Actions/Timing & Ending the Game | [Cards No Memory](10-corruption-influence-endgame/rule-10.38-cards-no-memory.test.ts) | ☐ |
-| 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ☑ |
+| 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ◐ |
 | 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling The Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☑ |
 | 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☑ |
 | 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☐ |

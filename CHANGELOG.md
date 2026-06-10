@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.38.0 — 2026-06-10
+
+Challenge Deck H
+
+### Card Certification
+
+- Certify the Uruk-hai and Half-orc characters: Ill-favoured Fellow (wh-5), Lugdush (wh-6), Sly Southerner (wh-10), Grishnákh (le-12), Orc Tracker (le-34), Ufthak (le-48) — race keywords plus body-check discard rules
+- Certify Hoarmûrath the Ringwraith (le-53) — Darkhaven hand-size bonus and per-mode stats
+- Certify the Undead creatures: Ghouls (le-73), Stirring Bones (le-92), Wisp of Pale Sheen (dm-113), Plague of Wights (le-130), Ghosts (le-72) — and Orcs of Mirkwood (le-277)
+- Certify minion sites: Dead Marshes (le-364), Mount Doom (le-393), Mount Gram (le-394), Sarn Goriwing (le-401), Shelob's Lair (le-402)
+- Certify Strange Rations (le-345), Blasting Fire (wh-51), Records Unread (as-130), Snaga-hai (le-286), Sneakin' (le-231), War-wolf (le-157), Great Lord of Goblin-gate (as-75)
+- Certify Fell Rider (le-183), Vile Fumes (wh-54), Exhalation of Decay (dm-55)
+- Challenge Deck H (Stealthy Tribe) is now 100% certified
+
+### Game Engine
+
+- Implement The One Ring win conditions for all four alignments
+- Wire Ringwraith avatars' per-mode stat modifiers
+- Fix Orc-scout half-size omission; read Barad-dûr gold-ring modifier from card data
+
+### Web Client
+
+- Deck editor: add +/− quantity buttons to card rows and a near-fullscreen character card browser with name search, hover preview, and deck-alignment filtering (temporarily hidden behind a CSS flag)
+
+### Infrastructure
+
+- Deduplicate company/character text rendering, in-play checks, and site-grouping logic; extract item/ally context-building helpers
+
 ## 0.37.0 — 2026-06-08
 
 Challenge Deck G
