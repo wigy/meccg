@@ -957,8 +957,12 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
  *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
  *   which is playable at "any tapped or untapped Shadow-hold".
+ * - `block-company-joins` — while this permanent event is in play bound to a
+ *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
+ *   may join that company. On play the company's existing allies and follower
+ *   characters are discarded. Used by Fell Rider (le-183).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

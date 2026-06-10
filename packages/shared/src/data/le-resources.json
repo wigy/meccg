@@ -1188,11 +1188,14 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-09",
     "effects": [
-      {"type": "stat-modifier", "stat": "prowess", "value": 2},
-      {"type": "stat-modifier", "stat": "direct-influence", "value": -3},
+      {"type": "play-target", "target": "company", "filter": {"target.siteType": "haven"}},
       {"type": "ringwraith-mode", "mode": "fell-rider"},
-      {"type": "company-overt"}
+      {"type": "company-overt"},
+      {"type": "play-flag", "flag": "block-company-joins"},
+      {"type": "duplication-limit", "scope": "company", "max": 1},
+      {"type": "on-event", "event": "organization-phase-start", "when": {"company.atHaven": true}, "apply": {"type": "discard-self"}}
     ]
   },
   {

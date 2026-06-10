@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard, isHalfOrc } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -940,6 +940,102 @@ export function nextCompanyId(player: PlayerState): CompanyId {
     return match ? Math.max(max, parseInt(match[1], 10)) : max;
   }, -1);
   return `company-${player.id as string}-${maxIdx + 1}` as CompanyId;
+}
+
+/**
+ * True when `companyId` has an in-play permanent event (either player's
+ * `cardsInPlay`) bound to it that carries the `block-company-joins` play-flag
+ * (Fell Rider le-183). While such a card is in play, no ally and no
+ * direct-influence follower may join the company.
+ */
+export function companyBlocksJoins(state: GameState, companyId: CompanyId): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if (card.companyId !== companyId) continue;
+      const def = defById(state, card.definitionId);
+      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'block-company-joins')) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Discards every ally and every direct-influence follower character in the
+ * given company (Fell Rider le-183: "Discard all allies and Ringwraith
+ * followers in the company"). Allies and follower items go to the controlling
+ * player's discard pile; follower hazards go to the opponent's. The company's
+ * non-follower members (the Ringwraith avatar and any GI-controlled
+ * characters) keep their slots but lose their allies. A company-membership
+ * sweep runs afterwards so other company-bound cards react to the departures.
+ * Direct-influence usage is recomputed by the top-level reducer.
+ */
+export function purgeCompanyAlliesAndFollowers(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === companyId);
+  if (!company) return state;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+
+  const newChars: Record<string, CharacterInPlay> = { ...player.characters };
+  const discard: CardInstance[] = [...player.discardPile];
+  const oppDiscard: CardInstance[] = [...state.players[opponentIndex].discardPile];
+
+  // Followers in the company = characters controlled by another character.
+  const followerSet = new Set<string>();
+  for (const id of company.characters) {
+    const c = newChars[id as string];
+    if (c && c.controlledBy !== 'general') followerSet.add(id as string);
+  }
+
+  // Discard every ally borne by any character in the company.
+  for (const id of company.characters) {
+    const c = newChars[id as string];
+    if (!c) continue;
+    for (const ally of c.allies) discard.push(toCardInstance(ally));
+  }
+
+  // Discard each follower character entirely (items → owner discard, hazards → opponent).
+  for (const id of followerSet) {
+    const f = newChars[id];
+    if (!f) continue;
+    for (const item of f.items) discard.push(toCardInstance(item));
+    for (const hz of f.hazards) oppDiscard.push(toCardInstance(hz));
+    discard.push(toCardInstance(f));
+    delete newChars[id];
+  }
+
+  // Remaining (non-follower) members keep their slot but lose allies, and drop
+  // any discarded follower from their `followers` list.
+  for (const id of company.characters) {
+    if (followerSet.has(id as string)) continue;
+    const c = newChars[id as string];
+    if (!c) continue;
+    newChars[id as string] = {
+      ...c,
+      allies: [],
+      followers: c.followers.filter(fid => !followerSet.has(fid as string)),
+    };
+  }
+
+  const newCompanies = player.companies.map(co =>
+    co.id === companyId
+      ? { ...co, characters: co.characters.filter(id => !followerSet.has(id as string)) }
+      : co,
+  );
+
+  const updatedPlayers = state.players.map((p, i) =>
+    i === playerIndex
+      ? { ...player, characters: newChars, companies: newCompanies, discardPile: discard }
+      : i === opponentIndex
+        ? { ...p, discardPile: oppDiscard }
+        : p,
+  ) as unknown as readonly [PlayerState, PlayerState];
+
+  const result: GameState = { ...state, players: updatedPlayers };
+  return sweepCompanyMembershipChangedEvents(result, [companyId]);
 }
 
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {

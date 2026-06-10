@@ -148,6 +148,7 @@
 | le-167 | Bade to Rule | — | 13 | ◐ |
 | le-174 | By the Ringwraith's Word | — | 17 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
+| le-183 | Fell Rider | — | 12 | ☑ |
 | le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-219 | Poisonous Despair | — | 8 | ☑ |

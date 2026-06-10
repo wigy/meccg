@@ -26,7 +26,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -1096,6 +1096,16 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         kind: { type: 'bearer-cannot-untap', cardInstanceId: card.instanceId },
       });
     }
+  }
+
+  // block-company-joins (Fell Rider le-183): on entering play bound to a
+  // company, discard all of that company's allies and Ringwraith followers.
+  // (The ongoing "none may join" gate is enforced in the legal-action layer
+  // via `companyBlocksJoins`.)
+  const boundCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
+  if (boundCompanyId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'block-company-joins')) {
+    logDetail(`"${def?.name ?? '?'}" block-company-joins — purging allies and followers from company ${boundCompanyId as string}`);
+    newState = purgeCompanyAlliesAndFollowers(newState, playerIndex, boundCompanyId);
   }
 
   // Execute self-enters-play effects (e.g. move (filter-all → discard), add-constraint)

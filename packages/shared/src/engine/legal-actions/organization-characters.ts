@@ -19,7 +19,7 @@ import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCa
 import type { PlayFlagEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -407,6 +407,13 @@ export function playCharacterActions(
             c => c.currentSite?.instanceId === site.instanceId && c.characters.includes(ctrl.instanceId),
           );
           if (!companyAtSite) continue;
+
+          // Fell Rider (block-company-joins): no direct-influence follower may
+          // join a company closed by a bound mode card.
+          if (companyBlocksJoins(state, companyAtSite.id)) {
+            logDetail(`  → blocked: ${site.siteName} company is closed to new joins (block-company-joins)`);
+            continue;
+          }
 
           logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}) at ${site.siteName}`);
           results.push({

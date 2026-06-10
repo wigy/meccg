@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, isCovertCompany } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1299,6 +1299,18 @@ function playResourcesActions(
           });
           continue;
         }
+      }
+
+      // Fell Rider (block-company-joins): while a mode card with this flag is
+      // bound to the company, no ally may join it.
+      if (companyBlocksJoins(state, company.id)) {
+        logDetail(`Ally ${allyDef.name}: company is closed to new joins (block-company-joins)`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${allyDef.name}: no ally may join this company`,
+        });
+        continue;
       }
 
       if (untappedCharacters.length === 0) {

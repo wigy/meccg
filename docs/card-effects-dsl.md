@@ -1276,6 +1276,27 @@ No fields beyond `type` are required.
 { "type": "reduce-attacks-to-one" }
 ```
 
+### 15b. `play-flag: "block-company-joins"`
+
+A `play-flag` carried by a company-bound permanent event (via
+`CardInPlay.companyId`). Two effects:
+
+1. **On play** — when the card enters play bound to a company, every ally and
+   every direct-influence follower character in that company is discarded
+   (`purgeCompanyAlliesAndFollowers` in `reducer-utils.ts`, fired from
+   `chain-reducer.ts` `resolvePermanentEvent`).
+2. **Ongoing** — while the card is in play, no ally and no DI follower may join
+   the company. The ally-play emitter (`legal-actions/site.ts`) and the
+   follower-play emitter (`legal-actions/organization-characters.ts`) both
+   consult `companyBlocksJoins(state, companyId)`.
+
+Used by Fell Rider (le-183): "Discard all allies and Ringwraith followers in
+the company; none may join the company."
+
+```json
+{ "type": "play-flag", "flag": "block-company-joins" }
+```
+
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,
