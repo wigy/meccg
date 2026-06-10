@@ -298,6 +298,18 @@
     "homesite": "Urlurtsu Nurn",
     "effects": [
       {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      },
+      {
         "type": "cancel-attack",
         "cost": {
           "tap": "self"
@@ -989,6 +1001,18 @@
     "certified": "2026-06-04",
     "effects": [
       {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -3,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      },
+      {
         "type": "grant-action",
         "action": "company-stat-boost",
         "cost": { "tap": "self" },
@@ -1079,7 +1103,21 @@
     "directInfluence": 5,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Udûn or Imlad Morgul"
+    "homesite": "Any site in Udûn or Imlad Morgul",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -1,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      }
+    ]
   },
   {
     "cardType": "minion-character",
@@ -1101,7 +1139,21 @@
     "directInfluence": 4,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Dol Guldur"
+    "homesite": "Dol Guldur",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      }
+    ]
   },
   {
     "cardType": "minion-character",
@@ -1122,7 +1174,21 @@
     "directInfluence": 4,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Gorgoroth"
+    "homesite": "Any site in Gorgoroth",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      }
+    ]
   },
   {
     "cardType": "minion-character",
@@ -1144,7 +1210,21 @@
     "directInfluence": 5,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Khand"
+    "homesite": "Any site in Khand",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -3,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      }
+    ]
   },
   {
     "cardType": "minion-character",
@@ -1167,7 +1247,21 @@
     "directInfluence": 3,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any site in Imlad Morgul"
+    "homesite": "Any site in Imlad Morgul",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "bearer.ringwraithMode": "heralded-lord" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": { "bearer.ringwraithMode": "fell-rider" }
+      }
+    ]
   },
   {
     "cardType": "minion-character",

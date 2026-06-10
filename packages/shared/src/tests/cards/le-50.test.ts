@@ -19,7 +19,7 @@
  * | 1 | Darkhaven tap → cancel M/H creature attack           | IMPLEMENTED | `cancel-attack` + `bearer.atHaven` + `attack.source`    |
  * | 2 | "Not played at a site" discriminator                 | IMPLEMENTED | `attack.source === "creature"` (M/H-played only)        |
  * | 3 | Can use spirit-magic                                 | FLAVOR      | No certified spirit-magic consumer today; deferred      |
- * | 4 | +2 DI in Heralded Lord mode / -2 prow in Fell Rider  | FLAVOR      | Stat changes live on le-190 / le-183 resource cards     |
+ * | 4 | +2 DI in Heralded Lord mode / -2 prow in Fell Rider  | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
  *
  * Playable: YES.
  */
@@ -28,7 +28,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   viableActions, dispatch,
-  findCharInstanceId,
+  findCharInstanceId, getCharacter, companyIdAt, addCardInPlay, recomputeDerived,
   expectInDiscardPile,
   makeCancelWindowCombat,
   PLAYER_1, PLAYER_2,
@@ -42,6 +42,10 @@ import type {
 } from '../../index.js';
 
 const ADUNAPHEL_RW = 'le-50' as CardDefinitionId;
+
+// Ringwraith mode cards that establish the company's mode.
+const HERALDED_LORD = 'le-190' as CardDefinitionId;
+const FELL_RIDER = 'le-183' as CardDefinitionId;
 
 // Companion minion character for company-composition tests (non-avatar).
 const LUITPRAND = 'le-23' as CardDefinitionId;
@@ -329,5 +333,39 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(1);
+  });
+
+  // ─── Rule #4: per-mode stat changes to the Ringwraith ─────────────────────────
+
+  test('+2 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ADUNAPHEL_RW] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
+    const adunaphel = getCharacter(state, RESOURCE_PLAYER, ADUNAPHEL_RW);
+    expect(adunaphel.effectiveStats.directInfluence).toBe(6); // 4 + 2
+    expect(adunaphel.effectiveStats.prowess).toBe(8); // Fell Rider bonus does not apply
+  });
+
+  test('-2 prowess in Fell Rider mode (direct influence unchanged)', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ADUNAPHEL_RW] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
+    const adunaphel = getCharacter(state, RESOURCE_PLAYER, ADUNAPHEL_RW);
+    expect(adunaphel.effectiveStats.prowess).toBe(6); // 8 - 2
+    expect(adunaphel.effectiveStats.directInfluence).toBe(4); // Heralded Lord bonus does not apply
   });
 });

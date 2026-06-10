@@ -20,7 +20,7 @@
  * | 3 | +1 prowess + +1 body via sequence of add-constraint  | IMPLEMENTED | two company-stat-modifier constraints (turn scope)       |
  * | 4 | Gated on bearer.atHaven                              | IMPLEMENTED | when condition evaluated before emitting actions         |
  * | 5 | Can use sorcery                                      | FLAVOR      | No certified sorcery consumer today; deferred            |
- * | 6 | -3 DI in Heralded Lord / -1 prowess in Fell Rider    | FLAVOR      | Stat changes live on dedicated resource cards            |
+ * | 6 | -3 DI in Heralded Lord / -1 prowess in Fell Rider    | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
  *
  * Playable: YES.
  */
@@ -29,7 +29,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   viableActions, dispatch,
-  findCharInstanceId, getCharacter,
+  findCharInstanceId, getCharacter, companyIdAt, addCardInPlay, recomputeDerived,
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -40,6 +40,10 @@ import type {
 } from '../../index.js';
 
 const DWAR = 'le-52' as CardDefinitionId;
+
+// Ringwraith mode cards that establish the company's mode.
+const HERALDED_LORD = 'le-190' as CardDefinitionId;
+const FELL_RIDER = 'le-183' as CardDefinitionId;
 
 // Non-avatar minion companion for multi-character company tests.
 const LUITPRAND = 'le-23' as CardDefinitionId;
@@ -357,5 +361,39 @@ describe('Dwar the Ringwraith (le-52)', () => {
     // Dwar and Luitprand (in other company) do not get the boost.
     expect(getCharacter(next, RESOURCE_PLAYER, DWAR).effectiveStats.prowess).toBe(9);
     expect(getCharacter(next, RESOURCE_PLAYER, LUITPRAND).effectiveStats.prowess).toBe(3);
+  });
+
+  // ─── Rule #6: per-mode stat changes to the Ringwraith ─────────────────────────
+
+  test('-3 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DWAR] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
+    const dwar = getCharacter(state, RESOURCE_PLAYER, DWAR);
+    expect(dwar.effectiveStats.directInfluence).toBe(2); // 5 - 3
+    expect(dwar.effectiveStats.prowess).toBe(9); // Fell Rider bonus does not apply
+  });
+
+  test('-1 prowess in Fell Rider mode (direct influence unchanged)', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DWAR] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
+    const dwar = getCharacter(state, RESOURCE_PLAYER, DWAR);
+    expect(dwar.effectiveStats.prowess).toBe(8); // 9 - 1
+    expect(dwar.effectiveStats.directInfluence).toBe(5); // Heralded Lord bonus does not apply
   });
 });
