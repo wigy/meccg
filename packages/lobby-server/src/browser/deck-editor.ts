@@ -6,7 +6,7 @@
  * and opens the editor screen for a given deck.
  */
 
-import { cardImageProxyPath, getCardCss } from '@meccg/shared';
+import { cardImageProxyPath, getCardCss, CHARACTER_CARD_TYPES, type CardDefinition } from '@meccg/shared';
 import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   sortDeckEntries, EDITING_DECK_KEY, type ScreenId,
@@ -24,10 +24,248 @@ export function setDeckEditorCallbacks(
   showScreenFn = showScreen;
 }
 
+/** A deck section shown in the editor: a labelled list of card entries. */
+interface DeckSection { id: string; label: string; entries: DeckListEntry[] }
+
+// The deck currently open in the editor; mutated by the +/- quantity buttons.
+let editingDeck: FullDeck | null = null;
+
+/** Render one section's card list and its title with the card count. */
+function renderSection(section: DeckSection, deckId: string): void {
+  renderCardList(document.getElementById(`deck-editor-${section.id}`)!, section, deckId);
+  const total = section.entries.reduce((sum, e) => sum + e.qty, 0);
+  const titleEl = document.getElementById(`deck-editor-${section.id}-title`)!;
+  titleEl.textContent = '';
+  titleEl.classList.add('deck-editor-section-title');
+  const label = document.createElement('span');
+  label.textContent = `${section.label} (${total})`;
+  titleEl.appendChild(label);
+  if (section.id === 'characters') {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'deck-editor-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add a character card';
+    addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add Character',
+      (def) => CHARACTER_CARD_TYPES.has(def.cardType)
+        && matchesDeckAlignment(def, editingDeck?.alignment ?? '')));
+    titleEl.appendChild(addBtn);
+  }
+}
+
+/** Card-type prefixes a deck of a given alignment may use. */
+const ALIGNMENT_CARD_PREFIXES: Record<string, string[]> = {
+  hero: ['hero-'],
+  minion: ['minion-'],
+  'fallen-wizard': ['hero-', 'minion-'],
+  balrog: ['minion-'],
+};
+
+/**
+ * Check whether a card is usable in a deck of the given alignment.
+ * Cards without a hero/minion-prefixed type (e.g. hazards, regions) and
+ * unknown alignments are never filtered out.
+ */
+function matchesDeckAlignment(def: CardDefinition, alignment: string): boolean {
+  if (!def.cardType.startsWith('hero-') && !def.cardType.startsWith('minion-')) return true;
+  const prefixes = ALIGNMENT_CARD_PREFIXES[alignment];
+  if (!prefixes) return true;
+  return prefixes.some(p => def.cardType.startsWith(p));
+}
+
+/** Persist the deck currently being edited. Returns true on success. */
+async function saveEditingDeck(): Promise<boolean> {
+  if (!editingDeck) return false;
+  const r = await fetch('/api/my-decks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(editingDeck),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({})) as { error?: string };
+    await showAlert(data.error ?? 'Failed to save deck');
+  }
+  return r.ok;
+}
+
+/** Adjust an entry's quantity by delta, save the deck, and re-render the section. */
+function changeQty(
+  entry: DeckListEntry, delta: number, section: DeckSection, deckId: string, e: MouseEvent,
+): void {
+  const idx = section.entries.indexOf(entry);
+  entry.qty += delta;
+  const removed = entry.qty <= 0;
+  if (removed) section.entries.splice(idx, 1);
+  renderSection(section, deckId);
+  refreshPreviewUnderCursor(e.clientX, e.clientY);
+  void saveEditingDeck().then(ok => {
+    if (!ok) {
+      entry.qty -= delta;
+      if (removed) section.entries.splice(idx, 0, entry);
+      renderSection(section, deckId);
+      refreshPreviewUnderCursor(e.clientX, e.clientY);
+    }
+  });
+}
+
+/** Add one copy of a card to a section (new entry if not present), save, and re-render. */
+function addCardToSection(cardId: string, section: DeckSection, deckId: string): void {
+  const def = cardPool[cardId];
+  const existing = section.entries.find(en => en.card === cardId);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    section.entries.push({ name: def ? def.name : cardId, card: cardId, qty: 1 });
+  }
+  renderSection(section, deckId);
+  void saveEditingDeck().then(ok => {
+    if (!ok) {
+      if (existing) {
+        existing.qty -= 1;
+      } else {
+        const idx = section.entries.findIndex(en => en.card === cardId);
+        if (idx >= 0) section.entries.splice(idx, 1);
+      }
+      renderSection(section, deckId);
+    }
+  });
+}
+
+/**
+ * Open a modal card browser listing all pool cards accepted by cardFilter.
+ * Hovering a card shows its preview; clicking adds one copy to the
+ * section and closes the browser.
+ */
+function openCardBrowser(
+  section: DeckSection, deckId: string, browserTitle: string,
+  cardFilter: (def: CardDefinition) => boolean,
+): void {
+  const cards = Object.entries(cardPool)
+    .filter(([, def]) => cardFilter(def))
+    .sort(([, a], [, b]) => a.name.localeCompare(b.name));
+
+  const modal = document.createElement('div');
+  modal.className = 'app-dialog';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'app-dialog-backdrop';
+  modal.appendChild(backdrop);
+
+  const dialog = document.createElement('div');
+  dialog.className = 'app-dialog-box card-browser-box';
+
+  const title = document.createElement('h3');
+  title.className = 'card-browser-title';
+  title.textContent = browserTitle;
+  dialog.appendChild(title);
+
+  const search = document.createElement('input');
+  search.type = 'text';
+  search.className = 'card-browser-search';
+  search.placeholder = 'Search cards…';
+  dialog.appendChild(search);
+
+  const body = document.createElement('div');
+  body.className = 'card-browser-body';
+  const list = document.createElement('div');
+  list.className = 'card-browser-list';
+  const previewPane = document.createElement('div');
+  previewPane.className = 'card-browser-preview';
+  body.appendChild(list);
+  body.appendChild(previewPane);
+  dialog.appendChild(body);
+
+  const actions = document.createElement('div');
+  actions.className = 'app-dialog-actions';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  actions.appendChild(closeBtn);
+  dialog.appendChild(actions);
+
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
+
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    modal.remove();
+  };
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+  };
+
+  const showCardPreview = (cardId: string) => {
+    previewPane.innerHTML = '';
+    const def = cardPool[cardId];
+    if (!def) return;
+    const info = document.createElement('div');
+    info.className = 'card-preview-info';
+    const name = document.createElement('div');
+    name.className = 'card-preview-name';
+    name.textContent = def.name;
+    info.appendChild(name);
+    const imgPath = cardImageProxyPath(def);
+    if (imgPath) {
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      info.appendChild(img);
+    }
+    buildCardAttributes(info, def);
+    previewPane.appendChild(info);
+  };
+
+  const renderList = () => {
+    list.innerHTML = '';
+    const filter = search.value.trim().toLowerCase();
+    for (const [cardId, def] of cards) {
+      if (filter && !def.name.toLowerCase().includes(filter)) continue;
+      const item = document.createElement('div');
+      item.className = 'card-browser-item';
+      item.textContent = def.name;
+      const style = getCardCss(def) ?? '';
+      if (style) item.setAttribute('style', style);
+      item.addEventListener('mouseover', () => showCardPreview(cardId));
+      item.addEventListener('click', () => {
+        addCardToSection(cardId, section, deckId);
+        close();
+      });
+      list.appendChild(item);
+    }
+    if (list.children.length === 0) {
+      list.innerHTML = '<p class="lobby-empty">No matching cards</p>';
+    }
+  };
+
+  search.addEventListener('input', renderList);
+  closeBtn.addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+  document.addEventListener('keydown', onKey, true);
+
+  renderList();
+  search.focus();
+}
+
+/** Create a [+] or [-] quantity button for a card row. */
+function makeQtyButton(label: string, title: string, onClick: (e: MouseEvent) => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.className = 'deck-editor-qty-btn';
+  btn.textContent = label;
+  btn.title = title;
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClick(e);
+  });
+  return btn;
+}
+
 /** Render a list of card entries into a container element, sorted by card type then name. */
-function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
+function renderCardList(container: HTMLElement, section: DeckSection, deckId: string): void {
   container.innerHTML = '';
-  const sorted = sortDeckEntries(entries);
+  const sorted = sortDeckEntries(section.entries);
   for (const entry of sorted) {
     const row = document.createElement('div');
     row.className = 'deck-editor-card';
@@ -51,7 +289,14 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
         badge.textContent = '\u2605';
         badge.title = `Certified ${(def as unknown as Record<string, unknown>).certified as string}`;
       }
-    } else {
+    }
+    const actions = document.createElement('span');
+    actions.className = 'deck-editor-card-actions';
+    const qtyButtons = [
+      makeQtyButton('+', 'Add one copy', (e) => changeQty(entry, 1, section, deckId, e)),
+      makeQtyButton('−', 'Remove one copy', (e) => changeQty(entry, -1, section, deckId, e)),
+    ];
+    if (!def) {
       row.classList.add('deck-editor-card--unknown');
       const requestKey = `${deckId}:${entry.name}`;
       const btn = document.createElement('button');
@@ -84,7 +329,9 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
       row.appendChild(qtyEl);
       row.appendChild(badge);
       row.appendChild(nameEl);
-      row.appendChild(btn);
+      actions.appendChild(btn);
+      for (const qtyBtn of qtyButtons) actions.appendChild(qtyBtn);
+      row.appendChild(actions);
       container.appendChild(row);
       continue;
     }
@@ -119,66 +366,91 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
           });
         });
       }
-      row.appendChild(certBtn);
+      actions.appendChild(certBtn);
     }
+    for (const qtyBtn of qtyButtons) actions.appendChild(qtyBtn);
+    row.appendChild(actions);
     container.appendChild(row);
   }
+}
+
+/** Clear the deck editor's card preview. */
+function clearDeckEditorPreview(): void {
+  const preview = document.getElementById('deck-editor-preview')!;
+  preview.innerHTML = '';
+  preview.style.left = '';
+}
+
+/** Show the card preview for a deck editor card row. */
+function showDeckEditorPreview(row: HTMLElement): void {
+  const screen = document.getElementById('deck-editor-screen')!;
+  const preview = document.getElementById('deck-editor-preview')!;
+  const def = cardPool[row.dataset.cardId!];
+  if (!def) return;
+
+  // Position preview one column to the right of the hovered card;
+  // Sideboard (4th) previews in Hazards column, Sites (5th) previews in Sideboard column.
+  const section = row.closest('.deck-editor-section');
+  const sections = [...screen.querySelectorAll('.deck-editor-section')];
+  const sectionIdx = section ? sections.indexOf(section) : -1;
+  // Section indices: 0=Pool/Characters, 1=Resources, 2=Hazards, 3=Sideboard, 4=Sites
+  // Target columns:  0->1, 1->2, 2->3, 3->2 (Hazards), 4->3 (Sideboard)
+  const targetCol = [1, 2, 3, 2, 3][sectionIdx] ?? 0;
+  const targetSection = sections[targetCol] as HTMLElement | undefined;
+  preview.className = 'deck-editor-preview';
+  if (targetSection) {
+    const targetRect = targetSection.getBoundingClientRect();
+    preview.style.left = `${targetRect.left}px`;
+    preview.style.right = '';
+  }
+
+  preview.innerHTML = '';
+  const info = document.createElement('div');
+  info.className = 'card-preview-info';
+
+  const name = document.createElement('div');
+  name.className = 'card-preview-name';
+  name.textContent = def.name;
+  info.appendChild(name);
+
+  // Card image
+  const imgPath = cardImageProxyPath(def);
+  if (imgPath) {
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    info.appendChild(img);
+  }
+
+  buildCardAttributes(info, def);
+  preview.appendChild(info);
+}
+
+/**
+ * Re-evaluate the preview after rows changed under the cursor: show the card
+ * row now at (x, y), or clear the preview if there is none.
+ */
+function refreshPreviewUnderCursor(x: number, y: number): void {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  const row = el?.closest<HTMLElement>('.deck-editor-card[data-card-id]') ?? null;
+  if (row) showDeckEditorPreview(row);
+  else clearDeckEditorPreview();
 }
 
 /** Set up hover preview for card rows in the deck editor. */
 export function setupDeckEditorPreview(): void {
   const screen = document.getElementById('deck-editor-screen')!;
-  const preview = document.getElementById('deck-editor-preview')!;
 
   screen.addEventListener('mouseover', (e) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>('.deck-editor-card[data-card-id]');
     if (!row) return;
-    const def = cardPool[row.dataset.cardId!];
-    if (!def) return;
-
-    // Position preview one column to the right of the hovered card;
-    // Sideboard (4th) previews in Hazards column, Sites (5th) previews in Sideboard column.
-    const section = row.closest('.deck-editor-section');
-    const sections = [...screen.querySelectorAll('.deck-editor-section')];
-    const sectionIdx = section ? sections.indexOf(section) : -1;
-    // Section indices: 0=Pool/Characters, 1=Resources, 2=Hazards, 3=Sideboard, 4=Sites
-    // Target columns:  0->1, 1->2, 2->3, 3->2 (Hazards), 4->3 (Sideboard)
-    const targetCol = [1, 2, 3, 2, 3][sectionIdx] ?? 0;
-    const targetSection = sections[targetCol] as HTMLElement | undefined;
-    preview.className = 'deck-editor-preview';
-    if (targetSection) {
-      const targetRect = targetSection.getBoundingClientRect();
-      preview.style.left = `${targetRect.left}px`;
-      preview.style.right = '';
-    }
-
-    preview.innerHTML = '';
-    const info = document.createElement('div');
-    info.className = 'card-preview-info';
-
-    const name = document.createElement('div');
-    name.className = 'card-preview-name';
-    name.textContent = def.name;
-    info.appendChild(name);
-
-    // Card image
-    const imgPath = cardImageProxyPath(def);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      info.appendChild(img);
-    }
-
-    buildCardAttributes(info, def);
-    preview.appendChild(info);
+    showDeckEditorPreview(row);
   });
 
   screen.addEventListener('mouseout', (e) => {
     const row = (e.target as HTMLElement).closest('.deck-editor-card[data-card-id]');
     if (!row) return;
-    preview.innerHTML = '';
-    preview.style.left = '';
+    clearDeckEditorPreview();
   });
 }
 
@@ -261,18 +533,18 @@ export async function openDeckEditor(deckId: string): Promise<void> {
 
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
   document.getElementById('deck-editor-title')!.textContent = deck.name;
-  const sections: { id: string; label: string; entries: DeckListEntry[] }[] = [
+  editingDeck = deck;
+  if (!deck.sideboard) deck.sideboard = [];
+  const sections: DeckSection[] = [
     { id: 'pool', label: 'Pool', entries: deck.pool },
     { id: 'characters', label: 'Characters', entries: deck.deck.characters },
     { id: 'hazards', label: 'Hazards', entries: deck.deck.hazards },
     { id: 'resources', label: 'Resources', entries: deck.deck.resources },
     { id: 'sites', label: 'Sites', entries: deck.sites },
-    { id: 'sideboard', label: 'Sideboard', entries: deck.sideboard ?? [] },
+    { id: 'sideboard', label: 'Sideboard', entries: deck.sideboard },
   ];
   for (const s of sections) {
-    renderCardList(document.getElementById(`deck-editor-${s.id}`)!, s.entries, deckId);
-    const total = s.entries.reduce((sum, e) => sum + e.qty, 0);
-    document.getElementById(`deck-editor-${s.id}-title`)!.textContent = `${s.label} (${total})`;
+    renderSection(s, deckId);
   }
   showScreenFn?.('deck-editor-screen');
 }

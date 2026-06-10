@@ -1858,6 +1858,133 @@ h2 {
   background: transparent;
 }
 
+.deck-editor-card-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.deck-editor-qty-btn {
+  padding: 0.1rem 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  min-width: 1.2rem;
+  background: transparent;
+  color: #8a9bb8;
+  border: 1px solid #3a4a6b;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.deck-editor-qty-btn:hover {
+  background: rgba(138, 155, 184, 0.15);
+  color: #c0cde0;
+}
+
+.deck-editor-qty-btn:active {
+  transform: translateY(1px) scale(0.92);
+  background: rgba(138, 155, 184, 0.3);
+  color: #ffffff;
+}
+
+.deck-editor-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.deck-editor-add-btn {
+  padding: 0.15rem 0.6rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: transparent;
+  color: #c4a35a;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.deck-editor-add-btn:hover {
+  background: rgba(196, 163, 90, 0.15);
+}
+
+.deck-editor-add-btn:active {
+  transform: translateY(1px) scale(0.92);
+  background: rgba(196, 163, 90, 0.3);
+  color: #ffffff;
+}
+
+.card-browser-box {
+  width: 96vw;
+  max-width: 96vw;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-browser-title {
+  margin: 0 0 0.75rem;
+  font-family: 'MedievalSharp', cursive;
+  color: rgba(220, 200, 140, 1);
+}
+
+.card-browser-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.75rem;
+  background: #16213e;
+  color: #e0e0e0;
+  border: 1px solid #3a4a6b;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.card-browser-body {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0.75rem;
+}
+
+.card-browser-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 2px;
+  align-content: start;
+}
+
+.card-browser-item {
+  padding: 0.25rem 0.6rem;
+  background: #16213e;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-browser-item:hover {
+  outline: 1px solid #c4a35a;
+}
+
+.card-browser-preview {
+  width: calc(18rem + 1.4rem + 2px);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
 .deck-editor-notice {
   margin: 0 0 0.75rem 0;
   padding: 0.5rem 0.75rem;
