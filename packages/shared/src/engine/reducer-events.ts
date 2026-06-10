@@ -15,7 +15,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { companyById, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -52,25 +52,16 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   // Discard a card as a play cost (e.g. Sapling of the White Tree for The White Tree)
   if (action.discardCardInstanceId) {
     logDetail(`Discarding ${action.discardCardInstanceId as string} as play cost for ${def.name}`);
-    let found = false;
     // Check character items
-    for (const [charId, ch] of Object.entries(newState.players[playerIndex].characters)) {
-      const itemIdx = ch.items.findIndex(i => i.instanceId === action.discardCardInstanceId);
-      if (itemIdx !== -1) {
-        const item = ch.items[itemIdx];
-        const newItems = [...ch.items];
-        newItems.splice(itemIdx, 1);
-        newState = updatePlayer(newState, playerIndex, p => ({
-          ...updateCharacter(p, charId, c => ({ ...c, items: newItems })),
-          discardPile: [...p.discardPile, toCardInstance(item)],
-        }));
-        logDetail(`Discarded item ${item.definitionId as string} from character ${charId}`);
-        found = true;
-        break;
-      }
-    }
-    // Check out-of-play pile (stored items)
-    if (!found) {
+    const removed = removeAttachment(newState.players[playerIndex], 'items', action.discardCardInstanceId);
+    if (removed) {
+      newState = updatePlayer(newState, playerIndex, () => ({
+        ...removed.player,
+        discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+      }));
+      logDetail(`Discarded item ${removed.attachment.definitionId as string} from character ${removed.charId as string}`);
+    } else {
+      // Check out-of-play pile (stored items)
       const oopIdx = newState.players[playerIndex].outOfPlayPile.findIndex(
         c => c.instanceId === action.discardCardInstanceId,
       );
@@ -1258,25 +1249,15 @@ function applyShortEventOnEntersPlay(
       }
 
       // Locate the gold ring in any character's items (resource player's characters).
-      let foundCharIdStr: string | null = null;
-      let foundItemIdx = -1;
       const actor = state.players[playerIndex];
-      for (const [charIdStr, char] of Object.entries(actor.characters)) {
-        const idx = char.items.findIndex(i => i.instanceId === goldRingInstanceId);
-        if (idx !== -1) {
-          foundCharIdStr = charIdStr;
-          foundItemIdx = idx;
-          break;
-        }
-      }
-      if (foundCharIdStr === null) {
+      const removedRing = removeAttachment(actor, 'items', goldRingInstanceId);
+      if (!removedRing) {
         logDetail(`"${def.name}": enqueue-ring-play-offer — gold ring ${goldRingInstanceId as string} not found — fizzle`);
         continue;
       }
 
       // Compute all eligible categories from the ring's test table, minus excluded ones.
-      const bearerChar = actor.characters[foundCharIdStr];
-      const ringCard = bearerChar.items[foundItemIdx];
+      const ringCard = removedRing.attachment;
       const ringDef = resolveDef(state, ringCard.instanceId);
       const ringEffects: readonly unknown[] = ringDef && 'effects' in (ringDef as object)
         ? ((ringDef as unknown as { effects?: readonly unknown[] }).effects ?? [])
@@ -1304,12 +1285,9 @@ function applyShortEventOnEntersPlay(
       logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef && 'name' in (ringDef as object) ? (ringDef as { name: string }).name : goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
 
       // Discard the gold ring from the bearer.
-      const newItems = [...bearerChar.items];
-      newItems.splice(foundItemIdx, 1);
-      state = updatePlayer(state, playerIndex, p => ({
-        ...p,
-        characters: { ...p.characters, [foundCharIdStr]: { ...bearerChar, items: newItems } },
-        discardPile: [...p.discardPile, ringCard],
+      state = updatePlayer(state, playerIndex, () => ({
+        ...removedRing.player,
+        discardPile: [...removedRing.player.discardPile, ringCard],
       }));
 
       // Tap the active company's current site (site phase only), unless it carries never-taps.
@@ -1341,7 +1319,7 @@ function applyShortEventOnEntersPlay(
         scope: { kind: 'phase', phase: state.phaseState.phase },
         kind: {
           type: 'ring-play-offer',
-          characterInstanceId: foundCharIdStr as CardInstanceId,
+          characterInstanceId: removedRing.charId,
           eligibleCategories,
           rollTotal: 999,
           storedPlacement: false,

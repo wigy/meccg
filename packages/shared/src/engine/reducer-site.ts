@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -1179,33 +1179,16 @@ function handleDiscardMinorsForMajor(
 
   for (const itemId of discardItemIds) {
     const currentPlayer = workingState.players[playerIndex];
-    let found = false;
-
-    for (const [charId, char] of characterEntries(currentPlayer)) {
-      const itemIdx = char.items.findIndex(i => i.instanceId === itemId);
-      if (itemIdx < 0) continue;
-
-      const discardedItem = char.items[itemIdx];
-      const newItems = char.items.filter((_, i) => i !== itemIdx);
-      const updatedChar = { ...char, items: newItems };
-      const newDiscardPile = [
-        ...currentPlayer.discardPile,
-        toCardInstance(discardedItem),
-      ];
-
-      workingState = updatePlayer(workingState, playerIndex, p => ({
-        ...p,
-        characters: { ...p.characters, [charId]: updatedChar },
-        discardPile: newDiscardPile,
-      }));
-      logDetail(`Site: discard-minors-for-major discarded item ${itemId as string} from ${charId}`);
-      found = true;
-      break;
-    }
-
-    if (!found) {
+    const removed = removeAttachment(currentPlayer, 'items', itemId);
+    if (!removed) {
       return { state, error: `discard-minors-for-major: item ${itemId as string} not found on any character` };
     }
+
+    workingState = updatePlayer(workingState, playerIndex, () => ({
+      ...removed.player,
+      discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+    }));
+    logDetail(`Site: discard-minors-for-major discarded item ${itemId as string} from ${removed.charId as string}`);
   }
 
   // Add major-item-unlocked constraint scoped to this company's site phase
