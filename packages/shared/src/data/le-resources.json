@@ -107,6 +107,7 @@
     "unique": false,
     "subtype": "minor",
     "keywords": [
+      "starting-item",
       "weapon"
     ],
     "marshallingPoints": 0,
@@ -139,6 +140,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcdraughts.jpg",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -179,6 +183,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FoulsmellingPaste.jpg",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -216,6 +223,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlazonoftheEye.jpg",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,

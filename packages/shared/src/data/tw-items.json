@@ -52,6 +52,7 @@
     "unique": true,
     "subtype": "minor",
     "keywords": [
+      "starting-item",
       "weapon"
     ],
     "marshallingPoints": 0,
@@ -190,6 +191,7 @@
     "unique": false,
     "subtype": "minor",
     "keywords": [
+      "starting-item",
       "weapon"
     ],
     "marshallingPoints": 0,
@@ -217,6 +219,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HornofAnor.jpg",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -654,6 +659,9 @@
     "alignment": "wizard",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
@@ -885,6 +893,7 @@
     "bodyModifier": 0,
     "playableAt": [],
     "keywords": [
+      "starting-item",
       "shield"
     ],
     "certified": "2026-04-24",
@@ -914,6 +923,9 @@
     "alignment": "wizard",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
@@ -1020,6 +1032,7 @@
     "unique": false,
     "subtype": "minor",
     "keywords": [
+      "starting-item",
       "weapon"
     ],
     "marshallingPoints": 0,

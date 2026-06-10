@@ -226,6 +226,11 @@ export type CheckKind =
  *   Consumed by `isCovertCompany` (reducer-utils) and the trophy-offer logic
  *   (reducer-combat); see {@link isHalfOrc}.
  * - `agent` — character is an agent (counts as both character and hazard for deck-building; has home sites).
+ * - `Spawn` — Spawn-tagged creatures and their manifestations (e.g. Balrog of Moria, The Balrog).
+ * - `starting-item` — the card belongs to the starting-item category:
+ *   non-hoard minor items plus cards whose text says they may be played
+ *   "in lieu of a minor item". Other draft restrictions (e.g. unique cards
+ *   cannot be starting items per CRF) still apply on top.
  *
  * **Legacy / superseded:**
  * - `dragon-manifestation` — superseded by the per-card `manifestId` tag
@@ -253,7 +258,8 @@ export type Keyword =
   | 'dragon-manifestation'
   | 'corruption'
   | 'under-deeps'
-  | 'Spawn';
+  | 'Spawn'
+  | 'starting-item';
 
 /**
  * How a finished game was decided (CoE rule 10.39 / MELE §1).

@@ -260,6 +260,9 @@
     "alignment": "ringwraith",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
@@ -301,6 +304,9 @@
     "alignment": "ringwraith",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
@@ -317,6 +323,9 @@
     "alignment": "ringwraith",
     "unique": true,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,

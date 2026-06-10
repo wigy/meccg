@@ -7,6 +7,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Cram.jpg",
     "unique": false,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -646,6 +649,9 @@
     "alignment": "wizard",
     "unique": true,
     "subtype": "minor",
+    "keywords": [
+      "starting-item"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 0,
