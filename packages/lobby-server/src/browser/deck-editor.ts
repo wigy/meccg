@@ -49,8 +49,9 @@ function renderSection(section: DeckSection, deckId: string): void {
       : 'Add a character card';
     // The pool holds the starting company: no avatars, but starting items.
     const includeAvatars = section.id === 'characters';
+    // The toggles fully define the browsable categories; no extra base filter.
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
-      (def) => CHARACTER_CARD_TYPES.has(def.cardType) || isStartingItem(def),
+      () => true,
       characterToggles(editingDeck?.alignment ?? '', includeAvatars)));
     titleEl.appendChild(addBtn);
   }
@@ -69,6 +70,7 @@ interface BrowserToggle {
 /** Extract loosely-typed filter traits from any card definition. */
 const traits = (def: CardDefinition) => def as unknown as {
   cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
+  subtype?: string; marshallingPoints?: number;
 };
 
 /** Whether a card belongs to the starting-item category (see the `starting-item` keyword). */
@@ -113,6 +115,58 @@ function characterToggles(alignment: string, includeAvatars = true): BrowserTogg
       match: d => isStartingItem(d) && traits(d).alignment === 'ringwraith' },
     { icon: '\u{1FA84}', title: 'Fallen-wizard starting items', active: on('fallen-wizard'),
       match: d => isStartingItem(d) && traits(d).alignment === 'fallen-wizard' },
+    ...resourceToggles(),
+  ];
+}
+
+/** Whether a card is a ring item: a gold ring or an item with the ring keyword. */
+function isRing(def: CardDefinition): boolean {
+  return traits(def).cardType.endsWith('resource-item')
+    && (traits(def).subtype === 'gold-ring' || (traits(def).keywords ?? []).includes('ring'));
+}
+
+/**
+ * Resource category toggles (hero and minion versions side by side, then
+ * the fallen-wizard pair). All start disabled in the characters/pool
+ * browsers — they hold characters and starting cards, not deck resources.
+ */
+function resourceToggles(): BrowserToggle[] {
+  // Hero/minion resources by card-type prefix; fallen-wizard stage resources
+  // reuse hero card types, so exclude that alignment from the hero side.
+  const res = (d: CardDefinition, side: 'hero' | 'minion', kind: string) =>
+    traits(d).cardType === `${side}-resource-${kind}` && traits(d).alignment !== 'fallen-wizard';
+  const hasMp = (d: CardDefinition) => (traits(d).marshallingPoints ?? 0) > 0;
+  const fwResource = (d: CardDefinition) =>
+    traits(d).alignment === 'fallen-wizard' && traits(d).cardType.includes('-resource-');
+  return [
+    { icon: '\u{1F48D}', title: 'Hero rings', active: false, separatorBefore: true,
+      match: d => res(d, 'hero', 'item') && isRing(d) },
+    { icon: '\u{1F9FF}', title: 'Minion rings', active: false,
+      match: d => res(d, 'minion', 'item') && isRing(d) },
+    { icon: '\u{1F48E}', title: 'Hero items (non-ring)', active: false,
+      match: d => res(d, 'hero', 'item') && !isRing(d) },
+    { icon: '\u{1FA93}', title: 'Minion items (non-ring)', active: false,
+      match: d => res(d, 'minion', 'item') && !isRing(d) },
+    { icon: '\u{1F6A9}', title: 'Hero factions', active: false,
+      match: d => res(d, 'hero', 'faction') },
+    { icon: '\u{1F3F4}', title: 'Minion factions', active: false,
+      match: d => res(d, 'minion', 'faction') },
+    { icon: '\u{1F434}', title: 'Hero allies', active: false,
+      match: d => res(d, 'hero', 'ally') },
+    { icon: '\u{1F43A}', title: 'Minion allies', active: false,
+      match: d => res(d, 'minion', 'ally') },
+    { icon: '\u{1F3C5}', title: 'Hero misc-point resources', active: false,
+      match: d => res(d, 'hero', 'event') && hasMp(d) },
+    { icon: '\u{1F396}️', title: 'Minion misc-point resources', active: false,
+      match: d => res(d, 'minion', 'event') && hasMp(d) },
+    { icon: '\u{1F4DC}', title: 'Hero events', active: false,
+      match: d => res(d, 'hero', 'event') && !hasMp(d) },
+    { icon: '\u{1F987}', title: 'Minion events', active: false,
+      match: d => res(d, 'minion', 'event') && !hasMp(d) },
+    { icon: '\u{1F3C6}', title: 'Fallen-wizard resources with marshalling points', active: false,
+      match: d => fwResource(d) && hasMp(d) },
+    { icon: '\u{1F56F}️', title: 'Fallen-wizard resources without marshalling points', active: false,
+      match: d => fwResource(d) && !hasMp(d) },
   ];
 }
 
