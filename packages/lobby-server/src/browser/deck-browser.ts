@@ -12,6 +12,7 @@ import {
   missingCards, uncertifiedCards, sortDeckEntries,
 } from './app-state.js';
 import { showConfirm } from './dialog.js';
+import { apiGet, apiSend } from './api.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -203,13 +204,13 @@ export function renderCompactDeck(container: HTMLElement, deck: FullDeck): void 
 /** Fetch deck catalog and player's decks, then render both lists. */
 export async function loadDecks(): Promise<void> {
   const [catalogResp, myResp] = await Promise.all([
-    fetch('/api/decks'),
-    fetch('/api/my-decks'),
+    apiGet<FullDeck[]>('/api/decks'),
+    apiGet<{ decks: FullDeck[]; currentDeck: string | null; currentFullDeck: FullDeck | null }>('/api/my-decks'),
   ]);
-  const catalog = catalogResp.ok ? await catalogResp.json() as FullDeck[] : [];
+  const catalog = catalogResp.ok ? catalogResp.data : [];
   appState.cachedCatalog = catalog;
   const myData = myResp.ok
-    ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null; currentFullDeck: FullDeck | null }
+    ? myResp.data
     : { decks: [] as FullDeck[], currentDeck: null, currentFullDeck: null };
   const myDecks = myData.decks;
   appState.currentDeckId = myData.currentDeck;
@@ -325,28 +326,20 @@ export async function loadDecks(): Promise<void> {
 
 /** Set a deck as the player's current deck, then refresh. */
 export async function selectDeck(deckId: string): Promise<void> {
-  await fetch('/api/my-decks/current', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deckId }),
-  });
+  await apiSend('/api/my-decks/current', 'PUT', { deckId });
   await loadDecks();
 }
 
 /** Delete a deck from the player's collection, then refresh. */
 export async function deleteDeck(deckId: string): Promise<void> {
-  await fetch(`/api/my-decks/${encodeURIComponent(deckId)}`, { method: 'DELETE' });
+  await apiSend(`/api/my-decks/${encodeURIComponent(deckId)}`, 'DELETE');
   await loadDecks();
 }
 
 /** Add a catalog deck to the player's collection, then refresh. */
 export async function addDeckToCollection(deck: FullDeck): Promise<void> {
   const personalDeck = { ...deck, id: `${appState.lobbyPlayerName}-${deck.id}` };
-  const resp = await fetch('/api/my-decks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(personalDeck),
-  });
+  const resp = await apiSend('/api/my-decks', 'POST', personalDeck);
   if (resp.ok) {
     await loadDecks();
   }

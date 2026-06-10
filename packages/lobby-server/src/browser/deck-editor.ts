@@ -13,6 +13,7 @@ import {
 } from './app-state.js';
 import { buildCardAttributes } from './render.js';
 import { showAlert } from './dialog.js';
+import { apiSend } from './api.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -187,14 +188,9 @@ function resourceToggles(resOn: (...alignments: string[]) => boolean): BrowserTo
 /** Persist the deck currently being edited. Returns true on success. */
 async function saveEditingDeck(): Promise<boolean> {
   if (!editingDeck) return false;
-  const r = await fetch('/api/my-decks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editingDeck),
-  });
+  const r = await apiSend('/api/my-decks', 'POST', editingDeck);
   if (!r.ok) {
-    const data = await r.json().catch(() => ({})) as { error?: string };
-    await showAlert(data.error ?? 'Failed to save deck');
+    await showAlert(r.error ?? 'Failed to save deck');
   }
   return r.ok;
 }

@@ -9,6 +9,7 @@
  */
 
 import { appState, type ScreenId } from './app-state.js';
+import { apiGet } from './api.js';
 
 // Forward-declared showScreen, set by the lobby module at startup to
 // avoid a circular dependency with lobby-screens.ts.
@@ -56,18 +57,12 @@ export async function openCreditsPage(): Promise<void> {
   summaryEl.textContent = '';
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
 
-  let data: { credits: number; history: CreditHistoryEntry[] };
-  try {
-    const resp = await fetch('/api/me/credits/history');
-    if (!resp.ok) {
-      listEl.innerHTML = '<p class="lobby-empty">Failed to load credit history</p>';
-      return;
-    }
-    data = await resp.json() as { credits: number; history: CreditHistoryEntry[] };
-  } catch {
-    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
+  const r = await apiGet<{ credits: number; history: CreditHistoryEntry[] }>('/api/me/credits/history');
+  if (!r.ok) {
+    listEl.innerHTML = `<p class="lobby-empty">${r.error ?? 'Failed to load credit history'}</p>`;
     return;
   }
+  const data = r.data;
 
   // Refresh the cached balance + nav badge while we're at it.
   appState.lobbyPlayerCredits = data.credits;

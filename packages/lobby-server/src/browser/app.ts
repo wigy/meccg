@@ -33,6 +33,7 @@ import {
 import { renderLog, showNotification } from './render-log.js';
 import { setupCardPreview } from './render-card-preview.js';
 import { loadGameBundle } from './lazy-load.js';
+import { apiGet, apiSend } from './api.js';
 
 
 const versionEl = document.getElementById('lobby-nav-version');
@@ -95,20 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const name = (document.getElementById('login-name') as HTMLInputElement).value.trim();
       const password = (document.getElementById('login-password') as HTMLInputElement).value;
       if (!name || !password) { showAuthError('login-error', 'Name and password are required'); return; }
-      try {
-        const resp = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, password }),
-        });
-        const data = await resp.json() as { name?: string; isReviewer?: boolean; credits?: number; error?: string };
-        if (!resp.ok) { showAuthError('login-error', data.error ?? 'Login failed'); return; }
-        appState.lobbyPlayerName = data.name!;
-        appState.lobbyPlayerIsReviewer = data.isReviewer ?? false;
-        appState.lobbyPlayerCredits = data.credits ?? 0;
-        showScreen('lobby-screen');
-        connectLobbyWs();
-      } catch { showAuthError('login-error', 'Connection error'); }
+      const r = await apiSend<{ name?: string; isReviewer?: boolean; credits?: number }>(
+        '/api/login', 'POST', { name, password });
+      if (!r.ok) { showAuthError('login-error', r.error ?? 'Login failed'); return; }
+      appState.lobbyPlayerName = r.data.name!;
+      appState.lobbyPlayerIsReviewer = r.data.isReviewer ?? false;
+      appState.lobbyPlayerCredits = r.data.credits ?? 0;
+      showScreen('lobby-screen');
+      connectLobbyWs();
     })(); });
 
     // Enter key on login form
@@ -122,20 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const email = (document.getElementById('register-email') as HTMLInputElement).value.trim();
       const password = (document.getElementById('register-password') as HTMLInputElement).value;
       if (!name || !email || !password) { showAuthError('register-error', 'All fields are required'); return; }
-      try {
-        const resp = await fetch('/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password, ...(displayName ? { displayName } : {}) }),
-        });
-        const data = await resp.json() as { name?: string; isReviewer?: boolean; credits?: number; error?: string };
-        if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
-        appState.lobbyPlayerName = data.name!;
-        appState.lobbyPlayerIsReviewer = data.isReviewer ?? false;
-        appState.lobbyPlayerCredits = data.credits ?? 0;
-        showScreen('lobby-screen');
-        connectLobbyWs();
-      } catch { showAuthError('register-error', 'Connection error'); }
+      const r = await apiSend<{ name?: string; isReviewer?: boolean; credits?: number }>(
+        '/api/register', 'POST', { name, email, password, ...(displayName ? { displayName } : {}) });
+      if (!r.ok) { showAuthError('register-error', r.error ?? 'Registration failed'); return; }
+      appState.lobbyPlayerName = r.data.name!;
+      appState.lobbyPlayerIsReviewer = r.data.isReviewer ?? false;
+      appState.lobbyPlayerCredits = r.data.credits ?? 0;
+      showScreen('lobby-screen');
+      connectLobbyWs();
     })(); });
 
     // Enter key on register form
@@ -144,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const doLogout = () => { void (async () => {
-      await fetch('/api/logout', { method: 'POST' });
+      await apiSend('/api/logout', 'POST');
       appState.lobbyPlayerName = null;
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       sessionStorage.removeItem(MAIL_TAB_KEY);
@@ -186,21 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     playSmartAiBtn.addEventListener('click', () => { void (async () => {
-      const resp = await fetch('/api/saves/check?opponent=AI-Smart');
-      if (resp.ok) {
-        const data = await resp.json() as { hasSave: boolean };
-        if (data.hasSave) {
-          const cont = await showConfirm(
-            'A saved game exists against Smart-AI. Continue the saved game or start a new one?',
-            { okLabel: 'Continue', cancelLabel: 'Start New' },
-          );
-          if (!cont) {
-            await fetch('/api/saves/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ opponent: 'AI-Smart' }),
-            });
-          }
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Smart');
+      if (r.ok && r.data?.hasSave) {
+        const cont = await showConfirm(
+          'A saved game exists against Smart-AI. Continue the saved game or start a new one?',
+          { okLabel: 'Continue', cancelLabel: 'Start New' },
+        );
+        if (!cont) {
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Smart' });
         }
       }
       launchSmartAiGame();
@@ -223,21 +205,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     playPseudoAiBtn.addEventListener('click', () => { void (async () => {
-      const resp = await fetch('/api/saves/check?opponent=AI-Pseudo');
-      if (resp.ok) {
-        const data = await resp.json() as { hasSave: boolean };
-        if (data.hasSave) {
-          const cont = await showConfirm(
-            'A saved game exists against Pseudo-AI. Continue the saved game or start a new one?',
-            { okLabel: 'Continue', cancelLabel: 'Start New' },
-          );
-          if (!cont) {
-            await fetch('/api/saves/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ opponent: 'AI-Pseudo' }),
-            });
-          }
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Pseudo');
+      if (r.ok && r.data?.hasSave) {
+        const cont = await showConfirm(
+          'A saved game exists against Pseudo-AI. Continue the saved game or start a new one?',
+          { okLabel: 'Continue', cancelLabel: 'Start New' },
+        );
+        if (!cont) {
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Pseudo' });
         }
       }
       launchPseudoAiGame();
@@ -312,23 +287,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const text = frBody.value.trim();
       if (!brief || !text) return;
       void (async () => {
-        const resp = await fetch('/api/mail/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipients: ['admin'],
-            subject: `Feature Request: ${brief}`,
-            topic: 'feature-request',
-            body: text,
-          }),
+        const r = await apiSend('/api/mail/send', 'POST', {
+          recipients: ['admin'],
+          subject: `Feature Request: ${brief}`,
+          topic: 'feature-request',
+          body: text,
         });
-        if (resp.ok) {
+        if (r.ok) {
           closeFeatureModal();
           showNotification('Request sent!');
           void openSent();
         } else {
-          const data = await resp.json().catch(() => ({})) as { error?: string };
-          await showAlert(data.error ?? 'Failed to send feature request');
+          await showAlert(r.error ?? 'Failed to send feature request');
         }
       })();
     });
@@ -347,21 +317,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!brief || !text) return;
     const fullBody = `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}\n\n${text}`;
     void (async () => {
-      const resp = await fetch('/api/mail/bug-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: `Bug Report: ${brief}`,
-          body: fullBody,
-          otherPlayer: appState.opponentName,
-        }),
+      const r = await apiSend('/api/mail/bug-report', 'POST', {
+        subject: `Bug Report: ${brief}`,
+        body: fullBody,
+        otherPlayer: appState.opponentName,
       });
-      if (resp.ok) {
+      if (r.ok) {
         closeBugModal();
         showNotification('Bug report sent!');
       } else {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        await showAlert(data.error ?? 'Failed to send bug report');
+        await showAlert(r.error ?? 'Failed to send bug report');
       }
     })();
   });
