@@ -799,6 +799,7 @@
     "keywords": [
       "Spawn"
     ],
+    "manifestId": "tw-12",
     "marshallingPoints": 5,
     "marshallingPointsType": "kill",
     "effects": [

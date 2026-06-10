@@ -61,6 +61,10 @@ export enum Race {
   Orc = 'orc',
   Troll = 'troll',
   Ringwraith = 'ringwraith',
+  /** The five Istari as fallen-wizard avatars (White Hand expansion). */
+  FallenWizard = 'fallen-wizard',
+  /** The Balrog of Moria as the balrog avatar (The Balrog expansion). */
+  Balrog = 'balrog',
   Dragon = 'dragon',
   Undead = 'undead',
   Spider = 'spider',
@@ -248,7 +252,8 @@ export type Keyword =
   | 'agent'
   | 'dragon-manifestation'
   | 'corruption'
-  | 'under-deeps';
+  | 'under-deeps'
+  | 'Spawn';
 
 /**
  * How a finished game was decided (CoE rule 10.39 / MELE §1).

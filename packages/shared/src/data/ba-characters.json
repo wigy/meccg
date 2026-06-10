@@ -49,6 +49,31 @@
   {
     "cardType": "minion-character",
     "alignment": "balrog",
+    "id": "ba-3",
+    "name": "The Balrog",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheBalrog.jpg",
+    "unique": true,
+    "race": "balrog",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 8,
+    "body": 11,
+    "mind": null,
+    "directInfluence": 6,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "homesite": "The Under-gates",
+    "keywords": [
+      "Spawn"
+    ],
+    "manifestId": "tw-12",
+    "text": "Unique. Manifestation of Balrog of Moria. Discard all other manifestations of Balrog of Moria when this card comes into play. +3 to the roll for his company to move between adjacent Under-deeps sites. The Balrog’s prowess is only modified by -1 when not tapping to face a strike. He may not have any followers and may not use region or starter movement."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "balrog",
     "id": "ba-4",
     "name": "Bolg",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Bolg.jpg",

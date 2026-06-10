@@ -59,6 +59,12 @@ export interface HeroCharacterCard {
   readonly mind: number | null;
   /** Influence points this character can exert to control other characters or sway factions. */
   readonly directInfluence: number;
+  /**
+   * Printed general influence. Only fallen-wizard avatars carry this stat:
+   * a fallen-wizard player's general influence is fixed by their avatar
+   * (15-22) instead of the standard 20.
+   */
+  readonly generalInfluence?: number;
   /** Victory points awarded at the Free Council for having this character in play. */
   readonly marshallingPoints: number;
   /** Always 'character' -- used for scoring category calculations at the Free Council. */

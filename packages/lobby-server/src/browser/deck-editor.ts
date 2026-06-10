@@ -70,14 +70,17 @@ function characterToggles(alignment: string): BrowserToggle[] {
     cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
   };
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
+  // Avatars are identified by their race; everyone else is an ordinary character.
+  const isAvatar = (def: CardDefinition) =>
+    ['wizard', 'ringwraith', 'fallen-wizard', 'balrog'].includes(traits(def).race ?? '');
   // Unknown alignment: enable everything.
   const on = (...alignments: string[]) => alignments.includes(alignment)
     || !['hero', 'minion', 'fallen-wizard', 'balrog'].includes(alignment);
   return [
     { icon: '\u{1F9DD}', title: 'Hero characters', active: on('hero', 'fallen-wizard'),
-      match: d => traits(d).cardType === 'hero-character' && traits(d).race !== 'wizard' },
+      match: d => traits(d).cardType === 'hero-character' && !isAvatar(d) },
     { icon: '\u{1F479}', title: 'Minion characters (non-agent)', active: on('minion', 'fallen-wizard', 'balrog'),
-      match: d => traits(d).cardType === 'minion-character' && traits(d).race !== 'ringwraith' && !isAgent(d) },
+      match: d => traits(d).cardType === 'minion-character' && !isAvatar(d) && !isAgent(d) },
     { icon: '\u{1F575}️', title: 'Agents', active: on('minion', 'fallen-wizard', 'balrog'),
       match: d => traits(d).cardType === 'minion-character' && isAgent(d) },
     { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: on('hero'),
