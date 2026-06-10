@@ -478,6 +478,18 @@ export function itemSubtypesOf(state: GameState, items: readonly { readonly defi
 }
 
 /**
+ * True if any player has a card with the given name among their characters or
+ * cards in play. Used for "card-not-in-play" play conditions, where the named
+ * blocker may be either a character or a permanent in play.
+ */
+export function isCardNameInPlayOrCharacters(state: GameState, name: string): boolean {
+  return state.players.some(p =>
+    Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
+    p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
+  );
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */

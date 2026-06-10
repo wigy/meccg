@@ -21,7 +21,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById, countCopiesInPlay, defNamesOf, itemKeywordsOf, isCovertCompany } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -39,12 +39,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
     // Check uniqueness: unique permanent events can't be played if already in play
     if (def.unique) {
-      const alreadyInPlay = state.players.some(p =>
-        p.cardsInPlay.some(c => {
-          const cDef = defById(state, c.definitionId);
-          return cDef && cDef.name === def.name;
-        }),
-      );
+      const alreadyInPlay = countCopiesInPlay(state, def.name) > 0;
       if (alreadyInPlay) {
         logDetail(`Permanent event ${def.name}: unique and already in play`);
         actions.push({
@@ -120,17 +115,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     );
     if (cardNotInPlayCondition?.cardName) {
       const blockerName = cardNotInPlayCondition.cardName;
-      const blockerInPlay = state.players.some(p => {
-        const inChars = Object.values(p.characters).some(ch => {
-          const d = defById(state, ch.definitionId);
-          return d && d.name === blockerName;
-        });
-        const inPlay = p.cardsInPlay.some(c => {
-          const d = defById(state, c.definitionId);
-          return d && d.name === blockerName;
-        });
-        return inChars || inPlay;
-      });
+      const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
       if (blockerInPlay) {
         logDetail(`Permanent event ${def.name}: blocked because ${blockerName} is in play`);
         actions.push({
