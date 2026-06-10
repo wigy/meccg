@@ -1891,14 +1891,6 @@ h2 {
   color: #ffffff;
 }
 
-/* TEMPORARY: hide the deck editing buttons until the feature is ready.
-   Remove this rule to bring back the +/- quantity buttons and the
-   Characters section's add-card button. */
-.deck-editor-qty-btn,
-.deck-editor-add-btn {
-  display: none;
-}
-
 .deck-editor-section-title {
   display: flex;
   align-items: center;
@@ -3328,6 +3320,10 @@ h2 {
 
 .card-preview-info img {
   width: 18rem;
+  /* Reserve the final card size up front with black space while the
+     image loads, so the attribute text below never jumps. */
+  aspect-ratio: 420 / 587;
+  background: #000;
   border-radius: 4px;
   margin-bottom: 0.4rem;
   display: block;
