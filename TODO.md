@@ -8,7 +8,7 @@ Improve our code quality if you can find ways to generalize parts or any other w
 
 Find out tests that has not been implemented yet and implement them. If needed, implement new concepts to the engine.
 
-Look for functions and features that are better implemented in DSL.
+Look for functions and features that are better implemented in DSL. Implement them.
 
 FIXES
 -----

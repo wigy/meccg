@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1377,12 +1377,8 @@ export function buildPlayOptionContext(
   // Names of items / allies the character bears, so play-target filters can
   // gate on a specific borne card (e.g. Cracks of Doom targets the bearer of
   // The One Ring via `{ "target.itemNames": { "$includes": "The One Ring" } }`).
-  const itemNames = char.items
-    .map(i => { const d = defById(state, i.definitionId); return d && 'name' in d ? (d as { name: string }).name : undefined; })
-    .filter((n): n is string => n !== undefined);
-  const allyNames = char.allies
-    .map(a => { const d = defById(state, a.definitionId); return d && 'name' in d ? (d as { name: string }).name : undefined; })
-    .filter((n): n is string => n !== undefined);
+  const itemNames = defNamesOf(state, char.items);
+  const allyNames = defNamesOf(state, char.allies);
 
   return {
     target: {
@@ -1433,17 +1429,13 @@ function buildActiveCompanyContext(
   const characterNames: string[] = [];
   const itemNames: string[] = [];
   const allyNames: string[] = [];
-  const nameOf = (id: import('../../index.js').CardDefinitionId): string | undefined => {
-    const d = defById(state, id);
-    return d && 'name' in d ? (d as { name: string }).name : undefined;
-  };
   for (const charId of company.characters) {
     const char = player.characters[charId as string];
     if (!char) continue;
-    const cn = nameOf(char.definitionId);
-    if (cn) characterNames.push(cn);
-    for (const item of char.items) { const n = nameOf(item.definitionId); if (n) itemNames.push(n); }
-    for (const ally of char.allies) { const n = nameOf(ally.definitionId); if (n) allyNames.push(n); }
+    const cn = defById(state, char.definitionId)?.name;
+    if (cn != null) characterNames.push(cn);
+    itemNames.push(...defNamesOf(state, char.items));
+    allyNames.push(...defNamesOf(state, char.allies));
   }
 
   return {

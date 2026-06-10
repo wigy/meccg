@@ -26,6 +26,23 @@ import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
 
 /**
+ * Group a player's companies by the instance ID of the site they currently
+ * occupy. Companies with no current site are omitted. Used to find companies
+ * (and their characters) that share a site for merges and inter-company moves.
+ */
+function groupCompaniesBySite(player: PlayerState): Map<string, PlayerState['companies'][number][]> {
+  const map = new Map<string, PlayerState['companies'][number][]>();
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteKey = company.currentSite.instanceId as string;
+    const existing = map.get(siteKey) ?? [];
+    existing.push(company);
+    map.set(siteKey, existing);
+  }
+  return map;
+}
+
+/**
  * Look up a site card definition by site name, scanning the card pool.
  * Returns undefined if no matching site is found.
  */
@@ -478,12 +495,8 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
 
   // Build a map from site instance ID → list of character instance IDs at that site
   const siteToCharacters = new Map<string, CardInstanceId[]>();
-  for (const company of player.companies) {
-    if (!company.currentSite) continue;
-    const siteKey = company.currentSite.instanceId as string;
-    const existing = siteToCharacters.get(siteKey) ?? [];
-    existing.push(...company.characters);
-    siteToCharacters.set(siteKey, existing);
+  for (const [siteKey, companies] of groupCompaniesBySite(player)) {
+    siteToCharacters.set(siteKey, companies.flatMap(c => c.characters));
   }
 
   // For each character with items, find valid transfer targets at the same site
@@ -678,15 +691,8 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
-  // Build map from site definition ID → companies at that site
-  const siteToCompanies = new Map<string, typeof player.companies[number][]>();
-  for (const company of player.companies) {
-    if (!company.currentSite) continue;
-    const siteKey = company.currentSite.instanceId as string;
-    const existing = siteToCompanies.get(siteKey) ?? [];
-    existing.push(company);
-    siteToCompanies.set(siteKey, existing);
-  }
+  // Build map from site instance ID → companies at that site
+  const siteToCompanies = groupCompaniesBySite(player);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -865,14 +871,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
   const actions: EvaluatedAction[] = [];
 
   // Build map from site instance ID → companies at that site
-  const siteToCompanies = new Map<string, typeof player.companies[number][]>();
-  for (const company of player.companies) {
-    if (!company.currentSite) continue;
-    const siteKey = company.currentSite.instanceId as string;
-    const existing = siteToCompanies.get(siteKey) ?? [];
-    existing.push(company);
-    siteToCompanies.set(siteKey, existing);
-  }
+  const siteToCompanies = groupCompaniesBySite(player);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;

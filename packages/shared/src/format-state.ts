@@ -127,6 +127,61 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
 
 // ---- Company formatting ----
 
+/**
+ * Append a character's nested attachments (items, allies, corruption cards) to
+ * `lines`, each prefixed with `indent`. Shared by the own- and opponent-company
+ * renderers, which format these identically.
+ */
+function appendCharacterAttachments(
+  char: CharacterInPlay,
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+  lines: string[],
+  indent: string,
+): void {
+  for (const item of char.items) lines.push(`${indent}${formatItemLine(item, defOf, instOf)}`);
+  for (const ally of char.allies) lines.push(`${indent}${formatAllyLine(ally, defOf, instOf)}`);
+  for (const hazard of char.hazards) lines.push(`${indent}${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
+}
+
+/**
+ * Append a company's character roster to `lines`. Followers render nested under
+ * their controlling character (and are skipped in the top-level loop), and each
+ * character's items/allies/hazards follow it. Shared by the own- and
+ * opponent-company renderers, whose only difference is the header line.
+ */
+function appendCompanyCharacters(
+  characterIds: readonly CardInstanceId[],
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+  lines: string[],
+  indent: string,
+): void {
+  // Collect follower IDs so we skip them in the main loop (they appear under their controller)
+  const followerIds = new Set<string>();
+  for (const charId of characterIds) {
+    const char = characters[charId as string];
+    if (!char) continue;
+    for (const fId of char.followers) followerIds.add(fId as string);
+  }
+
+  for (const charId of characterIds) {
+    if (followerIds.has(charId as string)) continue;
+    const char = characters[charId as string];
+    if (!char) continue;
+
+    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
+    appendCharacterAttachments(char, defOf, instOf, lines, `${indent}    `);
+    for (const followerId of char.followers) {
+      const follower = characters[followerId as string];
+      if (!follower) continue;
+      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
+      appendCharacterAttachments(follower, defOf, instOf, lines, `${indent}      `);
+    }
+  }
+}
+
 /** Format a player's own company (full visibility) as indented text lines. */
 function formatCompany(
   company: Company,
@@ -156,44 +211,7 @@ function formatCompany(
     lines.push(`${indent}  Onguard: ${ogNames.join(', ')}`);
   }
 
-  // Collect follower IDs so we skip them in the main loop (they appear under their controller)
-  const followerIds = new Set<string>();
-  for (const charId of company.characters) {
-    const char = characters[charId as string];
-    if (!char) continue;
-    for (const fId of char.followers) followerIds.add(fId as string);
-  }
-
-  for (const charId of company.characters) {
-    if (followerIds.has(charId as string)) continue;
-    const char = characters[charId as string];
-    if (!char) continue;
-
-    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
-    for (const item of char.items) {
-      lines.push(`${indent}    ${formatItemLine(item, defOf, instOf)}`);
-    }
-    for (const ally of char.allies) {
-      lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
-    }
-    for (const hazard of char.hazards) {
-      lines.push(`${indent}    ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
-    }
-    for (const followerId of char.followers) {
-      const follower = characters[followerId as string];
-      if (!follower) continue;
-      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
-      for (const item of follower.items) {
-        lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
-      }
-      for (const ally of follower.allies) {
-        lines.push(`${indent}      ${formatAllyLine(ally, defOf, instOf)}`);
-      }
-      for (const hazard of follower.hazards) {
-        lines.push(`${indent}      ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
-      }
-    }
-  }
+  appendCompanyCharacters(company.characters, characters, defOf, instOf, lines, indent);
 
   return lines;
 }
@@ -226,44 +244,7 @@ function formatOpponentCompany(
     lines.push(`${indent}  Onguard: ${ogNames.join(', ')}`);
   }
 
-  // Collect follower IDs so we skip them in the main loop
-  const followerIds = new Set<string>();
-  for (const charId of company.characters) {
-    const char = characters[charId as string];
-    if (!char) continue;
-    for (const fId of char.followers) followerIds.add(fId as string);
-  }
-
-  for (const charId of company.characters) {
-    if (followerIds.has(charId as string)) continue;
-    const char = characters[charId as string];
-    if (!char) continue;
-
-    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
-    for (const item of char.items) {
-      lines.push(`${indent}    ${formatItemLine(item, defOf, instOf)}`);
-    }
-    for (const ally of char.allies) {
-      lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
-    }
-    for (const hazard of char.hazards) {
-      lines.push(`${indent}    ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
-    }
-    for (const followerId of char.followers) {
-      const follower = characters[followerId as string];
-      if (!follower) continue;
-      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
-      for (const item of follower.items) {
-        lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
-      }
-      for (const ally of follower.allies) {
-        lines.push(`${indent}      ${formatAllyLine(ally, defOf, instOf)}`);
-      }
-      for (const hazard of follower.hazards) {
-        lines.push(`${indent}      ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
-      }
-    }
-  }
+  appendCompanyCharacters(company.characters, characters, defOf, instOf, lines, indent);
 
   return lines;
 }

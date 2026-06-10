@@ -496,6 +496,55 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * Resolve a list of card instances (items, allies, possessions, …) to their
+ * definition names, dropping any that fail to resolve. Centralizes the
+ * `instances.map(defById(...)?.name).filter(defined)` pattern used to build
+ * condition-matcher contexts (`itemNames`, `allyNames`, `possessions`).
+ */
+export function defNamesOf(state: GameState, instances: readonly { readonly definitionId: CardDefinitionId }[]): string[] {
+  return instances
+    .map(i => defById(state, i.definitionId)?.name)
+    .filter((n): n is string => n != null);
+}
+
+/**
+ * Collect the combined `keywords` of all given item instances. Used to build
+ * the `itemKeywords` field of condition-matcher contexts so filters can gate
+ * on an item keyword borne by a character (e.g. `target.itemKeywords`).
+ */
+export function itemKeywordsOf(state: GameState, items: readonly { readonly definitionId: CardDefinitionId }[]): string[] {
+  return items.flatMap(item => {
+    const iDef = defById(state, item.definitionId);
+    return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+  });
+}
+
+/**
+ * Collect the `subtype` of all given item instances that declare one. Used to
+ * build the `itemSubtypes` field of condition-matcher contexts.
+ */
+export function itemSubtypesOf(state: GameState, items: readonly { readonly definitionId: CardDefinitionId }[]): string[] {
+  return items
+    .map(item => {
+      const iDef = defById(state, item.definitionId);
+      return iDef && 'subtype' in iDef ? (iDef as { subtype?: string }).subtype : undefined;
+    })
+    .filter((s): s is string => s != null);
+}
+
+/**
+ * True if any player has a card with the given name among their characters or
+ * cards in play. Used for "card-not-in-play" play conditions, where the named
+ * blocker may be either a character or a permanent in play.
+ */
+export function isCardNameInPlayOrCharacters(state: GameState, name: string): boolean {
+  return state.players.some(p =>
+    Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
+    p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
+  );
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */
