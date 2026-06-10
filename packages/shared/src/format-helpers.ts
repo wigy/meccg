@@ -56,10 +56,13 @@ const WIZARD_CSS = 'color:#3060b0;font-weight:bold';
 /** Ringwraith avatar characters use a distinct brown-reddish color. */
 const RINGWRAITH_CSS = 'color:#b05030;font-weight:bold';
 
+/** The Balrog avatar uses a deep red, befitting a demon of shadow and flame. */
+const BALROG_CSS = 'color:#8b0000;font-weight:bold';
+
 /**
  * Get the CSS style string for a card definition, considering both card type
- * and race. Wizard and Ringwraith avatars get distinct colors from their
- * alignment's regular characters.
+ * and race. Wizard, Ringwraith, and Balrog avatars get distinct colors from
+ * their alignment's regular characters.
  */
 export function getCardCss(def: { cardType: string; race?: string }): string | undefined {
   if (def.cardType === 'hero-character' && def.race === 'wizard') {
@@ -67,6 +70,9 @@ export function getCardCss(def: { cardType: string; race?: string }): string | u
   }
   if (def.cardType === 'minion-character' && def.race === 'ringwraith') {
     return RINGWRAITH_CSS;
+  }
+  if (def.cardType === 'minion-character' && def.race === 'balrog') {
+    return BALROG_CSS;
   }
   return CARD_TYPE_CSS[def.cardType];
 }
