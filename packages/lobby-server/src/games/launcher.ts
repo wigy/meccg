@@ -69,6 +69,25 @@ function isPortFree(port: number): Promise<boolean> {
   });
 }
 
+/**
+ * Forward a child process output stream to the lobby log line by line under
+ * the given event name. `onLine` additionally sees each line (e.g. to detect
+ * the game server's "listening" message).
+ */
+function forwardChildLines(
+  stream: NodeJS.ReadableStream | null,
+  event: string,
+  port: number,
+  onLine?: (line: string) => void,
+): void {
+  stream?.on('data', (data: Buffer) => {
+    for (const line of data.toString().split('\n').filter(Boolean)) {
+      lobbyLog.log(event, { port, line });
+      onLine?.(line);
+    }
+  });
+}
+
 export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
   // Skip ports that are still in use (e.g. orphaned game servers from a previous lobby instance)
   while (!await isPortFree(nextPort)) {
@@ -104,21 +123,14 @@ export async function launchGame(player1: string, player2: string, options?: Lau
       reject(new Error(`Game server on port ${port} failed to start within 15s`));
     }, 15000);
 
-    child.stdout?.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        lobbyLog.log('game-stdout', { port, line });
-        if (line.includes('listening on port')) {
-          clearTimeout(timeout);
-          resolve();
-        }
+    forwardChildLines(child.stdout, 'game-stdout', port, (line) => {
+      if (line.includes('listening on port')) {
+        clearTimeout(timeout);
+        resolve();
       }
     });
 
-    child.stderr?.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        lobbyLog.log('game-stderr', { port, line });
-      }
-    });
+    forwardChildLines(child.stderr, 'game-stderr', port);
 
     child.on('exit', (code) => {
       clearTimeout(timeout);
@@ -144,16 +156,8 @@ export async function launchGame(player1: string, player2: string, options?: Lau
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
     });
-    aiChild.stdout?.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        lobbyLog.log('ai-stdout', { port, line });
-      }
-    });
-    aiChild.stderr?.on('data', (data: Buffer) => {
-      for (const line of data.toString().split('\n').filter(Boolean)) {
-        lobbyLog.log('ai-stderr', { port, line });
-      }
-    });
+    forwardChildLines(aiChild.stdout, 'ai-stdout', port);
+    forwardChildLines(aiChild.stderr, 'ai-stderr', port);
     child.on('exit', () => {
       if (!aiChild.killed) aiChild.kill();
     });
