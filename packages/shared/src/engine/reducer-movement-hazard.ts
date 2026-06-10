@@ -11,7 +11,7 @@ import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfl
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
@@ -20,7 +20,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -2586,34 +2586,6 @@ function handleUnderDeepsRoll(state: GameState, action: GameAction, mhState: Mov
  */
 
 
-/**
- * Compute the effective company size, accounting for hobbits and orc scouts
- * each counting as half a character (rounded up for the total).
- *
- * Per CoE rules: "The number of characters in a company, with each Hobbit
- * or Orc scout character only counting as half of a character (rounded up)."
- */
-function getCompanySize(state: GameState, company: Company): number {
-  let halfCount = 0;
-  let fullCount = 0;
-  for (const charInstId of company.characters) {
-    const charDefId = resolveInstanceId(state, charInstId);
-    if (!charDefId) { fullCount++; continue; }
-    const def = defById(state, charDefId);
-    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
-    const isHobbit = def.race === Race.Hobbit;
-    const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
-    if (isHobbit || isOrcScout) {
-      halfCount++;
-      logDetail(`  ${def.name} (${def.race}${isOrcScout ? '/scout' : ''}) counts as half`);
-    } else {
-      fullCount++;
-    }
-  }
-  const size = Math.ceil(fullCount + halfCount / 2);
-  logDetail(`Company size: ${fullCount} full + ${halfCount} half = ${size}`);
-  return size;
-}
 
 /**
  * Handle tap-hazard-card-for-limit: hazard player taps a cardsInPlay permanent
@@ -2854,7 +2826,7 @@ function snapshotHazardLimit(
   state: GameState,
   company: Company,
 ): { limit: number; preRevealConstraintIds: readonly string[] } {
-  const companySize = getCompanySize(state, company);
+  const companySize = companyEffectiveSize(state, company);
   let limit = Math.max(companySize, 2);
   logDetail(`Hazard limit (step 3): company size ${companySize} → base limit ${limit}`);
 

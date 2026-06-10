@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, companyEffectiveSize } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1827,19 +1827,10 @@ function playHazardsActions(
       const isSiteTargeting = playTarget?.target === 'site';
       if (isCharTargeting) {
         // maxCompanySize: card is only playable if the target company
-        // has effective size ≤ the declared maximum (hobbits count half).
+        // has effective size ≤ the declared maximum (Hobbits and Orc
+        // scouts count half — CoE rule 3.24, via companyEffectiveSize).
         if (playTarget.maxCompanySize !== undefined) {
-          let halfCount = 0;
-          let fullCount = 0;
-          for (const cId of targetCompany.characters) {
-            const cDef = resolveDef(state, cId);
-            if (cDef && isCharacterCard(cDef) && cDef.race === 'hobbit') {
-              halfCount++;
-            } else {
-              fullCount++;
-            }
-          }
-          const effectiveSize = Math.ceil(fullCount + halfCount / 2);
+          const effectiveSize = companyEffectiveSize(state, targetCompany);
           if (effectiveSize > playTarget.maxCompanySize) {
             logDetail(`Hazard "${def.name}" requires company size ≤ ${playTarget.maxCompanySize} (got ${effectiveSize})`);
             actions.push({ action, viable: false, reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize}` });

@@ -17,10 +17,10 @@ import type {
   CardEffect,
   CompanyId,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter, Skill } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeOf } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
@@ -716,7 +716,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
 
         // Rules 3.24–3.26 apply only at non-haven sites.
         if (!atHaven) {
-          const resultingSize = effectiveSize(state, resultingCharIds);
+          const resultingSize = companyEffectiveSizeOf(state, resultingCharIds);
           if (resultingSize > 7) {
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — would exceed size limit (${resultingSize} > 7)`);
             continue;
@@ -771,25 +771,6 @@ function companyAtHaven(state: GameState, company: { currentSite?: { instanceId:
   if (!siteDefId) return false;
   const siteDef = defById(state, siteDefId);
   return !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
-}
-
-/**
- * Compute effective company size per CoE rule 3.24.
- * Hobbits and Orc scouts each count as half a character (total rounded up).
- */
-function effectiveSize(state: GameState, charInstIds: readonly CardInstanceId[]): number {
-  let halfCount = 0;
-  let fullCount = 0;
-  for (const charInstId of charInstIds) {
-    const defId = resolveInstanceId(state, charInstId);
-    const def = defId ? defById(state, defId) : undefined;
-    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
-    const isHobbit = def.race === Race.Hobbit;
-    const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
-    if (isHobbit || isOrcScout) halfCount++;
-    else fullCount++;
-  }
-  return Math.ceil(fullCount + halfCount / 2);
 }
 
 /** The MECCG races that cannot mix with Orcs/Trolls (CoE rule 3.25). */
@@ -906,7 +887,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
 
       // Rules 3.24–3.26 apply only at non-haven sites.
       if (!atHaven) {
-        const mergedSize = effectiveSize(state, mergedCharIds);
+        const mergedSize = companyEffectiveSizeOf(state, mergedCharIds);
         if (mergedSize > 7) {
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
           continue;
