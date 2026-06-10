@@ -161,7 +161,7 @@ function openCardBrowser(
   const search = document.createElement('input');
   search.type = 'text';
   search.className = 'card-browser-search';
-  search.placeholder = 'Search cards…';
+  search.placeholder = 'Search by name, card text, or keyword…';
   dialog.appendChild(search);
 
   const body = document.createElement('div');
@@ -218,11 +218,21 @@ function openCardBrowser(
     previewPane.appendChild(info);
   };
 
+  const matchesSearch = (def: CardDefinition, filter: string): boolean => {
+    if (def.name.toLowerCase().includes(filter)) return true;
+    const d = def as unknown as {
+      text?: string; keywords?: readonly string[]; race?: string; skills?: readonly string[];
+    };
+    if (d.text?.toLowerCase().includes(filter)) return true;
+    return [...(d.keywords ?? []), d.race, ...(d.skills ?? [])]
+      .some(kw => kw?.toLowerCase().includes(filter));
+  };
+
   const renderList = () => {
     list.innerHTML = '';
     const filter = search.value.trim().toLowerCase();
     for (const [cardId, def] of cards) {
-      if (filter && !def.name.toLowerCase().includes(filter)) continue;
+      if (filter && !matchesSearch(def, filter)) continue;
       const item = document.createElement('div');
       item.className = 'card-browser-item';
       item.textContent = def.name;
