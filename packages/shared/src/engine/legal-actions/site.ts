@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1131,14 +1131,7 @@ function playResourcesActions(
         (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
       );
       if (itemCompanyDupLimit) {
-        const copiesInCompany = company.characters.reduce((count, charInstId) => {
-          const ch = player.characters[charInstId as string];
-          if (!ch) return count;
-          return count + ch.items.filter(item => {
-            const iDef = defById(state, item.definitionId);
-            return iDef && iDef.name === itemDef.name;
-          }).length;
-        }, 0);
+        const copiesInCompany = countAttachedInCompany(state, player, company, itemDef.name, 'items');
         if (copiesInCompany >= itemCompanyDupLimit.max) {
           logDetail(`Item ${itemDef.name}: company duplication limit reached (${copiesInCompany}/${itemCompanyDupLimit.max})`);
           actions.push({
@@ -1270,14 +1263,7 @@ function playResourcesActions(
         (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
       );
       if (allyCompanyDupLimit) {
-        const copiesInCompany = company.characters.reduce((count, charInstId) => {
-          const ch = player.characters[charInstId as string];
-          if (!ch) return count;
-          return count + ch.allies.filter(a => {
-            const aDef = defById(state, a.definitionId);
-            return aDef && aDef.name === allyDef.name;
-          }).length;
-        }, 0);
+        const copiesInCompany = countAttachedInCompany(state, player, company, allyDef.name, 'allies');
         if (copiesInCompany >= allyCompanyDupLimit.max) {
           logDetail(`Ally ${allyDef.name}: company duplication limit reached (${copiesInCompany}/${allyCompanyDupLimit.max})`);
           actions.push({
