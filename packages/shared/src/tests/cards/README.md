@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 470 | 461 | 9 | 98.1% |
+| 471 | 461 | 10 | 97.9% |
 
 ## Category Breakdown
 
@@ -15,7 +15,7 @@
 | AS | 33 | 33 | 100.0% |
 | BA | 2 | 0 | 0.0% |
 | DM | 39 | 39 | 100.0% |
-| LE | 116 | 114 | 98.3% |
+| LE | 117 | 114 | 97.4% |
 | TD | 49 | 49 | 100.0% |
 | TW | 227 | 222 | 97.8% |
 | WH | 4 | 4 | 100.0% |
@@ -117,7 +117,7 @@
 | le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
 | le-46 | Tros Hesnef | — | 3 | ☑ |
-| le-50 | Adûnaphel the Ringwraith | — | 7 | ☑ |
+| le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
@@ -195,7 +195,8 @@
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
 | le-pending-effects-parity | le-pending-effects-parity | — | 1 | ☐ |
-| le-52 | Dwar the Ringwraith | — | 8 | ☑ |
+| le-52 | Dwar the Ringwraith | — | 10 | ☑ |
+| le-58 | The Witch-king | — | 4 | ◐ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
 | le-75 | Giant Spiders | — | 8 | ☑ |
 | le-98 | Wargs | — | 5 | ☑ |
