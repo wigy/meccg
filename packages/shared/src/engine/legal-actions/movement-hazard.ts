@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1894,12 +1894,7 @@ function playHazardsActions(
           } else if (effect.scope === 'company') {
             // One copy per company: check if this card is already in cardsInPlay bound to the target company
             const targetCompanyId = targetCompany.id;
-            const copiesOnCompany = state.players.reduce((count, p) =>
-              count + p.cardsInPlay.filter(c => {
-                const cDef = defById(state, c.definitionId);
-                return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompanyId as string);
-              }).length, 0,
-            );
+            const copiesOnCompany = countCompanyBoundCopies(state, def.name, targetCompanyId);
             if (copiesOnCompany >= effect.max) {
               logDetail(`Hazard event "${def.name}" cannot be duplicated on company ${targetCompanyId as string} (${copiesOnCompany}/${effect.max} in play)`);
               actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
@@ -2095,12 +2090,7 @@ function playHazardsActions(
           (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
         );
         if (companyDupLimit) {
-          const existingCopies = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (targetCompany.id as string);
-            }).length, 0,
-          );
+          const existingCopies = countCompanyBoundCopies(state, def.name, targetCompany.id);
           if (existingCopies >= companyDupLimit.max) {
             logDetail(`Hazard event "${def.name}" already bound to target company (${existingCopies}/${companyDupLimit.max})`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });

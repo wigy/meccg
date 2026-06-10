@@ -496,6 +496,40 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * Count cards named `name` attached to the company's characters (their
+ * `items` or `allies`). Backs `duplication-limit` checks with
+ * `scope: "company"` for attachable cards ("cannot be duplicated in a
+ * given company").
+ */
+export function countAttachedInCompany(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  name: string,
+  kind: 'items' | 'allies',
+): number {
+  return company.characters.reduce((count, charInstId) => {
+    const ch = player.characters[charInstId as string];
+    if (!ch) return count;
+    return count + ch[kind].filter(att => defById(state, att.definitionId)?.name === name).length;
+  }, 0);
+}
+
+/**
+ * Count cards named `name` in any player's `cardsInPlay` that are bound to
+ * the given company. Backs `duplication-limit` checks with
+ * `scope: "company"` for company-targeting events.
+ */
+export function countCompanyBoundCopies(state: GameState, name: string, companyId: CompanyId): number {
+  return state.players.reduce((count, p) =>
+    count + p.cardsInPlay.filter(c =>
+      defById(state, c.definitionId)?.name === name
+        && (c.companyId as string | undefined) === (companyId as string),
+    ).length,
+  0);
+}
+
+/**
  * Resolve a list of card instances (items, allies, possessions, …) to their
  * definition names, dropping any that fail to resolve. Centralizes the
  * `instances.map(defById(...)?.name).filter(defined)` pattern used to build

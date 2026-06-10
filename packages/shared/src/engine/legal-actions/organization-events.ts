@@ -21,7 +21,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById, countCopiesInPlay, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -174,14 +174,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
         }
         if (companyDupLimit) {
-          const copiesInCompany = company.characters.reduce((count, cId) => {
-            const ch = player.characters[cId as string];
-            if (!ch) return count;
-            return count + ch.items.filter(item => {
-              const iDef = defById(state, item.definitionId);
-              return iDef && iDef.name === def.name;
-            }).length;
-          }, 0);
+          const copiesInCompany = countAttachedInCompany(state, player, company, def.name, 'items');
           if (copiesInCompany >= companyDupLimit.max) {
             logDetail(`Permanent event ${def.name}: company duplication limit reached (${copiesInCompany}/${companyDupLimit.max})`);
             continue;
@@ -274,12 +267,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const memberCount = company.characters.length + allyCount;
         // Company duplication limit: check cardsInPlay bound to this company
         if (companyDupLimit) {
-          const existingCopies = state.players.reduce((count, p) =>
-            count + p.cardsInPlay.filter(c => {
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === def.name && (c.companyId as string | undefined) === (company.id as string);
-            }).length, 0,
-          );
+          const existingCopies = countCompanyBoundCopies(state, def.name, company.id);
           if (existingCopies >= companyDupLimit.max) {
             logDetail(`Permanent event ${def.name}: company duplication limit reached on ${company.id as string} (${existingCopies}/${companyDupLimit.max})`);
             continue;
