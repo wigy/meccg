@@ -348,6 +348,23 @@ export interface ActivateGrantedAction {
   readonly noTap?: true;
 }
 
+/**
+ * Tap a sage to test a gold-ring item at a site whose `sage-tap-ring-test`
+ * site-rule grants the ability (e.g. Mount Doom, le-393). The named sage
+ * taps; the gold-ring item's owner then rolls a ring test with the site's
+ * roll modifier applied. The ring is discarded and a matching special ring
+ * may be played, exactly as for any other ring test.
+ */
+export interface TestRingAtSiteAction {
+  readonly type: 'test-ring-at-site';
+  /** The player performing the test. */
+  readonly player: PlayerId;
+  /** The untapped sage tapping to perform the test (cost). */
+  readonly characterId: CardInstanceId;
+  /** The gold-ring item — borne by a character in the sage's company — being tested. */
+  readonly targetCardId: CardInstanceId;
+}
+
 // ---- Wizard-search window (The Windlord Found Me) ----
 
 /**

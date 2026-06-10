@@ -765,6 +765,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Blasting Fire (wh-51): every faction-influence attempt made
+         * against a faction at the named site is modified by {@link value}
+         * for the rest of the turn. Placed (scope `'turn'`) when the item
+         * is discarded during the site phase; matched by `siteDefinitionId`
+         * against the influencing company's current site in
+         * `legal-actions/site.ts`.
+         */
+        readonly type: 'influence-at-site-modifier';
+        /** The definition ID of the site whose influence attempts are modified. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /** The bonus (or penalty if negative) applied to the influence roll. */
+        readonly value: number;
+      }
+    | {
+        /**
          * METD §7 / rule 10.08 — once a player attempts the no-tap
          * variant of removing a corruption card from a character, no
          * further attempts (tap or no-tap) on the same
@@ -857,6 +872,22 @@ export interface ActiveConstraint {
          * the company's site phase ends.
          */
         readonly type: 'major-item-unlocked';
+      }
+    | {
+        /**
+         * Records Unread (as-130): a player discarded the item to "make
+         * Information playable at any Shadow-hold". While this constraint
+         * is active, a resource of category {@link subtype} (e.g.
+         * `"information"`) may be played at any site whose type matches
+         * {@link siteType} (e.g. `"shadow-hold"`), even when that site does
+         * not normally list the category in its `playableResources`.
+         * Targeted at the discarding player and scoped to `turn`.
+         */
+        readonly type: 'site-resource-unlocked';
+        /** Site type at which the resource category becomes playable. */
+        readonly siteType: string;
+        /** Resource category unlocked (e.g. `"information"`). */
+        readonly subtype: string;
       }
     | {
         /**

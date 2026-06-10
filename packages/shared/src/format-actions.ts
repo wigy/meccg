@@ -418,6 +418,8 @@ export function describeAction(
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':
       return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
+    case 'test-ring-at-site':
+      return `${instName(action.characterId)} taps to test ring ${instName(action.targetCardId)} at this site`;
     case 'play-ring-after-test':
       return `Play ${instName(action.ringInstanceId)} as replacement ring after test`;
     case 'body-check-company-roll':
@@ -498,6 +500,8 @@ export function describeAction(
       return `${action.player as string} plays reserved creature from ${action.sourceCardInstanceId as string} against company ${action.targetCompanyId as string}`;
     case 'stay-her-appetite-roll':
       return `${action.player as string} rolls for Stay Her Appetite`;
+    case 'tap-ally-combat-boost':
+      return `${action.player as string} taps ally ${action.cardInstanceId as string} to boost its company in combat`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

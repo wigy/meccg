@@ -1001,7 +1001,27 @@
     "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": []
+    "playableAt": [
+      {
+        "siteType": "ruins-and-lairs",
+        "when": {
+          "site.autoAttack.race": "wolf"
+        }
+      },
+      {
+        "siteType": "shadow-hold",
+        "when": {
+          "site.autoAttack.race": "orc"
+        }
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-event",
@@ -1311,7 +1331,45 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "scout"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        },
+        "maxCompanySize": 2,
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-event",
@@ -1686,6 +1744,25 @@
   },
   {
     "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-275",
+    "name": "Orcs of Gorgoroth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofGorgoroth.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Barad-dûr"
+      }
+    ],
+    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Udûn (+2), Orcs of Mirkwood (-2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
     "id": "le-277",
     "name": "Orcs of Mirkwood",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofMirkwood.jpg",
@@ -1694,9 +1771,33 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Sarn Goriwing"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of the Red Eye"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Orcs of Gorgoroth"
+        }
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-faction",
@@ -1711,6 +1812,25 @@
     "influenceNumber": 0,
     "race": "orc",
     "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-281",
+    "name": "Orcs of the Red Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsoftheRedEye.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Barad-dûr"
+      }
+    ],
+    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Mirkwood (-2), Orcs of Udûn (-2), Uruk-hai (+2)."
   },
   {
     "cardType": "minion-resource-faction",
@@ -1736,9 +1856,21 @@
     "unique": false,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "siteType": "shadow-hold"
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "minion-resource-faction",

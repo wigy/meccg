@@ -1618,6 +1618,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
   const defenderProwessFromMind = hasPlayFlag(creatureDef, 'combat-defender-prowess-from-mind');
 
+  // Check for tap-low-mind combat rule (e.g. Wisp of Pale Sheen — facing
+  // characters with mind ≤ strike prowess tap after the strike resolves).
+  const tapLowMindAfterStrike = creatureDef.effects?.some(
+    e => e.type === 'combat-tap-low-mind',
+  ) ?? false;
+  if (tapLowMindAfterStrike) {
+    logDetail('Creature has tap-low-mind — facing characters with mind ≤ strike prowess tap after their strike');
+  }
+
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
   const cancelByTapEffect = creatureDef.effects?.find(
     e => e.type === 'combat-cancel-attack-by-tap',
@@ -1719,6 +1728,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
+    tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   };
 

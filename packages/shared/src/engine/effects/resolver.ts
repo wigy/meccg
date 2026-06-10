@@ -671,12 +671,19 @@ export function resolveStatModifiers(
     activeEffects.push(override ?? base);
   }
 
-  // Apply modifiers
+  // Apply modifiers. Additive (`op` absent or `"add"`) effects are applied
+  // first; multiplicative (`op: "multiply"`) effects are applied afterwards so
+  // that "doubled"-style modifiers (e.g. Plague of Wights doubling Undead
+  // strikes) act on the already-modified total rather than the raw base.
   const exprContext = context as unknown as Record<string, unknown>;
+  const orderedEffects = [
+    ...activeEffects.filter((e) => e.op !== 'multiply'),
+    ...activeEffects.filter((e) => e.op === 'multiply'),
+  ];
   let result = baseValue;
-  for (const effect of activeEffects) {
+  for (const effect of orderedEffects) {
     const value = evaluateExpr(effect.value, exprContext);
-    result += value;
+    result = effect.op === 'multiply' ? result * value : result + value;
     if (effect.max !== undefined) {
       const maxVal = evaluateExpr(effect.max, exprContext);
       result = Math.min(result, maxVal);
@@ -770,6 +777,7 @@ const CREATURE_TYPE_TO_RACE: Record<string, string> = {
   dragon: 'dragon',
   dragons: 'dragon',
   giants: 'giant',
+  dwarves: 'dwarf',
   hobbits: 'hobbit',
   'dúnedain': 'dunadan',
   elves: 'elf',

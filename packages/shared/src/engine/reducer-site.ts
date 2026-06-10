@@ -712,6 +712,11 @@ function handleSiteAutomaticAttacks(
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
+    // Spider-style auto-attacks (Shelob's Lair le-402): "cannot be canceled"
+    // suppresses cancel-attack actions; "wound-eliminates" upgrades any wound
+    // dealt by this attack into immediate elimination.
+    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };

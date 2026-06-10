@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
@@ -147,6 +147,9 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
+  // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
+  // the ally's owner during the assign-strikes and resolve-strike windows.
+  const allyCombatBoosts = tapAllyCombatBoostActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -165,18 +168,19 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...protectActions,
           ...modifyActions,
           ...companyCombatBoosts,
+          ...allyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
       if (combat.isCvCC) {
-        return cvccResolveStrikeActions(state, playerId, combat);
+        return [...cvccResolveStrikeActions(state, playerId, combat), ...allyCombatBoosts];
       }
 
       // Rule 3.iv.6.1: for agent attacks the attacker must roll first before
@@ -218,6 +222,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return [
         ...resolveStrikeActions(state, playerId, combat),
         ...hazardPlays,
+        ...allyCombatBoosts,
       ];
     }
     case 'body-check':
@@ -2210,6 +2215,88 @@ function companyCombatBoostActions(
       },
       viable: true,
     });
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `tap-ally-combat-boost` actions: the owner of an untapped in-play
+ * ally carrying a `combat-tap-company-boost` effect may tap it during combat to
+ * grant an attack-scoped stat boost to matching characters in the ally's own
+ * company. Offered during the assign-strikes and resolve-strike windows when
+ * the ally's company is involved in the current combat (the defending company
+ * in creature combat, or either company in CvCC) and at least one character in
+ * that company matches the boost filter. Each ally may apply its boost only
+ * once per attack.
+ *
+ * Used by Great Lord of Goblin-gate (as-75).
+ */
+function tapAllyCombatBoostActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const attackingCompanyId = combat.attackSource.type === 'company-attack'
+    ? combat.attackSource.attackingCompanyId
+    : undefined;
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const [charId, charData] of Object.entries(player.characters)) {
+    // The bearer's company must be involved in this combat.
+    const company = player.companies.find(c => c.characters.includes(charId as CardInstanceId));
+    if (!company) continue;
+    const involved = company.id === combat.companyId
+      || (combat.isCvCC === true && company.id === attackingCompanyId);
+    if (!involved) continue;
+
+    for (const ally of charData.allies) {
+      if (ally.status !== CardStatus.Untapped) continue;
+      const allyDef = defById(state, ally.definitionId);
+      const boostEffects = getCardEffects(allyDef).filter(
+        (e): e is CombatTapCompanyBoostEffect => e.type === 'combat-tap-company-boost',
+      );
+      if (boostEffects.length === 0) continue;
+
+      // Already applied this attack? (no stacking)
+      const already = state.activeConstraints.some(
+        c => c.source === ally.instanceId && c.scope.kind === 'attack',
+      );
+      if (already) {
+        logDetail(`Ally ${(allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string)}: boost already applied this attack`);
+        continue;
+      }
+
+      // At least one character in the company must match a boost filter.
+      let hasMatch = false;
+      for (const effect of boostEffects) {
+        if (!effect.filter) { hasMatch = true; break; }
+        for (const memberId of company.characters) {
+          const member = player.characters[memberId as string];
+          if (!member) continue;
+          const memberDef = defById(state, member.definitionId);
+          if (!memberDef || !('race' in memberDef)) continue;
+          const ctx = { target: {
+            race: (memberDef as { race?: string }).race ?? '',
+            name: (memberDef as { name?: string }).name ?? '',
+            skills: (memberDef as { skills?: readonly string[] }).skills ?? [],
+          } };
+          if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
+        }
+        if (hasMatch) break;
+      }
+      if (!hasMatch) continue;
+
+      logDetail(`Tap-ally-combat-boost available: ${(allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string)}`);
+      actions.push({
+        action: { type: 'tap-ally-combat-boost', player: playerId, cardInstanceId: ally.instanceId },
+        viable: true,
+      });
+    }
   }
 
   return actions;

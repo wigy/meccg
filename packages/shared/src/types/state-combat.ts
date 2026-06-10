@@ -443,6 +443,15 @@ export interface CombatState {
    */
   readonly uncancelable?: boolean;
   /**
+   * When true, any character (or ally) this attack wounds is immediately
+   * eliminated instead of merely wounded — no body check is rolled.
+   * Set by the `wound-eliminates` auto-attack combat rule (e.g. the Spider
+   * at *Shelob's Lair* le-402: "any character wounded is immediately
+   * eliminated"). Detainment strikes tap rather than wound, so they never
+   * trigger this.
+   */
+  readonly woundEliminates?: boolean;
+  /**
    * When true, this attack was reduced from multiple attacks by
    * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the
    * `attack-defeated` condition context so the card can self-discard
@@ -470,6 +479,13 @@ export interface CombatState {
    * (tapped, wounded) and support bonuses still apply on top of the mind base.
    */
   readonly defenderProwessFromMind?: boolean;
+  /**
+   * When true, after each strike resolves every facing character whose mind
+   * attribute is ≤ the attack's strike prowess must tap if still untapped
+   * (e.g. Wisp of Pale Sheen). Set by `combat-tap-low-mind`. Avatars
+   * (mind === null) and wounded (inverted) characters are unaffected.
+   */
+  readonly tapLowMindAfterStrike?: boolean;
   /**
    * Character instance IDs protected from strike assignment by a
    * `protect-from-strike-assignment` effect (e.g. Ruse mode B).

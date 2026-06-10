@@ -130,6 +130,15 @@ export interface StatModifierEffect extends EffectBase {
   readonly stat: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'strikes' | 'general-influence' | 'mind';
   /** The bonus (or penalty if negative) to apply. Can be a MathJS expression. */
   readonly value: ValueExpr;
+  /**
+   * How `value` combines with the running stat total.
+   * - `"add"` (default) — `result += value` (the common +N / -N modifier).
+   * - `"multiply"` — `result *= value`, applied **after** all additive
+   *   modifiers. Used for "doubled"-style effects, e.g. Plague of Wights
+   *   (le-130) doubles the number of strikes of each Undead attack when
+   *   Doors of Night is in play (`op: "multiply", value: 2`).
+   */
+  readonly op?: 'add' | 'multiply';
   /** Maximum resulting stat value. Can be a MathJS expression. */
   readonly max?: ValueExpr;
   /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
@@ -295,6 +304,18 @@ export interface GrantActionEffect extends EffectBase {
    * Council" clause.
    */
   readonly freeCouncil?: boolean;
+  /**
+   * When true, the ability may be activated by the active (resource)
+   * player during the *enter-or-skip* step of their own site phase —
+   * the decision window immediately before a company commits to facing
+   * a site's automatic-attacks. Used by *Blasting Fire* (wh-51), which
+   * is discarded at this moment to cancel all of the site's
+   * automatic-attacks against the bearer's company. Distinct from
+   * {@link anyPhase} (which would also expose the ability during
+   * organization / M-H) because canceling automatic-attacks is only
+   * meaningful at this one point in the site phase.
+   */
+  readonly activeSitePhase?: boolean;
   /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
@@ -528,6 +549,19 @@ export interface TriggeredAction {
    * the item. Used by *Covetous Thoughts* (le-107).
    */
   readonly perOthersItem?: boolean;
+  /**
+   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
+   * site type at which a resource category becomes playable for the rest
+   * of the constraint's scope (e.g. `"shadow-hold"`). Used by Records
+   * Unread (as-130): "make Information playable at any Shadow-hold".
+   */
+  readonly siteType?: string;
+  /**
+   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
+   * resource category being unlocked at {@link siteType} (e.g.
+   * `"information"`).
+   */
+  readonly subtype?: string;
   /**
    * Selector for which entity the apply acts on. Interpretation is
    * context-specific — for `grant-action` applies, `"bearer"` means the
@@ -834,6 +868,22 @@ export interface CombatDetainmentEffect extends EffectBase {
 }
 
 /**
+ * After each strike of this attack resolves, every facing character whose
+ * mind attribute is less than or equal to the strike's prowess must tap if
+ * it is still untapped. Wounded characters (now inverted) and avatar
+ * characters (mind === null) are unaffected; a strike that is canceled never
+ * resolves, so it never triggers the tap. Card text is "Any character facing
+ * a strike whose mind is equal to or lower than the strike's prowess must tap
+ * if untapped following the strike (unless the strike is canceled)"
+ * (e.g. Wisp of Pale Sheen, dm-113). Presence of this effect is the entire
+ * payload — the threshold is the attack's strike prowess, read at resolution
+ * time. (implemented in `reducer-combat.ts`)
+ */
+export interface CombatTapLowMindEffect extends EffectBase {
+  readonly type: 'combat-tap-low-mind';
+}
+
+/**
  * Closed set of presence-only flags that toggle uniform play-time
  * behaviors in the engine. Each flag is a single keyword, matched
  * exactly — no card-specific dispatch, just "does the card declare
@@ -877,16 +927,17 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   automatic-attacks or hazard creatures whose `keyedTo` includes the
  *   site type of the company's current or destination site (e.g. Quickbeam,
  *   Treebeard).
- * - `playable-at-tapped-site` — the ally may be played at a site that is
- *   already tapped (overrides the default "allies require untapped site" rule).
- *   Used by Noble Steed, which is explicitly playable at "tapped or untapped"
- *   non-Haven sites in its region list.
+ * - `playable-at-tapped-site` — the card (ally or faction) may be played at a
+ *   site that is already tapped (overrides the default "allies/factions require
+ *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
+ *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
+ *   which is playable at "any tapped or untapped Shadow-hold".
  * - `block-company-joins` — while this permanent event is in play bound to a
  *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
  *   may join that company. On play the company's existing allies and follower
  *   characters are discarded. Used by Fell Rider (le-183).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1240,8 +1291,21 @@ export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
   /** Site names where the item can be played. Mutually exclusive with `filter`. */
   readonly sites?: readonly string[];
-  /** Generic site filter, evaluated against `{ site: siteDef }`. */
+  /**
+   * Generic site filter, evaluated against `{ site: siteDef }`. The site
+   * context is augmented with `autoAttackRaces` — the normalized races of
+   * the site's automatic-attacks — so a filter can match "a site with a
+   * Dwarf automatic-attack" via `{ "site.autoAttackRaces": { "$includes": "dwarf" } }`.
+   */
   readonly filter?: Condition;
+  /**
+   * When true, the item may be played even when its company's current
+   * site is Tapped (the normal tapped-site gate is bypassed). The
+   * site-restriction (`sites` / `filter`) must still match. Used by
+   * *Blasting Fire* (wh-51): "Playable at a tapped or untapped
+   * Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
+   */
+  readonly allowTapped?: boolean;
 }
 
 /**
@@ -1259,6 +1323,7 @@ export type SiteRuleEffect =
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
   | SitePhaseRingAutoTestSiteRule
+  | SageTapRingTestSiteRule
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
@@ -1389,6 +1454,25 @@ export interface SitePhaseRingAutoTestSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'site-phase-ring-auto-test';
   /** Roll modifier applied to every auto-test (e.g. -3 for Barad-dûr). */
+  readonly rollModifier: number;
+}
+
+/**
+ * Grants an active, optional ring-test ability at this site: any untapped
+ * sage in a company located at the site may tap to test a gold-ring item
+ * borne by a character in that company, applying the given roll modifier to
+ * the 2d6 ring-test result. Unlike `auto-test-gold-ring` (fires on store)
+ * and `site-phase-ring-auto-test` (fires automatically at company selection),
+ * this rule is player-initiated during the organization phase — the sage
+ * chooses if and which ring to test.
+ *
+ * Example — Mount Doom (le-393): "Any sage may tap to test a ring at this
+ * site, modifying the result by -3."
+ */
+export interface SageTapRingTestSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'sage-tap-ring-test';
+  /** Roll modifier applied to the 2d6 ring-test (e.g. -3 for Mount Doom). */
   readonly rollModifier: number;
 }
 
@@ -2363,6 +2447,7 @@ export type CardEffect =
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
+  | CombatTapLowMindEffect
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
@@ -2408,6 +2493,7 @@ export type CardEffect =
   | RingTestSearchEffect
   | GrantSkillEffect
   | CompanyOvertEffect
+  | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
@@ -2663,6 +2749,39 @@ export interface GrantSkillEffect extends EffectBase {
  */
 export interface CompanyOvertEffect extends EffectBase {
   readonly type: 'company-overt';
+}
+
+/**
+ * Tap an in-play ally during combat to grant an attack-scoped stat boost to
+ * every character in the ally's own company that satisfies the optional
+ * `filter`. The modifier lasts only for the current attack (it is applied as
+ * one `character-stat-modifier` active constraint per matching character with
+ * `scope: { kind: 'attack' }`, swept when the attack finalizes) — the same
+ * machinery as {@link CompanyCombatBoostEffect}, but triggered by tapping an
+ * in-play ally rather than playing a short event from hand.
+ *
+ * Unlike `company-combat-boost`, this applies to the ally's *own* company
+ * whichever side of the combat it is on (the defending company in creature
+ * combat, or either company in company-vs-company combat), so it covers
+ * "against one attack **or** in company versus company combat".
+ *
+ * Example: Great Lord of Goblin-gate (as-75) — "Tap to give +2 prowess to all
+ * Orcs in its company: against one attack or in company versus company combat."
+ */
+export interface CombatTapCompanyBoostEffect extends EffectBase {
+  readonly type: 'combat-tap-company-boost';
+  /** The stat to modify (`"prowess"` or `"body"`). */
+  readonly stat: 'prowess' | 'body';
+  /** The modifier value (positive to boost, negative to penalise). */
+  readonly value: number;
+  /**
+   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
+   * for each character in the ally's company. Only matching characters receive
+   * the modifier. When absent, every character in the company receives it.
+   */
+  readonly filter?: Condition;
+  /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
+  readonly cost: ActionCost;
 }
 
 /**
