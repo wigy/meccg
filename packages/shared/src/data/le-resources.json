@@ -1314,7 +1314,7 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 1,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "ally"
   },
   {
     "cardType": "minion-resource-event",

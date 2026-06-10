@@ -60,9 +60,10 @@
     "name": "Thrall of the Voice",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ThralloftheVoice.jpg",
     "unique": false,
+    "keywords": [
+      "starting-item"
+    ],
     "eventType": "permanent",
-    "marshallingPoints": 1,
-    "marshallingCategory": "misc",
     "text": "Instead of a normal character, during your organization phase you may bring into play one character (including a minion agent) with up to a 6 mind. Place this card with the character. -1 to his mind to a minimum of 1. Such a character may also be in your starting company."
   },
   {
