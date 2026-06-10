@@ -1953,6 +1953,13 @@ h2 {
   margin-bottom: 0.75rem;
 }
 
+.card-browser-toggle-divider {
+  width: 1px;
+  align-self: stretch;
+  background: #3a4a6b;
+  margin: 0 0.3rem;
+}
+
 .card-browser-toggle {
   padding: 0.25rem 0.45rem;
   font-size: 1.1rem;

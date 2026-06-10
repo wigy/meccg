@@ -46,7 +46,7 @@ function renderSection(section: DeckSection, deckId: string): void {
     addBtn.textContent = '+';
     addBtn.title = 'Add a character card';
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
-      (def) => CHARACTER_CARD_TYPES.has(def.cardType),
+      (def) => CHARACTER_CARD_TYPES.has(def.cardType) || isStartingItem(def),
       characterToggles(editingDeck?.alignment ?? '')));
     titleEl.appendChild(addBtn);
   }
@@ -58,17 +58,27 @@ interface BrowserToggle {
   title: string;
   match: (def: CardDefinition) => boolean;
   active: boolean;
+  /** Render a vertical divider before this toggle, separating toggle groups. */
+  separatorBefore?: boolean;
+}
+
+/** Extract loosely-typed filter traits from any card definition. */
+const traits = (def: CardDefinition) => def as unknown as {
+  cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
+};
+
+/** Whether a card belongs to the starting-item category (see the `starting-item` keyword). */
+function isStartingItem(def: CardDefinition): boolean {
+  return (traits(def).keywords ?? []).includes('starting-item');
 }
 
 /**
- * Build the character category toggles for the card browser. The deck's
- * alignment decides which categories start enabled; the rest can be
- * toggled on to browse beyond the deck's own alignment.
+ * Build the category toggles for the characters-section card browser:
+ * character categories plus starting items. The deck's alignment decides
+ * which categories start enabled; the rest can be toggled on to browse
+ * beyond the deck's own alignment.
  */
 function characterToggles(alignment: string): BrowserToggle[] {
-  const traits = (def: CardDefinition) => def as unknown as {
-    cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
-  };
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
   // Avatars are identified by their race; everyone else is an ordinary character.
   const isAvatar = (def: CardDefinition) =>
@@ -88,9 +98,16 @@ function characterToggles(alignment: string): BrowserToggle[] {
     { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: on('minion'),
       match: d => traits(d).race === 'ringwraith' },
     { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: on('fallen-wizard'),
-      match: d => traits(d).alignment === 'fallen-wizard' },
+      match: d => traits(d).alignment === 'fallen-wizard' && CHARACTER_CARD_TYPES.has(traits(d).cardType) },
     { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: on('balrog'),
       match: d => traits(d).race === 'balrog' },
+    { icon: '\u{1F6E1}️', title: 'Hero starting items', active: on('hero', 'fallen-wizard'),
+      separatorBefore: true,
+      match: d => isStartingItem(d) && traits(d).alignment === 'wizard' },
+    { icon: '\u{1F5E1}️', title: 'Minion starting items', active: on('minion', 'fallen-wizard', 'balrog'),
+      match: d => isStartingItem(d) && traits(d).alignment === 'ringwraith' },
+    { icon: '\u{1FA84}', title: 'Fallen-wizard starting items', active: on('fallen-wizard'),
+      match: d => isStartingItem(d) && traits(d).alignment === 'fallen-wizard' },
   ];
 }
 
@@ -197,6 +214,11 @@ function openCardBrowser(
     const togglesEl = document.createElement('div');
     togglesEl.className = 'card-browser-toggles';
     for (const t of toggles) {
+      if (t.separatorBefore) {
+        const divider = document.createElement('span');
+        divider.className = 'card-browser-toggle-divider';
+        togglesEl.appendChild(divider);
+      }
       const btn = document.createElement('button');
       btn.className = 'card-browser-toggle' + (t.active ? ' card-browser-toggle--active' : '');
       btn.textContent = t.icon;
