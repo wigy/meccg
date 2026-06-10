@@ -1953,6 +1953,33 @@ h2 {
   margin-bottom: 0.75rem;
 }
 
+.card-browser-clear {
+  margin-left: auto;
+  padding: 0.25rem 0.45rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: #16213e;
+  border: 1px solid #3a4a6b;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.card-browser-clear-icon {
+  display: inline-block;
+  /* Tint the (normally gray) wastebasket emoji red. */
+  filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(0.95);
+}
+
+.card-browser-clear:hover {
+  background: rgba(138, 155, 184, 0.15);
+  border-color: #8a9bb8;
+}
+
+.card-browser-clear:active {
+  transform: translateY(1px) scale(0.92);
+}
+
 .card-browser-toggle-divider {
   width: 1px;
   align-self: stretch;

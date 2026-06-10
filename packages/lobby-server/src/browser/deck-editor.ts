@@ -213,6 +213,7 @@ function openCardBrowser(
   if (toggles.length > 0) {
     const togglesEl = document.createElement('div');
     togglesEl.className = 'card-browser-toggles';
+    const toggleButtons: { toggle: BrowserToggle; btn: HTMLButtonElement }[] = [];
     for (const t of toggles) {
       if (t.separatorBefore) {
         const divider = document.createElement('span');
@@ -228,8 +229,24 @@ function openCardBrowser(
         btn.classList.toggle('card-browser-toggle--active', t.active);
         renderList();
       });
+      toggleButtons.push({ toggle: t, btn });
       togglesEl.appendChild(btn);
     }
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'card-browser-clear';
+    const clearIcon = document.createElement('span');
+    clearIcon.className = 'card-browser-clear-icon';
+    clearIcon.textContent = '\u{1F5D1}\u{FE0F}';
+    clearBtn.appendChild(clearIcon);
+    clearBtn.title = 'Clear all filters';
+    clearBtn.addEventListener('click', () => {
+      for (const { toggle, btn } of toggleButtons) {
+        toggle.active = false;
+        btn.classList.remove('card-browser-toggle--active');
+      }
+      renderList();
+    });
+    togglesEl.appendChild(clearBtn);
     dialog.appendChild(togglesEl);
   }
 
