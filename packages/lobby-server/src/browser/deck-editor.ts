@@ -181,6 +181,12 @@ function openCardBrowser(
   title.textContent = browserTitle;
   dialog.appendChild(title);
 
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'card-browser-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Close';
+  dialog.appendChild(closeBtn);
+
   const search = document.createElement('input');
   search.type = 'text';
   search.className = 'card-browser-search';
@@ -214,13 +220,6 @@ function openCardBrowser(
   body.appendChild(list);
   body.appendChild(previewPane);
   dialog.appendChild(body);
-
-  const actions = document.createElement('div');
-  actions.className = 'app-dialog-actions';
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
-  actions.appendChild(closeBtn);
-  dialog.appendChild(actions);
 
   modal.appendChild(dialog);
   document.body.appendChild(modal);

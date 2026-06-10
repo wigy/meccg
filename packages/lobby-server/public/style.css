@@ -1985,7 +1985,32 @@ h2 {
   gap: 1rem;
   flex: 1;
   min-height: 0;
-  margin-bottom: 0.75rem;
+}
+
+.card-browser-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: transparent;
+  color: #8a9bb8;
+  border: 1px solid #3a4a6b;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.card-browser-close:hover {
+  color: #e0e0e0;
+  background: rgba(138, 155, 184, 0.15);
+}
+
+.card-browser-close:active {
+  transform: translateY(1px) scale(0.92);
 }
 
 .card-browser-list {
