@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, isCovertCompany } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -2487,13 +2487,8 @@ function combatHazardPermanentPlays(
       (e): e is PlayTargetEffect => e.type === 'play-target',
     );
     if (playTarget && playTarget.target === 'character' && playTarget.filter) {
-      const possessionNames = targetChar.items
-        .map(item => defById(state, item.definitionId)?.name)
-        .filter((n): n is string => n != null);
-      const itemKeywords = targetChar.items.flatMap(item => {
-        const iDef = defById(state, item.definitionId);
-        return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
-      });
+      const possessionNames = defNamesOf(state, targetChar.items);
+      const itemKeywords = itemKeywordsOf(state, targetChar.items);
       // Include `attack` in context so filters like `{ "attack.race": "Spider" }` work.
       const ctx = {
         target: {

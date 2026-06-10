@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, defNamesOf, itemKeywordsOf, itemSubtypesOf } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1545,19 +1545,9 @@ function playHazardsActions(
               if (charData) {
                 const charDef = defById(state, charData.definitionId);
                 if (charDef && isCharacterCard(charDef)) {
-                  const possessionNames = charData.items
-                    .map(item => defById(state, item.definitionId)?.name)
-                    .filter((n): n is string => n != null);
-                  const itemKeywords = charData.items.flatMap(item => {
-                    const iDef = defById(state, item.definitionId);
-                    return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
-                  });
-                  const itemSubtypes = charData.items
-                    .map(item => {
-                      const iDef = defById(state, item.definitionId);
-                      return iDef && 'subtype' in iDef ? (iDef as { subtype?: string }).subtype : undefined;
-                    })
-                    .filter((s): s is string => s != null);
+                  const possessionNames = defNamesOf(state, charData.items);
+                  const itemKeywords = itemKeywordsOf(state, charData.items);
+                  const itemSubtypes = itemSubtypesOf(state, charData.items);
                   const ctx = {
                     target: {
                       race: charDef.race,
@@ -1857,19 +1847,9 @@ function playHazardsActions(
             if (charData) {
               const charDef = defById(state, charData.definitionId);
               if (charDef && isCharacterCard(charDef)) {
-                const possessionNames = charData.items
-                  .map(item => defById(state, item.definitionId)?.name)
-                  .filter((n): n is string => n != null);
-                const itemKeywords = charData.items.flatMap(item => {
-                  const iDef = defById(state, item.definitionId);
-                  return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
-                });
-                const itemSubtypes = charData.items
-                  .map(item => {
-                    const iDef = defById(state, item.definitionId);
-                    return iDef && 'subtype' in iDef ? (iDef as { subtype?: string }).subtype : undefined;
-                  })
-                  .filter((s): s is string => s != null);
+                const possessionNames = defNamesOf(state, charData.items);
+                const itemKeywords = itemKeywordsOf(state, charData.items);
+                const itemSubtypes = itemSubtypesOf(state, charData.items);
                 const ctx = {
                   target: {
                     cardType: charDef.cardType,
