@@ -259,37 +259,25 @@ export function hydrateDicePlaceholders(container: HTMLElement): void {
 }
 
 /**
- * Wrap lines between «ACTIVE-START» and «ACTIVE-END» markers in a styled div
- * with a coloured border to highlight the active player's section.
+ * Build a function that wraps the content between a pair of `«<MARKER>-START»`
+ * and `«<MARKER>-END»` tags in a styled `<div>` with the given CSS class.
+ * Centralizes the identical marker-replacement logic used to frame the
+ * active-player, combat, and chain sections.
  */
-export function injectActivePlayerFrame(html: string): string {
-  return html.replace(
-    /«ACTIVE-START»\n?([\s\S]*?)«ACTIVE-END»\n?/g,
-    '<div class="active-player-frame">$1</div>',
-  );
+function makeFrameInjector(marker: string, className: string): (html: string) => string {
+  const pattern = new RegExp(`«${marker}-START»\\n?([\\s\\S]*?)«${marker}-END»\\n?`, 'g');
+  const replacement = `<div class="${className}">$1</div>`;
+  return html => html.replace(pattern, replacement);
 }
 
-/**
- * Wrap lines between «COMBAT-START» and «COMBAT-END» markers in a styled div
- * with a red border and tint to highlight the combat section.
- */
-export function injectCombatFrame(html: string): string {
-  return html.replace(
-    /«COMBAT-START»\n?([\s\S]*?)«COMBAT-END»\n?/g,
-    '<div class="combat-frame">$1</div>',
-  );
-}
+/** Wrap «ACTIVE-START»…«ACTIVE-END» content in a frame highlighting the active player's section. */
+export const injectActivePlayerFrame = makeFrameInjector('ACTIVE', 'active-player-frame');
 
-/**
- * Wrap lines between «CHAIN-START» and «CHAIN-END» markers in a styled div
- * with a yellow border and tint to highlight the active chain.
- */
-export function injectChainFrame(html: string): string {
-  return html.replace(
-    /«CHAIN-START»\n?([\s\S]*?)«CHAIN-END»\n?/g,
-    '<div class="chain-frame">$1</div>',
-  );
-}
+/** Wrap «COMBAT-START»…«COMBAT-END» content in a frame highlighting the combat section. */
+export const injectCombatFrame = makeFrameInjector('COMBAT', 'combat-frame');
+
+/** Wrap «CHAIN-START»…«CHAIN-END» content in a frame highlighting the active chain. */
+export const injectChainFrame = makeFrameInjector('CHAIN', 'chain-frame');
 
 // ---- Card image hover (debug view) ----
 
