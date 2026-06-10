@@ -19,12 +19,13 @@ FEATS
 EPICS
 -----
 
+(H) Stealthy Tribe
+Deck Validation and editing
+(I) Morgul Rallying Cry
 Against the shadow Rules
+(J) Seducing Nations of Men
 The White Hand Rules
 The Balrog Rules
-(H) Stealthy Tribe
-(I) Morgul Rallying Cry
-(J) Seducing Nations of Men
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
@@ -34,6 +35,5 @@ Finalise tests section 07
 Finalise tests section 08
 Finalise tests section 09
 Finalise tests section 10
-Deck Validation and editing
 Uploading Gccg deck format.
 Tournaments
