@@ -44,7 +44,8 @@ import {
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
-import { dismissTooltip, openSideboardForFetch, dismissSideboardModal, openExchangeModal, dismissExchangeModal } from './company-modals.js';
+import { openSideboardForFetch, dismissSideboardModal, openExchangeModal, dismissExchangeModal } from './company-modals.js';
+import { dismissTooltip } from './tooltip-menu.js';
 
 /**
  * Render a situation banner when a pending corruption check is active

@@ -33,6 +33,7 @@ import {
   getPermanentEventPlayRenderCache, setPermanentEventPlayRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
+import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 
 // ---- Card action finders ----
 
@@ -281,17 +282,7 @@ function showShortEventTargetMenu(
   discardAction?: GameAction,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  // Remove any existing tooltip
-  document.querySelector('.chain-target-backdrop')?.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'chain-target-backdrop';
-  backdrop.addEventListener('click', () => backdrop.remove());
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chain-target-tooltip';
-  tooltip.style.left = `${event.clientX}px`;
-  tooltip.style.top = `${event.clientY}px`;
+  const items: TooltipMenuItem[] = [];
 
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
@@ -342,32 +333,17 @@ function showShortEventTargetMenu(
       label = 'Play';
     }
 
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = label;
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
+    items.push({ label, onClick: () => onAction(action) });
   }
 
   // When the card can also be discarded from hand (e.g. during the end-of-turn
   // discard step), offer that as an explicit choice so the player is not forced
   // to play the short event just because it is currently playable.
   if (discardAction) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Discard';
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(discardAction);
-    });
-    tooltip.appendChild(btn);
+    items.push({ label: 'Discard', onClick: () => onAction(discardAction) });
   }
 
-  backdrop.appendChild(tooltip);
-  document.body.appendChild(backdrop);
+  showCursorTooltipMenu(event, items);
 }
 
 /**
@@ -382,61 +358,33 @@ function showHazardKeyingMenu(
   cardPool?: Readonly<Record<string, CardDefinition>>,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  document.querySelector('.chain-target-backdrop')?.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'chain-target-backdrop';
-  backdrop.addEventListener('click', () => backdrop.remove());
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chain-target-tooltip';
-  tooltip.style.left = `${event.clientX}px`;
-  tooltip.style.top = `${event.clientY}px`;
+  const items: TooltipMenuItem[] = [];
 
   for (const action of actions) {
     if (action.type !== 'play-hazard' || !action.keyedBy) continue;
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Keyed by ${action.keyedBy.method}: ${action.keyedBy.value}`;
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(action);
+    items.push({
+      label: `Keyed by ${action.keyedBy.method}: ${action.keyedBy.value}`,
+      onClick: () => onAction(action),
     });
-    tooltip.appendChild(btn);
   }
 
   // Non-keyed hazard events (single play action without keying)
   for (const action of actions) {
     if (action.type !== 'play-hazard' || action.keyedBy) continue;
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
     let label = 'Play hazard';
     if (action.targetCharacterId && cardPool) {
       const charDefId = cachedInstanceLookup(action.targetCharacterId);
       const charDef = charDefId ? cardPool[charDefId as string] : undefined;
       label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
     }
-    btn.textContent = label;
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
+    items.push({ label, onClick: () => onAction(action) });
   }
 
   if (onGuardAction) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Place on-guard';
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(onGuardAction);
-    });
-    tooltip.appendChild(btn);
+    items.push({ label: 'Place on-guard', onClick: () => onAction(onGuardAction) });
   }
 
-  backdrop.appendChild(tooltip);
-  document.body.appendChild(backdrop);
+  showCursorTooltipMenu(event, items);
 }
 
 // ---- Hand card helpers ----

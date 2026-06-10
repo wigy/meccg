@@ -23,7 +23,8 @@ import { cardImageProxyPath, isSiteCard, Phase, CardStatus, viableActions, descr
 import { createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
-import { showGrantedActionTooltip, dismissTooltip } from './company-modals.js';
+import { showGrantedActionTooltip } from './company-modals.js';
+import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 
 /** Resolve a card instance ID to its definition via the cached instance lookup. */
 export function resolveCardDef(
@@ -114,58 +115,18 @@ function showAgentAttackTooltip(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
 ): void {
-  dismissTooltip();
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-
-  for (const action of actions) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
+  const items = actions.map((action): TooltipMenuItem => {
+    let label = 'Declare Agent Attack';
     if (action.homeSiteInstanceId) {
       const cachedInstanceLookup = getCachedInstanceLookup();
       const homeDefId = cachedInstanceLookup(action.homeSiteInstanceId);
       const homeDef = homeDefId ? cardPool[homeDefId as string] : undefined;
-      btn.textContent = `Declare Agent Attack at ${homeDef?.name ?? 'home site'}`;
-    } else {
-      btn.textContent = 'Declare Agent Attack';
+      label = `Declare Agent Attack at ${homeDef?.name ?? 'home site'}`;
     }
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
-  }
+    return { label, onClick: () => onAction(action) };
+  });
 
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = '-9999px';
-  tooltip.style.top = '-9999px';
-  document.body.appendChild(tooltip);
-
-  const tipRect = tooltip.getBoundingClientRect();
-  const rect = anchor.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  const top =
-    tipRect.height + 4 <= rect.top
-      ? rect.top - tipRect.height - 4
-      : rect.bottom + 4 + tipRect.height <= vh
-        ? rect.bottom + 4
-        : Math.max(4, vh - tipRect.height - 4);
-  const left = Math.max(4, Math.min(rect.left, vw - tipRect.width - 4));
-
-  tooltip.style.top = `${top}px`;
-  tooltip.style.left = `${left}px`;
-
-  const dismiss = (e: MouseEvent): void => {
-    if (!tooltip.contains(e.target as Node)) {
-      dismissTooltip();
-      document.removeEventListener('click', dismiss, true);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+  showTooltipMenu(anchor, items, { placement: 'auto' });
 }
 
 export function renderSiteArea(

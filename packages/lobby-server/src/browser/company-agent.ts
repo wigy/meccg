@@ -26,7 +26,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, CardStatus, isCharacterCard, isSiteCard } from '@meccg/shared';
 import { getCachedInstanceLookup } from './company-view-state.js';
-import { dismissTooltip } from './company-modals.js';
+import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 
 // ---- Tooltip for agent actions ----
 
@@ -45,22 +45,10 @@ function showAgentActionTooltip(
   otherActions: readonly GameAction[],
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  dismissTooltip();
 
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-  tooltip.dataset.agentTooltip = agentId as string;
-
+  const items: TooltipMenuItem[] = [];
   const addBtn = (label: string, action: GameAction): void => {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = label;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
+    items.push({ label, onClick: () => onAction(action) });
   };
 
   // Reveal actions
@@ -111,38 +99,10 @@ function showAgentActionTooltip(
     addBtn(label, a);
   }
 
-  if (!tooltip.hasChildNodes()) return;
-
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = '-9999px';
-  tooltip.style.top = '-9999px';
-  document.body.appendChild(tooltip);
-
-  const tipRect = tooltip.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  const top =
-    tipRect.height + 4 <= rect.top
-      ? rect.top - tipRect.height - 4
-      : rect.bottom + 4 + tipRect.height <= vh
-        ? rect.bottom + 4
-        : Math.max(4, vh - tipRect.height - 4);
-
-  const left = Math.max(4, Math.min(rect.left, vw - tipRect.width - 4));
-
-  tooltip.style.top = `${top}px`;
-  tooltip.style.left = `${left}px`;
-
-  // Click-outside to dismiss
-  const dismiss = (e: MouseEvent): void => {
-    if (!tooltip.contains(e.target as Node)) {
-      dismissTooltip();
-      document.removeEventListener('click', dismiss, true);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+  showTooltipMenu(anchor, items, {
+    placement: 'auto',
+    decorate: (tooltip) => { tooltip.dataset.agentTooltip = agentId as string; },
+  });
 }
 
 // ---- Site stack fan ----

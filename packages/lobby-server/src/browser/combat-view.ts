@@ -33,7 +33,7 @@ import type {
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
-import { dismissTooltip } from './company-modals.js';
+import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
 import { createRadar } from './map-radar.js';
@@ -1289,43 +1289,13 @@ function showCombatChoiceTooltip(
   cancelAction: CancelStrikeAction,
   onAction: (action: GameAction) => void,
 ): void {
-  dismissTooltip();
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-
+  const items: TooltipMenuItem[] = [];
   if (supportAction) {
-    const supportBtn = document.createElement('button');
-    supportBtn.className = 'char-action-tooltip__btn';
-    supportBtn.textContent = 'Tap for +1 Support';
-    supportBtn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(supportAction);
-    };
-    tooltip.appendChild(supportBtn);
+    items.push({ label: 'Tap for +1 Support', onClick: () => onAction(supportAction) });
   }
+  items.push({ label: 'Tap to Cancel Strike', onClick: () => onAction(cancelAction) });
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'char-action-tooltip__btn';
-  cancelBtn.textContent = 'Tap to Cancel Strike';
-  cancelBtn.onclick = (e) => {
-    e.stopPropagation();
-    dismissTooltip();
-    onAction(cancelAction);
-  };
-  tooltip.appendChild(cancelBtn);
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop';
-  backdrop.onclick = () => dismissTooltip();
-  document.body.appendChild(backdrop);
-
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = `${rect.left + rect.width / 2}px`;
-  tooltip.style.top = `${rect.top}px`;
-  document.body.appendChild(tooltip);
+  showTooltipMenu(anchor, items);
 }
 
 // ---- Item salvage panel ----
@@ -1393,37 +1363,14 @@ function showSalvageRecipientTooltip(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
 ): void {
-  dismissTooltip();
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-
-  for (const action of recipientActions) {
+  const items = recipientActions.map((action): TooltipMenuItem => {
     const char = view.self.characters[action.recipientCharacterId as string];
     const charDef = char ? cardPool[char.definitionId as string] : undefined;
     const name = charDef && 'name' in charDef ? (charDef as { name: string }).name : (action.recipientCharacterId as string);
+    return { label: `Transfer to ${name}`, onClick: () => onAction(action) };
+  });
 
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Transfer to ${name}`;
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(action);
-    };
-    tooltip.appendChild(btn);
-  }
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop';
-  backdrop.onclick = () => dismissTooltip();
-  document.body.appendChild(backdrop);
-
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = `${rect.left + rect.width / 2}px`;
-  tooltip.style.top = `${rect.bottom}px`;
-  document.body.appendChild(tooltip);
+  showTooltipMenu(anchor, items, { placement: 'under' });
 }
 
 // ---- Helpers ----
