@@ -712,8 +712,11 @@ function handleSiteAutomaticAttacks(
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
-    // Vile Fumes' Gas attack carries `uncancelable` ("cannot be canceled").
-    ...(aa.uncancelable ? { uncancelable: true } : {}),
+    // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
+    // suppresses cancel-attack actions; "wound-eliminates" upgrades any wound
+    // dealt by this attack into immediate elimination.
+    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };

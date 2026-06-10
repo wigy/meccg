@@ -64,6 +64,19 @@ player while attached to the Ringwraith.
 The `strikes` stat is used with `target: "all-attacks"` to modify the number
 of strikes on creature and automatic attacks (e.g. Wake of War).
 
+The optional `op` field controls how `value` combines with the running stat
+total: `"add"` (the default) does `result += value`, while `"multiply"` does
+`result *= value`. All multiplicative modifiers are applied **after** every
+additive one, so a "doubled"-style effect acts on the already-modified total.
+Example — Plague of Wights (le-130) doubles the strikes of each Undead attack
+when Doors of Night is in play:
+
+```json
+{ "type": "stat-modifier", "stat": "strikes", "op": "multiply", "value": 2,
+  "target": "all-attacks",
+  "when": { "$and": [ { "enemy.race": "undead" }, { "inPlay": "Doors of Night" } ] } }
+```
+
 Optional `target` scopes:
 
 - `"all-characters"` — applies to every character in play
@@ -284,6 +297,12 @@ extend the emission window:
   `transform-site` feature.
 - `freeCouncil: true` — either player may activate during the Free
   Council corruption-checks step. Used by *Magical Harp*.
+- `activeSitePhase: true` — the active (resource) player may activate
+  this ability during the *enter-or-skip* step of their own site phase
+  — the decision window immediately before a company commits to facing
+  a site's automatic-attacks. Used by *Blasting Fire* (wh-51), discarded
+  here to cancel the site's automatic-attacks against the bearer's
+  company.
 
 Multiple flags may coexist on the same effect.
 
@@ -430,6 +449,16 @@ Example (Gandalf's gold-ring test):
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "untap-bearer",
   "cost": { "discard": "self" } }
+{ "type": "grant-action", "action": "untap-site",
+  "cost": { "discard": "self" },
+  "when": { "bearer.siteType": "shadow-hold", "site.isTapped": true },
+  "apply": { "type": "untap-site" } }
+{ "type": "grant-action", "action": "unlock-information-at-shadow-holds",
+  "cost": { "discard": "self" },
+  "apply": { "type": "add-constraint",
+    "constraint": "site-resource-unlocked",
+    "scope": "turn", "target": "player",
+    "siteType": "shadow-hold", "subtype": "information" } }
 { "type": "grant-action", "action": "extra-region-movement",
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "saruman-fetch-spell",
@@ -548,7 +577,7 @@ Apply types:
 - `discard-character` -- discard the affected character to the defending player's discard pile (not the out-of-play pile). The character is removed from their company; all their items and allies are also discarded immediately. No item-salvage phase is offered. Condition context exposes `{ target: { race } }` (evaluated per character). Supported under two events:
   - `on-event: character-body-check-equals-body` — fires when the body check result **exactly equals** the character's body. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
   - `on-event: character-wounded-by-self` — fires after combat finalization for each wounded character. The condition is evaluated per wounded character; any that pass are discarded. Implemented in `reducer-combat.ts` `discardWoundedCharacters()`. Used by *Abductor* (tw-1).
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (the engine sets `combat.uncancelable`, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised), and with `untap-phase-end` + `when: { "bearer.atHaven": true }` to discard at the Untap→Organization transition when at a haven (e.g. Well-preserved). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`, `reducer-utils.ts` `sweepAutoDiscardHazards()`, and `reducer-untap.ts` `advanceToOrganization()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by
@@ -1127,6 +1156,16 @@ strings to chase through the engine.
   mind base. Card text is "His prowess against such a strike is equal to
   his mind attribute" (e.g. Neeker-breekers). (implemented in
   `reducer-combat.ts`)
+- `combat-tap-low-mind` — after each strike of this attack resolves, every
+  facing **character** (not ally) whose mind attribute is ≤ the attack's
+  strike prowess must tap if it is still untapped. Avatars (mind === null) and
+  characters who were wounded by the strike (now inverted, hence not untapped)
+  are unaffected. A canceled strike never resolves, so it never taps. The
+  threshold is the live strike prowess read at resolution time — no fields
+  beyond `type`. Card text is "Any character facing a strike whose mind is
+  equal to or lower than the strike's prowess must tap if untapped following
+  the strike (unless the strike is canceled)" (e.g. Wisp of Pale Sheen,
+  dm-113). (implemented in `reducer-combat.ts`, wired in `chain-reducer.ts`)
 - `combat-detainment` — marks the attack as detainment (CoE §3.II).
   Detainment strikes tap the character instead of wounding/eliminating,
   suppress the character body check (rule 3.II.1), do not trigger
@@ -1144,6 +1183,7 @@ strings to chase through the engine.
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
 { "type": "combat-one-strike-per-character" }
+{ "type": "combat-tap-low-mind" }
 { "type": "combat-detainment" }
 {
   "type": "combat-detainment",
@@ -1169,6 +1209,28 @@ Constrains when or where a card can enter play.
 { "type": "play-restriction", "rule": "home-site-only",
   "when": { "$not": { "reason": "starting-character" } } }
 ```
+
+**Starting-company exclusion.** "Cannot be included with a starting
+company" (e.g. Records Unread as-130) is modelled with the
+`no-starting-company` play-flag, not a play-restriction rule. The
+item-draft eligibility ruleset (`ITEM_DRAFT_RULES`) rejects any item
+carrying the flag, so it can never be assigned as a starting minor item
+but plays normally from hand during the game.
+
+```json
+{ "type": "play-flag", "flag": "no-starting-company" }
+```
+
+### 13a. `site-resource-unlocked` active constraint
+
+Produced by an `add-constraint` apply (see the Records Unread mode-B
+grant-action above). While active, a resource category (`subtype`, e.g.
+`"information"`) becomes playable at every site of the given `siteType`
+(e.g. `"shadow-hold"`) for the constraint's target player, even when
+those sites do not list the category in `playableResources`. Consulted by
+the `site-has-resource` play-condition check in
+`legal-actions/organization.ts`. Records Unread targets the discarding
+`player` and scopes the unlock to `turn`.
 
 ### 14. `duplication-limit`
 
@@ -1451,6 +1513,24 @@ Rules:
   { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3 }
   ```
 
+- `sage-tap-ring-test` — an active, player-initiated ring test granted by the
+  site. During the **organization phase**, for each of the player's companies
+  whose current site declares this rule, any untapped **sage** in that company
+  may tap (`test-ring-at-site` action) to test a gold-ring item borne by a
+  character in the same company. Tapping the sage is the cost; the test reuses
+  the shared `gold-ring-test` resolution (2d6 roll with `rollModifier` applied,
+  ring discarded, matching special ring offered). Unlike `auto-test-gold-ring`
+  (fires on store) and `site-phase-ring-auto-test` (fires automatically at
+  company selection), this rule is optional and chosen by the player. Emitted by
+  `legal-actions/organization.ts` `siteSageRingTestActivations()` and consumed by
+  `engine/reducer-organization.ts` `handleTestRingAtSite()`. Used by *Mount Doom*
+  (le-393) — "Any sage may tap to test a ring at this site, modifying the result
+  by -3."
+
+  ```json
+  { "type": "site-rule", "rule": "sage-tap-ring-test", "rollModifier": -3 }
+  ```
+
 - `dynamic-auto-attack` — when a company enters this site, the opponent
   may play one non-unique hazard creature from hand as the site's automatic-attack.
   The `keying` filter lists the site-types and region-types that satisfy
@@ -1550,20 +1630,22 @@ satisfies a constraint. Two mutually-exclusive forms:
 
 - `sites`: site name must appear in the list (e.g. Palantír of Orthanc —
   Isengard only).
-- `filter`: a generic site-card condition evaluated against a context
-  exposing the site definition plus derived facts: `site.type` (the
-  {@link SiteType}), `site.tapped` (boolean), and `site.autoAttackRaces`
-  (lowercase normalized creature races of the site's automatic-attacks,
-  e.g. `["dwarf"]`). For example, hoard items use `{ "site.hoard": true }`;
-  Vile Fumes uses an `$or` over `site.type` and `site.autoAttackRaces`.
+- `filter`: a generic site-card condition evaluated against
+  `{ site: <site definition> }` (e.g. hoard items: any site whose
+  definition has `hoard: true`). The site context is augmented with
+  `autoAttackRaces` — the normalized races of the site's
+  automatic-attacks — so a filter can match "a site with a Dwarf
+  automatic-attack" via `{ "site.autoAttackRaces": { "$includes": "dwarf" } }`.
 
 When present, the normal site-type check (`playableResources`) is
 bypassed; the item is playable only if its restriction matches.
 
-The optional `allowWhenTapped: true` flag lets the item be played even
-when the site is already tapped (overriding the normal untapped-site
-requirement) — used by *Vile Fumes* ("a tapped or untapped Shadow-hold").
-Implemented in `legal-actions/site.ts`.
+The optional `allowTapped: true` flag additionally bypasses the
+tapped-site gate, so the item may be played even when its company's
+current site is Tapped (the site-restriction still gates *which* tapped
+sites qualify). Used by *Blasting Fire* (wh-51) and *Vile Fumes* (wh-54):
+"Playable at a tapped or untapped Shadow-hold, Dark-hold, or a site with a
+Dwarf automatic-attack." Implemented in `legal-actions/site.ts`.
 
 ```json
 { "type": "item-play-site", "sites": ["Isengard"] }
@@ -1574,11 +1656,11 @@ Implemented in `legal-actions/site.ts`.
 ```
 
 ```json
-{ "type": "item-play-site", "allowWhenTapped": true,
+{ "type": "item-play-site", "allowTapped": true,
   "filter": { "$or": [
-    { "site.type": "shadow-hold" },
-    { "site.type": "dark-hold" },
-    { "site.autoAttackRaces": { "$includes": "dwarf" } } ] } }
+    { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } },
+    { "site.autoAttackRaces": { "$includes": "dwarf" } }
+  ] } }
 ```
 
 ### 21. `storable-at`
@@ -2819,7 +2901,7 @@ dynamic step.
 | `attack.strikes` | yes | Number of strikes. |
 | `attack.prowess` | yes | Prowess of each strike. |
 | `attack.body` | no | Body value for body checks. Absent = no body check (e.g. Balrog of Moria `18/-`). |
-| `attack.combatRules` | no | Array of combat-rule strings (e.g. `["attacker-chooses-defenders"]`). |
+| `attack.combatRules` | no | Array of combat-rule strings (see [Site auto-attack `combatRules`](#site-auto-attack-combatrules) for supported values, e.g. `["attacker-chooses-defenders"]`). |
 | `onDefeat` | no | `"remove-from-play"`: defeating this attack moves the card from play to the defeating player's kill pile (awarding kill MPs). Absent = card stays in play. |
 | `discardAfterUse` | no | When `true`, after this auto-attack resolves (regardless of win or loss), the permanent event card is moved from the hazard player's `cardsInPlay` to their discard pile. No kill MPs are awarded. Used by Nazgûl permanent-events at Under-deeps sites ("discard after use — ignore result of defeat"). |
 
@@ -2853,6 +2935,31 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
   "discardAfterUse": true
 }
 ```
+
+### Site auto-attack `combatRules`
+
+A site's printed `automaticAttacks[]` entries (and the runtime-injected
+attacks above) may carry a `combatRules` string array. Each string toggles
+one combat override when that attack is initiated in `engine/reducer-site.ts`.
+Unlike the `combat-*` effect types in [Combat-rule effects](#12-combat-rule-effects)
+— which sit in a card's `effects[]` array — these are bare strings on the
+attack record itself. Supported values:
+
+- `"attacker-chooses-defenders"` — the attacking player assigns strikes
+  (sets `attackerChoosesDefenders` on the combat).
+- `"each-character"` — each character in the company faces one strike
+  (`strikesTotal = company size`, strikes pre-assigned one per character).
+- `"cannot-be-canceled"` — the attack cannot be canceled by any card effect
+  (sets `uncancelable`, suppressing `cancel-attack` actions). Card text:
+  "(cannot be canceled)". Used by the Spider at *Shelob's Lair* (le-402).
+- `"wound-eliminates"` — any character or ally this attack wounds is
+  immediately eliminated instead of merely wounded; no body check is rolled
+  (sets `woundEliminates`). Effects that replace the wound entirely
+  (absorb-wound, take-prisoner, discard-item) take precedence and suppress
+  it; detainment strikes tap rather than wound and never trigger it. Card
+  text: "any character wounded is immediately eliminated". Used by the
+  Spider at *Shelob's Lair* (le-402). Implemented in `reducer-combat.ts`
+  (`resolveStrikeCore` → `eliminateCombatantFromStrike`).
 
 ### 42. `deck-search-attack`
 
@@ -3213,6 +3320,51 @@ No fields beyond `type`.
 
 Used by: Regiment of Black Crows (as-76), Great Bats (as-74), Great Lord of
 Goblin-gate (as-75), Last Child of Ungoliant (le-153).
+
+---
+
+### 53b. `combat-tap-company-boost`
+
+Tap an in-play ally **during combat** to grant an attack-scoped stat boost to
+every character in the ally's own company that satisfies the optional `filter`.
+The boost lasts only for the current attack: it is applied as one
+`character-stat-modifier` active constraint per matching character with
+`scope: { kind: 'attack' }`, swept when the attack finalizes (`attack-end`
+boundary) — the same machinery as `company-combat-boost`, but triggered by
+tapping an in-play ally rather than playing a short event from hand.
+
+Unlike `company-combat-boost` (which always targets the *defending* company and
+is played from hand), this applies to the ally's **own** company whichever side
+of the combat it is on: the defending company in creature combat, or either
+company in company-vs-company combat. This covers card text of the form
+"against one attack **or** in company versus company combat".
+
+The owning player may tap the ally during the assign-strikes and resolve-strike
+windows when the ally is untapped, its company is involved in the current
+combat, and at least one company member matches the filter. Each ally may apply
+its boost only once per attack (a second activation is rejected while an
+attack-scoped constraint from that ally instance is live).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `stat` | yes | `"prowess"` or `"body"`. |
+| `value` | yes | Modifier value (positive boosts, negative penalises). |
+| `filter` | no | DSL condition matched against `{ target: { race, name, skills } }` per company member. When absent, every member is boosted. |
+| `cost` | yes | Always `{ "tap": "self" }` (the ally taps itself). |
+
+```json
+{ "type": "combat-tap-company-boost", "stat": "prowess", "value": 2,
+  "filter": { "target.race": "orc" },
+  "cost": { "tap": "self" } }
+```
+
+Used by Great Lord of Goblin-gate (as-75): "Tap to give +2 prowess to all Orcs
+in its company: against one attack or in company versus company combat."
+
+Implemented in `engine/legal-actions/combat.ts` (`tapAllyCombatBoostActions`,
+wired into the assign-strikes and resolve-strike windows of `combatActions`),
+`engine/reducer-combat.ts` (`handleTapAllyCombatBoost`), and `engine/reducer.ts`
+(`tap-ally-combat-boost` routed to the combat handler).
 
 ---
 

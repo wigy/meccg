@@ -209,13 +209,17 @@ export function getActiveAutoAttacks(
   if (replace && replace.kind.type === 'replace-automatic-attacks') {
     const a = replace.kind.attack;
     logDetail(`replace-automatic-attacks: ${siteDef.name} automatic-attacks replaced with ${a.creatureType} (${a.strikes} strike, ${a.prowess} prowess${a.uncancelable ? ', uncancelable' : ''})`);
+    // Map the constraint's `uncancelable`/`eachCharacter` flags onto the
+    // shared combat-rule strings consumed by `handleSiteAutomaticAttacks`.
+    const combatRules: string[] = [];
+    if (a.uncancelable) combatRules.push('cannot-be-canceled');
+    if (a.eachCharacter) combatRules.push('each-character');
     return [{
       creatureType: a.creatureType,
       strikes: a.strikes,
       prowess: a.prowess,
       ...(a.body !== undefined ? { body: a.body } : {}),
-      ...(a.uncancelable ? { uncancelable: true } : {}),
-      ...(a.eachCharacter ? { combatRules: ['each-character'] as const } : {}),
+      ...(combatRules.length > 0 ? { combatRules } : {}),
     }];
   }
 

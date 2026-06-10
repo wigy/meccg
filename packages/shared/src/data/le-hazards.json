@@ -659,7 +659,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PlagueofWights.jpg",
     "text": "The prowess of all Undead attacks is increased by one. Additionally, if Doors of Night is in play, the number of strikes for each Undead attack is doubled. Cannot be duplicated.",
     "unique": false,
-    "eventType": "long"
+    "eventType": "long",
+    "certified": "2026-06-09",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": "undead"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "undead"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

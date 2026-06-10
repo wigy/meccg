@@ -1244,6 +1244,31 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
   };
 }
 
+/**
+ * Return a copy of `state` with the given player's company's current site set
+ * to the requested status (e.g. Tapped). Used by faction-card tests that need
+ * to exercise "playable at a tapped site" rules (Snaga-hai le-286) without
+ * driving a full resource-play that would tap the site.
+ */
+export function setCompanySiteStatus(
+  state: GameState,
+  playerIdx: number,
+  companyIdx: number,
+  status: CardStatus,
+): GameState {
+  const target = state.players[playerIdx];
+  const updated = {
+    ...target,
+    companies: target.companies.map((c, ci) =>
+      ci !== companyIdx || !c.currentSite ? c : { ...c, currentSite: { ...c.currentSite, status } },
+    ),
+  };
+  const players: GameState['players'] = playerIdx === 0
+    ? [updated, state.players[1]]
+    : [state.players[0], updated];
+  return { ...state, players };
+}
+
 /** Attach a hazard card to a character and return the updated GameState. */
 export function attachHazardToChar(
   state: GameState,

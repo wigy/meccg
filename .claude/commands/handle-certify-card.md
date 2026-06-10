@@ -42,19 +42,21 @@ Follow these steps:
    - `stat-modifier` — prowess, body, direct-influence, corruption-points modifiers with value expressions, max caps, and override mechanism (`packages/shared/src/engine/effects/resolver.ts`). Direct-influence modifiers are also resolved during faction-influence-check (in `reducer.ts` and `site.ts`) and influence-check (in `organization.ts` `availableDI`).
    - `check-modifier` — bonus/penalty to corruption, faction-influence checks (`resolver.ts`). For corruption-check resolutions the modifier is collected from attached hazards **and** items (`legal-actions/pending.ts`), with a context exposing `source.keywords` (the keywords on the card that enqueued the check) so items can gate on "spell", "ritual", etc.
    - `company-modifier` — applies stat modifiers to all characters in bearer's company (`resolver.ts`)
-   - `duplication-limit` — prevents multiple copies in scope "game" (`packages/shared/src/engine/reducer.ts`)
+   - `duplication-limit` — enforced for scopes "game", "player", "site", "character", and "company" (the company scope covers both allies and items, in `legal-actions/site.ts`) plus combat scopes "turn"/"attack"
    - `absorb-wound` — prevents wound from a successful strike; attacker rolls to potentially discard the item (`packages/shared/src/engine/reducer-combat.ts` `resolveStrike` + `handleShieldDiscardRoll`)
+   - `grant-action` — activatable abilities from characters/items/allies/hazards (`legal-actions/organization.ts` `grantedActionActivations`, reducer in `reducer-organization.ts` `runGrantApply`). Supported applies include `untap-site`, `set-character-status`, `shuffle-deck-top`, `discard-target-character`, `roll-then-apply`, `enqueue-corruption-check`, `enqueue-pending-fetch`, and `add-constraint`. The `when` gate is evaluated against a context exposing `bearer.*`, `company.*`, `site.*` (`siteType`, `isTapped`, `hasDragonAutoAttack`, `hasOneRing`).
+   - `add-constraint` (grant-action / on-event apply) — adds an active constraint. Payload kinds include `company-stat-modifier`, `hand-size-modifier`, and `site-resource-unlocked` (Records Unread: makes a resource category playable at a site type for the rest of the turn; consulted by the `site-has-resource` play-condition check).
+   - `play-flag` — closed keyword set consulted at play/setup time. Includes `no-starting-company` (item-draft rejects the card as a starting minor item; `rules/definitions/item-draft.ts` + `legal-actions/item-draft.ts`).
 
    **Partially implemented:**
    - `mp-modifier` — works for elimination pile with numeric values only; expression strings are ignored (`packages/shared/src/engine/recompute-derived.ts`)
    - `on-event` — infrastructure exists but `matchesTrigger()` is stubbed to always return false; no triggers fire (`packages/shared/src/engine/chain-reducer.ts`). Exception: `self-enters-play` with `discard-cards-in-play` is implemented directly in the reducer play handlers for permanent events (`packages/shared/src/engine/reducer.ts`)
    - `play-restriction` — only "no-hazard-limit" and "playable-as-resource" rules are implemented (`packages/shared/src/engine/reducer.ts`)
-   - Combat-rule effects — `combat-attacker-chooses-defenders`, `combat-multi-attack`, and `combat-cancel-attack-by-tap` are implemented
+   - Combat-rule effects — `combat-attacker-chooses-defenders`, `combat-multi-attack`, and `combat-cancel-attack-by-tap` are implemented. Site auto-attack `combatRules` strings `cannot-be-canceled` (sets `uncancelable`) and `wound-eliminates` (immediate elimination on wound, no body check) are implemented (`reducer-site.ts`, `reducer-combat.ts`)
 
    **Not implemented (type-only):**
    - `enemy-modifier` — no engine code
    - `hand-size-modifier` — hard-coded HAND_SIZE constant used everywhere
-   - `grant-action` — no engine code
    - `cancel-strike` — no engine code
 
 5. **Check conditions:** For each effect with a `when` condition, verify that the condition uses only supported operators and context paths. All operators ($includes, $gt, $gte, $lt, $lte, $ne, $in, $and, $or, $not) are implemented in `packages/shared/src/effects/condition-matcher.ts`. Check that the context paths referenced (e.g. `bearer.race`, `enemy.race`) are actually populated by the resolver.
@@ -99,7 +101,7 @@ Follow these steps:
    - Item playability based on `playableResources`: **implemented**
    - Ally/faction playability at sites: **implemented**
    - Haven path usage for movement: **implemented** (movement-map.ts)
-   - Automatic attacks triggering combat: **not implemented** (stubbed — pass through)
+   - Automatic attacks triggering combat: **implemented** (`reducer-site.ts` initiates each `automaticAttacks[]` entry as a combat; supports multiple sequential attacks, `body`, and `combatRules`: `attacker-chooses-defenders`, `each-character`, `cannot-be-canceled`, `wound-eliminates`)
    - Special text-based rules (e.g. "hazard limit increased by 2", "healing effects affect all characters"): check whether the rule is captured in `effects`. If the card text describes rules NOT in the `effects` array, list them as **unimplemented special rules**
 
    Include the site-specific findings in the report table alongside any effects.

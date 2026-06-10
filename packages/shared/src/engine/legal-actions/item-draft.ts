@@ -8,6 +8,7 @@
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import type { CardEffect } from '../../types/effects.js';
 import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 import { defById } from '../reducer-utils.js';
 
@@ -58,12 +59,14 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     const isItem = isItemCard(itemDef);
 
     const isHoard = isItem && (itemDef.keywords ?? []).includes('hoard');
+    const noStartingCompany = isItemCard(itemDef) && hasPlayFlag(itemDef, 'no-starting-company');
     const context = {
       card: {
         name: itemName,
         isItem,
         unique: isItem ? itemDef.unique : false,
         isHoard,
+        noStartingCompany,
       },
       ctx: {
         assignedCount,

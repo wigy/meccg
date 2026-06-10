@@ -21,7 +21,7 @@
  * | 4 | +1 max region distance in M/H phase  | IMPLEMENTED | extraRegionDistance on Company                         |
  *
  * Playable: YES
- * Certified: 2026-06-08
+ * Certified: 2026-06-09
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

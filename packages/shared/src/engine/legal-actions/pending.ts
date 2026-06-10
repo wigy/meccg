@@ -1141,6 +1141,10 @@ function applyOneConstraint(
       // Consumed directly by `manifestations.ts` `getActiveAutoAttacks` —
       // no broad legal-action filtering needed here.
       return base;
+    case 'influence-at-site-modifier':
+      // Consulted directly by the faction-influence emitter in
+      // `legal-actions/site.ts` — no broad legal-action filtering needed.
+      return base;
     case 'corruption-removal-locked':
       // Consulted directly by the corruption-removal action emitter
       // (see legal-actions/site.ts / organization.ts) — no broad
@@ -1172,6 +1176,11 @@ function applyOneConstraint(
     case 'major-item-unlocked':
       // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
       // to allow major and hoard items — no broad legal-action filtering here.
+      return base;
+    case 'site-resource-unlocked':
+      // Consulted directly by `playResourceShortEventActions` in
+      // `legal-actions/organization.ts` (Records Unread: Information at any
+      // Shadow-hold) — no broad legal-action filtering needed here.
       return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —

@@ -251,7 +251,31 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -1
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "hazard-creature",
@@ -265,7 +289,13 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionTypes": ["shadow", "dark"],
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "hazard-creature",
@@ -435,7 +465,11 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "undead",
-    "keyedTo": []
+    "keyedTo": [
+      { "regionTypes": ["wilderness", "wilderness", "shadow", "dark"] },
+      { "siteTypes": ["ruins-and-lairs", "shadow-hold"] }
+    ],
+    "certified": "2026-06-09"
   },
   {
     "cardType": "hazard-creature",

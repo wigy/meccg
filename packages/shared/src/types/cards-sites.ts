@@ -51,15 +51,12 @@ export interface AutomaticAttack {
   readonly prowess: number;
   /** Body value for body checks. Absent means no body check (e.g. Balrog of Moria "18/-"). */
   readonly body?: number;
-  /** Combat rules that modify how this attack plays out (e.g. "attacker-chooses-defenders"). */
-  readonly combatRules?: readonly string[];
   /**
-   * When true, this attack cannot be canceled — the engine sets
-   * `combat.uncancelable` so no `cancel-attack` action is offered. Used by
-   * the Gas attack that *Vile Fumes* (wh-54) installs on a transformed site
-   * ("cannot be canceled").
+   * Combat rules that modify how this attack plays out (e.g.
+   * "attacker-chooses-defenders", "each-character", "cannot-be-canceled" —
+   * the last suppresses cancel-attack, used by Vile Fumes' Gas attack).
    */
-  readonly uncancelable?: boolean;
+  readonly combatRules?: readonly string[];
   /**
    * If this attack originates from a permanent-event in play (not from the
    * site card itself), the instance ID of that event. Used by finalizeCombat

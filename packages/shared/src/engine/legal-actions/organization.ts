@@ -63,14 +63,16 @@ import { canPayCost } from '../cost-evaluator.js';
  *  - `'freeCouncil'` — only effects flagged `freeCouncil: true`.
  *    Emitted for either player during the Free Council's
  *    corruption-checks step. Used by Magical Harp.
- *  - `'sitePhase'` — only effects flagged `sitePhase: true`. Emitted for
- *    the **active** player during their own site phase. Used by Vile Fumes.
+ *  - `'activeSitePhase'` — only effects flagged `activeSitePhase: true`.
+ *    Emitted for the active (resource) player during their own site phase
+ *    (enter-or-skip and play-resources steps). Used by Blasting Fire (wh-51)
+ *    and Vile Fumes' (wh-54) transform-site feature.
  */
 export type GrantActionPhaseFilter =
   | 'anyPhase'
   | 'opposingSitePhase'
   | 'freeCouncil'
-  | 'sitePhase';
+  | 'activeSitePhase';
 
 /**
  * Whether `effect` passes the given {@link GrantActionPhaseFilter}.
@@ -84,7 +86,7 @@ function matchesPhaseFilter(
   if (filter === 'anyPhase') return effect.anyPhase === true;
   if (filter === 'opposingSitePhase') return effect.opposingSitePhase === true;
   if (filter === 'freeCouncil') return effect.freeCouncil === true;
-  if (filter === 'sitePhase') return effect.sitePhase === true;
+  if (filter === 'activeSitePhase') return effect.activeSitePhase === true;
   return false;
 }
 
@@ -316,7 +318,80 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
 
+  // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
+  actions.push(...siteSageRingTestActivations(state, playerId));
+
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Emit `test-ring-at-site` activations for the `sage-tap-ring-test` site-rule
+ * (e.g. Mount Doom, le-393: "Any sage may tap to test a ring at this site,
+ * modifying the result by -3.").
+ *
+ * For each of the player's companies whose current site declares the rule,
+ * collect the gold-ring items borne by characters in that company and offer
+ * one activation per (untapped sage, gold-ring) pair. The sage need not bear
+ * the ring — like Gandalf, any sage may test a ring borne anywhere in the
+ * company. Tapping the sage is the cost; the test itself (roll, discard,
+ * special-ring offer) reuses the shared `gold-ring-test` resolution.
+ */
+export function siteSageRingTestActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+    if (!siteDefId) continue;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) continue;
+    const rule = siteDef.effects.find(
+      e => e.type === 'site-rule' && (e as { rule?: string }).rule === 'sage-tap-ring-test',
+    );
+    if (!rule) continue;
+
+    // Gold-ring items borne by any character in this company.
+    const ringInstanceIds: CardInstanceId[] = [];
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      for (const item of char.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+          ringInstanceIds.push(item.instanceId);
+        }
+      }
+    }
+    if (ringInstanceIds.length === 0) {
+      logDetail(`sage-tap-ring-test at ${siteDef.name}: no gold-ring items borne in company ${company.id as string}`);
+      continue;
+    }
+
+    // One activation per untapped sage × gold-ring.
+    for (const charInstId of company.characters) {
+      const sage = player.characters[charInstId as string];
+      if (!sage || sage.status !== CardStatus.Untapped) continue;
+      const sageDef = defById(state, sage.definitionId);
+      if (!sageDef || !isCharacterCard(sageDef)) continue;
+      const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+      if (!skills.includes('sage')) continue;
+      for (const ringInstanceId of ringInstanceIds) {
+        logDetail(`sage-tap-ring-test at ${siteDef.name}: ${sageDef.name} may tap to test a gold ring (modifier ${formatSignedNumber((rule as { rollModifier: number }).rollModifier)})`);
+        actions.push({
+          action: {
+            type: 'test-ring-at-site',
+            player: playerId,
+            characterId: charInstId,
+            targetCardId: ringInstanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
   return actions;
 }
 
@@ -901,6 +976,28 @@ function siteHasItemWithKeyword(
 }
 
 /**
+ * Returns true when an active `site-resource-unlocked` constraint owned by
+ * `playerId` makes resource category `subtype` (e.g. `"information"`)
+ * playable at sites of type `siteType` (e.g. `"shadow-hold"`). Backs
+ * Records Unread (as-130) mode B, which discards the item to "make
+ * Information playable at any Shadow-hold" for the rest of the turn.
+ */
+function isSiteResourceUnlocked(
+  state: GameState,
+  playerId: PlayerId,
+  siteType: string,
+  subtype: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'site-resource-unlocked'
+    && c.kind.siteType === siteType
+    && c.kind.subtype === subtype
+    && c.target.kind === 'player'
+    && c.target.playerId === playerId,
+  );
+}
+
+/**
  * Enumerates candidate target cards for a grant-action's `targets`
  * descriptor. Walks the declared scope relative to the bearer character
  * and applies the optional DSL filter to each candidate's card
@@ -1345,6 +1442,18 @@ function eligiblePlayOptionTargets(
         && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
       continue;
     }
+    // Enforce the optional company-size cap (e.g. Sneakin' / Stealth:
+    // "company size less than 3" → maxCompanySize 2). Hobbits count as
+    // half via computeCompanySize. This mirrors the end-of-org path so
+    // cards playable during the normal organization window respect the
+    // same size restriction.
+    if (playTarget.maxCompanySize !== undefined) {
+      const company = findCharacterCompany(player.companies, charId);
+      if (company && computeCompanySize(state, company) > playTarget.maxCompanySize) {
+        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${computeCompanySize(state, company)} > max ${playTarget.maxCompanySize}`);
+        continue;
+      }
+    }
     out.push(charId);
   }
   return out;
@@ -1643,6 +1752,14 @@ export function playResourceShortEventActions(
             siteHasResource = (siteDef.playableResources ?? []).includes(
               siteHasResourceCondition.subtype as Parameters<typeof siteDef.playableResources.includes>[0],
             );
+            // Records Unread (as-130) mode B: a `site-resource-unlocked`
+            // constraint (e.g. Information at any Shadow-hold) makes the
+            // category playable at matching site types even when the site
+            // does not list it natively.
+            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef.siteType, siteHasResourceCondition.subtype)) {
+              logDetail(`${def.name}: ${siteHasResourceCondition.subtype} unlocked at ${siteDef.siteType} via site-resource-unlocked constraint`);
+              siteHasResource = true;
+            }
           }
         }
       }
