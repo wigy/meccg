@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -667,12 +667,7 @@ function playResourcesActions(
 
         // Check uniqueness
         if (eventDef.unique) {
-          const alreadyInPlay = state.players.some(p =>
-            p.cardsInPlay.some(c => {
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === eventDef.name;
-            }),
-          );
+          const alreadyInPlay = countCopiesInPlay(state, eventDef.name) > 0;
           if (alreadyInPlay) {
             logDetail(`Permanent event ${eventDef.name}: unique and already in play`);
             actions.push({
@@ -808,17 +803,7 @@ function playResourcesActions(
         );
         if (cardNotInPlayCondition?.cardName) {
           const blockerName = cardNotInPlayCondition.cardName;
-          const blockerInPlay = state.players.some(p => {
-            const inChars = Object.values(p.characters).some(ch => {
-              const def = defById(state, ch.definitionId);
-              return def && def.name === blockerName;
-            });
-            const inPlay = p.cardsInPlay.some(c => {
-              const def = defById(state, c.definitionId);
-              return def && def.name === blockerName;
-            });
-            return inChars || inPlay;
-          });
+          const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
           if (blockerInPlay) {
             logDetail(`Permanent event ${eventDef.name}: blocked because ${blockerName} is in play`);
             actions.push({
@@ -1381,12 +1366,7 @@ function playResourcesActions(
       // Check uniqueness — only one copy of a *unique* faction can be in play.
       // Non-unique factions (e.g. Snaga-hai, le-286) may have multiple copies
       // in play, so the duplicate check only applies when the faction is unique.
-      const alreadyInPlay = factionDef.unique && state.players.some(p =>
-        p.cardsInPlay.some(c => {
-          const cDef = defById(state, c.definitionId);
-          return cDef && cDef.name === factionDef.name;
-        }),
-      );
+      const alreadyInPlay = factionDef.unique && countCopiesInPlay(state, factionDef.name) > 0;
       if (alreadyInPlay) {
         logDetail(`Faction ${factionDef.name}: unique and already in play`);
         actions.push({
