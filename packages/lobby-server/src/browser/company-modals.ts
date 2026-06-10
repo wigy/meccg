@@ -39,14 +39,7 @@ import {
 } from './company-view-state.js';
 import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction } from './render.js';
 import { switchToAllCompanies } from './company-view.js';
-
-/** Remove any open character action tooltip and its backdrop from the DOM. */
-export function dismissTooltip(): void {
-  const existing = document.querySelector('.char-action-tooltip');
-  if (existing) existing.remove();
-  const backdrop = document.querySelector('.char-action-backdrop');
-  if (backdrop) backdrop.remove();
-}
+import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
 
 /**
  * Open a sideboard browser modal for the active fetch-from-sideboard sub-flow.
@@ -106,15 +99,11 @@ export function openSideboardForFetch(
 
   // "Done" button when pass is available (discard mode with at least 1 fetched)
   if (passAction) {
-    const doneBtn = document.createElement('button');
-    doneBtn.className = 'char-action-tooltip__btn';
-    doneBtn.style.marginTop = '0.6rem';
-    doneBtn.textContent = 'Done';
-    doneBtn.onclick = (e) => {
-      e.stopPropagation();
+    const doneBtn = tooltipButton('Done', () => {
       dismissSideboardModal();
       onAction(passAction);
-    };
+    });
+    doneBtn.style.marginTop = '0.6rem';
     modal.appendChild(doneBtn);
   }
 
@@ -326,15 +315,11 @@ export function openExchangeModal(
 
   // "Done" button
   if (passAction) {
-    const doneBtn = document.createElement('button');
-    doneBtn.className = 'char-action-tooltip__btn';
-    doneBtn.style.marginTop = '0.6rem';
-    doneBtn.textContent = 'Done';
-    doneBtn.onclick = (e) => {
-      e.stopPropagation();
+    const doneBtn = tooltipButton('Done', () => {
       dismissExchangeModal();
       onAction(passAction);
-    };
+    });
+    doneBtn.style.marginTop = '0.6rem';
     modal.appendChild(doneBtn);
   }
 
@@ -394,132 +379,89 @@ export function showCharacterActionTooltip(
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const lastView = getLastView();
-  dismissTooltip();
   const onAction = options.onAction!;
 
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
+  const items: TooltipMenuItem[] = [];
 
-  const influenceActions = options.influenceActions?.get(charInstId as string);
-  const splitActions = options.splitActions?.get(charInstId as string);
+  const influenceActions = options.influenceActions?.get(charInstId as string) ?? [];
+  const splitAction = options.splitActions?.get(charInstId as string);
   const moveActions = options.moveToCompanyActions?.get(charInstId as string);
 
-  if (influenceActions && influenceActions.length > 0) {
-    for (const ia of influenceActions) {
-      const btn = document.createElement('button');
-      btn.className = 'char-action-tooltip__btn';
-      if (ia.controlledBy === 'general') {
-        btn.textContent = 'Move under GI';
-      } else {
-        const ctrlDef = cachedInstanceLookup(ia.controlledBy);
-        const ctrlName = ctrlDef ? cardPool[ctrlDef as string]?.name : undefined;
-        btn.textContent = `Move under DI of ${ctrlName ?? 'character'}`;
-      }
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        dismissTooltip();
-        onAction(ia);
-      };
-      tooltip.appendChild(btn);
+  for (const ia of influenceActions) {
+    let label: string;
+    if (ia.controlledBy === 'general') {
+      label = 'Move under GI';
+    } else {
+      const ctrlDef = cachedInstanceLookup(ia.controlledBy);
+      const ctrlName = ctrlDef ? cardPool[ctrlDef as string]?.name : undefined;
+      label = `Move under DI of ${ctrlName ?? 'character'}`;
     }
+    items.push({ label, onClick: () => onAction(ia) });
   }
 
-  if (splitActions) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Split to New Company';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      setPendingFocusCharacterId(splitActions.characterId);
-      onAction(splitActions);
-    };
-    tooltip.appendChild(btn);
+  if (splitAction) {
+    items.push({
+      label: 'Split to New Company',
+      onClick: () => {
+        setPendingFocusCharacterId(splitAction.characterId);
+        onAction(splitAction);
+      },
+    });
   }
 
   if (moveActions && moveActions.length > 0) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Move to Company';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      setCompanyMoveSourceId(charInstId);
-      setCompanyMoveSourceCompanyId(moveActions[0].sourceCompanyId);
-      const sourceDefId = cachedInstanceLookup(charInstId);
-      const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
-      setTargetingInstruction(
-        `Click a company to move ${sourceName ?? 'character'} there`,
-      );
-      switchToAllCompanies();
-      rerender();
-    };
-    tooltip.appendChild(btn);
+    items.push({
+      label: 'Move to Company',
+      onClick: () => {
+        setCompanyMoveSourceId(charInstId);
+        setCompanyMoveSourceCompanyId(moveActions[0].sourceCompanyId);
+        const sourceDefId = cachedInstanceLookup(charInstId);
+        const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
+        setTargetingInstruction(
+          `Click a company to move ${sourceName ?? 'character'} there`,
+        );
+        switchToAllCompanies();
+        rerender();
+      },
+    });
   }
 
   const mergeActionsForCompany = options.companyId
     ? options.mergeActions?.get(options.companyId as string)
     : undefined;
   if (mergeActionsForCompany && mergeActionsForCompany.length > 0) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Join Company';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      if (mergeActionsForCompany.length === 1) {
-        // Only one target — execute directly
-        onAction(mergeActionsForCompany[0]);
-      } else {
-        // Multiple targets — enter targeting mode
-        setMergeSourceCompanyId(options.companyId!);
-        setTargetingInstruction('Click a company to join into');
-        rerender();
-      }
-    };
-    tooltip.appendChild(btn);
+    items.push({
+      label: 'Join Company',
+      onClick: () => {
+        if (mergeActionsForCompany.length === 1) {
+          // Only one target — execute directly
+          onAction(mergeActionsForCompany[0]);
+        } else {
+          // Multiple targets — enter targeting mode
+          setMergeSourceCompanyId(options.companyId!);
+          setTargetingInstruction('Click a company to join into');
+          rerender();
+        }
+      },
+    });
   }
 
-  const sideboardIntents = options.sideboardIntentActions?.get(charInstId as string);
-  if (sideboardIntents && sideboardIntents.length > 0) {
-    for (const intent of sideboardIntents) {
-      const btn = document.createElement('button');
-      btn.className = 'char-action-tooltip__btn';
-      btn.textContent = intent.type === 'start-sideboard-to-deck'
-        ? 'Fetch to Deck' : 'Fetch to Discard';
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        dismissTooltip();
-        onAction(intent);
-      };
-      tooltip.appendChild(btn);
-    }
+  const sideboardIntents = options.sideboardIntentActions?.get(charInstId as string) ?? [];
+  for (const intent of sideboardIntents) {
+    items.push({
+      label: intent.type === 'start-sideboard-to-deck' ? 'Fetch to Deck' : 'Fetch to Discard',
+      onClick: () => onAction(intent),
+    });
   }
 
   const ccAction = options.corruptionCheckActions?.get(charInstId as string);
   if (ccAction) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Corruption Check';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(ccAction);
-    };
-    tooltip.appendChild(btn);
+    items.push({ label: 'Corruption Check', onClick: () => onAction(ccAction) });
   }
 
   const ccSupportAction = options.supportCorruptionCheckActions?.get(charInstId as string);
   if (ccSupportAction) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Tap for CC Support (+1)';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(ccSupportAction);
-    };
-    tooltip.appendChild(btn);
+    items.push({ label: 'Tap for CC Support (+1)', onClick: () => onAction(ccSupportAction) });
   }
 
   // Opponent influence: enter targeting mode
@@ -531,35 +473,21 @@ export function showCharacterActionTooltip(
     if (oppInfluenceActions.length > 0) {
       const charDefId = cachedInstanceLookup(charInstId);
       const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
-      const btn = document.createElement('button');
-      btn.className = 'char-action-tooltip__btn';
-      btn.textContent = 'Influence Opponent';
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        dismissTooltip();
-        setSelectedInfluencerForOpponent(charInstId);
-        setTargetingInstruction(
-          `Click an opponent's card to attempt influence with ${charName ?? 'character'}`,
-        );
-        switchToAllCompanies();
-        rerender();
-      };
-      tooltip.appendChild(btn);
+      items.push({
+        label: 'Influence Opponent',
+        onClick: () => {
+          setSelectedInfluencerForOpponent(charInstId);
+          setTargetingInstruction(
+            `Click an opponent's card to attempt influence with ${charName ?? 'character'}`,
+          );
+          switchToAllCompanies();
+          rerender();
+        },
+      });
     }
   }
 
-  // Create a modal backdrop that blocks interaction and dismisses on click
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop';
-  backdrop.onclick = () => dismissTooltip();
-  document.body.appendChild(backdrop);
-
-  // Position near the anchor element
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = `${rect.left + rect.width / 2}px`;
-  tooltip.style.top = `${rect.top}px`;
-  document.body.appendChild(tooltip);
+  showTooltipMenu(anchor, items);
 }
 
 /**
@@ -654,11 +582,6 @@ export function showGrantedActionTooltip(
   onAction: (action: GameAction) => void,
   getCharacterName?: (id: CardInstanceId) => string | undefined,
 ): void {
-  dismissTooltip();
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-
   // Detect when multiple entries share the same actionId so we know whether
   // appending a character name is necessary to distinguish them.
   const actionIdCounts = new Map<string, number>();
@@ -666,9 +589,7 @@ export function showGrantedActionTooltip(
     actionIdCounts.set(a.actionId, (actionIdCounts.get(a.actionId) ?? 0) + 1);
   }
 
-  for (const action of actions) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
+  const items = actions.map((action): TooltipMenuItem => {
     // METD §7 / rule 10.08: corruption removal has two variants for the
     // same actionId — tap-and-roll (standard) vs no-tap-at-minus-3.
     // Distinguish them by the action's `noTap` flag; otherwise fall back
@@ -686,25 +607,10 @@ export function showGrantedActionTooltip(
       const charName = getCharacterName(action.characterId);
       if (charName) label += ` — ${charName}`;
     }
-    btn.textContent = label;
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      onAction(action);
-    };
-    tooltip.appendChild(btn);
-  }
+    return { label, onClick: () => onAction(action) };
+  });
 
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop';
-  backdrop.onclick = () => dismissTooltip();
-  document.body.appendChild(backdrop);
-
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = `${rect.left + rect.width / 2}px`;
-  tooltip.style.top = `${rect.top}px`;
-  document.body.appendChild(tooltip);
+  showTooltipMenu(anchor, items);
 }
 
 /**
@@ -718,43 +624,23 @@ export function showOpponentInfluenceMenu(
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const lastCardPool = getLastCardPool();
-  dismissTooltip();
 
-  const tooltip = document.createElement('div');
-  tooltip.className = 'char-action-tooltip';
-
-  for (const action of actions) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
+  const items = actions.map((action): TooltipMenuItem => {
+    let label = 'Influence (no reveal)';
     if (action.revealedCardInstanceId) {
       const revealDef = lastCardPool
         ? lastCardPool[cachedInstanceLookup(action.revealedCardInstanceId) as string]
         : undefined;
-      btn.textContent = `Influence (reveal ${revealDef?.name ?? 'card'})`;
-    } else {
-      btn.textContent = 'Influence (no reveal)';
+      label = `Influence (reveal ${revealDef?.name ?? 'card'})`;
     }
-    btn.onclick = (ev) => {
-      ev.stopPropagation();
-      dismissTooltip();
-      clearOpponentInfluenceSelection();
-      onAction(action);
+    return {
+      label,
+      onClick: () => {
+        clearOpponentInfluenceSelection();
+        onAction(action);
+      },
     };
-    tooltip.appendChild(btn);
-  }
+  });
 
-  // Backdrop (uses same class as character action tooltip for cleanup)
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop';
-  backdrop.onclick = () => dismissTooltip();
-  document.body.appendChild(backdrop);
-
-  document.body.appendChild(tooltip);
-
-  // Position near click target
-  const anchor = e.target as HTMLElement;
-  const rect = anchor.getBoundingClientRect();
-  tooltip.style.position = 'fixed';
-  tooltip.style.left = `${rect.left}px`;
-  tooltip.style.top = `${rect.bottom + 4}px`;
+  showTooltipMenu(e.target as HTMLElement, items, { placement: 'under-left' });
 }
