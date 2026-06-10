@@ -4,11 +4,11 @@ TODO
 EVERGREEN
 ---------
 
-Improve our game engine if you can find ways to generalize parts or any other ways to make more code re-usable and shorten the existing code base.
+Improve our code quality if you can find ways to generalize parts or any other ways to make more code re-usable and shorten the existing code base.
 
-Study our tests and improve the readability of our tests. Do not write helpers to test files. Avoid long chains of object access when checking values. Write a helper with descriptive name. See if you can take out mystery numbers from helper calls, i.e. typically refering to index of some array. Plain numbers are difficult to read. Prefer single combined test if there are two tests where one is essentially the same setup excatly than the other test. Combine similar helpers to single function.
+Find out tests that has not been implemented yet and implement them. If needed, implement new concepts to the engine.
 
-Look for functions that are better implemented in DSL. Have a critical look into DSL-keywords. Look for keywords used only for one single card. Think hard how to make it more generic and reduce total amount of code.
+Look for functions and features that are better implemented in DSL.
 
 FIXES
 -----
@@ -22,16 +22,9 @@ EPICS
 Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
-
-UNSORTED
---------
-
-(F) Spies and Traitors
-(G) Marauding Brood of Uglies
 (H) Stealthy Tribe
 (I) Morgul Rallying Cry
 (J) Seducing Nations of Men
-Winning Codition: The One Ring
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
@@ -41,6 +34,6 @@ Finalise tests section 07
 Finalise tests section 08
 Finalise tests section 09
 Finalise tests section 10
-Deck Validation
-Tournaments
+Deck Validation and editing
 Uploading Gccg deck format.
+Tournaments
