@@ -40,19 +40,21 @@ function renderSection(section: DeckSection, deckId: string): void {
   const label = document.createElement('span');
   label.textContent = `${section.label} (${total})`;
   titleEl.appendChild(label);
-  if (section.id === 'characters' || section.id === 'pool') {
+  const browsable: Record<string, { preset: TogglePreset; title: string }> = {
+    characters: { preset: 'characters', title: 'Add a character card' },
+    pool: { preset: 'pool', title: 'Add a starting character or item' },
+    resources: { preset: 'resources', title: 'Add a resource card' },
+  };
+  const browse = browsable[section.id];
+  if (browse) {
     const addBtn = document.createElement('button');
     addBtn.className = 'deck-editor-add-btn';
     addBtn.textContent = '+';
-    addBtn.title = section.id === 'pool'
-      ? 'Add a starting character or item'
-      : 'Add a character card';
-    // The pool holds the starting company: no avatars, but starting items.
-    const includeAvatars = section.id === 'characters';
+    addBtn.title = browse.title;
     // The toggles fully define the browsable categories; no extra base filter.
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
       () => true,
-      characterToggles(editingDeck?.alignment ?? '', includeAvatars)));
+      browserToggles(editingDeck?.alignment ?? '', browse.preset)));
     titleEl.appendChild(addBtn);
   }
 }
@@ -78,21 +80,29 @@ function isStartingItem(def: CardDefinition): boolean {
   return (traits(def).keywords ?? []).includes('starting-item');
 }
 
+/** Which deck section a card browser was opened from; decides toggle defaults. */
+type TogglePreset = 'characters' | 'pool' | 'resources';
+
 /**
- * Build the category toggles for the characters/pool card browser:
- * character categories plus starting items. The deck's alignment decides
- * which categories start enabled; the rest can be toggled on to browse
- * beyond the deck's own alignment. With `includeAvatars` false (the pool
- * browser), the avatar toggles start disabled.
+ * Build the category toggles for the card browser. The preset and the
+ * deck's alignment decide which categories start enabled; the rest can be
+ * toggled on to browse beyond the deck's own alignment. The pool preset
+ * disables avatars (the pool holds the starting company), and the
+ * resources preset enables only the resource categories.
  */
-function characterToggles(alignment: string, includeAvatars = true): BrowserToggle[] {
+function browserToggles(alignment: string, preset: TogglePreset): BrowserToggle[] {
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
   // Avatars are identified by their race; everyone else is an ordinary character.
   const isAvatar = (def: CardDefinition) =>
     ['wizard', 'ringwraith', 'fallen-wizard', 'balrog'].includes(traits(def).race ?? '');
-  // Unknown alignment: enable everything.
-  const on = (...alignments: string[]) => alignments.includes(alignment)
+  // Unknown alignment: enable every category the preset allows.
+  const matchesAlignment = (...alignments: string[]) => alignments.includes(alignment)
     || !['hero', 'minion', 'fallen-wizard', 'balrog'].includes(alignment);
+  const charsOn = preset !== 'resources';
+  const avatarsOn = preset === 'characters';
+  const on = (...alignments: string[]) => charsOn && matchesAlignment(...alignments);
+  const resOn = (...alignments: string[]) =>
+    preset === 'resources' && matchesAlignment(...alignments);
   return [
     { icon: '\u{1F9DD}', title: 'Hero characters', active: on('hero', 'fallen-wizard'),
       match: d => traits(d).cardType === 'hero-character' && !isAvatar(d) },
@@ -100,13 +110,13 @@ function characterToggles(alignment: string, includeAvatars = true): BrowserTogg
       match: d => traits(d).cardType === 'minion-character' && !isAvatar(d) && !isAgent(d) },
     { icon: '\u{1F575}️', title: 'Agents', active: on('minion', 'fallen-wizard', 'balrog'),
       match: d => traits(d).cardType === 'minion-character' && isAgent(d) },
-    { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: includeAvatars && on('hero'),
+    { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: avatarsOn && matchesAlignment('hero'),
       match: d => traits(d).race === 'wizard' && traits(d).alignment === 'wizard' },
-    { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: includeAvatars && on('minion'),
+    { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: avatarsOn && matchesAlignment('minion'),
       match: d => traits(d).race === 'ringwraith' },
-    { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: includeAvatars && on('fallen-wizard'),
+    { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: avatarsOn && matchesAlignment('fallen-wizard'),
       match: d => traits(d).alignment === 'fallen-wizard' && CHARACTER_CARD_TYPES.has(traits(d).cardType) },
-    { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: includeAvatars && on('balrog'),
+    { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: avatarsOn && matchesAlignment('balrog'),
       match: d => traits(d).race === 'balrog' },
     { icon: '\u{1F6E1}️', title: 'Hero starting items', active: on('hero', 'fallen-wizard'),
       separatorBefore: true,
@@ -115,7 +125,7 @@ function characterToggles(alignment: string, includeAvatars = true): BrowserTogg
       match: d => isStartingItem(d) && traits(d).alignment === 'ringwraith' },
     { icon: '\u{1FA84}', title: 'Fallen-wizard starting items', active: on('fallen-wizard'),
       match: d => isStartingItem(d) && traits(d).alignment === 'fallen-wizard' },
-    ...resourceToggles(),
+    ...resourceToggles(resOn),
   ];
 }
 
@@ -127,10 +137,11 @@ function isRing(def: CardDefinition): boolean {
 
 /**
  * Resource category toggles (hero and minion versions side by side, then
- * the fallen-wizard pair). All start disabled in the characters/pool
- * browsers — they hold characters and starting cards, not deck resources.
+ * the fallen-wizard pair). `resOn` decides which start enabled: the
+ * resources-section browser enables them per deck alignment; the
+ * characters/pool browsers pass an always-false activator.
  */
-function resourceToggles(): BrowserToggle[] {
+function resourceToggles(resOn: (...alignments: string[]) => boolean): BrowserToggle[] {
   // Hero/minion resources by card-type prefix; fallen-wizard stage resources
   // reuse hero card types, so exclude that alignment from the hero side.
   const res = (d: CardDefinition, side: 'hero' | 'minion', kind: string) =>
@@ -138,34 +149,37 @@ function resourceToggles(): BrowserToggle[] {
   const hasMp = (d: CardDefinition) => (traits(d).marshallingPoints ?? 0) > 0;
   const fwResource = (d: CardDefinition) =>
     traits(d).alignment === 'fallen-wizard' && traits(d).cardType.includes('-resource-');
+  const heroOn = resOn('hero', 'fallen-wizard');
+  const minionOn = resOn('minion', 'fallen-wizard', 'balrog');
+  const fwOn = resOn('fallen-wizard');
   return [
-    { icon: '\u{1F48D}', title: 'Hero rings', active: false, separatorBefore: true,
+    { icon: '\u{1F48D}', title: 'Hero rings', active: heroOn, separatorBefore: true,
       match: d => res(d, 'hero', 'item') && isRing(d) },
-    { icon: '\u{1F9FF}', title: 'Minion rings', active: false,
+    { icon: '\u{1F9FF}', title: 'Minion rings', active: minionOn,
       match: d => res(d, 'minion', 'item') && isRing(d) },
-    { icon: '\u{1F48E}', title: 'Hero items (non-ring)', active: false,
+    { icon: '\u{1F48E}', title: 'Hero items (non-ring)', active: heroOn,
       match: d => res(d, 'hero', 'item') && !isRing(d) },
-    { icon: '\u{1FA93}', title: 'Minion items (non-ring)', active: false,
+    { icon: '\u{1FA93}', title: 'Minion items (non-ring)', active: minionOn,
       match: d => res(d, 'minion', 'item') && !isRing(d) },
-    { icon: '\u{1F6A9}', title: 'Hero factions', active: false,
+    { icon: '\u{1F6A9}', title: 'Hero factions', active: heroOn,
       match: d => res(d, 'hero', 'faction') },
-    { icon: '\u{1F3F4}', title: 'Minion factions', active: false,
+    { icon: '\u{1F3F4}', title: 'Minion factions', active: minionOn,
       match: d => res(d, 'minion', 'faction') },
-    { icon: '\u{1F434}', title: 'Hero allies', active: false,
+    { icon: '\u{1F434}', title: 'Hero allies', active: heroOn,
       match: d => res(d, 'hero', 'ally') },
-    { icon: '\u{1F43A}', title: 'Minion allies', active: false,
+    { icon: '\u{1F43A}', title: 'Minion allies', active: minionOn,
       match: d => res(d, 'minion', 'ally') },
-    { icon: '\u{1F3C5}', title: 'Hero misc-point resources', active: false,
+    { icon: '\u{1F3C5}', title: 'Hero misc-point resources', active: heroOn,
       match: d => res(d, 'hero', 'event') && hasMp(d) },
-    { icon: '\u{1F396}️', title: 'Minion misc-point resources', active: false,
+    { icon: '\u{1F396}️', title: 'Minion misc-point resources', active: minionOn,
       match: d => res(d, 'minion', 'event') && hasMp(d) },
-    { icon: '\u{1F4DC}', title: 'Hero events', active: false,
+    { icon: '\u{1F4DC}', title: 'Hero events', active: heroOn,
       match: d => res(d, 'hero', 'event') && !hasMp(d) },
-    { icon: '\u{1F987}', title: 'Minion events', active: false,
+    { icon: '\u{1F987}', title: 'Minion events', active: minionOn,
       match: d => res(d, 'minion', 'event') && !hasMp(d) },
-    { icon: '\u{1F3C6}', title: 'Fallen-wizard resources with marshalling points', active: false,
+    { icon: '\u{1F3C6}', title: 'Fallen-wizard resources with marshalling points', active: fwOn,
       match: d => fwResource(d) && hasMp(d) },
-    { icon: '\u{1F56F}️', title: 'Fallen-wizard resources without marshalling points', active: false,
+    { icon: '\u{1F56F}️', title: 'Fallen-wizard resources without marshalling points', active: fwOn,
       match: d => fwResource(d) && !hasMp(d) },
   ];
 }
