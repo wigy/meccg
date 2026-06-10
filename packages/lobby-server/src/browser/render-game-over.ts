@@ -98,6 +98,22 @@ export function renderGameOverView(
   const board = $('visual-board');
   board.innerHTML = '';
 
+  // One Ring win banner — a forced win bypasses the scoring table as the
+  // decider, so call it out explicitly (CoE rule 10.39 / MELE §1).
+  const goState = view.phaseState;
+  if (goState.winReason.kind === 'one-ring') {
+    const winnerName = goState.winner === view.self.id ? view.self.name
+      : goState.winner === view.opponent.id ? view.opponent.name
+      : '?';
+    const cardId = goState.winReason.card;
+    const cardDef = cardId ? cardPool[cardId as string] : undefined;
+    const via = cardDef ? ` (${cardDef.name})` : '';
+    const banner = document.createElement('div');
+    banner.className = 'go-onering-banner';
+    banner.textContent = `${winnerName} wins with The One Ring${via}`;
+    board.appendChild(banner);
+  }
+
   const selfRaw = view.self.marshallingPoints;
   const oppRaw = view.opponent.marshallingPoints;
   const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);

@@ -8,7 +8,7 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
-import { Phase, CardStatus, isSiteCard, getPlayerIndex } from '../index.js';
+import { Phase, CardStatus, isSiteCard, getPlayerIndex, Alignment } from '../index.js';
 import { BARAD_DUR_HERO, BARAD_DUR_MINION, THE_ONE_RING } from '../card-ids.js';
 import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
@@ -19,6 +19,8 @@ import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired, removeConstraint } from './pending.js';
 import { handleGrantActionApply, handleStoreItem } from './reducer-organization.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
+import { endGame } from './reducer-free-council.js';
+import { scanEndOfTurnWinConditions } from './reducer-win-conditions.js';
 
 
 /**
@@ -327,11 +329,30 @@ function checkOneRingWin(state: GameState): PlayerId | null {
  */
 function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'pass') {
+    // CoE 10.39: A New Ringlord (wh-60) — the Fallen-wizard's end-of-turn
+    // One Ring roll. Fires before the turn ends; may win the game or
+    // eliminate the Fallen-wizard.
+    const ringlordRoll = scanEndOfTurnWinConditions(state);
+    if (ringlordRoll) {
+      if (ringlordRoll.state.phaseState.phase === Phase.GameOver) {
+        return ringlordRoll;
+      }
+      // No win (eliminated / no effect) — continue ending the turn from the
+      // post-roll state so an eliminated Fallen-wizard is reflected below.
+      state = ringlordRoll.state;
+    }
+
     // MELE §1: check Ringwraith One Ring win condition before the turn ends
     const oneRingWinner = checkOneRingWin(state);
     if (oneRingWinner) {
-      logDetail(`One Ring win condition triggered — transitioning to Free Council with immediate winner ${oneRingWinner as string}`);
-      return { state: transitionToFreeCouncil(state, oneRingWinner) };
+      logHeading(`One Ring win condition triggered — ${oneRingWinner as string} wins immediately (Ringwraith at Barad-dûr, MELE §1)`);
+      return {
+        state: endGame(
+          state,
+          { kind: 'one-ring', alignment: Alignment.Ringwraith, card: null },
+          oneRingWinner,
+        ),
+      };
     }
 
     const currentIndex = getPlayerIndex(state, state.activePlayer!);
