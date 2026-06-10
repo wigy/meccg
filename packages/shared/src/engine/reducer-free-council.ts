@@ -10,7 +10,7 @@
  * `pendingCheck`) → tap supporters → pass to resolve.
  */
 
-import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction } from '../index.js';
+import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
 import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
@@ -54,7 +54,7 @@ export function handleFreeCouncil(state: GameState, action: GameAction): Reducer
     if (fcState.firstPlayerDone) {
       // Both players done — compute final scores and transition to Game Over
       logDetail(`Free Council: both players finished corruption checks → computing final scores`);
-      return { state: computeFinalScoresAndEnd(state) };
+      return { state: endGame(state, { kind: 'marshalling-points' }) };
     }
 
     // Switch to the other player for their corruption checks
@@ -326,11 +326,14 @@ function resolveCorruptionCheck(
 }
 
 /**
- * Computes final tournament scores for both players and transitions to Game Over.
- * Applies steps 2-4 (via computeTournamentScore), step 6 (avatar elimination penalty),
- * and determines the winner (step 7).
+ * Computes final tournament scores for both players.
+ *
+ * Applies steps 2-4 (via computeTournamentScore), step 6 (avatar elimination
+ * penalty), and step 5 (unique card reveal). Returns the per-player adjusted
+ * scores keyed by index. The winner determination (step 7) is left to
+ * {@link endGame}, which may force a winner on a One Ring win.
  */
-function computeFinalScoresAndEnd(state: GameState): GameState {
+function computeFinalScores(state: GameState): { score0: number; score1: number } {
   const p0 = state.players[0];
   const p1 = state.players[1];
 
@@ -387,15 +390,46 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
 
   logHeading(`Final scores: ${p0.name} = ${score0}, ${p1.name} = ${score1}`);
 
-  let winner: PlayerId | null = null;
-  if (score0 > score1) winner = p0.id;
-  else if (score1 > score0) winner = p1.id;
+  return { score0, score1 };
+}
 
-  if (winner) {
+/**
+ * Builds the terminal {@link Phase.GameOver} state and records how the game
+ * was decided.
+ *
+ * Final scores are always computed (for the result screen). For a normal
+ * endgame (`forcedWinner` undefined) the higher score wins — the CoE §10.3
+ * behaviour. For a One Ring win (`reason.kind === 'one-ring'`) the caller
+ * passes `forcedWinner`; that player wins regardless of score, per MELE §1.
+ *
+ * This is the single, well-logged code path through which every game ends —
+ * all four One Ring alignment paths funnel through here with a forced winner.
+ */
+export function endGame(
+  state: GameState,
+  reason: WinReason,
+  forcedWinner?: PlayerId,
+): GameState {
+  const p0 = state.players[0];
+  const p1 = state.players[1];
+  const { score0, score1 } = computeFinalScores(state);
+
+  let winner: PlayerId | null;
+  if (forcedWinner !== undefined) {
+    winner = forcedWinner;
     const winnerName = playerById(state, winner)?.name ?? '?';
-    logDetail(`Winner: ${winnerName}`);
+    logHeading(`The One Ring decides the game — ${winnerName} wins (${reason.kind === 'one-ring' ? reason.alignment : reason.kind})`);
   } else {
-    logDetail(`Game ended in a tie`);
+    winner = null;
+    if (score0 > score1) winner = p0.id;
+    else if (score1 > score0) winner = p1.id;
+
+    if (winner) {
+      const winnerName = playerById(state, winner)?.name ?? '?';
+      logDetail(`Winner: ${winnerName}`);
+    } else {
+      logDetail(`Game ended in a tie`);
+    }
   }
 
   return {
@@ -408,8 +442,30 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
         [p1.id as string]: score1,
       },
       finishedPlayers: [],
+      winReason: reason,
     },
   };
+}
+
+/**
+ * Ends the game as a One Ring win (CoE rule 10.39) for `winner`.
+ *
+ * Convenience wrapper around {@link endGame} that derives the
+ * {@link WinReason} alignment from the winning player and records the
+ * triggering `card` (or `null` for the Ringwraith positional win). This is
+ * the single entry point every alignment's win path funnels through —
+ * positional (Ringwraith), card-on-play (Gollum's Fate / Challenge the
+ * Power), corruption-check success (Cracks of Doom), and end-of-turn scan
+ * (A New Ringlord).
+ */
+export function oneRingWin(
+  state: GameState,
+  winner: PlayerId,
+  card: CardDefinitionId | null,
+): GameState {
+  const player = playerById(state, winner);
+  const alignment = player?.alignment ?? Alignment.Wizard;
+  return endGame(state, { kind: 'one-ring', alignment, card }, winner);
 }
 
 /**

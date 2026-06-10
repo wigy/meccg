@@ -5012,6 +5012,21 @@ body.all-companies-mode:has(#debug-view.hidden) {
 
 /* ---- Game Over scoring table ---- */
 
+.go-onering-banner {
+  width: 90%;
+  max-width: 900px;
+  margin: 0 auto 1rem auto;
+  padding: 0.8rem 1rem;
+  text-align: center;
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.4rem;
+  color: #f0d890;
+  background: rgba(60, 40, 10, 0.55);
+  border: 1px solid rgba(240, 216, 144, 0.5);
+  border-radius: 6px;
+  text-shadow: 0 0 12px rgba(200, 150, 40, 0.7);
+}
+
 .go-table {
   width: 90%;
   max-width: 900px;

@@ -18,7 +18,7 @@ import type {
   DuplicationLimitEffect,
   PlayConditionEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard, Race } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { playerById, defById, countCopiesInPlay, isCovertCompany } from '../reducer-utils.js';
@@ -228,6 +228,9 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               const iDef = defById(state, item.definitionId);
               return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
             });
+            const itemNames = charData.items
+              .map(item => { const iDef = defById(state, item.definitionId); return iDef && 'name' in iDef ? (iDef as { name: string }).name : undefined; })
+              .filter((n): n is string => n !== undefined);
             const ctx = {
               target: {
                 race: charDef.race,
@@ -236,6 +239,8 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 name: charDef.name,
                 keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 itemKeywords,
+                itemNames,
+                isAvatar: isAvatarCharacter(charDef),
               },
               company: { skills: companySkills, hasShadowMagicUser },
             };

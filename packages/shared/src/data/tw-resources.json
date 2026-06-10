@@ -1801,5 +1801,81 @@
     ],
     "text": "Warrior only. Make two rolls against a strike and choose one of the two results to use.",
     "certified": "2026-04-22"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-205",
+    "name": "Cracks of Doom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CracksOfDoom.jpg",
+    "text": "Only playable if The One Ring is at Mount Doom during the site phase. Its bearer must make a corruption check modified by -4. If successful, The One Ring is destroyed and its bearer's player wins. Cannot be included in a Fallen-wizard's deck.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "$and": [
+            { "site.name": "Mount Doom" },
+            { "company.itemNames": { "$includes": "The One Ring" } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.itemNames": { "$includes": "The One Ring" } }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -4,
+          "onSuccess": { "type": "win-game", "via": "one-ring" }
+        }
+      }
+    ]
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-247",
+    "name": "Gollum’s Fate",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GollumsFate.jpg",
+    "text": "Unique. Only playable if The One Ring and Gollum are both at Mount Doom during the site phase. The One Ring is destroyed and its bearer's player wins. Cannot be included in a Fallen-wizard's deck.",
+    "alignment": "wizard",
+    "unique": true,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "$and": [
+            { "site.name": "Mount Doom" },
+            { "company.itemNames": { "$includes": "The One Ring" } },
+            { "company.allyNames": { "$includes": "Gollum" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "win-game", "via": "one-ring" }
+      }
+    ]
   }
 ]

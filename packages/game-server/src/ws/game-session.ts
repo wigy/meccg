@@ -740,6 +740,11 @@ export class GameSession {
       opponentScore: goState.finalScores[opponent.id as string],
       raw: selfRaw,
       adjusted: selfAdj,
+      // How the game was decided (CoE 10.39). Denormalised card/alignment for
+      // convenient stats queries; null on a normal marshalling-points win.
+      winReason: goState.winReason.kind,
+      winCard: goState.winReason.kind === 'one-ring' ? goState.winReason.card : null,
+      winAlignment: goState.winReason.kind === 'one-ring' ? goState.winReason.alignment : null,
     };
 
     const dir = path.join(PLAYERS_DIR, normalizedName);

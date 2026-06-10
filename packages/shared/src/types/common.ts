@@ -251,6 +251,21 @@ export type Keyword =
   | 'under-deeps';
 
 /**
+ * How a finished game was decided (CoE rule 10.39 / MELE §1).
+ *
+ * - `marshalling-points` — the normal CoE §10.3 endgame: the higher
+ *   tournament score wins after Free Council corruption checks.
+ * - `one-ring` — a player won immediately with The One Ring. `alignment`
+ *   records which path was used; `card` is the played win-condition card
+ *   (`tw-205` Cracks of Doom, `tw-247` Gollum's Fate, `wh-60` A New Ringlord,
+ *   or `ba-52` Challenge the Power), or `null` for the Ringwraith positional
+ *   win at Barad-dûr (which has no card).
+ */
+export type WinReason =
+  | { readonly kind: 'marshalling-points' }
+  | { readonly kind: 'one-ring'; readonly alignment: Alignment; readonly card: CardDefinitionId | null };
+
+/**
  * A card reference carrying both its instance ID and definition ID.
  * Used everywhere a card is referenced in game state, phase state, and views.
  * For hidden cards the definition ID is `UNKNOWN_CARD` or `UNKNOWN_SITE`.

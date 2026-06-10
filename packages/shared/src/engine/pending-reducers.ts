@@ -27,7 +27,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
-import { logDetail } from './legal-actions/log.js';
+import { logDetail, logHeading } from './legal-actions/log.js';
+import { oneRingWin } from './reducer-free-council.js';
 import {
   resolveInfluenceAttemptRoll,
   resolveOpponentInfluenceDefend,
@@ -196,7 +197,16 @@ function applyCorruptionCheckResolution(
 
   if (total > cp) {
     logDetail(`Corruption check passed (${total} > ${cp})`);
-    const stateAfterDequeue = dequeueResolution(postRollState, top.id);
+    let stateAfterDequeue = dequeueResolution(postRollState, top.id);
+    // onSuccess hook (CoE 10.39): Cracks of Doom wins the game on a passing
+    // −4 corruption check. The source card is the win card (tw-205); the
+    // actor is its controller.
+    const onSuccess = top.kind.onSuccess;
+    if (onSuccess?.type === 'win-game') {
+      const winCard = top.source ? resolveInstanceId(state, top.source) : null;
+      logHeading(`Corruption check succeeded — ${player.name} wins with The One Ring (CoE 10.39)`);
+      stateAfterDequeue = oneRingWin(stateAfterDequeue, player.id, winCard ?? null);
+    }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
