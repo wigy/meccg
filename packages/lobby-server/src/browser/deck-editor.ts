@@ -40,14 +40,18 @@ function renderSection(section: DeckSection, deckId: string): void {
   const label = document.createElement('span');
   label.textContent = `${section.label} (${total})`;
   titleEl.appendChild(label);
-  if (section.id === 'characters') {
+  if (section.id === 'characters' || section.id === 'pool') {
     const addBtn = document.createElement('button');
     addBtn.className = 'deck-editor-add-btn';
     addBtn.textContent = '+';
-    addBtn.title = 'Add a character card';
+    addBtn.title = section.id === 'pool'
+      ? 'Add a starting character or item'
+      : 'Add a character card';
+    // The pool holds the starting company: no avatars, but starting items.
+    const includeAvatars = section.id === 'characters';
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
       (def) => CHARACTER_CARD_TYPES.has(def.cardType) || isStartingItem(def),
-      characterToggles(editingDeck?.alignment ?? '')));
+      characterToggles(editingDeck?.alignment ?? '', includeAvatars)));
     titleEl.appendChild(addBtn);
   }
 }
@@ -73,12 +77,13 @@ function isStartingItem(def: CardDefinition): boolean {
 }
 
 /**
- * Build the category toggles for the characters-section card browser:
+ * Build the category toggles for the characters/pool card browser:
  * character categories plus starting items. The deck's alignment decides
  * which categories start enabled; the rest can be toggled on to browse
- * beyond the deck's own alignment.
+ * beyond the deck's own alignment. With `includeAvatars` false (the pool
+ * browser), the avatar toggles start disabled.
  */
-function characterToggles(alignment: string): BrowserToggle[] {
+function characterToggles(alignment: string, includeAvatars = true): BrowserToggle[] {
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
   // Avatars are identified by their race; everyone else is an ordinary character.
   const isAvatar = (def: CardDefinition) =>
@@ -93,13 +98,13 @@ function characterToggles(alignment: string): BrowserToggle[] {
       match: d => traits(d).cardType === 'minion-character' && !isAvatar(d) && !isAgent(d) },
     { icon: '\u{1F575}️', title: 'Agents', active: on('minion', 'fallen-wizard', 'balrog'),
       match: d => traits(d).cardType === 'minion-character' && isAgent(d) },
-    { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: on('hero'),
+    { icon: '\u{1F9D9}', title: 'Wizards (hero avatars)', active: includeAvatars && on('hero'),
       match: d => traits(d).race === 'wizard' && traits(d).alignment === 'wizard' },
-    { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: on('minion'),
+    { icon: '\u{1F47B}', title: 'Ringwraiths (minion avatars)', active: includeAvatars && on('minion'),
       match: d => traits(d).race === 'ringwraith' },
-    { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: on('fallen-wizard'),
+    { icon: '\u{1F52E}', title: 'Fallen-wizard avatars', active: includeAvatars && on('fallen-wizard'),
       match: d => traits(d).alignment === 'fallen-wizard' && CHARACTER_CARD_TYPES.has(traits(d).cardType) },
-    { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: on('balrog'),
+    { icon: '\u{1F525}', title: 'The Balrog (avatar)', active: includeAvatars && on('balrog'),
       match: d => traits(d).race === 'balrog' },
     { icon: '\u{1F6E1}️', title: 'Hero starting items', active: on('hero', 'fallen-wizard'),
       separatorBefore: true,
