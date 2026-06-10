@@ -494,6 +494,7 @@
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 5 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
+| wh-54 | Vile Fumes | — | 12 | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = certified, ◐ = partial*

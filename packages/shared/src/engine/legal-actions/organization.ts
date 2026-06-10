@@ -64,8 +64,9 @@ import { canPayCost } from '../cost-evaluator.js';
  *    Emitted for either player during the Free Council's
  *    corruption-checks step. Used by Magical Harp.
  *  - `'activeSitePhase'` — only effects flagged `activeSitePhase: true`.
- *    Emitted for the active (resource) player during the enter-or-skip
- *    step of their own site phase. Used by Blasting Fire (wh-51).
+ *    Emitted for the active (resource) player during their own site phase
+ *    (enter-or-skip and play-resources steps). Used by Blasting Fire (wh-51)
+ *    and Vile Fumes' (wh-54) transform-site feature.
  */
 export type GrantActionPhaseFilter =
   | 'anyPhase'
@@ -932,6 +933,7 @@ function buildGrantActionContext(
         .some(a => a.creatureType === 'Dragon')
     : false;
   const siteCtx = siteName ? {
+    type: siteType,
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,

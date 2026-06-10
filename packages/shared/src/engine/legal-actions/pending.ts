@@ -1137,6 +1137,10 @@ function applyOneConstraint(
       return base;
     case 'skip-automatic-attacks':
       return base;
+    case 'replace-automatic-attacks':
+      // Consumed directly by `manifestations.ts` `getActiveAutoAttacks` —
+      // no broad legal-action filtering needed here.
+      return base;
     case 'influence-at-site-modifier':
       // Consulted directly by the faction-influence emitter in
       // `legal-actions/site.ts` — no broad legal-action filtering needed.

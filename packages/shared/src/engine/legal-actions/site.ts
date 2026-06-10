@@ -138,7 +138,14 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // Opponent-influence-defend and on-guard-window are now produced
     // via the unified pending-resolution dispatcher in
     // `legal-actions/index.ts` before this function is reached.
-    return playResourcesActions(state, playerId, siteState);
+    const base = playResourcesActions(state, playerId, siteState);
+    if (isActive) {
+      // Active player may activate `activeSitePhase: true` grant-actions on
+      // their carried items during the play-resources step (e.g. Vile Fumes'
+      // discard-to-transform feature).
+      base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+    }
+    return base;
   }
 
   // TODO: play-minor-item
@@ -1000,8 +1007,9 @@ function playResourcesActions(
         && (itemDef.subtype === 'minor' || itemDef.subtype === 'major' || itemDef.subtype === 'gold-ring');
 
       // item-play-site allowTapped: the item itself permits play at a
-      // tapped site (e.g. Blasting Fire). The site-restriction below still
-      // gates *which* tapped sites qualify.
+      // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
+      // untapped Shadow-hold …"). The site-restriction below still gates
+      // *which* tapped sites qualify.
       const itemSiteRestriction = itemDef.effects?.find(
         (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
       );

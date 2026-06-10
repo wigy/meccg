@@ -765,6 +765,29 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Vile Fumes (wh-54): the site's printed automatic-attacks are
+         * *replaced* by a single bespoke attack (Gas). Added via the
+         * `transform-site` grant-action and scoped `until-cleared`,
+         * filtered by the site's definition ID so "all versions of the
+         * site" are affected. Consumed in `manifestations.ts`
+         * `getActiveAutoAttacks`, which returns `[attack]` in place of the
+         * printed list when a matching constraint is present.
+         */
+        readonly type: 'replace-automatic-attacks';
+        /** The definition ID of the site whose automatic attacks are replaced. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /** The replacement automatic-attack (e.g. Gas: 1 strike, 7 prowess). */
+        readonly attack: {
+          readonly creatureType: string;
+          readonly strikes: number;
+          readonly prowess: number;
+          readonly body?: number;
+          readonly uncancelable?: boolean;
+          readonly eachCharacter?: boolean;
+        };
+      }
+    | {
+        /**
          * Blasting Fire (wh-51): every faction-influence attempt made
          * against a faction at the named site is modified by {@link value}
          * for the rest of the turn. Placed (scope `'turn'`) when the item

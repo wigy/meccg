@@ -51,7 +51,11 @@ export interface AutomaticAttack {
   readonly prowess: number;
   /** Body value for body checks. Absent means no body check (e.g. Balrog of Moria "18/-"). */
   readonly body?: number;
-  /** Combat rules that modify how this attack plays out (e.g. "attacker-chooses-defenders"). */
+  /**
+   * Combat rules that modify how this attack plays out (e.g.
+   * "attacker-chooses-defenders", "each-character", "cannot-be-canceled" —
+   * the last suppresses cancel-attack, used by Vile Fumes' Gas attack).
+   */
   readonly combatRules?: readonly string[];
   /**
    * If this attack originates from a permanent-event in play (not from the

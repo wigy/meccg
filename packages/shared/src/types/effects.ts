@@ -586,6 +586,31 @@ export interface TriggeredAction {
    */
   readonly specialMovement?: 'gwaihir';
   /**
+   * For `transform-site` type: the {@link SiteType} all versions of the
+   * bearer's current site are overridden to (e.g. `"ruins-and-lairs"`).
+   * Applied as an `until-cleared` `attribute-modifier` on `site.type`
+   * filtered by the site's definition ID ("all versions"). Used by
+   * *Vile Fumes* (wh-54).
+   */
+  readonly overrideType?: string;
+  /**
+   * For `transform-site` type: the bespoke automatic-attack that
+   * replaces the transformed site's printed attacks (via a
+   * `replace-automatic-attacks` constraint). Used by *Vile Fumes*
+   * (wh-54): "Gas—each character faces 1 strike with 7 prowess (cannot
+   * be canceled)".
+   */
+  readonly attack?: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+    /** When true, the attack cannot be canceled (sets `combat.uncancelable`). */
+    readonly uncancelable?: boolean;
+    /** When true, every character in the company faces one strike. */
+    readonly eachCharacter?: boolean;
+  };
+  /**
    * For `increment-company-extra-region-distance` type: how much to
    * add to the bearer's company `extraRegionDistance`. Movement code
    * reads this counter when computing the maximum region path length
@@ -1298,8 +1323,8 @@ export interface ItemPlaySiteEffect extends EffectBase {
    * When true, the item may be played even when its company's current
    * site is Tapped (the normal tapped-site gate is bypassed). The
    * site-restriction (`sites` / `filter`) must still match. Used by
-   * *Blasting Fire* (wh-51): "Playable at a tapped or untapped
-   * Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
+   * *Blasting Fire* (wh-51) and *Vile Fumes* (wh-54): "Playable at a tapped
+   * or untapped Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
    */
   readonly allowTapped?: boolean;
 }

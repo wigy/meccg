@@ -712,7 +712,7 @@ function handleSiteAutomaticAttacks(
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
-    // Spider-style auto-attacks (Shelob's Lair le-402): "cannot be canceled"
+    // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
     // suppresses cancel-attack actions; "wound-eliminates" upgrades any wound
     // dealt by this attack into immediate elimination.
     ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
