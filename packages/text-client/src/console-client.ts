@@ -23,8 +23,6 @@
 import WebSocket from 'ws';
 import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   loadCardPool,
   formatPlayerView,
@@ -35,12 +33,11 @@ import {
   buildInstanceLookup,
   stripCardMarkers,
   STATE_DIVIDER,
-  Alignment,
 } from '@meccg/shared';
-import type { JoinMessage } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
 import { ClientLog } from './client-log.js';
+import { loadDeckJoin, listCatalogDecks } from './client-common.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'heuristic') : null;
@@ -80,59 +77,6 @@ if (AI_MODE) {
 
 // ---- Catalog deck loading ----
 
-interface DeckEntry { name: string; card: string | null; qty: number }
-interface DeckFile {
-  id: string; name: string; alignment: string;
-  pool: DeckEntry[];
-  deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
-  sites: DeckEntry[];
-  sideboard?: DeckEntry[];
-}
-
-const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
-const ALIGNMENT_MAP: Record<string, Alignment> = {
-  hero: Alignment.Wizard,
-  minion: Alignment.Ringwraith,
-  'fallen-wizard': Alignment.FallenWizard,
-  balrog: Alignment.Balrog,
-};
-
-function expandEntries(entries: DeckEntry[]): CardDefinitionId[] {
-  const ids: CardDefinitionId[] = [];
-  for (const e of entries) {
-    if (e.card !== null) {
-      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
-    }
-  }
-  return ids;
-}
-
-function loadCatalogDeck(deckId: string): JoinMessage {
-  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
-  const deck = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile;
-  return {
-    type: 'join',
-    name: PLAYER_NAME,
-    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
-    draftPool: expandEntries(deck.pool),
-    playDeck: [
-      ...expandEntries(deck.deck.characters),
-      ...expandEntries(deck.deck.resources),
-      ...expandEntries(deck.deck.hazards),
-    ],
-    siteDeck: expandEntries(deck.sites),
-    sideboard: expandEntries(deck.sideboard ?? []),
-  };
-}
-
-function listCatalogDecks(): { id: string; name: string }[] {
-  const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
-  return files.map(f => {
-    const d = JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as DeckFile;
-    return { id: d.id, name: d.name };
-  });
-}
-
 // Resolve the catalog deck (--deck <id>, or default to first available)
 const catalogDecks = listCatalogDecks();
 if (DECK_ARG !== null && !catalogDecks.some(d => d.id === DECK_ARG)) {
@@ -149,7 +93,7 @@ if (!selectedDeckId) {
   console.error('No decks found in catalog');
   process.exit(1);
 }
-const defaultJoin = loadCatalogDeck(selectedDeckId);
+const defaultJoin = loadDeckJoin(selectedDeckId, PLAYER_NAME);
 
 const clientLog = new ClientLog();
 clientLog.log('boot', { player: PLAYER_NAME, deck: selectedDeckId, ai: AI_MODE });
