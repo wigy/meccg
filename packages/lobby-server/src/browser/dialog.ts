@@ -7,12 +7,25 @@
  * bug-report and feature-request modals.
  */
 
+/** One dialog action button; `value` is what the dialog resolves to. */
+interface DialogButton<T> {
+  readonly label: string;
+  readonly value: T;
+  readonly className?: string;
+}
+
 /**
- * Show a modal alert with an OK button. Returns a promise that resolves
- * when the user dismisses the dialog (OK button, Enter, or Escape).
+ * Build and show a modal dialog with a message and action buttons.
+ * Resolves with the clicked button's value; Enter and Escape resolve with
+ * `keys.enter` / `keys.escape` (backdrop click counts as Escape). The
+ * button matching `keys.enter` receives initial focus.
  */
-export function showAlert(message: string): Promise<void> {
-  return new Promise<void>((resolve) => {
+function showDialog<T>(
+  message: string,
+  buttons: ReadonlyArray<DialogButton<T>>,
+  keys: { enter: T; escape: T },
+): Promise<T> {
+  return new Promise<T>((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'app-dialog';
 
@@ -28,36 +41,53 @@ export function showAlert(message: string): Promise<void> {
     msg.textContent = message;
     dialog.appendChild(msg);
 
-    const actions = document.createElement('div');
-    actions.className = 'app-dialog-actions';
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
-    actions.appendChild(okBtn);
-    dialog.appendChild(actions);
-
-    modal.appendChild(dialog);
-    document.body.appendChild(modal);
-
-    const close = () => {
+    const finish = (result: T) => {
       document.removeEventListener('keydown', onKey, true);
       modal.remove();
-      resolve();
+      resolve(result);
     };
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        close();
+        finish(e.key === 'Enter' ? keys.enter : keys.escape);
       }
     };
 
-    okBtn.addEventListener('click', close);
-    backdrop.addEventListener('click', close);
+    const actions = document.createElement('div');
+    actions.className = 'app-dialog-actions';
+    let focusBtn: HTMLButtonElement | undefined;
+    for (const button of buttons) {
+      const btn = document.createElement('button');
+      if (button.className) btn.className = button.className;
+      btn.textContent = button.label;
+      btn.addEventListener('click', () => finish(button.value));
+      actions.appendChild(btn);
+      if (button.value === keys.enter) focusBtn = btn;
+    }
+    dialog.appendChild(actions);
+
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+
+    backdrop.addEventListener('click', () => finish(keys.escape));
     document.addEventListener('keydown', onKey, true);
 
-    okBtn.focus();
+    focusBtn?.focus();
   });
+}
+
+/**
+ * Show a modal alert with an OK button. Returns a promise that resolves
+ * when the user dismisses the dialog (OK button, Enter, or Escape).
+ */
+export function showAlert(message: string): Promise<void> {
+  return showDialog<void>(
+    message,
+    [{ label: 'OK', value: undefined }],
+    { enter: undefined, escape: undefined },
+  );
 }
 
 /** Optional button label overrides for {@link showConfirm}. */
@@ -72,59 +102,12 @@ export interface ConfirmOptions {
  * backdrop click, or Escape). Enter confirms.
  */
 export function showConfirm(message: string, options: ConfirmOptions = {}): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    const modal = document.createElement('div');
-    modal.className = 'app-dialog';
-
-    const backdrop = document.createElement('div');
-    backdrop.className = 'app-dialog-backdrop';
-    modal.appendChild(backdrop);
-
-    const dialog = document.createElement('div');
-    dialog.className = 'app-dialog-box';
-
-    const msg = document.createElement('p');
-    msg.className = 'app-dialog-message';
-    msg.textContent = message;
-    dialog.appendChild(msg);
-
-    const actions = document.createElement('div');
-    actions.className = 'app-dialog-actions';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'app-dialog-btn-cancel';
-    cancelBtn.textContent = options.cancelLabel ?? 'Cancel';
-    const okBtn = document.createElement('button');
-    okBtn.textContent = options.okLabel ?? 'OK';
-    actions.appendChild(cancelBtn);
-    actions.appendChild(okBtn);
-    dialog.appendChild(actions);
-
-    modal.appendChild(dialog);
-    document.body.appendChild(modal);
-
-    const finish = (result: boolean) => {
-      document.removeEventListener('keydown', onKey, true);
-      modal.remove();
-      resolve(result);
-    };
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopPropagation();
-        finish(true);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        finish(false);
-      }
-    };
-
-    okBtn.addEventListener('click', () => finish(true));
-    cancelBtn.addEventListener('click', () => finish(false));
-    backdrop.addEventListener('click', () => finish(false));
-    document.addEventListener('keydown', onKey, true);
-
-    okBtn.focus();
-  });
+  return showDialog(
+    message,
+    [
+      { label: options.cancelLabel ?? 'Cancel', value: false, className: 'app-dialog-btn-cancel' },
+      { label: options.okLabel ?? 'OK', value: true },
+    ],
+    { enter: true, escape: false },
+  );
 }
