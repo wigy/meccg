@@ -1977,6 +1977,7 @@ h2 {
 
 .card-browser-item:hover {
   outline: 1px solid #c4a35a;
+  outline-offset: -1px;
 }
 
 .card-browser-preview {

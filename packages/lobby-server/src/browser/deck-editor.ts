@@ -45,7 +45,7 @@ function renderSection(section: DeckSection, deckId: string): void {
     addBtn.className = 'deck-editor-add-btn';
     addBtn.textContent = '+';
     addBtn.title = 'Add a character card';
-    addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add Character',
+    addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
       (def) => CHARACTER_CARD_TYPES.has(def.cardType)
         && matchesDeckAlignment(def, editingDeck?.alignment ?? '')));
     titleEl.appendChild(addBtn);
