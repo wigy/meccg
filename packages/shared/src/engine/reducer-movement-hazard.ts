@@ -192,6 +192,9 @@ function handlePlayHazards(
   // --- Play a reserved creature from the Summons from Long Sleep (as-39) slot ---
   if (action.type === 'play-reserved-creature') return handlePlayReservedCreature(state, action, mhState);
 
+  // --- Play a creature from the discard pile (Exhalation of Decay, dm-55) ---
+  if (action.type === 'play-creature-from-discard') return handlePlayCreatureFromDiscard(state, action, mhState);
+
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
   let result: ReducerResult;
@@ -2795,6 +2798,91 @@ function handlePlayReservedCreature(
     type: 'creature',
     prowessBonus: 2,
     reservingCardInstanceId: action.sourceCardInstanceId,
+  };
+  newState = initiateChain(newState, action.player, creatureCard, payload);
+
+  return { state: newState };
+}
+
+/**
+ * Handle play-creature-from-discard: hazard player plays a hazard creature from
+ * their own discard pile as an immediate attack, driven by a short-event
+ * carrying a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ *
+ * Does NOT count against the hazard limit. The driving short-event card is
+ * discarded on play. The creature enters the chain with the effect's prowess
+ * modifier applied and, after combat, is disposed by the normal
+ * combat-finalization rules (defender's kill pile if defeated, otherwise back
+ * to the discard pile).
+ */
+function handlePlayCreatureFromDiscard(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').PlayCreatureFromDiscardAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayerState = state.players[hazardIdx];
+
+  // Validate the driving short-event card is in hand and carries the effect.
+  const eventCard = findById(hazardPlayerState.hand, action.cardInstanceId);
+  if (!eventCard) {
+    return { state, error: `play-creature-from-discard: event card ${action.cardInstanceId as string} not found in hand` };
+  }
+  const eventDef = defById(state, eventCard.definitionId);
+  const effect = eventDef
+    ? getCardEffects(eventDef).find(
+        (e): e is import('../index.js').PlayCreatureFromDiscardEffect =>
+          e.type === 'play-creature-from-discard',
+      )
+    : undefined;
+  if (!effect) {
+    return { state, error: `play-creature-from-discard: ${eventCard.definitionId as string} has no play-creature-from-discard effect` };
+  }
+
+  // Validate the target creature is in the discard pile and matches the filter.
+  const creatureCard = findById(hazardPlayerState.discardPile, action.creatureInstanceId);
+  if (!creatureCard) {
+    return { state, error: `play-creature-from-discard: creature ${action.creatureInstanceId as string} not found in discard pile` };
+  }
+  const creatureDef = defById(state, creatureCard.definitionId);
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
+    return { state, error: `play-creature-from-discard: ${creatureCard.definitionId as string} is not a hazard-creature` };
+  }
+  if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) {
+    return { state, error: `play-creature-from-discard: ${creatureCard.definitionId as string} does not match the effect filter` };
+  }
+
+  // Creatures must initiate a new chain.
+  if (state.chain !== null) {
+    return { state, error: `play-creature-from-discard: creatures must initiate a new chain` };
+  }
+
+  const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  logDetail(
+    `Exhalation of Decay: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
+  );
+
+  // Remove the event card from hand → discard, and the creature from discard.
+  let newState = updatePlayer(state, hazardIdx, p => ({
+    ...p,
+    hand: removeById(p.hand, eventCard.instanceId),
+    discardPile: [
+      ...removeById(p.discardPile, creatureCard.instanceId),
+      toCardInstance(eventCard),
+    ],
+  }));
+
+  // Resume the resource player's window after this hazard play (rule 5.27).
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, resourcePlayerPassed: false },
+  };
+
+  // Initiate the creature combat with the effect's prowess modifier. No
+  // reservingCardInstanceId — the short event was already discarded.
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'creature',
+    prowessBonus: effect.prowessModifier,
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
 

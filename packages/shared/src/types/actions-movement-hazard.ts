@@ -970,6 +970,29 @@ export interface PlayReservedCreatureAction {
 }
 
 /**
+ * Play a hazard creature from the hazard player's own discard pile as an
+ * immediate attack against the active company, driven by a hazard short-event
+ * carrying a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ *
+ * Does NOT count against the hazard limit. The event card is discarded on
+ * play; the creature attacks with the effect's prowess modifier applied.
+ */
+export interface PlayCreatureFromDiscardAction {
+  /** Action discriminant. */
+  readonly type: 'play-creature-from-discard';
+  /** The hazard player playing the creature. */
+  readonly player: PlayerId;
+  /** The short-event card instance (in hand) driving the effect. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The hazard-creature instance in the discard pile being brought into play. */
+  readonly creatureInstanceId: CardInstanceId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as a play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
  * Roll 2d6 to resolve a Stay Her Appetite (le-140) condition check.
  * Resolves the queued `stay-her-appetite-roll` pending resolution.
  */

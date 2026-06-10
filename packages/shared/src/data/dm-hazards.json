@@ -159,7 +159,15 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ExhalationofDecay.jpg",
     "text": "Playable on an Undead hazard creature in your discard pile. If target Undead can attack, bring it into play as a creature that attacks immediately (not counting against the hazard limit). The attack’s prowess is modified by -1.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "effects": [
+      {
+        "type": "play-creature-from-discard",
+        "filter": { "race": "undead" },
+        "prowessModifier": -1
+      }
+    ],
+    "certified": "2026-06-10"
   },
   {
     "cardType": "hazard-event",
