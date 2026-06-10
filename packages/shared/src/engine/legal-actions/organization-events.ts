@@ -21,7 +21,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById, countCopiesInPlay, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -209,13 +209,8 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const charDef = defById(state, charData.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
           if (playTarget.filter) {
-            const itemKeywords = charData.items.flatMap(item => {
-              const iDef = defById(state, item.definitionId);
-              return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
-            });
-            const itemNames = charData.items
-              .map(item => { const iDef = defById(state, item.definitionId); return iDef && 'name' in iDef ? (iDef as { name: string }).name : undefined; })
-              .filter((n): n is string => n !== undefined);
+            const itemKeywords = itemKeywordsOf(state, charData.items);
+            const itemNames = defNamesOf(state, charData.items);
             const ctx = {
               target: {
                 race: charDef.race,
