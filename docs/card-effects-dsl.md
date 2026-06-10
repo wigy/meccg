@@ -3733,3 +3733,43 @@ Implemented in:
 Used by: *Stay Her Appetite* (le-140).
 
 Used by: *By the Ringwraith's Word* (le-174).
+
+---
+
+### 42. `play-creature-from-discard`
+
+Marks a hazard short-event that plays a hazard creature from the hazard
+player's **own discard pile** as an immediate attack against the active
+company, **without counting against the hazard limit**. Models the Exhalation
+of Decay (dm-55) mechanic.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": "undead" }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+| `prowessModifier` | yes | Signed integer added to the spawned attack's prowess (e.g. `-1`). |
+
+```json
+{ "type": "play-creature-from-discard",
+  "filter": { "race": "undead" },
+  "prowessModifier": -1 }
+```
+
+Legal actions: during the hazard player's M/H play-hazards window, the emitter
+(`playCreatureFromDiscardActions` in `engine/legal-actions/movement-hazard.ts`)
+walks the player's discard pile for `hazard-creature` cards matching `filter`,
+runs the standard creature keying check against the active company ("if target
+Undead can attack"), and emits one `play-creature-from-discard` action per
+(creature, keying-match) pair. The chain must be null (creatures initiate a new
+chain). Because the play is hazard-limit-exempt, no limit gating is applied. The
+generic short-event path skips any card carrying this effect (it is offered
+only through the dedicated emitter).
+
+Reducer (`handlePlayCreatureFromDiscard` in `engine/reducer-movement-hazard.ts`):
+discards the driving short-event card from hand, removes the chosen creature
+from the discard pile, leaves `hazardsPlayedThisCompany` unchanged, and
+initiates the creature chain with `prowessBonus: prowessModifier` and no
+`reservingCardInstanceId`. After the attack resolves, the creature is disposed
+by the normal `finalizeCombat` rules (defender's kill pile if fully defeated,
+otherwise back to the hazard player's discard pile).
+
+Used by: *Exhalation of Decay* (dm-55).

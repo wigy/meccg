@@ -498,6 +498,8 @@ export function describeAction(
       return `${action.player as string} reserves creature ${action.cardInstanceId as string} via ${action.sourceCardInstanceId as string}`;
     case 'play-reserved-creature':
       return `${action.player as string} plays reserved creature from ${action.sourceCardInstanceId as string} against company ${action.targetCompanyId as string}`;
+    case 'play-creature-from-discard':
+      return `${action.player as string} plays creature ${action.creatureInstanceId as string} from discard pile against company ${action.targetCompanyId as string}`;
     case 'stay-her-appetite-roll':
       return `${action.player as string} rolls for Stay Her Appetite`;
     case 'tap-ally-combat-boost':

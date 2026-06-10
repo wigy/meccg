@@ -2568,6 +2568,7 @@ export type CardEffect =
   | ExtraTrollLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
+  | PlayCreatureFromDiscardEffect
   | StayHerAppetiteEffect;
 
 /**
@@ -2958,6 +2959,38 @@ export interface StartingCompanyPlacementEffect extends EffectBase {
  */
 export interface SummonsFromLongSleepEffect extends EffectBase {
   readonly type: 'summons-from-long-sleep';
+}
+
+/**
+ * Hazard short-event effect: play a hazard creature from the hazard player's
+ * own discard pile as an immediate attack against the active company, without
+ * counting against the hazard limit. Models Exhalation of Decay (dm-55):
+ * "Playable on an Undead hazard creature in your discard pile. If target
+ * Undead can attack, bring it into play as a creature that attacks immediately
+ * (not counting against the hazard limit). The attack's prowess is modified
+ * by -1."
+ *
+ * The candidate creature is chosen from the discard pile (one legal action per
+ * keyable creature matching {@link filter}); it must satisfy normal creature
+ * keying against the target company ("if target Undead can attack"). The event
+ * card itself is a short event and is discarded on play. After the spawned
+ * attack resolves it is disposed by the normal combat-finalization rules
+ * (defender's kill pile if defeated, otherwise back to the discard pile).
+ */
+export interface PlayCreatureFromDiscardEffect extends EffectBase {
+  readonly type: 'play-creature-from-discard';
+  /**
+   * Condition matched against each candidate creature's card definition to
+   * decide which discard-pile creatures may be played (e.g.
+   * `{ "race": "undead" }`). Reuses the shared condition-matcher rather than a
+   * card-specific keyword.
+   */
+  readonly filter: Condition;
+  /**
+   * Signed modifier applied to the spawned attack's prowess (e.g. -1 for
+   * Exhalation of Decay). Added directly to the creature's combat prowess.
+   */
+  readonly prowessModifier: number;
 }
 
 /**

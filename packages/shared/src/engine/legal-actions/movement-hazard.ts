@@ -1188,6 +1188,109 @@ function summonsFromLongSleepActions(
 }
 
 /**
+ * Generate play-creature-from-discard actions for hazard short-events carrying
+ * a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ *
+ * For each such event card in the hazard player's hand, enumerate the hazard
+ * player's discard pile for hazard-creatures matching the effect's `filter`
+ * (e.g. Undead). A creature is offered only if it can be keyed against the
+ * target company ("if target Undead can attack") and the chain is null
+ * (creatures must initiate a new chain). The play does NOT count against the
+ * hazard limit, so no limit gating is applied. One action is emitted per
+ * (creature, keying-match) pair, mirroring the play-hazard creature path.
+ */
+function playCreatureFromDiscardActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIdx];
+  const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!targetCompany) return actions;
+
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find(
+      (e): e is import('../../index.js').PlayCreatureFromDiscardEffect =>
+        e.type === 'play-creature-from-discard',
+    );
+    if (!effect) continue;
+
+    const defName = (def as { name?: string })?.name ?? (handCard.definitionId as string);
+
+    // Creatures must initiate a new chain — not playable in response (CoE rule 307).
+    if (state.chain != null) {
+      logDetail(`${defName}: play-creature-from-discard not available — chain in progress`);
+      continue;
+    }
+
+    // Cancel-attacks site rule (e.g. Dol Guldur, Moria): when the target
+    // company's effective site forbids creatures, this play is unavailable.
+    const cancelSiteName = cancelAttacksSiteName(state, targetCompany);
+    if (cancelSiteName) {
+      logDetail(`${defName}: play-creature-from-discard blocked by site-rule on ${cancelSiteName}`);
+      continue;
+    }
+
+    for (const discardCard of player.discardPile) {
+      const creatureDef = defById(state, discardCard.definitionId);
+      if (!creatureDef || creatureDef.cardType !== 'hazard-creature') continue;
+      if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) continue;
+
+      const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
+
+      const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+      const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
+        || siteAllowsCreatureByRace(state, targetCompany, creatureDef.race);
+
+      if (matches.length === 0 && !keyingBypassed) {
+        logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
+        continue;
+      }
+
+      if (matches.length === 0 && keyingBypassed) {
+        logDetail(`${defName}: discard creature "${creatureName}" keyable via keying-bypass`);
+        actions.push({
+          action: {
+            type: 'play-creature-from-discard' as const,
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            creatureInstanceId: discardCard.instanceId,
+            targetCompanyId,
+            keyedBy: { method: 'keying-bypass', value: creatureDef.race },
+          },
+          viable: true,
+        });
+        continue;
+      }
+
+      for (const match of matches) {
+        logDetail(`${defName}: discard creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
+        actions.push({
+          action: {
+            type: 'play-creature-from-discard' as const,
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            creatureInstanceId: discardCard.instanceId,
+            targetCompanyId,
+            keyedBy: match,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -1351,6 +1454,13 @@ function playHazardsActions(
 
       // --- Short event ---
       if (isShortEvent) {
+        // Exhalation of Decay (dm-55) and similar: these short events play a
+        // creature from the discard pile via a dedicated action emitted by
+        // playCreatureFromDiscardActions(). Skip the generic short-event path.
+        if (getCardEffects(def).some(e => e.type === 'play-creature-from-discard')) {
+          continue;
+        }
+
         // Duplication-limit: non-viable if max copies already on chain / in play / still in effect
         {
           let blocked = false;
@@ -2074,6 +2184,9 @@ function playHazardsActions(
     // --- Summons from Long Sleep (as-39): reserve a Dragon/Drake from hand (free) ---
     // --- Summons from Long Sleep (as-39): play a reserved creature (costs hazard limit) ---
     actions.push(...summonsFromLongSleepActions(state, playerId, mhState, targetCompanyId, limitReached, liveLimit));
+
+    // --- Exhalation of Decay (dm-55): play a creature from the discard pile (no hazard limit) ---
+    actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
