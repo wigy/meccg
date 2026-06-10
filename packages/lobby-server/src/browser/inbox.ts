@@ -9,6 +9,7 @@
 import { appState, type ScreenId, VIEWING_INBOX_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY } from './app-state.js';
 import { showAlert } from './dialog.js';
 import { renderMarkdown } from './markdown.js';
+import { apiGet, apiSend } from './api.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -122,11 +123,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
 
     const handleReview = (action: 'approve' | 'decline', btn: HTMLButtonElement) => {
       void (async () => {
-        const resp = await fetch(`/api/mail/inbox/${full.id}/${action}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}',
-        });
+        const resp = await apiSend(`/api/mail/inbox/${full.id}/${action}`, 'POST', {});
         if (resp.ok) {
           const newStatus = action === 'approve' ? 'approved' : 'declined';
           btn.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
@@ -173,7 +170,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
       void (async () => {
         implementBtn.disabled = true;
         implementBtn.textContent = 'Sending...';
-        const resp = await fetch(`/api/mail/inbox/${full.id}/implement`, { method: 'POST' });
+        const resp = await apiSend(`/api/mail/inbox/${full.id}/implement`, 'POST');
         if (resp.ok) {
           implementBtn.textContent = 'Sent to AI';
         } else {
@@ -197,7 +194,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     void (async () => {
       deleteBtn.disabled = true;
       deleteBtn.textContent = 'Deleting...';
-      const resp = await fetch(`/api/mail/inbox/${full.id}`, { method: 'DELETE' });
+      const resp = await apiSend(`/api/mail/inbox/${full.id}`, 'DELETE');
       if (resp.ok) {
         deleteBtn.textContent = 'Deleted';
         const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
@@ -318,11 +315,10 @@ function renderMailList(
       void (async () => {
         sessionStorage.setItem(MAIL_MSG_KEY, msg.id);
         if (options.fetchOnClick) {
-          const msgResp = await fetch(`${options.fetchOnClick}/${msg.id}`);
+          const msgResp = await apiGet<InboxMessage>(`${options.fetchOnClick}/${msg.id}`);
           if (!msgResp.ok) return;
-          const full = await msgResp.json() as InboxMessage;
           row.classList.remove('inbox-item--unread');
-          renderMessage(messageEl, full);
+          renderMessage(messageEl, msgResp.data);
         } else {
           renderMessage(messageEl, msg);
         }
@@ -359,19 +355,17 @@ export async function openInbox(): Promise<void> {
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
   messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
 
-  try {
-    const resp = await fetch('/api/mail/inbox');
-    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load inbox</p>'; return; }
-    const data = await resp.json() as { messages: InboxMessage[]; unreadCount: number };
-
-    updateMailBadge(data.unreadCount);
-
-    renderMailList(listEl, messageEl, data.messages, {
-      fetchOnClick: '/api/mail/inbox',
-    });
-  } catch {
-    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
+  const r = await apiGet<{ messages: InboxMessage[]; unreadCount: number }>('/api/mail/inbox');
+  if (!r.ok) {
+    listEl.innerHTML = `<p class="lobby-empty">${r.error ?? 'Failed to load inbox'}</p>`;
+    return;
   }
+
+  updateMailBadge(r.data.unreadCount);
+
+  renderMailList(listEl, messageEl, r.data.messages, {
+    fetchOnClick: '/api/mail/inbox',
+  });
 }
 
 /** Fetch and display sent messages. */
@@ -386,15 +380,13 @@ export async function openSent(): Promise<void> {
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
   messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
 
-  try {
-    const resp = await fetch('/api/mail/sent');
-    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load sent mail</p>'; return; }
-    const data = await resp.json() as { messages: InboxMessage[] };
-
-    updateMailBadge(0);
-
-    renderMailList(listEl, messageEl, data.messages, {});
-  } catch {
-    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
+  const r = await apiGet<{ messages: InboxMessage[] }>('/api/mail/sent');
+  if (!r.ok) {
+    listEl.innerHTML = `<p class="lobby-empty">${r.error ?? 'Failed to load sent mail'}</p>`;
+    return;
   }
+
+  updateMailBadge(0);
+
+  renderMailList(listEl, messageEl, r.data.messages, {});
 }
