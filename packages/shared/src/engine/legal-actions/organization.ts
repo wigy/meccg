@@ -30,7 +30,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { activePlayerState, characterEntries, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -919,7 +919,7 @@ function buildGrantActionContext(
   };
 
   const companyCtx = company ? {
-    size: computeCompanySize(state, company),
+    size: companyEffectiveSize(state, company),
     hasPlannedMovement: company.destinationSite !== null || !!company.specialMovement,
     hasExtraRegionDistance: !!company.extraRegionDistance,
   } : null;
@@ -1196,7 +1196,7 @@ export function endOfOrgEligibility(
     if (matchesInCompany.length === 0) continue;
     foundMatchingCharacter = true;
     if (playTarget.maxCompanySize !== undefined) {
-      const size = computeCompanySize(state, company);
+      const size = companyEffectiveSize(state, company);
       if (size > playTarget.maxCompanySize) continue;
     }
     eligibleTargets.push(...matchesInCompany);
@@ -1486,14 +1486,15 @@ function eligiblePlayOptionTargets(
       continue;
     }
     // Enforce the optional company-size cap (e.g. Sneakin' / Stealth:
-    // "company size less than 3" → maxCompanySize 2). Hobbits count as
-    // half via computeCompanySize. This mirrors the end-of-org path so
+    // "company size less than 3" → maxCompanySize 2). Hobbits and Orc
+    // scouts count as half via companyEffectiveSize. This mirrors the
+    // end-of-org path so
     // cards playable during the normal organization window respect the
     // same size restriction.
     if (playTarget.maxCompanySize !== undefined) {
       const company = findCharacterCompany(player.companies, charId);
-      if (company && computeCompanySize(state, company) > playTarget.maxCompanySize) {
-        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${computeCompanySize(state, company)} > max ${playTarget.maxCompanySize}`);
+      if (company && companyEffectiveSize(state, company) > playTarget.maxCompanySize) {
+        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${companyEffectiveSize(state, company)} > max ${playTarget.maxCompanySize}`);
         continue;
       }
     }
@@ -1572,27 +1573,6 @@ function playOptionActionsForCard(
     }
   }
   return actions;
-}
-
-/**
- * Compute effective company size for grant-action checks.
- * Hobbits and orc scouts each count as half (rounded up for total).
- */
-function computeCompanySize(state: GameState, company: import('../../index.js').Company): number {
-  let halfCount = 0;
-  let fullCount = 0;
-  for (const charInstId of company.characters) {
-    const defId = resolveInstanceId(state, charInstId);
-    if (!defId) { fullCount++; continue; }
-    const def = defById(state, defId);
-    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
-    if (def.race === 'hobbit') {
-      halfCount++;
-    } else {
-      fullCount++;
-    }
-  }
-  return Math.ceil(fullCount + halfCount / 2);
 }
 
 /**

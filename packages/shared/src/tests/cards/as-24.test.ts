@@ -50,10 +50,18 @@ import {
   makeMHState, handCardId, companyIdAt, findCharInstanceId,
   attachHazardToChar, getCharacter, getHazardsOn, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction } from '../../index.js';
+import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction, CardDefinitionId } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { RegionType } from '../../index.js';
+
+// Orc characters for the half-size regression test (CoE 3.24: each Hobbit or
+// Orc scout counts as half toward company size). Declared locally per the
+// card-ids.ts single-use policy.
+const LAGDUF = 'le-18' as CardDefinitionId;     // Orc warrior — full character
+const MUZGASH = 'le-25' as CardDefinitionId;    // Orc warrior — full character
+const GORBAG = 'le-11' as CardDefinitionId;     // Orc warrior/scout — counts as half
+const GRISHNAKH = 'le-12' as CardDefinitionId;  // Orc warrior/scout — counts as half
 
 describe('Alone and Unadvised (as-24)', () => {
   beforeEach(() => resetMint());
@@ -118,6 +126,33 @@ describe('Alone and Unadvised (as-24)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-hazard');
 
     expect(playActions).toHaveLength(0);
+  });
+
+  test('Orc scouts count as half toward the max-3 company size (CoE 3.24)', () => {
+    // Four characters but effective size 3: two full Orcs + two Orc scouts
+    // (each half) = 2 + ceil(2/2) = 3. Alone and Unadvised (maxCompanySize 3)
+    // must therefore be playable. Regression guard: a duplicated company-size
+    // helper previously omitted the Orc-scout half on this play-gate path,
+    // mis-sizing the company at 4 and wrongly blocking the play.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LAGDUF, MUZGASH, GORBAG, GRISHNAKH] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [ALONE_AND_UNADVISED], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+
+    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard');
+
+    // One viable play per character in the size-3 company (all Orcs pass the
+    // non-Wizard/non-Ringwraith filter). Before the fix this was 0.
+    expect(playActions).toHaveLength(4);
   });
 
   test('cannot be duplicated on the same character', () => {

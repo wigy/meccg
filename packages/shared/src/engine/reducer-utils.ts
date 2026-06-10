@@ -10,7 +10,8 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
+import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
@@ -210,6 +211,60 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
  */
 export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
   return state.cardPool[definitionId as string];
+}
+
+/**
+ * True if a character counts as only half a character for company-size
+ * purposes (CoE rule 3.24): every Hobbit and every Orc scout.
+ *
+ * Centralises the half-size predicate so the four company-size call sites
+ * (organization grant-action checks, company-formation, and the M/H
+ * `maxCompanySize` gates on both the legal-action and reducer sides) stay
+ * in agreement. Previously two of those copies omitted the Orc-scout half,
+ * mis-sizing minion companies for `maxCompanySize`-gated cards.
+ */
+function countsAsHalfCharacter(def: CardDefinition): boolean {
+  if (!isCharacterCard(def)) return false;
+  const isHobbit = def.race === Race.Hobbit;
+  const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
+  return isHobbit || isOrcScout;
+}
+
+/**
+ * Compute a company's effective size per CoE rule 3.24: each Hobbit or Orc
+ * scout counts as half a character, all others as one, and the running total
+ * is rounded up. Non-character or unresolved instances count as a full
+ * character (defensive — companies should only hold characters).
+ *
+ * This is the single source of truth for company size; all call sites
+ * (grant-action play checks, company formation, and `maxCompanySize` hazard
+ * gates) must route through it rather than re-deriving the half rule inline.
+ */
+export function companyEffectiveSize(state: GameState, company: Company): number {
+  return companyEffectiveSizeOf(state, company.characters);
+}
+
+/**
+ * Variant of {@link companyEffectiveSize} that operates on a raw list of
+ * character instance IDs, for callers that have the roster but not a full
+ * {@link Company} (e.g. while a company is being assembled).
+ */
+export function companyEffectiveSizeOf(state: GameState, charInstIds: readonly CardInstanceId[]): number {
+  let halfCount = 0;
+  let fullCount = 0;
+  for (const charInstId of charInstIds) {
+    const defId = resolveInstanceId(state, charInstId);
+    const def = defId ? defById(state, defId) : undefined;
+    if (def && isCharacterCard(def) && countsAsHalfCharacter(def)) {
+      halfCount++;
+      logDetail(`  ${def.name} (${def.race}${def.race === Race.Orc ? '/scout' : ''}) counts as half`);
+    } else {
+      fullCount++;
+    }
+  }
+  const size = Math.ceil(fullCount + halfCount / 2);
+  logDetail(`Company size: ${fullCount} full + ${halfCount} half = ${size}`);
+  return size;
 }
 
 /**

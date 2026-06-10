@@ -19,7 +19,6 @@ import type { ReducerResult } from './reducer-utils.js';
 import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
-import { BARAD_DUR_MINION } from '../card-ids.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
@@ -2394,14 +2393,21 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
 
   let newState = state;
   for (const company of resourcePlayer.companies) {
-    // Determine the base modifier for this company.
-    // Ringwraith at Barad-Dûr: -3; otherwise Ringwraith or Balrog: -2.
+    // Determine the base modifier for this company. The default is -2; a
+    // site may override it by declaring a `site-phase-ring-auto-test`
+    // site-rule with a `rollModifier` (e.g. Barad-Dûr at -3). Reading the
+    // value from card data keeps the site-specific number out of the engine.
     let baseModifier = -2;
-    if (resourcePlayer.alignment === Alignment.Ringwraith && company.currentSite) {
+    if (company.currentSite) {
       const siteDefId = resolveInstanceId(newState, company.currentSite.instanceId);
-      if (siteDefId === BARAD_DUR_MINION) {
-        baseModifier = -3;
-      }
+      const siteDef = siteDefId ? defById(newState, siteDefId) : undefined;
+      const rule = siteDef && isSiteCard(siteDef)
+        ? siteDef.effects?.find(
+            (e): e is SitePhaseRingAutoTestSiteRule =>
+              e.type === 'site-rule' && e.rule === 'site-phase-ring-auto-test',
+          )
+        : undefined;
+      if (rule) baseModifier = rule.rollModifier;
     }
 
     for (const charId of company.characters) {
