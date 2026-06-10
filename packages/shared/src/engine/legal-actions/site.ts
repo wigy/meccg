@@ -856,12 +856,17 @@ function playResourcesActions(
             if (!ch) continue;
             const charDef = defById(state, ch.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
+            const itemNames = ch.items
+              .map(item => { const iDef = defById(state, item.definitionId); return iDef && 'name' in iDef ? (iDef as { name: string }).name : undefined; })
+              .filter((n): n is string => n !== undefined);
             const ctx: Record<string, unknown> = {
               target: {
                 race: charDef.race,
                 skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
                 status: ch.status,
                 name: charDef.name,
+                itemNames,
+                isAvatar: isAvatarCharacter(charDef),
               },
               company: { covert: isCovertCompany(company, player, state) },
             };

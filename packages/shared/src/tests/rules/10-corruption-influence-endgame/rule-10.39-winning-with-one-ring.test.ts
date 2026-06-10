@@ -45,8 +45,10 @@ const THE_ONE_RING = 'tw-347' as CardDefinitionId;
 describe('Rule 10.39 — Winning with The One Ring', () => {
   beforeEach(() => resetMint());
 
-  test('Each alignment has specific conditions for winning with The One Ring', () => {
-    // [MINION] Ringwraith player bears The One Ring at Barad-dûr → immediate win on end-of-turn pass
+  test('[MINION] Ringwraith bearing The One Ring at Barad-dûr wins immediately — even with fewer MP', () => {
+    // [MINION] Ringwraith player bears The One Ring at Barad-dûr → immediate win on end-of-turn pass.
+    // The opponent has strictly more marshalling points, proving the win is forced
+    // by The One Ring (MELE §1) rather than decided by scoring.
     const base = buildTestState({
       phase: Phase.EndOfTurn,
       activePlayer: PLAYER_1,
@@ -58,6 +60,7 @@ describe('Rule 10.39 — Winning with The One Ring', () => {
           companies: [{ site: BARAD_DUR_MINION, characters: [ADUNAPHEL] }],
           hand: [],
           siteDeck: [CARN_DUM],
+          marshallingPoints: { character: 0 },
         },
         {
           id: PLAYER_2,
@@ -65,6 +68,7 @@ describe('Rule 10.39 — Winning with The One Ring', () => {
           companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
           hand: [],
           siteDeck: [MORIA],
+          marshallingPoints: { character: 20 },
         },
       ],
     });
@@ -99,7 +103,26 @@ describe('Rule 10.39 — Winning with The One Ring', () => {
 
     const after = dispatch(stateWithRing, { type: 'pass', player: PLAYER_1 });
 
-    // Game should transition to Free Council (Ringwraith One Ring win triggers FreeCouncil)
-    expect(after.phaseState.phase).toBe(Phase.FreeCouncil);
+    // A One Ring win is immediate (MELE §1): straight to Game Over, bypassing
+    // Free Council corruption checks entirely.
+    expect(after.phaseState.phase).toBe(Phase.GameOver);
+    if (after.phaseState.phase !== Phase.GameOver) throw new Error('expected GameOver');
+
+    // The Ringwraith is the forced winner despite having fewer marshalling points.
+    expect(after.phaseState.winner).toBe(PLAYER_1);
+    expect(after.phaseState.winReason.kind).toBe('one-ring');
+    if (after.phaseState.winReason.kind === 'one-ring') {
+      expect(after.phaseState.winReason.alignment).toBe(Alignment.Ringwraith);
+      // The Ringwraith positional win has no win-condition card.
+      expect(after.phaseState.winReason.card).toBeNull();
+    }
   });
+
+  // One sub-test per remaining alignment. These cards are implemented in later
+  // phases of specs/2026-06-08-one-ring-win-conditions.md; the assertions live
+  // in the per-card nightly tests under tests/cards/.
+  test.todo('[HERO] Cracks of Doom (tw-205): Ring at Mount Doom, −4 corruption check success ⇒ win');
+  test.todo("[HERO] Gollum's Fate (tw-247): Ring + Gollum at Mount Doom ⇒ immediate win");
+  test.todo('[FALLEN-WIZARD] A New Ringlord (wh-60): end-of-turn roll > 9 ⇒ win');
+  test.todo('[BALROG] Challenge the Power (ba-52): roll > 10 ⇒ win');
 });

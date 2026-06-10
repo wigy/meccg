@@ -8,7 +8,8 @@
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
-import { logDetail } from './legal-actions/log.js';
+import { logDetail, logHeading } from './legal-actions/log.js';
+import { oneRingWin } from './reducer-free-council.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
@@ -1009,6 +1010,16 @@ function applyShortEventOnEntersPlay(
 ): GameState {
   for (const onEvent of getOnEventEffects(def, 'self-enters-play')) {
 
+    // win-game: a One Ring win played directly on resolution (no roll),
+    // e.g. Gollum's Fate (tw-247). The game ends immediately for the
+    // controller; final scores are still computed for the result screen.
+    if (onEvent.apply.type === 'win-game') {
+      const winner = state.players[playerIndex].id;
+      logHeading(`"${def.name}" resolves — ${state.players[playerIndex].name} wins with The One Ring (CoE 10.39)`);
+      state = oneRingWin(state, winner, handCard.definitionId);
+      continue;
+    }
+
     if (onEvent.apply.type === 'enqueue-corruption-check') {
       // When a fetch sub-flow is active, the corruption check is deferred as
       // postCorruptionCheck on the pending effect so it fires after the last
@@ -1044,6 +1055,7 @@ function applyShortEventOnEntersPlay(
         characterId,
         modifier,
         reason: def.name,
+        onSuccess: onEvent.apply.onSuccess,
       });
       continue;
     }

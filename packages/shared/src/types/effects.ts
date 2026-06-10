@@ -703,6 +703,38 @@ export interface TriggeredAction {
    */
   readonly cardName?: string;
   /**
+   * For `win-game` type: how the game is won. Currently only `'one-ring'`
+   * (CoE rule 10.39). Resolves to a forced win for the controller of the
+   * source card via the shared `endGame` primitive; the recorded
+   * {@link WinReason} carries the controller's alignment and the source
+   * card id. Shared by Cracks of Doom (tw-205), Gollum's Fate (tw-247),
+   * A New Ringlord (wh-60), and Challenge the Power (ba-52) — each card
+   * declares only its conditions and roll thresholds, never bespoke win
+   * plumbing. May be nested under a corruption-check `onSuccess` or a
+   * `roll-then-apply` `onSuccess`.
+   */
+  readonly via?: 'one-ring';
+  /**
+   * For `win-condition-roll` type (CoE 10.39 dice-roll win cards — A New
+   * Ringlord wh-60, Challenge the Power ba-52): the ordered threshold table.
+   * The first band whose bounds the modified 2d6 total satisfies decides the
+   * outcome (`eliminate-avatar` / `discard-self` / `keep` / `win-game`).
+   */
+  readonly bands?: readonly {
+    readonly lt?: number;
+    readonly lte?: number;
+    readonly gt?: number;
+    readonly gte?: number;
+    readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game';
+  }[];
+  /**
+   * For `win-condition-roll` type: dynamic modifiers summed into the 2d6
+   * total — `sages-in-company` (+1 per sage in the avatar's company),
+   * `copies-in-play` (+1 per copy of this card in play, including itself),
+   * `other-copies-in-play` (+1 per *other* copy in play).
+   */
+  readonly rollModifiers?: readonly ('sages-in-company' | 'copies-in-play' | 'other-copies-in-play')[];
+  /**
    * For `offer-char-join-attack` type (fired under
    * `on-event: creature-attack-begins`): when true, allies attached to
    * the bearer are discarded when the bearer joins the attacked company.
@@ -2027,7 +2059,17 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company';
+  /**
+   * For `requires: 'active-company'`: a generic DSL condition evaluated
+   * against the active (site-phase) company's aggregate context:
+   * `{ site: { name, type }, company: { itemNames, characterNames,
+   * allyNames } }`. `itemNames`/`allyNames` are the names of all items /
+   * allies borne by any character in the company; `characterNames` lists
+   * the company's characters. Lets a card declare a positional play
+   * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
+   * CoE 10.39 win cards — without a per-card keyword.
+   */
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be

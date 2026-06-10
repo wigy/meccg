@@ -82,6 +82,7 @@ export function enqueueCorruptionCheck(
     readonly possessions?: readonly CardInstanceId[];
     readonly transferredItemId?: CardInstanceId | null;
     readonly failureMode?: 'discard-ring-only';
+    readonly onSuccess?: import('../types/effects.js').TriggeredAction;
   },
 ): GameState {
   return enqueueResolution(state, {
@@ -96,6 +97,7 @@ export function enqueueCorruptionCheck(
       possessions: opts.possessions ?? [],
       transferredItemId: opts.transferredItemId ?? null,
       failureMode: opts.failureMode,
+      onSuccess: opts.onSuccess,
     },
   });
 }

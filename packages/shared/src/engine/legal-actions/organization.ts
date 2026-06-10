@@ -1374,6 +1374,16 @@ export function buildPlayOptionContext(
     destinationRegionTypes = [...mhPs.resolvedSitePath];
   }
 
+  // Names of items / allies the character bears, so play-target filters can
+  // gate on a specific borne card (e.g. Cracks of Doom targets the bearer of
+  // The One Ring via `{ "target.itemNames": { "$includes": "The One Ring" } }`).
+  const itemNames = char.items
+    .map(i => { const d = defById(state, i.definitionId); return d && 'name' in d ? (d as { name: string }).name : undefined; })
+    .filter((n): n is string => n !== undefined);
+  const allyNames = char.allies
+    .map(a => { const d = defById(state, a.definitionId); return d && 'name' in d ? (d as { name: string }).name : undefined; })
+    .filter((n): n is string => n !== undefined);
+
   return {
     target: {
       race: def.race,
@@ -1382,6 +1392,8 @@ export function buildPlayOptionContext(
       name: def.name,
       mind: def.mind,
       inAvatarCompany,
+      itemNames,
+      allyNames,
     },
     company: {
       siteType: companySiteType,
@@ -1398,6 +1410,45 @@ export function buildPlayOptionContext(
     },
     inPlay: buildInPlayNames(state),
     ...(currentPhase !== undefined ? { phase: currentPhase } : {}),
+  };
+}
+
+/**
+ * Builds the condition context for a `play-condition` `requires:
+ * 'active-company'` check. Exposes the company's current site (name/type)
+ * and the aggregate names of every character, borne item, and borne ally in
+ * the company — enough for a generic DSL condition to express positional win
+ * prerequisites (e.g. The One Ring and Gollum at Mount Doom) without a
+ * per-card keyword.
+ */
+function buildActiveCompanyContext(
+  state: GameState,
+  player: PlayerState,
+  company: import('../../types/state-cards.js').Company,
+): Record<string, unknown> {
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteName = siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
+  const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
+
+  const characterNames: string[] = [];
+  const itemNames: string[] = [];
+  const allyNames: string[] = [];
+  const nameOf = (id: import('../../index.js').CardDefinitionId): string | undefined => {
+    const d = defById(state, id);
+    return d && 'name' in d ? (d as { name: string }).name : undefined;
+  };
+  for (const charId of company.characters) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+    const cn = nameOf(char.definitionId);
+    if (cn) characterNames.push(cn);
+    for (const item of char.items) { const n = nameOf(item.definitionId); if (n) itemNames.push(n); }
+    for (const ally of char.allies) { const n = nameOf(ally.definitionId); if (n) allyNames.push(n); }
+  }
+
+  return {
+    site: { name: siteName, type: siteType },
+    company: { characterNames, itemNames, allyNames },
   };
 }
 
@@ -1803,6 +1854,36 @@ export function playResourceShortEventActions(
           action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
           viable: false,
           reason: `${def.name} requires a character in the company to have a ${companyHasItemCondition.subtype}`,
+        });
+        continue;
+      }
+    }
+
+    // play-condition requires: "active-company" — a generic DSL condition
+    // evaluated against the active site-phase company's aggregate context
+    // ({ site, company: { itemNames, characterNames, allyNames } }). Used by
+    // the CoE 10.39 win cards (Cracks of Doom, Gollum's Fate) to require The
+    // One Ring (and Gollum) at Mount Doom. Only meaningful during the site
+    // phase after a company is selected.
+    const activeCompanyCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'active-company',
+    );
+    if (activeCompanyCondition?.condition) {
+      let met = false;
+      if (currentPhase === 'site') {
+        const sitePhaseState = state.phaseState as { activeCompanyIndex: number; step?: string };
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
+        if (company) {
+          met = matchesCondition(activeCompanyCondition.condition, buildActiveCompanyContext(state, player, company));
+        }
+      }
+      if (!met) {
+        logDetail(`${def.name}: play-condition active-company not satisfied`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name}: play conditions not met`,
         });
         continue;
       }
