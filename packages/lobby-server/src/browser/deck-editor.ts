@@ -47,6 +47,7 @@ function renderSection(section: DeckSection, deckId: string): void {
     resources: { preset: 'resources', title: 'Add a resource card' },
     hazards: { preset: 'hazards', title: 'Add a hazard card' },
     sideboard: { preset: 'sideboard', title: 'Add a sideboard card' },
+    sites: { preset: 'sites', title: 'Add a site card' },
   };
   const browse = browsable[section.id];
   if (browse) {
@@ -81,11 +82,11 @@ interface BrowserToggle {
 /** Extract loosely-typed filter traits from any card definition. */
 const traits = (def: CardDefinition) => def as unknown as {
   cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
-  subtype?: string; marshallingPoints?: number;
+  subtype?: string; marshallingPoints?: number; siteType?: string;
 };
 
 /** Which deck section a card browser was opened from; decides toggle defaults. */
-type TogglePreset = 'characters' | 'pool' | 'resources' | 'hazards' | 'sideboard';
+type TogglePreset = 'characters' | 'pool' | 'resources' | 'hazards' | 'sideboard' | 'sites';
 
 /**
  * Build the category toggles for the card browser as two orthogonal groups:
@@ -173,6 +174,26 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
       match: d => traits(d).cardType === 'hazard-creature' },
     { icon: '\u{26A1}', title: 'Hazard events', group: 'type', active: hazOn,
       match: d => traits(d).cardType === 'hazard-event' },
+    ...siteTypeToggles(preset),
+  ];
+}
+
+/**
+ * Site selectors, one per site type. The sites section enables all of
+ * them; in any other browser they start inactive and can be toggled on.
+ */
+function siteTypeToggles(preset: TogglePreset): BrowserToggle[] {
+  const toggle = (icon: string, title: string, siteType: string, separatorBefore?: boolean): BrowserToggle => ({
+    icon, title, group: 'type', active: preset === 'sites', ...(separatorBefore ? { separatorBefore } : {}),
+    match: d => traits(d).siteType === siteType,
+  });
+  return [
+    toggle('\u{1F3F0}', 'Havens', 'haven', true),
+    toggle('\u{1F3D8}\u{FE0F}', 'Free-holds', 'free-hold'),
+    toggle('\u{1F3EF}', 'Border-holds', 'border-hold'),
+    toggle('\u{1F3DA}\u{FE0F}', 'Ruins and lairs', 'ruins-and-lairs'),
+    toggle('\u{1F573}\u{FE0F}', 'Shadow-holds', 'shadow-hold'),
+    toggle('\u{1F30B}', 'Dark-holds', 'dark-hold'),
   ];
 }
 
