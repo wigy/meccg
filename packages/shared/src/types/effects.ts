@@ -1951,6 +1951,12 @@ export interface StrikeModifierEffect extends EffectBase {
  *
  * Example: Black Arrow (tw-494) — Warrior only, tap to give -1 prowess
  * and -1 body to one attack; discard if bearer is not a Man.
+ *
+ * The effect may also be declared on an in-play **ally** with
+ * `cost: { "tap": "self" }`: the ally taps to modify an attack against
+ * its controlling character's company. Used by Great Bats (as-74) with
+ * `removeAttackerChoosesDefenders` — tap to remove the "attacker chooses
+ * defending characters" rule from the attack.
  */
 export interface ModifyAttackEffect extends EffectBase {
   readonly type: 'modify-attack';
@@ -2002,6 +2008,14 @@ export interface ModifyAttackEffect extends EffectBase {
    * The result is clamped to a minimum of 1.
    */
   readonly strikesModifier?: number;
+  /**
+   * When true, activating removes the "attacker chooses defending characters"
+   * rule from the current attack: {@link CombatState.attackerChoosesDefenders}
+   * is cleared so the defending player assigns strikes normally. The action is
+   * only offered while the attack actually carries the rule. Declared on
+   * in-play allies with `cost: { tap: "self" }` (e.g. Great Bats, as-74).
+   */
+  readonly removeAttackerChoosesDefenders?: true;
   /**
    * When set, the item is discarded instead of tapped if the bearer's
    * race is NOT in `race`. The modifier still applies (whole-attack scope only).

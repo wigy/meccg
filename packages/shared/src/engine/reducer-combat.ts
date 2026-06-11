@@ -2680,7 +2680,64 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   if (!charData) return { state, error: 'Character not found' };
 
   const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
-  if (itemIndex < 0) return { state, error: 'Item not found on character' };
+  if (itemIndex < 0) {
+    // --- In-play ally path (e.g. Great Bats: tap to remove the "attacker
+    // chooses defending characters" rule from the attack) ---
+    const allyIndex = charData.allies.findIndex(a => a.instanceId === action.cardInstanceId);
+    if (allyIndex < 0) return { state, error: 'Card not found on character' };
+    const ally = charData.allies[allyIndex];
+    const allyDef = defById(state, ally.definitionId);
+    if (!allyDef) return { state, error: 'Ally definition not found' };
+    const allyEffect = getCardEffects(allyDef).find(
+      (e): e is import('../types/effects.js').ModifyAttackEffect =>
+        e.type === 'modify-attack' && !(e).fromHand && (e).scope !== 'current-strike',
+    );
+    if (!allyEffect) return { state, error: 'Ally has no modify-attack effect' };
+    if (allyEffect.cost?.tap !== 'self') return { state, error: 'Ally modify-attack requires a tap-self cost' };
+    if (ally.status !== CardStatus.Untapped) return { state, error: 'Ally must be untapped to activate' };
+    if (allyEffect.removeAttackerChoosesDefenders && !combat.attackerChoosesDefenders) {
+      return { state, error: 'Attack has no attacker-chooses-defenders rule to remove' };
+    }
+
+    const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : ally.definitionId as string;
+    const updatedAllyChar = {
+      ...charData,
+      allies: charData.allies.map((a, i) => i === allyIndex ? { ...a, status: CardStatus.Tapped } : a),
+    };
+    const allyPlayers = clonePlayers(state);
+    allyPlayers[playerIndex] = {
+      ...allyPlayers[playerIndex],
+      characters: { ...allyPlayers[playerIndex].characters, [action.characterInstanceId as string]: updatedAllyChar },
+    };
+
+    const allyProwessMod = allyEffect.prowessModifier ?? 0;
+    const allyBodyMod = allyEffect.bodyModifier ?? 0;
+    const allyStrikeProwess = combat.strikeProwess + allyProwessMod;
+    const allyCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + allyBodyMod;
+    // Removing attacker-chooses-defenders hands strike assignment back to the
+    // defender: clear the flag, and if the attacker was already up to assign
+    // (no strikes placed yet — guaranteed by the pre-assignment gate above),
+    // flip the assignment sub-phase back to the defender. In the cancel-window
+    // the sub-phase stays put; the defender's eventual pass now routes to
+    // 'defender' instead of 'attacker'.
+    const removeRule = allyEffect.removeAttackerChoosesDefenders === true && combat.attackerChoosesDefenders === true;
+    const newAssignmentPhase = removeRule && combat.assignmentPhase === 'attacker' ? 'defender' : combat.assignmentPhase;
+    logDetail(`Modify-attack: tapping ally ${allyName}${removeRule ? ' — attacker-chooses-defenders removed, defender assigns strikes' : ''} (prowess ${formatSignedNumber(allyProwessMod)}, body ${formatSignedNumber(allyBodyMod)})`);
+
+    return {
+      state: {
+        ...state,
+        players: allyPlayers,
+        combat: {
+          ...combat,
+          strikeProwess: allyStrikeProwess,
+          creatureBody: allyCreatureBody,
+          assignmentPhase: newAssignmentPhase,
+          ...(removeRule ? { attackerChoosesDefenders: undefined } : {}),
+        },
+      },
+    };
+  }
   const item = charData.items[itemIndex];
 
   const itemDef = defById(state, item.definitionId);
