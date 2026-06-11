@@ -385,9 +385,41 @@
     "playableAt": [],
     "effects": [
       {
+        "type": "play-target",
+        "target": "site",
+        "requireTapped": false,
+        "filter": {
+          "siteType": "shadow-hold"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-attack"
+      },
+      {
         "type": "company-overt"
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-wounded",
+        "apply": {
+          "type": "discard-self"
+        }
+      },
+      {
+        "type": "modify-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "removeAttackerChoosesDefenders": true
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
       }
-    ]
+    ],
+    "certified": "2026-06-11"
   },
   {
     "cardType": "minion-resource-ally",

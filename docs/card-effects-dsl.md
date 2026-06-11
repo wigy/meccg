@@ -1064,6 +1064,30 @@ Animals, or Wolves attack; bearer makes a corruption check.
 - `strikesModifier` — amount added to `strikesTotal` (usually negative);
   clamped so result is never below 1.
 
+The effect may also be declared on an in-play **ally** with
+`cost: { "tap": "self" }`: the ally taps to modify an attack against its
+controlling character's company, in the same pre-assignment window.
+
+- `removeAttackerChoosesDefenders` — when `true`, activating removes the
+  "attacker chooses defending characters" rule from the current attack:
+  the combat's `attackerChoosesDefenders` flag is cleared so the defending
+  player assigns strikes normally (a pending attacker-assignment sub-phase
+  flips back to the defender; in the cancel-window the defender's eventual
+  pass routes to defender assignment). The action is only offered while
+  the attack actually carries the rule — whether from a creature's
+  `combat-attacker-chooses-defenders` effect or a site auto-attack's
+  `attacker-chooses-defenders` combat rule.
+
+```json
+{ "type": "modify-attack",
+  "cost": { "tap": "self" },
+  "removeAttackerChoosesDefenders": true }
+```
+
+Example: Great Bats (as-74) — tap this ally to remove the effect of an
+attack against its controlling character's company that states: "attacker
+chooses defending characters."
+
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`).
 

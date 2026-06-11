@@ -2058,6 +2058,33 @@ function modifyAttackActions(
           });
         }
       }
+
+      // In-play allies in the defending company with a modify-attack effect
+      // and a "tap self" cost (e.g. Great Bats: tap to remove the "attacker
+      // chooses defending characters" rule from the attack).
+      for (const { ally, hostCharId } of findCompanyAllies(player, company.characters)) {
+        const allyDef = defById(state, ally.definitionId);
+        if (!allyDef) continue;
+        const effect = getCardEffects(allyDef).find(
+          (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !e.fromHand && e.scope !== 'current-strike',
+        );
+        if (!effect) continue;
+        if (effect.cost?.tap !== 'self') continue;
+        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : ally.definitionId as string;
+        if (ally.status !== CardStatus.Untapped) {
+          logDetail(`Modify-attack ${allyName}: ally tapped, cannot activate`);
+          continue;
+        }
+        if (effect.removeAttackerChoosesDefenders && !combat.attackerChoosesDefenders) {
+          logDetail(`Modify-attack ${allyName}: attack has no attacker-chooses-defenders rule to remove`);
+          continue;
+        }
+        logDetail(`Modify-attack available: tap ${allyName} (in-play ally${effect.removeAttackerChoosesDefenders ? ', removes attacker-chooses-defenders' : ''})`);
+        actions.push({
+          action: { type: 'modify-attack', player: playerId, cardInstanceId: ally.instanceId, characterInstanceId: hostCharId },
+          viable: true,
+        });
+      }
     }
   }
 
