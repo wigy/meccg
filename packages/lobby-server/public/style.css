@@ -1981,8 +1981,27 @@ h2 {
   margin-bottom: 0.75rem;
 }
 
-.card-browser-clear {
+.card-browser-add-all {
   margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+  background: #16213e;
+  color: #c4a35a;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.card-browser-add-all:hover {
+  background: rgba(196, 163, 90, 0.15);
+}
+
+.card-browser-add-all:active {
+  transform: translateY(1px) scale(0.96);
+}
+
+.card-browser-clear {
   padding: 0.25rem 0.45rem;
   font-size: 1.1rem;
   line-height: 1;

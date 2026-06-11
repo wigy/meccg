@@ -76,17 +76,13 @@ function renderSection(section: DeckSection, deckId: string): void {
 }
 
 /**
- * Clear all entries from a section, save, and re-render. Asks for
- * confirmation when more than five cards would be removed; restores the
- * entries if saving fails.
+ * Clear all entries from a section after confirmation, save, and
+ * re-render. Restores the entries if saving fails.
  */
 function clearSection(section: DeckSection, deckId: string): void {
   const total = section.entries.reduce((sum, e) => sum + e.qty, 0);
   if (total === 0) return;
-  const proceed = total > 5
-    ? showConfirm(`Remove all ${total} cards from ${section.label}?`)
-    : Promise.resolve(true);
-  void proceed.then(ok => {
+  void showConfirm(`Remove all ${total} cards from ${section.label}?`).then(ok => {
     if (!ok) return;
     const removed = section.entries.splice(0, section.entries.length);
     renderSection(section, deckId);
@@ -269,24 +265,26 @@ function changeQty(
   });
 }
 
-/** Add one copy of a card to a section (new entry if not present), save, and re-render. */
-function addCardToSection(cardId: string, section: DeckSection, deckId: string): void {
-  const def = cardPool[cardId];
-  const existing = section.entries.find(en => en.card === cardId);
-  if (existing) {
-    existing.qty += 1;
-  } else {
-    section.entries.push({ name: def ? def.name : cardId, card: cardId, qty: 1 });
+/**
+ * Add one copy of each card to a section (new entries if not present),
+ * save once, and re-render. Restores the previous entries if saving fails.
+ */
+function addCardsToSection(cardIds: readonly string[], section: DeckSection, deckId: string): void {
+  if (cardIds.length === 0) return;
+  const before = section.entries.map(e => ({ ...e }));
+  for (const cardId of cardIds) {
+    const def = cardPool[cardId];
+    const existing = section.entries.find(en => en.card === cardId);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      section.entries.push({ name: def ? def.name : cardId, card: cardId, qty: 1 });
+    }
   }
   renderSection(section, deckId);
   void saveEditingDeck().then(ok => {
     if (!ok) {
-      if (existing) {
-        existing.qty -= 1;
-      } else {
-        const idx = section.entries.findIndex(en => en.card === cardId);
-        if (idx >= 0) section.entries.splice(idx, 1);
-      }
+      section.entries.splice(0, section.entries.length, ...before);
       renderSection(section, deckId);
     }
   });
@@ -355,6 +353,15 @@ function openCardBrowser(
       toggleButtons.push({ toggle: t, btn });
       togglesEl.appendChild(btn);
     }
+    const addAllBtn = document.createElement('button');
+    addAllBtn.className = 'card-browser-add-all';
+    addAllBtn.textContent = 'Add All';
+    addAllBtn.title = 'Add one copy of every listed card';
+    addAllBtn.addEventListener('click', () => {
+      addCardsToSection(visibleCards().map(([cardId]) => cardId), section, deckId);
+      close();
+    });
+    togglesEl.appendChild(addAllBtn);
     const clearBtn = document.createElement('button');
     clearBtn.className = 'card-browser-clear';
     const clearIcon = document.createElement('span');
@@ -438,12 +445,15 @@ function openCardBrowser(
       return active.length === 0 || active.some(t => t.match(def));
     });
 
+  /** The cards currently visible in the list: passing both toggles and search. */
+  const visibleCards = (): [string, CardDefinition][] => {
+    const filter = search.value.trim().toLowerCase();
+    return cards.filter(([, def]) => matchesToggles(def) && (!filter || matchesSearch(def, filter)));
+  };
+
   const renderList = () => {
     list.innerHTML = '';
-    const filter = search.value.trim().toLowerCase();
-    for (const [cardId, def] of cards) {
-      if (!matchesToggles(def)) continue;
-      if (filter && !matchesSearch(def, filter)) continue;
+    for (const [cardId, def] of visibleCards()) {
       const item = document.createElement('div');
       item.className = 'card-browser-item';
       item.textContent = def.name;
@@ -451,7 +461,7 @@ function openCardBrowser(
       if (style) item.setAttribute('style', style);
       item.addEventListener('mouseover', () => showCardPreview(cardId));
       item.addEventListener('click', () => {
-        addCardToSection(cardId, section, deckId);
+        addCardsToSection([cardId], section, deckId);
         close();
       });
       list.appendChild(item);
