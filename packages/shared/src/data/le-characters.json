@@ -601,7 +601,18 @@
     "directInfluence": 2,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Any Dark-hold"
+    "homesite": "Any Dark-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "certified": "2026-06-11"
   },
   {
     "cardType": "minion-character",
