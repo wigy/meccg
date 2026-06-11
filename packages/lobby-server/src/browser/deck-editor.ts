@@ -53,7 +53,7 @@ function renderSection(section: DeckSection, deckId: string): void {
     addBtn.textContent = '+';
     addBtn.title = browse.title;
     // The toggles fully define the browsable categories; no extra base filter.
-    addBtn.addEventListener('click', () => openCardBrowser(section, deckId, 'Add a card',
+    addBtn.addEventListener('click', () => openCardBrowser(section, deckId, `Add a card to ${section.label}`,
       () => true,
       browserToggles(editingDeck?.alignment ?? '', browse.preset)));
     titleEl.appendChild(addBtn);

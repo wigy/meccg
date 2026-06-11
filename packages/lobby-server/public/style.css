@@ -2052,6 +2052,9 @@ h2 {
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  /* Explicit row height: with auto rows, large lists (700+ cards) make the
+     browser collapse every row to its padding, squashing the name boxes. */
+  grid-auto-rows: max-content;
   gap: 2px;
   align-content: start;
 }
