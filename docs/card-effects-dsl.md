@@ -3506,6 +3506,44 @@ as Hoarmûrath (le-53).
 
 ---
 
+### 55a. `ringwraith-follower-slots`
+
+Carried by a Ringwraith avatar. While this avatar is the player's revealed
+Ringwraith, up to `count` other Ringwraith avatar cards may be played as
+**Ringwraith followers** in his company, controlled with no influence.
+
+CoE 2.II.2.1.R4–R5: a Ringwraith follower may only be played when an ability
+allows it (this effect is that ability) and when the player's revealed
+Ringwraith is at a Darkhaven or the follower's home site (region-form home
+sites like `"Any site in Khand"` match any site whose `region` is that
+region). The follower joins the revealed Ringwraith's company under his
+control (`CharacterInPlay.controlledBy` = the avatar's instance ID), bypassing
+the rule-2.II.2.1.1 prohibition on playing a second avatar. Because a
+Ringwraith follower's `mind` is `null`, it consumes none of the controlling
+avatar's direct influence (`availableDI` skips null-mind followers). Follower
+plays go through the normal one-character-per-turn organization-phase flow,
+which enforces the card's "separate organization phases" clause, and a
+follower does not count as its player's avatar (`findPlayerAvatar` only
+matches avatars under general influence).
+
+Evaluated in `legal-actions/organization-characters.ts`
+(`ringwraithFollowerPlayAction`); the play itself reuses the standard
+`play-character` reducer with `controlledBy` set to the avatar's instance.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `count` | yes | Maximum number of Ringwraith followers this avatar may control. |
+
+```json
+{ "type": "ringwraith-follower-slots", "count": 2 }
+```
+
+Used by: The Witch-king (le-58) — "As your Ringwraith, up to two Ringwraith
+followers in his company may be controlled with no influence. You may bring
+these followers into play during separate organization phases."
+
+---
+
 ### 56. `absorb-wound`
 
 When a strike against the bearer succeeds (would wound), the wound is prevented.

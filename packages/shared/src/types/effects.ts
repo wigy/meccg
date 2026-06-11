@@ -2562,6 +2562,7 @@ export type CardEffect =
   | CompanyOvertEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
+  | RingwraithFollowerSlotsEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -2867,6 +2868,30 @@ export interface RingwraithModeEffect extends EffectBase {
   readonly type: 'ringwraith-mode';
   /** Which mode this card establishes when bound to a company. */
   readonly mode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
+}
+
+/**
+ * Carried by a Ringwraith avatar: while this avatar is the player's revealed
+ * Ringwraith, up to {@link count} other Ringwraith avatar cards may be played
+ * as "Ringwraith followers" in his company, controlled with no influence
+ * (CoE 2.II.2.1.R4–R5: follower play requires an enabling ability; this is
+ * that ability).
+ *
+ * A follower may only enter play when the controlling Ringwraith's company is
+ * at a Darkhaven or at the follower's home site, and joins that company under
+ * the avatar's control (`controlledBy` = the avatar's instance). Because a
+ * Ringwraith follower has `mind === null` it consumes none of the avatar's
+ * direct influence. Followers come into play through the normal
+ * one-character-per-turn organization-phase flow, which enforces the card's
+ * "separate organization phases" clause.
+ *
+ * Used by *The Witch-king* (le-58): "As your Ringwraith, up to two Ringwraith
+ * followers in his company may be controlled with no influence."
+ */
+export interface RingwraithFollowerSlotsEffect extends EffectBase {
+  readonly type: 'ringwraith-follower-slots';
+  /** Maximum number of Ringwraith followers this avatar may control. */
+  readonly count: number;
 }
 
 /**
