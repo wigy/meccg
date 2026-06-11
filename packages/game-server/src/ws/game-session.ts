@@ -117,29 +117,36 @@ export class GameSession {
       this.writeSave(this.autosaveFilePath());
     }
 
-    const restartMsg: ServerMessage = { type: 'restart', message: 'Server restarting. Reconnecting...' };
+    this.disconnectAll({ type: 'restart', message: 'Server restarting. Reconnecting...' });
 
+    this.state = null;
+    this.serverLog.close();
+    this.gameLog.close();
+  }
+
+  /**
+   * Send `msg` to every connection (pending, players, spectators), close
+   * them all, and clear the connection registries. Used when the session
+   * restarts (shutdown, loading a save) and clients must reconnect.
+   */
+  private disconnectAll(msg: ServerMessage): void {
     for (const [, { ws }] of this.pending.entries()) {
-      this.send(ws, restartMsg);
+      this.send(ws, msg);
       ws.close();
     }
     this.pending.clear();
 
     for (const [, { ws }] of this.players.entries()) {
-      this.send(ws, restartMsg);
+      this.send(ws, msg);
       ws.close();
     }
     this.players.clear();
 
     for (const ws of this.spectators) {
-      this.send(ws, restartMsg);
+      this.send(ws, msg);
       ws.close();
     }
     this.spectators.clear();
-
-    this.state = null;
-    this.serverLog.close();
-    this.gameLog.close();
   }
 
   private handleMessage(ws: WebSocket, msg: ClientMessage): void {
@@ -826,13 +833,7 @@ export class GameSession {
     // Clear state, undo history, and restart all clients so they reconnect and load the save
     this.state = null;
     this.stateHistory = [];
-    const restartMsg: ServerMessage = { type: 'restart', message: 'Loading saved game. Reconnecting...' };
-    for (const [, { ws }] of this.pending.entries()) { this.send(ws, restartMsg); ws.close(); }
-    this.pending.clear();
-    for (const [, { ws }] of this.players.entries()) { this.send(ws, restartMsg); ws.close(); }
-    this.players.clear();
-    for (const ws of this.spectators) { this.send(ws, restartMsg); ws.close(); }
-    this.spectators.clear();
+    this.disconnectAll({ type: 'restart', message: 'Loading saved game. Reconnecting...' });
     this.nameToPlayerId = {};
   }
 

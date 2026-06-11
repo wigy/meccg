@@ -45,6 +45,13 @@ function send(ws: WebSocket, msg: LobbyServerMessage): void {
   }
 }
 
+/** Send a typed message to every online player. */
+function broadcastToOnline(msg: LobbyServerMessage): void {
+  for (const p of onlinePlayers.values()) {
+    send(p.ws, msg);
+  }
+}
+
 /** Broadcast the current online player list to everyone. */
 function broadcastPlayerList(): void {
   const players = Array.from(onlinePlayers.keys()).map(name => ({
@@ -52,10 +59,7 @@ function broadcastPlayerList(): void {
     displayName: getDisplayName(name),
     credits: getCredits(name),
   }));
-  const msg: LobbyServerMessage = { type: 'online-players', players };
-  for (const p of onlinePlayers.values()) {
-    send(p.ws, msg);
-  }
+  broadcastToOnline({ type: 'online-players', players });
 }
 
 /** Send a typed message to a specific player if they are online. Silently drops if offline. */
@@ -68,18 +72,12 @@ export function notifyPlayer(name: string, msg: LobbyServerMessage): void {
 
 /** Send a system notification to all online players. */
 export function broadcastNotification(message: string): void {
-  const msg: LobbyServerMessage = { type: 'system-notification', message };
-  for (const p of onlinePlayers.values()) {
-    send(p.ws, msg);
-  }
+  broadcastToOnline({ type: 'system-notification', message });
 }
 
 /** Tell all connected clients to reload the page. Used during controlled reboot. */
 export function broadcastForceReload(): void {
-  const msg: LobbyServerMessage = { type: 'force-reload' };
-  for (const p of onlinePlayers.values()) {
-    send(p.ws, msg);
-  }
+  broadcastToOnline({ type: 'force-reload' });
 }
 
 /** Register a new player connection in the lobby. */
