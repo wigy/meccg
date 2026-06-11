@@ -92,6 +92,44 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
   res.end(JSON.stringify(body));
 }
 
+/**
+ * Run a route handler with the standard error scaffold: a thrown error is
+ * logged under `context` and answered with a 500 carrying `errorMessage`.
+ */
+async function tryRoute(
+  res: http.ServerResponse,
+  context: string,
+  errorMessage: string,
+  handler: () => void | Promise<void>,
+): Promise<void> {
+  try {
+    await handler();
+  } catch (err) {
+    lobbyLog.log('error', { context, error: String(err) });
+    sendJson(res, 500, { error: errorMessage });
+  }
+}
+
+/**
+ * Run an authenticated route: answers 401 when no session player is set,
+ * otherwise invokes the handler with the player name under the standard
+ * {@link tryRoute} error scaffold.
+ */
+async function authedRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  context: string,
+  errorMessage: string,
+  handler: (playerName: string) => void | Promise<void>,
+): Promise<void> {
+  const playerName = getSessionPlayer(req);
+  if (!playerName) {
+    sendJson(res, 401, { error: 'Not logged in' });
+    return;
+  }
+  await tryRoute(res, context, errorMessage, () => handler(playerName));
+}
+
 /** Validates that an image path component contains only safe characters. */
 function isSafePathComponent(s: string): boolean {
   return /^[a-zA-Z0-9]+$/.test(s);
@@ -214,7 +252,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   // ---- API routes ----
 
   if (urlPath === '/api/register' && method === 'POST') {
-    try {
+    await tryRoute(res, 'register', 'Registration failed', async () => {
       const body = JSON.parse(await readBody(req)) as { name?: string; email?: string; password?: string; displayName?: string };
       const { name, email, password, displayName } = body;
       if (!name || !email || !password) {
@@ -253,15 +291,12 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       setSessionCookie(res, token);
       sendJson(res, 201, { name });
       lobbyLog.log('register', { name });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'register', error: String(err) });
-      sendJson(res, 500, { error: 'Registration failed' });
-    }
+    });
     return;
   }
 
   if (urlPath === '/api/login' && method === 'POST') {
-    try {
+    await tryRoute(res, 'login', 'Login failed', async () => {
       const body = JSON.parse(await readBody(req)) as { name?: string; password?: string };
       const { name, password } = body;
       if (!name || !password) {
@@ -284,10 +319,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       setSessionCookie(res, token);
       sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), credits: getCredits(player.name) });
       lobbyLog.log('login', { name: player.name });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'login', error: String(err) });
-      sendJson(res, 500, { error: 'Login failed' });
-    }
+    });
     return;
   }
 
@@ -298,29 +330,24 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   }
 
   if (urlPath === '/api/me' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (playerName) {
+    await authedRoute(req, res, 'me', 'Failed to load player info', (playerName) => {
       sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName), credits: getCredits(playerName) });
-    } else {
-      sendJson(res, 401, { error: 'Not logged in' });
-    }
+    });
     return;
   }
 
   if (urlPath === '/api/me/credits/history' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    sendJson(res, 200, {
-      credits: getCredits(playerName),
-      history: readCreditHistory(playerName),
+    await authedRoute(req, res, 'credits-history', 'Failed to load credit history', (playerName) => {
+      sendJson(res, 200, {
+        credits: getCredits(playerName),
+        history: readCreditHistory(playerName),
+      });
     });
     return;
   }
 
   if (urlPath === '/api/me/display-name' && method === 'PUT') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'display-name', 'Failed to update display name', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { displayName?: string };
       if (!body.displayName || body.displayName.length < 2 || body.displayName.length > 30) {
         sendJson(res, 400, { error: 'Display name must be 2-30 characters' });
@@ -328,62 +355,44 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       setDisplayName(playerName, body.displayName);
       sendJson(res, 200, { ok: true, displayName: body.displayName });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'display-name', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to update display name' });
-    }
+    });
     return;
   }
 
   // ---- Deck catalog ----
 
   if (urlPath === '/api/decks' && method === 'GET') {
-    try {
+    await tryRoute(res, 'deck-catalog', 'Failed to load deck catalog', () => {
       sendJson(res, 200, listCatalogDecks());
-    } catch (err) {
-      lobbyLog.log('error', { context: 'deck-catalog', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to load deck catalog' });
-    }
+    });
     return;
   }
 
   // ---- Player deck collection ----
 
   if (urlPath === '/api/my-decks' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'my-decks', 'Failed to load decks', (playerName) => {
       const decks = listPlayerDecks(playerName);
       const currentDeck = getCurrentDeck(playerName);
       const currentFullDeck = currentDeck ? findDeckById(playerName, currentDeck) : null;
       sendJson(res, 200, { decks, currentDeck, currentFullDeck });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'my-decks', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to load decks' });
-    }
+    });
     return;
   }
 
   if (urlPath === '/api/my-decks/current' && method === 'PUT') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'select-deck', 'Failed to select deck', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { deckId?: string };
       if (!body.deckId) { sendJson(res, 400, { error: 'deckId is required' }); return; }
       setCurrentDeck(playerName, body.deckId);
       sendJson(res, 200, { ok: true, currentDeck: body.deckId });
       lobbyLog.log('deck-selected', { player: playerName, deck: body.deckId });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'select-deck', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to select deck' });
-    }
+    });
     return;
   }
 
   if (urlPath === '/api/my-decks' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'save-deck', 'Failed to save deck', async (playerName) => {
       const deck = JSON.parse(await readBody(req)) as { id?: string; name?: string; [key: string]: unknown };
       if (!deck.id || !deck.name) {
         sendJson(res, 400, { error: 'Deck must have id and name' });
@@ -392,47 +401,42 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       savePlayerDeck(playerName, deck as { id: string; [key: string]: unknown });
       sendJson(res, 201, { ok: true });
       lobbyLog.log('deck-saved', { player: playerName, deck: deck.id });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'save-deck', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to save deck' });
-    }
+    });
     return;
   }
 
   if (urlPath.startsWith('/api/my-decks/') && method === 'DELETE' && urlPath !== '/api/my-decks/current') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    const deckId = decodeURIComponent(urlPath.slice('/api/my-decks/'.length));
-    if (!deckId) { sendJson(res, 400, { error: 'Deck ID required' }); return; }
-    const deleted = deletePlayerDeck(playerName, deckId);
-    if (deleted) {
-      lobbyLog.log('deck-deleted', { player: playerName, deck: deckId });
-      sendJson(res, 200, { ok: true });
-    } else {
-      sendJson(res, 404, { error: 'Deck not found' });
-    }
+    await authedRoute(req, res, 'delete-deck', 'Failed to delete deck', (playerName) => {
+      const deckId = decodeURIComponent(urlPath.slice('/api/my-decks/'.length));
+      if (!deckId) { sendJson(res, 400, { error: 'Deck ID required' }); return; }
+      const deleted = deletePlayerDeck(playerName, deckId);
+      if (deleted) {
+        lobbyLog.log('deck-deleted', { player: playerName, deck: deckId });
+        sendJson(res, 200, { ok: true });
+      } else {
+        sendJson(res, 404, { error: 'Deck not found' });
+      }
+    });
     return;
   }
 
   // ---- Game saves ----
 
   if (urlPath === '/api/saves/check' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    const opponent = url.searchParams.get('opponent');
-    if (!opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
-    const names = [playerName.toLowerCase(), opponent.toLowerCase()].sort();
-    const key = names.join('_vs_');
-    const saveExists = fs.existsSync(path.join(SAVE_DIR, `${key}.json`))
-      || fs.existsSync(path.join(SAVE_DIR, `${key}-autosave.json`));
-    sendJson(res, 200, { hasSave: saveExists });
+    await authedRoute(req, res, 'save-check', 'Failed to check save', (playerName) => {
+      const opponent = url.searchParams.get('opponent');
+      if (!opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      const names = [playerName.toLowerCase(), opponent.toLowerCase()].sort();
+      const key = names.join('_vs_');
+      const saveExists = fs.existsSync(path.join(SAVE_DIR, `${key}.json`))
+        || fs.existsSync(path.join(SAVE_DIR, `${key}-autosave.json`));
+      sendJson(res, 200, { hasSave: saveExists });
+    });
     return;
   }
 
   if (urlPath === '/api/saves/delete' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'save-delete', 'Failed to delete save', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { opponent?: string };
       if (!body.opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
       const names = [playerName.toLowerCase(), body.opponent.toLowerCase()].sort();
@@ -442,19 +446,14 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         if (fs.existsSync(p)) fs.unlinkSync(p);
       }
       sendJson(res, 200, { ok: true });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'save-delete', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to delete save' });
-    }
+    });
     return;
   }
 
   // ---- Card requests (via mail) ----
 
   if (urlPath === '/api/card-requests' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'card-request', 'Failed to save card request', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { deckId?: string; cardName?: string };
       if (!body.deckId || !body.cardName) {
         sendJson(res, 400, { error: 'deckId and cardName are required' });
@@ -476,19 +475,14 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sentBy: playerName,
       });
       sendJson(res, 201, { ok: true, id });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'card-request', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to save card request' });
-    }
+    });
     return;
   }
 
   // ---- Certification requests (via mail) ----
 
   if (urlPath === '/api/certification-requests' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'certification-request', 'Failed to save certification request', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { cardId?: string };
       if (!body.cardId) {
         sendJson(res, 400, { error: 'cardId is required' });
@@ -511,184 +505,179 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sentBy: playerName,
       });
       sendJson(res, 201, { ok: true, id });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'certification-request', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to save certification request' });
-    }
+    });
     return;
   }
 
   // ---- Player mail ----
 
   if (urlPath === '/api/mail/inbox' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    touchLastMailView(playerName);
-    sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName) });
+    await authedRoute(req, res, 'mail-inbox', 'Failed to load inbox', (playerName) => {
+      touchLastMailView(playerName);
+      sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName) });
+    });
     return;
   }
 
   const mailMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)$/);
   if (mailMatch && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    const msg = readMessage(playerName, mailMatch[1]);
-    if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
-    sendJson(res, 200, msg);
+    await authedRoute(req, res, 'mail-read', 'Failed to read message', (playerName) => {
+      const msg = readMessage(playerName, mailMatch[1]);
+      if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
+      sendJson(res, 200, msg);
+    });
     return;
   }
 
   if (mailMatch && method === 'DELETE') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    const deleted = deleteMessage(playerName, mailMatch[1]);
-    if (!deleted) { sendJson(res, 404, { error: 'Message not found' }); return; }
-    sendJson(res, 200, { ok: true });
+    await authedRoute(req, res, 'mail-delete', 'Failed to delete message', (playerName) => {
+      const deleted = deleteMessage(playerName, mailMatch[1]);
+      if (!deleted) { sendJson(res, 404, { error: 'Message not found' }); return; }
+      sendJson(res, 200, { ok: true });
+    });
     return;
   }
 
   if (urlPath === '/api/mail/sent' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    sendJson(res, 200, { messages: listSent(playerName) });
+    await authedRoute(req, res, 'mail-sent', 'Failed to load sent mail', (playerName) => {
+      sendJson(res, 200, { messages: listSent(playerName) });
+    });
     return;
   }
 
   const reviewMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/(approve|decline)$/);
   if (reviewMatch && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can approve or decline' }); return; }
-    const [, msgId, action] = reviewMatch;
+    await authedRoute(req, res, 'mail-review', 'Failed to process review', async (playerName) => {
+      if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can approve or decline' }); return; }
+      const [, msgId, action] = reviewMatch;
 
-    // Parse optional body for decline comments
-    let comments = '';
-    try {
-      const raw = JSON.parse(await readBody(req)) as { comments?: string };
-      comments = raw.comments ?? '';
-    } catch {
-      // No body or invalid JSON — comments stay empty
-    }
+      // Parse optional body for decline comments
+      let comments = '';
+      try {
+        const raw = JSON.parse(await readBody(req)) as { comments?: string };
+        comments = raw.comments ?? '';
+      } catch {
+        // No body or invalid JSON — comments stay empty
+      }
 
-    const newStatus = action === 'approve' ? 'approved' : 'declined';
-    const updated = updateMessageStatus(playerName, msgId, newStatus);
-    if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
-    lobbyLog.log(`mail-${action}`, { player: playerName, msgId });
+      const newStatus = action === 'approve' ? 'approved' : 'declined';
+      const updated = updateMessageStatus(playerName, msgId, newStatus);
+      if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
+      lobbyLog.log(`mail-${action}`, { player: playerName, msgId });
 
-    // Feature-request follow-up messages
-    if (updated.topic === 'feature-request') {
-      if (action === 'decline') {
-        sendMail([updated.from], {
-          from: playerName,
-          sender: 'player',
-          topic: 'feature-reply',
-          subject: `Feature Request Declined: ${updated.subject}`,
-          body: `Your feature request was declined.\n\n> ${updated.body.split('\n').join('\n> ')}`,
-          keywords: {},
-          replyTo: msgId,
-        });
-      } else {
+      // Feature-request follow-up messages
+      if (updated.topic === 'feature-request') {
+        if (action === 'decline') {
+          sendMail([updated.from], {
+            from: playerName,
+            sender: 'player',
+            topic: 'feature-reply',
+            subject: `Feature Request Declined: ${updated.subject}`,
+            body: `Your feature request was declined.\n\n> ${updated.body.split('\n').join('\n> ')}`,
+            keywords: {},
+            replyTo: msgId,
+          });
+        } else {
+          sendMail(['ai'], {
+            from: playerName,
+            sender: 'player',
+            topic: 'feature-planning-request',
+            subject: `Plan Feature: ${updated.subject}`,
+            body: updated.body,
+            keywords: {},
+            replyTo: msgId,
+            sentBy: playerName,
+          });
+        }
+      }
+
+      // Review-request approval: deliver the reply that handle-mail stashed as
+      // pendingReplyJson in the review-request's keywords. This is the first
+      // (and only) requestor-visible mail for the entire processing cycle.
+      if (updated.topic === 'review-request' && action === 'approve' && updated.keywords.pendingReplyJson) {
+        try {
+          const pending = JSON.parse(updated.keywords.pendingReplyJson) as {
+            recipient: string;
+            topic: MailTopic;
+            subject: string;
+            body: string;
+            keywords: Record<string, string>;
+            replyTo?: string;
+          };
+          if (pending.recipient && pending.topic) {
+            sendMail([pending.recipient], {
+              from: getDisplayName('ai'),
+              sender: 'ai',
+              topic: pending.topic,
+              subject: pending.subject,
+              body: pending.body,
+              keywords: pending.keywords ?? {},
+              ...(pending.replyTo ? { replyTo: pending.replyTo } : {}),
+              sentBy: 'ai',
+            });
+            lobbyLog.log('review-reply-sent', { msgId, recipient: pending.recipient, topic: pending.topic });
+          } else {
+            lobbyLog.log('review-reply-invalid', { msgId, reason: 'missing recipient or topic' });
+          }
+        } catch (err) {
+          lobbyLog.log('review-reply-failed', { msgId, error: String(err) });
+        }
+      }
+
+      // Review-request decline: send a review-fix-request to AI with reviewer comments
+      if (updated.topic === 'review-request' && action === 'decline') {
+        const reviewBody = comments
+          ? `## Review Comments\n\n${comments}\n\n---\n\n## Original Review\n\n${updated.body}`
+          : `## Review Declined\n\nThe reviewer declined without specific comments.\n\n---\n\n## Original Review\n\n${updated.body}`;
+
         sendMail(['ai'], {
           from: playerName,
           sender: 'player',
-          topic: 'feature-planning-request',
-          subject: `Plan Feature: ${updated.subject}`,
-          body: updated.body,
-          keywords: {},
+          topic: 'review-fix-request',
+          subject: `Fix Review: ${updated.subject.replace(/^Review:\s*/, '')}`,
+          body: reviewBody,
+          keywords: { ...updated.keywords, reviewedBy: playerName, reviewRequestId: msgId },
           replyTo: msgId,
           sentBy: playerName,
         });
       }
-    }
 
-    // Review-request approval: deliver the reply that handle-mail stashed as
-    // pendingReplyJson in the review-request's keywords. This is the first
-    // (and only) requestor-visible mail for the entire processing cycle.
-    if (updated.topic === 'review-request' && action === 'approve' && updated.keywords.pendingReplyJson) {
-      try {
-        const pending = JSON.parse(updated.keywords.pendingReplyJson) as {
-          recipient: string;
-          topic: MailTopic;
-          subject: string;
-          body: string;
-          keywords: Record<string, string>;
-          replyTo?: string;
-        };
-        if (pending.recipient && pending.topic) {
-          sendMail([pending.recipient], {
-            from: getDisplayName('ai'),
-            sender: 'ai',
-            topic: pending.topic,
-            subject: pending.subject,
-            body: pending.body,
-            keywords: pending.keywords ?? {},
-            ...(pending.replyTo ? { replyTo: pending.replyTo } : {}),
-            sentBy: 'ai',
-          });
-          lobbyLog.log('review-reply-sent', { msgId, recipient: pending.recipient, topic: pending.topic });
-        } else {
-          lobbyLog.log('review-reply-invalid', { msgId, reason: 'missing recipient or topic' });
-        }
-      } catch (err) {
-        lobbyLog.log('review-reply-failed', { msgId, error: String(err) });
-      }
-    }
-
-    // Review-request decline: send a review-fix-request to AI with reviewer comments
-    if (updated.topic === 'review-request' && action === 'decline') {
-      const reviewBody = comments
-        ? `## Review Comments\n\n${comments}\n\n---\n\n## Original Review\n\n${updated.body}`
-        : `## Review Declined\n\nThe reviewer declined without specific comments.\n\n---\n\n## Original Review\n\n${updated.body}`;
-
-      sendMail(['ai'], {
-        from: playerName,
-        sender: 'player',
-        topic: 'review-fix-request',
-        subject: `Fix Review: ${updated.subject.replace(/^Review:\s*/, '')}`,
-        body: reviewBody,
-        keywords: { ...updated.keywords, reviewedBy: playerName, reviewRequestId: msgId },
-        replyTo: msgId,
-        sentBy: playerName,
-      });
-    }
-
-    sendJson(res, 200, { ok: true });
+      sendJson(res, 200, { ok: true });
+    });
     return;
   }
 
   const implementMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/implement$/);
   if (implementMatch && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can implement' }); return; }
-    const [, msgId] = implementMatch;
-    const msg = readMessage(playerName, msgId);
-    if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
-    if (msg.topic !== 'feature-planning-reply') { sendJson(res, 400, { error: 'Only planning replies can be implemented' }); return; }
+    await authedRoute(req, res, 'mail-implement', 'Failed to send implementation request', (playerName) => {
+      if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can implement' }); return; }
+      const [, msgId] = implementMatch;
+      const msg = readMessage(playerName, msgId);
+      if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
+      if (msg.topic !== 'feature-planning-reply') { sendJson(res, 400, { error: 'Only planning replies can be implemented' }); return; }
 
-    sendMail(['ai'], {
-      from: playerName,
-      sender: 'player',
-      topic: 'feature-implementation-request',
-      subject: `Implement: ${msg.subject}`,
-      body: msg.body,
-      keywords: {
-        ...(msg.keywords.originalMessageId ? { originalMessageId: msg.keywords.originalMessageId } : {}),
-        ...(msg.keywords.originalRequestor ? { originalRequestor: msg.keywords.originalRequestor } : {}),
-        planningReplyId: msgId,
-      },
-      replyTo: msgId,
-      sentBy: playerName,
+      sendMail(['ai'], {
+        from: playerName,
+        sender: 'player',
+        topic: 'feature-implementation-request',
+        subject: `Implement: ${msg.subject}`,
+        body: msg.body,
+        keywords: {
+          ...(msg.keywords.originalMessageId ? { originalMessageId: msg.keywords.originalMessageId } : {}),
+          ...(msg.keywords.originalRequestor ? { originalRequestor: msg.keywords.originalRequestor } : {}),
+          planningReplyId: msgId,
+        },
+        replyTo: msgId,
+        sentBy: playerName,
+      });
+      lobbyLog.log('mail-implement', { player: playerName, msgId });
+      sendJson(res, 200, { ok: true });
     });
-    lobbyLog.log('mail-implement', { player: playerName, msgId });
-    sendJson(res, 200, { ok: true });
     return;
   }
 
   if (urlPath === '/api/mail/send' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'player-mail', 'Failed to send mail', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as {
         recipients?: string[];
         subject?: string;
@@ -710,17 +699,12 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       });
       lobbyLog.log('player-mail', { id, from: playerName, recipients: body.recipients, topic: body.topic });
       sendJson(res, 200, { ok: true, id });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'player-mail', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to send mail' });
-    }
+    });
     return;
   }
 
   if (urlPath === '/api/mail/bug-report' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    try {
+    await authedRoute(req, res, 'bug-report', 'Failed to send bug report', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as {
         subject?: string;
         body?: string;
@@ -752,10 +736,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       lobbyLog.log('bug-report', { id, from: playerName, otherPlayer: body.otherPlayer });
       sendJson(res, 200, { ok: true, id });
-    } catch (err) {
-      lobbyLog.log('error', { context: 'bug-report', error: String(err) });
-      sendJson(res, 500, { error: 'Failed to send bug report' });
-    }
+    });
     return;
   }
 
@@ -770,7 +751,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     }
 
     if (urlPath === '/api/system/mail' && method === 'POST') {
-      try {
+      await tryRoute(res, 'system-mail', 'Failed to send mail', async () => {
         const body = JSON.parse(await readBody(req)) as {
           recipients?: string[];
           from?: string;
@@ -798,16 +779,13 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         });
         lobbyLog.log('system-mail', { id, recipients: body.recipients, topic: body.topic });
         sendJson(res, 200, { ok: true, id });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-mail', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to send mail' });
-      }
+      });
       return;
     }
 
     const systemMailMatch = urlPath.match(/^\/api\/system\/mail\/([a-z-]+)\/([a-f0-9]+)$/);
     if (systemMailMatch && method === 'PUT') {
-      try {
+      await tryRoute(res, 'system-mail-update', 'Failed to update message', async () => {
         const [, playerName, msgId] = systemMailMatch;
         const body = JSON.parse(await readBody(req)) as { status?: MailStatus; success?: boolean };
         if (!body.status) { sendJson(res, 400, { error: 'status is required' }); return; }
@@ -815,10 +793,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
         lobbyLog.log('system-mail-update', { player: playerName, msgId, status: body.status, success: body.success });
         sendJson(res, 200, { ok: true, message: updated });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-mail-update', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to update message' });
-      }
+      });
       return;
     }
 
@@ -832,14 +807,11 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     }
 
     if (urlPath === '/api/system/ai-requests' && method === 'GET') {
-      try {
+      await tryRoute(res, 'system-ai-requests', 'Failed to list requests', () => {
         const includeAll = url.searchParams.get('all') === 'true';
         const requests = listUnhandledRequests(['ai', 'admin'], { includeAll });
         sendJson(res, 200, { requests });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-ai-requests', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to list requests' });
-      }
+      });
       return;
     }
 
@@ -851,7 +823,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       return;
     }
     if (systemCreditsMatch && method === 'POST') {
-      try {
+      await tryRoute(res, 'system-credits', 'Failed to update credits', async () => {
         const [, playerName] = systemCreditsMatch;
         const body = JSON.parse(await readBody(req)) as { mode?: 'add' | 'set'; amount?: number; reason?: string };
         if (body.mode !== 'add' && body.mode !== 'set') {
@@ -865,29 +837,23 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
         lobbyLog.log('system-credits', { player: playerName, mode: body.mode, amount: body.amount, delta: result.delta, balance: result.balance, reason });
         sendJson(res, 200, { name: playerName, ...result });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-credits', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to update credits' });
-      }
+      });
       return;
     }
 
     if (urlPath === '/api/system/notify' && method === 'POST') {
-      try {
+      await tryRoute(res, 'system-notify', 'Failed to send notification', async () => {
         const body = JSON.parse(await readBody(req)) as { message?: string };
         if (!body.message) { sendJson(res, 400, { error: 'message is required' }); return; }
         broadcastNotification(body.message);
         lobbyLog.log('system-notify', { message: body.message });
         sendJson(res, 200, { ok: true });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-notify', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to send notification' });
-      }
+      });
       return;
     }
 
     if (urlPath === '/api/system/reboot' && method === 'POST') {
-      try {
+      await tryRoute(res, 'system-reboot', 'Failed to initiate reboot', async () => {
         const body = JSON.parse(await readBody(req)) as { message?: string };
         const announcement = body.message ?? 'Server is rebooting. Please wait...';
         broadcastNotification(announcement);
@@ -896,22 +862,16 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 200, { ok: true });
         // Give WebSocket messages time to flush, then exit
         setTimeout(() => process.exit(0), 500);
-      } catch (err) {
-        lobbyLog.log('error', { context: 'system-reboot', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to initiate reboot' });
-      }
+      });
       return;
     }
 
     if (urlPath === '/api/system/reload-clients' && method === 'POST') {
-      try {
+      await tryRoute(res, 'force-reload', 'Failed to broadcast reload', () => {
         broadcastForceReload();
         lobbyLog.log('force-reload');
         sendJson(res, 200, { ok: true });
-      } catch (err) {
-        lobbyLog.log('error', { context: 'force-reload', error: String(err) });
-        sendJson(res, 500, { error: 'Failed to broadcast reload' });
-      }
+      });
       return;
     }
 
