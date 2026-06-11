@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
@@ -170,6 +170,87 @@ export function updateCharacter(
   return {
     ...player,
     characters: { ...player.characters, [key]: updater(char) },
+  };
+}
+
+/**
+ * Result of locating an item or ally among a player's characters:
+ * the immutably updated player, the host character's instance id, and the
+ * attachment as it was found (pre-update) so callers can validate it
+ * (status, definition effects) and name it in logs before committing.
+ */
+export interface AttachmentUpdate<A> {
+  readonly player: PlayerState;
+  readonly charId: CardInstanceId;
+  readonly attachment: A;
+}
+
+/**
+ * Locate an item or ally by instance ID among a player's characters.
+ * Returns the host character's id, the attachment, and its index within
+ * the host's `items`/`allies` array — or `null` when no character bears it.
+ */
+export function findAttachment(player: PlayerState, kind: 'items', attachmentId: CardInstanceId): { charId: CardInstanceId; attachment: ItemInPlay; index: number } | null;
+export function findAttachment(player: PlayerState, kind: 'allies', attachmentId: CardInstanceId): { charId: CardInstanceId; attachment: AllyInPlay; index: number } | null;
+export function findAttachment(
+  player: PlayerState,
+  kind: 'items' | 'allies',
+  attachmentId: CardInstanceId,
+): { charId: CardInstanceId; attachment: ItemInPlay | AllyInPlay; index: number } | null {
+  for (const [charId, char] of characterEntries(player)) {
+    const attachments: readonly (ItemInPlay | AllyInPlay)[] = char[kind];
+    const index = attachments.findIndex(a => a.instanceId === attachmentId);
+    if (index >= 0) return { charId, attachment: attachments[index], index };
+  }
+  return null;
+}
+
+/**
+ * Find an item or ally by instance ID among a player's characters and
+ * replace it via `updater`, returning the updated player plus the host and
+ * the original attachment. Returns `null` when no character bears it.
+ * Centralizes the recurring search-host / copy-array / updateCharacter
+ * sequence used by tap-to-activate and similar reducers.
+ */
+export function updateAttachment(player: PlayerState, kind: 'items', attachmentId: CardInstanceId, updater: (a: ItemInPlay) => ItemInPlay): AttachmentUpdate<ItemInPlay> | null;
+export function updateAttachment(player: PlayerState, kind: 'allies', attachmentId: CardInstanceId, updater: (a: AllyInPlay) => AllyInPlay): AttachmentUpdate<AllyInPlay> | null;
+export function updateAttachment(
+  player: PlayerState,
+  kind: 'items' | 'allies',
+  attachmentId: CardInstanceId,
+  updater: (a: never) => ItemInPlay | AllyInPlay,
+): AttachmentUpdate<ItemInPlay | AllyInPlay> | null {
+  const found = findAttachment(player, kind as 'items', attachmentId);
+  if (!found) return null;
+  const updated = [...player.characters[found.charId as string][kind]];
+  updated[found.index] = updater(found.attachment as never);
+  return {
+    player: updateCharacter(player, found.charId, c => ({ ...c, [kind]: updated })),
+    charId: found.charId,
+    attachment: found.attachment,
+  };
+}
+
+/**
+ * Find an item or ally by instance ID among a player's characters and
+ * remove it from its host, returning the updated player plus the host and
+ * the removed attachment (for the caller to place into a pile via
+ * `toCardInstance`). Returns `null` when no character bears it.
+ */
+export function removeAttachment(player: PlayerState, kind: 'items', attachmentId: CardInstanceId): AttachmentUpdate<ItemInPlay> | null;
+export function removeAttachment(player: PlayerState, kind: 'allies', attachmentId: CardInstanceId): AttachmentUpdate<AllyInPlay> | null;
+export function removeAttachment(
+  player: PlayerState,
+  kind: 'items' | 'allies',
+  attachmentId: CardInstanceId,
+): AttachmentUpdate<ItemInPlay | AllyInPlay> | null {
+  const found = findAttachment(player, kind as 'items', attachmentId);
+  if (!found) return null;
+  const updated = player.characters[found.charId as string][kind].filter((_, i) => i !== found.index);
+  return {
+    player: updateCharacter(player, found.charId, c => ({ ...c, [kind]: updated })),
+    charId: found.charId,
+    attachment: found.attachment,
   };
 }
 

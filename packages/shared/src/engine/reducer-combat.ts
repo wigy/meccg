@@ -17,7 +17,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeAttachment, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1249,18 +1249,11 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   }
 
   // Check if supporter is an ally
-  for (const [charId, ch] of characterEntries(defPlayer)) {
-    const allyIndex = ch.allies.findIndex(a => a.instanceId === action.supportingCharacterId);
-    if (allyIndex >= 0) {
-      const ally = ch.allies[allyIndex];
-      const newAllies = [...ch.allies];
-      newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
-      const nextState = updatePlayer(state, defPlayerIndex, p =>
-        updateCharacter(p, charId, c => ({ ...c, allies: newAllies })),
-      );
-      logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
-      return { state: { ...nextState, combat: newCombat } };
-    }
+  const tappedAlly = updateAttachment(defPlayer, 'allies', action.supportingCharacterId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (tappedAlly) {
+    const nextState = updatePlayer(state, defPlayerIndex, () => tappedAlly.player);
+    logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
+    return { state: { ...nextState, combat: newCombat } };
   }
 
   return { state, error: 'Supporting character or ally not found' };
@@ -1292,56 +1285,15 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
     // The canceller may be an item or ally attached to the struck character (e.g.
     // Enruned Shield taps to cancel a strike against its Warrior bearer, or
     // Noble Steed taps to cancel a non-auto-attack strike against its bearer).
-
-    // Try items first.
-    let hostCharId: string | null = null;
-    let itemIndex = -1;
-    for (const [charKey, ch] of Object.entries(defPlayer.characters)) {
-      const idx = ch.items.findIndex(i => i.instanceId === action.cancellerInstanceId);
-      if (idx >= 0) {
-        hostCharId = charKey;
-        itemIndex = idx;
-        break;
-      }
+    const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
+    const tapped = updateAttachment(defPlayer, 'items', action.cancellerInstanceId, tap)
+      ?? updateAttachment(defPlayer, 'allies', action.cancellerInstanceId, tap);
+    if (!tapped) {
+      return { state, error: 'Canceller not found as character, item, or ally' };
     }
-
-    if (hostCharId !== null && itemIndex >= 0) {
-      const hostChar = defPlayer.characters[hostCharId];
-      const item = hostChar.items[itemIndex];
-      const itemName = cardName(state, item.definitionId);
-      logDetail(`${itemName} taps to cancel strike against ${currentStrike.characterId as string}`);
-
-      const newItems = [...hostChar.items];
-      newItems[itemIndex] = { ...item, status: CardStatus.Tapped };
-      nextState = updatePlayer(state, defPlayerIndex, p =>
-        updateCharacter(p, hostCharId, c => ({ ...c, items: newItems })),
-      );
-    } else {
-      // Try allies.
-      let allyHostCharId: string | null = null;
-      let allyIndex = -1;
-      for (const [charKey, ch] of Object.entries(defPlayer.characters)) {
-        const idx = ch.allies.findIndex(a => a.instanceId === action.cancellerInstanceId);
-        if (idx >= 0) {
-          allyHostCharId = charKey;
-          allyIndex = idx;
-          break;
-        }
-      }
-      if (allyHostCharId === null || allyIndex < 0) {
-        return { state, error: 'Canceller not found as character, item, or ally' };
-      }
-      const allyHostChar = defPlayer.characters[allyHostCharId];
-      const ally = allyHostChar.allies[allyIndex];
-      const allyName = cardName(state, ally.definitionId);
-      logDetail(`${allyName} taps to cancel strike against ${currentStrike.characterId as string}`);
-
-      const newAllies = [...allyHostChar.allies];
-      newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
-      nextState = updatePlayer(state, defPlayerIndex, p =>
-        updateCharacter(p, allyHostCharId, c => ({ ...c, allies: newAllies })),
-      );
-    }
+    const cancellerLabel = cardName(state, tapped.attachment.definitionId);
+    logDetail(`${cancellerLabel} taps to cancel strike against ${currentStrike.characterId as string}`);
+    nextState = updatePlayer(state, defPlayerIndex, () => tapped.player);
   }
 
   const newAssignments = [...combat.strikeAssignments];
@@ -2532,12 +2484,11 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
 
-  const charData = defPlayer.characters[action.characterInstanceId as string];
-  if (!charData) return { state, error: 'Character not found' };
+  if (!defPlayer.characters[action.characterInstanceId as string]) return { state, error: 'Character not found' };
 
-  const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
-  if (itemIndex < 0) return { state, error: 'Item not found on character' };
-  const item = charData.items[itemIndex];
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
+  if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
+  const item = tapped.attachment;
   if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
 
   const itemDef = defById(state, item.definitionId);
@@ -2550,20 +2501,6 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   const prowessBonus = effect.prowessModifier ?? 0;
   logDetail(`Tap-item-for-strike: tapping ${itemName} on ${action.characterInstanceId as string} (+${prowessBonus} prowess for current strike)`);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[defPlayerIndex] = {
-    ...newPlayers[defPlayerIndex],
-    characters: {
-      ...newPlayers[defPlayerIndex].characters,
-      [action.characterInstanceId as string]: {
-        ...charData,
-        items: charData.items.map((it, i) =>
-          i === itemIndex ? { ...it, status: CardStatus.Tapped } : it,
-        ),
-      },
-    },
-  };
-
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus }
@@ -2572,8 +2509,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, defPlayerIndex, () => tapped.player),
       combat: { ...combat, strikeAssignments: newAssignments },
     },
   };
@@ -2598,14 +2534,9 @@ function handleTapAllyCombatBoost(state: GameState, action: GameAction, combat: 
   const player = state.players[playerIndex];
 
   // Locate the ally and the character bearing it.
-  let bearerCharId: CardInstanceId | undefined;
-  let allyIndex = -1;
-  for (const [charId, charData] of characterEntries(player)) {
-    const idx = charData.allies.findIndex(a => a.instanceId === action.cardInstanceId);
-    if (idx >= 0) { bearerCharId = charId; allyIndex = idx; break; }
-  }
-  if (bearerCharId === undefined || allyIndex < 0) return { state, error: 'Ally not in play under this player' };
-  const ally = player.characters[bearerCharId as string].allies[allyIndex];
+  const tapped = updateAttachment(player, 'allies', action.cardInstanceId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (!tapped) return { state, error: 'Ally not in play under this player' };
+  const { charId: bearerCharId, attachment: ally } = tapped;
   if (ally.status !== CardStatus.Untapped) return { state, error: 'Ally must be untapped to activate' };
 
   const allyDef = defById(state, ally.definitionId);
@@ -2628,12 +2559,7 @@ function handleTapAllyCombatBoost(state: GameState, action: GameAction, combat: 
 
   // Tap the ally.
   const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
-  let newState = updatePlayer(state, playerIndex, p =>
-    updateCharacter(p, bearerCharId, c => ({
-      ...c,
-      allies: c.allies.map((a, i) => (i === allyIndex ? { ...a, status: CardStatus.Tapped } : a)),
-    })),
-  );
+  let newState = updatePlayer(state, playerIndex, () => tapped.player);
 
   // Apply one attack-scoped character-stat-modifier constraint per matching
   // character in the ally's company.
@@ -2940,26 +2866,16 @@ function handleDiscardItemFromCompany(state: GameState, action: GameAction, comb
 
   const item = discardItemOptions[itemIndex];
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
-  const newPlayers = clonePlayers(state);
 
   // Remove item from its bearer and add to discard pile
-  let itemRemoved = false;
-  const newCharacters = { ...newPlayers[defIdx].characters };
-  for (const [charId, charData] of Object.entries(newCharacters)) {
-    const idx = charData.items.findIndex(it => it.instanceId === item.instanceId);
-    if (idx >= 0) {
-      newCharacters[charId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
-      itemRemoved = true;
-      break;
-    }
-  }
-  if (!itemRemoved) return { state, error: 'Item not found on any character in company' };
+  const removed = removeAttachment(state.players[defIdx], 'items', item.instanceId);
+  if (!removed) return { state, error: 'Item not found on any character in company' };
 
   logDetail(`An Article Missing: discarding item ${item.instanceId as string} from company`);
+  const newPlayers = clonePlayers(state);
   newPlayers[defIdx] = {
-    ...newPlayers[defIdx],
-    characters: newCharacters,
-    discardPile: [...newPlayers[defIdx].discardPile, toCardInstance(item)],
+    ...removed.player,
+    discardPile: [...removed.player.discardPile, toCardInstance(item)],
   };
 
   const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };

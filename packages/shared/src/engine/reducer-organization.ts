@@ -13,7 +13,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -384,30 +384,19 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   const toCharId = action.toCharacterId;
   const itemInstId = action.itemInstanceId;
 
-  const fromChar = player.characters[fromCharId as string];
-  if (!fromChar) return { state, error: 'Source character not found' };
+  if (!player.characters[fromCharId as string]) return { state, error: 'Source character not found' };
+  if (!player.characters[toCharId as string]) return { state, error: 'Target character not found' };
 
-  const toChar = player.characters[toCharId as string];
-  if (!toChar) return { state, error: 'Target character not found' };
-
-  const itemIndex = fromChar.items.findIndex(i => i.instanceId === itemInstId);
-  if (itemIndex === -1) return { state, error: 'Item not found on source character' };
-  const item = fromChar.items[itemIndex];
+  const removed = removeAttachment(player, 'items', itemInstId);
+  if (!removed || removed.charId !== fromCharId) return { state, error: 'Item not found on source character' };
+  const item = removed.attachment;
   const itemDef = resolveDef(state, itemInstId);
   const fromDef = resolveDef(state, fromCharId);
   const toDef = resolveDef(state, toCharId);
   logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);
 
   // Move the item
-  const newCharacters = { ...player.characters };
-  newCharacters[fromCharId as string] = {
-    ...fromChar,
-    items: fromChar.items.filter(i => i.instanceId !== itemInstId),
-  };
-  newCharacters[toCharId as string] = {
-    ...toChar,
-    items: [...toChar.items, item],
-  };
+  const playerAfterTransfer = updateCharacter(removed.player, toCharId, c => ({ ...c, items: [...c.items, item] }));
 
   // Enqueue a corruption-check resolution for the character who gave away
   // the item. The unified pending system replaces the old per-phase
@@ -417,7 +406,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   logDetail(`Enqueuing corruption check for ${fromDef?.name ?? '?'} after item transfer`);
 
   const stateAfterTransfer: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters })),
+    ...updatePlayer(state, playerIndex, () => playerAfterTransfer),
     reverseActions: [...state.reverseActions, {
       type: 'transfer-item' as const,
       player: action.player,
@@ -456,20 +445,13 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const charId = action.characterId;
   const itemInstId = action.itemInstanceId;
 
-  const char = player.characters[charId as string];
-  if (!char) return { state, error: 'Character not found' };
-  const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
-  if (itemIndex === -1) return { state, error: 'Item not found on character' };
-  const item = char.items[itemIndex];
+  if (!player.characters[charId as string]) return { state, error: 'Character not found' };
+  const removed = removeAttachment(player, 'items', itemInstId);
+  if (!removed || removed.charId !== charId) return { state, error: 'Item not found on character' };
+  const item = removed.attachment;
   const itemDef = defById(state, item.definitionId);
   const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
-
-  const newCharacters = { ...player.characters };
-  newCharacters[charId as string] = {
-    ...char,
-    items: char.items.filter(i => i.instanceId !== itemInstId),
-  };
 
   const storedCard: CardInstance = {
     instanceId: item.instanceId,
@@ -478,10 +460,9 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
 
   logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);
 
-  const stateAfterStore: GameState = updatePlayer(state, playerIndex, p => ({
-    ...p,
-    characters: newCharacters,
-    killPile: [...p.killPile, storedCard],
+  const stateAfterStore: GameState = updatePlayer(state, playerIndex, () => ({
+    ...removed.player,
+    killPile: [...removed.player.killPile, storedCard],
   }));
 
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
