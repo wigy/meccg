@@ -49,11 +49,6 @@
       "qty": 2
     },
     {
-      "name": "Orc Tracker",
-      "card": "le-34",
-      "qty": 2
-    },
-    {
       "name": "Sly Southerner",
       "card": "wh-10",
       "qty": 3
@@ -65,6 +60,11 @@
         "name": "Hoarmurath the Ringwraith",
         "card": "le-53",
         "qty": 3
+      },
+      {
+        "name": "Orc Tracker",
+        "card": "le-34",
+        "qty": 2
       }
     ],
     "hazards": [

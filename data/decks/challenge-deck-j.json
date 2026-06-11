@@ -55,7 +55,7 @@
     {
       "name": "Orc Captain",
       "card": "le-31",
-      "qty": 3
+      "qty": 1
     }
   ],
   "deck": {
@@ -64,6 +64,11 @@
         "name": "Indur the Ringwraith",
         "card": "le-54",
         "qty": 3
+      },
+      {
+        "name": "Orc Captain",
+        "card": "le-31",
+        "qty": 2
       }
     ],
     "hazards": [

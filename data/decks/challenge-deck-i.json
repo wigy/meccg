@@ -51,7 +51,7 @@
     {
       "name": "Orc Tracker",
       "card": "le-34",
-      "qty": 3
+      "qty": 1
     },
     {
       "name": "Orc Captain",
@@ -65,6 +65,11 @@
         "name": "The Witch-king",
         "card": "le-58",
         "qty": 3
+      },
+      {
+        "name": "Orc Tracker",
+        "card": "le-34",
+        "qty": 2
       }
     ],
     "hazards": [

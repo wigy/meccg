@@ -49,11 +49,6 @@
       "qty": 1
     },
     {
-      "name": "Orc Veteran",
-      "card": "le-35",
-      "qty": 2
-    },
-    {
       "name": "Shagrat",
       "card": "le-39",
       "qty": 1
@@ -75,6 +70,11 @@
         "name": "Dwar the Ringwraith",
         "card": "le-52",
         "qty": 3
+      },
+      {
+        "name": "Orc Veteran",
+        "card": "le-35",
+        "qty": 2
       }
     ],
     "hazards": [
