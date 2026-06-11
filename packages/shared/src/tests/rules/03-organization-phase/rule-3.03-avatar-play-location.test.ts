@@ -19,7 +19,7 @@ import {
   buildTestState, resetMint, Phase,
   viablePlayCharacterActions, nonViablePlayCharacterActions,
   PLAYER_1, PLAYER_2,
-  GANDALF, ARAGORN, BILBO, LEGOLAS,
+  GANDALF, SARUMAN, ARAGORN, BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, BREE,
 } from '../../test-helpers.js';
 
@@ -114,6 +114,34 @@ describe('Rule 3.03 — Avatar Play Location', () => {
 
     expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
     // The engine should still report the attempted play, marked non-viable
+    expect(nonViablePlayCharacterActions(state, PLAYER_1).length).toBeGreaterThan(0);
+  });
+
+  test('A player who has revealed their avatar cannot play a different avatar', () => {
+    // P1 has revealed Gandalf (in play at Rivendell) and holds Saruman.
+    // Rule 2.II.2.1.1: a second avatar cannot be played (the only exception,
+    // Ringwraith-follower play, requires an enabling ability — see le-58).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [SARUMAN],
+          siteDeck: [RIVENDELL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
     expect(nonViablePlayCharacterActions(state, PLAYER_1).length).toBeGreaterThan(0);
   });
 });

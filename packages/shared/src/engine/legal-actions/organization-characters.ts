@@ -16,7 +16,8 @@ import type {
   SiteCard,
 } from '../../index.js';
 import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
-import type { PlayFlagEffect } from '../../types/effects.js';
+import type { PlayFlagEffect, RingwraithFollowerSlotsEffect } from '../../types/effects.js';
+import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins } from '../reducer-utils.js';
@@ -171,6 +172,107 @@ function findPlayableSites(
 }
 
 /**
+ * Returns true if the character's `homesite` designates the given site:
+ * either by exact site name, or by the region-form home site used by
+ * Ringwraith avatars (`"Any site in <region>"` matches any site whose
+ * `region` is that region).
+ */
+function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard): boolean {
+  if (charDef.homesite === siteDef.name) return true;
+  return siteDef.region !== undefined && charDef.homesite === `Any site in ${siteDef.region}`;
+}
+
+/**
+ * Evaluates playing an avatar card from hand as a "Ringwraith follower" of the
+ * player's revealed Ringwraith (CoE 2.II.2.1.R4–R5).
+ *
+ * Follower play requires an enabling ability — a `ringwraith-follower-slots`
+ * effect on the revealed avatar (e.g. The Witch-king le-58: "up to two
+ * Ringwraith followers in his company may be controlled with no influence").
+ * The follower enters the controlling Ringwraith's company at its current
+ * site, which must be a Darkhaven or the follower's home site. Because the
+ * follower's `mind` is null it consumes none of the avatar's direct
+ * influence, and the one-character-per-turn rule (checked upstream) enforces
+ * the "separate organization phases" clause.
+ */
+function ringwraithFollowerPlayAction(
+  state: GameState,
+  playerId: PlayerId,
+  player: {
+    readonly characters: Readonly<Record<string, CharacterInPlay>>;
+    readonly companies: readonly Company[];
+  },
+  cardInstanceId: CardInstanceId,
+  cardDef: CharacterCard,
+  avatar: CharacterInPlay,
+  avatarSiteId: CardInstanceId,
+): EvaluatedAction {
+  const blocked = (reason: string): EvaluatedAction => {
+    logDetail(`  → blocked: ${reason}`);
+    return {
+      action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+      viable: false,
+      reason,
+    };
+  };
+
+  const avatarDef = resolveDef(state, avatar.instanceId);
+  if (!isCharacterCard(avatarDef)) {
+    return blocked(`${cardDef.name}: an avatar is already revealed — a different avatar cannot be played (rule 2.II.2.1.1)`);
+  }
+
+  const slots = (avatarDef.effects ?? []).find(
+    (e): e is RingwraithFollowerSlotsEffect => e.type === 'ringwraith-follower-slots',
+  );
+  if (!slots) {
+    return blocked(`${cardDef.name}: ${avatarDef.name} is already revealed and has no ability allowing a Ringwraith follower to be played (rule 2.II.2.1.1)`);
+  }
+  if (cardDef.race !== Race.Ringwraith) {
+    return blocked(`${cardDef.name}: only Ringwraith avatars may be played as Ringwraith followers`);
+  }
+
+  // Count the Ringwraith followers (avatar cards) the avatar already controls.
+  const ringwraithFollowers = avatar.followers.filter(fid => {
+    const follower = player.characters[fid as string];
+    if (!follower) return false;
+    const fDef = resolveDef(state, follower.instanceId);
+    return isCharacterCard(fDef) && fDef.mind === null;
+  }).length;
+  if (ringwraithFollowers >= slots.count) {
+    return blocked(`${cardDef.name}: ${avatarDef.name} already controls ${ringwraithFollowers} Ringwraith follower(s) (max ${slots.count})`);
+  }
+
+  // CoE 2.II.2.1.R4: the controlling Ringwraith must be at a Darkhaven or
+  // the follower's home site.
+  const siteDef = resolveDef(state, avatarSiteId);
+  if (!isSiteCard(siteDef) || !(siteDef.siteType === SiteType.Haven || homesiteMatchesSite(cardDef, siteDef))) {
+    return blocked(`${cardDef.name}: ${avatarDef.name} is not at a Darkhaven or at ${cardDef.name}'s home site (${cardDef.homesite})`);
+  }
+
+  // The follower joins the avatar's company; respect company-close effects
+  // (e.g. Fell Rider's block-company-joins).
+  const avatarCompany = findCharacterCompany(player.companies, avatar.instanceId);
+  if (!avatarCompany) {
+    return blocked(`${cardDef.name}: ${avatarDef.name} is not in a company`);
+  }
+  if (companyBlocksJoins(state, avatarCompany.id)) {
+    return blocked(`${cardDef.name}: ${avatarDef.name}'s company is closed to new joins`);
+  }
+
+  logDetail(`  → viable: play ${cardDef.name} as Ringwraith follower of ${avatarDef.name} at ${siteDef.name} (${ringwraithFollowers}/${slots.count} slots used, no influence)`);
+  return {
+    action: {
+      type: 'play-character',
+      player: playerId,
+      characterInstanceId: cardInstanceId,
+      atSite: avatarSiteId,
+      controlledBy: avatar.instanceId,
+    },
+    viable: true,
+  };
+}
+
+/**
  * Checks whether a unique character with the given name is already in play
  * across any player.
  */
@@ -318,6 +420,14 @@ export function playCharacterActions(
         viable: false,
         reason: `${charName}: the opponent's Ringwraith of this type was returned to their hand and may not be revealed by you`,
       });
+      continue;
+    }
+
+    // Rule 2.II.2.1.1: a player who has revealed their avatar cannot play a
+    // different avatar — except as a Ringwraith follower enabled by an
+    // in-play ability (CoE 2.II.2.1.R4–R5, e.g. The Witch-king le-58).
+    if (isAvatar && avatarInPlay && avatar) {
+      results.push(ringwraithFollowerPlayAction(state, playerId, player, cardInstanceId, cardDef, avatar, avatarSiteId));
       continue;
     }
 

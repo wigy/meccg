@@ -448,13 +448,17 @@ export function findHazardMaintenanceEffect(
 /**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
- * whose definition has `mind === null`.
+ * whose definition has `mind === null` and who is controlled under general
+ * influence: a Ringwraith follower (an avatar card played under another
+ * Ringwraith's control, CoE 2.II.2.1.R5) counts as an avatar card but does
+ * not count as its player's avatar.
  */
 export function findPlayerAvatar(
   state: GameState,
   player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
 ): CharacterInPlay | undefined {
   for (const char of Object.values(player.characters)) {
+    if (char.controlledBy !== 'general') continue;
     const def = resolveDef(state, char.instanceId);
     if (isAvatarCharacter(def)) return char;
   }
