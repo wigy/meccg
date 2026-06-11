@@ -1911,6 +1911,34 @@ h2 {
   transition: transform 0.05s ease, background 0.1s ease;
 }
 
+.deck-editor-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.deck-editor-clear-btn {
+  padding: 0.15rem 0.45rem;
+  font-size: 1rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid #3a4a6b;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.05s ease, background 0.1s ease;
+}
+
+.deck-editor-clear-btn:hover {
+  background: rgba(138, 155, 184, 0.15);
+  border-color: #8a9bb8;
+}
+
+.deck-editor-clear-btn:active {
+  transform: translateY(1px) scale(0.92);
+}
+
 .deck-editor-add-btn:hover {
   background: rgba(196, 163, 90, 0.15);
 }

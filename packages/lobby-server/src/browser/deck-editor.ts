@@ -12,7 +12,7 @@ import {
   sortDeckEntries, EDITING_DECK_KEY, type ScreenId,
 } from './app-state.js';
 import { buildCardAttributes } from './render.js';
-import { showAlert } from './dialog.js';
+import { showAlert, showConfirm } from './dialog.js';
 import { apiSend } from './api.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
@@ -49,6 +49,8 @@ function renderSection(section: DeckSection, deckId: string): void {
     sideboard: { preset: 'sideboard', title: 'Add a sideboard card' },
     sites: { preset: 'sites', title: 'Add a site card' },
   };
+  const actions = document.createElement('span');
+  actions.className = 'deck-editor-section-actions';
   const browse = browsable[section.id];
   if (browse) {
     const addBtn = document.createElement('button');
@@ -59,8 +61,42 @@ function renderSection(section: DeckSection, deckId: string): void {
     addBtn.addEventListener('click', () => openCardBrowser(section, deckId, `Add a card to ${section.label}`,
       () => true,
       browserToggles(editingDeck?.alignment ?? '', browse.preset)));
-    titleEl.appendChild(addBtn);
+    actions.appendChild(addBtn);
   }
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'deck-editor-clear-btn';
+  const clearIcon = document.createElement('span');
+  clearIcon.className = 'card-browser-clear-icon';
+  clearIcon.textContent = '\u{1F5D1}\u{FE0F}';
+  clearBtn.appendChild(clearIcon);
+  clearBtn.title = `Remove all cards from ${section.label}`;
+  clearBtn.addEventListener('click', () => clearSection(section, deckId));
+  actions.appendChild(clearBtn);
+  titleEl.appendChild(actions);
+}
+
+/**
+ * Clear all entries from a section, save, and re-render. Asks for
+ * confirmation when more than five cards would be removed; restores the
+ * entries if saving fails.
+ */
+function clearSection(section: DeckSection, deckId: string): void {
+  const total = section.entries.reduce((sum, e) => sum + e.qty, 0);
+  if (total === 0) return;
+  const proceed = total > 5
+    ? showConfirm(`Remove all ${total} cards from ${section.label}?`)
+    : Promise.resolve(true);
+  void proceed.then(ok => {
+    if (!ok) return;
+    const removed = section.entries.splice(0, section.entries.length);
+    renderSection(section, deckId);
+    void saveEditingDeck().then(saved => {
+      if (!saved) {
+        section.entries.push(...removed);
+        renderSection(section, deckId);
+      }
+    });
+  });
 }
 
 /** A card category toggle shown as an icon button in the card browser. */
