@@ -1353,6 +1353,17 @@ h2 {
   margin-top: 0.85rem;
 }
 
+.panel-title--actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.new-deck-field {
+  margin: 0 0 0.85rem;
+}
+
 .lobby-select-label {
   display: block;
   font-family: 'Cinzel', serif;

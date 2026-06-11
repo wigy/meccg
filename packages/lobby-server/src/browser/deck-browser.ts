@@ -11,7 +11,7 @@ import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   missingCards, uncertifiedCards, sortDeckEntries,
 } from './app-state.js';
-import { showConfirm } from './dialog.js';
+import { showAlert, showConfirm } from './dialog.js';
 import { apiGet, apiSend } from './api.js';
 
 // Forward-declared function references, set by the lobby module at startup.
@@ -218,6 +218,13 @@ export async function loadDecks(): Promise<void> {
   appState.ownedDeckIds = new Set(myDecks.map(d => d.id));
   updatePlayControls();
 
+  // Wire the new-deck button once; loadDecks re-runs on every visit.
+  const newDeckBtn = document.getElementById('new-deck-btn') as HTMLButtonElement | null;
+  if (newDeckBtn && !newDeckBtn.dataset.bound) {
+    newDeckBtn.dataset.bound = '1';
+    newDeckBtn.addEventListener('click', showNewDeckDialog);
+  }
+
   // Render my decks
   const myContainer = document.getElementById('my-decks')!;
   myContainer.innerHTML = '';
@@ -343,4 +350,140 @@ export async function addDeckToCollection(deck: FullDeck): Promise<void> {
   if (resp.ok) {
     await loadDecks();
   }
+}
+
+/** Map a deck alignment to the card-alignment tag carried by its site cards. */
+const SITE_CARD_ALIGNMENTS: Record<string, string> = {
+  hero: 'wizard',
+  minion: 'ringwraith',
+  'fallen-wizard': 'fallen-wizard',
+  balrog: 'balrog',
+};
+
+/**
+ * Build the initial sites section for a new deck: one copy of each unique
+ * site of the alignment and four copies of each non-unique one (the havens).
+ */
+function initialSites(alignment: string): DeckListEntry[] {
+  const cardAlignment = SITE_CARD_ALIGNMENTS[alignment];
+  const entries: DeckListEntry[] = [];
+  for (const [cardId, def] of Object.entries(cardPool)) {
+    const d = def as unknown as { cardType: string; alignment?: string; unique?: boolean; name: string };
+    if (!d.cardType.endsWith('-site') || d.alignment !== cardAlignment) continue;
+    entries.push({ name: d.name, card: cardId, qty: d.unique ? 1 : 4 });
+  }
+  return entries.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Derive a fresh deck id from the player's name and the deck name. */
+function newDeckId(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'deck';
+  const base = `${appState.lobbyPlayerName}-${slug}`;
+  let id = base;
+  for (let n = 2; appState.ownedDeckIds.has(id); n++) id = `${base}-${n}`;
+  return id;
+}
+
+/**
+ * Show the new-deck dialog: asks for a name and an alignment, then creates
+ * an empty deck whose sites section is pre-filled for that alignment.
+ */
+function showNewDeckDialog(): void {
+  const modal = document.createElement('div');
+  modal.className = 'app-dialog';
+  const backdrop = document.createElement('div');
+  backdrop.className = 'app-dialog-backdrop';
+  modal.appendChild(backdrop);
+  const dialog = document.createElement('div');
+  dialog.className = 'app-dialog-box';
+
+  const msg = document.createElement('p');
+  msg.className = 'app-dialog-message';
+  msg.textContent = 'Create a new deck';
+  dialog.appendChild(msg);
+
+  const nameField = document.createElement('div');
+  nameField.className = 'new-deck-field';
+  const nameLabel = document.createElement('label');
+  nameLabel.className = 'lobby-select-label';
+  nameLabel.textContent = 'Name';
+  nameField.appendChild(nameLabel);
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'lobby-deck-select';
+  nameInput.placeholder = 'e.g. Riders of Rohan';
+  nameField.appendChild(nameInput);
+  dialog.appendChild(nameField);
+
+  const alignField = document.createElement('div');
+  alignField.className = 'new-deck-field';
+  const alignLabel = document.createElement('label');
+  alignLabel.className = 'lobby-select-label';
+  alignLabel.textContent = 'Alignment';
+  alignField.appendChild(alignLabel);
+  const alignSelect = document.createElement('select');
+  alignSelect.className = 'lobby-deck-select';
+  for (const alignment of Object.keys(SITE_CARD_ALIGNMENTS)) {
+    const opt = document.createElement('option');
+    opt.value = alignment;
+    opt.textContent = alignment;
+    alignSelect.appendChild(opt);
+  }
+  alignField.appendChild(alignSelect);
+  dialog.appendChild(alignField);
+
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    modal.remove();
+  };
+
+  const create = () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      nameInput.focus();
+      return;
+    }
+    const deck: FullDeck = {
+      id: newDeckId(name), name, alignment: alignSelect.value,
+      pool: [], sites: initialSites(alignSelect.value), sideboard: [],
+      deck: { characters: [], hazards: [], resources: [] },
+    };
+    close();
+    void apiSend('/api/my-decks', 'POST', deck).then(async resp => {
+      if (resp.ok) {
+        await selectDeck(deck.id);
+        await openDeckEditorFn?.(deck.id);
+      } else {
+        await showAlert(resp.error ?? 'Failed to create deck');
+      }
+    });
+  };
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Enter') create();
+      else close();
+    }
+  };
+
+  const actions = document.createElement('div');
+  actions.className = 'app-dialog-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'app-dialog-btn-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  actions.appendChild(cancelBtn);
+  const createBtn = document.createElement('button');
+  createBtn.textContent = 'Create';
+  createBtn.addEventListener('click', create);
+  actions.appendChild(createBtn);
+  dialog.appendChild(actions);
+
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
+  backdrop.addEventListener('click', close);
+  document.addEventListener('keydown', onKey, true);
+  nameInput.focus();
 }
