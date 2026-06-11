@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.39.0 — 2026-06-11
+
+Deck Editor and Validator
+
+### Web Client
+
+- Add a card browser to the deck editor with [+] buttons on the Pool, Resources, Hazards, and Sideboard sections
+- Card browser filters: alignment and type groups, character category icons, resource category toggles, starting-item toggles, and a clear-all button
+- Card browser search matches card name, card text, and keywords
+- Add a starting-items selector and an Add All button to the card browser
+- Add site browsing to the deck editor with distinct hero/minion site colors
+- Add a new-deck button to My Decks with a pre-filled sites section
+- Run deck validation in the deck editor
+- Add clear-section buttons to deck editor sections and always confirm section clears
+- Unify ally/faction colors, split the minion resource palette, and render The Balrog avatar in deep red
+- Card browser polish: corner X close button, "Add a card" title, uncut hover outline, fixed collapsing name boxes, and the target section named in the browser title
+- Re-enable deck editing buttons and reserve preview image space while loading
+
+### Game Engine
+
+- Announce deck legality to both players when a game starts
+- Fix minion challenge deck pools exceeding the 10-character limit
+
+### Card Data
+
+- Add The Balrog and fallen-wizard avatar card data
+- Add the starting-item keyword and tag eligible cards, narrowing the category per card rules
+- Fix card data per CoE database checks
+- Mark all region cards as certified
+
+### Infrastructure
+
+- Code-quality refactors (PRs #918–#926): shared tooltip-menu helper, browser JSON API helpers, shared dialog builder, company-count helpers, shared text-client plumbing, lobby route auth/error scaffolding, attachment reducer helpers, server connection/child-process dedup, and logEvaluated consolidation
+
 ## 0.38.0 — 2026-06-10
 
 Challenge Deck H

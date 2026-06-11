@@ -23,9 +23,9 @@ For player information, see the [Player Guide](docs/player-guide.md).
 |:-------|-----:|------:|---------:|
 | Rule tests | 188 | 309 | 60.8% |
 | Card tests | 494 | 503 | 98.2% |
-| Cards created | 714 | 1683 | 42.4% |
-| Cards certified | 496 | 714 | 69.5% |
-| **Total** | **1892** | **3209** | **59.0%** |
+| Cards created | 720 | 1683 | 42.8% |
+| Cards certified | 548 | 720 | 76.1% |
+| **Total** | **1950** | **3215** | **60.7%** |
 
 ### Deck Catalog
 
