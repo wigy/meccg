@@ -189,6 +189,44 @@ export function validateDeck(
   const poolCards = deck.pool ?? [];
   const sideboard = deck.sideboard ?? [];
 
+  // Section typing — the location deck holds sites and nothing else.
+  // Site cards may not appear in any other section, and no other card
+  // type may appear in the sites section.
+  for (const entry of sites) {
+    if (entry.card === null) continue;
+    const def = cardPool[entry.card];
+    if (!def) continue;
+    if (!isSiteCard(def)) {
+      const defTyped = def as { name: string; cardType: string };
+      errors.push({
+        section: 'sites',
+        message: `location deck: "${defTyped.name}" has cardType "${defTyped.cardType}" — only sites are allowed in the location deck`,
+        card: entry.card,
+      });
+    }
+  }
+  {
+    const nonSiteSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+      [characters, 'characters'],
+      [hazards, 'hazards'],
+      [resources, 'resources'],
+      [poolCards, 'pool'],
+      [sideboard, 'sideboard'],
+    ];
+    for (const [section, sectionKey] of nonSiteSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const def = cardPool[entry.card];
+        if (!def || !isSiteCard(def)) continue;
+        errors.push({
+          section: sectionKey,
+          message: `site "${def.name}" may only appear in the location deck (sites section)`,
+          card: entry.card,
+        });
+      }
+    }
+  }
+
   // Rule 1.04 — unique card limits (across entire deck except haven sites)
   {
     const counts = new Map<string, number>();

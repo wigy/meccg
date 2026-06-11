@@ -61,4 +61,49 @@ describe('Rule 1.24 — Location Deck - General', () => {
     };
     expect(validateDeck(deck, pool).filter(e => e.section === 'sites' && e.card === ('tw-421' as CardDefinitionId))).toHaveLength(0);
   });
+
+  test('Non-site card in the location deck produces a sites error', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      sites: [
+        { name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 },
+        { name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 },
+      ],
+    };
+    const siteErrors = validateDeck(deck, pool).filter(
+      e => e.section === 'sites' && e.card === ('tw-156' as CardDefinitionId),
+    );
+    expect(siteErrors.length).toBeGreaterThan(0);
+    expect(siteErrors[0].message).toMatch(/only sites are allowed/);
+  });
+
+  test('Site card in the resources section produces a resources error', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      deck: {
+        ...heroDeck.deck,
+        resources: [
+          ...heroDeck.deck.resources,
+          { name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool).filter(
+      e => e.section === 'resources' && e.card === ('tw-413' as CardDefinitionId),
+    );
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toMatch(/only appear in the location deck/);
+  });
+
+  test('Site card in the sideboard produces a sideboard error', () => {
+    const deck: DeckList = {
+      ...heroDeck,
+      sideboard: [{ name: 'Rivendell', card: 'tw-421' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool).filter(
+      e => e.section === 'sideboard' && e.card === ('tw-421' as CardDefinitionId),
+    );
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toMatch(/only appear in the location deck/);
+  });
 });
