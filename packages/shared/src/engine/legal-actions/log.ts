@@ -13,6 +13,8 @@
  * Call {@link flushCapture} to retrieve and clear the buffer.
  */
 
+import type { EvaluatedAction } from '../../index.js';
+
 const PREFIX = '[legal-actions]';
 
 /** When non-null, log lines are appended here in addition to the console. */
@@ -82,4 +84,15 @@ export function logResult(actionCount: number, actions?: readonly Record<string,
   } else {
     emit(`${PREFIX}   → ${actionCount} legal action(s)`);
   }
+}
+
+/**
+ * Log the viable subset of an evaluated action list via {@link logResult}
+ * and return the list unchanged, so dispatcher branches can end with
+ * `return logEvaluated(...)` instead of repeating the filter/log pair.
+ */
+export function logEvaluated(evaluated: EvaluatedAction[]): EvaluatedAction[] {
+  const viable = evaluated.filter(e => e.viable);
+  logResult(viable.length, viable.map(e => e.action) as unknown as Record<string, unknown>[]);
+  return evaluated;
 }

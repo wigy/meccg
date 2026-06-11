@@ -24,7 +24,7 @@ import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
-import { logHeading, logResult } from './log.js';
+import { logEvaluated, logHeading, logResult } from './log.js';
 import { topResolutionFor } from '../pending.js';
 import { resolutionLegalActions, applyConstraints } from './pending.js';
 
@@ -167,10 +167,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       const top = topResolutionFor(state, playerId);
       if (top !== null) {
         logHeading(`Chain paused mid-resolution by pending ${top.kind.type} — delegating to resolution actions`);
-        const evaluated = resolutionLegalActions(state, playerId, top);
-        const viableCount = evaluated.filter(e => e.viable).length;
-        logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-        return evaluated;
+        return logEvaluated(resolutionLegalActions(state, playerId, top));
       }
       // Chain resolving but no pending resolution for this player — they
       // must wait for the other player (or for auto-resolve to finish).
@@ -181,10 +178,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       }
     }
     logHeading(`Chain active (${state.chain.mode}) — delegating to chain actions`);
-    const evaluated = chainActions(state, playerId);
-    const viableCount = evaluated.filter(e => e.viable).length;
-    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-    return evaluated;
+    return logEvaluated(chainActions(state, playerId));
   }
 
   // Combat sub-state takes priority over phase actions, but pending
@@ -194,10 +188,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     const pendingTop = topResolutionFor(state, playerId);
     if (pendingTop !== null) {
       logHeading(`Combat: pending resolution (${pendingTop.kind.type}) — delegating to resolution actions`);
-      const evaluated = resolutionLegalActions(state, playerId, pendingTop);
-      const viableCount = evaluated.filter(e => e.viable).length;
-      logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-      return evaluated;
+      return logEvaluated(resolutionLegalActions(state, playerId, pendingTop));
     }
     if (state.pendingResolutions.length > 0) {
       logHeading(`Combat: pending resolution belongs to other player — waiting`);
@@ -205,10 +196,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       return [];
     }
     logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
-    const evaluated = combatActions(state, playerId);
-    const viableCount = evaluated.filter(e => e.viable).length;
-    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-    return evaluated;
+    return logEvaluated(combatActions(state, playerId));
   }
 
   // Pending card effects take priority over phase actions
@@ -219,10 +207,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       return [];
     }
     logHeading(`Pending effects active (${state.pendingEffects[0].type}) — delegating to effect actions`);
-    const evaluated = pendingEffectLegalActions(state, playerId);
-    const viableCount = evaluated.filter(e => e.viable).length;
-    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-    return evaluated;
+    return logEvaluated(pendingEffectLegalActions(state, playerId));
   }
 
   // Pending resolutions short-circuit (Shape A — see types/pending.ts).
@@ -232,10 +217,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   const top = topResolutionFor(state, playerId);
   if (top !== null) {
     logHeading(`Pending resolution active (${top.kind.type}) — delegating to resolution actions`);
-    const evaluated = resolutionLegalActions(state, playerId, top);
-    const viableCount = evaluated.filter(e => e.viable).length;
-    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-    return evaluated;
+    return logEvaluated(resolutionLegalActions(state, playerId, top));
   }
   if (state.pendingResolutions.length > 0) {
     logHeading(`Pending resolution active for another player — waiting`);
@@ -281,7 +263,5 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // not-playable so the UI can show a tooltip for every dimmed card.
   evaluated = fillNotPlayable(state, playerId, evaluated);
 
-  const viableCount = evaluated.filter(e => e.viable).length;
-  logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
-  return evaluated;
+  return logEvaluated(evaluated);
 }
