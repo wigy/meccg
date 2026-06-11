@@ -19,7 +19,6 @@ FEATS
 EPICS
 -----
 
-Deck Validation and editing
 (I) Morgul Rallying Cry
 Against the shadow Rules
 (J) Seducing Nations of Men
