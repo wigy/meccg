@@ -327,6 +327,8 @@ export interface InfoMessage {
   readonly type: 'info';
   /** Human-readable message. */
   readonly message: string;
+  /** Optional visual tone: success renders green, error renders red. */
+  readonly tone?: 'success' | 'error';
 }
 
 /**

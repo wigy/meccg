@@ -27,13 +27,66 @@ import type {
   StateMessage,
   ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs } from '@meccg/shared';
-import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
+import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
+
+/** Deck-editor alignment key for each card alignment, for rebuilding a DeckList. */
+const DECK_ALIGNMENTS: Record<Alignment, DeckList['alignment']> = {
+  [Alignment.Wizard]: 'hero',
+  [Alignment.Ringwraith]: 'minion',
+  [Alignment.FallenWizard]: 'fallen-wizard',
+  [Alignment.Balrog]: 'balrog',
+};
+
+/** Collapse a flat list of card definition IDs into deck-list entries with quantities. */
+function toDeckEntries(
+  ids: readonly CardDefinitionId[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): DeckListEntry[] {
+  const counts = new Map<CardDefinitionId, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return [...counts].map(([card, qty]) => ({ name: cardPool[card]?.name ?? String(card), card, qty }));
+}
+
+/**
+ * Rebuild a deck-editor DeckList from a join message so the shared deck
+ * validator can run server-side. The join message carries the play deck as
+ * one flat list, so it is split back into characters, hazards, and
+ * resources by card type.
+ */
+function joinToDeckList(
+  join: JoinMessage,
+  name: string,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): DeckList {
+  const characters: CardDefinitionId[] = [];
+  const hazards: CardDefinitionId[] = [];
+  const resources: CardDefinitionId[] = [];
+  for (const id of join.playDeck) {
+    const cardType = cardPool[id]?.cardType ?? '';
+    if (CHARACTER_CARD_TYPES.has(cardType)) characters.push(id);
+    else if (cardType.startsWith('hazard')) hazards.push(id);
+    else resources.push(id);
+  }
+  return {
+    id: `${name}-joined`,
+    name: `${name}'s deck`,
+    alignment: DECK_ALIGNMENTS[join.alignment],
+    pool: toDeckEntries(join.draftPool, cardPool),
+    deck: {
+      characters: toDeckEntries(characters, cardPool),
+      hazards: toDeckEntries(hazards, cardPool),
+      resources: toDeckEntries(resources, cardPool),
+    },
+    sites: toDeckEntries(join.siteDeck, cardPool),
+    sideboard: toDeckEntries(join.sideboard, cardPool),
+  };
+}
 
 interface PendingPlayer {
   ws: WebSocket;
@@ -323,6 +376,25 @@ export class GameSession {
     this.logState('new-game');
 
     this.broadcastStateWithLogs();
+
+    this.announceDeckLegality(p1.join, name1);
+    this.announceDeckLegality(p2.join, name2);
+  }
+
+  /**
+   * Check a player's deck against the deck-construction rules and announce
+   * the verdict to everyone: green for a legal deck, red otherwise.
+   */
+  private announceDeckLegality(join: JoinMessage, name: string): void {
+    const errors = validateDeck(joinToDeckList(join, name, this.cardPool), this.cardPool);
+    this.serverLog.log('deck-validation', {
+      player: name,
+      errors: errors.length,
+      messages: errors.map(e => `${e.section}: ${e.message}`),
+    });
+    this.broadcastToAll(errors.length === 0
+      ? { type: 'info', message: `${name} deck is legal`, tone: 'success' }
+      : { type: 'info', message: `${name} deck is not legal`, tone: 'error' });
   }
 
   private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {

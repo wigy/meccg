@@ -572,7 +572,9 @@ export function connect(name: string): void {
 
       case 'info':
         renderLog(msg.message);
-        showNotification(msg.message);
+        // An empty `self` renders the success tone green without a name prefix.
+        showNotification(msg.message,
+          msg.tone === 'error' ? { error: true } : msg.tone === 'success' ? { self: '' } : undefined);
         break;
 
       case 'error':
