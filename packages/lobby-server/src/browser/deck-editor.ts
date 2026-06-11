@@ -163,7 +163,7 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
  * Card-type selectors, one per category regardless of alignment. The preset
  * decides the initial set: the characters section starts with the character
  * categories (avatars included), the pool with starting-company categories
- * (characters and non-ring items), the resources section with the resource
+ * (characters and starting items), the resources section with the resource
  * categories, and the hazards section with the hazard categories. The
  * sideboard holds anything but sites, so it enables every category.
  */
@@ -188,10 +188,14 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
       match: d => isCharacter(d) && isAgent(d) && !isAvatar(d) },
     { icon: '\u{1F9D9}', title: 'Avatars', group: 'type', active: preset === 'characters' || sbOn,
       match: d => isCharacter(d) && isAvatar(d) },
-    { icon: '\u{1F48D}', title: 'Rings', group: 'type', active: resOn,
+    // Legitimate starting cards (events included) are explicitly marked
+    // with the starting-item keyword; other minor items don't qualify.
+    { icon: '\u{1F6E1}\u{FE0F}', title: 'Starting items', group: 'type', active: preset === 'pool' || sbOn,
       separatorBefore: true,
+      match: d => (traits(d).keywords ?? []).includes('starting-item') },
+    { icon: '\u{1F48D}', title: 'Rings', group: 'type', active: resOn,
       match: d => isRing(d) },
-    { icon: '\u{1F48E}', title: 'Items (non-ring)', group: 'type', active: resOn || preset === 'pool',
+    { icon: '\u{1F48E}', title: 'Items (non-ring)', group: 'type', active: resOn,
       match: d => isItem(d) && !isRing(d) },
     { icon: '\u{1F6A9}', title: 'Factions', group: 'type', active: resOn,
       match: d => traits(d).cardType.endsWith('-resource-faction') },
