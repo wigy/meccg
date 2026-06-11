@@ -45,6 +45,8 @@ function renderSection(section: DeckSection, deckId: string): void {
     characters: { preset: 'characters', title: 'Add a character card' },
     pool: { preset: 'pool', title: 'Add a starting character or item' },
     resources: { preset: 'resources', title: 'Add a resource card' },
+    hazards: { preset: 'hazards', title: 'Add a hazard card' },
+    sideboard: { preset: 'sideboard', title: 'Add a sideboard card' },
   };
   const browse = browsable[section.id];
   if (browse) {
@@ -83,7 +85,7 @@ const traits = (def: CardDefinition) => def as unknown as {
 };
 
 /** Which deck section a card browser was opened from; decides toggle defaults. */
-type TogglePreset = 'characters' | 'pool' | 'resources';
+type TogglePreset = 'characters' | 'pool' | 'resources' | 'hazards' | 'sideboard';
 
 /**
  * Build the category toggles for the card browser as two orthogonal groups:
@@ -100,7 +102,8 @@ function browserToggles(alignment: string, preset: TogglePreset): BrowserToggle[
  * Alignment selectors matching each card's own alignment tag. The deck's
  * alignment decides the initial set: fallen-wizard decks also draw on hero
  * and minion cards, and balrog decks on minion cards. An unknown deck
- * alignment enables every selector.
+ * alignment enables every selector. Cards without an alignment tag
+ * (hazards) are alignment-neutral and pass every selector.
  */
 function alignmentToggles(alignment: string): BrowserToggle[] {
   const deckCardAlignments: Record<string, string[]> = {
@@ -113,7 +116,7 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
   const toggle = (icon: string, title: string, cardAlignment: string): BrowserToggle => ({
     icon, title, group: 'alignment',
     active: enabled?.includes(cardAlignment) ?? true,
-    match: d => traits(d).alignment === cardAlignment,
+    match: d => traits(d).alignment === undefined || traits(d).alignment === cardAlignment,
   });
   return [
     toggle('\u{1F9DD}', 'Hero cards', 'wizard'),
@@ -127,8 +130,9 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
  * Card-type selectors, one per category regardless of alignment. The preset
  * decides the initial set: the characters section starts with the character
  * categories (avatars included), the pool with starting-company categories
- * (characters and non-ring items), and the resources section with the
- * resource categories.
+ * (characters and non-ring items), the resources section with the resource
+ * categories, and the hazards section with the hazard categories. The
+ * sideboard holds anything but sites, so it enables every category.
  */
 function typeToggles(preset: TogglePreset): BrowserToggle[] {
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
@@ -139,15 +143,17 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
   const isItem = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-item');
   const isEvent = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-event');
   const hasMp = (def: CardDefinition) => (traits(def).marshallingPoints ?? 0) > 0;
-  const charsOn = preset !== 'resources';
-  const resOn = preset === 'resources';
+  const sbOn = preset === 'sideboard';
+  const charsOn = preset === 'characters' || preset === 'pool' || sbOn;
+  const resOn = preset === 'resources' || sbOn;
+  const hazOn = preset === 'hazards' || sbOn;
   return [
     { icon: '\u{1F464}', title: 'Characters', group: 'type', active: charsOn,
       separatorBefore: true,
       match: d => isCharacter(d) && !isAvatar(d) && !isAgent(d) },
     { icon: '\u{1F575}️', title: 'Agents', group: 'type', active: charsOn,
       match: d => isCharacter(d) && isAgent(d) && !isAvatar(d) },
-    { icon: '\u{1F9D9}', title: 'Avatars', group: 'type', active: preset === 'characters',
+    { icon: '\u{1F9D9}', title: 'Avatars', group: 'type', active: preset === 'characters' || sbOn,
       match: d => isCharacter(d) && isAvatar(d) },
     { icon: '\u{1F48D}', title: 'Rings', group: 'type', active: resOn,
       separatorBefore: true,
@@ -162,6 +168,11 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
       match: d => isEvent(d) && hasMp(d) },
     { icon: '\u{1F4DC}', title: 'Resource events', group: 'type', active: resOn,
       match: d => isEvent(d) && !hasMp(d) },
+    { icon: '\u{1F409}', title: 'Creatures', group: 'type', active: hazOn,
+      separatorBefore: true,
+      match: d => traits(d).cardType === 'hazard-creature' },
+    { icon: '\u{26A1}', title: 'Hazard events', group: 'type', active: hazOn,
+      match: d => traits(d).cardType === 'hazard-event' },
   ];
 }
 
