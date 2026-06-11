@@ -6,7 +6,10 @@
  * and opens the editor screen for a given deck.
  */
 
-import { cardImageProxyPath, getCardCss, CHARACTER_CARD_TYPES, type CardDefinition } from '@meccg/shared';
+import {
+  cardImageProxyPath, getCardCss, validateDeck, CHARACTER_CARD_TYPES,
+  type CardDefinition, type DeckList,
+} from '@meccg/shared';
 import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   sortDeckEntries, EDITING_DECK_KEY, type ScreenId,
@@ -31,9 +34,55 @@ interface DeckSection { id: string; label: string; entries: DeckListEntry[] }
 // The deck currently open in the editor; mutated by the +/- quantity buttons.
 let editingDeck: FullDeck | null = null;
 
+/**
+ * Re-run deck validation and refresh the error display: general errors go
+ * to the common area above the sections, card-specific errors put a warning
+ * marker (with the messages as tooltip) on every row showing that card.
+ */
+function refreshValidation(): void {
+  const box = document.getElementById('deck-editor-errors');
+  if (!editingDeck || !box) return;
+  const errors = validateDeck(editingDeck as unknown as DeckList, cardPool);
+  const general = errors.filter(e => !e.card);
+  const cardErrorCount = errors.length - general.length;
+  box.textContent = '';
+  box.classList.toggle('hidden', errors.length === 0);
+  const addLine = (text: string) => {
+    const line = document.createElement('div');
+    line.className = 'deck-editor-error';
+    line.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    box.appendChild(line);
+  };
+  // The section label already says where the error is; drop the message's
+  // own "play deck:" / "pool:" style prefix to avoid stating it twice.
+  const stripPrefix = (m: string) => m.replace(/^(?:[\w-]+ deck|pool|sideboard): /, '');
+  for (const err of general) {
+    addLine(err.section === 'general' ? err.message : `${err.section}: ${stripPrefix(err.message)}`);
+  }
+  if (cardErrorCount > 0) {
+    addLine(`other: there are ${cardErrorCount} card specific error${cardErrorCount === 1 ? '' : 's'}`);
+  }
+  const byCard = new Map<string, string[]>();
+  for (const err of errors) {
+    if (err.card) byCard.set(err.card, [...(byCard.get(err.card) ?? []), err.message]);
+  }
+  const screen = document.getElementById('deck-editor-screen')!;
+  for (const marker of screen.querySelectorAll('.deck-editor-card-error')) marker.remove();
+  for (const row of screen.querySelectorAll<HTMLElement>('.deck-editor-card[data-card-id]')) {
+    const messages = byCard.get(row.dataset.cardId!);
+    if (!messages) continue;
+    const marker = document.createElement('span');
+    marker.className = 'deck-editor-card-error';
+    marker.textContent = '⚠';
+    marker.title = messages.join('\n');
+    row.querySelector('.deck-editor-card-name')?.after(marker);
+  }
+}
+
 /** Render one section's card list and its title with the card count. */
 function renderSection(section: DeckSection, deckId: string): void {
   renderCardList(document.getElementById(`deck-editor-${section.id}`)!, section, deckId);
+  refreshValidation();
   const total = section.entries.reduce((sum, e) => sum + e.qty, 0);
   const titleEl = document.getElementById(`deck-editor-${section.id}-title`)!;
   titleEl.textContent = '';

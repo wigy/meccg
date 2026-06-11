@@ -2139,6 +2139,26 @@ h2 {
   overflow-y: auto;
 }
 
+.deck-editor-errors {
+  margin: 0 0 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #e05050;
+  background: rgba(224, 80, 80, 0.08);
+  color: #e05050;
+  font-size: 0.9rem;
+}
+
+.deck-editor-error + .deck-editor-error {
+  margin-top: 0.25rem;
+}
+
+.deck-editor-card-error {
+  color: #e05050;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  cursor: help;
+}
+
 .deck-editor-notice {
   margin: 0 0 0.75rem 0;
   padding: 0.5rem 0.75rem;
