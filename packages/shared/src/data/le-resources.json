@@ -1299,7 +1299,23 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-06-12",
+    "effects": [
+      { "type": "play-target", "target": "character" },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": { "player.hasFactionInHand": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 3
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-event",
