@@ -16,7 +16,7 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId 
 import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -1578,6 +1578,17 @@ function cancelAttackActions(
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
     ) && !(combat.attackKeying && combat.attackKeying.length > 0);
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
+    // `attack.heroCompany` is true only for character-vs-character combat in
+    // which the attacking company belongs to a hero-side player (Wizard or
+    // Fallen-wizard avatar). Hazard creature / automatic attacks are never a
+    // "company" and so are never hero-company. Backs Helm of Fear's clause
+    // "May not cancel combat with a hero company."
+    let heroCompany = false;
+    if (combat.isCvCC) {
+      const atkAlignment = playerById(state, combat.attackingPlayerId)?.alignment;
+      heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
+    }
+    attackCtx['heroCompany'] = heroCompany;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven };
     ctx['defender'] = { covert: isCovertCompany(company, player, state) };
@@ -1645,15 +1656,15 @@ function cancelAttackActions(
   }
 
   // In-play items attached to characters in the defending company with a
-  // cancel-attack effect and cost "self-and-bearer" (tap item AND bearer,
-  // e.g. Torque of Hues) or cost "bearer" (tap bearer only, e.g. Star-glass).
+  // cancel-attack effect. Supported tap costs:
+  //   "self"            — tap the item only (e.g. Helm of Fear as-126);
+  //                       the bearer's status is irrelevant.
+  //   "self-and-bearer" — tap item AND bearer (e.g. Torque of Hues); both
+  //                       must be untapped.
+  //   "bearer"          — tap bearer only (e.g. Star-glass); bearer untapped.
   for (const charId of company.characters) {
     const charData = player.characters[charId as string];
     if (!charData) continue;
-    if (charData.status !== CardStatus.Untapped) {
-      logDetail(`Cancel-attack: bearer ${charId as string} is tapped, cannot activate item cancel`);
-      continue;
-    }
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
       if (!itemDef) continue;
@@ -1662,16 +1673,23 @@ function cancelAttackActions(
       );
       if (!cancelEffect) continue;
       const tapCost = cancelEffect.cost?.tap;
-      if (tapCost !== 'self-and-bearer' && tapCost !== 'bearer') continue;
-      if (tapCost === 'self-and-bearer' && item.status !== CardStatus.Untapped) {
-        logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: item tapped, cannot activate`);
+      if (tapCost !== 'self' && tapCost !== 'self-and-bearer' && tapCost !== 'bearer') continue;
+      const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
+      // Costs that tap the item require the item itself to be untapped.
+      if ((tapCost === 'self' || tapCost === 'self-and-bearer') && item.status !== CardStatus.Untapped) {
+        logDetail(`Cancel-attack ${itemName}: item tapped, cannot activate`);
+        continue;
+      }
+      // Costs that tap the bearer require the bearer to be untapped.
+      if ((tapCost === 'bearer' || tapCost === 'self-and-bearer') && charData.status !== CardStatus.Untapped) {
+        logDetail(`Cancel-attack ${itemName}: bearer tapped, cannot activate`);
         continue;
       }
       if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-        logDetail(`Cancel-attack ${(itemDef as { name?: string }).name ?? item.definitionId as string}: when condition not met`);
+        logDetail(`Cancel-attack ${itemName}: when condition not met`);
         continue;
       }
-      logDetail(`Cancel-attack available: tap ${tapCost === 'bearer' ? 'bearer via' : ''} ${(itemDef as { name?: string }).name ?? item.definitionId as string} (in-play item)`);
+      logDetail(`Cancel-attack available: tap ${tapCost === 'bearer' ? 'bearer via' : ''} ${itemName} (in-play item)`);
       actions.push({
         action: {
           type: 'cancel-attack',

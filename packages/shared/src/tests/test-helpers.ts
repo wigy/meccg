@@ -1383,6 +1383,59 @@ export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefi
   return { ...state, players: players as unknown as typeof state.players };
 }
 
+/**
+ * Build a M/H phase state at the play-hazards step for a single moving
+ * company (player 0) whose destination is HENNETH_ANNUN, traversing the given
+ * resolved site path. The hazard player (1) has `envDefId` in play — typically
+ * a `force-return-to-origin` environment (Snowstorm tw-91, Long Winter le-117,
+ * Foul Fumes tw-36). Both players passing then drives the company through
+ * step 8, where rule 5.31 enforcement evaluates the environment.
+ *
+ * Returns the assembled state plus the company's origin site instance ID and
+ * company ID for post-dispatch assertions.
+ */
+export function buildForceReturnMHState(
+  characters: CardDefinitionId[],
+  sitePath: RegionType[],
+  envDefId: CardDefinitionId,
+): { state: GameState; originInstanceId: CardInstanceId; companyId: CompanyId } {
+  const built = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters }], hand: [], siteDeck: [HENNETH_ANNUN] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+    ],
+  });
+
+  const company = built.players[0].companies[0];
+  const dest = built.players[0].siteDeck.find(c => c.definitionId === HENNETH_ANNUN)!;
+
+  const withMovement: GameState = {
+    ...built,
+    phaseState: makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: sitePath,
+      resourcePlayerPassed: false,
+      hazardPlayerPassed: false,
+    }),
+    players: [
+      {
+        ...built.players[0],
+        companies: [{
+          ...company,
+          siteCardOwned: true,
+          destinationSite: { instanceId: dest.instanceId, definitionId: dest.definitionId, status: CardStatus.Untapped },
+        }],
+      },
+      built.players[1],
+    ] as unknown as typeof built.players,
+  };
+
+  const state = addCardInPlay(withMovement, HAZARD_PLAYER, envDefId);
+  return { state, originInstanceId: company.currentSite!.instanceId, companyId: company.id };
+}
+
 /** Attach an item (or permanent resource event) to a character and return the updated GameState. */
 export function attachItemToChar(
   state: GameState,

@@ -180,6 +180,24 @@ export interface CheckModifierEffect extends EffectBase {
 }
 
 /**
+ * Modifies the 2d6 body-check roll made against the bearer during combat
+ * (CoE rule 2.V.2.2). A body check is distinct from the influence/corruption
+ * {@link CheckModifierEffect} family — it is rolled inside combat resolution,
+ * not through the scoring pipeline — so it has its own effect type. A negative
+ * value protects the bearer (lowers the roll, making it less likely to exceed
+ * the bearer's body and eliminate them).
+ *
+ * Example: Helm of Fear (as-126) — "All body checks against the bearer are
+ * modified by -1." Collected from items attached to the body-check target in
+ * `reducer-combat.ts` and applied to the effective roll.
+ */
+export interface BodyCheckModifierEffect extends EffectBase {
+  readonly type: 'body-check-modifier';
+  /** The modifier added to the body-check roll (negative protects the bearer). */
+  readonly value: number;
+}
+
+/**
  * Modifies a card's marshalling points conditionally.
  *
  * Example: Aragorn has -3 marshalling points if eliminated.
@@ -1210,6 +1228,42 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
+ * for creature-keying purposes, a single region of type {@link from} in a
+ * company's site path is treated as {@link count} regions of type {@link asType}
+ * (e.g. `{ from: "shadow", asType: "wilderness", count: 2 }` = "treat one
+ * Shadow-land as two Wildernesses").
+ */
+export interface RegionKeyingBoost {
+  /** The region type consumed from the path (e.g. "shadow"). */
+  readonly from: RegionType;
+  /** The region type the consumed region is counted as (e.g. "wilderness"). */
+  readonly asType: RegionType;
+  /** How many regions of {@link asType} the consumed region counts as. */
+  readonly count: number;
+}
+
+/**
+ * A turn-scoped environment effect (Withered Lands, td-85) that softens creature
+ * keying by letting one region in a company's site path count as additional
+ * regions of another type. Each {@link RegionKeyingBoost} entry is an independent
+ * alternative ("one Wilderness as two Wildernesses OR one Shadow-land as two
+ * Wildernesses OR one Border-land as two Wildernesses"); at most one boost is
+ * applied per keying check — the boosts are never combined.
+ *
+ * On play the short-event adds a `region-keying-boost` active constraint
+ * carrying these boosts (scope: turn). The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult the constraint
+ * and test each boosted variant of the path; the underlying path is never
+ * mutated.
+ */
+export interface RegionKeyingBoostEffect extends EffectBase {
+  readonly type: 'region-keying-boost';
+  /** The alternative region treatments this environment enables. */
+  readonly boosts: readonly RegionKeyingBoost[];
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -1363,6 +1417,13 @@ export interface ItemPlaySiteEffect extends EffectBase {
    * or untapped Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
    */
   readonly allowTapped?: boolean;
+  /**
+   * When true, playing this item leaves its company's current site untapped
+   * (the normal "playing a resource taps the site" rule is suppressed for
+   * this play). Used by *Helm of Fear* (as-126): "Playable at a tapped or
+   * untapped Barad-dûr … (does not tap the site)."
+   */
+  readonly doesNotTapSite?: boolean;
 }
 
 /**
@@ -2073,7 +2134,18 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
+  /**
+   * For `requires: 'region-through-or-leave'`: the named regions one of which
+   * the target company must either *leave* (the origin region of region
+   * movement) or *move through without stopping* (an intermediate region of
+   * the region-movement path). The card is only playable when the active
+   * company is using **region** movement and at least one of these named
+   * regions appears in its resolved site path excluding the destination
+   * region (the region where the company stops at a site). Used by Cruel
+   * Caradhras (td-9).
+   */
+  readonly regionNames?: readonly string[];
   /**
    * For `requires: 'active-company'`: a generic DSL condition evaluated
    * against the active (site-phase) company's aggregate context:
@@ -2083,12 +2155,28 @@ export interface PlayConditionEffect extends EffectBase {
    * the company's characters. Lets a card declare a positional play
    * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
    * CoE 10.39 win cards — without a per-card keyword.
+   *
+   * For `requires: 'player-state'`: a generic DSL condition evaluated
+   * against the active player's avatar/alignment context:
+   * `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`
+   * where `alignment` is the card-text alignment string (`"wizard"`,
+   * `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and
+   * `player.hasRingwraithInPlay` is `true` when the active player has a
+   * Ringwraith-race avatar character in play. Lets a card gate on the
+   * opposing player's alignment and the controller's revealed avatar —
+   * e.g. Above the Abyss (as-77): "if your opponent is a Wizard and your
+   * Ringwraith is in play". Evaluated for resource short-events in
+   * `legal-actions/organization.ts`.
    */
   readonly condition?: Condition;
   /**
    * For `requires: 'discard-named-card'`: the card name that must be
    * discarded as a play prerequisite. Legal-action generation searches
    * the specified {@link sources} for a card with this name.
+   *
+   * For `requires: 'card-in-play'`: the card name that MUST be in play (as a
+   * character or in any player's cardsInPlay) for the card to be playable.
+   * Used by Snowstorm (tw-91): "Playable if Doors of Night is in play."
    */
   readonly cardName?: string;
   /**
@@ -2200,6 +2288,36 @@ export interface ForceCheckAllCompanyTopEffect extends EffectBase {
   readonly check: string;
   /** Modifier applied to the check threshold (typically negative). */
   readonly modifier?: number;
+}
+
+/**
+ * Hazard short-event that makes **each character** in the target company face
+ * one strike (not part of a creature attack — "not an attack"). The strike has
+ * a fixed prowess, carries no creature race, and resolves through the normal
+ * combat machinery (one strike per character, body checks on a successful
+ * strike). Used by Cruel Caradhras (td-9): "Each character in target company
+ * must face one strike (not an attack) of 8 prowess which cannot be canceled.
+ * Any resulting body check is modified by +1."
+ *
+ * Resolution (chain-reducer): when the event resolves during the M/H phase, a
+ * {@link CombatState} is initiated against the active company with
+ * `strikesTotal = company.characters.length`, `strikeProwess = prowess`, no
+ * creature race/body, `uncancelable`, and `bodyCheckModifier` threaded into the
+ * character body check. Because the attack has no creature race and is
+ * uncancelable, creature-attack triggers and cancel-attack cards do not apply —
+ * matching the "not an attack" wording.
+ */
+export interface CompanyStrikeEffect extends EffectBase {
+  readonly type: 'company-strike';
+  /** Prowess of the single strike each character faces (e.g. `8`). */
+  readonly prowess: number;
+  /** When true, the strikes cannot be canceled (maps to combat `uncancelable`). */
+  readonly uncancelable?: boolean;
+  /**
+   * Amount added to each resulting body-check roll (positive = more likely to
+   * wound/eliminate). Cruel Caradhras uses `+1`.
+   */
+  readonly bodyCheckModifier?: number;
 }
 
 /**
@@ -2393,6 +2511,31 @@ export interface ForceReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * When this environment (long-event) resolves and enters play, tap every
+ * distinct site currently in play (a company's current site, on either
+ * side) whose attributes satisfy {@link condition}. Used by the
+ * Doors-of-Night clause of Foul Fumes (tw-36) and Long Winter (le-117):
+ * "if Doors of Night is in play, each non-Haven site with a Shadow-land /
+ * Dark-domain (resp. ≥2 Wildernesses) in its site path is tapped."
+ *
+ * The per-site condition is evaluated against a context exposing the
+ * site's type and its printed site-path terrain counts:
+ * `{ site: { type }, sitePath: { wildernessCount, shadowCount, darkCount } }`.
+ * Tapping is a one-time effect applied at resolution; sites that enter play
+ * later are unaffected.
+ */
+export interface TapSitesInPlayEffect extends EffectBase {
+  readonly type: 'tap-sites-in-play';
+  /**
+   * Name of a card that must be in play for the tapping to occur (e.g.
+   * "Doors of Night"). When absent, the tapping always applies on resolution.
+   */
+  readonly requiresInPlay?: string;
+  /** Per-site condition; a site is tapped only when it matches. */
+  readonly condition?: Condition;
+}
+
+/**
  * In-play ally ability: tap this ally during the M/H chain declaring window
  * to negate an unresolved chain entry that carries a `force-return-to-origin`
  * effect and would apply to the ally's company.
@@ -2509,6 +2652,7 @@ export interface MoveEffect extends EffectBase {
 export type CardEffect =
   | StatModifierEffect
   | CheckModifierEffect
+  | BodyCheckModifierEffect
   | MpModifierEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
@@ -2532,6 +2676,7 @@ export type CardEffect =
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
+  | RegionKeyingBoostEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
@@ -2544,6 +2689,7 @@ export type CardEffect =
   | StorableAtEffect
   | CallOfHomeCheckEffect
   | ForceCheckAllCompanyTopEffect
+  | CompanyStrikeEffect
   | SeizedByTerrorCheckEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
@@ -2558,6 +2704,7 @@ export type CardEffect =
   | DeckSearchAttackEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
+  | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
