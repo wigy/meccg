@@ -12,30 +12,30 @@
  *    site path is tapped. Cannot be duplicated."
  *
  * Engine Support:
- * | # | Rule                                                  | Status          | Notes                                                           |
- * |---|-------------------------------------------------------|-----------------|-----------------------------------------------------------------|
- * | 1 | Force moving company (≥2 Wilderness, no ranger) home  | PARTIAL         | force-return-to-origin tag exists & is consumed by Goldberry's  |
- * |   |                                                       |                 | cancel, but the ACTUAL return is rule 5.31 — unimplemented      |
- * |   |                                                       |                 | (rule-5.31-returned-to-origin.test.ts is test.todo)             |
- * | 2 | Doors of Night: tap each non-Haven/non-Darkhaven site | NOT IMPLEMENTED | no DSL effect / no multi-company site-tap subsystem             |
- * |   | in play with ≥2 Wilderness in its site path           |                 |                                                                 |
- * | 3 | Cannot be duplicated                                  | IMPLEMENTED     | duplication-limit scope game max 1                              |
+ * | # | Rule                                                  | Status      | Notes                                                          |
+ * |---|-------------------------------------------------------|-------------|----------------------------------------------------------------|
+ * | 1 | Force moving company (≥2 Wilderness, no ranger) home  | IMPLEMENTED | rule 5.31 force-return-to-origin enforced in endCompanyMH      |
+ * | 2 | Doors of Night: tap each non-Haven/non-Darkhaven site | IMPLEMENTED | `tap-sites-in-play` effect, applied on resolution (chain-reducer.ts) |
+ * |   | in play with ≥2 Wilderness in its site path           |             |                                                                |
+ * | 3 | Cannot be duplicated                                  | IMPLEMENTED | duplication-limit scope game max 1                             |
  *
- * Playable: PARTIALLY — NOT CERTIFIED.
- * Rules 1 (actual return enforcement, rule 5.31) and 2 (Doors-of-Night site
- * tap) are not implemented in the engine. This test covers the implemented
- * pieces with real assertions and marks the rest test.todo as a living spec.
+ * Playable: FULLY — CERTIFIED (2026-06-12).
+ * Every printed rule is enforced: rule-5.31 force-return (with ranger
+ * exception), the Doors-of-Night site-tap clause, and the game-scope
+ * duplication limit. Generic rule-5.31 coverage lives in
+ * rule-5.31-returned-to-origin.test.ts.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState, dispatch,
   attachAllyToChar, findCharInstanceId, viableActions,
+  addCardInPlay, buildForceReturnMHState, resolveChain,
   mint, Phase,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS, MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
 } from '../test-helpers.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, RegionType } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CardInPlay,
   CancelReturnToOriginAction, MovementHazardPhaseState,
@@ -45,6 +45,7 @@ import { initiateChain } from '../../engine/chain-reducer.js';
 
 const LONG_WINTER = 'le-117' as CardDefinitionId;
 const GOLDBERRY = 'tw-245' as CardDefinitionId;
+const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId;
 
 describe('Long Winter (le-117)', () => {
   beforeEach(() => resetMint());
@@ -147,20 +148,72 @@ describe('Long Winter (le-117)', () => {
       && a.targetInstanceId === longWinterCard.instanceId)).toBe(true);
   });
 
-  // ─── Unimplemented engine rules (NOT CERTIFIED) ───────────────────────────
-  // These rules are described by the card text but have no engine enforcement
-  // yet. Documented here as a living spec so the gap is explicit.
+  // ─── Rule 1: force-return-to-origin enforcement (rule 5.31) ───────────────
 
-  // Rule 1 enforcement (CoE 2.IV.4 / rule 5.31): a moving company with ≥2
-  // Wildernesses in its site path and no ranger must actually return to its
-  // site of origin (M/H phase ends, no site path, no site-phase actions).
-  // The force-return-to-origin effect is only consumed as a Goldberry-cancel
-  // tag today; the return itself is unimplemented.
-  test.todo('moving company with ≥2 Wildernesses and no ranger is returned to its site of origin');
-  test.todo('moving company containing a ranger is NOT returned to its site of origin');
+  test('moving company with ≥2 Wildernesses and no ranger is returned to its site of origin', () => {
+    // LEGOLAS (tw-168) is not a ranger.
+    const { state, originInstanceId } = buildForceReturnMHState(
+      [LEGOLAS], [RegionType.Wilderness, RegionType.Wilderness], LONG_WINTER,
+    );
+    const after = dispatch(dispatch(state, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+    const company = after.players[RESOURCE_PLAYER].companies[0];
+    expect(company.currentSite?.instanceId).toBe(originInstanceId);
+    expect(company.moved).toBe(false);
+  });
 
-  // Rule 2: while Doors of Night is in play, each non-Haven/non-Darkhaven site
-  // in play whose site path has ≥2 Wildernesses is tapped. No DSL effect and
-  // no multi-company site-tapping subsystem exists for this.
-  test.todo('Doors of Night in play: non-Haven sites with ≥2 Wildernesses in their site path are tapped');
+  test('moving company containing a ranger is NOT returned to its site of origin', () => {
+    // ARAGORN (tw-120) is a ranger — the rangerException exempts the company.
+    const { state, originInstanceId } = buildForceReturnMHState(
+      [ARAGORN], [RegionType.Wilderness, RegionType.Wilderness], LONG_WINTER,
+    );
+    const after = dispatch(dispatch(state, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+    // The company completes its move (its current site is no longer the origin).
+    expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.instanceId).not.toBe(originInstanceId);
+  });
+
+  test('a single Wilderness in the site path does NOT trigger the return (needs ≥2)', () => {
+    const { state, originInstanceId } = buildForceReturnMHState(
+      [LEGOLAS], [RegionType.Wilderness], LONG_WINTER,
+    );
+    const after = dispatch(dispatch(state, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+    expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.instanceId).not.toBe(originInstanceId);
+  });
+
+  // ─── Rule 2: Doors-of-Night site-tap (tap-sites-in-play) ──────────────────
+
+  test('Doors of Night in play: a non-Haven site with ≥2 Wildernesses is tapped on resolution; a Haven is not', () => {
+    // P1 sits at Moria (shadow-hold, site path [w, w] → ≥2 Wildernesses);
+    // P2 sits at Lórien (a Haven, excluded by the non-Haven clause).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    expect(base.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
+
+    const withDon = addCardInPlay({ ...base, phaseState: makeMHState() }, HAZARD_PLAYER, DOORS_OF_NIGHT);
+    const chained = initiateChain(withDon, PLAYER_2, { instanceId: mint(), definitionId: LONG_WINTER }, { type: 'long-event' });
+    const resolved = resolveChain(chained);
+
+    // The ≥2-Wilderness shadow-hold is tapped; the Haven is left untapped.
+    expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
+    expect(resolved.players[HAZARD_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
+  });
+
+  test('without Doors of Night, the site-tap clause does not fire', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const chained = initiateChain({ ...base, phaseState: makeMHState() }, PLAYER_2, { instanceId: mint(), definitionId: LONG_WINTER }, { type: 'long-event' });
+    const resolved = resolveChain(chained);
+    expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
+  });
 });
