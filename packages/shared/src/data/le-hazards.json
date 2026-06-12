@@ -568,6 +568,11 @@
           }
         },
         "rangerException": true
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ]
   },
