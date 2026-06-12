@@ -1943,9 +1943,32 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Cirith Gorgor"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of the Ephel Dúath"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Snaga-hai"
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
