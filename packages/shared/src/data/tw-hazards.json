@@ -647,6 +647,7 @@
     "text": "Environment. Each moving company that has a Shadow-land [{s}] or a Dark-domain [{d}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven site in play with a Shadow-land [{s}] or a Dark-domain [{d}] in its site path is tapped. This card has no effect on a minion player. Cannot be duplicated.",
     "unique": false,
     "eventType": "long",
+    "certified": "2026-06-12",
     "keywords": [
       "environment"
     ],
@@ -654,20 +655,62 @@
       {
         "type": "force-return-to-origin",
         "condition": {
-          "$or": [
+          "$and": [
             {
-              "sitePath.shadowCount": {
-                "$gte": 1
-              }
+              "$or": [
+                {
+                  "sitePath.shadowCount": {
+                    "$gte": 1
+                  }
+                },
+                {
+                  "sitePath.darkCount": {
+                    "$gte": 1
+                  }
+                }
+              ]
             },
             {
-              "sitePath.darkCount": {
-                "$gte": 1
-              }
+              "player.minion": false
             }
           ]
         },
         "rangerException": true
+      },
+      {
+        "type": "tap-sites-in-play",
+        "requiresInPlay": "Doors of Night",
+        "condition": {
+          "$and": [
+            {
+              "site.type": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "player.minion": false
+            },
+            {
+              "$or": [
+                {
+                  "sitePath.shadowCount": {
+                    "$gte": 1
+                  }
+                },
+                {
+                  "sitePath.darkCount": {
+                    "$gte": 1
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ]
   },
