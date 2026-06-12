@@ -1011,8 +1011,18 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
  *   may join that company. On play the company's existing allies and follower
  *   characters are discarded. Used by Fell Rider (le-183).
+ * - `bearer-cannot-untap-until-stored` — when this storable permanent event is
+ *   attached to a character on play (taps the character via a play-target tap
+ *   cost or a direct storable-at attachment, or is assigned a bearer after a
+ *   triggered attack), the bearer may not untap during the untap phase until
+ *   the card is stored. Without this flag the character taps on play but
+ *   untaps normally next turn. Card text gate: "the character may not untap
+ *   until this card is stored." Carried by To Satisfy the Questioner (le-246),
+ *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
+ *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
+ *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

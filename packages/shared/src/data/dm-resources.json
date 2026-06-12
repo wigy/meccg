@@ -212,6 +212,10 @@
       },
       {
         "type": "fetch-wizard-on-store"
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
       }
     ],
     "certified": "2026-04-26"

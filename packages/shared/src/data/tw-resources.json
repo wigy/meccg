@@ -1531,6 +1531,10 @@
         "creatureType": "Spider",
         "strikes": 2,
         "prowess": 7
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
       }
     ],
     "certified": "2026-04-26"

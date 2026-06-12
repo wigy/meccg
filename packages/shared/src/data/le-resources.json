@@ -944,6 +944,10 @@
         "type": "storable-at",
         "siteTypes": ["haven"],
         "marshallingPoints": 3
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
       }
     ],
     "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase.",
@@ -1528,8 +1532,37 @@
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 1,
-    "marshallingCategory": "misc"
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "playableResources": {
+            "$includes": "information"
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.status": "untapped"
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ],
+        "marshallingPoints": 1
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-event",
@@ -1587,6 +1620,10 @@
           "haven"
         ],
         "marshallingPoints": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
       }
     ],
     "certified": "2026-05-31"

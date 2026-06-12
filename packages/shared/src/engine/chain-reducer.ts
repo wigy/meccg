@@ -1024,16 +1024,21 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         newState = costResult.state;
         logDetail(`"${def?.name ?? '?'}" applied play-target cost (tap) to ${targetCharId as string}`);
         // Place bearer-cannot-untap so the character stays tapped until the card
-        // is stored (e.g. at a Darkhaven for le-241). The store-item handler
-        // clears this constraint automatically when the card leaves the character.
-        newState = addConstraint(newState, {
-          source: card.instanceId,
-          sourceDefinitionId: card.definitionId,
-          scope: { kind: 'until-cleared' },
-          target: { kind: 'character', characterId: targetCharId },
-          kind: { type: 'bearer-cannot-untap', cardInstanceId: card.instanceId },
-        });
-        logDetail(`"${def?.name ?? '?'}" placed bearer-cannot-untap constraint on ${targetCharId as string}`);
+        // is stored (e.g. at a Darkhaven for le-241) — but only when the card's
+        // text declares the untap lock via the play-flag. Cards like That Ain't
+        // No Secret (le-240) tap the bearer on play yet untap it normally. The
+        // store-item handler clears this constraint automatically when the card
+        // leaves the character.
+        if (hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored')) {
+          newState = addConstraint(newState, {
+            source: card.instanceId,
+            sourceDefinitionId: card.definitionId,
+            scope: { kind: 'until-cleared' },
+            target: { kind: 'character', characterId: targetCharId },
+            kind: { type: 'bearer-cannot-untap', cardInstanceId: card.instanceId },
+          });
+          logDetail(`"${def?.name ?? '?'}" placed bearer-cannot-untap constraint on ${targetCharId as string}`);
+        }
       } else {
         logDetail(`"${def?.name ?? '?'}" play-target cost failed: ${costResult.error}`);
       }
@@ -1083,10 +1088,13 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // storable-at on direct attachment: add bearer-cannot-untap constraint so the
   // character may not untap until the card is stored (e.g. To Satisfy the Questioner).
   // This mirrors what applySelectCardBearerResolution does for post-attack attachment.
+  // Gated on the explicit untap-lock play-flag: storable permanent events that do
+  // not lock the bearer (e.g. That Ain't No Secret, le-240) must not place it.
   const storableEffect = (getCardEffects(def)).find(
     (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
   );
-  if (targetCharId && storableEffect) {
+  const locksBearer = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored');
+  if (targetCharId && storableEffect && locksBearer) {
     const hasTriggeredAttack = getCardEffects(def).some(e => e.type === 'trigger-attack-on-play');
     if (!hasTriggeredAttack) {
       logDetail(`"${def?.name ?? '?'}" storable-at direct attachment: adding bearer-cannot-untap on ${targetCharId as string}`);
