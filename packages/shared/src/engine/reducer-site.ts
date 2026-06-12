@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, Race, Alignment, formatSignedNumber, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -295,11 +295,16 @@ function handleSiteEnterOrSkip(
     return advanceSiteToNextCompany(state, siteState, company.id);
   }
 
-  // Enter site — check whether the site has automatic-attacks
+  // Enter site — check whether the site has automatic-attacks. Attacks that
+  // do not apply to this company's covert/overt status (e.g. Minas Tirith's
+  // "against overt company only" Dúnedain attack vs a covert company) are not
+  // counted, so a company facing none of them skips straight past the
+  // auto-attack steps.
   const siteInPlay = company.currentSite;
   const siteDef = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
+  const enterCovert = isCovertCompany(company, player, state);
   const autoAttackCount = siteDef && isSiteCard(siteDef)
-    ? getActiveAutoAttacks(state, siteDef).length
+    ? getActiveAutoAttacks(state, siteDef).filter(aa => autoAttackAppliesToCompany(aa, enterCovert)).length
     : 0;
 
   const skipAutoAttacks = siteInPlay && state.activeConstraints.some(c =>
@@ -383,7 +388,9 @@ function handleRevealOnGuardAttacks(
       && siteDef && isSiteCard(siteDef)
       && !(siteDef as { lairOf?: unknown }).lairOf
       && isReduceAttacksToOneInPlay(state)
-      && getActiveAutoAttacks(state, siteDef).length > 1
+      && getActiveAutoAttacks(state, siteDef).filter(aa =>
+        autoAttackAppliesToCompany(aa, isCovertCompany(company, state.players[activePlayerIndex], state)),
+      ).length > 1
     ) {
       nextStep = 'forewarned-select-attack';
     } else {
@@ -492,13 +499,31 @@ function handleForewarnedSelectAttack(
 }
 
 /**
+ * Returns whether a site automatic-attack is faced by a company of the given
+ * covert/overt status (MELE site guardians). An attack restricted to one
+ * status via {@link AutomaticAttack.appliesTo} (e.g. Minas Tirith le-391's
+ * Dúnedain attack, "against overt company only") is faced only by companies of
+ * that status; an attack without `appliesTo` is faced by every company. A
+ * "detainment against covert company" attack deliberately has *no* `appliesTo`
+ * — overt companies still face it (as a regular, non-detainment attack), and
+ * its detainment-vs-covert nature is expressed by a separate `combat-detainment`
+ * site effect gated on `defender.covert`.
+ */
+function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boolean {
+  if (aa.appliesTo === 'covert') return covert;
+  if (aa.appliesTo === 'overt') return !covert;
+  return true;
+}
+
+/**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
  * attack listed on the site card, one at a time.
  *
  * When entering this step, if no combat is active, the next unresolved
  * automatic attack initiates combat. The `automaticAttacksResolved` counter
- * tracks progress. When all auto-attacks are resolved, advances to
- * 'declare-agent-attack'.
+ * tracks progress. Attacks that do not apply to the defending company's
+ * covert/overt status are skipped without initiating combat. When all
+ * applicable auto-attacks are resolved, advances to 'declare-agent-attack'.
  */
 function handleSiteAutomaticAttacks(
   state: GameState,
@@ -516,12 +541,35 @@ function handleSiteAutomaticAttacks(
   const attackIndex = siteState.automaticAttacksResolved;
   const autoAttacks = getActiveAutoAttacks(state, siteDef);
 
+  // Covert/overt status of the defending company (MELE site guardians). It
+  // selects which auto-attacks apply (see autoAttackAppliesToCompany) and is
+  // threaded into detainment computation so a "detainment against covert
+  // company" site effect fires only against a covert company.
+  const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
+
+  // Advance past attacks that do not apply to this company's covert/overt
+  // status (e.g. Minas Tirith's Dúnedain attack, "against overt company
+  // only"). Indices into `autoAttacks` are preserved so combat.attackSource
+  // still references the printed attack list correctly.
+  const forewarnedIdx = siteState.selectedAutoAttackIndex;
+  let resolveIdx = attackIndex;
+  if (forewarnedIdx === undefined) {
+    while (resolveIdx < autoAttacks.length
+      && !autoAttackAppliesToCompany(autoAttacks[resolveIdx], defendingCovert)) {
+      logDetail(`Site: skipping automatic-attack ${resolveIdx + 1}/${autoAttacks.length} (${autoAttacks[resolveIdx].creatureType}, against ${autoAttacks[resolveIdx].appliesTo} company only) — company is ${defendingCovert ? 'covert' : 'overt'}`);
+      resolveIdx++;
+    }
+  }
+
   // When Forewarned Is Forearmed selected a single attack, only that attack
   // is resolved; consider done after 1 attack (not after all autoAttacks.length).
-  const forewarnedIdx = siteState.selectedAutoAttackIndex;
   const allAttacksDone = forewarnedIdx !== undefined
     ? attackIndex >= 1
-    : attackIndex >= autoAttacks.length;
+    : resolveIdx >= autoAttacks.length;
+
+  // In the done-branch, treat skipped trailing attacks as resolved so the
+  // duplicate-counting math (`effectiveResolved - autoAttacks.length`) holds.
+  const effectiveResolved = forewarnedIdx !== undefined ? attackIndex : resolveIdx;
 
   if (allAttacksDone) {
     // Check for auto-attack-race-duplicate constraints (The Moon Is Dead).
@@ -538,7 +586,7 @@ function handleSiteAutomaticAttacks(
       const duplicatableAttacks = autoAttacks.filter(aa =>
         raceDupRaces.has(normalizeCreatureRace(aa.creatureType)),
       );
-      const duplicatesRun = attackIndex - autoAttacks.length;
+      const duplicatesRun = effectiveResolved - autoAttacks.length;
       if (duplicatesRun < duplicatableAttacks.length) {
         const aa = duplicatableAttacks[duplicatesRun];
         const dupRace = normalizeCreatureRace(aa.creatureType);
@@ -552,10 +600,11 @@ function handleSiteAutomaticAttacks(
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
+          defendingCovert,
           defendingSiteEffects: siteDef.effects,
         });
         const dupCombatR: CombatState = {
-          attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
+          attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
           companyId: company.id,
           defendingPlayerId: state.activePlayer!,
           attackingPlayerId: hazardPlayer(state).id,
@@ -575,7 +624,7 @@ function handleSiteAutomaticAttacks(
           state: {
             ...state,
             combat: dupCombatR,
-            phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+            phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
           },
         };
       }
@@ -603,10 +652,11 @@ function handleSiteAutomaticAttacks(
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
+        defendingCovert,
         defendingSiteEffects: siteDef.effects,
       });
       const dupCombat: CombatState = {
-        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
+        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
         attackingPlayerId: hazardPlayer(state).id,
@@ -626,7 +676,7 @@ function handleSiteAutomaticAttacks(
         state: {
           ...dupState,
           combat: dupCombat,
-          phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+          phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
         },
       };
     }
@@ -641,8 +691,10 @@ function handleSiteAutomaticAttacks(
     };
   }
 
-  // Initiate combat for the next automatic attack (or the Forewarned-selected one)
-  const resolvedAttackIndex = forewarnedIdx !== undefined ? forewarnedIdx : attackIndex;
+  // Initiate combat for the next applicable automatic attack (or the
+  // Forewarned-selected one). `resolveIdx` has already advanced past any
+  // attacks that do not apply to this company's covert/overt status.
+  const resolvedAttackIndex = forewarnedIdx !== undefined ? forewarnedIdx : resolveIdx;
   const aa = autoAttacks[resolvedAttackIndex];
   const hazardPlayerId = hazardPlayer(state).id;
 
@@ -681,7 +733,7 @@ function handleSiteAutomaticAttacks(
     : [];
   const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
 
-  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
+  logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
   const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
 
@@ -708,6 +760,7 @@ function handleSiteAutomaticAttacks(
       // Ringwraith/Balrog companies at dark-holds and shadow-holds.
       attackKeyedTo: [{ siteTypes: [siteDef.siteType] }],
       defendingAlignment: state.players[activePlayerIndex].alignment,
+      defendingCovert,
       defendingSiteEffects: siteDef.effects,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
@@ -732,7 +785,7 @@ function handleSiteAutomaticAttacks(
     state: {
       ...boostedState,
       combat,
-      phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+      phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
     },
   };
 }
@@ -1414,6 +1467,15 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
   }
 
+  // item-play-site doesNotTapSite: the played item explicitly leaves the
+  // site untapped (e.g. Helm of Fear as-126 — "does not tap the site").
+  const itemDoesNotTapSite = isItem && (def.effects ?? []).some(
+    e => e.type === 'item-play-site' && e.doesNotTapSite === true,
+  );
+  if (itemDoesNotTapSite) {
+    logDetail(`Site: ${def.name} does not tap the site (special play rule) — leaving site untapped`);
+  }
+
   // Rule 2.V.5: when a resource that taps the site is successfully played,
   // the resource player may attempt one additional minor item as the next
   // action. A `never-taps` site never triggers the bonus. The bonus is
@@ -1442,7 +1504,7 @@ function handleSitePlayHeroResource(
 
   // Thorough Search prevents site tap and does not count as the "first resource played"
   // (so the opening minor-item bonus does not fire for it).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -1452,7 +1514,7 @@ function handleSitePlayHeroResource(
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: (neverTaps || usingThoroughSearch) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
+    currentSite: (neverTaps || usingThoroughSearch || itemDoesNotTapSite) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   let afterAttach: GameState = {

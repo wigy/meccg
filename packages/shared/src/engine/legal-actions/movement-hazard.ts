@@ -26,6 +26,7 @@ import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -2380,14 +2381,19 @@ function findCreatureKeyingMatches(
     inPlay: inPlayNames,
     destinationSite: { sitePath: destSitePathCounts },
   };
+  // region-keying-boost environments (Withered Lands): build the candidate
+  // paths once. Each is the effective path with at most one boost applied.
+  const keyingBoosts = collectRegionKeyingBoosts(state);
+  const candidateRegionPaths = regionPathsWithBoosts(effectiveRegionTypes, keyingBoosts);
   for (const key of def.keyedTo) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
-    // Region type matches
+    // Region type matches — try the effective path plus each boosted variant.
     if (key.regionTypes && key.regionTypes.length > 0) {
-      if (regionTypesMatch(key.regionTypes, effectiveRegionTypes)) {
+      for (const candidate of candidateRegionPaths) {
+        if (!regionTypesMatch(key.regionTypes, candidate)) continue;
         // Report each matching region type individually
         for (const rt of key.regionTypes) {
-          if (effectiveRegionTypes.includes(rt)) {
+          if (candidate.includes(rt)) {
             const k = `region-type:${rt}`;
             if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
           }

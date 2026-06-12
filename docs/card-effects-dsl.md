@@ -142,6 +142,26 @@ This fires only for corruption checks whose `source` card (the one that
 enqueued the resolution) carries the `"spell"` keyword — e.g. the
 check a Wizard makes after playing *Wizard's Laughter*.
 
+### 2a. `body-check-modifier`
+
+Modifies the 2d6 **body-check** roll made against the bearer during combat
+(CoE rule 2.V.2.2). A body check is rolled inside combat resolution — not
+through the influence/corruption scoring pipeline — so it is a separate effect
+type from `check-modifier`. The `value` is added to the effective body-check
+roll; a negative value protects the bearer by lowering the roll (making it less
+likely to exceed the bearer's body and eliminate them).
+
+```json
+{ "type": "body-check-modifier", "value": -1 }
+```
+
+Collected from items attached to the character being body-checked, in
+`reducer-combat.ts` (`bodyCheckRollModifier`). Applies in both the
+hazard/automatic-attack body check and the CvCC body check (whether the bearer
+is attacking or defending). An optional `when` is evaluated against
+`{ bearer: { race } }`. Used by *Helm of Fear* (as-126): "All body checks
+against the bearer are modified by -1."
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an
@@ -815,6 +835,11 @@ untapped; the item itself does not tap. Used by *Star-glass* (tw-330) —
 bearer taps to cancel an Undead attack. `"enqueueCorruptionCheck": true`
 enqueues a corruption check on the bearer.
 
+When the item has `cost: { "tap": "self" }`, only the item taps — the
+bearer's status is irrelevant (it need not be untapped and is not tapped).
+The item itself must be untapped. Used by *Helm of Fear* (as-126) — tap the
+item to cancel an attack against the Ringwraith's company.
+
 A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 
@@ -831,6 +856,12 @@ combat context that includes:
 - `bearer.atHaven` — `true` when the defending company's current site
   is a haven. Used by Darkhaven-tap abilities (e.g. Adûnaphel the
   Ringwraith).
+- `attack.heroCompany` — `true` only for character-vs-character combat
+  in which the attacking company belongs to a hero-side player (Wizard
+  or Fallen-wizard avatar). Hazard creature / automatic attacks are
+  never a "company" and so are never hero-company. Used by *Helm of
+  Fear* (as-126): "May not cancel combat with a hero company" →
+  `"when": { "attack.heroCompany": { "$ne": true } }`.
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -1728,6 +1759,17 @@ sites qualify). Used by *Blasting Fire* (wh-51) and *Vile Fumes* (wh-54):
 "Playable at a tapped or untapped Shadow-hold, Dark-hold, or a site with a
 Dwarf automatic-attack." Implemented in `legal-actions/site.ts`.
 
+The optional `doesNotTapSite: true` flag suppresses the "playing a resource
+taps the site" rule for this play, so the site is left in whatever state it
+was. Combine with `allowTapped` for "playable at a tapped or untapped X (does
+not tap the site)". Used by *Helm of Fear* (as-126), playable at Barad-dûr.
+Implemented in `reducer-site.ts`.
+
+```json
+{ "type": "item-play-site", "sites": ["Barad-dûr"],
+  "allowTapped": true, "doesNotTapSite": true }
+```
+
 ```json
 { "type": "item-play-site", "sites": ["Isengard"] }
 ```
@@ -1986,6 +2028,26 @@ check) and `reducer-events.ts` (discard execution).
     { "site.name": "Mount Doom" },
     { "company.itemNames": { "$includes": "The One Ring" } },
     { "company.allyNames": { "$includes": "Gollum" } }
+  ] } }
+```
+
+- `player-state` — for resource short-events: a generic DSL `condition`
+  evaluated against the active player's avatar/alignment context
+  `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`.
+  `alignment` is the card-text alignment string (`"wizard"`,
+  `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
+  is `true` when the active player has a Ringwraith-race avatar character in
+  play. Lets a card gate on the opposing player's alignment and the
+  controller's revealed avatar without a per-card keyword. Used by *Above the
+  Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
+  play". Implemented in `legal-actions/organization.ts`
+  (`buildPlayerStateContext`).
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "$and": [
+    { "opponent.alignment": "wizard" },
+    { "player.hasRingwraithInPlay": true }
   ] } }
 ```
 
@@ -3079,6 +3141,42 @@ attack record itself. Supported values:
   Spider at *Shelob's Lair* (le-402). Implemented in `reducer-combat.ts`
   (`resolveStrikeCore` → `eliminateCombatantFromStrike`).
 
+### Site auto-attack `appliesTo` (covert/overt guardians)
+
+A site's printed `automaticAttacks[]` entry may carry an `appliesTo` string
+that restricts which companies face it, based on the defending company's
+covert/overt status (MELE "good site" guardians). Supported values:
+
+- `"overt"` — only an overt company faces this attack. Card text: "(against
+  overt company only)".
+- `"covert"` — only a covert company faces this attack.
+- *absent* — every company faces the attack.
+
+`engine/reducer-site.ts` (`autoAttackAppliesToCompany`) skips attacks whose
+`appliesTo` does not match `isCovertCompany(company, …)` when resolving the
+`automatic-attacks` step, preserving the printed-list indices so
+`combat.attackSource.attackIndex` still references the right attack.
+
+A "(detainment against covert company)" attack does **not** use `appliesTo`
+— it is faced by overt companies too, as a regular (non-detainment) attack.
+Its detainment-vs-covert nature is expressed separately by a
+[`combat-detainment`](#12-combat-rule-effects) site effect gated on
+`defender.covert`; `reducer-site.ts` threads the company's covert status into
+`isDetainmentAttack` as `defendingCovert`. Example — *Minas Tirith* (le-391):
+a Men attack with `combatRules: ["each-character"]` and no `appliesTo` (plus
+the `combat-detainment` site effect), and a Dúnedain attack with
+`appliesTo: "overt"`.
+
+```jsonc
+"automaticAttacks": [
+  { "creatureType": "Men", "strikes": 1, "prowess": 9, "combatRules": ["each-character"] },
+  { "creatureType": "Dúnedain", "strikes": 4, "prowess": 10, "appliesTo": "overt" }
+],
+"effects": [
+  { "type": "combat-detainment", "when": { "defender.covert": true } }
+]
+```
+
 ### 42. `deck-search-attack`
 
 Used by hero resource short-events whose text reads "turn over cards
@@ -3853,7 +3951,47 @@ otherwise back to the hazard player's discard pile).
 
 Used by: *Exhalation of Decay* (dm-55).
 
-### 43. `company-strike`
+### 43. `region-keying-boost`
+
+A turn-scoped environment effect that softens creature **keying** by letting one
+region in a company's resolved site path count as additional regions of another
+type. Carried by a hazard short-event environment; on play the card adds a
+`region-keying-boost` active constraint (scope `turn`) carrying the boosts, and
+the card is discarded.
+
+Each entry in `boosts` is an independent alternative — `{ from, asType, count }`
+means "treat one region of type `from` in the path as `count` regions of type
+`asType`". At most **one** boost is applied per keying check (the boosts are
+never combined), and the underlying site path is never mutated.
+
+```json
+{ "type": "region-keying-boost",
+  "boosts": [
+    { "from": "wilderness", "asType": "wilderness", "count": 2 },
+    { "from": "shadow", "asType": "wilderness", "count": 2 },
+    { "from": "border", "asType": "wilderness", "count": 2 }
+  ] }
+```
+
+The creature-keying matchers — `findCreatureKeyingMatches`
+(`legal-actions/movement-hazard.ts`, read path) and `checkCreatureKeying`
+(`reducer-movement-hazard.ts`, write path) — call the shared helpers in
+`engine/region-keying.ts`: `collectRegionKeyingBoosts(state)` gathers every
+active boost, and `regionPathsWithBoosts(path, boosts)` returns the base path
+plus one variant per applicable boost (each replacing a single `from` region
+with `count` `asType` regions). A creature keys if its `regionTypes` match
+**any** candidate path. Because the base path is always a candidate, the
+environment never removes existing keying options.
+
+The constraint is added at play time in the short-event reducer (alongside
+`creature-keying-bypass`), so an environment-cancel targeting the source card
+removes it. The corresponding constraint kind is `region-keying-boost` in
+`types/pending.ts`.
+
+Used by: *Withered Lands* (td-85) — gated on *Doors of Night* in play via a
+`play-condition` `requires: site-path` clause (`{ "inPlay": "Doors of Night" }`).
+
+### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target
 company face one strike (not part of a creature attack — "not an attack").

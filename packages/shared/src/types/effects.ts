@@ -180,6 +180,24 @@ export interface CheckModifierEffect extends EffectBase {
 }
 
 /**
+ * Modifies the 2d6 body-check roll made against the bearer during combat
+ * (CoE rule 2.V.2.2). A body check is distinct from the influence/corruption
+ * {@link CheckModifierEffect} family — it is rolled inside combat resolution,
+ * not through the scoring pipeline — so it has its own effect type. A negative
+ * value protects the bearer (lowers the roll, making it less likely to exceed
+ * the bearer's body and eliminate them).
+ *
+ * Example: Helm of Fear (as-126) — "All body checks against the bearer are
+ * modified by -1." Collected from items attached to the body-check target in
+ * `reducer-combat.ts` and applied to the effective roll.
+ */
+export interface BodyCheckModifierEffect extends EffectBase {
+  readonly type: 'body-check-modifier';
+  /** The modifier added to the body-check roll (negative protects the bearer). */
+  readonly value: number;
+}
+
+/**
  * Modifies a card's marshalling points conditionally.
  *
  * Example: Aragorn has -3 marshalling points if eliminated.
@@ -1210,6 +1228,42 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
+ * for creature-keying purposes, a single region of type {@link from} in a
+ * company's site path is treated as {@link count} regions of type {@link asType}
+ * (e.g. `{ from: "shadow", asType: "wilderness", count: 2 }` = "treat one
+ * Shadow-land as two Wildernesses").
+ */
+export interface RegionKeyingBoost {
+  /** The region type consumed from the path (e.g. "shadow"). */
+  readonly from: RegionType;
+  /** The region type the consumed region is counted as (e.g. "wilderness"). */
+  readonly asType: RegionType;
+  /** How many regions of {@link asType} the consumed region counts as. */
+  readonly count: number;
+}
+
+/**
+ * A turn-scoped environment effect (Withered Lands, td-85) that softens creature
+ * keying by letting one region in a company's site path count as additional
+ * regions of another type. Each {@link RegionKeyingBoost} entry is an independent
+ * alternative ("one Wilderness as two Wildernesses OR one Shadow-land as two
+ * Wildernesses OR one Border-land as two Wildernesses"); at most one boost is
+ * applied per keying check — the boosts are never combined.
+ *
+ * On play the short-event adds a `region-keying-boost` active constraint
+ * carrying these boosts (scope: turn). The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult the constraint
+ * and test each boosted variant of the path; the underlying path is never
+ * mutated.
+ */
+export interface RegionKeyingBoostEffect extends EffectBase {
+  readonly type: 'region-keying-boost';
+  /** The alternative region treatments this environment enables. */
+  readonly boosts: readonly RegionKeyingBoost[];
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -1363,6 +1417,13 @@ export interface ItemPlaySiteEffect extends EffectBase {
    * or untapped Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
    */
   readonly allowTapped?: boolean;
+  /**
+   * When true, playing this item leaves its company's current site untapped
+   * (the normal "playing a resource taps the site" rule is suppressed for
+   * this play). Used by *Helm of Fear* (as-126): "Playable at a tapped or
+   * untapped Barad-dûr … (does not tap the site)."
+   */
+  readonly doesNotTapSite?: boolean;
 }
 
 /**
@@ -2073,7 +2134,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'region-through-or-leave';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
    * the target company must either *leave* (the origin region of region
@@ -2094,6 +2155,18 @@ export interface PlayConditionEffect extends EffectBase {
    * the company's characters. Lets a card declare a positional play
    * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
    * CoE 10.39 win cards — without a per-card keyword.
+   *
+   * For `requires: 'player-state'`: a generic DSL condition evaluated
+   * against the active player's avatar/alignment context:
+   * `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`
+   * where `alignment` is the card-text alignment string (`"wizard"`,
+   * `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and
+   * `player.hasRingwraithInPlay` is `true` when the active player has a
+   * Ringwraith-race avatar character in play. Lets a card gate on the
+   * opposing player's alignment and the controller's revealed avatar —
+   * e.g. Above the Abyss (as-77): "if your opponent is a Wizard and your
+   * Ringwraith is in play". Evaluated for resource short-events in
+   * `legal-actions/organization.ts`.
    */
   readonly condition?: Condition;
   /**
@@ -2550,6 +2623,7 @@ export interface MoveEffect extends EffectBase {
 export type CardEffect =
   | StatModifierEffect
   | CheckModifierEffect
+  | BodyCheckModifierEffect
   | MpModifierEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
@@ -2573,6 +2647,7 @@ export type CardEffect =
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
+  | RegionKeyingBoostEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect

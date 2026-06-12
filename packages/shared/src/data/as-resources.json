@@ -467,7 +467,35 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "opponent.alignment": "wizard" },
+            { "player.hasRingwraithInPlay": true }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "tapped" },
+            { "$not": { "target.race": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "untap",
+        "apply": { "type": "set-character-status", "status": "untapped" }
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-event",

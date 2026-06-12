@@ -305,8 +305,39 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Woodland Realm",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 4,
+        "prowess": 13,
+        "body": 8,
+        "race": "dragon",
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Anduin Vales",
+            "Western Mirkwood",
+            "Heart of Mirkwood",
+            "Gundabad"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Woodland Realm, Northern Rhovanion, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 13/8. If Doors of Night is in play, this attack also affects: Anduin Vales, Western Mirkwood, Heart of Mirkwood, and Gundabad.",
+    "certified": "2026-06-12",
     "manifestId": "td-60"
   },
   {
@@ -676,6 +707,24 @@
     "eventType": "short",
     "keywords": [
       "environment"
+    ],
+    "certified": "2026-06-12",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "inPlay": "Doors of Night"
+        }
+      },
+      {
+        "type": "region-keying-boost",
+        "boosts": [
+          { "from": "wilderness", "asType": "wilderness", "count": 2 },
+          { "from": "shadow", "asType": "wilderness", "count": 2 },
+          { "from": "border", "asType": "wilderness", "count": 2 }
+        ]
+      }
     ]
   },
   {

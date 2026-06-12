@@ -7,7 +7,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
-import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect } from '../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
@@ -31,6 +31,7 @@ import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
 import { isDetainmentAttack } from './detainment.js';
 
 
@@ -1283,6 +1284,24 @@ function handlePlayHazardCard(
       }
     }
 
+    // region-keying-boost (Withered Lands): the short-event leaves a
+    // turn-scoped environment constraint that softens creature keying for
+    // the rest of the turn. Added at play time (like creature-keying-bypass
+    // above) so an environment-cancel that targets this card removes it.
+    const boostEffect = def.effects?.find(
+      (e): e is RegionKeyingBoostEffect => e.type === 'region-keying-boost',
+    );
+    if (boostEffect) {
+      logDetail(`Short-event "${def.name}": adding region-keying-boost constraint (until end of turn)`);
+      newState = addConstraint(newState, {
+        source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'player', playerId: action.player },
+        kind: { type: 'region-keying-boost', boosts: boostEffect.boosts },
+      });
+    }
+
     // Initiate chain or push onto existing chain
     const shortEventPayload: import('../index.js').ChainEntryPayload = {
       type: 'short-event',
@@ -2243,15 +2262,21 @@ function checkCreatureKeying(state: GameState, def: CreatureCard, mhState: Movem
     destinationSite: { sitePath: destPathCounts },
   };
 
+  // region-keying-boost environments (Withered Lands): build the candidate
+  // paths once. Each is the resolved path with at most one boost applied.
+  const keyingBoosts = collectRegionKeyingBoosts(state);
+  const candidateRegionPaths = regionPathsWithBoosts(mhState.resolvedSitePath, keyingBoosts);
+
   for (const key of def.keyedTo) {
     // When-condition guards the entry (DoN, sitePath-count conditions, etc.)
     if (key.when) {
       if (!matchesCondition(key.when, whenCtxBase)) continue;
     }
     // Check region types against site path (count-based: if the creature
-    // lists a region type N times, the path must contain at least N of that type)
+    // lists a region type N times, the path must contain at least N of that
+    // type). Each boosted variant of the path is tried in addition to the base.
     if (key.regionTypes && key.regionTypes.length > 0) {
-      if (regionTypesMatch(key.regionTypes, mhState.resolvedSitePath)) {
+      if (candidateRegionPaths.some(p => regionTypesMatch(key.regionTypes!, p))) {
         logDetail(`Creature "${def.name}" keyable to region type(s): ${key.regionTypes.join(', ')}`);
         return undefined;
       }

@@ -1125,6 +1125,11 @@ function applyOneConstraint(
       // (see `legal-actions/movement-hazard.ts` `hasCreatureKeyingBypass`)
       // — no broad legal-action filtering needed here.
       return base;
+    case 'region-keying-boost':
+      // Consulted directly by the creature-keying matchers (Withered Lands)
+      // via `collectRegionKeyingBoosts` — no broad legal-action filtering
+      // needed here.
+      return base;
     case 'auto-attack-duplicate':
       return base;
     case 'auto-attack-race-duplicate':
