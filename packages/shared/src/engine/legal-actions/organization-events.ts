@@ -210,6 +210,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 status: charData.status,
                 skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
                 name: charDef.name,
+                // Mind cost of the character (null for avatars). Lets a card
+                // gate on the printed mind, e.g. Awaiting the Call (le-165)
+                // "on a character with a mind of 6 or less".
+                mind: charDef.mind,
                 keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 itemKeywords,
                 itemNames,

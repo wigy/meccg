@@ -53,7 +53,22 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
   "when": { "reason": "combat", "enemy.race": "orc" } }
 ```
 
-Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`.
+Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`.
+
+The `mind` stat modifies a character's effective mind — the influence cost
+of controlling that character. It is resolved in `recompute-derived.ts` and
+consumed as the character's general-influence cost (`generalInfluenceUsed`).
+The resolver context exposes `bearer.baseMind` (the printed mind; absent for
+avatars), so "halving" effects can be expressed as a value expression. Example
+— Awaiting the Call (le-165) halves the bearer's mind, rounded down:
+
+```json
+{ "type": "stat-modifier", "stat": "mind",
+  "value": "floor(bearer.baseMind / 2) - bearer.baseMind" }
+```
+
+Used by the troll triplets (as-1/as-5/as-6, `value: -1`) and Awaiting the
+Call (le-165).
 
 The `general-influence` stat is a player-level modifier (not per-character). When a card
 carrying `stat: "general-influence"` is attached to a character, `PlayerState.generalInfluenceBonus`
@@ -1437,7 +1452,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills, siteType, moving, hasShadowMagicUser } }`, so there are no
+`{ target: { race, status, skills, name, mind, inAvatarCompany, itemKeywords }, company: { skills, siteType, moving, hasShadowMagicUser } }` (`target.mind` is the character's printed mind, null for avatars — e.g. Awaiting the Call le-165 filters `{ "target.mind": { "$lte": 6 } }`), so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 
