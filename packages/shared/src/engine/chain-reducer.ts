@@ -17,6 +17,7 @@ import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js'
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
+import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
@@ -2168,6 +2169,63 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         if (targetCompany.characters.length > 0) {
           return { state: current, needsInput: true };
         }
+      }
+    }
+  }
+
+  // Cruel Caradhras (td-9): company-strike — hazard short event that makes each
+  // character in the active M/H company face one strike (not a creature attack).
+  // Initiate a single combat with strikesTotal = company size and no creature
+  // race; the strike prowess is fixed, the attack is uncancelable, and any
+  // resulting body check is modified by `bodyCheckModifier`. The normal combat
+  // machinery resolves one strike per character (each unassigned character is
+  // offered exactly one strike), runs body checks, and finalizes.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const csCardDef = defById(current, entry.card.definitionId);
+    const csEffect = getCardEffects(csCardDef).find(
+      (e): e is import('../index.js').CompanyStrikeEffect => e.type === 'company-strike',
+    );
+    if (csEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      if (company && company.characters.length > 0) {
+        const hazardPlayerId = hazardPlayer(current, activePlayerId).id;
+        const totalStrikes = company.characters.length;
+        logDetail(
+          `company-strike "${(csCardDef as { name?: string }).name ?? '?'}": each of ${totalStrikes} character(s) ` +
+          `faces one ${csEffect.prowess}-prowess strike (not an attack)` +
+          `${csEffect.uncancelable ? ', uncancelable' : ''}` +
+          `${csEffect.bodyCheckModifier ? `, body check ${formatSignedNumber(csEffect.bodyCheckModifier)}` : ''}`,
+        );
+        const combat: import('../types/state-combat.js').CombatState = {
+          attackSource: { type: 'company-strike-event', eventInstanceId: entry.card.instanceId },
+          companyId: company.id,
+          defendingPlayerId: activePlayerId,
+          attackingPlayerId: hazardPlayerId,
+          strikesTotal: totalStrikes,
+          strikeProwess: csEffect.prowess,
+          creatureBody: null,
+          creatureRace: undefined,
+          strikeAssignments: [],
+          currentStrikeIndex: 0,
+          phase: 'assign-strikes',
+          assignmentPhase: 'defender',
+          bodyCheckTarget: null,
+          detainment: false,
+          ...(csEffect.uncancelable ? { uncancelable: true } : {}),
+          ...(csEffect.bodyCheckModifier ? { bodyCheckModifier: csEffect.bodyCheckModifier } : {}),
+        };
+        // Set combat and fall through so the chain entry is marked resolved (the
+        // event card is discarded with the chain). The combat then surfaces from
+        // `state.combat` — mirrors Tidings of Bold Spies. Returning needsInput
+        // here would leave the entry unresolved and re-initiate combat after it
+        // finalizes.
+        current = { ...current, combat };
       }
     }
   }

@@ -1475,12 +1475,15 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       body = body + strike.strikeBodyPenalty;
     }
     const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
+    // Attack-level body-check modifier (e.g. Cruel Caradhras td-9: +1 to any
+    // resulting body check). Positive values make elimination more likely.
+    const attackBodyCheckModifier = combat.bodyCheckModifier ?? 0;
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) only apply to
     // characters (allies do not bear items).
     const itemBodyMod = charData && !allyMatch ? bodyCheckRollModifier(stateWithRoll, charData) : 0;
-    const effectiveRoll = rollTotal + woundedBonus + itemBodyMod;
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
