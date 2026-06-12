@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -1668,6 +1668,7 @@ function handleInfluenceAttemptDeclare(
   const chainState = initiateChain(newState, action.player, cardInstance, {
     type: 'influence-attempt',
     influencingCharacterId: charId,
+    placeUnderLeaderControl: action.placeUnderLeaderControl,
   });
 
   return { state: chainState };
@@ -1683,7 +1684,7 @@ function handleInfluenceAttemptDeclare(
  */
 export function resolveInfluenceAttemptRoll(
   state: GameState,
-  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId } },
+  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean } },
 ): { state: GameState; effects: GameEffect[] } {
   const siteState = state.phaseState as SitePhaseState;
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
@@ -1772,28 +1773,46 @@ export function resolveInfluenceAttemptRoll(
 
   const newPlayers = clonePlayers(state);
 
+  // LE "Orcs of Udûn"-style control: an eligible Orc/Troll leader may take a
+  // `leader-control` faction under its control on success, leaving the site
+  // untapped. The option is only honoured when the attempt succeeds and the
+  // influencing character still matches the effect's race + keyword gate.
+  const willPlaceUnderControl = total >= influenceNumber
+    && !!entry.payload.placeUnderLeaderControl
+    && charDef !== undefined && isCharacterCard(charDef)
+    && leaderControlEligibility(def, charDef);
+  if (willPlaceUnderControl) {
+    logDetail(`Site: ${charName} takes ${def.name} under leader control — site left untapped`);
+  }
+
   // Tap the site, unless it carries the `never-taps` site-rule
-  // (e.g. The Worthy Hills — influence attempts there do not tap the site).
+  // (e.g. The Worthy Hills — influence attempts there do not tap the site)
+  // or the leader is taking the faction under control (untapped per text).
   const neverTaps = siteNeverTaps(state, siteInPlay);
   if (neverTaps) {
     logDetail(`Site: influence at ${def.name} — site has never-taps, leaving site untapped`);
   }
+  const skipSiteTap = neverTaps || willPlaceUnderControl;
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: siteInPlay && !neverTaps ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
+    currentSite: siteInPlay && !skipSiteTap ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
   };
 
   newPlayers[playerIndex] = { ...player, ...newPlayers[playerIndex], companies: newCompanies, lastDiceRoll: roll };
 
   if (total >= influenceNumber) {
     logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
-    const newCardsInPlay = [...player.cardsInPlay, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped }];
+    const factionEntry = willPlaceUnderControl
+      ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId }
+      : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped };
+    const newCardsInPlay = [...player.cardsInPlay, factionEntry];
     newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
 
     // Rule 2.V.5: a successful resource that taps the site opens the
-    // additional-minor-item window.
-    const openMinorItemBonus = !siteState.resourcePlayed && !neverTaps;
+    // additional-minor-item window. Taking the faction under control leaves
+    // the site untapped, so it does not open that window.
+    const openMinorItemBonus = !siteState.resourcePlayed && !skipSiteTap;
 
     return {
       state: {

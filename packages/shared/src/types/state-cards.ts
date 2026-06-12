@@ -139,6 +139,17 @@ export interface CardInPlay {
    * The card is discarded when the company's membership changes.
    */
   readonly companyId?: import('./common.js').CompanyId;
+  /**
+   * For a faction placed *under the control of a specific leader* (the LE
+   * "Orcs of Udûn"-style factions, e.g. le-262, le-275, le-279, le-281,
+   * le-282, le-291): the instance ID of the controlling character. Set when
+   * an Orc or Troll leader successfully influences the faction and the player
+   * elects to take control (which also leaves the site untapped). The faction
+   * is discarded if that leader moves or leaves play, and a leader controlling
+   * three or more such factions earns bonus marshalling points. See the
+   * `leader-control` effect.
+   */
+  readonly controlledBy?: CardInstanceId;
 }
 
 /**

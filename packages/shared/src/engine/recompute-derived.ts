@@ -38,7 +38,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -461,6 +461,27 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);
     if (def) mp = addMP(mp, def);
+  }
+
+  // Leader-controlled faction group bonus (LE "Orcs of Udûn"-style factions):
+  // "Three or more factions controlled by the same leader give 2 extra
+  // marshalling points." Count `controlledBy` factions per leader and award the
+  // bonus once per leader that meets the threshold. The threshold and bonus are
+  // read from the faction's `leader-control` effect (identical across the set).
+  const factionsByLeader = new Map<string, { count: number; def: CardDefinition }>();
+  for (const card of player.cardsInPlay) {
+    if (card.controlledBy === undefined) continue;
+    const def = resolveDef(state, card.instanceId);
+    if (!def || !getLeaderControlEffect(def)) continue;
+    const key = card.controlledBy as string;
+    const existing = factionsByLeader.get(key);
+    factionsByLeader.set(key, { count: (existing?.count ?? 0) + 1, def });
+  }
+  for (const { count, def } of factionsByLeader.values()) {
+    const effect = getLeaderControlEffect(def);
+    if (effect && count >= effect.groupBonus.count) {
+      mp = { ...mp, faction: mp.faction + effect.groupBonus.mp };
+    }
   }
 
   // Kill/MP pile: defeated creatures and items stored at Havens (CoE rule

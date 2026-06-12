@@ -204,6 +204,12 @@ export interface PendingResolution {
         readonly factionDefinitionId: CardDefinitionId;
         /** The character making the influence roll. */
         readonly influencingCharacterId: CardInstanceId;
+        /**
+         * When true, an eligible Orc/Troll leader takes the faction under its
+         * control on success (LE "Orcs of Udûn"-style factions), leaving the
+         * site untapped. Threaded from the chain entry's payload.
+         */
+        readonly placeUnderLeaderControl?: boolean;
       }
     | {
         /**

@@ -1042,6 +1042,43 @@ export interface PlayFlagEffect extends EffectBase {
 }
 
 /**
+ * Faction "control by a leader" mechanic (CoE — LE "Orcs of Udûn"-style
+ * factions: le-262, le-275, le-279, le-281, le-282, le-291).
+ *
+ * When a character whose race is in {@link races} and which carries the
+ * {@link requiresKeyword} keyword successfully makes the influence attempt for
+ * this faction, the player **may** place the faction under that character's
+ * control. Doing so:
+ *
+ * - records `controlledBy` = the controlling character's instance ID on the
+ *   faction's {@link CardInPlay} entry,
+ * - leaves the influence site **untapped** (the attempt does not tap it),
+ * - discards the faction if the controlling leader later **moves** (its company
+ *   completes movement) or **leaves play** (eliminated / influenced away), and
+ * - contributes to the {@link groupBonus}: a leader controlling `count` or more
+ *   such factions grants `mp` extra marshalling points (counted once per
+ *   leader, regardless of how many factions over the threshold it controls).
+ *
+ * Taking control is optional ("you may"): the legal-action generator emits both
+ * a normal influence attempt and a "place under control" variant for an
+ * eligible leader, and the player chooses.
+ */
+export interface LeaderControlEffect extends EffectBase {
+  readonly type: 'leader-control';
+  /** Races of character eligible to take control (e.g. `["orc", "troll"]`). */
+  readonly races: readonly string[];
+  /** Keyword the controlling character must carry (e.g. `"Leader"`). */
+  readonly requiresKeyword: string;
+  /** Group marshalling-point bonus for a leader controlling `count`+ factions. */
+  readonly groupBonus: {
+    /** Minimum factions a single leader must control to earn the bonus. */
+    readonly count: number;
+    /** Extra marshalling points granted (once) when the threshold is met. */
+    readonly mp: number;
+  };
+}
+
+/**
  * One attack entry for the `trigger-attack-on-play` multi-attack form.
  */
 export interface TriggerAttackEntry {
@@ -2765,6 +2802,7 @@ export type CardEffect =
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | PlayCreatureFromDiscardEffect
+  | LeaderControlEffect
   | StayHerAppetiteEffect;
 
 /**

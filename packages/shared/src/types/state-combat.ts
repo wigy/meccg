@@ -623,7 +623,17 @@ export type ChainEntryPayload =
   | { readonly type: 'activated-ability' }
   | { readonly type: 'on-guard-reveal' }
   | { readonly type: 'body-check' }
-  | { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId };
+  | {
+      readonly type: 'influence-attempt';
+      readonly influencingCharacterId: CardInstanceId;
+      /**
+       * When true, the influencing Orc/Troll leader takes the faction under
+       * its control on success (LE "Orcs of Udûn"-style factions), leaving the
+       * influence site untapped. Threaded from the declared action's
+       * `placeUnderLeaderControl` flag. See {@link LeaderControlEffect}.
+       */
+      readonly placeUnderLeaderControl?: boolean;
+    };
 
 /**
  * A single entry on the chain of effects stack.

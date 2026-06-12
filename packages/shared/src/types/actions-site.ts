@@ -154,6 +154,14 @@ export interface InfluenceAttemptAction {
   readonly need: number;
   /** Human-readable breakdown of the target number, DI, and bonuses. */
   readonly explanation: string;
+  /**
+   * For LE "Orcs of Udûn"-style factions (`leader-control` effect): when true,
+   * the influencing character — an eligible Orc or Troll leader — takes the
+   * faction under its control on success, leaving the site untapped. The
+   * legal-action generator emits this variant alongside the normal attempt so
+   * the player may choose. See {@link LeaderControlEffect}.
+   */
+  readonly placeUnderLeaderControl?: boolean;
 }
 
 /**
