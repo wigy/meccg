@@ -3104,6 +3104,42 @@ attack record itself. Supported values:
   Spider at *Shelob's Lair* (le-402). Implemented in `reducer-combat.ts`
   (`resolveStrikeCore` → `eliminateCombatantFromStrike`).
 
+### Site auto-attack `appliesTo` (covert/overt guardians)
+
+A site's printed `automaticAttacks[]` entry may carry an `appliesTo` string
+that restricts which companies face it, based on the defending company's
+covert/overt status (MELE "good site" guardians). Supported values:
+
+- `"overt"` — only an overt company faces this attack. Card text: "(against
+  overt company only)".
+- `"covert"` — only a covert company faces this attack.
+- *absent* — every company faces the attack.
+
+`engine/reducer-site.ts` (`autoAttackAppliesToCompany`) skips attacks whose
+`appliesTo` does not match `isCovertCompany(company, …)` when resolving the
+`automatic-attacks` step, preserving the printed-list indices so
+`combat.attackSource.attackIndex` still references the right attack.
+
+A "(detainment against covert company)" attack does **not** use `appliesTo`
+— it is faced by overt companies too, as a regular (non-detainment) attack.
+Its detainment-vs-covert nature is expressed separately by a
+[`combat-detainment`](#12-combat-rule-effects) site effect gated on
+`defender.covert`; `reducer-site.ts` threads the company's covert status into
+`isDetainmentAttack` as `defendingCovert`. Example — *Minas Tirith* (le-391):
+a Men attack with `combatRules: ["each-character"]` and no `appliesTo` (plus
+the `combat-detainment` site effect), and a Dúnedain attack with
+`appliesTo: "overt"`.
+
+```jsonc
+"automaticAttacks": [
+  { "creatureType": "Men", "strikes": 1, "prowess": 9, "combatRules": ["each-character"] },
+  { "creatureType": "Dúnedain", "strikes": 4, "prowess": 10, "appliesTo": "overt" }
+],
+"effects": [
+  { "type": "combat-detainment", "when": { "defender.covert": true } }
+]
+```
+
 ### 42. `deck-search-attack`
 
 Used by hero resource short-events whose text reads "turn over cards

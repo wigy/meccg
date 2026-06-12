@@ -106,6 +106,7 @@ Follow these steps:
    - Ally/faction playability at sites: **implemented**
    - Haven path usage for movement: **implemented** (movement-map.ts)
    - Automatic attacks triggering combat: **implemented** (`reducer-site.ts` initiates each `automaticAttacks[]` entry as a combat; supports multiple sequential attacks, `body`, and `combatRules`: `attacker-chooses-defenders`, `each-character`, `cannot-be-canceled`, `wound-eliminates`)
+   - Covert/overt site guardians (MELE): **implemented** (`reducer-site.ts`). An `automaticAttacks[]` entry may carry `appliesTo: "overt" | "covert"` — the attack is skipped for a company of the other status (e.g. Minas Tirith le-391's Dúnedain attack "against overt company only"), preserving printed-list indices. A "(detainment against covert company)" attack carries **no** `appliesTo` (overt companies still face it as a regular attack); its detainment is a `combat-detainment` site effect gated on `defender.covert`, with the company's covert status threaded into `isDetainmentAttack` as `defendingCovert`.
    - Special text-based rules (e.g. "hazard limit increased by 2", "healing effects affect all characters"): check whether the rule is captured in `effects`. If the card text describes rules NOT in the `effects` array, list them as **unimplemented special rules**
 
    Include the site-specific findings in the report table alongside any effects.
