@@ -19,7 +19,8 @@ import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
+import type { TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -169,6 +170,11 @@ function handlePlayHazards(
   // --- Reveal face-down agent (no hazard slot cost) ---
   if (action.type === 'reveal-agent') {
     return handleRevealAgent(state, action);
+  }
+
+  // --- Tap an ally to discard an attached hazard permanent-event (le-153) ---
+  if (action.type === 'tap-ally-discard-hazard') {
+    return handleTapAllyDiscardHazard(state, action, mhState);
   }
 
   // --- Agent turn actions (each costs 1 hazard slot) ---
@@ -1695,6 +1701,84 @@ function fireEndOfCompanyMHCorruptionChecks(
  * TODO: passive conditions at end of M/H phase
  * TODO: check if other companies have unresolved movement to site of origin
  */
+/**
+ * Handle `tap-ally-discard-hazard` (le-153): tap the ally in the active
+ * company, then remove the targeted hazard permanent-event (attached to the
+ * company or to one of its characters) and return it to its owner's discard
+ * pile. CoE no-card-disappears: the removed instance lands in a discard pile.
+ */
+function handleTapAllyDiscardHazard(
+  state: GameState,
+  action: TapAllyDiscardHazardAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.player !== state.activePlayer) {
+    return { state, error: 'tap-ally-discard-hazard: only the active player may activate this ability' };
+  }
+  const activeIndex = getPlayerIndex(state, state.activePlayer);
+  const company = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'tap-ally-discard-hazard: active company not found' };
+
+  // Tap the ally (must be an untapped ally in the active company).
+  let allyTapped = false;
+  let newState = updatePlayer(state, activeIndex, p => {
+    const characters = { ...p.characters };
+    for (const charId of company.characters) {
+      const ch = characters[charId as string];
+      if (!ch) continue;
+      const idx = ch.allies.findIndex(a => a.instanceId === action.allyInstanceId);
+      if (idx === -1) continue;
+      const ally = ch.allies[idx];
+      if (ally.status !== CardStatus.Untapped) return p;
+      const newAllies = [...ch.allies];
+      newAllies[idx] = { ...ally, status: CardStatus.Tapped };
+      characters[charId as string] = { ...ch, allies: newAllies };
+      allyTapped = true;
+      break;
+    }
+    return allyTapped ? { ...p, characters } : p;
+  });
+  if (!allyTapped) return { state, error: 'tap-ally-discard-hazard: untapped ally not found in active company' };
+
+  // Locate and remove the target hazard permanent-event (company- or
+  // character-attached).
+  let removed: import('../index.js').CardInPlay | undefined;
+  newState = updatePlayer(newState, activeIndex, p => {
+    const companies = [...p.companies];
+    const co = companies[mhState.activeCompanyIndex];
+    const cIdx = co.hazards.findIndex(h => h.instanceId === action.targetInstanceId);
+    if (cIdx !== -1) {
+      removed = co.hazards[cIdx];
+      companies[mhState.activeCompanyIndex] = { ...co, hazards: co.hazards.filter(h => h.instanceId !== action.targetInstanceId) };
+      return { ...p, companies };
+    }
+    const characters = { ...p.characters };
+    for (const charId of co.characters) {
+      const ch = characters[charId as string];
+      if (!ch) continue;
+      const hIdx = ch.hazards.findIndex(h => h.instanceId === action.targetInstanceId);
+      if (hIdx !== -1) {
+        removed = ch.hazards[hIdx];
+        characters[charId as string] = { ...ch, hazards: ch.hazards.filter(h => h.instanceId !== action.targetInstanceId) };
+        return { ...p, characters };
+      }
+    }
+    return p;
+  });
+  if (!removed) return { state, error: 'tap-ally-discard-hazard: target hazard not found on the active company' };
+
+  // Return the discarded hazard to its owner's discard pile.
+  const ownerId = ownerOf(action.targetInstanceId);
+  const ownerIdx = getPlayerIndex(newState, ownerId);
+  const removedCard = removed;
+  newState = updatePlayer(newState, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(removedCard)] }));
+  logDetail(`tap-ally-discard-hazard: discarded "${defById(state, removedCard.definitionId)?.name ?? removedCard.definitionId as string}" to ${ownerId as string}'s discard pile`);
+
+  // Rule 5.27: the resource player acted → the hazard player may resume.
+  const updatedMh = mhState.hazardPlayerPassed ? { ...mhState, hazardPlayerPassed: false } : mhState;
+  return { state: { ...newState, phaseState: updatedMh } };
+}
+
 /**
  * Rule 5.31 — Company Returned to Origin (force-return-to-origin enforcement).
  *

@@ -6,7 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import type { TapDiscardAttachedHazardEffect } from '../../types/effects.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, matchesContext, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
 import { defenderAlignmentLabel } from '../detainment.js';
@@ -1300,6 +1301,71 @@ function playCreatureFromDiscardActions(
  *
  * TODO: creatures, short-events, permanent-events
  */
+/**
+ * Emit `tap-ally-discard-hazard` actions: an untapped ally in the active
+ * company carrying a `tap-discard-attached-hazard` effect (le-153) may tap to
+ * discard a hazard permanent-event attached to the company or to a character
+ * in it, when the effect's `when` gate (e.g. the company's destination region)
+ * holds. One action per (ally, target) pair.
+ */
+function tapDiscardAttachedHazardActions(
+  state: GameState,
+  playerId: PlayerId,
+  company: Company,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const destSiteDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
+  const destinationRegion = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.region : undefined;
+  const ctx = { bearer: { destinationRegion } };
+
+  const isHazardPermEvent = (defId: CardDefinitionId): boolean => {
+    const d = defById(state, defId);
+    return !!d && d.cardType === 'hazard-event' && (d as { eventType?: string }).eventType === 'permanent';
+  };
+
+  // Targets: hazard permanent-events attached to the company or to any of its
+  // characters.
+  const targets: CardInstanceId[] = [];
+  for (const hz of company.hazards) {
+    if (isHazardPermEvent(hz.definitionId)) targets.push(hz.instanceId);
+  }
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const hz of charData.hazards) {
+      if (isHazardPermEvent(hz.definitionId)) targets.push(hz.instanceId);
+    }
+  }
+  if (targets.length === 0) return actions;
+
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const ally of charData.allies) {
+      if (ally.status !== CardStatus.Untapped) continue;
+      const allyDef = defById(state, ally.definitionId);
+      const eff = getCardEffects(allyDef).find(
+        (e): e is TapDiscardAttachedHazardEffect => e.type === 'tap-discard-attached-hazard',
+      );
+      if (!eff || eff.cost?.tap !== 'self') continue;
+      if (eff.when && !matchesCondition(eff.when, ctx as unknown as Record<string, unknown>)) {
+        logDetail(`tap-discard-attached-hazard (${allyDef?.name ?? '?'}): when gate not met (destinationRegion: ${destinationRegion ?? 'none'})`);
+        continue;
+      }
+      for (const targetId of targets) {
+        actions.push({
+          action: { type: 'tap-ally-discard-hazard', player: playerId, allyInstanceId: ally.instanceId, targetInstanceId: targetId },
+          viable: true,
+        });
+      }
+    }
+  }
+  return actions;
+}
+
 function playHazardsActions(
   state: GameState,
   playerId: PlayerId,
@@ -2220,6 +2286,7 @@ function playHazardsActions(
           hazardCount: countUnresolvedChainHazards(state),
         },
       }));
+      actions.push(...tapDiscardAttachedHazardActions(state, playerId, company));
     }
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
   }

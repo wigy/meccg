@@ -1447,6 +1447,53 @@ export function buildForceReturnMHState(
   return { state, originInstanceId: company.currentSite!.instanceId, companyId: company.id };
 }
 
+/**
+ * Build a M/H phase state (play-hazards step) for an active-player company at
+ * `originSite` with the given characters and an ally attached to the first
+ * character, declared as moving to a freshly-minted `destinationSite`. The
+ * opponent sits idle at `opponentSite`. Used to exercise ally abilities gated
+ * on the company's destination region (e.g. Last Child of Ungoliant le-153).
+ */
+export function buildMovingAllyMHState(opts: {
+  characters: CardDefinitionId[];
+  originSite: CardDefinitionId;
+  destinationSite: CardDefinitionId;
+  allyDefId: CardDefinitionId;
+  opponentSite: CardDefinitionId;
+  opponentCharacters: CardDefinitionId[];
+}): GameState {
+  const built = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: opts.originSite, characters: opts.characters }], hand: [], siteDeck: [opts.originSite] },
+      { id: PLAYER_2, companies: [{ site: opts.opponentSite, characters: opts.opponentCharacters }], hand: [], siteDeck: [opts.opponentSite] },
+    ],
+  });
+  const withAlly = attachAllyToChar(built, 0, opts.characters[0], opts.allyDefId);
+  const dest = { instanceId: mint(), definitionId: opts.destinationSite, status: CardStatus.Untapped };
+  return {
+    ...withAlly,
+    phaseState: makeMHState({ activeCompanyIndex: 0, resolvedSitePath: [RegionType.Shadow] }),
+    players: [
+      { ...withAlly.players[0], companies: [{ ...withAlly.players[0].companies[0], siteCardOwned: true, destinationSite: dest }] },
+      withAlly.players[1],
+    ] as unknown as typeof withAlly.players,
+  };
+}
+
+/** Find the instance ID of an ally with `allyDefId` attached to the named character, or undefined. */
+export function findAllyInstanceId(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  allyDefId: CardDefinitionId,
+): CardInstanceId | undefined {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  return state.players[playerIdx].characters[charId as string]?.allies
+    .find(a => a.definitionId === allyDefId)?.instanceId;
+}
+
 /** Attach an item (or permanent resource event) to a character and return the updated GameState. */
 export function attachItemToChar(
   state: GameState,

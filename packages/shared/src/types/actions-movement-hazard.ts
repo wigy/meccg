@@ -613,6 +613,23 @@ export interface CancelReturnToOriginAction {
 }
 
 /**
+ * Tap an in-play ally to discard a hazard permanent-event attached to the
+ * ally's (moving) company or to a character in it. Backs the discard mode of
+ * Last Child of Ungoliant (le-153): "tap this ally to ... discard one hazard
+ * permanent-event on such a company or on a character in such a company."
+ */
+export interface TapAllyDiscardHazardAction {
+  /** Action discriminant. */
+  readonly type: 'tap-ally-discard-hazard';
+  /** The (resource/active) player tapping the ally. */
+  readonly player: PlayerId;
+  /** The ally instance being tapped (e.g. le-153). */
+  readonly allyInstanceId: CardInstanceId;
+  /** The attached hazard permanent-event instance to discard. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Execute the dice roll for a Seized by Terror check on a character.
  *
  * Created by the pending-resolution system after a hazard short event

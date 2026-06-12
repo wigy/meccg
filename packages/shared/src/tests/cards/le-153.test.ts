@@ -17,43 +17,54 @@
  *
  * Effects:
  *   1. company-overt — controlling character's company is overt
+ *   2. cancel-attack (tap self) — gated on a hazard-creature attack and the
+ *      company's destination region ∈ {Imlad Morgul, Ithilien, Gorgoroth}
+ *   3. tap-discard-attached-hazard (tap self) — same region gate
+ *   4. on-event company-arrives-at-site → move self→discard when arriving
+ *      outside those three regions (same mechanism as Treebeard tw-353)
+ *   manifestId tw-86 (Shelob) — links the manifestation chain
  *
  * Rule coverage:
  *
- * | # | Rule                                                     | Status          | Notes                                                 |
- * |---|----------------------------------------------------------|-----------------|-------------------------------------------------------|
- * | 1 | Unique                                                   | OK              | unique:true (deck-build limit)                        |
- * | 2 | Playable at Shelob's Lair                                | OK              | playableAt site filter (siteMatchesEntry by name)     |
- * | 3 | Manifestation of Shelob                                  | n/a             | manifestation grouping, no separate engine effect     |
- * | 4 | Controlling character's company is overt                 | OK              | company-overt via reducer-utils isCovertCompany       |
- * | 5 | Tap to cancel a hazard creature attack vs a company      | NOT IMPLEMENTED | cancel-attack combat context lacks the moving         |
- * |   |   moving to Imlad Morgul / Ithilien / Gorgoroth          |                 | company's destination region                          |
- * | 6 | Tap to discard a hazard permanent-event on such a        | NOT IMPLEMENTED | no tap-to-discard-hazard-permanent-event apply         |
- * |   |   company or character                                   |                 |                                                       |
- * | 7 | Discard if company moves to a site not in Gorgoroth /    | NOT IMPLEMENTED | on-event triggers globally stubbed (matchesTrigger)   |
- * |   |   Imlad Morgul / Ithilien                                |                 |                                                       |
- * | 8 | Return to hand if Shelob is played                       | NOT IMPLEMENTED | on-event triggers globally stubbed (matchesTrigger)   |
+ * | # | Rule                                                     | Status      | Notes                                                  |
+ * |---|----------------------------------------------------------|-------------|--------------------------------------------------------|
+ * | 1 | Unique                                                   | OK          | unique:true (deck-build limit)                         |
+ * | 2 | Playable at Shelob's Lair                                | OK          | playableAt site filter (siteMatchesEntry by name)      |
+ * | 3 | Manifestation of Shelob                                  | n/a         | manifestId tw-86 links the chain; no separate effect   |
+ * | 4 | Controlling character's company is overt                 | OK          | company-overt via reducer-utils isCovertCompany        |
+ * | 5 | Tap to cancel a hazard creature attack vs a company      | IMPLEMENTED | cancel-attack + `bearer.destinationRegion` combat ctx  |
+ * |   |   moving to Imlad Morgul / Ithilien / Gorgoroth          |             |                                                        |
+ * | 6 | Tap to discard a hazard permanent-event on such a        | IMPLEMENTED | `tap-discard-attached-hazard` ability (M/H phase)      |
+ * |   |   company or character                                   |             |                                                        |
+ * | 7 | Discard if company moves to a site not in Gorgoroth /    | IMPLEMENTED | on-event company-arrives-at-site move self→discard     |
+ * |   |   Imlad Morgul / Ithilien                                |             |                                                        |
+ * | 8 | Return to hand if Shelob is played                       | DORMANT     | Shelob (tw-86) is not yet ported into the card pool;   |
+ * |   |                                                          |             | manifestId is set so the link works once it is added   |
  *
- * Playable: PARTIALLY — NOT CERTIFIED. Rules 5–8 have no engine support
- * (destination-region-gated cancel-attack, tap-to-discard hazard permanent-
- * events, and two on-event triggers that depend on the stubbed trigger
- * system). This test exercises the implemented rules only (playability and
- * company-overt); the unimplemented rules are intentionally not asserted.
+ * Playable: FULLY — CERTIFIED (2026-06-12). Rules 1–7 are implemented and
+ * exercised below. Rule 8's trigger card (Shelob, tw-86) is not in the
+ * implemented set, so the rule can never fire today; the `manifestId` link is
+ * encoded for when Shelob is ported. Tracked as a `test.todo`.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  buildTestState, buildSitePhaseState, resetMint,
-  attachAllyToChar,
-  RESOURCE_PLAYER,
+  buildTestState, buildSitePhaseState, resetMint, dispatch,
+  attachAllyToChar, attachHazardToChar, findCharInstanceId,
+  buildMovingAllyMHState, findAllyInstanceId,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
   viableActions, makeCancelWindowCombat,
   type BuildTestStateOpts,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase } from '../../index.js';
-import type { CardDefinitionId, CancelAttackAction, ModifyAttackAction, PlayHeroResourceAction } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import type { CardDefinitionId, GameState, CancelAttackAction, ModifyAttackAction, PlayHeroResourceAction, TapAllyDiscardHazardAction } from '../../index.js';
 
 const LAST_CHILD = 'le-153' as CardDefinitionId;
+/** Barad-dûr (le-352): Gorgoroth — a destination inside the qualifying regions. */
+const BARAD_DUR = 'le-352' as CardDefinitionId;
+/** Foolish Words (le-112): a hazard permanent-event, the rule-6 discard target. */
+const FOOLISH_WORDS = 'le-112' as CardDefinitionId;
 
 // Minion characters (LE pool — ringwraith alignment, no inherent effects).
 const ASTERNAK = 'le-1' as CardDefinitionId;   // man, prowess 5, body 7, mind 5 → covert alone
@@ -157,4 +168,91 @@ describe('Last Child of Ungoliant (le-153)', () => {
       .filter(a => 'cardInstanceId' in a.action && (a.action as CancelAttackAction).cardInstanceId === nsnInstanceId);
     expect(cancelActions.length).toBeGreaterThanOrEqual(1);
   });
+
+  // ─── Rule 5: tap to cancel a hazard creature attack vs a moving company ────
+
+  const movingCompanyState = (destinationDefId: CardDefinitionId): GameState =>
+    buildMovingAllyMHState({
+      characters: [ASTERNAK], originSite: SHELOBS_LAIR, destinationSite: destinationDefId,
+      allyDefId: LAST_CHILD, opponentSite: MINAS_MORGUL, opponentCharacters: [LUITPRAND],
+    });
+
+  test('can tap to cancel a hazard creature attack when the company is moving to a qualifying region', () => {
+    // Destination Barad-dûr is in Gorgoroth — one of the three qualifying regions.
+    const moving = movingCompanyState(BARAD_DUR);
+    const combat = makeCancelWindowCombat(moving, { strikesTotal: 1, strikeProwess: 12 });
+    const allyId = findAllyInstanceId(combat, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
+    expect(allyId).toBeDefined();
+
+    const cancel = viableActions(combat, PLAYER_1, 'cancel-attack')
+      .filter(a => (a.action as CancelAttackAction).cardInstanceId === allyId);
+    expect(cancel.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('cannot tap to cancel when the company is moving to a non-qualifying region', () => {
+    // Moria is in Redhorn Gate — outside the three regions.
+    const moving = movingCompanyState(MORIA_MINION);
+    const combat = makeCancelWindowCombat(moving, { strikesTotal: 1, strikeProwess: 12 });
+    const allyId = findAllyInstanceId(combat, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
+
+    const cancel = viableActions(combat, PLAYER_1, 'cancel-attack')
+      .filter(a => (a.action as CancelAttackAction).cardInstanceId === allyId);
+    expect(cancel).toHaveLength(0);
+  });
+
+  // ─── Rule 6: tap to discard a hazard permanent-event on the company ───────
+
+  test('can tap to discard a hazard permanent-event on a character in the moving company', () => {
+    const moving = movingCompanyState(BARAD_DUR);
+    // A hazard permanent-event (Foolish Words) attached to Asternak, owned by P2.
+    const withHazard = attachHazardToChar(moving, RESOURCE_PLAYER, ASTERNAK, FOOLISH_WORDS, HAZARD_PLAYER);
+
+    const discardActions = computeLegalActions(withHazard, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'tap-ally-discard-hazard')
+      .map(ea => ea.action as TapAllyDiscardHazardAction);
+    expect(discardActions.length).toBeGreaterThanOrEqual(1);
+
+    const after = dispatch(withHazard, discardActions[0]);
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
+    const charAfter = after.players[RESOURCE_PLAYER].characters[charId as string];
+    // Foolish Words is gone from the character and in P2's (owner's) discard pile.
+    expect(charAfter?.hazards.some(h => h.definitionId === FOOLISH_WORDS)).toBe(false);
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(true);
+    // The ally is tapped (the activation cost).
+    expect(charAfter?.allies.find(a => a.definitionId === LAST_CHILD)?.status).toBe(CardStatus.Tapped);
+  });
+
+  test('the discard ability is NOT offered when moving to a non-qualifying region', () => {
+    const moving = movingCompanyState(MORIA_MINION);
+    const withHazard = attachHazardToChar(moving, RESOURCE_PLAYER, ASTERNAK, FOOLISH_WORDS, HAZARD_PLAYER);
+    const discardActions = computeLegalActions(withHazard, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'tap-ally-discard-hazard');
+    expect(discardActions).toHaveLength(0);
+  });
+
+  // ─── Rule 7: discard if the company moves to a site outside the regions ───
+
+  test('discards itself when its company moves to a site NOT in the three regions', () => {
+    // Moving to Moria (Redhorn Gate) → outside Gorgoroth/Imlad Morgul/Ithilien.
+    const moving = movingCompanyState(MORIA_MINION);
+    const after = dispatch(dispatch(moving, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
+    expect(after.players[RESOURCE_PLAYER].characters[charId as string]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === LAST_CHILD)).toBe(true);
+  });
+
+  test('is NOT discarded when its company moves to a site within the three regions', () => {
+    // Moving to Barad-dûr (Gorgoroth) → one of the qualifying regions.
+    const moving = movingCompanyState(BARAD_DUR);
+    const after = dispatch(dispatch(moving, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
+    expect(after.players[RESOURCE_PLAYER].characters[charId as string]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(true);
+  });
+
+  // ─── Rule 8: return to hand if Shelob is played (dormant) ─────────────────
+  // Shelob (tw-86) is not yet ported into the implemented card pool, so this
+  // manifestation-return trigger can never fire today. The `manifestId: tw-86`
+  // link is encoded on le-153 so the relationship is in place once Shelob is
+  // added and the manifestation-return hook is implemented.
+  test.todo('returns to its owner\'s hand when Shelob (tw-86) is played');
 });

@@ -4091,3 +4091,34 @@ from `resolveLongEvent`.
 
 Used by: *Long Winter* (le-117, ≥2 Wildernesses), *Foul Fumes* (tw-36,
 Shadow-land or Dark-domain) — both gated on Doors of Night.
+
+### 47. `tap-discard-attached-hazard`
+
+In-play ally ability: tap this ally (cost `{ "tap": "self" }`) to discard one
+hazard permanent-event attached to the ally's company or to a character in it.
+Offered during the company's M/H phase to the active (resource) player; one
+action per (ally, eligible target) pair. The discarded hazard returns to its
+owner's discard pile (no-card-disappears invariant).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `cost` | yes | `{ "tap": "self" }` — tap the bearer ally. |
+| `when` | no | Gate evaluated against `{ bearer: { destinationRegion } }` — the region the bearer's company is moving to. When absent, offered whenever an eligible target exists. |
+
+```json
+{ "type": "tap-discard-attached-hazard",
+  "cost": { "tap": "self" },
+  "when": { "bearer.destinationRegion": { "$in": ["Imlad Morgul", "Ithilien", "Gorgoroth"] } } }
+```
+
+Eligible targets are hazard permanent-events (`cardType: "hazard-event"`,
+`eventType: "permanent"`) attached to the company (`company.hazards`) or to any
+of its characters (`character.hazards`). Implemented by
+`tapDiscardAttachedHazardActions` (legal-actions/movement-hazard.ts) and
+`handleTapAllyDiscardHazard` (reducer-movement-hazard.ts).
+
+**Related cancel-attack context**: the combat `cancel-attack` `when` context
+also exposes `bearer.destinationRegion` (the defending company's destination
+site region, undefined when not moving), so an ally can cancel a hazard
+creature attack only when its company is moving to a qualifying region. Used
+together by Last Child of Ungoliant (le-153).
