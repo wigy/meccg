@@ -1029,7 +1029,8 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-site",
