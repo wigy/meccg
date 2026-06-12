@@ -676,6 +676,24 @@
     "eventType": "short",
     "keywords": [
       "environment"
+    ],
+    "certified": "2026-06-12",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "inPlay": "Doors of Night"
+        }
+      },
+      {
+        "type": "region-keying-boost",
+        "boosts": [
+          { "from": "wilderness", "asType": "wilderness", "count": 2 },
+          { "from": "shadow", "asType": "wilderness", "count": 2 },
+          { "from": "border", "asType": "wilderness", "count": 2 }
+        ]
+      }
     ]
   },
   {
