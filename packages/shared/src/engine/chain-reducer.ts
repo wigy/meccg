@@ -17,6 +17,7 @@ import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js'
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
 import type { TapSitesInPlayEffect } from '../types/effects.js';
+import { isMinionOrBalrog } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1462,6 +1463,7 @@ function applyTapSitesInPlayOnResolve(
     const players: [PlayerState, PlayerState] = [newState.players[0], newState.players[1]];
     for (let pIdx = 0; pIdx < 2; pIdx++) {
       const player = players[pIdx];
+      const ownerIsMinion = isMinionOrBalrog(player);
       const companies = player.companies.map(co => {
         const site = co.currentSite;
         if (!site || site.status === CardStatus.Tapped) return co;
@@ -1474,6 +1476,9 @@ function applyTapSitesInPlayOnResolve(
             shadowCount: siteDef.sitePath.filter(r => r === RegionType.Shadow).length,
             darkCount: siteDef.sitePath.filter(r => r === RegionType.Dark).length,
           },
+          // Owning player's alignment, so a card with "no effect on a minion
+          // player" can exclude minion/Balrog-owned sites (Foul Fumes tw-36).
+          player: { minion: ownerIsMinion },
         };
         if (eff.condition && !matchesCondition(eff.condition, ctx as unknown as Record<string, unknown>)) return co;
         tappedCount++;

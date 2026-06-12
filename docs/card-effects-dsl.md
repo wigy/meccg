@@ -4074,7 +4074,7 @@ resolution — sites entering play later are unaffected.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `requiresInPlay` | no | Name of a card that must be in play for the tapping to occur (e.g. `"Doors of Night"`). When omitted, the tapping always applies on resolution. |
-| `condition` | no | Per-site condition evaluated against `{ site: { type }, sitePath: { wildernessCount, shadowCount, darkCount } }` (the site's printed site-path terrain counts). A site is tapped only when it matches. |
+| `condition` | no | Per-site condition evaluated against `{ site: { type }, sitePath: { wildernessCount, shadowCount, darkCount }, player: { minion } }`. The site-path terrain counts are the site's printed `sitePath`; `player.minion` is the owning player's alignment (Ringwraith/Balrog), so a card with "no effect on a minion player" can exclude minion-owned sites (Foul Fumes tw-36). A site is tapped only when it matches. |
 
 ```json
 { "type": "tap-sites-in-play", "requiresInPlay": "Doors of Night",
