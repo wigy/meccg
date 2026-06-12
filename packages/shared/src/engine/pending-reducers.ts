@@ -25,6 +25,7 @@ import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint }
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { hasPlayFlag } from '../effects/index.js';
 import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
@@ -2006,14 +2007,20 @@ function applySelectCardBearerResolution(
     ],
   })));
 
-  // Add bearer-cannot-untap constraint
-  s = addConstraint(s, {
-    source: cardInstanceId,
-    sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
-    scope: { kind: 'until-cleared' },
-    target: { kind: 'character', characterId },
-    kind: { type: 'bearer-cannot-untap', cardInstanceId },
-  });
+  // Add bearer-cannot-untap constraint — only when the card declares the untap
+  // lock via its play-flag (e.g. Rescue Prisoners tw-315, The Windlord Found Me
+  // dm-164). Trigger-attack storable cards without the lock would tap the bearer
+  // for the attack but untap normally.
+  const cardDef = cardDefId ? defById(s, cardDefId) : undefined;
+  if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-cannot-untap-until-stored')) {
+    s = addConstraint(s, {
+      source: cardInstanceId,
+      sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId },
+      kind: { type: 'bearer-cannot-untap', cardInstanceId },
+    });
+  }
 
   return { state: dequeueResolution(s, top.id) };
 }

@@ -1403,6 +1403,33 @@ the company; none may join the company."
 { "type": "play-flag", "flag": "block-company-joins" }
 ```
 
+### 15c. `play-flag: "bearer-cannot-untap-until-stored"`
+
+A `play-flag` carried by a storable permanent event that attaches to a
+character on play. When present, the engine adds a `bearer-cannot-untap`
+constraint on the bearer so that character may **not** untap during the untap
+phase until the card is stored (the `store-item` handler clears the constraint
+automatically). It is applied wherever the card attaches:
+
+- via a `play-target` character tap cost (`chain-reducer.ts`),
+- via a direct `storable-at` attachment without a triggered attack
+  (`chain-reducer.ts`),
+- via post-attack bearer selection for `trigger-attack-on-play` cards
+  (`applySelectCardBearerResolution` in `pending-reducers.ts`).
+
+Without the flag, a storable permanent event still taps its bearer on play (if
+it declares a tap cost) but the bearer untaps normally next turn. Card-text
+gate: "the character may not untap until this card is stored."
+
+Carried by To Satisfy the Questioner (le-246), That's Been Heard Before Tonight
+(le-241), Rescue Prisoners (tw-315), and The Windlord Found Me (dm-164).
+Deliberately absent on That Ain't No Secret (le-240), whose text omits the
+untap lock.
+
+```json
+{ "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
+```
+
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,
