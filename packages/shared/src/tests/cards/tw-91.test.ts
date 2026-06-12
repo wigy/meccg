@@ -11,45 +11,39 @@
  *    origin. Cannot be duplicated."
  *
  * Effects (data):
+ *   - play-condition, requires card-in-play "Doors of Night"
  *   - force-return-to-origin, condition { sitePath.wildernessCount: { $gte: 1 } }
+ *   - duplication-limit, scope game, max 1
  *
  * Engine Support:
- * | # | Rule                                                  | Status          | Notes                                                            |
- * |---|-------------------------------------------------------|-----------------|------------------------------------------------------------------|
- * | 1 | Environment / long-event enters play on resolution    | IMPLEMENTED     | resolveLongEvent adds card to cardsInPlay                         |
- * | 2 | force-return-to-origin tag recognised by chain engine | IMPLEMENTED     | chain.ts cancelReturnToOriginChainActions keys off the tag       |
- * | 3 | Moving company with a Wilderness returns to origin     | NOT IMPLEMENTED | rule 5.31 enforcement is `test.todo`; returnedToOrigin never set  |
- * | 4 | Playable only if Doors of Night is in play            | NOT IMPLEMENTED | no play-condition gate for long-events on an in-play card name    |
- * | 5 | Cannot be duplicated                                   | NOT IMPLEMENTED | no duplication-limit effect / environment-dup gate               |
+ * | # | Rule                                                  | Status      | Notes                                                       |
+ * |---|-------------------------------------------------------|-------------|-------------------------------------------------------------|
+ * | 1 | Environment / long-event enters play on resolution    | IMPLEMENTED | resolveLongEvent adds card to cardsInPlay                   |
+ * | 2 | force-return-to-origin tag recognised by chain engine | IMPLEMENTED | chain.ts cancelReturnToOriginChainActions keys off the tag  |
+ * | 3 | Moving company with a Wilderness returns to origin     | IMPLEMENTED | rule 5.31 enforcement in endCompanyMH (reducer-movement-hazard.ts) |
+ * | 4 | Playable only if Doors of Night is in play            | IMPLEMENTED | play-condition `card-in-play` gate in legal-actions/movement-hazard.ts |
+ * | 5 | Cannot be duplicated                                   | IMPLEMENTED | duplication-limit scope game, max 1                         |
  *
- * Playable: PARTIALLY — NOT CERTIFIED.
+ * Playable: FULLY — CERTIFIED (2026-06-12).
  *
- * The card's defining mechanic — forcing a moving company whose site path
- * contains a Wilderness to return to its site of origin — depends on CoE rule
- * 5.31 ("Company Returned to Origin"), which is currently a `test.todo` in
- * `rule-5.31-returned-to-origin.test.ts`. The `force-return-to-origin` effect
- * is only consumed by the chain engine as a *cancellation target* (Goldberry,
- * tw-245); nothing in the engine actually sets `returnedToOrigin = true` from a
- * hazard resolution, so the company never returns. The "Playable if Doors of
- * Night is in play" gate is likewise unenforced (no play-condition mechanism
- * exists for long-events keyed on an in-play card name). Both gaps are shared
- * with the sibling environment hazards Foul Fumes (tw-36) and Long Winter
- * (le-117), neither of which is certified.
- *
- * The single implemented slice (the `force-return-to-origin` tag being
- * recognised on the chain so Goldberry can cancel it) is exercised here from
- * Snowstorm's perspective; it is also covered from Goldberry's perspective in
- * tw-245.test.ts.
+ * Every printed rule is enforced: the rule-5.31 force-return (foundation), the
+ * Doors-of-Night `card-in-play` play gate, and the game-scope duplication
+ * limit. The `force-return-to-origin` cancellation-target slice (Goldberry,
+ * tw-245) is exercised here and from Goldberry's perspective in tw-245.test.ts.
+ * Generic rule-5.31 coverage lives in rule-5.31-returned-to-origin.test.ts.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState,
   resetMint,
+  dispatch,
   Phase,
   attachAllyToChar,
   findCharInstanceId,
   makeMHState,
+  addCardInPlay,
+  buildForceReturnMHState,
   mint,
   PLAYER_1,
   PLAYER_2,
@@ -60,14 +54,16 @@ import {
   MORIA,
   MINAS_TIRITH,
   RESOURCE_PLAYER,
+  HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { RegionType } from '../../index.js';
-import type { CardDefinitionId, CancelReturnToOriginAction } from '../../index.js';
+import type { CardDefinitionId, CancelReturnToOriginAction, PlayHazardAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { initiateChain } from '../../engine/chain-reducer.js';
 
 const SNOWSTORM = 'tw-91' as CardDefinitionId;
 const GOLDBERRY = 'tw-245' as CardDefinitionId;
+const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId;
 
 describe('Snowstorm (tw-91)', () => {
   beforeEach(() => {
@@ -141,18 +137,76 @@ describe('Snowstorm (tw-91)', () => {
     expect(cancelActions).toHaveLength(0);
   });
 
-  // ─── Deferred: core mechanics not yet supported by the engine ─────────────
+  // ─── Rule 5.31: a moving company with a Wilderness returns to origin ──────
 
-  // CoE rule 5.31 enforcement is `test.todo` (see
-  // rule-5.31-returned-to-origin.test.ts). Nothing sets `returnedToOrigin` from
-  // a hazard resolution, so the moving company never actually returns to origin.
-  test.todo('a moving company with a Wilderness in its site path returns to its site of origin (rule 5.31)');
+  test('a moving company with a Wilderness in its site path returns to its site of origin', () => {
+    // Snowstorm in play; the active company moves through a Wilderness.
+    const { state, originInstanceId } = buildForceReturnMHState(
+      [ARAGORN], [RegionType.Wilderness], SNOWSTORM,
+    );
 
-  // No play-condition mechanism gates a long-event on an in-play card name, so
-  // Snowstorm is currently offered regardless of whether Doors of Night is out.
-  test.todo('Snowstorm is only playable while Doors of Night is in play');
+    const afterPass1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const after = dispatch(afterPass1, { type: 'pass', player: PLAYER_2 });
 
-  // "Cannot be duplicated" is not represented by a duplication-limit effect and
-  // there is no environment-duplication gate in the engine.
-  test.todo('a second Snowstorm cannot be played while one is in play');
+    const company = after.players[RESOURCE_PLAYER].companies[0];
+    // The company did not move — it stays at its site of origin (MINAS_TIRITH).
+    expect(company.currentSite?.instanceId).toBe(originInstanceId);
+    expect(company.currentSite?.definitionId).toBe(MINAS_TIRITH);
+    expect(company.moved).toBe(false);
+  });
+
+  // ─── Playable only if Doors of Night is in play ──────────────────────────
+
+  test('Snowstorm is only playable while Doors of Night is in play', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SNOWSTORM], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...built, phaseState: makeMHState({ resolvedSitePath: [RegionType.Wilderness] }) };
+    const snowstormHandId = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === SNOWSTORM)!.instanceId;
+    const isSnowstormPlay = (ea: { action: { type: string } }) =>
+      ea.action.type === 'play-hazard'
+      && (ea.action as PlayHazardAction).cardInstanceId === snowstormHandId;
+
+    // Without Doors of Night in play, Snowstorm is offered but not viable.
+    const withoutDon = computeLegalActions(state, PLAYER_2).find(isSnowstormPlay);
+    expect(withoutDon?.viable).toBe(false);
+    expect(withoutDon?.reason).toMatch(/Doors of Night/);
+
+    // With Doors of Night in play, Snowstorm becomes playable.
+    const withDon = addCardInPlay(state, HAZARD_PLAYER, DOORS_OF_NIGHT);
+    expect(computeLegalActions(withDon, PLAYER_2).find(isSnowstormPlay)?.viable).toBe(true);
+  });
+
+  // ─── Cannot be duplicated ────────────────────────────────────────────────
+
+  test('a second Snowstorm cannot be played while one is in play', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SNOWSTORM], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const base = { ...built, phaseState: makeMHState({ resolvedSitePath: [RegionType.Wilderness] }) };
+    const snowstormHandId = base.players[HAZARD_PLAYER].hand.find(c => c.definitionId === SNOWSTORM)!.instanceId;
+
+    // Doors of Night satisfied AND a Snowstorm already in play → the second copy
+    // is blocked by the duplication limit (not by the Doors-of-Night gate).
+    const withCopy = addCardInPlay(
+      addCardInPlay(base, HAZARD_PLAYER, DOORS_OF_NIGHT),
+      HAZARD_PLAYER, SNOWSTORM,
+    );
+    const dup = computeLegalActions(withCopy, PLAYER_2).find(
+      ea => ea.action.type === 'play-hazard'
+        && ea.action.cardInstanceId === snowstormHandId,
+    );
+    expect(dup?.viable).toBe(false);
+    expect(dup?.reason).toMatch(/duplicat/i);
+  });
 });
