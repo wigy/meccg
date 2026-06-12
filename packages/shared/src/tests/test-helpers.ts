@@ -1393,17 +1393,28 @@ export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefi
  *
  * Returns the assembled state plus the company's origin site instance ID and
  * company ID for post-dispatch assertions.
+ *
+ * Pass `opts.movingPlayerAlignment` to give the moving (player 0) side a
+ * non-default alignment — e.g. `Alignment.Ringwraith` to exercise a card's
+ * "no effect on a minion player" gating (Foul Fumes tw-36).
  */
 export function buildForceReturnMHState(
   characters: CardDefinitionId[],
   sitePath: RegionType[],
   envDefId: CardDefinitionId,
+  opts?: { movingPlayerAlignment?: Alignment },
 ): { state: GameState; originInstanceId: CardInstanceId; companyId: CompanyId } {
   const built = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
     players: [
-      { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters }], hand: [], siteDeck: [HENNETH_ANNUN] },
+      {
+        id: PLAYER_1,
+        companies: [{ site: MINAS_TIRITH, characters }],
+        hand: [],
+        siteDeck: [HENNETH_ANNUN],
+        ...(opts?.movingPlayerAlignment ? { alignment: opts.movingPlayerAlignment } : {}),
+      },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
     ],
   });
