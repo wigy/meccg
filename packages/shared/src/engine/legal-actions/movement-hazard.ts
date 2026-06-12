@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -26,6 +26,7 @@ import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -1574,6 +1575,14 @@ function playHazardsActions(
               actions.push({ action, viable: false, reason: 'Site path condition not met' });
               continue;
             }
+          } else if (playCondition && playCondition.requires === 'region-through-or-leave') {
+            // Cruel Caradhras (td-9): playable on a company using region movement
+            // to move through (not stopping at a site) or leave a named region.
+            if (!checkRegionThroughOrLeave(mhState, playCondition.regionNames ?? [])) {
+              logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
+              actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
+              continue;
+            }
           }
 
           // Creature-race-choice: generate one action per eligible race.
@@ -1904,6 +1913,19 @@ function playHazardsActions(
           }
         }
         if (blocked) continue;
+      }
+
+      // play-condition: card-in-play — the event is only playable while a
+      // named card is in play (e.g. Snowstorm tw-91 requires Doors of Night).
+      {
+        const cardInPlayCond = getCardEffects(def).find(
+          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'card-in-play',
+        );
+        if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
+          logDetail(`Hazard event "${def.name}": play-condition card-in-play requires "${cardInPlayCond.cardName}" in play — not playable`);
+          actions.push({ action, viable: false, reason: `${def.name} requires ${cardInPlayCond.cardName} in play` });
+          continue;
+        }
       }
 
       // play-target DSL: permanent events / corruption cards targeting a character get one action per character
@@ -2372,14 +2394,19 @@ function findCreatureKeyingMatches(
     inPlay: inPlayNames,
     destinationSite: { sitePath: destSitePathCounts },
   };
+  // region-keying-boost environments (Withered Lands): build the candidate
+  // paths once. Each is the effective path with at most one boost applied.
+  const keyingBoosts = collectRegionKeyingBoosts(state);
+  const candidateRegionPaths = regionPathsWithBoosts(effectiveRegionTypes, keyingBoosts);
   for (const key of def.keyedTo) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
-    // Region type matches
+    // Region type matches — try the effective path plus each boosted variant.
     if (key.regionTypes && key.regionTypes.length > 0) {
-      if (regionTypesMatch(key.regionTypes, effectiveRegionTypes)) {
+      for (const candidate of candidateRegionPaths) {
+        if (!regionTypesMatch(key.regionTypes, candidate)) continue;
         // Report each matching region type individually
         for (const rt of key.regionTypes) {
-          if (effectiveRegionTypes.includes(rt)) {
+          if (candidate.includes(rt)) {
             const k = `region-type:${rt}`;
             if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
           }
@@ -2667,6 +2694,48 @@ function checkSitePathCondition(
     ctx['inPlay'] = inPlayNames;
   }
   return effect.condition ? matchesCondition(effect.condition, ctx) : true;
+}
+
+/**
+ * Evaluate a `play-condition` with `requires: 'region-through-or-leave'`
+ * (Cruel Caradhras td-9).
+ *
+ * The card is playable on a company **using region movement** that either
+ * *leaves* one of the named regions (the origin region of the path) or *moves
+ * through* one without stopping at a site therein (an intermediate region of
+ * the path). The region where the company stops at a site is the **destination
+ * region** — the last entry of the resolved region path — and never qualifies,
+ * because the company neither leaves it nor passes through it.
+ *
+ * Implementation: require `movementType === 'region'`, then check whether any
+ * named region appears in `resolvedSitePathNames` excluding its last element
+ * (the destination region). The first element is the origin ("leave"); the
+ * middle elements are "move through".
+ */
+function checkRegionThroughOrLeave(
+  mhState: MovementHazardPhaseState,
+  regionNames: readonly string[],
+): boolean {
+  if (mhState.movementType !== 'region') {
+    logDetail(`region-through-or-leave: movement type is ${mhState.movementType ?? 'none'} (not region) — not playable`);
+    return false;
+  }
+  const pathNames = mhState.resolvedSitePathNames;
+  if (pathNames.length < 2) {
+    // A single-region path means origin region === destination region: the
+    // company stops at a site in that region without leaving or passing through.
+    logDetail(`region-through-or-leave: region path has ${pathNames.length} region(s) — no region is left or passed through`);
+    return false;
+  }
+  // Exclude the destination region (last element) — the company stops there.
+  const throughOrLeaveRegions = pathNames.slice(0, -1);
+  const match = regionNames.find(rn => throughOrLeaveRegions.includes(rn));
+  if (match) {
+    logDetail(`region-through-or-leave: company leaves/moves through "${match}" (path: ${pathNames.join(' → ')}, destination region excluded)`);
+    return true;
+  }
+  logDetail(`region-through-or-leave: none of [${regionNames.join(', ')}] is left or passed through (through/leave regions: ${throughOrLeaveRegions.join(', ') || 'none'})`);
+  return false;
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are

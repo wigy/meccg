@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -1444,6 +1444,34 @@ function buildActiveCompanyContext(
   };
 }
 
+/**
+ * Builds the condition context for a `play-condition` `requires:
+ * "player-state"` check. Exposes the active player's alignment, whether
+ * the active player has a Ringwraith-race avatar character in play, and the
+ * opposing player's alignment — all as card-text alignment strings
+ * (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`). Used by
+ * Above the Abyss (as-77).
+ */
+function buildPlayerStateContext(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+): Record<string, unknown> {
+  const opponent = state.players.find(p => p.id !== playerId);
+  let hasRingwraithInPlay = false;
+  for (const char of Object.values(player.characters)) {
+    const def = defById(state, char.definitionId);
+    if (isAvatarCharacter(def) && (def as { race?: string }).race === 'ringwraith') {
+      hasRingwraithInPlay = true;
+      break;
+    }
+  }
+  return {
+    player: { alignment: player.alignment, hasRingwraithInPlay },
+    opponent: { alignment: opponent?.alignment },
+  };
+}
+
 /** Legacy alias retained for call sites inside this module. */
 function buildTargetContext(
   state: GameState,
@@ -1852,6 +1880,27 @@ export function playResourceShortEventActions(
       }
       if (!met) {
         logDetail(`${def.name}: play-condition active-company not satisfied`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name}: play conditions not met`,
+        });
+        continue;
+      }
+    }
+
+    // play-condition requires: "player-state" — a generic DSL condition
+    // evaluated against the active player's avatar/alignment context
+    // ({ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }).
+    // Used by Above the Abyss (as-77): "if your opponent is a Wizard and your
+    // Ringwraith is in play".
+    const playerStateCondition = def.effects?.find(
+      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'player-state',
+    );
+    if (playerStateCondition?.condition) {
+      const met = matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId));
+      if (!met) {
+        logDetail(`${def.name}: play-condition player-state not satisfied`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
           viable: false,

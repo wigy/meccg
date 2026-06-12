@@ -58,6 +58,19 @@ export interface AutomaticAttack {
    */
   readonly combatRules?: readonly string[];
   /**
+   * Restricts which companies face this automatic-attack based on their
+   * covert/overt status (MELE site guardians). `'overt'` means the attack
+   * is faced only by an overt company (e.g. Minas Tirith le-391's Dúnedain
+   * attack, "against overt company only"); `'covert'` restricts it to a
+   * covert company. Absent means every company faces the attack — note that
+   * a "detainment against covert company" attack still has *no* `appliesTo`
+   * (it is faced by overt companies too, as a regular non-detainment attack
+   * per the MELE rules); its detainment-vs-covert nature is expressed
+   * separately by a `combat-detainment` site effect gated on
+   * `defender.covert`.
+   */
+  readonly appliesTo?: 'covert' | 'overt';
+  /**
    * If this attack originates from a permanent-event in play (not from the
    * site card itself), the instance ID of that event. Used by finalizeCombat
    * to trigger `onDefeat` logic (e.g. Balrog of Moria removal from play).

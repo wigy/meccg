@@ -108,7 +108,14 @@ export type AttackSource =
    * mirrored (0-based). These attacks are NOT automatic-attacks — auto-attack
    * modifiers do not apply.
    */
-  | { readonly type: 'tidings-attack'; readonly eventInstanceId: CardInstanceId; readonly attackIndex: number };
+  | { readonly type: 'tidings-attack'; readonly eventInstanceId: CardInstanceId; readonly attackIndex: number }
+  /**
+   * Triggered by Cruel Caradhras (td-9) via the `company-strike` DSL effect: a
+   * hazard short-event that makes each character in the active company face one
+   * strike (not a creature attack — no race, uncancelable). `eventInstanceId`
+   * is the played short-event card.
+   */
+  | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.
@@ -442,6 +449,13 @@ export interface CombatState {
    * Set for attacks isolated by *Forewarned Is Forearmed*.
    */
   readonly uncancelable?: boolean;
+  /**
+   * Amount added to every character body-check roll this attack produces
+   * (positive = more likely to wound/eliminate). Set by the `company-strike`
+   * DSL effect (Cruel Caradhras td-9: "Any resulting body check is modified by
+   * +1"). Applied on top of the wounded +1 in `handleBodyCheckRoll`.
+   */
+  readonly bodyCheckModifier?: number;
   /**
    * When true, any character (or ally) this attack wounds is immediately
    * eliminated instead of merely wounded — no body check is rolled.

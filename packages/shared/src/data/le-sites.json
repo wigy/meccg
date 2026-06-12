@@ -770,7 +770,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-site",
@@ -789,7 +790,8 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-site",
@@ -908,10 +910,30 @@
       "gold-ring",
       "information"
     ],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 9,
+        "combatRules": ["each-character"]
+      },
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 4,
+        "prowess": 10,
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": { "defender.covert": true }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 3,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-site",
@@ -1029,7 +1051,8 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-site",
