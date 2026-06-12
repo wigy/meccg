@@ -996,7 +996,11 @@
         "type": "company-overt"
       }
     ],
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Shelob’s Lair"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-ally",
