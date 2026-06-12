@@ -2134,7 +2134,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
    * the target company must either *leave* (the origin region of region
@@ -2173,6 +2173,10 @@ export interface PlayConditionEffect extends EffectBase {
    * For `requires: 'discard-named-card'`: the card name that must be
    * discarded as a play prerequisite. Legal-action generation searches
    * the specified {@link sources} for a card with this name.
+   *
+   * For `requires: 'card-in-play'`: the card name that MUST be in play (as a
+   * character or in any player's cardsInPlay) for the card to be playable.
+   * Used by Snowstorm (tw-91): "Playable if Doors of Night is in play."
    */
   readonly cardName?: string;
   /**
@@ -2507,6 +2511,31 @@ export interface ForceReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * When this environment (long-event) resolves and enters play, tap every
+ * distinct site currently in play (a company's current site, on either
+ * side) whose attributes satisfy {@link condition}. Used by the
+ * Doors-of-Night clause of Foul Fumes (tw-36) and Long Winter (le-117):
+ * "if Doors of Night is in play, each non-Haven site with a Shadow-land /
+ * Dark-domain (resp. ≥2 Wildernesses) in its site path is tapped."
+ *
+ * The per-site condition is evaluated against a context exposing the
+ * site's type and its printed site-path terrain counts:
+ * `{ site: { type }, sitePath: { wildernessCount, shadowCount, darkCount } }`.
+ * Tapping is a one-time effect applied at resolution; sites that enter play
+ * later are unaffected.
+ */
+export interface TapSitesInPlayEffect extends EffectBase {
+  readonly type: 'tap-sites-in-play';
+  /**
+   * Name of a card that must be in play for the tapping to occur (e.g.
+   * "Doors of Night"). When absent, the tapping always applies on resolution.
+   */
+  readonly requiresInPlay?: string;
+  /** Per-site condition; a site is tapped only when it matches. */
+  readonly condition?: Condition;
+}
+
+/**
  * In-play ally ability: tap this ally during the M/H chain declaring window
  * to negate an unresolved chain entry that carries a `force-return-to-origin`
  * effect and would apply to the ally's company.
@@ -2675,6 +2704,7 @@ export type CardEffect =
   | DeckSearchAttackEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
+  | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
