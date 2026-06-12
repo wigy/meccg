@@ -3835,3 +3835,43 @@ by the normal `finalizeCombat` rules (defender's kill pile if fully defeated,
 otherwise back to the hazard player's discard pile).
 
 Used by: *Exhalation of Decay* (dm-55).
+
+### 43. `region-keying-boost`
+
+A turn-scoped environment effect that softens creature **keying** by letting one
+region in a company's resolved site path count as additional regions of another
+type. Carried by a hazard short-event environment; on play the card adds a
+`region-keying-boost` active constraint (scope `turn`) carrying the boosts, and
+the card is discarded.
+
+Each entry in `boosts` is an independent alternative — `{ from, asType, count }`
+means "treat one region of type `from` in the path as `count` regions of type
+`asType`". At most **one** boost is applied per keying check (the boosts are
+never combined), and the underlying site path is never mutated.
+
+```json
+{ "type": "region-keying-boost",
+  "boosts": [
+    { "from": "wilderness", "asType": "wilderness", "count": 2 },
+    { "from": "shadow", "asType": "wilderness", "count": 2 },
+    { "from": "border", "asType": "wilderness", "count": 2 }
+  ] }
+```
+
+The creature-keying matchers — `findCreatureKeyingMatches`
+(`legal-actions/movement-hazard.ts`, read path) and `checkCreatureKeying`
+(`reducer-movement-hazard.ts`, write path) — call the shared helpers in
+`engine/region-keying.ts`: `collectRegionKeyingBoosts(state)` gathers every
+active boost, and `regionPathsWithBoosts(path, boosts)` returns the base path
+plus one variant per applicable boost (each replacing a single `from` region
+with `count` `asType` regions). A creature keys if its `regionTypes` match
+**any** candidate path. Because the base path is always a candidate, the
+environment never removes existing keying options.
+
+The constraint is added at play time in the short-event reducer (alongside
+`creature-keying-bypass`), so an environment-cancel targeting the source card
+removes it. The corresponding constraint kind is `region-keying-boost` in
+`types/pending.ts`.
+
+Used by: *Withered Lands* (td-85) — gated on *Doors of Night* in play via a
+`play-condition` `requires: site-path` clause (`{ "inPlay": "Doors of Night" }`).

@@ -711,6 +711,25 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Withered Lands (td-85): a turn-scoped environment that softens
+         * creature keying. Each boost lets one region of type `from` in a
+         * company's site path count as `count` regions of type `asType`
+         * (e.g. one Shadow-land as two Wildernesses). The boosts are
+         * alternatives — at most one is applied per keying check, never
+         * combined. Consulted by the creature-keying matchers
+         * (`findCreatureKeyingMatches`, `checkCreatureKeying`); the actual
+         * path is never mutated.
+         */
+        readonly type: 'region-keying-boost';
+        /** The alternative region treatments this environment enables. */
+        readonly boosts: readonly {
+          readonly from: import('./common.js').RegionType;
+          readonly asType: import('./common.js').RegionType;
+          readonly count: number;
+        }[];
+      }
+    | {
+        /**
          * Incite Defenders: the next time automatic-attacks are resolved
          * for the target company, one automatic-attack is duplicated
          * (faced a second time immediately after the original). Consumed

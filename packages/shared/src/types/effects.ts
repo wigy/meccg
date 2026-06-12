@@ -1210,6 +1210,42 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
+ * for creature-keying purposes, a single region of type {@link from} in a
+ * company's site path is treated as {@link count} regions of type {@link asType}
+ * (e.g. `{ from: "shadow", asType: "wilderness", count: 2 }` = "treat one
+ * Shadow-land as two Wildernesses").
+ */
+export interface RegionKeyingBoost {
+  /** The region type consumed from the path (e.g. "shadow"). */
+  readonly from: RegionType;
+  /** The region type the consumed region is counted as (e.g. "wilderness"). */
+  readonly asType: RegionType;
+  /** How many regions of {@link asType} the consumed region counts as. */
+  readonly count: number;
+}
+
+/**
+ * A turn-scoped environment effect (Withered Lands, td-85) that softens creature
+ * keying by letting one region in a company's site path count as additional
+ * regions of another type. Each {@link RegionKeyingBoost} entry is an independent
+ * alternative ("one Wilderness as two Wildernesses OR one Shadow-land as two
+ * Wildernesses OR one Border-land as two Wildernesses"); at most one boost is
+ * applied per keying check — the boosts are never combined.
+ *
+ * On play the short-event adds a `region-keying-boost` active constraint
+ * carrying these boosts (scope: turn). The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult the constraint
+ * and test each boosted variant of the path; the underlying path is never
+ * mutated.
+ */
+export interface RegionKeyingBoostEffect extends EffectBase {
+  readonly type: 'region-keying-boost';
+  /** The alternative region treatments this environment enables. */
+  readonly boosts: readonly RegionKeyingBoost[];
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -2532,6 +2568,7 @@ export type CardEffect =
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
+  | RegionKeyingBoostEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
