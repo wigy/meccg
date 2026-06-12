@@ -249,7 +249,30 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Barad-dûr"],
+        "allowTapped": true,
+        "doesNotTapSite": true
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "ringwraith" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "attack.heroCompany": { "$ne": true } }
+      },
+      {
+        "type": "body-check-modifier",
+        "value": -1
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-item",

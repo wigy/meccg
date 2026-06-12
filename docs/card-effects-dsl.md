@@ -142,6 +142,26 @@ This fires only for corruption checks whose `source` card (the one that
 enqueued the resolution) carries the `"spell"` keyword — e.g. the
 check a Wizard makes after playing *Wizard's Laughter*.
 
+### 2a. `body-check-modifier`
+
+Modifies the 2d6 **body-check** roll made against the bearer during combat
+(CoE rule 2.V.2.2). A body check is rolled inside combat resolution — not
+through the influence/corruption scoring pipeline — so it is a separate effect
+type from `check-modifier`. The `value` is added to the effective body-check
+roll; a negative value protects the bearer by lowering the roll (making it less
+likely to exceed the bearer's body and eliminate them).
+
+```json
+{ "type": "body-check-modifier", "value": -1 }
+```
+
+Collected from items attached to the character being body-checked, in
+`reducer-combat.ts` (`bodyCheckRollModifier`). Applies in both the
+hazard/automatic-attack body check and the CvCC body check (whether the bearer
+is attacking or defending). An optional `when` is evaluated against
+`{ bearer: { race } }`. Used by *Helm of Fear* (as-126): "All body checks
+against the bearer are modified by -1."
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an
@@ -815,6 +835,11 @@ untapped; the item itself does not tap. Used by *Star-glass* (tw-330) —
 bearer taps to cancel an Undead attack. `"enqueueCorruptionCheck": true`
 enqueues a corruption check on the bearer.
 
+When the item has `cost: { "tap": "self" }`, only the item taps — the
+bearer's status is irrelevant (it need not be untapped and is not tapped).
+The item itself must be untapped. Used by *Helm of Fear* (as-126) — tap the
+item to cancel an attack against the Ringwraith's company.
+
 A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 
@@ -831,6 +856,12 @@ combat context that includes:
 - `bearer.atHaven` — `true` when the defending company's current site
   is a haven. Used by Darkhaven-tap abilities (e.g. Adûnaphel the
   Ringwraith).
+- `attack.heroCompany` — `true` only for character-vs-character combat
+  in which the attacking company belongs to a hero-side player (Wizard
+  or Fallen-wizard avatar). Hazard creature / automatic attacks are
+  never a "company" and so are never hero-company. Used by *Helm of
+  Fear* (as-126): "May not cancel combat with a hero company" →
+  `"when": { "attack.heroCompany": { "$ne": true } }`.
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -1727,6 +1758,17 @@ current site is Tapped (the site-restriction still gates *which* tapped
 sites qualify). Used by *Blasting Fire* (wh-51) and *Vile Fumes* (wh-54):
 "Playable at a tapped or untapped Shadow-hold, Dark-hold, or a site with a
 Dwarf automatic-attack." Implemented in `legal-actions/site.ts`.
+
+The optional `doesNotTapSite: true` flag suppresses the "playing a resource
+taps the site" rule for this play, so the site is left in whatever state it
+was. Combine with `allowTapped` for "playable at a tapped or untapped X (does
+not tap the site)". Used by *Helm of Fear* (as-126), playable at Barad-dûr.
+Implemented in `reducer-site.ts`.
+
+```json
+{ "type": "item-play-site", "sites": ["Barad-dûr"],
+  "allowTapped": true, "doesNotTapSite": true }
+```
 
 ```json
 { "type": "item-play-site", "sites": ["Isengard"] }

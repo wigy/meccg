@@ -180,6 +180,24 @@ export interface CheckModifierEffect extends EffectBase {
 }
 
 /**
+ * Modifies the 2d6 body-check roll made against the bearer during combat
+ * (CoE rule 2.V.2.2). A body check is distinct from the influence/corruption
+ * {@link CheckModifierEffect} family — it is rolled inside combat resolution,
+ * not through the scoring pipeline — so it has its own effect type. A negative
+ * value protects the bearer (lowers the roll, making it less likely to exceed
+ * the bearer's body and eliminate them).
+ *
+ * Example: Helm of Fear (as-126) — "All body checks against the bearer are
+ * modified by -1." Collected from items attached to the body-check target in
+ * `reducer-combat.ts` and applied to the effective roll.
+ */
+export interface BodyCheckModifierEffect extends EffectBase {
+  readonly type: 'body-check-modifier';
+  /** The modifier added to the body-check roll (negative protects the bearer). */
+  readonly value: number;
+}
+
+/**
  * Modifies a card's marshalling points conditionally.
  *
  * Example: Aragorn has -3 marshalling points if eliminated.
@@ -1363,6 +1381,13 @@ export interface ItemPlaySiteEffect extends EffectBase {
    * or untapped Shadow-hold, Dark-hold, or a site with a Dwarf automatic-attack."
    */
   readonly allowTapped?: boolean;
+  /**
+   * When true, playing this item leaves its company's current site untapped
+   * (the normal "playing a resource taps the site" rule is suppressed for
+   * this play). Used by *Helm of Fear* (as-126): "Playable at a tapped or
+   * untapped Barad-dûr … (does not tap the site)."
+   */
+  readonly doesNotTapSite?: boolean;
 }
 
 /**
@@ -2509,6 +2534,7 @@ export interface MoveEffect extends EffectBase {
 export type CardEffect =
   | StatModifierEffect
   | CheckModifierEffect
+  | BodyCheckModifierEffect
   | MpModifierEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
