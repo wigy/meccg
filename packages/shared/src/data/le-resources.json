@@ -1112,7 +1112,46 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.mind": { "$lte": 6 } }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": [
+          "free-hold",
+          "border-hold",
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": "floor(bearer.baseMind / 2) - bearer.baseMind"
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-event",

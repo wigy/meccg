@@ -54,6 +54,13 @@ export interface ResolverContext {
     readonly baseProwess: number;
     readonly baseBody: number;
     readonly baseDirectInfluence: number;
+    /**
+     * The character's printed mind value. Absent for avatars (mind === null).
+     * Exposed so value expressions can compute mind-relative modifiers, e.g.
+     * Awaiting the Call (le-165) halves the bearer's mind:
+     * `"floor(bearer.baseMind / 2) - bearer.baseMind"`.
+     */
+    readonly baseMind?: number;
     readonly name: string;
     /**
      * Definition IDs of other characters in the same company.
@@ -137,6 +144,9 @@ export function buildBearerContext(charDef: CharacterCard): NonNullable<Resolver
     baseProwess: charDef.prowess,
     baseBody: charDef.body,
     baseDirectInfluence: charDef.directInfluence,
+    // Avatars have mind === null; omit baseMind for them so expressions that
+    // reference it are never evaluated against a non-numeric value.
+    ...(charDef.mind !== null ? { baseMind: charDef.mind } : {}),
     name: charDef.name,
   };
 }
