@@ -28,7 +28,7 @@ import type {
   CompanyId,
   RingwraithModeEffect,
 } from '../index.js';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -128,6 +128,33 @@ export function buildControllerInPlayNames(
     if (def && 'name' in def) names.push((def as { name: string }).name);
   }
   return names;
+}
+
+/**
+ * Builds the list of races of factions a player controls in play, excluding
+ * the faction instance currently being influenced (`excludeInstanceId`). Used
+ * to populate the `controller.factionRaces` resolver context so DSL conditions
+ * can reference Standard Modifications phrased as a category rather than a
+ * named card — e.g. Uruk-hai (le-291) "Any other Orc faction (-2)" matches
+ * `{ "controller.factionRaces": "orc" }` when the same player controls another
+ * Orc faction. The current faction is excluded so the -2 only applies when a
+ * *different* Orc faction is in play (relevant when re-influencing an already
+ * in-play Uruk-hai, which is itself an Orc faction).
+ */
+export function buildControllerFactionRaces(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+  excludeInstanceId?: import('../index.js').CardInstanceId,
+): readonly string[] {
+  const races: string[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return races;
+  for (const card of player.cardsInPlay) {
+    if (excludeInstanceId && card.instanceId === excludeInstanceId) continue;
+    const def = resolveDef(state, card.instanceId);
+    if (isFactionCard(def)) races.push(def.race);
+  }
+  return races;
 }
 
 /**

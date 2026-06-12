@@ -2346,6 +2346,7 @@ The context carries everything relevant to the current calculation:
 - `cardsInPlay` — all cards in play for both players
 - `inPlay` — names of all events/cards in play (for `target: "all-attacks"` and `"all-characters"` contexts)
 - `controller.inPlay` — names of cards in play controlled by the player performing the check (populated during faction-influence checks). Use this when an effect depends on the *same* player controlling another card, e.g. Standard Modifications like "Grey Mountain Goblins (+2)" on LE factions, which apply only when the controller has both factions in play: `{ "when": { "controller.inPlay": "Grey Mountain Goblins" } }`.
+- `controller.factionRaces` — races of factions the player performing the check controls in play, *excluding* the faction currently being influenced (populated during faction-influence checks). Use this for Standard Modifications phrased as a race category rather than a named card, e.g. Uruk-hai (le-291) "Any other Orc faction (-2; applied only once)": `{ "when": { "controller.factionRaces": "orc" } }`. The "applied only once" wording is satisfied automatically — a single `check-modifier` contributes its value once regardless of how many other factions of that race are in play.
 - `enemy.race` — the creature's race (for `target: "all-attacks"` contexts, e.g. `"wolf"`, `"orc"`)
 
 The resolver:

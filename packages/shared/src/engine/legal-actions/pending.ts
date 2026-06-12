@@ -34,7 +34,7 @@ import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI } from './organization.js';
-import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect } from '../reducer-utils.js';
@@ -407,7 +407,10 @@ function factionInfluenceRollActions(
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
       },
-      controller: { inPlay: buildControllerInPlayNames(state, playerId) },
+      controller: {
+        inPlay: buildControllerInPlayNames(state, playerId),
+        factionRaces: buildControllerFactionRaces(state, playerId, factionInstanceId),
+      },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);

@@ -2098,9 +2098,30 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 12,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Barad-dûr"
+      },
+      {
+        "site": "Cirith Gorgor"
+      },
+      {
+        "site": "Cirith Ungol"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.factionRaces": "orc"
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
