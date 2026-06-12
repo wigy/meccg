@@ -210,9 +210,40 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
     "race": "man",
-    "playableAt": []
+    "certified": "2026-06-12",
+    "playableAt": [
+      {
+        "site": "Nûrniag Camp"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Nûrniags"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Variags of Khand"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Balchoth"
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
