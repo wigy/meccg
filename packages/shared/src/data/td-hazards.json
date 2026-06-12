@@ -685,7 +685,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/CruelCaradhras.jpg",
     "text": "Playable on a company using region movement to move through (not stopping at a site therein) or leave one of the following regions: High Pass, Redhorn Gate, Angmar, Gundabad, Grey Mountain Narrows, or Imlad Morgul. Each character in target company must face one strike (not an attack) of 8 prowess which cannot be canceled. Any resulting body check is modified by +1.",
     "unique": false,
-    "eventType": "short"
+    "eventType": "short",
+    "certified": "2026-06-12",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "region-through-or-leave",
+        "regionNames": [
+          "High Pass",
+          "Redhorn Gate",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Imlad Morgul"
+        ]
+      },
+      {
+        "type": "company-strike",
+        "prowess": 8,
+        "uncancelable": true,
+        "bodyCheckModifier": 1
+      }
+    ]
   },
   {
     "cardType": "hazard-event",

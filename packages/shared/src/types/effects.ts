@@ -2073,7 +2073,18 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'region-through-or-leave';
+  /**
+   * For `requires: 'region-through-or-leave'`: the named regions one of which
+   * the target company must either *leave* (the origin region of region
+   * movement) or *move through without stopping* (an intermediate region of
+   * the region-movement path). The card is only playable when the active
+   * company is using **region** movement and at least one of these named
+   * regions appears in its resolved site path excluding the destination
+   * region (the region where the company stops at a site). Used by Cruel
+   * Caradhras (td-9).
+   */
+  readonly regionNames?: readonly string[];
   /**
    * For `requires: 'active-company'`: a generic DSL condition evaluated
    * against the active (site-phase) company's aggregate context:
@@ -2200,6 +2211,36 @@ export interface ForceCheckAllCompanyTopEffect extends EffectBase {
   readonly check: string;
   /** Modifier applied to the check threshold (typically negative). */
   readonly modifier?: number;
+}
+
+/**
+ * Hazard short-event that makes **each character** in the target company face
+ * one strike (not part of a creature attack — "not an attack"). The strike has
+ * a fixed prowess, carries no creature race, and resolves through the normal
+ * combat machinery (one strike per character, body checks on a successful
+ * strike). Used by Cruel Caradhras (td-9): "Each character in target company
+ * must face one strike (not an attack) of 8 prowess which cannot be canceled.
+ * Any resulting body check is modified by +1."
+ *
+ * Resolution (chain-reducer): when the event resolves during the M/H phase, a
+ * {@link CombatState} is initiated against the active company with
+ * `strikesTotal = company.characters.length`, `strikeProwess = prowess`, no
+ * creature race/body, `uncancelable`, and `bodyCheckModifier` threaded into the
+ * character body check. Because the attack has no creature race and is
+ * uncancelable, creature-attack triggers and cancel-attack cards do not apply —
+ * matching the "not an attack" wording.
+ */
+export interface CompanyStrikeEffect extends EffectBase {
+  readonly type: 'company-strike';
+  /** Prowess of the single strike each character faces (e.g. `8`). */
+  readonly prowess: number;
+  /** When true, the strikes cannot be canceled (maps to combat `uncancelable`). */
+  readonly uncancelable?: boolean;
+  /**
+   * Amount added to each resulting body-check roll (positive = more likely to
+   * wound/eliminate). Cruel Caradhras uses `+1`.
+   */
+  readonly bodyCheckModifier?: number;
 }
 
 /**
@@ -2544,6 +2585,7 @@ export type CardEffect =
   | StorableAtEffect
   | CallOfHomeCheckEffect
   | ForceCheckAllCompanyTopEffect
+  | CompanyStrikeEffect
   | SeizedByTerrorCheckEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect

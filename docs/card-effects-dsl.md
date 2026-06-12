@@ -1989,6 +1989,23 @@ check) and `reducer-events.ts` (discard execution).
   ] } }
 ```
 
+- `region-through-or-leave` — for hazard short-events played on a moving
+  company during M/H: the company must be using **region** movement
+  (`movementType === 'region'`) and must either *leave* one of the named
+  `regionNames` (the origin region of the path) or *move through* one
+  without stopping at a site therein (an intermediate region). The region
+  where the company stops at a site — the **destination region**, i.e. the
+  last entry of the resolved region path — never qualifies. Implemented as
+  `checkRegionThroughOrLeave` in `legal-actions/movement-hazard.ts`: a named
+  region must appear in `resolvedSitePathNames` excluding its last element.
+  Used by *Cruel Caradhras* (td-9).
+
+```json
+{ "type": "play-condition", "requires": "region-through-or-leave",
+  "regionNames": ["High Pass", "Redhorn Gate", "Angmar", "Gundabad",
+                  "Grey Mountain Narrows", "Imlad Morgul"] }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
@@ -3835,3 +3852,37 @@ by the normal `finalizeCombat` rules (defender's kill pile if fully defeated,
 otherwise back to the hazard player's discard pile).
 
 Used by: *Exhalation of Decay* (dm-55).
+
+### 43. `company-strike`
+
+A hazard short-event effect that makes **each character** in the target
+company face one strike (not part of a creature attack — "not an attack").
+The strike carries a fixed prowess, no creature race, and resolves through
+the normal combat machinery (one strike per character, then a body check on a
+successful strike). Models the Cruel Caradhras (td-9) mechanic.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `prowess` | yes | Prowess of the single strike each character faces (e.g. `8`). |
+| `uncancelable` | no | When `true`, the strikes cannot be canceled — maps to combat `uncancelable`, which suppresses `cancel-attack` actions for the defender (`legal-actions/combat.ts`). |
+| `bodyCheckModifier` | no | Signed integer added to every resulting character body-check roll. Positive values make elimination more likely (Cruel Caradhras: `+1`). Threaded onto `CombatState.bodyCheckModifier` and applied in `handleBodyCheckRoll` (`reducer-combat.ts`). |
+
+```json
+{ "type": "company-strike", "prowess": 8, "uncancelable": true, "bodyCheckModifier": 1 }
+```
+
+**Combat creation**: When the chain resolves during the M/H phase,
+`chain-reducer.ts` finds the `company-strike` effect and builds a single
+`CombatState` against the active company with
+`attackSource: { type: 'company-strike-event', ... }`,
+`strikesTotal = company.characters.length`, `strikeProwess = prowess`, no
+creature race or body, and the `uncancelable` / `bodyCheckModifier` flags. The
+combat then surfaces from `state.combat` (mirrors Tidings of Bold Spies). The
+defender assigns one strike per character, each strike resolves, and any
+wound triggers a body check modified by `bodyCheckModifier`.
+
+**Key property**: The attack has no creature race and is uncancelable, so
+creature-attack triggers and cancel-attack cards do not apply — matching the
+card's "not an attack" wording.
+
+Used by: *Cruel Caradhras* (td-9).
