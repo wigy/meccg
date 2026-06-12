@@ -1810,14 +1810,45 @@
     "id": "le-273",
     "name": "Nûrniags",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Nurniags.jpg",
-    "text": "Unique. Playable at Nûrniag Camp if the influence check is greater than 9. Standard Modifications: Nûriags (+2), Balchoth (-2), Variags of Khand (+2).",
+    "text": "Unique. Playable at Nûrniag Camp if the influence check is greater than 9. Standard Modifications: Asdriags (+2), Balchoth (-2), Variags of Khand (+2).",
     "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Nûrniag Camp"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Asdriags"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Balchoth"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Variags of Khand"
+        }
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-faction",
