@@ -504,6 +504,8 @@ export function describeAction(
       return `${action.player as string} rolls for Stay Her Appetite`;
     case 'tap-ally-combat-boost':
       return `${action.player as string} taps ally ${action.cardInstanceId as string} to boost its company in combat`;
+    case 'tap-ally-discard-hazard':
+      return `${action.player as string} taps ally ${action.allyInstanceId as string} to discard hazard ${action.targetInstanceId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

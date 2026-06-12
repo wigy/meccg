@@ -1560,6 +1560,13 @@ function cancelAttackActions(
   const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
   const atHaven = siteType === SiteType.Haven;
 
+  // Region the company is moving to (the destination site's region), or
+  // undefined when the company is not moving. Lets a cancel-attack `when`
+  // gate on "a company moving to a site in <regions>" — e.g. Last Child of
+  // Ungoliant (le-153): Imlad Morgul / Ithilien / Gorgoroth.
+  const destSiteDef = company.destinationSite ? state.cardPool[company.destinationSite.definitionId] : undefined;
+  const destinationRegion = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.region : undefined;
+
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
     if (combat.creatureRace) {
@@ -1590,7 +1597,7 @@ function cancelAttackActions(
     }
     attackCtx['heroCompany'] = heroCompany;
     ctx['attack'] = attackCtx;
-    ctx['bearer'] = { companySize: company.characters.length, atHaven };
+    ctx['bearer'] = { companySize: company.characters.length, atHaven, destinationRegion };
     ctx['defender'] = { covert: isCovertCompany(company, player, state) };
     return ctx;
   };

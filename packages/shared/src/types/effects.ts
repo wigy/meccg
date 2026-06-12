@@ -2549,6 +2549,29 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * In-play ally ability: tap this ally to discard one hazard permanent-event
+ * attached to the ally's (moving) company or to a character in it. Offered
+ * during the company's M/H phase to the active (resource) player when
+ * {@link when} holds (e.g. the company is moving to a qualifying region).
+ *
+ * Used by Last Child of Ungoliant (le-153): "tap this ally to ... discard one
+ * hazard permanent-event on such a company or on a character in such a company"
+ * (a company moving to Imlad Morgul, Ithilien, or Gorgoroth). The discarded
+ * hazard returns to its owner's discard pile.
+ */
+export interface TapDiscardAttachedHazardEffect extends EffectBase {
+  readonly type: 'tap-discard-attached-hazard';
+  /** Activation cost — tap the bearer ally. */
+  readonly cost: { readonly tap: 'self' };
+  /**
+   * Gate evaluated against `{ bearer: { destinationRegion } }` — the region
+   * the bearer's company is moving to. When absent, the ability is always
+   * offered while an eligible target exists.
+   */
+  readonly when?: Condition;
+}
+
+/**
  * When this permanent event is in play, any site (that is not a Dragon lair)
  * with more than one automatic attack is reduced to a single attack chosen
  * by the hazard player, and any creature with more than one attack (i.e.
@@ -2706,6 +2729,7 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect

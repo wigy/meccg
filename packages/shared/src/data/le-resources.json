@@ -991,12 +991,81 @@
     "mind": 4,
     "marshallingPoints": 3,
     "marshallingCategory": "ally",
+    "manifestId": "tw-86",
+    "certified": "2026-06-12",
     "effects": [
       {
         "type": "company-overt"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "$and": [
+            {
+              "attack.source": {
+                "$in": [
+                  "creature",
+                  "on-guard-creature"
+                ]
+              }
+            },
+            {
+              "bearer.destinationRegion": {
+                "$in": [
+                  "Imlad Morgul",
+                  "Ithilien",
+                  "Gorgoroth"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "tap-discard-attached-hazard",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.destinationRegion": {
+            "$in": [
+              "Imlad Morgul",
+              "Ithilien",
+              "Gorgoroth"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$not": {
+            "site.region": {
+              "$in": [
+                "Gorgoroth",
+                "Imlad Morgul",
+                "Ithilien"
+              ]
+            }
+          }
+        }
       }
     ],
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Shelob’s Lair"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-ally",
