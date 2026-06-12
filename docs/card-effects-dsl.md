@@ -1998,6 +1998,16 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "card-not-in-play", "cardName": "Balrog" }
 ```
 
+- `card-in-play` — the inverse: the card is only playable while a named
+  card **is** in play (as a character or in any player's cardsInPlay). The
+  `cardName` field names the required card. Enforced for hazard
+  long-events in `legal-actions/movement-hazard.ts`. Used by Snowstorm
+  (tw-91): "Playable if Doors of Night is in play."
+
+```json
+{ "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
+```
+
 - `same-site-has-character-race` — for character-targeting permanent events
   (org phase): the target character's company's current site must also be
   the site of at least one other of the controller's companies that contains
@@ -4024,3 +4034,60 @@ creature-attack triggers and cancel-attack cards do not apply — matching the
 card's "not an attack" wording.
 
 Used by: *Cruel Caradhras* (td-9).
+
+### 45. `force-return-to-origin`
+
+Hazard environment (long-event) clause enforcing **CoE rule 5.31 — Company
+Returned to Origin**: each moving company whose site path matches the
+effect's `condition` must return to its site of origin (it does not move).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `condition` | no | Company-context condition evaluated against `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, borderCount, freeCount, length }, player: { minion } }`. When omitted, the effect always applies. `player.minion` is `true` for Ringwraith/Balrog players (used by "no effect on a minion player"). |
+| `rangerException` | no | When `true`, a company containing at least one ranger (printed skill or item-granted) is exempt. |
+
+```json
+{ "type": "force-return-to-origin",
+  "condition": { "sitePath.wildernessCount": { "$gte": 2 } },
+  "rangerException": true }
+```
+
+**Enforcement**: at the end of each moving company's M/H phase
+(`endCompanyMH` in `reducer-movement-hazard.ts`), every in-play environment
+carrying this effect is evaluated against the company. On a match the company
+keeps its current site, `moved` stays false, its site path is cleared, and a
+`site-phase-do-nothing` constraint blocks its site phase. The effect tag is
+also a cancellation target for `cancel-chain-return-to-origin` (Goldberry,
+tw-245) while the environment is still an unresolved chain entry.
+
+Used by: *Snowstorm* (tw-91, ≥1 Wilderness, no ranger exception),
+*Long Winter* (le-117, ≥2 Wildernesses), *Foul Fumes* (tw-36, Shadow-land or
+Dark-domain, no effect on minion players).
+
+### 46. `tap-sites-in-play`
+
+Hazard environment clause: when the environment resolves and enters play,
+tap every distinct site currently in play (a company's current site, on
+either side) whose attributes satisfy `condition`. One-time effect applied at
+resolution — sites entering play later are unaffected.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `requiresInPlay` | no | Name of a card that must be in play for the tapping to occur (e.g. `"Doors of Night"`). When omitted, the tapping always applies on resolution. |
+| `condition` | no | Per-site condition evaluated against `{ site: { type }, sitePath: { wildernessCount, shadowCount, darkCount } }` (the site's printed site-path terrain counts). A site is tapped only when it matches. |
+
+```json
+{ "type": "tap-sites-in-play", "requiresInPlay": "Doors of Night",
+  "condition": { "$and": [
+    { "site.type": { "$ne": "haven" } },
+    { "sitePath.wildernessCount": { "$gte": 2 } } ] } }
+```
+
+**Note**: Minion Darkhavens use `siteType: "haven"`, so `{ "site.type": { "$ne": "haven" } }`
+excludes both Havens and Darkhavens (the "non-Haven/non-Darkhaven" wording).
+
+Implemented in `applyTapSitesInPlayOnResolve` (`chain-reducer.ts`), invoked
+from `resolveLongEvent`.
+
+Used by: *Long Winter* (le-117, ≥2 Wildernesses), *Foul Fumes* (tw-36,
+Shadow-land or Dark-domain) — both gated on Doors of Night.

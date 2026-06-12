@@ -16,7 +16,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -1913,6 +1913,19 @@ function playHazardsActions(
           }
         }
         if (blocked) continue;
+      }
+
+      // play-condition: card-in-play — the event is only playable while a
+      // named card is in play (e.g. Snowstorm tw-91 requires Doors of Night).
+      {
+        const cardInPlayCond = getCardEffects(def).find(
+          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'card-in-play',
+        );
+        if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
+          logDetail(`Hazard event "${def.name}": play-condition card-in-play requires "${cardInPlayCond.cardName}" in play — not playable`);
+          actions.push({ action, viable: false, reason: `${def.name} requires ${cardInPlayCond.cardName} in play` });
+          continue;
+        }
       }
 
       // play-target DSL: permanent events / corruption cards targeting a character get one action per character

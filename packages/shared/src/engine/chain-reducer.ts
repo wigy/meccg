@@ -15,7 +15,8 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
+import type { TapSitesInPlayEffect } from '../types/effects.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -27,7 +28,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -1431,7 +1432,59 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
     }],
   };
 
-  return { ...state, players: newPlayers };
+  // Apply any tap-sites-in-play clause now that the environment is in play
+  // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
+  return applyTapSitesInPlayOnResolve({ ...state, players: newPlayers }, def);
+}
+
+/**
+ * Apply a resolving environment's {@link TapSitesInPlayEffect} clauses: when
+ * the optional `requiresInPlay` card is in play, tap every distinct site in
+ * play (a company's current site, on either side) whose attributes satisfy the
+ * effect's per-site condition. One-time effect applied at resolution.
+ */
+function applyTapSitesInPlayOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+): GameState {
+  const tapEffects = getCardEffects(def).filter(
+    (e): e is TapSitesInPlayEffect => e.type === 'tap-sites-in-play',
+  );
+  if (tapEffects.length === 0) return state;
+
+  let newState = state;
+  for (const eff of tapEffects) {
+    if (eff.requiresInPlay && !isCardNameInPlayOrCharacters(newState, eff.requiresInPlay)) {
+      logDetail(`tap-sites-in-play (${def?.name ?? '?'}): "${eff.requiresInPlay}" not in play — no sites tapped`);
+      continue;
+    }
+    let tappedCount = 0;
+    const players: [PlayerState, PlayerState] = [newState.players[0], newState.players[1]];
+    for (let pIdx = 0; pIdx < 2; pIdx++) {
+      const player = players[pIdx];
+      const companies = player.companies.map(co => {
+        const site = co.currentSite;
+        if (!site || site.status === CardStatus.Tapped) return co;
+        const siteDef = defById(newState, site.definitionId);
+        if (!siteDef || !isSiteCard(siteDef)) return co;
+        const ctx = {
+          site: { type: siteDef.siteType },
+          sitePath: {
+            wildernessCount: siteDef.sitePath.filter(r => r === RegionType.Wilderness).length,
+            shadowCount: siteDef.sitePath.filter(r => r === RegionType.Shadow).length,
+            darkCount: siteDef.sitePath.filter(r => r === RegionType.Dark).length,
+          },
+        };
+        if (eff.condition && !matchesCondition(eff.condition, ctx as unknown as Record<string, unknown>)) return co;
+        tappedCount++;
+        logDetail(`tap-sites-in-play (${def?.name ?? '?'}): tapping site "${siteDef.name}" (${site.instanceId as string})`);
+        return { ...co, currentSite: { ...site, status: CardStatus.Tapped } };
+      });
+      players[pIdx] = { ...player, companies };
+    }
+    if (tappedCount > 0) newState = { ...newState, players };
+  }
+  return newState;
 }
 
 /**

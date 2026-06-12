@@ -11,9 +11,10 @@ import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfl
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import { isMinionOrBalrog } from '../state-utils.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
-import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
+import { resolveAttackProwess, resolveAttackStrikes, getItemGrantedSkills } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -1694,6 +1695,74 @@ function fireEndOfCompanyMHCorruptionChecks(
  * TODO: passive conditions at end of M/H phase
  * TODO: check if other companies have unresolved movement to site of origin
  */
+/**
+ * Rule 5.31 — Company Returned to Origin (force-return-to-origin enforcement).
+ *
+ * Scans every in-play environment (long-event) carrying a
+ * `force-return-to-origin` effect and tests it against the given moving
+ * company's site path. Each effect's `condition` is evaluated against a
+ * context exposing the company's site-path terrain counts and the moving
+ * player's alignment (`player.minion` — true for Ringwraith/Balrog, used by
+ * "no effect on a minion player" gating). `rangerException` exempts a
+ * company that contains a ranger (printed skill or item-granted).
+ *
+ * Returns the forcing environment card (used for logging and as the
+ * `site-phase-do-nothing` constraint source) or null if no environment
+ * forces this company back. The actual return is applied by
+ * {@link endCompanyMH}: the company keeps its current site, `moved` is not
+ * set, and a `site-phase-do-nothing` constraint blocks its site phase
+ * (CoE rule 5.31: "the company's player cannot initiate any actions during
+ * that company's site phase").
+ */
+function findForcingEnvironment(
+  state: GameState,
+  company: Company,
+  mhState: MovementHazardPhaseState,
+  movingPlayer: import('../index.js').PlayerState,
+): import('../index.js').CardInPlay | null {
+  const path = mhState.resolvedSitePath;
+  const terrainCount = (t: RegionType): number => path.filter(r => r === t).length;
+  const context = {
+    sitePath: {
+      wildernessCount: terrainCount(RegionType.Wilderness),
+      shadowCount: terrainCount(RegionType.Shadow),
+      darkCount: terrainCount(RegionType.Dark),
+      coastalCount: terrainCount(RegionType.Coastal),
+      borderCount: terrainCount(RegionType.Border),
+      freeCount: terrainCount(RegionType.Free),
+      length: path.length,
+    },
+    player: { minion: isMinionOrBalrog(movingPlayer) },
+  };
+
+  const companyHasRanger = company.characters.some(charId => {
+    const charData = movingPlayer.characters[charId as string];
+    const charDef = charData ? defById(state, charData.definitionId) : undefined;
+    if (!charDef || !isCharacterCard(charDef)) return false;
+    const skills = [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])];
+    return skills.includes(Skill.Ranger);
+  });
+
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'force-return-to-origin') continue;
+        if (eff.rangerException && companyHasRanger) {
+          logDetail(`Rule 5.31: "${def?.name ?? card.definitionId as string}" exempts company ${company.id as string} — contains a ranger`);
+          continue;
+        }
+        if (eff.condition && !matchesCondition(eff.condition, context as unknown as Record<string, unknown>)) {
+          continue;
+        }
+        logDetail(`Rule 5.31: "${def?.name ?? card.definitionId as string}" forces company ${company.id as string} to return to origin (site path: ${path.join(',') || 'none'})`);
+        return card;
+      }
+    }
+  }
+  return null;
+}
+
 function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const newPlayers = clonePlayers(state);
@@ -1702,13 +1771,34 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   const resourcePlayer = newPlayers[activeIndex];
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
 
+  // --- Rule 5.31: Company Returned to Origin ---
+  // Before committing movement, check whether any in-play environment carrying
+  // a force-return-to-origin effect applies to this moving company. If so, the
+  // company does not move: it stays at its current site, `moved` stays false,
+  // and a site-phase-do-nothing constraint blocks its upcoming site phase.
+  let mhStateLocal = mhState;
+  let workingState = state;
+  if (company.destinationSite && !mhState.returnedToOrigin) {
+    const forcing = findForcingEnvironment(state, company, mhState, resourcePlayer);
+    if (forcing) {
+      workingState = addConstraint(workingState, {
+        source: forcing.instanceId,
+        sourceDefinitionId: forcing.definitionId,
+        scope: { kind: 'company-site-phase', companyId: company.id },
+        target: { kind: 'company', companyId: company.id },
+        kind: { type: 'site-phase-do-nothing' },
+      });
+      mhStateLocal = { ...mhState, returnedToOrigin: true };
+    }
+  }
+
   // Track an optional `company-arrives-at-site` event to fire after the
   // base move completes. We compute the post-move state first, then run
   // the event hook on the resulting state so the destination is the
   // company's *current* site.
   let companyArrivedAt: { companyId: typeof company.id; siteInstanceId: typeof company.destinationSite extends null ? never : NonNullable<typeof company.destinationSite>['instanceId'] } | null = null;
 
-  if (company.destinationSite && !mhState.returnedToOrigin) {
+  if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const originSite = company.currentSite;
 
     // Rule 2.II.7.2: detect whether another of this player's companies is
@@ -1793,14 +1883,15 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       companyId: company.id,
       siteInstanceId: company.destinationSite.instanceId as never,
     };
-  } else if (mhState.returnedToOrigin) {
+  } else if (mhStateLocal.returnedToOrigin) {
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
       destinationSite: null,
+      movementPath: [],
       siteOfOrigin: null,
     };
-    logDetail(`Step 8: company was returned to origin — staying at current site`);
+    logDetail(`Step 8: company was returned to origin — staying at current site (Rule 5.31)`);
     newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
   } else {
     const updatedCompanies = [...resourcePlayer.companies];
@@ -1814,7 +1905,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   // --- Step 8a-2: Fire bearer-company-moves discard ---
   // When a company has moved, discard any character items with an
   // on-event: bearer-company-moves + discard-self effect (e.g. Align Palantír).
-  if (company.destinationSite && !mhState.returnedToOrigin) {
+  if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
@@ -1853,7 +1944,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are visible
-  let intermediateState = { ...state, players: newPlayers };
+  let intermediateState = { ...workingState, players: newPlayers };
   for (let i = 0; i < 2; i++) {
     const p = newPlayers[i];
     const handSize = resolveHandSize(intermediateState, i);
@@ -1873,7 +1964,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
   const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
-  let updatedState: GameState = { ...state, players: newPlayers };
+  let updatedState: GameState = { ...workingState, players: newPlayers };
 
   // Fire the company-arrives-at-site event hook (River, etc.) on the
   // post-move state. The hook scans both players' cardsInPlay for
@@ -1893,14 +1984,14 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       state: {
         ...updatedState,
         phaseState: {
-          ...mhState,
+          ...mhStateLocal,
           step: 'reset-hand' as const,
         },
       },
     };
   }
 
-  return advanceAfterCompanyMH(updatedState, mhState);
+  return advanceAfterCompanyMH(updatedState, mhStateLocal);
 }
 
 /**
