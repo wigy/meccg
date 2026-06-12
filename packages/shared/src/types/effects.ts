@@ -2073,7 +2073,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state';
   /**
    * For `requires: 'active-company'`: a generic DSL condition evaluated
    * against the active (site-phase) company's aggregate context:
@@ -2083,6 +2083,18 @@ export interface PlayConditionEffect extends EffectBase {
    * the company's characters. Lets a card declare a positional play
    * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
    * CoE 10.39 win cards — without a per-card keyword.
+   *
+   * For `requires: 'player-state'`: a generic DSL condition evaluated
+   * against the active player's avatar/alignment context:
+   * `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`
+   * where `alignment` is the card-text alignment string (`"wizard"`,
+   * `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and
+   * `player.hasRingwraithInPlay` is `true` when the active player has a
+   * Ringwraith-race avatar character in play. Lets a card gate on the
+   * opposing player's alignment and the controller's revealed avatar —
+   * e.g. Above the Abyss (as-77): "if your opponent is a Wizard and your
+   * Ringwraith is in play". Evaluated for resource short-events in
+   * `legal-actions/organization.ts`.
    */
   readonly condition?: Condition;
   /**

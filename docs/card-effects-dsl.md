@@ -1989,6 +1989,26 @@ check) and `reducer-events.ts` (discard execution).
   ] } }
 ```
 
+- `player-state` — for resource short-events: a generic DSL `condition`
+  evaluated against the active player's avatar/alignment context
+  `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`.
+  `alignment` is the card-text alignment string (`"wizard"`,
+  `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
+  is `true` when the active player has a Ringwraith-race avatar character in
+  play. Lets a card gate on the opposing player's alignment and the
+  controller's revealed avatar without a per-card keyword. Used by *Above the
+  Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
+  play". Implemented in `legal-actions/organization.ts`
+  (`buildPlayerStateContext`).
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "$and": [
+    { "opponent.alignment": "wizard" },
+    { "player.hasRingwraithInPlay": true }
+  ] } }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
