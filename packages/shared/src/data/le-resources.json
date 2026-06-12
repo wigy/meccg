@@ -1726,9 +1726,27 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
-    "playableAt": []
+    "playableAt": [
+      { "site": "Cirith Gorgor" },
+      { "site": "Barad-dûr" }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Morgul Orcs" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": { "controller.inPlay": "Orcs of Gundabad" }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
