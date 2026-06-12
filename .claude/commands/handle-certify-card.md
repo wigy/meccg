@@ -41,6 +41,7 @@ Follow these steps:
    **Fully implemented:**
    - `stat-modifier` — prowess, body, direct-influence, corruption-points modifiers with value expressions, max caps, and override mechanism (`packages/shared/src/engine/effects/resolver.ts`). Direct-influence modifiers are also resolved during faction-influence-check (in `reducer.ts` and `site.ts`) and influence-check (in `organization.ts` `availableDI`).
    - `check-modifier` — bonus/penalty to corruption, faction-influence checks (`resolver.ts`). For corruption-check resolutions the modifier is collected from attached hazards **and** items (`legal-actions/pending.ts`), with a context exposing `source.keywords` (the keywords on the card that enqueued the check) so items can gate on "spell", "ritual", etc.
+   - `body-check-modifier` — adds `value` to the 2d6 body-check roll made against the bearer during combat (negative protects the bearer). Collected from attached items in `reducer-combat.ts` (`bodyCheckRollModifier`); applies in both hazard/automatic-attack and CvCC body checks. Used by Helm of Fear (as-126).
    - `company-modifier` — applies stat modifiers to all characters in bearer's company (`resolver.ts`)
    - `duplication-limit` — enforced for scopes "game", "player", "site", "character", and "company" (the company scope covers both allies and items, in `legal-actions/site.ts`) plus combat scopes "turn"/"attack"
    - `absorb-wound` — prevents wound from a successful strike; attacker rolls to potentially discard the item (`packages/shared/src/engine/reducer-combat.ts` `resolveStrike` + `handleShieldDiscardRoll`)
@@ -54,6 +55,8 @@ Follow these steps:
    - `on-event` — infrastructure exists but `matchesTrigger()` is stubbed to always return false; no triggers fire (`packages/shared/src/engine/chain-reducer.ts`). Exception: `self-enters-play` with `discard-cards-in-play` is implemented directly in the reducer play handlers for permanent events (`packages/shared/src/engine/reducer.ts`)
    - `play-restriction` — only "no-hazard-limit" and "playable-as-resource" rules are implemented (`packages/shared/src/engine/reducer.ts`)
    - Combat-rule effects — `combat-attacker-chooses-defenders`, `combat-multi-attack`, and `combat-cancel-attack-by-tap` are implemented. Site auto-attack `combatRules` strings `cannot-be-canceled` (sets `uncancelable`) and `wound-eliminates` (immediate elimination on wound, no body check) are implemented (`reducer-site.ts`, `reducer-combat.ts`)
+   - `cancel-attack` — in-play item sources support cost `{ tap: "self" }` (item taps only; bearer status irrelevant), `{ tap: "bearer" }`, and `{ tap: "self-and-bearer" }` (`legal-actions/combat.ts`, `reducer-combat.ts`). The `when` context exposes `attack.heroCompany` (true only for CvCC where the attacker is a hero-side company) so items can refuse to cancel hero-company combat. Used by Helm of Fear (as-126).
+   - `item-play-site` — supports `sites`/`filter` restriction plus `allowTapped` and `doesNotTapSite` (leaves the site untapped on play; `reducer-site.ts`). Used by Helm of Fear (as-126), playable at a tapped/untapped Barad-dûr without tapping it.
 
    **Not implemented (type-only):**
    - `enemy-modifier` — no engine code

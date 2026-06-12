@@ -1414,6 +1414,15 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
   }
 
+  // item-play-site doesNotTapSite: the played item explicitly leaves the
+  // site untapped (e.g. Helm of Fear as-126 — "does not tap the site").
+  const itemDoesNotTapSite = isItem && (def.effects ?? []).some(
+    e => e.type === 'item-play-site' && e.doesNotTapSite === true,
+  );
+  if (itemDoesNotTapSite) {
+    logDetail(`Site: ${def.name} does not tap the site (special play rule) — leaving site untapped`);
+  }
+
   // Rule 2.V.5: when a resource that taps the site is successfully played,
   // the resource player may attempt one additional minor item as the next
   // action. A `never-taps` site never triggers the bonus. The bonus is
@@ -1442,7 +1451,7 @@ function handleSitePlayHeroResource(
 
   // Thorough Search prevents site tap and does not count as the "first resource played"
   // (so the opening minor-item bonus does not fire for it).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -1452,7 +1461,7 @@ function handleSitePlayHeroResource(
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: (neverTaps || usingThoroughSearch) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
+    currentSite: (neverTaps || usingThoroughSearch || itemDoesNotTapSite) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   let afterAttach: GameState = {

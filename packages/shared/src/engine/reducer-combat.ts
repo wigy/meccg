@@ -1375,6 +1375,30 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */
+/**
+ * Sums `body-check-modifier` effect values from all items attached to the
+ * character being body-checked (CoE rule 2.V.2.2). A negative total lowers
+ * the effective roll, protecting the bearer. Backs Helm of Fear (as-126):
+ * "All body checks against the bearer are modified by -1." Returns 0 when no
+ * such item is attached.
+ */
+function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): number {
+  const charDef = defById(state, charData.definitionId);
+  const bearerRace = isCharacterCard(charDef) ? charDef.race : undefined;
+  let total = 0;
+  for (const item of charData.items) {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef) continue;
+    for (const effect of getCardEffects(itemDef)) {
+      if (effect.type !== 'body-check-modifier') continue;
+      if (effect.when && !matchesCondition(effect.when, { bearer: { race: bearerRace } })) continue;
+      logDetail(`Body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
+      total += effect.value;
+    }
+  }
+  return total;
+}
+
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
@@ -1451,9 +1475,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       body = body + strike.strikeBodyPenalty;
     }
     const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
-    const effectiveRoll = rollTotal + woundedBonus;
+    // Item-granted body-check modifiers (e.g. Helm of Fear -1) only apply to
+    // characters (allies do not bear items).
+    const itemBodyMod = charData && !allyMatch ? bodyCheckRollModifier(stateWithRoll, charData) : 0;
+    const effectiveRoll = rollTotal + woundedBonus + itemBodyMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
@@ -1691,15 +1718,19 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     const body = (charDef as { body?: number } | undefined)?.body ?? 9;
     const charName = (charDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
 
-    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}`);
+    // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
+    // bearer regardless of whether they are attacking or defending in CvCC.
+    const itemBodyMod = bodyCheckRollModifier(stateWithRoll, charData);
+    const effectiveRoll = rollTotal + itemBodyMod;
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll}`);
 
     const newAssignments = combat.strikeAssignments.map((a, i) =>
       i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
     );
     const newCombat = { ...combat, strikeAssignments: newAssignments, bodyCheckTarget: null };
 
-    if (rollTotal > body) {
-      logDetail(`CvCC: ${charName} eliminated (roll ${rollTotal} > body ${body})`);
+    if (effectiveRoll > body) {
+      logDetail(`CvCC: ${charName} eliminated (roll ${effectiveRoll} > body ${body})`);
       // Eliminate the attacking character
       const newPlayers = clonePlayers(stateWithRoll);
       const charInstance = toCardInstance(charData);
@@ -1735,7 +1766,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
       return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithElim }, effects);
     } else {
-      logDetail(`CvCC: ${charName} survives body check (roll ${rollTotal} <= body ${body})`);
+      logDetail(`CvCC: ${charName} survives body check (roll ${effectiveRoll} <= body ${body})`);
       const nextA = nextStrikePhase(newCombat);
       if (nextA) {
         return { state: { ...stateWithRoll, combat: { ...newCombat, ...nextA } }, effects };
@@ -1926,33 +1957,38 @@ function handleCancelAttackByInPlayItem(
 
   const tapCost = cancelEffect?.cost?.tap;
   const bearerOnly = tapCost === 'bearer';
+  const selfOnly = tapCost === 'self';
+  const tapsItem = !bearerOnly; // 'self' and 'self-and-bearer' tap the item
+  const tapsBearer = !selfOnly; // 'bearer' and 'self-and-bearer' tap the bearer
 
-  if (!bearerOnly && item.status !== CardStatus.Untapped) {
+  if (tapsItem && item.status !== CardStatus.Untapped) {
     return { state, error: 'Item must be untapped to cancel attack' };
   }
 
   const bearerData = defPlayer.characters[hostCharId as string];
   if (!bearerData) return { state, error: 'Bearer character not found' };
-  if (bearerData.status !== CardStatus.Untapped) {
+  if (tapsBearer && bearerData.status !== CardStatus.Untapped) {
     return { state, error: 'Bearer must be untapped to cancel attack with this item' };
   }
 
-  if (bearerOnly) {
+  if (selfOnly) {
+    logDetail(`Cancel-attack declared: tapping item ${itemName} to cancel ${combat.creatureRace ?? 'attack'}`);
+  } else if (bearerOnly) {
     logDetail(`Cancel-attack declared: tapping bearer ${hostCharId as string} via ${itemName} to cancel ${combat.creatureRace ?? 'attack'}`);
   } else {
     logDetail(`Cancel-attack declared: tapping item ${itemName} and bearer ${hostCharId as string} to cancel ${combat.creatureRace ?? 'attack'}`);
   }
 
-  // Tap the bearer (and the item too if cost is "self-and-bearer").
+  // Tap the item and/or bearer per the cost variant.
   let tappedState = updatePlayer(state, defPlayerIndex, p =>
     updateCharacter(p, hostCharId, c => ({
       ...c,
-      status: CardStatus.Tapped,
-      items: bearerOnly
-        ? c.items
-        : c.items.map(i =>
+      status: tapsBearer ? CardStatus.Tapped : c.status,
+      items: tapsItem
+        ? c.items.map(i =>
             i.instanceId === item.instanceId ? { ...i, status: CardStatus.Tapped } : i,
-          ),
+          )
+        : c.items,
     })),
   );
 
