@@ -432,6 +432,37 @@ export function getCardEffects(
 }
 
 /**
+ * Returns the `leader-control` effect on a faction definition, or `undefined`.
+ * Carried by LE "Orcs of Udûn"-style factions (le-262, le-275, le-279, le-281,
+ * le-282, le-291) that an Orc or Troll leader may place under their control.
+ */
+export function getLeaderControlEffect(
+  def: CardDefinition | null | undefined,
+): import('../types/effects.js').LeaderControlEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is import('../types/effects.js').LeaderControlEffect => e.type === 'leader-control',
+  );
+}
+
+/**
+ * True when `charDef` is eligible to take `factionDef` under its control:
+ * the faction carries a `leader-control` effect and the character's race is in
+ * the effect's `races` list and it carries the required keyword (e.g. an Orc or
+ * Troll leader). Shared by the legal-action generator (which offers the control
+ * variant) and the influence resolver (which validates it on success).
+ */
+export function leaderControlEligibility(
+  factionDef: CardDefinition | null | undefined,
+  charDef: CardDefinition | null | undefined,
+): boolean {
+  const effect = getLeaderControlEffect(factionDef);
+  if (!effect || !charDef || !isCharacterCard(charDef)) return false;
+  const raceOk = effect.races.includes(charDef.race as unknown as string);
+  const keywordOk = (charDef.keywords ?? []).includes(effect.requiresKeyword as never);
+  return raceOk && keywordOk;
+}
+
+/**
  * Returns the first `hazard-maintenance` effect on the card, or `undefined` if
  * none exists. Centralizes the recurring pattern of iterating a card's effects
  * to find the maintenance trigger, used both when computing available legal
@@ -1146,6 +1177,40 @@ export function sweepLeaderLeavesCompanyEvents(
         discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
       };
     }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
+ * Discard any faction held under a leader's control (`controlledBy` set, the LE
+ * "Orcs of Udûn"-style factions) whose controlling character is no longer in
+ * that player's `characters` — i.e. the leader has **left play** (eliminated,
+ * influenced away, etc.). Implements "Discard the faction if the leader … leaves
+ * play." Runs as post-action housekeeping so every removal path is covered by a
+ * single chokepoint; the "leader moves" half is handled at M/H step 8.
+ */
+export function discardOrphanedControlledFactions(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const orphaned = player.cardsInPlay.filter(
+      c => c.controlledBy !== undefined && !player.characters[c.controlledBy as string],
+    );
+    if (orphaned.length === 0) continue;
+    changed = true;
+    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
+    for (const card of orphaned) {
+      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      logDetail(`leader-control: discarding "${def?.name ?? card.definitionId}" — controlling leader left play`);
+    }
+    newPlayers[pi] = {
+      ...player,
+      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
+      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
+    };
   }
 
   return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;

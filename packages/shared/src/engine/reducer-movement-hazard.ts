@@ -2026,6 +2026,31 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     }
   }
 
+  // --- Step 8a-3: Discard leader-controlled factions whose leader moved ---
+  // LE "Orcs of Udûn"-style factions are discarded when the controlling leader
+  // moves ("Discard the faction if the leader moves or leaves play"). The leave
+  // half is handled by the post-action orphan sweep; here we catch movement
+  // while the leader is still in play.
+  if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
+    const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    const movedCharIds = new Set(movedCompany.characters.map(id => id as string));
+    const factionsToDiscard = newPlayers[activeIndex].cardsInPlay.filter(
+      c => c.controlledBy !== undefined && movedCharIds.has(c.controlledBy as string),
+    );
+    if (factionsToDiscard.length > 0) {
+      const discardSet = new Set(factionsToDiscard.map(c => c.instanceId as string));
+      for (const f of factionsToDiscard) {
+        const fDef = state.cardPool[f.definitionId as string] as { name?: string } | undefined;
+        logDetail(`leader-control: discarding "${fDef?.name ?? f.definitionId}" — controlling leader moved`);
+      }
+      newPlayers[activeIndex] = {
+        ...newPlayers[activeIndex],
+        cardsInPlay: newPlayers[activeIndex].cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
+        discardPile: [...newPlayers[activeIndex].discardPile, ...factionsToDiscard.map(toCardInstance)],
+      };
+    }
+  }
+
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are visible
   let intermediateState = { ...workingState, players: newPlayers };

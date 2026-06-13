@@ -2044,9 +2044,31 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [{ "site": "Cirith Gorgor" }],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": ["orc", "troll"],
+        "requiresKeyword": "Leader",
+        "groupBonus": { "count": 3, "mp": 2 }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Orcs of Gorgoroth" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": { "controller.inPlay": "Orcs of the Red Eye" }
+      }
+    ],
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-faction",
