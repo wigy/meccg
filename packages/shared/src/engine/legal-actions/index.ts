@@ -25,6 +25,7 @@ import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
 import { logEvaluated, logHeading, logResult } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
 import { resolutionLegalActions, applyConstraints } from './pending.js';
@@ -132,11 +133,7 @@ function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: Evalua
     if (covered.has(card.instanceId as string)) continue;
     const def = defById(state, card.definitionId);
     const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : card.definitionId as string;
-    extras.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId: card.instanceId },
-      viable: false,
-      reason: `${name} cannot be played during this step`,
-    });
+    extras.push(notPlayable(playerId, card.instanceId, `${name} cannot be played during this step`));
   }
   if (extras.length > 0) {
     return [...evaluated, ...extras];

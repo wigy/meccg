@@ -19,6 +19,7 @@ import type {
 import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 
 /**
@@ -40,11 +41,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const alreadyInPlay = countCopiesInPlay(state, def.name) > 0;
       if (alreadyInPlay) {
         logDetail(`Permanent event ${def.name}: unique and already in play`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} is unique and already in play`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is unique and already in play`));
         continue;
       }
     }
@@ -55,11 +52,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const copiesInPlay = countCopiesInPlay(state, def.name);
       if (copiesInPlay >= dupLimit.max) {
         logDetail(`Permanent event ${def.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} cannot be duplicated`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated`));
         continue;
       }
     }
@@ -79,11 +72,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
       if (copiesOwned >= playerDupLimit.max) {
         logDetail(`Permanent event ${def.name}: player duplication limit reached (${copiesOwned}/${playerDupLimit.max})`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} cannot be duplicated by a given player`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated by a given player`));
         continue;
       }
     }
@@ -94,11 +83,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     );
     if (sitePlayTarget) {
       logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
-      actions.push({
-        action: { type: 'not-playable', player: playerId, cardInstanceId },
-        viable: false,
-        reason: `${def.name} can only be played during the site phase`,
-      });
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
       continue;
     }
 
@@ -109,11 +94,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
       if (blockerInPlay) {
         logDetail(`Permanent event ${def.name}: blocked because ${blockerName} is in play`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name}: cannot be played while ${blockerName} is in play`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: cannot be played while ${blockerName} is in play`));
         continue;
       }
     }
@@ -226,11 +207,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
       if (!anyTarget) {
         logDetail(`Permanent event ${def.name}: no valid target`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} has no valid target`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
       }
       continue;
     }
@@ -281,11 +258,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
       if (!anyTarget) {
         logDetail(`Permanent event ${def.name}: no valid company target`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} requires a qualifying company`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a qualifying company`));
       }
       continue;
     }
@@ -344,11 +317,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
 
     if (envTargets.length === 0) {
       logDetail(`Short event ${def.name}: no environment in play to cancel`);
-      actions.push({
-        action: { type: 'not-playable', player: playerId, cardInstanceId },
-        viable: false,
-        reason: 'No environment to cancel',
-      });
+      actions.push(notPlayable(playerId, cardInstanceId, 'No environment to cancel'));
       continue;
     }
 
