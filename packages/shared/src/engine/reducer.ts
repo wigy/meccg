@@ -32,18 +32,19 @@ import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
 
 /**
- * Post-action housekeeping: sweep manifestation cascades (METD §4.2)
- * before re-deriving aggregates so MP/influence totals reflect any
- * cards moved by the cascade, then record any newly-revealed card
+ * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
+ * discard any leader-controlled faction whose controlling leader has left
+ * play, before re-deriving aggregates so MP/influence totals reflect any
+ * cards moved by the cascade or sweep, then record any newly-revealed card
  * identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(applyManifestationCascade(state)));
+  return accrueRevealedInstances(recomputeDerived(sweepLeaderControlledFactions(applyManifestationCascade(state))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, sweepLeaderControlledFactions } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

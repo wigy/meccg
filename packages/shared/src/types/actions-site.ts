@@ -154,6 +154,15 @@ export interface InfluenceAttemptAction {
   readonly need: number;
   /** Human-readable breakdown of the target number, DI, and bonuses. */
   readonly explanation: string;
+  /**
+   * When true, a successful attempt places the faction under the control of
+   * the influencing leader (recorded via {@link CardInPlay.controlledBy}) and
+   * does **not** tap the site. Only offered when the faction carries the
+   * `leader-controllable` play-flag and the influencing character is an Orc or
+   * Troll Leader (Lidless-Eye leader-controlled factions). Omitted/false for a
+   * normal influence attempt, which taps the site and grants no controller.
+   */
+  readonly controlWithLeader?: boolean;
 }
 
 /**

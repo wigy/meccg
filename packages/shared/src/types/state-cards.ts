@@ -139,6 +139,16 @@ export interface CardInPlay {
    * The card is discarded when the company's membership changes.
    */
   readonly companyId?: import('./common.js').CompanyId;
+  /**
+   * For a Lidless-Eye "leader-controlled" faction (one carrying the
+   * `leader-controllable` play-flag) that was placed under the control of an
+   * Orc or Troll Leader during its influence attempt: the {@link CardInstanceId}
+   * of that controlling leader character. Recording the controller lets the
+   * engine (1) discard this faction when that leader moves or leaves play,
+   * and (2) award +2 marshalling points to a leader controlling three or more
+   * such factions. Absent for factions brought into play normally.
+   */
+  readonly controlledBy?: CardInstanceId;
 }
 
 /**

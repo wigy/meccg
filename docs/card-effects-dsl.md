@@ -1430,6 +1430,33 @@ untap lock.
 { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
 ```
 
+### 15d. `play-flag: "leader-controllable"`
+
+A `play-flag` carried by a Lidless-Eye "leader-controlled" faction (le-262
+Black Trolls, le-275 Orcs of Gorgoroth, le-279 Orcs of the Ash Mountains,
+le-281 Orcs of the Red Eye, le-282 Orcs of Udûn, le-291 Uruk-hai). The flag's
+presence is the entire trigger — the engine keys all of the following off it:
+
+- **Leader-control influence variant.** During the faction's influence attempt,
+  if the influencing character is an Orc or Troll **Leader**, the legal-action
+  computer (`legal-actions/site.ts`) offers a second `influence-attempt` action
+  with `controlWithLeader: true` alongside the normal one.
+- **Control placement, no site tap.** On a successful `controlWithLeader` roll,
+  the resolver (`reducer-site.ts:resolveInfluenceAttemptRoll`) records the
+  influencing leader on the faction via `CardInPlay.controlledBy` and leaves the
+  site **untapped** (forgoing the minor-item window). A normal success taps the
+  site and records no controller.
+- **Discard on leader move/leave.** `sweepLeaderControlledFactions`
+  (`reducer-utils.ts`, run in post-action housekeeping) discards a controlled
+  faction whose controlling leader has left play; the movement reducer discards
+  it when the leader's company moves.
+- **+2 MP for three.** `recompute-derived.ts` adds 2 marshalling points (faction
+  category) for each leader controlling three or more such factions.
+
+```json
+{ "type": "play-flag", "flag": "leader-controllable" }
+```
+
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,
@@ -2346,6 +2373,7 @@ The context carries everything relevant to the current calculation:
 - `cardsInPlay` — all cards in play for both players
 - `inPlay` — names of all events/cards in play (for `target: "all-attacks"` and `"all-characters"` contexts)
 - `controller.inPlay` — names of cards in play controlled by the player performing the check (populated during faction-influence checks). Use this when an effect depends on the *same* player controlling another card, e.g. Standard Modifications like "Grey Mountain Goblins (+2)" on LE factions, which apply only when the controller has both factions in play: `{ "when": { "controller.inPlay": "Grey Mountain Goblins" } }`.
+- `controller.factionRaces` — the distinct races of factions the player performing the check already has in play (populated during faction-influence checks; the faction being influenced is in hand and so excluded). Use this for Standard Modifications keyed on the *kind* of faction rather than a specific name, e.g. Uruk-hai (le-291) takes "Any other Orc faction (-2)": `{ "when": { "controller.factionRaces": "orc" } }`. Because a single `check-modifier` contributes its value once, the "applied only once" wording is honoured even with several matching factions in play.
 - `enemy.race` — the creature's race (for `target: "all-attacks"` contexts, e.g. `"wolf"`, `"orc"`)
 
 The resolver:

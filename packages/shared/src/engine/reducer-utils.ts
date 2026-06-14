@@ -1152,6 +1152,51 @@ export function sweepLeaderLeavesCompanyEvents(
 }
 
 /**
+ * Discards any Lidless-Eye leader-controlled faction (a `cardsInPlay` entry
+ * carrying a {@link CardInPlay.controlledBy}) whose controlling leader has
+ * left play. Card text: "Discard the faction if the leader … leaves play."
+ *
+ * A leader is considered to have left play when its instance ID is no longer
+ * a key in the controlling player's `characters` map — this covers every
+ * removal path uniformly (combat elimination, corruption discard, being
+ * influenced away to the opponent, organization discard, etc.) without
+ * needing a hook in each one. The companion "leader moves" trigger is handled
+ * separately at company movement (the leader is still in play after a move).
+ *
+ * Called from the top-level post-action housekeeping so it runs after every
+ * action; a no-op (returns the same state) when nothing is controlled or no
+ * controller has left.
+ */
+export function sweepLeaderControlledFactions(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const toDiscard: CardInstanceId[] = [];
+    for (const card of player.cardsInPlay) {
+      if (!card.controlledBy) continue;
+      if (player.characters[card.controlledBy as string]) continue; // leader still in play
+      const def = defById(state, card.definitionId);
+      logDetail(`leader-controlled faction: discarding "${def?.name ?? card.definitionId}" — controlling leader ${card.controlledBy as string} left play`);
+      toDiscard.push(card.instanceId);
+    }
+    if (toDiscard.length > 0) {
+      changed = true;
+      const discardSet = new Set(toDiscard as string[]);
+      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
+      newPlayers[pi] = {
+        ...newPlayers[pi],
+        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
+        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
+      };
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+}
+
+/**
  * Generate a unique company ID for a player by finding the highest existing
  * index among their companies and incrementing it. This avoids ID collisions
  * that can occur when companies are merged (removing lower-indexed IDs) and

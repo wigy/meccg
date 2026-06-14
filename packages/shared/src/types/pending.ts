@@ -204,6 +204,13 @@ export interface PendingResolution {
         readonly factionDefinitionId: CardDefinitionId;
         /** The character making the influence roll. */
         readonly influencingCharacterId: CardInstanceId;
+        /**
+         * When true, a successful roll places a `leader-controllable` faction
+         * under the influencing Orc/Troll leader's control (recording
+         * `controlledBy`) and does not tap the site. Carried from the declared
+         * {@link InfluenceAttemptAction} through the chain to this resolution.
+         */
+        readonly controlWithLeader?: boolean;
       }
     | {
         /**

@@ -2026,6 +2026,32 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     }
   }
 
+  // --- Step 8a-3: Discard leader-controlled factions when their leader moves ---
+  // Lidless-Eye leader-controlled factions (le-262/275/279/281/282/291) are
+  // discarded if their controlling leader "moves". A leader moves when the
+  // company holding it changes site, so when a company has moved, discard any
+  // faction in the active player's cardsInPlay controlled by a character now in
+  // the moved company.
+  if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
+    const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    const movedMembers = new Set(movedCompany.characters.map(id => id as string));
+    const factionsToDiscard = newPlayers[activeIndex].cardsInPlay.filter(
+      c => c.controlledBy && movedMembers.has(c.controlledBy as string),
+    );
+    if (factionsToDiscard.length > 0) {
+      const discardIds = new Set(factionsToDiscard.map(c => c.instanceId as string));
+      for (const c of factionsToDiscard) {
+        const def = state.cardPool[c.definitionId as string] as { name?: string } | undefined;
+        logDetail(`leader-controlled faction: discarding "${def?.name ?? c.definitionId}" — controlling leader ${c.controlledBy as string} moved`);
+      }
+      newPlayers[activeIndex] = {
+        ...newPlayers[activeIndex],
+        cardsInPlay: newPlayers[activeIndex].cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+        discardPile: [...newPlayers[activeIndex].discardPile, ...factionsToDiscard.map(toCardInstance)],
+      };
+    }
+  }
+
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are visible
   let intermediateState = { ...workingState, players: newPlayers };

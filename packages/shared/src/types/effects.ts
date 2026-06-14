@@ -1021,8 +1021,17 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
+ * - `leader-controllable` — this faction (a Lidless-Eye "leader-controlled"
+ *   faction such as le-262/275/279/281/282/291) may, when its influence
+ *   attempt is made by an Orc or Troll **Leader**, be placed under that
+ *   leader's control instead of merely coming into play: the controlling
+ *   leader is recorded on the faction via {@link CardInPlay.controlledBy},
+ *   the site is **not** tapped, the faction is discarded when that leader
+ *   moves or leaves play, and a leader controlling three or more such
+ *   factions grants +2 marshalling points. The flag's presence is the
+ *   entire trigger — the engine keys all of this behaviour off it.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'leader-controllable';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

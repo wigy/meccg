@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber, Race } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
@@ -20,7 +20,7 @@ import { availableDI, grantedActionActivations, playResourceShortEventActions } 
 import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
-import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -1398,7 +1398,10 @@ function playResourcesActions(
               race: factionDef.race,
               playableAt: buildFactionPlayableAt(factionDef),
             },
-            controller: { inPlay: buildControllerInPlayNames(state, playerId) },
+            controller: {
+              inPlay: buildControllerInPlayNames(state, playerId),
+              factionRaces: buildControllerFactionRaces(state, playerId),
+            },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
           charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
@@ -1458,6 +1461,31 @@ function playResourcesActions(
           },
           viable: true,
         });
+
+        // Leader-controlled factions (le-262/275/279/281/282/291): when the
+        // faction carries the `leader-controllable` play-flag and the
+        // influencing character is an Orc or Troll Leader, offer the
+        // additional option to place the faction under that leader's control
+        // on success — which does NOT tap the site (and forgoes the
+        // minor-item window) but ties the faction's life to the leader and
+        // counts toward the +2-MP-for-three rule.
+        if (hasPlayFlag(factionDef, 'leader-controllable') && charDef && isCharacterCard(charDef)
+          && (charDef.keywords ?? []).includes('Leader')
+          && (charDef.race === Race.Orc || charDef.race === Race.Troll)) {
+          logDetail(`Faction ${factionDef.name}: ${charName} is an Orc/Troll Leader — offering leader-control variant (site not tapped)`);
+          actions.push({
+            action: {
+              type: 'influence-attempt',
+              player: playerId,
+              factionInstanceId: cardInstanceId,
+              influencingCharacterId: ch.instanceId,
+              need: infNeed,
+              controlWithLeader: true,
+              explanation: `Need roll >= ${infNeed} (${infParts.join(', ')}); place under ${charName}'s control, do not tap the site`,
+            },
+            viable: true,
+          });
+        }
       }
       continue;
     }

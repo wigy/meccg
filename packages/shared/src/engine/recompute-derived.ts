@@ -28,7 +28,7 @@ import type {
   CompanyId,
   RingwraithModeEffect,
 } from '../index.js';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -128,6 +128,30 @@ export function buildControllerInPlayNames(
     if (def && 'name' in def) names.push((def as { name: string }).name);
   }
   return names;
+}
+
+/**
+ * Builds the distinct races of factions a specific player has in play.
+ * Used to populate the `controller.factionRaces` resolver context so DSL
+ * conditions can reference the *kind* of factions the controller already
+ * has — e.g. Uruk-hai (le-291) takes "Any other Orc faction (-2)", which
+ * applies whenever the controller has at least one Orc faction in play,
+ * without naming a specific faction. The faction currently being
+ * influenced is in hand (not yet in `cardsInPlay`), so it is naturally
+ * excluded — satisfying the "any *other* Orc faction" wording.
+ */
+export function buildControllerFactionRaces(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+): readonly string[] {
+  const races = new Set<string>();
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def && isFactionCard(def)) races.add(def.race);
+  }
+  return [...races];
 }
 
 /**
@@ -461,6 +485,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);
     if (def) mp = addMP(mp, def);
+  }
+
+  // Leader-controlled factions (le-262/275/279/281/282/291): "Three or more
+  // factions controlled by the same leader give 2 extra marshalling points."
+  // Count this player's leader-controlled factions grouped by controlling
+  // leader; each leader with three or more contributes +2 to the faction MP
+  // category. The base faction MP is already counted in the loop above.
+  const controlledCountByLeader = new Map<string, number>();
+  for (const card of player.cardsInPlay) {
+    if (!card.controlledBy) continue;
+    const key = card.controlledBy as string;
+    controlledCountByLeader.set(key, (controlledCountByLeader.get(key) ?? 0) + 1);
+  }
+  for (const [, count] of controlledCountByLeader) {
+    if (count >= 3) {
+      mp = { ...mp, [MarshallingCategory.Faction]: mp[MarshallingCategory.Faction] + 2 };
+    }
   }
 
   // Kill/MP pile: defeated creatures and items stored at Havens (CoE rule

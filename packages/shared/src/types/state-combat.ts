@@ -623,7 +623,16 @@ export type ChainEntryPayload =
   | { readonly type: 'activated-ability' }
   | { readonly type: 'on-guard-reveal' }
   | { readonly type: 'body-check' }
-  | { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId };
+  | {
+      readonly type: 'influence-attempt';
+      readonly influencingCharacterId: CardInstanceId;
+      /**
+       * When true, a successful attempt places the faction under the influencing
+       * Orc/Troll leader's control (no site tap). Carried through the chain from
+       * the declared {@link InfluenceAttemptAction} so resolution can honour it.
+       */
+      readonly controlWithLeader?: boolean;
+    };
 
 /**
  * A single entry on the chain of effects stack.

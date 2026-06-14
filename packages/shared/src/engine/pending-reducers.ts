@@ -717,6 +717,7 @@ function applyFactionInfluenceRollResolution(
     payload: {
       type: 'influence-attempt' as const,
       influencingCharacterId: top.kind.influencingCharacterId,
+      controlWithLeader: top.kind.controlWithLeader === true ? true : undefined,
     },
   };
 

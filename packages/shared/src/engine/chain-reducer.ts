@@ -2401,6 +2401,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         factionInstanceId: entry.card.instanceId,
         factionDefinitionId: entry.card.definitionId,
         influencingCharacterId: entry.payload.influencingCharacterId,
+        controlWithLeader: entry.payload.controlWithLeader === true ? true : undefined,
       },
     });
     return { state: current, needsInput: true };
