@@ -7,14 +7,7 @@
  * prevent XSS — no raw HTML passes through.
  */
 
-/** Escape HTML special characters to prevent XSS. */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from './html-utils.js';
 
 /** Render inline markdown (bold, italic, code, links) within a line. */
 function renderInline(text: string): string {

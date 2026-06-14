@@ -10,6 +10,7 @@ import { appState, type ScreenId, VIEWING_INBOX_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY 
 import { showAlert } from './dialog.js';
 import { renderMarkdown } from './markdown.js';
 import { apiGet, apiSend } from './api.js';
+import { escapeHtml } from './html-utils.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -35,11 +36,6 @@ export interface InboxMessage {
   readonly keywords: Record<string, string>;
   readonly replyTo?: string;
   readonly recipients?: readonly string[];
-}
-
-/** Escape HTML special characters for safe insertion via innerHTML. */
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** Render a full message into the message panel. */
