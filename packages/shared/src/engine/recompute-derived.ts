@@ -28,7 +28,7 @@ import type {
   CompanyId,
   RingwraithModeEffect,
 } from '../index.js';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -128,6 +128,30 @@ export function buildControllerInPlayNames(
     if (def && 'name' in def) names.push((def as { name: string }).name);
   }
   return names;
+}
+
+/**
+ * Builds the distinct races of factions a specific player has in play.
+ * Used to populate the `controller.factionRaces` resolver context so DSL
+ * conditions can reference the *kind* of factions the controller already
+ * has — e.g. Uruk-hai (le-291) takes "Any other Orc faction (-2)", which
+ * applies whenever the controller has at least one Orc faction in play,
+ * without naming a specific faction. The faction currently being
+ * influenced is in hand (not yet in `cardsInPlay`), so it is naturally
+ * excluded — satisfying the "any *other* Orc faction" wording.
+ */
+export function buildControllerFactionRaces(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+): readonly string[] {
+  const races = new Set<string>();
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def && isFactionCard(def)) races.add(def.race);
+  }
+  return [...races];
 }
 
 /**

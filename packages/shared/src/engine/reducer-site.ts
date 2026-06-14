@@ -20,7 +20,7 @@ import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defByI
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
@@ -1716,7 +1716,10 @@ export function resolveInfluenceAttemptRoll(
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
       },
-      controller: { inPlay: buildControllerInPlayNames(state, entry.declaredBy) },
+      controller: {
+        inPlay: buildControllerInPlayNames(state, entry.declaredBy),
+        factionRaces: buildControllerFactionRaces(state, entry.declaredBy),
+      },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);

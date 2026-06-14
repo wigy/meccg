@@ -1726,9 +1726,48 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Cirith Gorgor"
+      },
+      {
+        "site": "Barad-dûr"
+      }
+    ],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Morgul Orcs"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Gundabad"
+        }
+      }
+    ],
+    "certified": "2026-06-14"
   },
   {
     "cardType": "minion-resource-faction",
@@ -1946,10 +1985,11 @@
   },
   {
     "cardType": "minion-resource-faction",
-    "alignment": "ringwraith",
     "id": "le-275",
     "name": "Orcs of Gorgoroth",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofGorgoroth.jpg",
+    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Udûn (+2), Orcs of Mirkwood (-2).",
+    "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
@@ -1961,7 +2001,37 @@
         "site": "Barad-dûr"
       }
     ],
-    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Udûn (+2), Orcs of Mirkwood (-2)."
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Orcs of Udûn"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Mirkwood"
+        }
+      }
+    ],
+    "certified": "2026-06-14"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2011,16 +2081,53 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Cirith Gorgor"
+      }
+    ],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of the Ephel Dúath"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Snaga-hai"
+        }
+      }
+    ],
+    "certified": "2026-06-14"
   },
   {
     "cardType": "minion-resource-faction",
-    "alignment": "ringwraith",
     "id": "le-281",
     "name": "Orcs of the Red Eye",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsoftheRedEye.jpg",
+    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Mirkwood (-2), Orcs of Udûn (-2), Uruk-hai (+2).",
+    "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
@@ -2032,7 +2139,45 @@
         "site": "Barad-dûr"
       }
     ],
-    "text": "Unique. Playable at Barad-dûr if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Mirkwood (-2), Orcs of Udûn (-2), Uruk-hai (+2)."
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Mirkwood"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Udûn"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Uruk-hai"
+        }
+      }
+    ],
+    "certified": "2026-06-14"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2120,9 +2265,43 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 12,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Barad-dûr"
+      },
+      {
+        "site": "Cirith Gorgor"
+      },
+      {
+        "site": "Cirith Ungol"
+      }
+    ],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.factionRaces": "orc"
+        }
+      }
+    ],
+    "certified": "2026-06-14"
   },
   {
     "cardType": "minion-resource-faction",

@@ -20,7 +20,7 @@ import { availableDI, grantedActionActivations, playResourceShortEventActions } 
 import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
-import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -1398,7 +1398,10 @@ function playResourcesActions(
               race: factionDef.race,
               playableAt: buildFactionPlayableAt(factionDef),
             },
-            controller: { inPlay: buildControllerInPlayNames(state, playerId) },
+            controller: {
+              inPlay: buildControllerInPlayNames(state, playerId),
+              factionRaces: buildControllerFactionRaces(state, playerId),
+            },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
           charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
