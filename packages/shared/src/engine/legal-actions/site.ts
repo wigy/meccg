@@ -16,6 +16,7 @@ import { matchesDefinition, playerById, defById, getCardEffects, getLeaderContro
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
@@ -670,11 +671,7 @@ function playResourcesActions(
           const alreadyInPlay = countCopiesInPlay(state, eventDef.name) > 0;
           if (alreadyInPlay) {
             logDetail(`Permanent event ${eventDef.name}: unique and already in play`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name} is unique and already in play`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} is unique and already in play`));
             continue;
           }
         }
@@ -688,11 +685,7 @@ function playResourcesActions(
           const copiesInPlay = countCopiesInPlay(state, eventDef.name);
           if (copiesInPlay >= dupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name} cannot be duplicated`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated`));
             continue;
           }
         }
@@ -714,11 +707,7 @@ function playResourcesActions(
           );
           if (copiesForPlayer >= playerDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: cannot be duplicated by this player (${copiesForPlayer}/${playerDupLimit.max} held)`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name}: already held by this player`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: already held by this player`));
             continue;
           }
         }
@@ -726,22 +715,14 @@ function playResourcesActions(
         // play-flag: "tapped-site-only" — card may only be played at an already-tapped site
         if (hasPlayFlag(eventDef, 'tapped-site-only') && !siteIsTapped) {
           logDetail(`Permanent event ${eventDef.name}: requires already-tapped site, but site is untapped`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${eventDef.name}: site must be tapped`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site must be tapped`));
           continue;
         }
 
         // play-flag: "untapped-site-required" — card may only be played at an untapped site
         if (hasPlayFlag(eventDef, 'untapped-site-required') && siteIsTapped) {
           logDetail(`Permanent event ${eventDef.name}: requires untapped site, but site is already tapped`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${eventDef.name}: site must be untapped`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site must be untapped`));
           continue;
         }
 
@@ -752,11 +733,7 @@ function playResourcesActions(
         if (sitePlayTarget?.filter && siteDef) {
           if (!matchesDefinition(siteDef, sitePlayTarget.filter)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name}: site ${siteName} does not match play-target filter`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
             continue;
           }
         }
@@ -786,11 +763,7 @@ function playResourcesActions(
           }, 0);
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: site duplication limit reached at ${siteName}`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name} cannot be duplicated at ${siteName}`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated at ${siteName}`));
             continue;
           }
         }
@@ -806,11 +779,7 @@ function playResourcesActions(
           const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
           if (blockerInPlay) {
             logDetail(`Permanent event ${eventDef.name}: blocked because ${blockerName} is in play`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name}: cannot be played while ${blockerName} is in play`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: cannot be played while ${blockerName} is in play`));
             continue;
           }
         }
@@ -859,11 +828,7 @@ function playResourcesActions(
           }
           if (eligibleCharIds.length === 0) {
             logDetail(`Permanent event ${eventDef.name}: no eligible character in company`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name}: no eligible character in company`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no eligible character in company`));
             continue;
           }
           // trigger-attack-on-play: bearer chosen post-attack — emit a single action
@@ -930,11 +895,7 @@ function playResourcesActions(
           }
           if (discardCandidates.length === 0) {
             logDetail(`Permanent event ${eventDef.name}: no ${targetCardName} available to discard`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${eventDef.name}: no ${targetCardName} available to discard`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${targetCardName} available to discard`));
             continue;
           }
         }
@@ -1005,11 +966,7 @@ function playResourcesActions(
 
       if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${itemDef.name}: site is already tapped`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
       }
 
@@ -1038,11 +995,7 @@ function playResourcesActions(
             ? `only playable at ${siteRestriction.sites.join(', ')}`
             : `${itemDef.name}: site does not satisfy play restriction`;
           logDetail(`Item ${itemDef.name}: site ${siteName} does not satisfy play restriction`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
         }
       } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus) {
@@ -1051,11 +1004,7 @@ function playResourcesActions(
           logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);
         } else {
           logDetail(`Item ${itemDef.name} (${itemDef.subtype}): not playable at ${siteName}`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`));
           continue;
         }
       }
@@ -1070,21 +1019,13 @@ function playResourcesActions(
       );
       if (denied) {
         logDetail(`Item ${itemDef.name} (${itemDef.subtype}): denied at ${siteName} by site-rule deny-item`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${itemDef.name} cannot be played at ${siteName}`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name} cannot be played at ${siteName}`));
         continue;
       }
 
       if (untappedCharacters.length === 0) {
         logDetail(`Item ${itemDef.name}: no untapped character to carry it`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${itemDef.name}: no untapped character in company`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: no untapped character in company`));
         continue;
       }
 
@@ -1100,11 +1041,7 @@ function playResourcesActions(
         );
         if (alreadyInPlay) {
           logDetail(`Item ${itemDef.name}: unique and already in play`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${itemDef.name} is unique and already in play`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name} is unique and already in play`));
           continue;
         }
       }
@@ -1134,11 +1071,7 @@ function playResourcesActions(
         const copiesInCompany = countAttachedInCompany(state, player, company, itemDef.name, 'items');
         if (copiesInCompany >= itemCompanyDupLimit.max) {
           logDetail(`Item ${itemDef.name}: company duplication limit reached (${copiesInCompany}/${itemCompanyDupLimit.max})`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${itemDef.name}: cannot be duplicated in a given company`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: cannot be duplicated in a given company`));
           continue;
         }
       }
@@ -1174,11 +1107,7 @@ function playResourcesActions(
           }).length;
           if (copiesOnChar >= charDupLimit.max) {
             logDetail(`Item ${itemDef.name}: cannot be duplicated on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
-            actions.push({
-              action: { type: 'not-playable', player: playerId, cardInstanceId },
-              viable: false,
-              reason: `${itemDef.name}: cannot be duplicated on ${charName}`,
-            });
+            actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: cannot be duplicated on ${charName}`));
             continue;
           }
         }
@@ -1213,11 +1142,7 @@ function playResourcesActions(
 
       if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site') && sitePlayTarget?.requireTapped !== false) {
         logDetail(`Ally ${allyDef.name}: site is already tapped`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${allyDef.name}: site is already tapped`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: site is already tapped`));
         continue;
       }
 
@@ -1229,11 +1154,7 @@ function playResourcesActions(
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${allyDef.name}: not playable at ${siteName}`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: not playable at ${siteName}`));
         continue;
       }
 
@@ -1249,11 +1170,7 @@ function playResourcesActions(
         );
         if (alreadyInPlay) {
           logDetail(`Ally ${allyDef.name}: unique and already in play`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${allyDef.name} is unique and already in play`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name} is unique and already in play`));
           continue;
         }
       }
@@ -1266,11 +1183,7 @@ function playResourcesActions(
         const copiesInCompany = countAttachedInCompany(state, player, company, allyDef.name, 'allies');
         if (copiesInCompany >= allyCompanyDupLimit.max) {
           logDetail(`Ally ${allyDef.name}: company duplication limit reached (${copiesInCompany}/${allyCompanyDupLimit.max})`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${allyDef.name}: cannot be duplicated in a given company`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: cannot be duplicated in a given company`));
           continue;
         }
       }
@@ -1279,21 +1192,13 @@ function playResourcesActions(
       // bound to the company, no ally may join it.
       if (companyBlocksJoins(state, company.id)) {
         logDetail(`Ally ${allyDef.name}: company is closed to new joins (block-company-joins)`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${allyDef.name}: no ally may join this company`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: no ally may join this company`));
         continue;
       }
 
       if (untappedCharacters.length === 0) {
         logDetail(`Ally ${allyDef.name}: no untapped character to control it`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${allyDef.name}: no untapped character in company`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: no untapped character in company`));
         continue;
       }
 
@@ -1326,11 +1231,7 @@ function playResourcesActions(
       // and carries the `playable-at-tapped-site` flag to override this rule.
       if (siteIsTapped && !hasPlayFlag(factionDef, 'playable-at-tapped-site')) {
         logDetail(`Faction ${factionDef.name}: site is already tapped`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${factionDef.name}: site is already tapped`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: site is already tapped`));
         continue;
       }
 
@@ -1339,11 +1240,7 @@ function playResourcesActions(
       if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${factionDef.name}: not playable at ${siteName}`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
         continue;
       }
 
@@ -1353,21 +1250,13 @@ function playResourcesActions(
       const alreadyInPlay = factionDef.unique && countCopiesInPlay(state, factionDef.name) > 0;
       if (alreadyInPlay) {
         logDetail(`Faction ${factionDef.name}: unique and already in play`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${factionDef.name} is unique and already in play`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name} is unique and already in play`));
         continue;
       }
 
       if (untappedCharacters.length === 0) {
         logDetail(`Faction ${factionDef.name}: no untapped character to attempt influence`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${factionDef.name}: no untapped character in company`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: no untapped character in company`));
         continue;
       }
 
@@ -1505,11 +1394,7 @@ function playResourcesActions(
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
     const def = defById(state, handCard.definitionId);
     const name = def?.name ?? 'card';
-    actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: false,
-      reason: `${name}: not playable during site phase`,
-    });
+    actions.push(notPlayable(playerId, handCard.instanceId, `${name}: not playable during site phase`));
   }
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)

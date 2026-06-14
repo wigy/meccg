@@ -14,6 +14,7 @@
 import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState } from '../../index.js';
 import { Phase, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
@@ -109,11 +110,7 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }
 
   for (const handCard of player.hand) {
-    actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: false,
-      reason: 'Cards cannot be played during the untap phase',
-    });
+    actions.push(notPlayable(playerId, handCard.instanceId, 'Cards cannot be played during the untap phase'));
   }
   logDetail(`Untap phase: ${player.hand.length} hand card(s) marked not playable`);
 

@@ -21,6 +21,7 @@ import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus, isResourceEventCard, isSiteCard } from '../../index.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
@@ -66,11 +67,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         );
         if (alreadyInPlay) {
           logDetail(`${def.name}: unique and already in play`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} is unique and already in play`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is unique and already in play`));
           continue;
         }
       }
@@ -82,11 +79,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         const copiesInPlay = countCopiesInPlay(state, def.name);
         if (copiesInPlay >= effect.max) {
           logDetail(`${def.name}: duplication limit reached (${copiesInPlay}/${effect.max})`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} cannot be duplicated`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated`));
           blocked = true;
           break;
         }
@@ -115,11 +108,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   // Mark remaining hand cards as not playable during long-event phase
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
-    actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: false,
-      reason: 'Only resource events can be played during the long-event phase',
-    });
+    actions.push(notPlayable(playerId, handCard.instanceId, 'Only resource events can be played during the long-event phase'));
   }
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
@@ -166,11 +155,7 @@ export function heroResourceShortEventActions(
     if (playWindow && playWindow.phase !== currentPhase) {
       const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
       logDetail(`${def.name}: play-window restricts it to ${where}, not playable in ${currentPhase} phase`);
-      actions.push({
-        action: { type: 'not-playable', player: playerId, cardInstanceId },
-        viable: false,
-        reason: `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`,
-      });
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`));
       continue;
     }
 
@@ -187,11 +172,7 @@ export function heroResourceShortEventActions(
           : undefined;
         if (siteDef && isSiteCard(siteDef) && !playWindow.siteTypes.includes(siteDef.siteType)) {
           logDetail(`${def.name}: active company at ${siteDef.siteType} (${siteDef.name}), play-window requires [${playWindow.siteTypes.join(', ')}] — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} can only be played at ${playWindow.siteTypes.join(' or ')}`,
-          });
+          actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played at ${playWindow.siteTypes.join(' or ')}`));
           continue;
         }
       }
@@ -226,11 +207,7 @@ export function heroResourceShortEventActions(
     });
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
-      actions.push({
-        action: { type: 'not-playable', player: playerId, cardInstanceId },
-        viable: false,
-        reason: `${def.name} can only be played during combat`,
-      });
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during combat`));
       continue;
     }
 
@@ -243,20 +220,12 @@ export function heroResourceShortEventActions(
     if (resourceCallCouncil) {
       if (!canCallEndgameNow(player)) {
         logDetail(`${def.name}: caller has not met end-of-game conditions`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name}: end-of-game conditions not met`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: end-of-game conditions not met`));
         continue;
       }
       if (player.freeCouncilCalled || state.lastTurnFor !== null) {
         logDetail(`${def.name}: endgame already called`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name}: endgame already called`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: endgame already called`));
         continue;
       }
       logDetail(`Resource short-event "${def.name}" playable — caller meets end-of-game conditions`);
@@ -281,11 +250,7 @@ export function heroResourceShortEventActions(
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} has no valid target to discard`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target to discard`));
         continue;
       }
     }
@@ -334,11 +299,7 @@ export function heroResourceShortEventActions(
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible play-option targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} requires a matching character and condition`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a matching character and condition`));
       } else {
         actions.push(...optionActions);
       }
@@ -346,11 +307,7 @@ export function heroResourceShortEventActions(
       const targets = eligibleTapTargets(state, player, playTarget);
       if (targets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `No eligible ${playTarget.target} to target`));
       } else {
         for (const targetId of targets) emitPlay(targetId);
       }
@@ -360,11 +317,7 @@ export function heroResourceShortEventActions(
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible character targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} requires a matching character`,
-        });
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a matching character`));
       } else {
         actions.push(...optionActions);
       }

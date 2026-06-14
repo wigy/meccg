@@ -28,6 +28,7 @@ import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, Ca
 import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
+import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
@@ -284,11 +285,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (permanentEventInstances.has(handCard.instanceId as string)) continue;
     if (shortEventInstances.has(handCard.instanceId as string)) continue;
     if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
-    actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: false,
-      reason: 'Not playable during the organization',
-    });
+    actions.push(notPlayable(playerId, handCard.instanceId, 'Not playable during the organization'));
   }
 
   // Move-to-influence actions (reassign characters between GI and DI)
@@ -1656,11 +1653,7 @@ export function playResourceShortEventActions(
           : undefined;
         if (siteDef && isSiteCard(siteDef) && !playWindow.siteTypes.includes(siteDef.siteType)) {
           logDetail(`${def.name}: play-window siteTypes [${playWindow.siteTypes.join(', ')}] does not include active site type ${siteDef.siteType} — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-            viable: false,
-            reason: `${def.name} can only be played at ${playWindow.siteTypes.map((s: string) => s.replace(/-/g, ' ')).join(' or ')}`,
-          });
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} can only be played at ${playWindow.siteTypes.map((s: string) => s.replace(/-/g, ' ')).join(' or ')}`));
           continue;
         }
       }
@@ -1675,11 +1668,7 @@ export function playResourceShortEventActions(
       const eligibility = endOfOrgEligibility(state, player, def);
       if (!eligibility.eligible) {
         logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: eligibility.reason,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, eligibility.reason));
         continue;
       }
 
@@ -1776,11 +1765,7 @@ export function playResourceShortEventActions(
       }
       if (!activeSiteType || !siteTypeCondition.siteTypes?.includes(activeSiteType)) {
         logDetail(`${def.name}: play-condition site-type requires [${siteTypeCondition.siteTypes?.join(', ') ?? '?'}], active site type: ${activeSiteType ?? 'none'}`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} can only be played at: ${(siteTypeCondition.siteTypes ?? []).map((t: string) => t.replace(/-/g, ' ')).join(' or ')}`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} can only be played at: ${(siteTypeCondition.siteTypes ?? []).map((t: string) => t.replace(/-/g, ' ')).join(' or ')}`));
         continue;
       }
     }
@@ -1816,11 +1801,7 @@ export function playResourceShortEventActions(
       }
       if (!siteHasResource) {
         logDetail(`${def.name}: play-condition site-has-resource requires ${siteHasResourceCondition.subtype} to be playable at the active site`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} requires a site where ${siteHasResourceCondition.subtype} is playable`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a site where ${siteHasResourceCondition.subtype} is playable`));
         continue;
       }
     }
@@ -1850,11 +1831,7 @@ export function playResourceShortEventActions(
       }
       if (!companyHasItem) {
         logDetail(`${def.name}: play-condition company-has-item requires a ${companyHasItemCondition.subtype} in the active company`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} requires a character in the company to have a ${companyHasItemCondition.subtype}`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a character in the company to have a ${companyHasItemCondition.subtype}`));
         continue;
       }
     }
@@ -1880,11 +1857,7 @@ export function playResourceShortEventActions(
       }
       if (!met) {
         logDetail(`${def.name}: play-condition active-company not satisfied`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name}: play conditions not met`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
         continue;
       }
     }
@@ -1901,11 +1874,7 @@ export function playResourceShortEventActions(
       const met = matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId));
       if (!met) {
         logDetail(`${def.name}: play-condition player-state not satisfied`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name}: play conditions not met`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
         continue;
       }
     }
@@ -1921,11 +1890,7 @@ export function playResourceShortEventActions(
       );
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
       } else {
         actions.push(...optionActions);
       }
@@ -1945,11 +1910,7 @@ export function playResourceShortEventActions(
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} has no valid target to discard`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));
         continue;
       }
     }
@@ -1963,11 +1924,7 @@ export function playResourceShortEventActions(
       const priorConstraints = countConstraintsFromDefinition(state, def.id);
       if (priorConstraints >= turnDupLimit.max) {
         logDetail(`${def.name}: cannot be duplicated this turn (${priorConstraints} active constraint(s))`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} cannot be duplicated on a given turn`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} cannot be duplicated on a given turn`));
         continue;
       }
     }
@@ -2017,11 +1974,7 @@ export function playResourceShortEventActions(
       const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
       } else if (hasRingPlayOffer) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;
@@ -2047,11 +2000,7 @@ export function playResourceShortEventActions(
         }
         if (!anyOffered) {
           logDetail(`${def.name}: no eligible (sage × gold ring) pair — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-            viable: false,
-            reason: `${def.name} requires a sage and a gold ring in the same company`,
-          });
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage and a gold ring in the same company`));
         }
       } else {
         for (const targetId of tapTargets) emitPlay(targetId);
@@ -2062,11 +2011,7 @@ export function playResourceShortEventActions(
       const filterTargets = eligiblePlayOptionTargets(state, player, playTarget);
       if (filterTargets.length === 0) {
         logDetail(`${def.name}: no eligible character targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
+        actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
       } else {
         for (const targetId of filterTargets) {
           logDetail(`Resource short-event playable (filter-target ${String(targetId)}): ${def.name}`);
