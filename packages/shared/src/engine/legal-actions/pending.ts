@@ -38,12 +38,7 @@ import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPl
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect } from '../reducer-utils.js';
-
-
-/** Wrap plain GameActions as viable EvaluatedActions. */
-function viable(actions: import('../../index.js').GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
-}
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Compute the (single) set of legal actions for the actor while the
