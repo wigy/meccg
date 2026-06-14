@@ -22,7 +22,7 @@
 
 import WebSocket from 'ws';
 import * as readline from 'readline';
-import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
+import type { PlayerId, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
 import {
   loadCardPool,
   formatPlayerView,
@@ -37,7 +37,7 @@ import {
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
 import { ClientLog } from './client-log.js';
-import { loadDeckJoin, listCatalogDecks } from './client-common.js';
+import { loadDeckJoin, listCatalogDecks, parseServerMessage } from './client-common.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'heuristic') : null;
@@ -131,8 +131,7 @@ function connect(): void {
   });
 
   socket.on('message', (raw: Buffer) => {
-    const data = raw.toString();
-    const msg: ServerMessage = JSON.parse(data) as ServerMessage;
+    const msg = parseServerMessage(raw);
     clientLog.log('msg-in', { msgType: msg.type, msg: msg.type === 'state' ? { type: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase } : msg });
     switch (msg.type) {
       case 'assigned':

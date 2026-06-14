@@ -11,8 +11,8 @@
  */
 
 import { WebSocket } from 'ws';
-import type { ServerMessage, ClientMessage, EvaluatedAction } from '@meccg/shared';
-import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect } from './client-common.js';
+import type { ClientMessage, EvaluatedAction } from '@meccg/shared';
+import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('pseudo-ai-client');
 
@@ -44,7 +44,7 @@ function connect(): void {
   });
 
   ws.on('message', (raw: Buffer) => {
-    const msg = JSON.parse(raw.toString()) as ServerMessage;
+    const msg = parseServerMessage(raw);
     if (msg.type !== 'state') {
       logCommonServerMessage('Pseudo-AI', msg);
       return;
