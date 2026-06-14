@@ -14,7 +14,7 @@
  *  Uruk-hai (+2)."
  *
  * The shared leader-control mechanic is certified in
- * `leader-controlled-factions.test.ts`; this file certifies the card-specific
+ * master's le-282.test.ts (shared mechanism); this file certifies the card-specific
  * data (site, influence #, standard modifications, re-influence value).
  */
 
@@ -105,7 +105,7 @@ describe('Orcs of the Red Eye (le-281)', () => {
     const attempts = viableActions(state, PLAYER_1, 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction)
       .filter(a => a.influencingCharacterId === captainId);
-    expect(attempts.some(a => a.controlWithLeader === true)).toBe(true);
+    expect(attempts.some(a => a.placeUnderLeaderControl === true)).toBe(true);
   });
 
   test('opponent can re-influence Orcs of the Red Eye while in play; value = 0', () => {

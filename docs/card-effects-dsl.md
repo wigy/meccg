@@ -1430,33 +1430,6 @@ untap lock.
 { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
 ```
 
-### 15d. `play-flag: "leader-controllable"`
-
-A `play-flag` carried by a Lidless-Eye "leader-controlled" faction (le-262
-Black Trolls, le-275 Orcs of Gorgoroth, le-279 Orcs of the Ash Mountains,
-le-281 Orcs of the Red Eye, le-282 Orcs of Udûn, le-291 Uruk-hai). The flag's
-presence is the entire trigger — the engine keys all of the following off it:
-
-- **Leader-control influence variant.** During the faction's influence attempt,
-  if the influencing character is an Orc or Troll **Leader**, the legal-action
-  computer (`legal-actions/site.ts`) offers a second `influence-attempt` action
-  with `controlWithLeader: true` alongside the normal one.
-- **Control placement, no site tap.** On a successful `controlWithLeader` roll,
-  the resolver (`reducer-site.ts:resolveInfluenceAttemptRoll`) records the
-  influencing leader on the faction via `CardInPlay.controlledBy` and leaves the
-  site **untapped** (forgoing the minor-item window). A normal success taps the
-  site and records no controller.
-- **Discard on leader move/leave.** `sweepLeaderControlledFactions`
-  (`reducer-utils.ts`, run in post-action housekeeping) discards a controlled
-  faction whose controlling leader has left play; the movement reducer discards
-  it when the leader's company moves.
-- **+2 MP for three.** `recompute-derived.ts` adds 2 marshalling points (faction
-  category) for each leader controlling three or more such factions.
-
-```json
-{ "type": "play-flag", "flag": "leader-controllable" }
-```
-
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,
@@ -4192,3 +4165,54 @@ also exposes `bearer.destinationRegion` (the defending company's destination
 site region, undefined when not moving), so an ally can cancel a hazard
 creature attack only when its company is moving to a qualifying region. Used
 together by Last Child of Ungoliant (le-153).
+
+### 48. `leader-control`
+
+Faction "control by a leader" mechanic carried by the LE *Orcs of Udûn*-style
+factions: **le-262** (Black Trolls), **le-275** (Orcs of Gorgoroth), **le-279**
+(Orcs of the Ash Mountains), **le-281** (Orcs of the Red Eye), **le-282** (Orcs
+of Udûn), **le-291** (Uruk-hai). Card text: *"If this influence attempt is made
+by an Orc or Troll leader, you may place this faction under the control of that
+leader and not tap the site. Discard the faction if the leader moves or leaves
+play. Three or more factions controlled by the same leader give 2 extra
+marshalling points."*
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `races` | yes | Races whose characters may take control, e.g. `["orc", "troll"]`. Matched against the influencing character's `race`. |
+| `requiresKeyword` | yes | Keyword the controlling character must carry, e.g. `"Leader"`. |
+| `groupBonus` | yes | `{ "count": N, "mp": M }` — a single leader controlling `N`+ such factions earns `M` extra marshalling points (counted once per leader). |
+
+```json
+{ "type": "leader-control",
+  "races": ["orc", "troll"],
+  "requiresKeyword": "Leader",
+  "groupBonus": { "count": 3, "mp": 2 } }
+```
+
+Behaviour (all implemented in the engine):
+
+- **Optional control at influence time.** When an eligible Orc/Troll leader can
+  influence the faction, the legal-action generator emits two
+  `influence-attempt` actions for that character — a normal one and a variant
+  carrying `placeUnderLeaderControl: true` (`legal-actions/site.ts`). The player
+  chooses ("you may"). The flag is threaded onto the chain entry and read by
+  `resolveInfluenceAttemptRoll` (`reducer-site.ts`).
+- **On success with control:** the faction enters `cardsInPlay` with
+  `controlledBy` = the leader's instance ID, and the influence **site is left
+  untapped** (no minor-item window opens). Eligibility is re-validated on
+  resolution via `leaderControlEligibility` (`reducer-utils.ts`).
+- **Discard when the leader moves:** at M/H step 8, any faction whose
+  `controlledBy` leader is in the moving company is discarded
+  (`reducer-movement-hazard.ts`).
+- **Discard when the leader leaves play:** the post-action sweep
+  `discardOrphanedControlledFactions` (`reducer-utils.ts`, called from
+  `postReduce` in `reducer.ts`) discards any controlled faction whose leader is
+  no longer in its owner's `characters` (elimination, influenced away, etc.).
+- **Group marshalling bonus:** `recompute-derived.ts` counts controlled factions
+  per leader and adds `groupBonus.mp` to the faction category for each leader
+  meeting `groupBonus.count`.
+
+The "Standard Modifications" line on these cards (e.g. *Orcs of Gorgoroth (+2),
+Orcs of the Red Eye (-2)*) is modeled separately with `check-modifier` effects
+gated on `controller.inPlay`, exactly as for the simpler LE factions.

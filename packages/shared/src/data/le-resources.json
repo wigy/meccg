@@ -1739,6 +1739,18 @@
     ],
     "effects": [
       {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
         "type": "check-modifier",
         "check": "influence",
         "value": 2,
@@ -1753,10 +1765,6 @@
         "when": {
           "controller.inPlay": "Orcs of Gundabad"
         }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
       }
     ],
     "certified": "2026-06-14"
@@ -1995,6 +2003,18 @@
     ],
     "effects": [
       {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
         "type": "check-modifier",
         "check": "influence",
         "value": 2,
@@ -2009,10 +2029,6 @@
         "when": {
           "controller.inPlay": "Orcs of Mirkwood"
         }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
       }
     ],
     "certified": "2026-06-14"
@@ -2075,6 +2091,18 @@
     ],
     "effects": [
       {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
         "type": "check-modifier",
         "check": "influence",
         "value": -2,
@@ -2089,10 +2117,6 @@
         "when": {
           "controller.inPlay": "Snaga-hai"
         }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
       }
     ],
     "certified": "2026-06-14"
@@ -2117,6 +2141,18 @@
     ],
     "effects": [
       {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
         "type": "check-modifier",
         "check": "influence",
         "value": -2,
@@ -2139,10 +2175,6 @@
         "when": {
           "controller.inPlay": "Uruk-hai"
         }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
       }
     ],
     "certified": "2026-06-14"
@@ -2160,34 +2192,28 @@
     "influenceNumber": 9,
     "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": [
-      {
-        "site": "Cirith Gorgor"
-      }
-    ],
+    "playableAt": [{ "site": "Cirith Gorgor" }],
     "effects": [
+      {
+        "type": "leader-control",
+        "races": ["orc", "troll"],
+        "requiresKeyword": "Leader",
+        "groupBonus": { "count": 3, "mp": 2 }
+      },
       {
         "type": "check-modifier",
         "check": "influence",
         "value": 2,
-        "when": {
-          "controller.inPlay": "Orcs of Gorgoroth"
-        }
+        "when": { "controller.inPlay": "Orcs of Gorgoroth" }
       },
       {
         "type": "check-modifier",
         "check": "influence",
         "value": -2,
-        "when": {
-          "controller.inPlay": "Orcs of the Red Eye"
-        }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
+        "when": { "controller.inPlay": "Orcs of the Red Eye" }
       }
     ],
-    "certified": "2026-06-14"
+    "certified": "2026-06-12"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2255,16 +2281,24 @@
     ],
     "effects": [
       {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
         "type": "check-modifier",
         "check": "influence",
         "value": -2,
         "when": {
           "controller.factionRaces": "orc"
         }
-      },
-      {
-        "type": "play-flag",
-        "flag": "leader-controllable"
       }
     ],
     "certified": "2026-06-14"

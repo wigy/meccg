@@ -2026,27 +2026,26 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     }
   }
 
-  // --- Step 8a-3: Discard leader-controlled factions when their leader moves ---
-  // Lidless-Eye leader-controlled factions (le-262/275/279/281/282/291) are
-  // discarded if their controlling leader "moves". A leader moves when the
-  // company holding it changes site, so when a company has moved, discard any
-  // faction in the active player's cardsInPlay controlled by a character now in
-  // the moved company.
+  // --- Step 8a-3: Discard leader-controlled factions whose leader moved ---
+  // LE "Orcs of Udûn"-style factions are discarded when the controlling leader
+  // moves ("Discard the faction if the leader moves or leaves play"). The leave
+  // half is handled by the post-action orphan sweep; here we catch movement
+  // while the leader is still in play.
   if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
-    const movedMembers = new Set(movedCompany.characters.map(id => id as string));
+    const movedCharIds = new Set(movedCompany.characters.map(id => id as string));
     const factionsToDiscard = newPlayers[activeIndex].cardsInPlay.filter(
-      c => c.controlledBy && movedMembers.has(c.controlledBy as string),
+      c => c.controlledBy !== undefined && movedCharIds.has(c.controlledBy as string),
     );
     if (factionsToDiscard.length > 0) {
-      const discardIds = new Set(factionsToDiscard.map(c => c.instanceId as string));
-      for (const c of factionsToDiscard) {
-        const def = state.cardPool[c.definitionId as string] as { name?: string } | undefined;
-        logDetail(`leader-controlled faction: discarding "${def?.name ?? c.definitionId}" — controlling leader ${c.controlledBy as string} moved`);
+      const discardSet = new Set(factionsToDiscard.map(c => c.instanceId as string));
+      for (const f of factionsToDiscard) {
+        const fDef = state.cardPool[f.definitionId as string] as { name?: string } | undefined;
+        logDetail(`leader-control: discarding "${fDef?.name ?? f.definitionId}" — controlling leader moved`);
       }
       newPlayers[activeIndex] = {
         ...newPlayers[activeIndex],
-        cardsInPlay: newPlayers[activeIndex].cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+        cardsInPlay: newPlayers[activeIndex].cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
         discardPile: [...newPlayers[activeIndex].discardPile, ...factionsToDiscard.map(toCardInstance)],
       };
     }

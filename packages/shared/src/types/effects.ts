@@ -1021,17 +1021,8 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
- * - `leader-controllable` — this faction (a Lidless-Eye "leader-controlled"
- *   faction such as le-262/275/279/281/282/291) may, when its influence
- *   attempt is made by an Orc or Troll **Leader**, be placed under that
- *   leader's control instead of merely coming into play: the controlling
- *   leader is recorded on the faction via {@link CardInPlay.controlledBy},
- *   the site is **not** tapped, the faction is discarded when that leader
- *   moves or leaves play, and a leader controlling three or more such
- *   factions grants +2 marshalling points. The flag's presence is the
- *   entire trigger — the engine keys all of this behaviour off it.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'leader-controllable';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1048,6 +1039,43 @@ export interface PlayFlagEffect extends EffectBase {
    * character may also be played without counting against the one-character-per-turn limit.
    */
   readonly companions?: readonly string[];
+}
+
+/**
+ * Faction "control by a leader" mechanic (CoE — LE "Orcs of Udûn"-style
+ * factions: le-262, le-275, le-279, le-281, le-282, le-291).
+ *
+ * When a character whose race is in {@link races} and which carries the
+ * {@link requiresKeyword} keyword successfully makes the influence attempt for
+ * this faction, the player **may** place the faction under that character's
+ * control. Doing so:
+ *
+ * - records `controlledBy` = the controlling character's instance ID on the
+ *   faction's {@link CardInPlay} entry,
+ * - leaves the influence site **untapped** (the attempt does not tap it),
+ * - discards the faction if the controlling leader later **moves** (its company
+ *   completes movement) or **leaves play** (eliminated / influenced away), and
+ * - contributes to the {@link groupBonus}: a leader controlling `count` or more
+ *   such factions grants `mp` extra marshalling points (counted once per
+ *   leader, regardless of how many factions over the threshold it controls).
+ *
+ * Taking control is optional ("you may"): the legal-action generator emits both
+ * a normal influence attempt and a "place under control" variant for an
+ * eligible leader, and the player chooses.
+ */
+export interface LeaderControlEffect extends EffectBase {
+  readonly type: 'leader-control';
+  /** Races of character eligible to take control (e.g. `["orc", "troll"]`). */
+  readonly races: readonly string[];
+  /** Keyword the controlling character must carry (e.g. `"Leader"`). */
+  readonly requiresKeyword: string;
+  /** Group marshalling-point bonus for a leader controlling `count`+ factions. */
+  readonly groupBonus: {
+    /** Minimum factions a single leader must control to earn the bonus. */
+    readonly count: number;
+    /** Extra marshalling points granted (once) when the threshold is met. */
+    readonly mp: number;
+  };
 }
 
 /**
@@ -2774,6 +2802,7 @@ export type CardEffect =
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | PlayCreatureFromDiscardEffect
+  | LeaderControlEffect
   | StayHerAppetiteEffect;
 
 /**

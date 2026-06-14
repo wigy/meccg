@@ -14,7 +14,7 @@
  *
  * The shared leader-control mechanic (control placement, no-tap, discard on
  * leader move/leave, +2 MP for three) is certified in
- * `leader-controlled-factions.test.ts`; this file certifies Black Trolls'
+ * master's le-282.test.ts (shared mechanism); this file certifies Black Trolls'
  * card-specific data. The "Morgul Orcs (+2)" modifier is not exercised here
  * because no card named "Morgul Orcs" exists in the pool.
  */
@@ -99,7 +99,7 @@ describe('Black Trolls (le-262)', () => {
     const attempts = viableActions(state, PLAYER_1, 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction)
       .filter(a => a.influencingCharacterId === captainId);
-    expect(attempts.some(a => a.controlWithLeader === true)).toBe(true);
+    expect(attempts.some(a => a.placeUnderLeaderControl === true)).toBe(true);
   });
 
   test('opponent can re-influence Black Trolls while in play; value = 0', () => {

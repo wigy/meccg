@@ -18,7 +18,7 @@
  * the `controller.factionRaces` resolver context. Because a single check-
  * modifier contributes its value once, the "applied only once" wording is
  * satisfied even with several Orc factions in play. The shared leader-control
- * mechanic is certified in `leader-controlled-factions.test.ts`.
+ * mechanic is certified in master's le-282.test.ts (shared mechanism).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -119,7 +119,7 @@ describe('Uruk-hai (le-291)', () => {
     const attempts = viableActions(state, PLAYER_1, 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction)
       .filter(a => a.influencingCharacterId === captainId);
-    expect(attempts.some(a => a.controlWithLeader === true)).toBe(true);
+    expect(attempts.some(a => a.placeUnderLeaderControl === true)).toBe(true);
   });
 
   test('opponent can re-influence Uruk-hai while in play; value = 0', () => {

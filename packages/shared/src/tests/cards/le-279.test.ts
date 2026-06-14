@@ -13,7 +13,7 @@
  *  Standard Modifications: Orcs of the Ephel Dúath (-2), Snaga-hai (+2)."
  *
  * The shared leader-control mechanic is certified in
- * `leader-controlled-factions.test.ts`. The "Orcs of the Ephel Dúath (-2)"
+ * master's le-282.test.ts (shared mechanism). The "Orcs of the Ephel Dúath (-2)"
  * modifier is not exercised here because no such card exists in the pool.
  */
 
@@ -89,7 +89,7 @@ describe('Orcs of the Ash Mountains (le-279)', () => {
     const attempts = viableActions(state, PLAYER_1, 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction)
       .filter(a => a.influencingCharacterId === captainId);
-    expect(attempts.some(a => a.controlWithLeader === true)).toBe(true);
+    expect(attempts.some(a => a.placeUnderLeaderControl === true)).toBe(true);
   });
 
   test('opponent can re-influence Orcs of the Ash Mountains while in play; value = 0', () => {

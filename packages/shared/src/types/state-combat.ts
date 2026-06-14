@@ -627,11 +627,12 @@ export type ChainEntryPayload =
       readonly type: 'influence-attempt';
       readonly influencingCharacterId: CardInstanceId;
       /**
-       * When true, a successful attempt places the faction under the influencing
-       * Orc/Troll leader's control (no site tap). Carried through the chain from
-       * the declared {@link InfluenceAttemptAction} so resolution can honour it.
+       * When true, the influencing Orc/Troll leader takes the faction under
+       * its control on success (LE "Orcs of Udûn"-style factions), leaving the
+       * influence site untapped. Threaded from the declared action's
+       * `placeUnderLeaderControl` flag. See {@link LeaderControlEffect}.
        */
-      readonly controlWithLeader?: boolean;
+      readonly placeUnderLeaderControl?: boolean;
     };
 
 /**

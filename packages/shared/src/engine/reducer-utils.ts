@@ -432,6 +432,37 @@ export function getCardEffects(
 }
 
 /**
+ * Returns the `leader-control` effect on a faction definition, or `undefined`.
+ * Carried by LE "Orcs of Udûn"-style factions (le-262, le-275, le-279, le-281,
+ * le-282, le-291) that an Orc or Troll leader may place under their control.
+ */
+export function getLeaderControlEffect(
+  def: CardDefinition | null | undefined,
+): import('../types/effects.js').LeaderControlEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is import('../types/effects.js').LeaderControlEffect => e.type === 'leader-control',
+  );
+}
+
+/**
+ * True when `charDef` is eligible to take `factionDef` under its control:
+ * the faction carries a `leader-control` effect and the character's race is in
+ * the effect's `races` list and it carries the required keyword (e.g. an Orc or
+ * Troll leader). Shared by the legal-action generator (which offers the control
+ * variant) and the influence resolver (which validates it on success).
+ */
+export function leaderControlEligibility(
+  factionDef: CardDefinition | null | undefined,
+  charDef: CardDefinition | null | undefined,
+): boolean {
+  const effect = getLeaderControlEffect(factionDef);
+  if (!effect || !charDef || !isCharacterCard(charDef)) return false;
+  const raceOk = effect.races.includes(charDef.race as unknown as string);
+  const keywordOk = (charDef.keywords ?? []).includes(effect.requiresKeyword as never);
+  return raceOk && keywordOk;
+}
+
+/**
  * Returns the first `hazard-maintenance` effect on the card, or `undefined` if
  * none exists. Centralizes the recurring pattern of iterating a card's effects
  * to find the maintenance trigger, used both when computing available legal
@@ -1152,45 +1183,34 @@ export function sweepLeaderLeavesCompanyEvents(
 }
 
 /**
- * Discards any Lidless-Eye leader-controlled faction (a `cardsInPlay` entry
- * carrying a {@link CardInPlay.controlledBy}) whose controlling leader has
- * left play. Card text: "Discard the faction if the leader … leaves play."
- *
- * A leader is considered to have left play when its instance ID is no longer
- * a key in the controlling player's `characters` map — this covers every
- * removal path uniformly (combat elimination, corruption discard, being
- * influenced away to the opponent, organization discard, etc.) without
- * needing a hook in each one. The companion "leader moves" trigger is handled
- * separately at company movement (the leader is still in play after a move).
- *
- * Called from the top-level post-action housekeeping so it runs after every
- * action; a no-op (returns the same state) when nothing is controlled or no
- * controller has left.
+ * Discard any faction held under a leader's control (`controlledBy` set, the LE
+ * "Orcs of Udûn"-style factions) whose controlling character is no longer in
+ * that player's `characters` — i.e. the leader has **left play** (eliminated,
+ * influenced away, etc.). Implements "Discard the faction if the leader … leaves
+ * play." Runs as post-action housekeeping so every removal path is covered by a
+ * single chokepoint; the "leader moves" half is handled at M/H step 8.
  */
-export function sweepLeaderControlledFactions(state: GameState): GameState {
+export function discardOrphanedControlledFactions(state: GameState): GameState {
   let changed = false;
   const newPlayers = clonePlayers(state);
 
   for (let pi = 0; pi < 2; pi++) {
     const player = newPlayers[pi];
-    const toDiscard: CardInstanceId[] = [];
-    for (const card of player.cardsInPlay) {
-      if (!card.controlledBy) continue;
-      if (player.characters[card.controlledBy as string]) continue; // leader still in play
-      const def = defById(state, card.definitionId);
-      logDetail(`leader-controlled faction: discarding "${def?.name ?? card.definitionId}" — controlling leader ${card.controlledBy as string} left play`);
-      toDiscard.push(card.instanceId);
+    const orphaned = player.cardsInPlay.filter(
+      c => c.controlledBy !== undefined && !player.characters[c.controlledBy as string],
+    );
+    if (orphaned.length === 0) continue;
+    changed = true;
+    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
+    for (const card of orphaned) {
+      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      logDetail(`leader-control: discarding "${def?.name ?? card.definitionId}" — controlling leader left play`);
     }
-    if (toDiscard.length > 0) {
-      changed = true;
-      const discardSet = new Set(toDiscard as string[]);
-      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
-      newPlayers[pi] = {
-        ...newPlayers[pi],
-        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
-        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
-      };
-    }
+    newPlayers[pi] = {
+      ...player,
+      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
+      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
+    };
   }
 
   return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;

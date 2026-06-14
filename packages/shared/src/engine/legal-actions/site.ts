@@ -10,9 +10,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber, Race } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1462,17 +1462,12 @@ function playResourcesActions(
           viable: true,
         });
 
-        // Leader-controlled factions (le-262/275/279/281/282/291): when the
-        // faction carries the `leader-controllable` play-flag and the
-        // influencing character is an Orc or Troll Leader, offer the
-        // additional option to place the faction under that leader's control
-        // on success — which does NOT tap the site (and forgoes the
-        // minor-item window) but ties the faction's life to the leader and
-        // counts toward the +2-MP-for-three rule.
-        if (hasPlayFlag(factionDef, 'leader-controllable') && charDef && isCharacterCard(charDef)
-          && (charDef.keywords ?? []).includes('Leader')
-          && (charDef.race === Race.Orc || charDef.race === Race.Troll)) {
-          logDetail(`Faction ${factionDef.name}: ${charName} is an Orc/Troll Leader — offering leader-control variant (site not tapped)`);
+        // LE "Orcs of Udûn"-style factions: an eligible Orc/Troll leader may
+        // additionally choose to take the faction under their control on
+        // success (leaving the site untapped). Offer this as a separate
+        // variant so the player decides ("you may").
+        if (getLeaderControlEffect(factionDef) && charDef && leaderControlEligibility(factionDef, charDef)) {
+          logDetail(`Faction ${factionDef.name}: ${charName} may take it under leader control (site not tapped)`);
           actions.push({
             action: {
               type: 'influence-attempt',
@@ -1480,8 +1475,8 @@ function playResourcesActions(
               factionInstanceId: cardInstanceId,
               influencingCharacterId: ch.instanceId,
               need: infNeed,
-              controlWithLeader: true,
-              explanation: `Need roll >= ${infNeed} (${infParts.join(', ')}); place under ${charName}'s control, do not tap the site`,
+              explanation: `Need roll >= ${infNeed} — place under ${charName}'s control, site not tapped (${infParts.join(', ')})`,
+              placeUnderLeaderControl: true,
             },
             viable: true,
           });
