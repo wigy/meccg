@@ -59,6 +59,17 @@ function crossAlignmentItemMpFactor(
   return 1.0;
 }
 
+/** A card definition that carries marshalling-point scoring data. */
+type MarshallingScoredCard = CardDefinition & {
+  readonly marshallingPoints: number;
+  readonly marshallingCategory: MarshallingCategory;
+};
+
+/** Whether a card definition carries marshalling-point scoring data. */
+function hasMarshallingPoints(def: CardDefinition): def is MarshallingScoredCard {
+  return 'marshallingPoints' in def && 'marshallingCategory' in def;
+}
+
 /**
  * Adds a card's marshalling points to the running totals by its category.
  */
@@ -66,10 +77,10 @@ function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
 ): MarshallingPointTotals {
-  if (!('marshallingPoints' in def) || !('marshallingCategory' in def)) return totals;
-  const mp = (def as { marshallingPoints: number }).marshallingPoints;
+  if (!hasMarshallingPoints(def)) return totals;
+  const mp = def.marshallingPoints;
   if (mp === 0) return totals;
-  const cat = (def as { marshallingCategory: MarshallingCategory }).marshallingCategory;
+  const cat = def.marshallingCategory;
   return { ...totals, [cat]: totals[cat] + mp };
 }
 
@@ -83,13 +94,34 @@ function addItemMP(
   def: CardDefinition,
   playerAlignment: Alignment,
 ): MarshallingPointTotals {
-  if (!('marshallingPoints' in def) || !('marshallingCategory' in def)) return totals;
-  const baseMp = (def as { marshallingPoints: number }).marshallingPoints;
+  if (!hasMarshallingPoints(def)) return totals;
+  const baseMp = def.marshallingPoints;
   if (baseMp === 0) return totals;
-  const cat = (def as { marshallingCategory: MarshallingCategory }).marshallingCategory;
+  const cat = def.marshallingCategory;
   const factor = crossAlignmentItemMpFactor(playerAlignment, def.cardType);
   const mp = factor < 1 ? Math.ceil(baseMp * factor) : baseMp;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/**
+ * Resolves the card definitions of every card a player has in `cardsInPlay`,
+ * skipping any whose definition cannot be resolved. Centralizes the
+ * resolve-and-filter loop shared by the in-play context builders below.
+ */
+function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefinition[] {
+  const defs: CardDefinition[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) defs.push(def);
+  }
+  return defs;
+}
+
+/** The names of all named cards a player has in `cardsInPlay`, in card order. */
+function inPlayNamesOf(state: GameState, player: PlayerState): string[] {
+  return playerCardsInPlayDefs(state, player)
+    .filter((def): def is CardDefinition & { name: string } => 'name' in def)
+    .map(def => def.name);
 }
 
 /**
@@ -98,14 +130,7 @@ function addItemMP(
  * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
  */
 export function buildInPlayNames(state: GameState): readonly string[] {
-  const names: string[] = [];
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = resolveDef(state, card.instanceId);
-      if (def && 'name' in def) names.push((def as { name: string }).name);
-    }
-  }
-  return names;
+  return state.players.flatMap(player => inPlayNamesOf(state, player));
 }
 
 /**
@@ -120,14 +145,8 @@ export function buildControllerInPlayNames(
   state: GameState,
   playerId: import('../index.js').PlayerId,
 ): readonly string[] {
-  const names: string[] = [];
   const player = playerById(state, playerId);
-  if (!player) return names;
-  for (const card of player.cardsInPlay) {
-    const def = resolveDef(state, card.instanceId);
-    if (def && 'name' in def) names.push((def as { name: string }).name);
-  }
-  return names;
+  return player ? inPlayNamesOf(state, player) : [];
 }
 
 /**
@@ -144,13 +163,11 @@ export function buildControllerFactionRaces(
   state: GameState,
   playerId: import('../index.js').PlayerId,
 ): readonly string[] {
-  const races = new Set<string>();
   const player = playerById(state, playerId);
   if (!player) return [];
-  for (const card of player.cardsInPlay) {
-    const def = resolveDef(state, card.instanceId);
-    if (def && isFactionCard(def)) races.add(def.race);
-  }
+  const races = new Set(
+    playerCardsInPlayDefs(state, player).filter(isFactionCard).map(def => def.race),
+  );
   return [...races];
 }
 
