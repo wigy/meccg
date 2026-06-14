@@ -25,12 +25,12 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, DuplicationLimitEffect, PlayConditionEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1555,10 +1555,7 @@ function playOptionActionsForCard(
   // Resolve the source definition once to check for an active-check duplication limit.
   const sourceDefId = resolveInstanceId(state, cardInstanceId);
   const sourceDef = sourceDefId ? defById(state, sourceDefId) : undefined;
-  const allEffects = sourceDef ? getCardEffects(sourceDef) : [];
-  const activeCheckLimit = allEffects.find(
-    (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'active-check',
-  );
+  const activeCheckLimit = findDuplicationLimitEffect(sourceDef, 'active-check');
 
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
@@ -1758,9 +1755,7 @@ export function playResourceShortEventActions(
 
     // play-condition requires: "site-type" (e.g. Glamour of Surpassing Excellence:
     // requires Border-hold or Free-hold). Only meaningful during the site phase.
-    const siteTypeCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-type',
-    );
+    const siteTypeCondition = findPlayConditionEffect(def, 'site-type');
     if (siteTypeCondition) {
       let activeSiteType: string | null = null;
       if (currentPhase === 'site') {
@@ -1788,9 +1783,7 @@ export function playResourceShortEventActions(
     // play-condition requires: "site-has-resource" — active site must have the
     // given item subtype in its playableResources array. Only meaningful during
     // the site phase (after a company is selected).
-    const siteHasResourceCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-has-resource',
-    );
+    const siteHasResourceCondition = findPlayConditionEffect(def, 'site-has-resource');
     if (siteHasResourceCondition && siteHasResourceCondition.subtype) {
       let siteHasResource = false;
       if (currentPhase === 'site') {
@@ -1828,9 +1821,7 @@ export function playResourceShortEventActions(
     // play-condition requires: "company-has-item" — at least one character in the
     // active company must carry an item of the given subtype. Only meaningful
     // during the site phase.
-    const companyHasItemCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'company-has-item',
-    );
+    const companyHasItemCondition = findPlayConditionEffect(def, 'company-has-item');
     if (companyHasItemCondition && companyHasItemCondition.subtype) {
       let companyHasItem = false;
       if (currentPhase === 'site') {
@@ -1865,9 +1856,7 @@ export function playResourceShortEventActions(
     // the CoE 10.39 win cards (Cracks of Doom, Gollum's Fate) to require The
     // One Ring (and Gollum) at Mount Doom. Only meaningful during the site
     // phase after a company is selected.
-    const activeCompanyCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'active-company',
-    );
+    const activeCompanyCondition = findPlayConditionEffect(def, 'active-company');
     if (activeCompanyCondition?.condition) {
       let met = false;
       if (currentPhase === 'site') {
@@ -1894,9 +1883,7 @@ export function playResourceShortEventActions(
     // ({ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }).
     // Used by Above the Abyss (as-77): "if your opponent is a Wizard and your
     // Ringwraith is in play".
-    const playerStateCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'player-state',
-    );
+    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
     if (playerStateCondition?.condition) {
       const met = matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId));
       if (!met) {
@@ -1956,9 +1943,7 @@ export function playResourceShortEventActions(
 
     // duplication-limit: scope "turn" — cannot play if a copy was already
     // played this turn (tracked via active constraints sourced from this def).
-    const turnDupLimit = def.effects?.find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
-    );
+    const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
     if (turnDupLimit) {
       const priorConstraints = countConstraintsFromDefinition(state, def.id);
       if (priorConstraints >= turnDupLimit.max) {

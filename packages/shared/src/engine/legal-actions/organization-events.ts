@@ -15,13 +15,11 @@ import type {
   MinionResourceEventCard,
   HazardEventCard,
   PlayTargetEffect,
-  DuplicationLimitEffect,
-  PlayConditionEffect,
 } from '../../index.js';
 import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -52,10 +50,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     }
 
     // Check duplication-limit with scope "game": cannot play if a copy is already in play
-    const dupLimit = def.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
-      if (e.type !== 'duplication-limit') return false;
-      return e.scope === 'game';
-    });
+    const dupLimit = findDuplicationLimitEffect(def, 'game');
     if (dupLimit) {
       const copiesInPlay = countCopiesInPlay(state, def.name);
       if (copiesInPlay >= dupLimit.max) {
@@ -70,9 +65,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     }
 
     // Check duplication-limit with scope "player": each player independently limited
-    const playerDupLimit = def.effects?.find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'player',
-    );
+    const playerDupLimit = findDuplicationLimitEffect(def, 'player');
     if (playerDupLimit) {
       let copiesOwned = player.cardsInPlay.filter(c => {
         const cDef = defById(state, c.definitionId);
@@ -110,9 +103,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     }
 
     // play-condition: card-not-in-play — blocked if named card is in play
-    const cardNotInPlayCondition = def.effects?.find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'card-not-in-play',
-    );
+    const cardNotInPlayCondition = findPlayConditionEffect(def, 'card-not-in-play');
     if (cardNotInPlayCondition?.cardName) {
       const blockerName = cardNotInPlayCondition.cardName;
       const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
@@ -132,20 +123,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       (e): e is PlayTargetEffect => e.type === 'play-target',
     );
     if (playTarget?.target === 'character') {
-      const charDupLimit = def.effects?.find(
-        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
-      );
-      const companyDupLimit = def.effects?.find(
-        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
-      );
+      const charDupLimit = findDuplicationLimitEffect(def, 'character');
+      const companyDupLimit = findDuplicationLimitEffect(def, 'company');
       // play-condition: site-type — the character's company must be at one of the required site types
-      const siteTypeCondition = def.effects?.find(
-        (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-type',
-      );
+      const siteTypeCondition = findPlayConditionEffect(def, 'site-type');
       // play-condition: same-site-has-character-race — a company at the same site must have a character of the given race
-      const sameSiteRaceCondition = def.effects?.find(
-        (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'same-site-has-character-race',
-      );
+      const sameSiteRaceCondition = findPlayConditionEffect(def, 'same-site-has-character-race');
       let anyTarget = false;
       for (const company of player.companies) {
         if (siteTypeCondition) {
@@ -254,9 +237,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
     // play-target DSL: company-targeting permanent events get one action per qualifying company
     if (playTarget?.target === 'company') {
-      const companyDupLimit = def.effects?.find(
-        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
-      );
+      const companyDupLimit = findDuplicationLimitEffect(def, 'company');
       let anyTarget = false;
       for (const company of player.companies) {
         if (!company.currentSite) continue;
