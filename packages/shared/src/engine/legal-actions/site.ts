@@ -21,6 +21,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -52,11 +53,6 @@ function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
     },
   };
   return matchesCondition(entry.when, ctx);
-}
-
-/** Wrap plain GameActions as viable EvaluatedActions. */
-function viable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**

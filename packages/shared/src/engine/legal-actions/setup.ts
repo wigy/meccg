@@ -9,7 +9,7 @@
  * return plain actions wrapped as viable.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import { draftActions } from './draft.js';
 import { itemDraftActions } from './item-draft.js';
 import { characterDeckDraftActions } from './character-deck-draft.js';
@@ -19,11 +19,7 @@ import { deckShuffleActions } from './deck-shuffle.js';
 import { initialDrawActions } from './initial-draw.js';
 import { initiativeRollActions } from './initiative-roll.js';
 import { logDetail } from './log.js';
-
-/** Wraps plain GameActions as viable EvaluatedActions. */
-function asViable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
-}
+import { asViable } from './evaluated.js';
 
 export function setupActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup') return [];
