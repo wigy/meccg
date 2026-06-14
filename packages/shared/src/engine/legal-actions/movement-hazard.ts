@@ -28,6 +28,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -123,11 +124,6 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   }
 
   return viable([{ type: 'pass', player: playerId }]);
-}
-
-/** Wrap plain GameActions as viable EvaluatedActions. */
-function viable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**

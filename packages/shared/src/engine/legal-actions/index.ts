@@ -11,7 +11,7 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { getPlayerIndex } from '../../index.js';
 import { setupActions } from './setup.js';
@@ -25,6 +25,7 @@ import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
 import { logEvaluated, logHeading, logResult } from './log.js';
+import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
 import { resolutionLegalActions, applyConstraints } from './pending.js';
 
@@ -76,7 +77,6 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   return actions;
 }
 
-/** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
 /**
  * Cross-phase `reshuffle-card-from-hand` actions — one per hand card
  * whose definition carries a `move` effect with
@@ -103,10 +103,6 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
     });
   }
   return results;
-}
-
-function asViable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**

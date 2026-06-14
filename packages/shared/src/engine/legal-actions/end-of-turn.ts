@@ -21,6 +21,7 @@ import { deckExhaustExchangeActions } from './movement-hazard.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { storeItemActions } from './organization-companies.js';
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Compute legal actions for a player during the end-of-turn phase.
@@ -39,9 +40,6 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
   const eotState = state.phaseState as EndOfTurnPhaseState;
   const step = eotState.step;
   logHeading(`End-of-Turn legal actions: step '${step}' for player ${playerId as string}`);
-
-  const viable = (actions: GameAction[]): EvaluatedAction[] =>
-    actions.map(action => ({ action, viable: true }));
 
   switch (step) {
     case 'discard': {
