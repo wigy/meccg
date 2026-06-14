@@ -10,6 +10,7 @@
 
 import { appState, type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
+import { escapeHtml } from './html-utils.js';
 
 // Forward-declared showScreen, set by the lobby module at startup to
 // avoid a circular dependency with lobby-screens.ts.
@@ -32,11 +33,6 @@ interface CreditHistoryEntry {
   readonly amount: number;
   readonly balance: number;
   readonly explanation: string;
-}
-
-/** Escape HTML special characters for safe insertion via innerHTML. */
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** Format an ISO datetime as a locale-friendly date+time. */
