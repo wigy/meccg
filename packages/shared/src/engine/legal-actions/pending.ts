@@ -28,7 +28,7 @@ import type {
   CompanyId,
 } from '../../index.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
-import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory, DuplicationLimitEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
@@ -37,7 +37,7 @@ import { buildPlayOptionContext, availableDI } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect } from '../reducer-utils.js';
 
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -1030,9 +1030,7 @@ function reactiveCorruptionCheckPlays(
     // "active-check" duplication limit: skip if a constraint from this definition
     // already exists on the target character (enforces "Cannot be duplicated on a
     // given check" for cards like Join With That Power).
-    const activeCheckLimit = effects.find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'active-check',
-    );
+    const activeCheckLimit = findDuplicationLimitEffect(shortDef, 'active-check');
     if (activeCheckLimit) {
       const alreadyApplied = state.activeConstraints.some(
         c => c.sourceDefinitionId === handCard.definitionId
@@ -1655,9 +1653,7 @@ function ringPlayOfferActions(
     // Duplication-limit scope "character": skip if the target character already
     // holds the maximum number of copies of this ring (Rule text "Cannot be
     // duplicated on a given character").
-    const charDupLimit = (def as unknown as { effects?: CardEffect[] }).effects?.find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
-    );
+    const charDupLimit = findDuplicationLimitEffect(def, 'character');
     if (charDupLimit) {
       const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
       const targetChar = player.characters[characterInstanceId as string];
@@ -1700,9 +1696,7 @@ function ringPlayOfferActions(
         if (!keywords.includes('ring')) continue;
         const category = (searchCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
         if (!category) continue;
-        const charDupLimit = (def as unknown as { effects?: CardEffect[] }).effects?.find(
-          (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
-        );
+        const charDupLimit = findDuplicationLimitEffect(def, 'character');
         if (charDupLimit) {
           const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
           const targetChar = player.characters[characterInstanceId as string];

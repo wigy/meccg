@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
 import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -473,6 +473,38 @@ export function findHazardMaintenanceEffect(
 ): HazardMaintenanceEffect | undefined {
   return getCardEffects(def).find(
     (e): e is HazardMaintenanceEffect => e.type === 'hazard-maintenance',
+  );
+}
+
+/**
+ * Returns the card's `duplication-limit` effect for the given {@link
+ * DuplicationLimitEffect.scope}, or `undefined` if none matches. Centralizes
+ * the recurring `effects.find(...)` type-guard used across the legal-action
+ * handlers to enforce per-scope copy limits (e.g. one per turn, one per
+ * company, one per active check).
+ */
+export function findDuplicationLimitEffect(
+  def: CardDefinition | null | undefined,
+  scope: DuplicationLimitEffect['scope'],
+): DuplicationLimitEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === scope,
+  );
+}
+
+/**
+ * Returns the card's `play-condition` effect for the given {@link
+ * PlayConditionEffect.requires}, or `undefined` if none matches. Centralizes
+ * the recurring `effects.find(...)` type-guard used across the legal-action
+ * handlers to gate playability on a specific prerequisite kind (site type,
+ * card-not-in-play, player state, etc.).
+ */
+export function findPlayConditionEffect(
+  def: CardDefinition | null | undefined,
+  requires: PlayConditionEffect['requires'],
+): PlayConditionEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === requires,
   );
 }
 
