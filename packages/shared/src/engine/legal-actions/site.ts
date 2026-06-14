@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -22,6 +22,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -53,11 +54,6 @@ function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
     },
   };
   return matchesCondition(entry.when, ctx);
-}
-
-/** Wrap plain GameActions as viable EvaluatedActions. */
-function viable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**
@@ -677,10 +673,7 @@ function playResourcesActions(
         }
 
         // Check duplication-limit with scope "game": cannot play if a copy is already in play
-        const dupLimit = eventDef.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
-          if (e.type !== 'duplication-limit') return false;
-          return e.scope === 'game';
-        });
+        const dupLimit = findDuplicationLimitEffect(eventDef, 'game');
         if (dupLimit) {
           const copiesInPlay = countCopiesInPlay(state, eventDef.name);
           if (copiesInPlay >= dupLimit.max) {
@@ -691,10 +684,7 @@ function playResourcesActions(
         }
 
         // duplication-limit: scope "player" — one copy per player across all their characters
-        const playerDupLimit = eventDef.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
-          if (e.type !== 'duplication-limit') return false;
-          return e.scope === 'player';
-        });
+        const playerDupLimit = findDuplicationLimitEffect(eventDef, 'player');
         if (playerDupLimit) {
           const copiesForPlayer = Object.values(player.characters).reduce(
             (count, ch) =>
@@ -739,10 +729,7 @@ function playResourcesActions(
         }
 
         // duplication-limit: scope "site" — only one copy per site (across all companies at this site)
-        const siteDupLimit = eventDef.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
-          if (e.type !== 'duplication-limit') return false;
-          return e.scope === 'site';
-        });
+        const siteDupLimit = findDuplicationLimitEffect(eventDef, 'site');
         if (siteDupLimit && siteDefId) {
           const copiesAtSite = state.players.reduce((count, p) => {
             for (const co of p.companies) {
@@ -770,10 +757,7 @@ function playResourcesActions(
 
         // play-condition: card-not-in-play — card is not playable if the named
         // card is currently in play as a character or in any player's cardsInPlay.
-        const cardNotInPlayCondition = eventDef.effects?.find(
-          (e): e is import('../../index.js').PlayConditionEffect =>
-            e.type === 'play-condition' && e.requires === 'card-not-in-play',
-        );
+        const cardNotInPlayCondition = findPlayConditionEffect(eventDef, 'card-not-in-play');
         if (cardNotInPlayCondition?.cardName) {
           const blockerName = cardNotInPlayCondition.cardName;
           const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
@@ -864,10 +848,7 @@ function playResourcesActions(
         }
 
         // Check play-condition: discard-named-card
-        const discardCondition = eventDef.effects?.find(
-          (e): e is import('../../index.js').PlayConditionEffect =>
-            e.type === 'play-condition' && e.requires === 'discard-named-card',
-        );
+        const discardCondition = findPlayConditionEffect(eventDef, 'discard-named-card');
         const discardCandidates: { instanceId: import('../../index.js').CardInstanceId; source: string }[] = [];
         if (discardCondition && discardCondition.cardName) {
           const targetCardName = discardCondition.cardName;
@@ -1047,10 +1028,7 @@ function playResourcesActions(
       }
 
       // Check character-scoped duplication limit
-      const charDupLimit = itemDef.effects?.find(
-        (e): e is import('../../index.js').DuplicationLimitEffect =>
-          e.type === 'duplication-limit' && e.scope === 'character',
-      );
+      const charDupLimit = findDuplicationLimitEffect(itemDef, 'character');
 
       // Bearer filter (play-target with target: 'character'): restricts
       // which characters may bear the item — e.g. Wizard's Staff's
@@ -1064,9 +1042,7 @@ function playResourcesActions(
       // Company-scope duplication limit: count copies of this item already
       // borne by any character in the active company. Backs "Cannot be
       // duplicated in a given company" (e.g. Records Unread as-130).
-      const itemCompanyDupLimit = itemDef.effects?.find(
-        (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
-      );
+      const itemCompanyDupLimit = findDuplicationLimitEffect(itemDef, 'company');
       if (itemCompanyDupLimit) {
         const copiesInCompany = countAttachedInCompany(state, player, company, itemDef.name, 'items');
         if (copiesInCompany >= itemCompanyDupLimit.max) {
@@ -1176,9 +1152,7 @@ function playResourcesActions(
       }
 
       // Company-scope duplication limit: count copies of this ally already in the company.
-      const allyCompanyDupLimit = allyDef.effects?.find(
-        (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
-      );
+      const allyCompanyDupLimit = findDuplicationLimitEffect(allyDef, 'company');
       if (allyCompanyDupLimit) {
         const copiesInCompany = countAttachedInCompany(state, player, company, allyDef.name, 'allies');
         if (copiesInCompany >= allyCompanyDupLimit.max) {

@@ -17,7 +17,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } fro
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -28,6 +28,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
+import { asViable as viable } from './evaluated.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -123,11 +124,6 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   }
 
   return viable([{ type: 'pass', player: playerId }]);
-}
-
-/** Wrap plain GameActions as viable EvaluatedActions. */
-function viable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**
@@ -1456,9 +1452,7 @@ function playHazardsActions(
         }
         // Check play-condition: target-company (e.g. Horse-lords — not playable
         // against a company containing a character with Edoras as a home site).
-        const targetCompanyCond = def.effects?.find(
-          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'target-company',
-        );
+        const targetCompanyCond = findPlayConditionEffect(def, 'target-company');
         if (targetCompanyCond?.condition) {
           const targetCtx = buildTargetCompanyConditionContext(state, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
           if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
@@ -1984,9 +1978,7 @@ function playHazardsActions(
       // play-condition: card-in-play — the event is only playable while a
       // named card is in play (e.g. Snowstorm tw-91 requires Doors of Night).
       {
-        const cardInPlayCond = getCardEffects(def).find(
-          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'card-in-play',
-        );
+        const cardInPlayCond = findPlayConditionEffect(def, 'card-in-play');
         if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
           logDetail(`Hazard event "${def.name}": play-condition card-in-play requires "${cardInPlayCond.cardName}" in play — not playable`);
           actions.push({ action, viable: false, reason: `${def.name} requires ${cardInPlayCond.cardName} in play` });
@@ -2021,9 +2013,7 @@ function playHazardsActions(
           }
         }
         // Character-scoped duplication-limit: find the max copies allowed on one character
-        const charDupLimit = def.effects?.find(
-          (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
-        );
+        const charDupLimit = findDuplicationLimitEffect(def, 'character');
         for (const charId of targetCompany.characters) {
           // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
           if (playTarget.filter) {
@@ -2174,9 +2164,7 @@ function playHazardsActions(
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
 
         // Company-scope duplication-limit: one copy per target company.
-        const companyDupLimit = def.effects?.find(
-          (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
-        );
+        const companyDupLimit = findDuplicationLimitEffect(def, 'company');
         if (companyDupLimit) {
           const existingCopies = countCompanyBoundCopies(state, def.name, targetCompany.id);
           if (existingCopies >= companyDupLimit.max) {

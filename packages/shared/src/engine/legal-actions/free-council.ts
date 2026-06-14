@@ -18,6 +18,7 @@ import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.
 import { logDetail } from './log.js';
 import { grantedActionActivations } from './organization.js';
 import { characterIds, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
+import { asViable as viable } from './evaluated.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
@@ -85,10 +86,6 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     logDetail(`Free Council: ${actions.length} character(s) available for corruption checks`);
   }
   return [...viable(actions), ...grantActions];
-}
-
-function viable(actions: GameAction[]): EvaluatedAction[] {
-  return actions.map(action => ({ action, viable: true }));
 }
 
 /**

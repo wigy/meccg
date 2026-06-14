@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayConditionEffect, PlayWindowEffect, PlayTargetEffect, DuplicationLimitEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
@@ -22,7 +22,7 @@ import { computeCombatProwess } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 
 /**
@@ -1305,9 +1305,7 @@ function shortEventsAffectingStrike(
     }
 
     // Check turn-scoped duplication limit (e.g. Vilya: max 1 per turn)
-    const turnDupLimit = getCardEffects(def).find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'turn',
-    );
+    const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
     if (turnDupLimit) {
       const prior = countConstraintsFromDefinition(state, def.id);
       if (prior >= turnDupLimit.max) {
@@ -1727,9 +1725,7 @@ function cancelAttackActions(
 
     // Attack-scoped duplication check: if the card has duplication-limit scope
     // "attack", count already-played copies via activeConstraints markers.
-    const cancelAttackDupLimit = getCardEffects(cardDef).find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
-    );
+    const cancelAttackDupLimit = findDuplicationLimitEffect(cardDef, 'attack');
     if (cancelAttackDupLimit) {
       const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= cancelAttackDupLimit.max) {
@@ -2138,9 +2134,7 @@ function modifyAttackActions(
     if (playerId !== expectedPlayerId) continue;
 
     // Attack-scoped duplication check.
-    const attackDupLimit = getCardEffects(cardDef).find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
-    );
+    const attackDupLimit = findDuplicationLimitEffect(cardDef, 'attack');
     if (attackDupLimit) {
       const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= attackDupLimit.max) {
@@ -2228,9 +2222,7 @@ function companyCombatBoostActions(
 
     if (!cardDef) continue;
     // Attack-scoped duplication check.
-    const attackDupLimit = getCardEffects(cardDef).find(
-      (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'attack',
-    );
+    const attackDupLimit = findDuplicationLimitEffect(cardDef, 'attack');
     if (attackDupLimit) {
       const prior = countConstraintsFromDefinition(state, cardDef.id, 'attack');
       if (prior >= attackDupLimit.max) {
@@ -2525,9 +2517,7 @@ function combatHazardPermanentPlays(
     );
     if (!playWindow || playWindow.phase !== 'combat' || playWindow.step !== 'resolve-strike') continue;
 
-    const playCondition = getCardEffects(def).find(
-      (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'combat-creature-race',
-    );
+    const playCondition = findPlayConditionEffect(def, 'combat-creature-race');
     if (playCondition) {
       if (!combat.creatureRace || combat.creatureRace !== playCondition.race) {
         logDetail(`Combat play-hazard "${def.name}": creature race "${combat.creatureRace ?? 'none'}" does not match required "${playCondition.race ?? '?'}"`);
@@ -2580,10 +2570,7 @@ function combatHazardPermanentPlays(
     }
 
     // Per-character duplication limit: skip if a copy is already on the target.
-    const charDupLimit = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').DuplicationLimitEffect =>
-        e.type === 'duplication-limit' && e.scope === 'character',
-    );
+    const charDupLimit = findDuplicationLimitEffect(def, 'character');
     if (charDupLimit) {
       const copies = targetChar.hazards.filter(h => {
         const hDef = defById(state, h.definitionId);
