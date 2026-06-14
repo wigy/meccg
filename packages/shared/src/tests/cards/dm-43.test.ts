@@ -37,42 +37,19 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, BREE,
-  buildTestState, resetMint, mint, makeMHState,
+  buildTestState, resetMint, makeMHState,
   dispatch, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   Alignment,
-  CardStatus, ZERO_EFFECTIVE_STATS,
+  CardStatus,
   attachItemToChar,
   charIdAt,
+  makeBillFernyAgent,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { GameState, CardDefinitionId, CompanyId, AgentInPlay, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
+import type { GameState, CardDefinitionId, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
 
 const AN_ARTICLE_MISSING = 'dm-43' as CardDefinitionId;
-const BILL_FERNY = 'dm-3' as CardDefinitionId;
-
-function makeBillFernyAgent(): AgentInPlay {
-  return {
-    id: 'agent-bill-ferny-0' as CompanyId,
-    character: {
-      instanceId: mint(),
-      definitionId: BILL_FERNY,
-      status: CardStatus.Untapped,
-      items: [],
-      allies: [],
-      hazards: [],
-      followers: [],
-      controlledBy: 'general' as const,
-      effectiveStats: ZERO_EFFECTIVE_STATS,
-    },
-    revealed: false,
-    siteStack: [],
-    remainingActions: 1,
-    inPlayAtTurnStart: true,
-    attackedThisSitePhase: false,
-    discardAtEndOfTurn: false,
-  };
-}
 
 describe('An Article Missing (dm-43)', () => {
   beforeEach(() => resetMint());

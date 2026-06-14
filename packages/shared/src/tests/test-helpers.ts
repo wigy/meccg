@@ -398,13 +398,57 @@ export function runSetupToInitiativeRoll(config?: GameConfig): GameState {
 // ─── Shared state builder ────────────────────────────────────────────────────
 
 import type {
-  CompanyId, CardInPlay, CharacterInPlay, Company,
+  CompanyId, CardInPlay, CharacterInPlay, Company, AgentInPlay,
   PlayerState, OnGuardCard, MarshallingPointTotals,
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
 export { recomputeDerived };
 import { accrueRevealedInstances } from '../engine/visibility.js';
+
+/** Bill Ferny (dm-3) — a minion agent character used by the dm-43/dm-50 tests. */
+const BILL_FERNY = 'dm-3' as CardDefinitionId;
+
+/**
+ * Builds a freshly-minted Bill Ferny {@link AgentInPlay} in its default
+ * (untapped, unrevealed, one-action) state. Shared by the agent-combat tests.
+ */
+export function makeBillFernyAgent(): AgentInPlay {
+  return {
+    id: 'agent-bill-ferny-0' as CompanyId,
+    character: {
+      instanceId: mint(),
+      definitionId: BILL_FERNY,
+      status: CardStatus.Untapped,
+      items: [],
+      allies: [],
+      hazards: [],
+      followers: [],
+      controlledBy: 'general' as const,
+      effectiveStats: ZERO_EFFECTIVE_STATS,
+    },
+    revealed: false,
+    siteStack: [],
+    remainingActions: 1,
+    inPlayAtTurnStart: true,
+    attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
+  };
+}
+
+/** Returns a copy of `state` with every company's current site tapped. */
+export function withSiteTapped(state: GameState): GameState {
+  const players = state.players.map(p => ({
+    ...p,
+    companies: p.companies.map(c => ({
+      ...c,
+      currentSite: c.currentSite
+        ? { ...c.currentSite, status: CardStatus.Tapped }
+        : c.currentSite,
+    })),
+  })) as unknown as typeof state.players;
+  return { ...state, players };
+}
 
 let nextInstanceCounter = 1;
 

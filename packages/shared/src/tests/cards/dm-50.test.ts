@@ -29,41 +29,17 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN,
   RIVENDELL, LORIEN, BREE,
-  buildTestState, resetMint, mint, makeMHState,
+  buildTestState, resetMint, makeMHState,
   dispatch, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   Alignment,
-  CardStatus, ZERO_EFFECTIVE_STATS,
+  CardStatus,
+  makeBillFernyAgent,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId, CompanyId, AgentInPlay, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
+import type { CardDefinitionId, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
 
 const CUNNING_FOES = 'dm-50' as CardDefinitionId;
-const BILL_FERNY = 'dm-3' as CardDefinitionId;
-
-/** Build a face-down Bill Ferny agent with no site stack (treated as at home site). */
-function makeBillFernyAgent(): AgentInPlay {
-  return {
-    id: 'agent-bill-ferny-0' as CompanyId,
-    character: {
-      instanceId: mint(),
-      definitionId: BILL_FERNY,
-      status: CardStatus.Untapped,
-      items: [],
-      allies: [],
-      hazards: [],
-      followers: [],
-      controlledBy: 'general' as const,
-      effectiveStats: ZERO_EFFECTIVE_STATS,
-    },
-    revealed: false,
-    siteStack: [],
-    remainingActions: 1,
-    inPlayAtTurnStart: true,
-    attackedThisSitePhase: false,
-    discardAtEndOfTurn: false,
-  };
-}
 
 describe('Cunning Foes (dm-50)', () => {
   beforeEach(() => resetMint());
