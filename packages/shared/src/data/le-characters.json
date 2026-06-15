@@ -815,7 +815,16 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Woodmen-town"
+    "homesite": "Woodmen-town",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.name": "Woodmen" }
+      }
+    ],
+    "certified": "2026-06-15"
   },
   {
     "cardType": "minion-character",

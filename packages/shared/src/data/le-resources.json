@@ -2342,6 +2342,24 @@
   },
   {
     "cardType": "minion-resource-faction",
+    "id": "le-295",
+    "name": "Woodmen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Woodmen.jpg",
+    "text": "Unique. Manifestation of hero Woodmen. Playable at Woodmen-town if the influence check is greater than 10.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Woodmen-town"
+      }
+    ]
+  },
+  {
+    "cardType": "minion-resource-faction",
     "id": "le-296",
     "name": "Woses of the Eryn Vorn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WosesoftheErynVorn.jpg",
