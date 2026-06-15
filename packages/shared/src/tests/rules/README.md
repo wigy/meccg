@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 188 | 121 | 60.8% |
+| 309 | 189 | 120 | 61.2% |
 
 ## Section Breakdown
 
@@ -17,7 +17,7 @@
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 11 | 84.6% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 26 | 54.2% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
-| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 18 | 52.9% |
+| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 27 | 64.3% |
@@ -184,7 +184,7 @@
 | 5.28 | Movement/Hazard Phase | [No Companies Skip Mh](05-movement-hazard-phase/rule-5.28-no-companies-skip-mh.test.ts) | ☑ |
 | 5.29 | Movement/Hazard Phase | [Other Company Actions](05-movement-hazard-phase/rule-5.29-other-company-actions.test.ts) | ☐ |
 | 5.30 | Movement/Hazard Phase | [Multiple Movements](05-movement-hazard-phase/rule-5.30-multiple-movements.test.ts) | ☐ |
-| 5.31 | Movement/Hazard Phase | [Returned To Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☐ |
+| 5.31 | Movement/Hazard Phase | [Returned To Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☑ |
 | 5.32 | Movement/Hazard Phase | [Company At Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☐ |
 | 5.33 | Movement/Hazard Phase | [Joining After Mh](05-movement-hazard-phase/rule-5.33-joining-after-mh.test.ts) | ☑ |
 | METD | Movement/Hazard Phase | [Hazard Limit Lock](05-movement-hazard-phase/rule-metd-hazard-limit-lock.test.ts) | ☑ |

@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 188 | 309 | 60.8% |
-| Card tests | 494 | 503 | 98.2% |
+| Rule tests | 189 | 309 | 61.2% |
+| Card tests | 520 | 529 | 98.3% |
 | Cards created | 720 | 1683 | 42.8% |
-| Cards certified | 548 | 720 | 76.1% |
-| **Total** | **1950** | **3215** | **60.7%** |
+| Cards certified | 576 | 720 | 80.0% |
+| **Total** | **2005** | **3241** | **61.9%** |
 
 ### Deck Catalog
 
@@ -39,8 +39,8 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (F) Spies and Traitors | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 68 (61.8%) |
-| (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 75 (68.2%) |
+| (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 77 (70.0%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |

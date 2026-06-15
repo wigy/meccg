@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 503 | 494 | 9 | 98.2% |
+| 529 | 520 | 9 | 98.3% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 35 | 35 | 100.0% |
+| AS | 39 | 39 | 100.0% |
 | BA | 3 | 1 | 33.3% |
 | DM | 41 | 41 | 100.0% |
-| LE | 136 | 134 | 98.5% |
-| TD | 49 | 49 | 100.0% |
-| TW | 229 | 224 | 97.8% |
+| LE | 153 | 151 | 98.7% |
+| TD | 52 | 52 | 100.0% |
+| TW | 231 | 226 | 97.8% |
 | WH | 10 | 10 | 100.0% |
 
 ## Detailed Test Matrix
@@ -38,14 +38,18 @@
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
+| as-74 | Great Bats | — | 17 | ☑ |
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
+| as-77 | Above the Abyss | — | 7 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
-| as-123 | Dwarven Ring of Thélor's Tribe | — | 14 | ☑ |
-| as-124 | Dwarven Ring of Thrár's Tribe | — | 12 | ☑ |
+| as-111 | Asdriags | — | 9 | ☑ |
+| as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
+| as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
+| as-126 | Helm of Fear | — | 16 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-134 | Thrór’s Map | — | 4 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
@@ -55,7 +59,7 @@
 | as-141 | Raider-hold | — | 5 | ☑ |
 | as-142 | The Worthy Hills | — | 12 | ☑ |
 | as-143 | Dancing Spire | — | 8 | ☑ |
-| as-144 | Eagles' Eyrie | — | 8 | ☑ |
+| as-144 | Eagles’ Eyrie | — | 8 | ☑ |
 | as-148 | Gold Hill | — | 9 | ☑ |
 | as-151 | Irerock | — | 9 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
@@ -69,7 +73,7 @@
 | dm-27 | Wormtongue | — | 4 | ☑ |
 | dm-30 | The Gem-deeps | — | 15 | ☑ |
 | dm-31 | Haudh-in-Gwanûr | — | 8 | ☑ |
-| dm-32 | Hermit's Hill | — | 10 | ☑ |
+| dm-32 | Hermit’s Hill | — | 10 | ☑ |
 | dm-33 | The Iron-deeps | — | 13 | ☑ |
 | dm-34 | The Pûkel-deeps | — | 8 | ☑ |
 | dm-35 | The Sulfur-deeps | — | 7 | ☑ |
@@ -109,6 +113,7 @@
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
 | le-12 | Grishnákh | — | 4 | ☑ |
+| le-16 | Horseman in the Night | — | 4 | ☑ |
 | le-18 | Lagduf | — | 2 | ☑ |
 | le-19 | Layos | — | 3 | ☑ |
 | le-21 | Lieutenant of Dol Guldur | — | 7 | ☑ |
@@ -117,6 +122,7 @@
 | le-24 | The Mouth | — | 7 | ☑ |
 | le-25 | Muzgash | — | 2 | ☑ |
 | le-27 | Nevido Smôd | — | 2 | ☑ |
+| le-30 | Orc Brawler | — | 5 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
 | le-34 | Orc Tracker | — | 5 | ☑ |
 | le-35 | Orc Veteran | — | 3 | ☑ |
@@ -128,7 +134,7 @@
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
-| le-58 | The Witch-king | — | 3 | ☑ |
+| le-58 | The Witch-king | — | 12 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
@@ -152,6 +158,7 @@
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
 | le-115 | Incite Defenders | — | 11 | ☑ |
+| le-117 | Long Winter | — | 8 | ☑ |
 | le-122 | Lure of Expedience | — | 11 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
@@ -163,17 +170,20 @@
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
+| le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
+| le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
-| le-174 | By the Ringwraith's Word | — | 17 | ☑ |
+| le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-183 | Fell Rider | — | 12 | ☑ |
+| le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
 | le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
@@ -184,18 +194,26 @@
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
 | le-238 | Swift Strokes | — | 6 | ☑ |
-| le-241 | That's Been Heard Before Tonight | — | 13 | ☑ |
+| le-240 | That Ain’t No Secret | — | 14 | ☑ |
+| le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
+| le-262 | Black Trolls | — | 7 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
+| le-273 | Nûrniags | — | 9 | ☑ |
+| le-275 | Orcs of Gorgoroth | — | 7 | ☑ |
 | le-276 | Orcs of Gundabad | — | 9 | ☑ |
 | le-277 | Orcs of Mirkwood | — | 9 | ☑ |
 | le-278 | Orcs of Moria | — | 9 | ☑ |
+| le-279 | Orcs of the Ash Mountains | — | 6 | ☑ |
+| le-281 | Orcs of the Red Eye | — | 7 | ☑ |
+| le-282 | Orcs of Udûn | — | 14 | ☑ |
 | le-286 | Snaga-hai | — | 7 | ☑ |
+| le-291 | Uruk-hai | — | 8 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
@@ -214,9 +232,11 @@
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
 | le-352 | Barad-dûr | — | 11 | ☑ |
-| le-354 | Beorn's House | — | 4 | ☑ |
+| le-354 | Beorn’s House | — | 4 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-360 | Caves of Ûlund | — | 6 | ☑ |
+| le-361 | Cirith Gorgor | — | 5 | ☑ |
+| le-362 | Cirith Ungol | — | 9 | ☑ |
 | le-363 | Dale | — | 6 | ☑ |
 | le-364 | Dead Marshes | — | 15 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
@@ -227,22 +247,24 @@
 | le-379 | Gondmaeglom | — | 11 | ☑ |
 | le-387 | The Lonely Mountain | — | 8 | ☑ |
 | le-390 | Minas Morgul | — | 14 | ☑ |
+| le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
 | le-393 | Mount Doom | — | 11 | ☑ |
 | le-394 | Mount Gram | — | 9 | ☑ |
 | le-395 | Mount Gundabad | — | 10 | ☑ |
+| le-396 | Nûrniag Camp | — | 9 | ☑ |
 | le-399 | Raider-hold | — | 12 | ☑ |
 | le-401 | Sarn Goriwing | — | 6 | ☑ |
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
-| le-408 | Thranduil's Halls | — | 6 | ☑ |
+| le-408 | Thranduil’s Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
-| le-pending-effects-parity | le-pending-effects-parity | — | 1 | ☐ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
-| td-16 | Dragon's Curse | — | 17 | ☑ |
+| td-9 | Cruel Caradhras | — | 10 | ☑ |
+| td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 6 | ☑ |
 | td-20 | Eärcaraxë | — | 9 | ☑ |
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
@@ -254,8 +276,10 @@
 | td-57 | Rain-drake | — | 10 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
+| td-61 | Scatha Ahunt | — | 16 | ☑ |
 | td-64 | Scorba Ahunt | — | 13 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
+| td-85 | Withered Lands | — | 9 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
 | td-91 | Fram Framson | — | 2 | ☑ |
 | td-92 | Galdor | — | 6 | ☑ |
@@ -277,7 +301,7 @@
 | td-158 | Thrór’s Map | — | 4 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
-| td-170 | Wizard's Staff | — | 19 | ☑ |
+| td-170 | Wizard’s Staff | — | 19 | ☑ |
 | td-172 | Wormsbane | — | 7 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
 | td-174 | Dale | — | 6 | ☑ |
@@ -292,7 +316,7 @@
 | tw-008 | — | — | 10 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
-| tw-016 | Bert (Burat) | — | 7 | ☑ |
+| tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
 | tw-17 | Brigands | — | 6 | ☑ |
 | tw-18 | Call of Home | — | 8 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
@@ -301,8 +325,9 @@
 | tw-024 | — | — | 2 | ☑ |
 | tw-27 | Despair of the Heart | — | 8 | ☑ |
 | tw-028 | — | — | 6 | ☑ |
-| tw-29 | Dragon's Desolation | — | 15 | ☑ |
+| tw-29 | Dragon’s Desolation | — | 15 | ☑ |
 | tw-032 | — | — | 6 | ☑ |
+| tw-36 | Foul Fumes | — | 9 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
 | tw-40 | Giant Spiders | — | 8 | ☑ |
 | tw-053 | — | — | 6 | ☑ |
@@ -318,13 +343,14 @@
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-084 | — | — | 10 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
-| tw-99 | The Ring's Betrayal | — | 6 | ☑ |
-| tw-103 | "Tom" (Tûma) | — | 7 | ☑ |
+| tw-91 | Snowstorm | — | 5 | ☑ |
+| tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
+| tw-103 | “Tom” (Tûma) | — | 7 | ☑ |
 | tw-106 | Twilight | — | 10 | ☑ |
 | tw-108 | Wake of War | — | 6 | ☑ |
 | tw-109 | Wargs | — | 5 | ☑ |
 | tw-110 | Watcher in the Water | — | 9 | ☑ |
-| tw-112 | "William" (Wûluag) | — | 7 | ☑ |
+| tw-112 | “William” (Wûluag) | — | 7 | ☑ |
 | tw-114 | Wolves | — | 3 | ☑ |
 | tw-116 | Adrazar | — | 3 | ☑ |
 | tw-117 | Alatar | — | 14 | ☑ |
@@ -384,7 +410,7 @@
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
 | tw-209 | Dodge | — | 8 | ☑ |
-| tw-212 | Durin's Axe | — | 9 | ☑ |
+| tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-224 | Elf-stone | — | 6 | ☑ |
 | tw-229 | Escape | — | 9 | ☑ |
@@ -443,14 +469,14 @@
 | tw-353 | Treebeard | — | 4 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
-| tw-362 | Wizard's Laughter | — | 4 | ☑ |
+| tw-362 | Wizard’s Laughter | — | 4 | ☑ |
 | tw-367 | Wood-elves | — | 4 | ☑ |
 | tw-371 | Amon Hen | — | 8 | ☑ |
 | tw-372 | Bag End | — | 4 | ☑ |
 | tw-373 | Bandit Lair | — | 9 | ☑ |
 | tw-374 | Barad-dûr | — | 10 | ☑ |
 | tw-375 | Barrow-downs | — | 8 | ☑ |
-| tw-376 | Beorn's House | — | 4 | ☑ |
+| tw-376 | Beorn’s House | — | 4 | ☑ |
 | tw-377 | Blue Mountain Dwarf-hold | — | 4 | ☑ |
 | tw-378 | Bree | — | 5 | ☑ |
 | tw-379 | Cameth Brin | — | 3 | ☑ |
@@ -465,7 +491,7 @@
 | tw-388 | Drúadan Forest | — | 4 | ☑ |
 | tw-389 | Dunharrow | — | 4 | ☑ |
 | tw-390 | Dunnish Clan-hold | — | 4 | ☑ |
-| tw-391 | Eagles' Eyrie | — | 4 | ☑ |
+| tw-391 | Eagles’ Eyrie | — | 4 | ☑ |
 | tw-392 | Easterling Camp | — | 5 | ☑ |
 | tw-393 | Edhellond | — | 6 | ☑ |
 | tw-394 | Edoras | — | 4 | ☑ |
@@ -498,7 +524,7 @@
 | tw-421 | Rivendell | — | 6 | ☑ |
 | tw-422 | Ruined Signal Tower | — | 6 | ☑ |
 | tw-423 | Sarn Goriwing | — | 5 | ☑ |
-| tw-424 | Shelob's Lair | — | 6 | ☑ |
+| tw-424 | Shelob’s Lair | — | 6 | ☑ |
 | tw-425 | Shrel-Kain | — | 2 | ☑ |
 | tw-426 | Southron Oasis | — | 4 | ☑ |
 | tw-427 | Stone-circle | — | 7 | ☑ |
@@ -506,7 +532,7 @@
 | tw-429 | The Stones | — | 5 | ☑ |
 | tw-430 | The White Towers | — | 4 | ☑ |
 | tw-431 | The Wind Throne | — | 5 | ☑ |
-| tw-432 | Thranduil's Halls | — | 4 | ☑ |
+| tw-432 | Thranduil’s Halls | — | 4 | ☑ |
 | tw-433 | Tolfalas | — | 8 | ☑ |
 | tw-434 | Vale of Erech | — | 4 | ☑ |
 | tw-435 | Variag Camp | — | 3 | ☑ |

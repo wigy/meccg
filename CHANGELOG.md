@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.40.0 — 2026-06-15
+
+Challenge Deck I
+
+### Card Certification
+
+- Certify the full Challenge Deck I (Morgul Rallying Cry) minion pool to 100%
+- Certify The Witch-king (le-58), Orc Brawler (le-30), and Horseman in the Night (le-16)
+- Certify leader-controlled factions le-262/275/279/281/282/291, including Orcs of Udûn (le-282) and Nûrniags (le-273)
+- Certify Asdriags (as-111), That Ain't No Secret (le-240), Gifts as Given of Old (le-188), and Awaiting the Call (le-165)
+- Certify Last Child of Ungoliant (le-153)
+- Certify Doors-of-Night hazards Foul Fumes (tw-36), Long Winter (le-117), and Snowstorm (tw-91)
+- Certify Cruel Caradhras (td-9), Scatha Ahunt (td-61), Withered Lands (td-85), and Above the Abyss (as-77)
+- Certify minion sites Minas Tirith (le-391), Cirith Gorgor (le-361), Cirith Ungol (le-362), and Nûrniag Camp (le-396)
+- Certify Helm of Fear (as-126) and Great Bats (as-74)
+
+### Game Engine
+
+- Implement CoE rule 5.31 force-return-to-origin and the Doors of Night site-tap subsystems
+- Expose the owning player's alignment to tap-sites-in-play effects
+- Allow `buildForceReturnMHState` to accept the moving player's alignment
+- Improve site validation
+
+### Text Client
+
+- Share the `parseServerMessage` helper across text clients
+
+### Web Client
+
+- Share `escapeHtml` across lobby browser modules
+
+### Infrastructure
+
+- Consolidate duplicated rule-test fixtures into `test-helpers` (`buildTwoCompaniesAt` and others)
+- Unify duplicate `resolvePath` into a shared path-resolver module
+- Reduce duplication and unsafe casts in `recompute-derived`
+- Add typed effect-finder helpers, an `asViable` helper, and a `notPlayable()` builder for legal-actions
+
 ## 0.39.0 — 2026-06-11
 
 Deck Editor and Validator
