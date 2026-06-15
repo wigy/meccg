@@ -2251,9 +2251,13 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Southron Oasis"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
