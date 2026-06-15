@@ -32,28 +32,15 @@ import {
   CardStatus,
   dispatch, expectCharItemCount, expectInDiscardPile,
   RESOURCE_PLAYER,
+  withSiteTapped,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CardDefinitionId, GameState } from '../../index.js';
+import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
 const THROORS_MAP = 'as-134' as CardDefinitionId;
 const DANCING_SPIRE = 'as-143' as CardDefinitionId;  // Dragon — 2 strikes at 11 prowess
 const DOL_GULDUR = 'le-367' as CardDefinitionId;      // minion haven, no Dragon auto-attack
 const BURAT = 'as-1' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
-
-/** Return a copy of the state with every company's currentSite set to Tapped. */
-function withSiteTapped(state: GameState): GameState {
-  const players = state.players.map(p => ({
-    ...p,
-    companies: p.companies.map(c => ({
-      ...c,
-      currentSite: c.currentSite
-        ? { ...c.currentSite, status: CardStatus.Tapped }
-        : c.currentSite,
-    })),
-  })) as unknown as typeof state.players;
-  return { ...state, players };
-}
 
 describe("Thrór's Map (as-134)", () => {
   beforeEach(() => resetMint());

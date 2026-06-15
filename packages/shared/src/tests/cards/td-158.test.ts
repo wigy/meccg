@@ -27,26 +27,13 @@ import {
   CardStatus,
   dispatch, expectCharItemCount, expectInDiscardPile,
   RESOURCE_PLAYER,
+  withSiteTapped,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CardDefinitionId, GameState } from '../../index.js';
+import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
 const THROORS_MAP = 'td-158' as CardDefinitionId;
 // tw-381: Caves of Ûlund — Dragon auto-attack, 1 strike at 13 prowess
 const CAVES_OF_ULUND = 'tw-381' as CardDefinitionId;
-
-/** Return a copy of the state with every company's currentSite set to Tapped. */
-function withSiteTapped(state: GameState): GameState {
-  const players = state.players.map(p => ({
-    ...p,
-    companies: p.companies.map(c => ({
-      ...c,
-      currentSite: c.currentSite
-        ? { ...c.currentSite, status: CardStatus.Tapped }
-        : c.currentSite,
-    })),
-  })) as unknown as typeof state.players;
-  return { ...state, players };
-}
 
 describe("Thrór's Map (td-158)", () => {
   beforeEach(() => resetMint());
