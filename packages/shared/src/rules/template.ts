@@ -6,21 +6,7 @@
  * a context object, using the same dot-path convention as the condition matcher.
  */
 
-/**
- * Resolves a dot-separated path against a nested object.
- * Returns `undefined` if any segment is missing.
- */
-function resolvePath(obj: Record<string, unknown>, path: string): unknown {
-  const segments = path.split('.');
-  let current: unknown = obj;
-  for (const seg of segments) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[seg];
-  }
-  return current;
-}
+import { resolvePath } from '../path-resolver.js';
 
 /**
  * Renders a Mustache-style template by replacing `{{path}}` placeholders
