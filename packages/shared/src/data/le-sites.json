@@ -1270,6 +1270,36 @@
   {
     "cardType": "minion-site",
     "alignment": "ringwraith",
+    "id": "le-414",
+    "name": "Woodmen-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Woodmen-town.jpg",
+    "text": "Nearest Darkhaven: Dol Guldur Automatic-attacks: Men — each character faces 1 strike with 6 prowess (detainment against covert company)",
+    "siteType": "border-hold",
+    "sitePath": [
+      "dark",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Western Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 6,
+        "combatRules": ["each-character"]
+      }
+    ],
+    "effects": [
+      { "type": "combat-detainment", "when": { "defender.covert": true } }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "unique": true
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-411",
     "name": "Variag Camp",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VariagCamp.jpg",
