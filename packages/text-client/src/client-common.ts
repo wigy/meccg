@@ -136,6 +136,11 @@ export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: str
   return JSON.stringify(msg);
 }
 
+/** Parse a raw WebSocket message buffer into a {@link ServerMessage}. */
+export function parseServerMessage(raw: Buffer): ServerMessage {
+  return JSON.parse(raw.toString()) as ServerMessage;
+}
+
 /**
  * Handle the server-message cases shared by the headless clients
  * (assigned / error / waiting / restart / disconnected), which differ only

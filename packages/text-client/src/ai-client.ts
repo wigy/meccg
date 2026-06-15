@@ -10,11 +10,11 @@
  */
 
 import { WebSocket } from 'ws';
-import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
+import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from './ai/index.js';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
-import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect } from './client-common.js';
+import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
@@ -107,7 +107,7 @@ function connect(): void {
   });
 
   ws.on('message', (raw: Buffer) => {
-    const msg = JSON.parse(raw.toString()) as ServerMessage;
+    const msg = parseServerMessage(raw);
     if (msg.type !== 'state') {
       logCommonServerMessage('AI', msg);
       return;
