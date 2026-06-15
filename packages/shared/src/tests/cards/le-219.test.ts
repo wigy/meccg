@@ -18,7 +18,8 @@
  * | 1 | Cancel influence attempt against character/ally in company  | IMPLEMENTED | cancel-influence effect with requiredRace   |
  * | 2 | Ringwraith plays it (spirit-magic via race=ringwraith)      | IMPLEMENTED | requiredRace: "ringwraith"                  |
  * | 3 | Ringwraith can also cancel faction influence                | IMPLEMENTED | Effect 1 has no targetKindFilter (all kinds)|
- * | 4 | Shadow-magic user can cancel char/ally (not faction) + cost | IMPLEMENTED | requiredSkill + targetKindFilter + cost -3  |
+ * | 4 | Spirit-magic user can cancel char/ally (not faction) + cost | IMPLEMENTED | requiredSkill: spirit-magic + targetKindFilter + cost -3 |
+ * | 4b| Shadow-magic-only non-Ringwraith cannot cancel             | IMPLEMENTED | gate is spirit-magic, not shadow-magic      |
  * | 5 | No corruption check for Ringwraith                         | IMPLEMENTED | Effect 1 has no cost field                  |
  * | 6 | Card discarded from hand after use                         | IMPLEMENTED | standard cancel-influence reducer           |
  * | 7 | Opponent influence attempt is canceled (no defense roll)   | IMPLEMENTED | dequeues opponent-influence-defend          |
@@ -48,8 +49,10 @@ const POISONOUS_DESPAIR = 'le-219' as CardDefinitionId;
 const ADUNAPHEL = 'le-50' as CardDefinitionId;
 /** Dôgrib — non-avatar minion character (le-7) with mind=5, to be the influence target */
 const DOGRIB = 'le-7' as CardDefinitionId;
-/** Elerína — non-ringwraith character with shadow-magic skill (dm-7) */
-const ELERINA = 'dm-7' as CardDefinitionId;
+/** Golodhros — non-ringwraith character with spirit-magic skill, no shadow-magic (dm-14) */
+const GOLODHROS = 'dm-14' as CardDefinitionId;
+/** Firiel — non-ringwraith character with shadow-magic skill only, no spirit-magic (dm-10) */
+const FIRIEL = 'dm-10' as CardDefinitionId;
 /** Orcs of Moria — a minion faction playable at Moria (le-278), used to test faction cancel */
 const ORCS_OF_MORIA = 'le-278' as CardDefinitionId;
 
@@ -111,7 +114,7 @@ describe('Poisonous Despair (le-219)', () => {
   });
 
   test('cancel-influence NOT available when no spirit-magic user in defending company', () => {
-    // PLAYER_2 has only Dôgrib (race=man, no shadow-magic skill) and no card that matches
+    // PLAYER_2 has only Dôgrib (race=man, no spirit-magic skill) and no card that matches
     const state = buildCancelState({ p2Characters: [DOGRIB], hand: [POISONOUS_DESPAIR] });
 
     // Dôgrib is the only character — PLAYER_1 can't target him if both players need characters
@@ -167,19 +170,19 @@ describe('Poisonous Despair (le-219)', () => {
     expect(cancelActions).toHaveLength(1);
   });
 
-  // ── Rule 4: Shadow-magic non-Ringwraith cancels character influence with cost ──
+  // ── Rule 4: Spirit-magic non-Ringwraith cancels character influence with cost ──
 
-  test('shadow-magic non-Ringwraith cancel-influence available with corruption check cost', () => {
-    // PLAYER_2 has Elerína (race=man, shadow-magic skill) + Dôgrib (target) at MORIA
-    const state = buildCancelState({ p2Characters: [ELERINA, DOGRIB] });
+  test('spirit-magic non-Ringwraith cancel-influence available with corruption check cost', () => {
+    // PLAYER_2 has Golodhros (race=dúnadan, spirit-magic skill) + Dôgrib (target) at MORIA
+    const state = buildCancelState({ p2Characters: [GOLODHROS, DOGRIB] });
     const { state: afterAttempt } = attemptInfluence(state, DOGRIB);
 
     const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
     expect(cancelActions).toHaveLength(1);
   });
 
-  test('shadow-magic non-Ringwraith cancel: discards card, clears pending, enqueues corruption check -3', () => {
-    const state = buildCancelState({ p2Characters: [ELERINA, DOGRIB] });
+  test('spirit-magic non-Ringwraith cancel: discards card, clears pending, enqueues corruption check -3', () => {
+    const state = buildCancelState({ p2Characters: [GOLODHROS, DOGRIB] });
     const { state: afterAttempt } = attemptInfluence(state, DOGRIB);
 
     const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
@@ -201,11 +204,11 @@ describe('Poisonous Despair (le-219)', () => {
     expect(ccKind.modifier).toBe(-3);
   });
 
-  // ── Rule 4 (negative): Shadow-magic non-Ringwraith cannot cancel faction influence ──
+  // ── Rule 4 (negative): Spirit-magic non-Ringwraith cannot cancel faction influence ──
 
-  test('shadow-magic non-Ringwraith cannot cancel faction influence', () => {
-    // PLAYER_2 has Elerína only, no Ringwraith
-    const base = buildCancelState({ p2Characters: [ELERINA] });
+  test('spirit-magic non-Ringwraith cannot cancel faction influence', () => {
+    // PLAYER_2 has Golodhros only, no Ringwraith
+    const base = buildCancelState({ p2Characters: [GOLODHROS] });
     const stateWithFaction = addCardInPlay(base, HAZARD_PLAYER, ORCS_OF_MORIA);
 
     const factionInfluenceActions = viableActions(stateWithFaction, PLAYER_1, 'opponent-influence-attempt')
@@ -213,6 +216,19 @@ describe('Poisonous Despair (le-219)', () => {
     expect(factionInfluenceActions.length).toBeGreaterThan(0);
 
     const { state: afterAttempt } = { state: dispatch(stateWithFaction, factionInfluenceActions[0].action) };
+    const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
+    expect(cancelActions).toHaveLength(0);
+  });
+
+  // ── Rule 4b (negative): the gate is spirit-magic, NOT shadow-magic ──────────
+
+  test('shadow-magic-only non-Ringwraith cannot cancel (gate is spirit-magic)', () => {
+    // PLAYER_2 has Firiel (dúnadan, shadow-magic only, no spirit-magic) + Dôgrib (target).
+    // Before the fix the effect required shadow-magic, so Firiel could wrongly cancel;
+    // after the fix the card correctly requires spirit-magic, so she cannot.
+    const state = buildCancelState({ p2Characters: [FIRIEL, DOGRIB] });
+    const { state: afterAttempt } = attemptInfluence(state, DOGRIB);
+
     const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
     expect(cancelActions).toHaveLength(0);
   });
