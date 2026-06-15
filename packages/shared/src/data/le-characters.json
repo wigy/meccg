@@ -633,7 +633,19 @@
     "directInfluence": 0,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "homesite": "Southron Oasis"
+    "homesite": "Southron Oasis",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Southron Oasis"
+        }
+      }
+    ],
+    "certified": "2026-06-15"
   },
   {
     "cardType": "minion-character",
