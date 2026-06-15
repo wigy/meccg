@@ -710,6 +710,50 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   return seeded;
 }
 
+/**
+ * Builds an Organization-phase state where P1 has two companies that share the
+ * same `currentSite` instance (the second company's site is not separately
+ * owned). Used by the company size-limit and race-mixing rule tests, which
+ * both reason about two companies meeting at one site.
+ */
+export function buildTwoCompaniesAt(
+  site: CardDefinitionId,
+  company1Chars: CardDefinitionId[],
+  company2Chars: CardDefinitionId[],
+): GameState {
+  const built = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Organization,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [
+          { site, characters: company1Chars },
+          { site, characters: company2Chars },
+        ],
+        hand: [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+
+  // Share the same site instance between both companies
+  const sharedSite = built.players[0].companies[0].currentSite!;
+  return {
+    ...built,
+    players: [
+      {
+        ...built.players[0],
+        companies: built.players[0].companies.map((c, i) =>
+          i === 1 ? { ...c, currentSite: sharedSite, siteCardOwned: false } : c,
+        ),
+      },
+      built.players[1],
+    ] as unknown as typeof built.players,
+  };
+}
+
 // ─── End-of-turn phase setup ───────────────────────────────────────────────
 
 /**

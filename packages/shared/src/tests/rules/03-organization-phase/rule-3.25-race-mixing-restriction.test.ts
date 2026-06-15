@@ -14,13 +14,12 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase } from '../../../index.js';
-import type { CardDefinitionId, GameState } from '../../../index.js';
+import type { CardDefinitionId } from '../../../index.js';
 import {
-  buildTestState, resetMint,
-  PLAYER_1, PLAYER_2,
+  buildTwoCompaniesAt, resetMint,
+  PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
-  MORIA, MINAS_TIRITH, RIVENDELL, LORIEN,
+  MORIA,
   viableActions,
 } from '../../test-helpers.js';
 
@@ -30,45 +29,6 @@ const GRISHNAKH = 'le-12' as CardDefinitionId;       // Orc, mind 4
 
 // Minion haven (Darkhaven)
 const CARN_DUM = 'le-359' as CardDefinitionId;
-
-/** Build two companies sharing the same site. */
-function buildTwoCompaniesAt(
-  site: CardDefinitionId,
-  company1Chars: CardDefinitionId[],
-  company2Chars: CardDefinitionId[],
-): GameState {
-  const built = buildTestState({
-    activePlayer: PLAYER_1,
-    phase: Phase.Organization,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [
-          { site, characters: company1Chars },
-          { site, characters: company2Chars },
-        ],
-        hand: [],
-        siteDeck: [MINAS_TIRITH],
-      },
-      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
-    ],
-  });
-
-  // Share the same site instance between both companies
-  const sharedSite = built.players[0].companies[0].currentSite!;
-  return {
-    ...built,
-    players: [
-      {
-        ...built.players[0],
-        companies: built.players[0].companies.map((c, i) =>
-          i === 1 ? { ...c, currentSite: sharedSite, siteCardOwned: false } : c,
-        ),
-      },
-      built.players[1],
-    ] as unknown as typeof built.players,
-  };
-}
 
 describe('Rule 3.25 — Race Mixing Restriction', () => {
   beforeEach(() => resetMint());
