@@ -120,7 +120,8 @@
       "warrior",
       "scout",
       "sage",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 6,
     "body": 9,
@@ -144,7 +145,8 @@
       "warrior",
       "ranger",
       "sage",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 5,
     "body": 9,
@@ -192,7 +194,8 @@
       "scout",
       "ranger",
       "sage",
-      "diplomat"
+      "diplomat",
+      "sorcery"
     ],
     "prowess": 6,
     "body": 9,

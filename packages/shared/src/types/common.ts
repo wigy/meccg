@@ -83,6 +83,17 @@ export enum Skill {
   Ranger = 'ranger',
   Sage = 'sage',
   Diplomat = 'diplomat',
+  /**
+   * Magic abilities. A character carrying one of these can cast (be the target
+   * of) magic resource cards of the matching class — `sorcery`, `spirit-magic`,
+   * or `shadow-magic`. Ringwraiths can use `shadow-magic` by race even without
+   * the skill (see `organization-events.ts`); other characters need the skill.
+   * Magic resource cards declare the class they require via the matching
+   * {@link Keyword} (e.g. a `sorcery` card needs a `sorcery`-using caster).
+   */
+  Sorcery = 'sorcery',
+  SpiritMagic = 'spirit-magic',
+  ShadowMagic = 'shadow-magic',
 }
 
 /**
@@ -244,6 +255,9 @@ export type Keyword =
   | 'helmet'
   | 'environment'
   | 'spell'
+  | 'sorcery'
+  | 'spirit-magic'
+  | 'shadow-magic'
   | 'hoard'
   | 'ring'
   | 'palantir'

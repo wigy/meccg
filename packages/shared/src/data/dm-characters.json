@@ -183,7 +183,8 @@
       "scout",
       "sage",
       "diplomat",
-      "shadow-magic"
+      "shadow-magic",
+      "spirit-magic"
     ],
     "prowess": 5,
     "body": 9,
@@ -380,7 +381,8 @@
     "skills": [
       "warrior",
       "sage",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 5,
     "body": 9,
@@ -415,7 +417,8 @@
     "skills": [
       "warrior",
       "ranger",
-      "sage"
+      "sage",
+      "sorcery"
     ],
     "prowess": 7,
     "body": 9,
@@ -425,8 +428,7 @@
     "marshallingCategory": "character",
     "homesite": "Dol Guldur",
     "keywords": [
-      "agent",
-      "sorcery-user"
+      "agent"
     ],
     "effects": [
       {

@@ -732,8 +732,7 @@
     "unique": false,
     "eventType": "short",
     "keywords": [
-      "Magic",
-      "Shadow-magic"
+      "shadow-magic"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
@@ -964,7 +963,6 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "keywords": [
-      "magic",
       "spirit-magic"
     ],
     "effects": [

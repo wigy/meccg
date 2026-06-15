@@ -287,7 +287,8 @@
     "skills": [
       "warrior",
       "scout",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 8,
     "body": 10,
@@ -572,7 +573,8 @@
     "race": "dunadan",
     "skills": [
       "warrior",
-      "sage"
+      "sage",
+      "sorcery"
     ],
     "prowess": 5,
     "body": 9,
@@ -1026,7 +1028,8 @@
     "skills": [
       "warrior",
       "scout",
-      "sage"
+      "sage",
+      "sorcery"
     ],
     "prowess": 9,
     "body": 10,
@@ -1091,7 +1094,8 @@
     "skills": [
       "scout",
       "ranger",
-      "sage"
+      "sage",
+      "sorcery"
     ],
     "prowess": 8,
     "body": 9,
@@ -1132,7 +1136,9 @@
     "race": "ringwraith",
     "skills": [
       "warrior",
-      "diplomat"
+      "diplomat",
+      "sorcery",
+      "spirit-magic"
     ],
     "prowess": 9,
     "body": 10,
@@ -1168,7 +1174,8 @@
     "skills": [
       "warrior",
       "ranger",
-      "diplomat"
+      "diplomat",
+      "sorcery"
     ],
     "prowess": 9,
     "body": 9,
@@ -1203,7 +1210,9 @@
     "race": "ringwraith",
     "skills": [
       "sage",
-      "diplomat"
+      "diplomat",
+      "sorcery",
+      "shadow-magic"
     ],
     "prowess": 8,
     "body": 10,
@@ -1239,7 +1248,8 @@
     "skills": [
       "warrior",
       "scout",
-      "ranger"
+      "ranger",
+      "spirit-magic"
     ],
     "prowess": 9,
     "body": 9,
@@ -1276,7 +1286,8 @@
       "warrior",
       "sage",
       "diplomat",
-      "shadow-magic"
+      "shadow-magic",
+      "spirit-magic"
     ],
     "prowess": 9,
     "body": 12,
