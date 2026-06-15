@@ -381,7 +381,7 @@ function openCardBrowser(
   const search = document.createElement('input');
   search.type = 'text';
   search.className = 'card-browser-search';
-  search.placeholder = 'Search by name, card text, or keyword…';
+  search.placeholder = 'Search by name, card text, keyword, or skill…';
   dialog.appendChild(search);
 
   if (toggles.length > 0) {

@@ -972,7 +972,7 @@
       },
       {
         "type": "cancel-influence",
-        "requiredSkill": "shadow-magic",
+        "requiredSkill": "spirit-magic",
         "targetKindFilter": ["character", "ally"],
         "cost": { "check": "corruption", "modifier": -3 }
       }
