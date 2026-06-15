@@ -580,7 +580,8 @@
     "directInfluence": 1,
     "marshallingPoints": 2,
     "marshallingCategory": "character",
-    "homesite": "Dol Guldur"
+    "homesite": "Dol Guldur",
+    "certified": "2026-06-15"
   },
   {
     "cardType": "minion-character",
