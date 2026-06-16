@@ -370,7 +370,22 @@
       {
         "site": "Southron Oasis"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Southrons" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": { "controller.inPlay": "Variags of Khand" }
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-faction",
