@@ -139,6 +139,13 @@ export interface PlayHazardAction {
    * The ally must be in the target company's characters' ally lists.
    */
   readonly targetAllyId?: CardInstanceId;
+  /**
+   * For hazard short-events declaring `play-option` effects (e.g. Weariness
+   * of the Heart le-149), the id of the chosen option. The legal-action
+   * generator emits one `play-hazard` action per (character, option) pair;
+   * the chain resolver dispatches the selected option's `apply` clause.
+   */
+  readonly optionId?: string;
 }
 
 /**

@@ -2329,6 +2329,65 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Hazard short events declaring play-option modes (e.g. Weariness of the
+  // Heart le-149): the hazard player chose one mutually-exclusive option at
+  // play time, carried on the chain entry as `optionId`. Dispatch the chosen
+  // option's `apply` clause now that the entry resolved un-negated.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && entry.payload.optionId
+    && !entry.negated
+    && entry.card) {
+    const targetCharId = entry.payload.targetCharacterId;
+    const optionId = entry.payload.optionId;
+    const cardDef = defById(current, entry.card.definitionId);
+    const cardNm = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
+    const opt = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').PlayOptionEffect =>
+        e.type === 'play-option' && e.id === optionId,
+    );
+    if (opt) {
+      const apply = opt.apply;
+      if (apply.type === 'add-constraint'
+        && apply.constraint === 'character-stat-modifier'
+        && (apply.stat === 'prowess' || apply.stat === 'body' || apply.stat === 'direct-influence')
+        && typeof apply.value === 'number') {
+        logDetail(`${cardNm} option "${opt.id}": character-stat-modifier ${apply.stat} ${apply.value > 0 ? '+' : ''}${apply.value} on ${targetCharId as string} (scope turn)`);
+        current = addConstraint(current, {
+          source: entry.card.instanceId,
+          sourceDefinitionId: entry.card.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'character', characterId: targetCharId },
+          kind: { type: 'character-stat-modifier', stat: apply.stat, value: apply.value, characterId: targetCharId },
+        });
+      } else if (apply.type === 'force-check' && apply.check === 'corruption') {
+        const resourcePlayerId = current.activePlayer!;
+        let possessions: CardInstanceId[] = [];
+        for (const p of current.players) {
+          const charData = p.characters[targetCharId as string];
+          if (charData) {
+            possessions = [
+              ...charData.items.map(i => i.instanceId),
+              ...charData.allies.map(a => a.instanceId),
+              ...charData.hazards.map(h => h.instanceId),
+            ];
+            break;
+          }
+        }
+        logDetail(`${cardNm} option "${opt.id}": enqueuing corruption check (modifier ${apply.modifier ?? 0}) for character ${targetCharId as string}`);
+        current = enqueueCorruptionCheck(current, {
+          source: entry.card.instanceId,
+          actor: resourcePlayerId,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          characterId: targetCharId,
+          reason: cardNm,
+          modifier: apply.modifier ?? 0,
+          possessions,
+        });
+      }
+    }
+  }
+
   // Hazard short events with play-target cost: corruption check (e.g. Dragon-sickness).
   // When the chain entry resolves, enqueue a corruption check on the targeted character.
   if (entry.payload.type === 'short-event'
