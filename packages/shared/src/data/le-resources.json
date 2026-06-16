@@ -1783,7 +1783,34 @@
       {
         "site": "Easterling Camp"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Balchoth"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Wain-easterlings"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Men of Dorwinion"
+        }
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-faction",
