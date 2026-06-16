@@ -1710,9 +1710,32 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Raider-hold"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Easterlings"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Men of Dorwinion"
+        }
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-faction",
