@@ -1248,10 +1248,24 @@
     "nearestHaven": "Minas Morgul",
     "region": "Harondor",
     "playableResources": [],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 5,
+        "combatRules": ["each-character"]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": { "defender.covert": true }
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-16"
   },
   {
     "cardType": "minion-site",
