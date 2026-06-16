@@ -1455,7 +1455,35 @@
       "environment"
     ],
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "in-play",
+          "to": "discard",
+          "filter": {
+            "cardType": "hazard-event",
+            "keywords": {
+              "$includes": "environment"
+            }
+          }
+        }
+      },
+      {
+        "type": "name-alias",
+        "as": "Gates of Morning"
+      }
+    ],
+    "certified": "2026-06-16"
   },
   {
     "cardType": "minion-resource-event",

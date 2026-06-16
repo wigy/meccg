@@ -1356,6 +1356,27 @@ Supported scopes:
 { "type": "duplication-limit", "scope": "company", "max": 1 }
 ```
 
+### 14a. `name-alias`
+
+Makes the card count as another named card for the purpose of `inPlay`
+condition checks. While the bearer is in `cardsInPlay`, the alias name is added
+to the in-play names list (`buildInPlayNames`), so any DSL `when` clause that
+tests `{ "inPlay": "<alias>" }` is satisfied. The card's own name and
+duplication counts are unaffected — only the `inPlay` name list gains the
+alias, so a card with this effect does not collide with the aliased card for
+`duplication-limit` purposes.
+
+```json
+{ "type": "name-alias", "as": "Gates of Morning" }
+```
+
+Used by Skies of Fire (le-228), the minion environment that "acts as Gates of
+Morning for the purposes of interpreting hazards": every existing
+Gates-of-Morning-gated hazard interpretation (e.g. Dark Quarrels'
+halve-strikes, hand-card attack modifiers, region-keying / movement
+play-conditions) fires while Skies of Fire is in play, with no engine code
+naming Skies of Fire.
+
 ### 15. `reduce-attacks-to-one`
 
 Marker effect for *Forewarned Is Forearmed* (dm-132). When a card with this

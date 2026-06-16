@@ -38,7 +38,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -117,11 +117,23 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
   return defs;
 }
 
-/** The names of all named cards a player has in `cardsInPlay`, in card order. */
+/**
+ * The names of all named cards a player has in `cardsInPlay`, in card order.
+ *
+ * A card carrying a `name-alias` effect (e.g. Skies of Fire le-228 "acts as
+ * Gates of Morning for the purposes of interpreting hazards") contributes its
+ * alias name in addition to its own, so any `{ "inPlay": "<alias>" }` DSL
+ * condition is satisfied while the bearer is in play.
+ */
 function inPlayNamesOf(state: GameState, player: PlayerState): string[] {
-  return playerCardsInPlayDefs(state, player)
-    .filter((def): def is CardDefinition & { name: string } => 'name' in def)
-    .map(def => def.name);
+  const names: string[] = [];
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    if ('name' in def) names.push(def.name);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'name-alias') names.push(effect.as);
+    }
+  }
+  return names;
 }
 
 /**

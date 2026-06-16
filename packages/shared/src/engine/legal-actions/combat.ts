@@ -18,7 +18,7 @@ import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-import { computeCombatProwess } from '../recompute-derived.js';
+import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
@@ -1968,16 +1968,7 @@ function halveStrikesActions(
 
     // Check `when` condition (e.g. "inPlay": "Gates of Morning")
     if (halveEffect.when) {
-      const inPlayNames = [
-        ...state.players[0].cardsInPlay.map(c => {
-          const d = defById(state, c.definitionId);
-          return d && 'name' in d ? (d as { name: string }).name : '';
-        }),
-        ...state.players[1].cardsInPlay.map(c => {
-          const d = defById(state, c.definitionId);
-          return d && 'name' in d ? (d as { name: string }).name : '';
-        }),
-      ];
+      const inPlayNames = buildInPlayNames(state);
       const ctx: Record<string, unknown> = { inPlay: inPlayNames };
       if (combat.creatureRace) {
         ctx['enemy'] = { race: combat.creatureRace };
@@ -2110,16 +2101,7 @@ function modifyAttackActions(
   }
 
   // --- Hand cards (attacker or defender per effect.player) ---
-  const inPlayNames = [
-    ...state.players[0].cardsInPlay.map(c => {
-      const d = defById(state, c.definitionId);
-      return d && 'name' in d ? (d as { name: string }).name : '';
-    }),
-    ...state.players[1].cardsInPlay.map(c => {
-      const d = defById(state, c.definitionId);
-      return d && 'name' in d ? (d as { name: string }).name : '';
-    }),
-  ];
+  const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);

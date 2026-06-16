@@ -2739,14 +2739,7 @@ function checkSitePathCondition(
     ctx['destinationRegionType'] = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
   }
   if (state) {
-    const inPlayNames: string[] = [];
-    for (const p of state.players) {
-      for (const c of p.cardsInPlay) {
-        const d = defById(state, c.definitionId);
-        if (d && 'name' in d) inPlayNames.push((d as { name: string }).name);
-      }
-    }
-    ctx['inPlay'] = inPlayNames;
+    ctx['inPlay'] = buildInPlayNames(state);
   }
   return effect.condition ? matchesCondition(effect.condition, ctx) : true;
 }

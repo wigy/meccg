@@ -1275,6 +1275,24 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * Makes a card count as another named card for the purpose of `inPlay`
+ * condition checks. While the bearer is in play, the alias name is added to
+ * the in-play names list, so any DSL `when` clause that tests
+ * `{ "inPlay": "<alias>" }` is satisfied.
+ *
+ * Used by Skies of Fire (le-228), the minion environment that "acts as Gates
+ * of Morning for the purposes of interpreting hazards": with `{ as: "Gates of
+ * Morning" }` every existing Gates-of-Morning-gated hazard interpretation
+ * (region keying, halve-strikes, attack modifiers, etc.) fires while Skies of
+ * Fire is in play, without naming Skies of Fire anywhere in the engine.
+ */
+export interface NameAliasEffect extends EffectBase {
+  readonly type: 'name-alias';
+  /** The card name this card additionally counts as while in play. */
+  readonly as: string;
+}
+
+/**
  * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
  * for creature-keying purposes, a single region of type {@link from} in a
  * company's site path is treated as {@link count} regions of type {@link asType}
@@ -2746,6 +2764,7 @@ export type CardEffect =
   | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
+  | NameAliasEffect
   | RegionKeyingBoostEffect
   | PlayTargetEffect
   | PlayOptionEffect
