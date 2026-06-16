@@ -1328,7 +1328,47 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "certified": "2026-06-16",
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.itemKeywords": {
+                "$includes": "palantir"
+              }
+            },
+            {
+              "company.skills": {
+                "$includes": "sage"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ]
   },
   {
     "cardType": "minion-resource-event",
