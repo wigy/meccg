@@ -2044,8 +2044,21 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   );
 
   // Pay character cost via cost-evaluator: tap or enqueue corruption check.
+  // A cost-paying character whose race matches `costExemptRace` pays nothing
+  // (e.g. The Tormented Earth: "Unless he is a Ringwraith, character makes a
+  // corruption check…").
   let resultState: GameState = state;
-  if (action.scoutInstanceId && cancelEffect?.cost) {
+  const exemptRace = cancelEffect?.costExemptRace;
+  let costExempt = false;
+  if (action.scoutInstanceId && exemptRace) {
+    const scoutChar = defPlayer.characters[action.scoutInstanceId as string];
+    const scoutDef = scoutChar ? defById(state, scoutChar.definitionId) : undefined;
+    if (scoutDef && isCharacterCard(scoutDef) && scoutDef.race === exemptRace) {
+      costExempt = true;
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: cost-payer is ${exemptRace} — corruption check skipped`);
+    }
+  }
+  if (action.scoutInstanceId && cancelEffect?.cost && !costExempt) {
     const company = companyById(defPlayer.companies, combat.companyId);
     const companyId = company?.id;
     const scopeKind = state.phaseState.phase === Phase.MovementHazard
@@ -2075,21 +2088,9 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     discardPile: newDiscard,
   }));
 
-  // Push/initiate chain entry — opponent gets priority to respond. On
-  // resolution, the chain resolver applies the combat cancellation via
-  // resolveCancelAttackEntry.
-  const payload: import('../index.js').ChainEntryPayload = action.targetCharacterId
-    ? { type: 'short-event', targetCharacterId: action.targetCharacterId }
-    : { type: 'short-event' };
-  if (resultState.chain === null) {
-    resultState = initiateChain(resultState, action.player, handCard, payload);
-  } else {
-    resultState = pushChainEntry(resultState, action.player, handCard, payload);
-  }
-
   // Attack-scoped duplication limit: record this play as a constraint so the
-  // legal-action scanner can block a second copy on the same attack (e.g.
-  // if this cancel-attack is negated and the defender tries again).
+  // legal-action scanner can block a second copy on the same attack. Applies
+  // in both modes ("Cannot be duplicated against a given attack").
   const cancelDupLimit = getCardEffects(cardDef).find(
     e => e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
   );
@@ -2102,6 +2103,30 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
       kind: { type: 'attack-card-played' },
     });
     logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added attack-card-played marker (cancel-attack duplication-limit scope attack)`);
+  }
+
+  // Dual-mode "reduce prowess" variant (e.g. The Tormented Earth): instead of
+  // cancelling, lower the attack's strike prowess uniformly. Like halve-strikes
+  // and modify-attack, this is a direct combat modification applied immediately
+  // (no chain) — only outright cancellation routes through the chain.
+  if (action.mode === 'reduce-prowess' && cancelEffect?.prowessPenalty !== undefined) {
+    if (!resultState.combat) return { state, error: 'No active combat to reduce prowess' };
+    const before = resultState.combat.strikeProwess;
+    const after = before - cancelEffect.prowessPenalty;
+    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: reduce attack prowess ${before} → ${after} (-${cancelEffect.prowessPenalty})`);
+    return { state: { ...resultState, combat: { ...resultState.combat, strikeProwess: after } } };
+  }
+
+  // Push/initiate chain entry — opponent gets priority to respond. On
+  // resolution, the chain resolver applies the combat cancellation via
+  // resolveCancelAttackEntry.
+  const payload: import('../index.js').ChainEntryPayload = action.targetCharacterId
+    ? { type: 'short-event', targetCharacterId: action.targetCharacterId }
+    : { type: 'short-event' };
+  if (resultState.chain === null) {
+    resultState = initiateChain(resultState, action.player, handCard, payload);
+  } else {
+    resultState = pushChainEntry(resultState, action.player, handCard, payload);
   }
 
   return { state: resultState };

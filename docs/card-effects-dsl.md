@@ -855,6 +855,23 @@ bearer's status is irrelevant (it need not be untapped and is not tapped).
 The item itself must be untapped. Used by *Helm of Fear* (as-126) — tap the
 item to cancel an attack against the Ringwraith's company.
 
+**Dual-mode cancel / reduce-prowess.** A `prowessPenalty: N` field turns the
+card into a two-option play: the legal-action emitter offers both the outright
+cancellation and a "reduce the attack's prowess by N" variant (carried on the
+action as `mode: "reduce-prowess"`). The cancellation routes through the chain
+as usual; the reduce-prowess variant is applied immediately (like
+`halve-strikes` / `modify-attack`), lowering `combat.strikeProwess` by `N`
+without ending combat. Both modes pay the same cost and both record the
+attack-scoped `duplication-limit` marker. Used by *The Tormented Earth*
+(as-102): "Cancels the attack **or** gives the attack -3 prowess, your choice."
+
+**Cost exemption by race.** A `costExemptRace: "<race>"` field waives the cost
+when the cost-paying character is of that race — e.g. The Tormented Earth's
+"Unless he is a Ringwraith, character makes a corruption check modified by -4"
+(`requiredSkill: "sorcery"`, `cost: { check: "corruption", modifier: -4 }`,
+`costExemptRace: "ringwraith"`). A Ringwraith sorcery-user pays nothing; any
+other sorcery-user makes the -4 check.
+
 A `when` condition filters which attacks qualify, evaluated against a
 combat context that includes:
 

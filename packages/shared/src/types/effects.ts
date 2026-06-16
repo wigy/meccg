@@ -1894,6 +1894,22 @@ export interface CancelAttackEffect extends EffectBase {
    * ("Bearer makes a corruption check").
    */
   readonly enqueueCorruptionCheck?: true;
+  /**
+   * When set, the card offers an alternative "reduce attack prowess by this
+   * amount" mode alongside the outright cancellation — the player chooses one
+   * at play time (CoE: "Cancels the attack OR gives the attack -N prowess,
+   * your choice"). The reduce-prowess variant resolves through the chain like
+   * the cancel variant but lowers the attack's strike prowess uniformly
+   * instead of ending combat. Used by The Tormented Earth (as-102, value 3).
+   */
+  readonly prowessPenalty?: number;
+  /**
+   * When set, a cost-paying character whose race matches this value pays no
+   * cost (the corruption check is skipped). Backs clauses like "Unless he is a
+   * Ringwraith, character makes a corruption check…" on The Tormented Earth
+   * (as-102, `"ringwraith"`).
+   */
+  readonly costExemptRace?: string;
 }
 
 /**
