@@ -329,7 +329,32 @@
     "corruptionPoints": 0,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [],
+    "effects": [
+      { "type": "play-flag", "flag": "no-starting-company" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "grant-action",
+        "action": "untap-site",
+        "cost": { "discard": "self" },
+        "when": { "bearer.siteType": { "$in": ["free-hold", "border-hold"] }, "site.isTapped": true },
+        "apply": { "type": "untap-site" }
+      },
+      {
+        "type": "grant-action",
+        "action": "unlock-information-at-ruins-and-lairs",
+        "cost": { "discard": "self" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-resource-unlocked",
+          "scope": "turn",
+          "target": "player",
+          "siteType": "ruins-and-lairs",
+          "subtype": "information"
+        }
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-item",
