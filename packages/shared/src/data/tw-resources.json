@@ -748,6 +748,7 @@
     "prowess": 8,
     "body": 9,
     "mind": 3,
+    "skills": ["sage"],
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [

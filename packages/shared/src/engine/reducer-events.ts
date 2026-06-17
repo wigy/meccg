@@ -15,7 +15,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { companyById, defById, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -529,14 +529,24 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
 
     if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
-      newState = enqueueCorruptionCheck(newState, {
-        source: handCard.instanceId,
-        actor: action.player,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: action.targetScoutInstanceId,
-        modifier: discardInPlay.corruptionCheck.modifier,
-        reason: def.name,
-      });
+      // Rule 7.4: allies never make corruption checks, but may still fulfill
+      // the skill-only active condition that let them tap (e.g. a sage ally
+      // tapping for Marvels Told). When the sage is an ally the discard is
+      // still implemented but the corruption check is skipped entirely.
+      const sageIsAlly = !newState.players[playerIndex].characters[action.targetScoutInstanceId as string]
+        && findAttachment(newState.players[playerIndex], 'allies', action.targetScoutInstanceId) != null;
+      if (sageIsAlly) {
+        logDetail(`${def.name}: sage ${action.targetScoutInstanceId as string} is an ally — corruption check skipped (rule 7.4)`);
+      } else {
+        newState = enqueueCorruptionCheck(newState, {
+          source: handCard.instanceId,
+          actor: action.player,
+          scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+          characterId: action.targetScoutInstanceId,
+          modifier: discardInPlay.corruptionCheck.modifier,
+          reason: def.name,
+        });
+      }
     }
   }
 
