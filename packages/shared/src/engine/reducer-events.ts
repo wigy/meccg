@@ -61,20 +61,22 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
       }));
       logDetail(`Discarded item ${removed.attachment.definitionId as string} from character ${removed.charId as string}`);
     } else {
-      // Check out-of-play pile (stored items)
-      const oopIdx = newState.players[playerIndex].outOfPlayPile.findIndex(
+      // Check the marshalling point pile (killPile), where successfully stored
+      // items are placed per CoE rule 2.II.4.1 (e.g. a Sapling of the White
+      // Tree stored at Minas Tirith).
+      const killIdx = newState.players[playerIndex].killPile.findIndex(
         c => c.instanceId === action.discardCardInstanceId,
       );
-      if (oopIdx !== -1) {
-        const card = newState.players[playerIndex].outOfPlayPile[oopIdx];
-        const newOop = [...newState.players[playerIndex].outOfPlayPile];
-        newOop.splice(oopIdx, 1);
+      if (killIdx !== -1) {
+        const card = newState.players[playerIndex].killPile[killIdx];
+        const newKill = [...newState.players[playerIndex].killPile];
+        newKill.splice(killIdx, 1);
         newState = updatePlayer(newState, playerIndex, p => ({
           ...p,
-          outOfPlayPile: newOop,
+          killPile: newKill,
           discardPile: [...p.discardPile, toCardInstance(card)],
         }));
-        logDetail(`Discarded stored card ${card.definitionId as string} from out-of-play pile`);
+        logDetail(`Discarded stored card ${card.definitionId as string} from marshalling point pile`);
       }
     }
   }

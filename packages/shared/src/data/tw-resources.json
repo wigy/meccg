@@ -820,7 +820,7 @@
         "cardName": "Sapling of the White Tree",
         "sources": [
           "character-items",
-          "out-of-play-pile"
+          "kill-pile"
         ]
       },
       {
