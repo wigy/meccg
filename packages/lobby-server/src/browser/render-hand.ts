@@ -8,8 +8,8 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, Phase } from '@meccg/shared';
-import { getCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
+import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup } from '@meccg/shared';
+import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
   setTargetingInstruction,
   getSelectedItemDefId, setSelectedItemDefId,
@@ -536,6 +536,15 @@ export function renderHand(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction?: (action: GameAction) => void,
 ): void {
+  // Refresh the shared instance lookup from the *current* view before
+  // resolving any card names in the hand or its tooltips. This cache is
+  // otherwise only repopulated when the debug panel renders, so during normal
+  // play it lags behind the live view: a card an opponent just brought into
+  // play — e.g. a hazard attached to one of our characters — is absent from a
+  // stale lookup, so its name resolves to "?". This caused the Marvels Told
+  // discard tooltip to read "Tap Saruman, discard ? (on Theoden)" instead of
+  // naming Lure of Expedience (bug d06bedbd3fa71d6d).
+  setCachedInstanceLookup(buildInstanceLookup(view));
   const cachedInstanceLookup = getCachedInstanceLookup();
   const el = document.getElementById('hand-arc');
   if (!el) return;

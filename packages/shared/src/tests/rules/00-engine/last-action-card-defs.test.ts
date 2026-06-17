@@ -22,7 +22,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, LEGOLAS, ARAGORN,
+  ELROND, LEGOLAS, ARAGORN, SARUMAN, THEODEN,
   MARVELS_TOLD, FOOLISH_WORDS,
   SUN, BARROW_WIGHT, ORC_PATROL, ASSASSIN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -36,8 +36,11 @@ import {
   buildAnUnexpectedOutpostMH,
   resolveChain,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
-import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardDefinitionId, CardInstanceId, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
+import { Phase, SetupStep, buildInstanceLookup, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
+
+/** Lure of Expedience — hazard permanent-event attached to a character. Single-use in this file. */
+const LURE_OF_EXPEDIENCE = 'le-122' as CardDefinitionId;
 
 describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
@@ -441,5 +444,77 @@ describe('exchange-sideboard — opponent must not learn which cards were swappe
     const sideboardName = pool[ASSASSIN as string]?.name;
     if (discardName) expect(audienceDesc).not.toContain(discardName);
     if (sideboardName) expect(audienceDesc).not.toContain(sideboardName);
+  });
+});
+
+describe('Marvels Told discard-target naming — lookup must cover character-attached hazards', () => {
+  /**
+   * Regression for bug d06bedbd3fa71d6d (game mqi3vh2z-32ok2s, seq ~1090):
+   * the hand renderer's Marvels Told disambiguation tooltip read
+   * "Tap Saruman, discard ? (on Theoden)" instead of naming the discard
+   * target, Lure of Expedience. The discard target was a hazard the opponent
+   * had attached to the active player's character. The browser resolved its
+   * name through a cached instance lookup that was only ever refreshed when
+   * the debug panel rendered, so during normal play it lagged the live view —
+   * the freshly-attached hazard was absent and its name fell back to the
+   * placeholder ("?"). The fix rebuilds the lookup from the current view in
+   * `renderHand`. This test pins the underlying contract: a lookup built via
+   * {@link buildInstanceLookup} from a view that holds the hazard on a
+   * character resolves the discard-target name, and a stale lookup that misses
+   * it degrades to the "a card" placeholder.
+   */
+  test('buildInstanceLookup resolves a hazard attached to a character; a stale lookup does not', () => {
+    const sageId = 'p1-inst-saruman' as CardInstanceId;
+    const bearerId = 'p1-inst-theoden' as CardInstanceId;
+    const marvelsId = 'p1-inst-marvels' as CardInstanceId;
+    const lureId = 'p2-inst-lure' as CardInstanceId;
+
+    // Minimal active-player view: Saruman (the sage) and Theoden share a
+    // company; the opponent's Lure of Expedience is attached to Theoden.
+    const emptyPiles = {
+      hand: [], playDeck: [], siteDeck: [], discardPile: [], siteDiscardPile: [],
+      sideboard: [], killPile: [], outOfPlayPile: [], cardsInPlay: [], companies: [], agents: [],
+    };
+    const view = {
+      self: {
+        ...emptyPiles,
+        hand: [{ instanceId: marvelsId, definitionId: MARVELS_TOLD }],
+        characters: {
+          [sageId as string]: { instanceId: sageId, definitionId: SARUMAN, items: [], allies: [], hazards: [] },
+          [bearerId as string]: {
+            instanceId: bearerId, definitionId: THEODEN, items: [], allies: [],
+            hazards: [{ instanceId: lureId, definitionId: LURE_OF_EXPEDIENCE }],
+          },
+        },
+      },
+      opponent: { ...emptyPiles, characters: {} },
+      chain: null,
+      phaseState: { phase: Phase.MovementHazard },
+    } as unknown as PlayerView;
+
+    const lookup = buildInstanceLookup(view);
+    // The contract the fix relies on: the character-attached hazard is in the lookup.
+    expect(lookup(lureId)).toBe(LURE_OF_EXPEDIENCE);
+
+    const action: PlayShortEventAction = {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: sageId,
+      discardTargetInstanceId: lureId,
+    };
+
+    // Fresh lookup (rebuilt from the current view, as the hand renderer now
+    // does): both the tapped sage and the discard target are named.
+    const named = describeAction(action, pool, lookup);
+    expect(named).toContain('Saruman');
+    expect(named).toContain('Lure of Expedience');
+
+    // Stale lookup predating the Lure attachment (the pre-fix bug): the
+    // discard-target name degrades to the "a card" placeholder ("?" in the UI).
+    const staleLookup = (id: CardInstanceId) => (id === lureId ? undefined : lookup(id));
+    const stale = describeAction(action, pool, staleLookup);
+    expect(stale).toContain('a card');
+    expect(stale).not.toContain('Lure of Expedience');
   });
 });
