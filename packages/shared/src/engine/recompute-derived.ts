@@ -440,7 +440,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // General influence: prisoners cost 0 GI; others under GI count normally.
     // Use effective mind (from stat-modifier effects) when available, otherwise
     // fall back to the base mind from the card definition.
-    if (!isPrisoner && char.controlledBy === 'general' && charDef.mind !== null) {
+    // A character flagged `influenceUnsubtracted` was removed from direct-influence
+    // control outside an organization phase (e.g. by Rebel-talk); per CoE 2.II.2.2.3
+    // its mind is not subtracted from general influence until the player's next
+    // organization phase clears the flag.
+    if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null) {
       const mindCost = newStats.mind ?? charDef.mind;
       generalInfluenceUsed += mindCost;
     }

@@ -481,6 +481,25 @@ function advanceToOrganization(state: GameState): ReducerResult {
     };
   }
 
+  // Clear `influenceUnsubtracted` flags on the active player's characters: any
+  // character removed from direct-influence control between organization phases
+  // (e.g. by Rebel-talk) now has its mind counted against general influence again,
+  // and the player must move it back under general/direct influence or discard it
+  // during this organization phase (CoE 2.II.2.2.3).
+  {
+    const ap = advanced.players[activeIndex];
+    const pending = Object.entries(ap.characters).filter(([, c]) => c.influenceUnsubtracted);
+    if (pending.length > 0) {
+      const clearedChars = { ...ap.characters };
+      for (const [cid, c] of pending) {
+        logDetail(`Organization phase begins: ${cid} mind now counts against general influence (CoE 2.II.2.2.3)`);
+        const { influenceUnsubtracted: _drop, ...rest } = c;
+        clearedChars[cid] = rest;
+      }
+      advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: clearedChars }));
+    }
+  }
+
   return { state: advanced };
 }
 

@@ -202,6 +202,17 @@ export interface CharacterInPlay {
    * - A `CardInstanceId` -- Under the direct influence of another character.
    */
   readonly controlledBy: 'general' | CardInstanceId;
+  /**
+   * Set when this character was removed from direct-influence control *outside*
+   * its player's organization phase (e.g. by Rebel-talk's `no-direct-influence`
+   * flag stripping its controller mid-turn). Per CoE 2.II.2.2.3, the mind of such
+   * a character is **not** immediately subtracted from its player's general
+   * influence; the subtraction is deferred until the player's next organization
+   * phase, at which point the flag is cleared. While set, the character is
+   * recorded as `controlledBy: 'general'` but is excluded from the
+   * general-influence tally in {@link recomputeDerived}.
+   */
+  readonly influenceUnsubtracted?: boolean;
   /** Computed stats including item modifiers. Recomputed after every action. */
   readonly effectiveStats: EffectiveStats;
   /**

@@ -980,12 +980,23 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
-  // no-direct-influence flag — revert DI to GI on attach
+  // no-direct-influence flag — revert DI to GI on attach.
+  // Per CoE 2.II.2.2.3, a follower removed from direct-influence control outside
+  // an organization phase does NOT have its mind immediately subtracted from its
+  // player's general influence — that is deferred to the player's next
+  // organization phase. Rebel-talk is a hazard, so it always resolves during the
+  // opponent's movement/hazard phase (never the bearer's org phase); mark the
+  // character with `influenceUnsubtracted` so {@link recomputeDerived} skips its
+  // mind until the flag is cleared at the start of the next organization phase.
   if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
+    const deferSubtraction = state.phaseState.phase !== Phase.Organization;
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId as string];
       if (char && char.controlledBy !== 'general') {
-        logDetail(`"${def?.name ?? '?'}" forces ${targetCharId as string} from DI to GI`);
+        logDetail(
+          `"${def?.name ?? '?'}" forces ${targetCharId as string} from DI to GI`
+          + (deferSubtraction ? ' (mind subtraction deferred to next organization phase — CoE 2.II.2.2.3)' : ''),
+        );
         const oldControllerId = char.controlledBy;
         const oldCtrl = newPlayers[pi].characters[oldControllerId as string];
         if (oldCtrl) {
@@ -993,7 +1004,11 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
             ...newPlayers[pi],
             characters: {
               ...newPlayers[pi].characters,
-              [targetCharId as string]: { ...char, controlledBy: 'general' },
+              [targetCharId as string]: {
+                ...char,
+                controlledBy: 'general',
+                ...(deferSubtraction ? { influenceUnsubtracted: true } : {}),
+              },
               [oldControllerId as string]: {
                 ...oldCtrl,
                 followers: oldCtrl.followers.filter(id => id !== targetCharId),
