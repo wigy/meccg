@@ -7,7 +7,7 @@
     "unique": false,
     "strikes": 1,
     "prowess": 5,
-    "body": null,
+    "body": 10,
     "killMarshallingPoints": 1,
     "keyedTo": [
       {

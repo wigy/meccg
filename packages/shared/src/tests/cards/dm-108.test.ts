@@ -13,9 +13,15 @@
  * This tests:
  * 1. combat-attacker-chooses-defenders — hazard player assigns strikes
  * 2. on-event: attack-not-defeated → deny-scout-resources constraint
+ * 3. Little Snuffler has body 10, so a parried strike requires a body check
+ *    against the creature (CoE 3.iv.7 / 3.v) — it is NOT auto-defeated. The
+ *    printed body of 10 was previously mis-recorded as null, which made the
+ *    engine auto-defeat the creature with no body check (bug report: "was
+ *    defeated without a body check").
  *
- * Note: the ranger body-reduction rule has no effect because the creature
- * has body: null (no body check occurs).
+ * Note: the per-ranger body-reduction clause ("Each ranger in attacked
+ * company lowers Little Snuffler's body by 2") is not yet implemented as a
+ * DSL effect, so the body check is always taken against the full body of 10.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -152,19 +158,116 @@ describe('Little Snuffler (dm-108)', () => {
       tapped: false,
     });
 
-    // Aragorn prowess 6 + high roll (12) easily beats creature prowess 5
+    // Aragorn prowess 6 + high roll (12) easily beats creature prowess 5 → strike parried
     const stateWithRoll = { ...afterAssign, cheatRollTotal: 12 };
     const actions = computeLegalActions(stateWithRoll, PLAYER_1);
     const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
     expect(resolveAction).toBeDefined();
     const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
 
-    // Combat finalized — creature should be in defender's kill pile
-    expect(afterStrike.combat).toBeNull();
-    expectInPile(afterStrike, RESOURCE_PLAYER, 'killPile', LITTLE_SNUFFLER);
+    // Body 10 (not null): parrying the strike requires a body check vs the creature
+    expect(afterStrike.combat).not.toBeNull();
+    expect(afterStrike.combat!.phase).toBe('body-check');
+    expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
 
-    // No constraint should have been added
-    expect(afterStrike.activeConstraints).toHaveLength(0);
+    // Hazard player rolls the creature body check; roll 12 > body 10 → check fails → creature defeated
+    const bodyState = { ...afterStrike, cheatRollTotal: 12 };
+    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
+    expect(bodyAction).toBeDefined();
+    const afterBody = dispatch(bodyState, bodyAction!.action);
+
+    // Combat finalized — creature should be in defender's kill pile
+    expect(afterBody.combat).toBeNull();
+    expectInPile(afterBody, RESOURCE_PLAYER, 'killPile', LITTLE_SNUFFLER);
+
+    // No constraint should have been added (attack was defeated)
+    expect(afterBody.activeConstraints).toHaveLength(0);
+  });
+
+  test('REGRESSION: parried strike is not auto-defeated — body check required (body 10)', () => {
+    // Bug report: Little Snuffler was "defeated without a body check". Root cause
+    // was body: null in the card data, which made the engine auto-defeat the
+    // creature on a parry (CoE 3.iv.7: a strike with no body is auto-defeated).
+    // With the printed body of 10, a parried strike must roll a body check, and a
+    // surviving body check means the creature is discarded (not taken for kill MP).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [LITTLE_SNUFFLER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: snufflerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const aragornId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornId,
+      tapped: false,
+    });
+
+    // Aragorn prowess 6 + roll 12 = 18 > creature prowess 5 → strike parried
+    const stateWithRoll = { ...afterAssign, cheatRollTotal: 12 };
+    const actions = computeLegalActions(stateWithRoll, PLAYER_1);
+    const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
+    expect(resolveAction).toBeDefined();
+    const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
+
+    // The fix: a body check is REQUIRED — the creature is not auto-defeated.
+    expect(afterStrike.combat).not.toBeNull();
+    expect(afterStrike.combat!.phase).toBe('body-check');
+    expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
+
+    // Low body-check roll (2 ≤ body 10) → body check passes → strike not defeated
+    const bodyState = { ...afterStrike, cheatRollTotal: 2 };
+    const bodyActions = computeLegalActions(bodyState, PLAYER_2);
+    const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
+    expect(bodyAction).toBeDefined();
+    const afterBody = dispatch(bodyState, bodyAction!.action);
+
+    // Creature survives the body check → discarded to hazard discard, NOT taken
+    // for kill MP. (Before the fix it went straight to the kill pile.)
+    expect(afterBody.combat).toBeNull();
+    expectInPile(afterBody, HAZARD_PLAYER, 'discardPile', LITTLE_SNUFFLER);
+    expect(afterBody.players[0].killPile.some(c => c.definitionId === LITTLE_SNUFFLER)).toBe(false);
+
+    // Attack was not defeated → deny-scout-resources constraint added
+    const denyScout = afterBody.activeConstraints.find(c => c.kind.type === 'deny-scout-resources');
+    expect(denyScout).toBeDefined();
+    expect(denyScout!.target).toEqual({ kind: 'company', companyId });
   });
 
   test('attack not defeated — deny-scout-resources constraint added', () => {
