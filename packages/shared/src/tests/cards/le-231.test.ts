@@ -4,8 +4,9 @@
  * Card test: Sneakin' (le-231)
  * Type: minion-resource-event (short, scout-only)
  * Effects: 3
- *   1. play-window: organization (playable throughout the org phase — no
- *      end-of-org sub-step lock, unlike its hero twin Stealth tw-332)
+ *   1. play-window: organization (playable throughout the org phase; its
+ *      hero twin Stealth tw-332 is tagged end-of-org but, per CoE 2.II.7,
+ *      neither card locks the player out of further organization actions)
  *   2. play-target character, DSL filter (scout + untapped),
  *      maxCompanySize:2, cost { tap: character }
  *   3. on-event self-enters-play → add-constraint
@@ -26,9 +27,10 @@
  * | 5 | No creature hazards on his company this turn     | IMPLEMENTED | on-event add-constraint (cross-player)      |
  * | 6 | "this turn" — constraint clears at turn-end      | IMPLEMENTED | scope:turn → sweepExpired turn-end          |
  *
- * Unlike Stealth (end-of-org only), Sneakin' is playable during the
- * normal organization play-actions step and does NOT lock the player out
- * of further organization actions.
+ * Sneakin' is playable during the normal organization play-actions step
+ * and does NOT lock the player out of further organization actions. Its
+ * hero twin Stealth (tagged end-of-org) likewise no longer locks the
+ * phase, per CoE 2.II.7.
  *
  * Playable: YES
  * Certified: 2026-06-09
@@ -174,8 +176,8 @@ describe("Sneakin' (le-231)", () => {
     expect(constraint.scope.kind).toBe('turn');
     expect(constraint.target).toEqual({ kind: 'company', companyId });
 
-    // Sneakin' does NOT lock the org phase into the end-of-org sub-step
-    // (unlike Stealth) — the active player remains in normal organization.
+    // Sneakin' does NOT lock the org phase into an end-of-org sub-step —
+    // the active player remains in normal organization (CoE 2.II.7).
     expect(next.phaseState.phase).toBe(Phase.Organization);
     expect((next.phaseState as { step?: string }).step).not.toBe('end-of-org');
   });

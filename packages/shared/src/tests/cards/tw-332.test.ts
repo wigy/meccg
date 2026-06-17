@@ -15,7 +15,7 @@
  * | # | Feature                                  | Status      | Notes                                  |
  * |---|------------------------------------------|-------------|----------------------------------------|
  * | 1 | Target = untapped scout (DSL filter)     | IMPLEMENTED | play-target filter via condition-matcher |
- * | 2 | Play window = end of organization        | IMPLEMENTED | implicit end-of-org transition on play |
+ * | 2 | Play window = end of organization        | IMPLEMENTED | offered during organization play-actions |
  * | 3 | Company size < 3 enforced                 | IMPLEMENTED | play-target maxCompanySize:2           |
  * | 4 | Adds no-creature-hazards constraint      | IMPLEMENTED | on-event self-enters-play apply        |
  * | 5 | Constraint blocks opponent creature plays | IMPLEMENTED | constraint filter (cross-player)       |
@@ -23,10 +23,11 @@
  * | 7 | Other companies' creature hazards remain  | IMPLEMENTED | constraint filter checks targetCompany |
  *
  * Stealth is playable during the normal organization play-actions step
- * whenever its constraints are met. Playing it implicitly transitions
- * the engine into the end-of-org sub-step, after which only further
- * end-of-org plays and pass remain legal — the active player cannot
- * take any further normal organization actions this turn.
+ * whenever its constraints are met. Playing it does NOT end the
+ * organization phase or lock out further actions: per CoE 2.II.7 the
+ * resource player may still declare movement and otherwise organize after
+ * playing an "end of the organization phase" card, advancing to Long-event
+ * only by passing.
  *
  * Certified: 2026-04-08
  */
@@ -37,11 +38,11 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO,
   STEALTH,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  RIVENDELL, BREE, LORIEN, MORIA, MINAS_TIRITH,
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
-  viableActions, viableFor, RESOURCE_PLAYER,
+  viableActions, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   PlayHazardAction, CardInstanceId,
@@ -72,38 +73,85 @@ describe('Stealth (tw-332)', () => {
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
   });
 
-  test('playing Stealth implicitly transitions into the end-of-org sub-step', () => {
-    // Playing Stealth during normal play-actions should advance the
-    // organization phase into its end-of-org sub-step, locking out any
-    // further normal organization actions. The active player can still
-    // play more end-of-org cards, then a single pass advances to the
-    // Long-event phase.
+  test('playing Stealth does not lock out movement or other organization actions', () => {
+    // Regression (bug report: "Saruman, Isengard", game mqi3vh2z-32ok2s):
+    // playing an "end of the organization phase" card (Stealth) used to
+    // flip the org phase into a restrictive end-of-org sub-step, after
+    // which the player could no longer declare movement or otherwise
+    // organize. Per CoE 2.II.7 movement may be declared at any point during
+    // the organization phase, including after an end-of-org play. Aragorn's
+    // company at Rivendell can reach Bree via starter movement; that
+    // plan-movement must remain available after Stealth is played.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [STEALTH], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [STEALTH], siteDeck: [BREE, MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
     const stealthInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
+
+    // Sanity: movement to Bree is available before Stealth is played.
+    expect(viableActions(base, PLAYER_1, 'plan-movement').length).toBeGreaterThan(0);
 
     const afterPlay = dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: stealthInstance,
+      targetScoutInstanceId: aragornInstance,
     });
+
+    // The phase stays in organization and is not locked into a separate
+    // end-of-org window.
     expect(afterPlay.phaseState.phase).toBe(Phase.Organization);
-    expect((afterPlay.phaseState as { step?: string }).step).toBe('end-of-org');
+    expect((afterPlay.phaseState as { step?: string }).step).not.toBe('end-of-org');
 
-    // Only end-of-org plays + pass should be legal now. With no more
-    // Stealth in hand, only pass is viable.
-    const afterPlayActions = viableFor(afterPlay, PLAYER_1);
-    expect(afterPlayActions.every(ea => ea.action.type === 'pass')).toBe(true);
+    // Movement is still offered after the end-of-org play.
+    expect(viableActions(afterPlay, PLAYER_1, 'plan-movement').length).toBeGreaterThan(0);
 
-    // Pass advances directly to Long-event.
+    // The player still advances to Long-event by passing.
     const afterPass = dispatch(afterPlay, { type: 'pass', player: PLAYER_1 });
     expect(afterPass.phaseState.phase).toBe(Phase.LongEvent);
+  });
+
+  test('an end-of-org play on one company does not lock movement of another company', () => {
+    // Faithful reproduction of the reported scenario: the player played
+    // Stealth on a scout in one company while another company (at Isengard,
+    // with Saruman) still needed to declare movement. The end-of-org play
+    // must not foreclose movement for the unrelated company.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: BREE, characters: [ARAGORN] },       // scout — plays Stealth
+            { site: RIVENDELL, characters: [LEGOLAS] },   // unrelated company, can move to Bree
+          ],
+          hand: [STEALTH],
+          siteDeck: [BREE, MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GANDALF] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER); // first company's scout
+    const otherCompanyId = companyIdAt(base, RESOURCE_PLAYER, 1);
+
+    const afterPlay = dispatch(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: stealthInstance,
+      targetScoutInstanceId: aragornInstance,
+    });
+
+    // The unrelated company can still declare movement.
+    const movements = viableActions(afterPlay, PLAYER_1, 'plan-movement')
+      .map(ea => ea.action as { companyId: string });
+    expect(movements.some(a => a.companyId === otherCompanyId)).toBe(true);
   });
 
   test('pass during play-actions advances directly to Long-event with no end-of-org detour', () => {

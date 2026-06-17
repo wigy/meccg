@@ -184,35 +184,13 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     return fetchFromSideboardActions(state, playerId);
   }
 
-  // End-of-organization play window: only short-events explicitly tagged as
-  // end-of-org plays (e.g. Stealth) are legal here, plus `pass` to advance
-  // to the Long-event phase. This step is entered implicitly when the
-  // active player plays an end-of-org card during normal play-actions
-  // (see reducer-organization.ts) — once entered, the player can chain
-  // additional end-of-org plays but no further normal organization
-  // actions.
-  if (orgState.step === 'end-of-org') {
-    logHeading(`Organization: end-of-org window — only end-of-org plays + pass are legal`);
-    const endActions: EvaluatedAction[] = [];
-    for (const handCard of player.hand) {
-      const def = defById(state, handCard.definitionId);
-      if (!def || def.cardType !== 'hero-resource-event') continue;
-      if (!isEndOfOrgPlay(def)) continue;
-      const eligibility = endOfOrgEligibility(state, player, def);
-      if (!eligibility.eligible) {
-        logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) — ${eligibility.reason}`);
-        continue;
-      }
-      logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) is a registered end-of-org play`);
-      endActions.push({
-        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-        viable: true,
-      });
-    }
-    endActions.push(...grantedActionActivations(state, playerId));
-    endActions.push({ action: { type: 'pass', player: playerId }, viable: true });
-    return endActions;
-  }
+  // Note: "end of the organization phase" cards (e.g. Stealth) do not open a
+  // restrictive sub-step. Per CoE 2.II.7 the resource player may declare
+  // movement and otherwise organize at any point during the organization
+  // phase, including after playing such a card. End-of-org cards are offered
+  // alongside the normal organization actions below (see
+  // `playResourceShortEventActions`), and the phase advances to Long-event
+  // only when the active player passes.
 
   const actions: EvaluatedAction[] = [];
 
@@ -1655,12 +1633,12 @@ export function playResourceShortEventActions(
         }
       }
     }
-    // End-of-org cards (e.g. Stealth) are playable during the normal
-    // organization window: playing one implicitly transitions the engine
-    // into the end-of-org sub-step (see reducer-organization.ts),
-    // preventing any further normal org plays this turn. Mark them
-    // not-playable with a reason if their play-target constraints aren't
-    // met so the UI can explain why.
+    // End-of-org cards (e.g. Stealth) are playable during the organization
+    // phase alongside the player's other organization actions. Playing one
+    // does not end the phase or lock out further movement/organization (CoE
+    // 2.II.7) — the player advances to Long-event only by passing. Mark them
+    // not-playable with a reason if their play-target constraints aren't met
+    // so the UI can explain why.
     if (playWindow?.step === 'end-of-org') {
       const eligibility = endOfOrgEligibility(state, player, def);
       if (!eligibility.eligible) {

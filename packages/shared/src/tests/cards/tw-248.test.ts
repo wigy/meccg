@@ -31,7 +31,7 @@ import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GANDALF, CAVE_DRAKE,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDHELLOND,
+  RIVENDELL, BREE, LORIEN, MORIA, MINAS_TIRITH, EDHELLOND,
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch, RESOURCE_PLAYER,
@@ -107,12 +107,17 @@ describe('Great Ship (tw-248)', () => {
     expect(constraint.target).toEqual({ kind: 'company', companyId });
   });
 
-  test('playing Great Ship implicitly transitions into the end-of-org sub-step', () => {
+  test('playing Great Ship does not lock the organization phase into an end-of-org sub-step', () => {
+    // Per CoE 2.II.7, an "end of the organization phase" play does not end
+    // the phase or foreclose further organization actions (e.g. declaring
+    // movement). The phase stays in normal play-actions until the player
+    // passes. Rivendell's company can reach Bree via starter movement, and
+    // that movement must remain available after Great Ship is played.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_SHIP], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_SHIP], siteDeck: [BREE, MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
@@ -126,7 +131,12 @@ describe('Great Ship (tw-248)', () => {
       targetScoutInstanceId: aragornInstance,
     });
     expect(afterPlay.phaseState.phase).toBe(Phase.Organization);
-    expect((afterPlay.phaseState as { step?: string }).step).toBe('end-of-org');
+    expect((afterPlay.phaseState as { step?: string }).step).not.toBe('end-of-org');
+
+    // Movement remains declarable after the end-of-org play.
+    const movements = computeLegalActions(afterPlay, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'plan-movement');
+    expect(movements.length).toBeGreaterThan(0);
   });
 
   test('Great Ship is not playable when all characters are tapped', () => {
