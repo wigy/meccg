@@ -21,11 +21,15 @@ import {
   ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, makeSitePhase,
-  resolveChain,
+  resolveChain, makeCancelWindowCombat, viableActions,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
   buildSitePhaseTwoPlayer, placeOnGuard,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
+import type { CardDefinitionId } from '../../index.js';
+
+const ESCAPE = 'tw-229' as CardDefinitionId;
+const HOBGOBLINS = 'le-77' as CardDefinitionId;
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-lieutenant (tw-073)', () => {
@@ -159,6 +163,72 @@ describe('Orc-lieutenant (tw-073)', () => {
     const afterSecondChain = resolveChain(afterPlaySecond);
     expect(afterSecondChain.combat).not.toBeNull();
     expect(afterSecondChain.combat!.strikeProwess).toBe(11);
+  });
+
+  test('+4 prowess (total 11) when the prior Orc attack was canceled (CoE 3.i.1 / CRF 22 Annotation 14)', () => {
+    // Regression: Hobgoblins (an Orc attack) was faced and then canceled (e.g.
+    // with Escape). Per CoE 3.i.1 the company is still considered to have faced
+    // the attack once combat is initiated, even though it was canceled, so a
+    // subsequently-played Orc-lieutenant must receive its +4 prowess.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [ESCAPE],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ORC_LIEUTENANT],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    // The company faces a Hobgoblins (Orc) attack, paused in the cancel window.
+    const cancelWindow = makeCancelWindowCombat(base, {
+      creatureDefId: HOBGOBLINS,
+      creatureRace: 'orc',
+    });
+    const inCombat = {
+      ...cancelWindow,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Moria',
+      }),
+    };
+
+    // Cancel the Hobgoblins attack with Escape.
+    const cancelActions = viableActions(inCombat, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBeGreaterThan(0);
+    const afterCancel = resolveChain(dispatch(inCombat, cancelActions[0].action));
+    expect(afterCancel.combat).toBeNull();
+
+    // The canceled Orc attack is still recorded as faced.
+    expect(afterCancel.phaseState.phase).toBe(Phase.MovementHazard);
+    const mh = afterCancel.phaseState as ReturnType<typeof makeMHState>;
+    expect(mh.hazardsEncountered).toContain('Hobgoblins');
+
+    // Orc-lieutenant played now gets +4 prowess (7 → 11).
+    const lieutenantId = handCardId(afterCancel, HAZARD_PLAYER, 0);
+    const companyId = companyIdAt(afterCancel, RESOURCE_PLAYER);
+    const afterPlay = dispatch(afterCancel, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: lieutenantId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikeProwess).toBe(11);
   });
 
   test('+4 prowess (total 11) when revealed as on-guard after automatic Orc attack at site', () => {
