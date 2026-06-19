@@ -543,8 +543,12 @@
         "id": "heal",
         "when": {
           "$and": [
-            { "target.status": "inverted" },
-            { "phase": "organization" }
+            {
+              "target.status": "inverted"
+            },
+            {
+              "phase": "organization"
+            }
           ]
         },
         "apply": {
@@ -748,7 +752,9 @@
     "prowess": 8,
     "body": 9,
     "mind": 3,
-    "skills": ["sage"],
+    "skills": [
+      "sage"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -1004,7 +1010,9 @@
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": {
+          "player.hasFactionInHand": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1016,7 +1024,9 @@
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "pending.corruptionCheckTargetsMe": true },
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1070,7 +1080,9 @@
     "influenceNumber": 10,
     "race": "man",
     "playableAt": [
-      { "site": "Easterling Camp" }
+      {
+        "site": "Easterling Camp"
+      }
     ],
     "effects": [
       {
@@ -1099,10 +1111,20 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.status": { "$ne": "inverted" } }
+        "filter": {
+          "target.status": {
+            "$ne": "inverted"
+          }
+        }
       },
-      { "type": "cancel-attack" },
-      { "type": "set-character-status", "status": "inverted", "target": "target-character" }
+      {
+        "type": "cancel-attack"
+      },
+      {
+        "type": "set-character-status",
+        "status": "inverted",
+        "target": "target-character"
+      }
     ],
     "certified": "2026-04-24"
   },
@@ -1123,17 +1145,36 @@
         "target": "company",
         "filter": {
           "$and": [
-            { "target.siteType": "haven" },
-            { "target.memberCount": { "$gte": 4 } }
+            {
+              "target.siteType": "haven"
+            },
+            {
+              "target.memberCount": {
+                "$gte": 4
+              }
+            }
           ]
         }
       },
-      { "type": "company-modifier", "stat": "prowess", "value": 1 },
-      { "type": "company-modifier", "check": "corruption", "value": 1 },
+      {
+        "type": "company-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "company-modifier",
+        "check": "corruption",
+        "value": 1
+      },
       {
         "type": "on-event",
         "event": "company-membership-changes",
-        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ],
     "certified": "2026-05-14"
@@ -1152,7 +1193,9 @@
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
-      { "site": "Old Forest" }
+      {
+        "site": "Old Forest"
+      }
     ],
     "certified": "2026-04-26",
     "effects": [
@@ -1162,12 +1205,18 @@
       },
       {
         "type": "cancel-chain-return-to-origin",
-        "cost": { "tap": "self" }
+        "cost": {
+          "tap": "self"
+        }
       },
       {
         "type": "cancel-attack",
-        "cost": { "tap": "self" },
-        "when": { "attack.keying": "wilderness" }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "attack.keying": "wilderness"
+        }
       }
     ]
   },
@@ -1266,7 +1315,9 @@
       {
         "type": "play-target",
         "target": "company",
-        "filter": { "company.atHaven": true }
+        "filter": {
+          "company.atHaven": true
+        }
       },
       {
         "type": "on-event",
@@ -1338,15 +1389,31 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "site", "siteTypes": ["shadow-hold", "dark-hold"] },
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      },
       {
         "type": "play-target",
         "target": "character",
         "filter": {
-          "target.skills": { "$includes": "scout" },
-          "company.siteType": { "$in": ["shadow-hold", "dark-hold"] }
+          "target.skills": {
+            "$includes": "scout"
+          },
+          "company.siteType": {
+            "$in": [
+              "shadow-hold",
+              "dark-hold"
+            ]
+          }
         },
-        "cost": { "tap": "character" }
+        "cost": {
+          "tap": "character"
+        }
       },
       {
         "type": "deck-search-attack",
@@ -1379,7 +1446,9 @@
         "type": "check-modifier",
         "check": "influence",
         "value": 1,
-        "when": { "bearer.race": "man" }
+        "when": {
+          "bearer.race": "man"
+        }
       }
     ],
     "certified": "2026-05-14"
@@ -1399,12 +1468,18 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "warrior" } }
+        "filter": {
+          "target.skills": {
+            "$includes": "warrior"
+          }
+        }
       },
       {
         "type": "play-option",
         "id": "influence-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": {
+          "player.hasFactionInHand": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1431,12 +1506,25 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "company.containsDiplomat": true }
+        "filter": {
+          "company.containsDiplomat": true
+        }
       },
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "$and": [{ "target.skills": { "$includes": "diplomat" } }, { "player.hasFactionInHand": true }] },
+        "when": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "diplomat"
+              }
+            },
+            {
+              "player.hasFactionInHand": true
+            }
+          ]
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1448,7 +1536,9 @@
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "pending.corruptionCheckTargetsMe": true },
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1474,10 +1564,15 @@
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
-      { "site": "Wellinghall" }
+      {
+        "site": "Wellinghall"
+      }
     ],
     "effects": [
-      { "type": "play-flag", "flag": "no-attack-site-keyed" }
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      }
     ],
     "certified": "2026-05-14"
   },
@@ -1556,12 +1651,16 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.name": "Aragorn II" }
+        "filter": {
+          "target.name": "Aragorn II"
+        }
       },
       {
         "type": "play-target",
         "target": "site",
-        "filter": { "name": "Minas Tirith" }
+        "filter": {
+          "name": "Minas Tirith"
+        }
       },
       {
         "type": "play-condition",
@@ -1610,7 +1709,9 @@
     "effects": [
       {
         "type": "cancel-attack",
-        "when": { "enemy.race": "troll" }
+        "when": {
+          "enemy.race": "troll"
+        }
       },
       {
         "type": "move",
@@ -1619,11 +1720,17 @@
         "to": "discard",
         "filter": {
           "$and": [
-            { "cardType": "hazard-event" },
-            { "eventType": "permanent" }
+            {
+              "cardType": "hazard-event"
+            },
+            {
+              "eventType": "permanent"
+            }
           ]
         },
-        "when": { "inPlay": "Gates of Morning" }
+        "when": {
+          "inPlay": "Gates of Morning"
+        }
       }
     ],
     "certified": "2026-04-25"
@@ -1648,8 +1755,16 @@
         "bodyModifier": -3,
         "when": {
           "$and": [
-            { "$not": { "enemy.race": "nazgul" } },
-            { "enemy.prowess": { "$gte": 13 } }
+            {
+              "$not": {
+                "enemy.race": "nazgul"
+              }
+            },
+            {
+              "enemy.prowess": {
+                "$gte": 13
+              }
+            }
           ]
         }
       },
@@ -1673,17 +1788,29 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "site" },
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "scout" } },
-        "cost": { "tap": "character" }
+        "filter": {
+          "target.skills": {
+            "$includes": "scout"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
       },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "set-site-phase-flag", "flag": "thoroughSearchAvailable" }
+        "apply": {
+          "type": "set-site-phase-flag",
+          "flag": "thoroughSearchAvailable"
+        }
       }
     ],
     "certified": "2026-05-23"
@@ -1701,14 +1828,18 @@
     "influenceNumber": 8,
     "race": "dunadan",
     "playableAt": [
-      { "site": "Minas Tirith" }
+      {
+        "site": "Minas Tirith"
+      }
     ],
     "effects": [
       {
         "type": "check-modifier",
         "check": "influence",
         "value": 1,
-        "when": { "bearer.race": "dunadan" }
+        "when": {
+          "bearer.race": "dunadan"
+        }
       }
     ],
     "certified": "2026-05-23"
@@ -1728,7 +1859,9 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.name": "Elrond" }
+        "filter": {
+          "target.name": "Elrond"
+        }
       },
       {
         "type": "duplication-limit",
@@ -1738,17 +1871,35 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": 4, "scope": "turn" }
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": 4,
+          "scope": "turn"
+        }
       },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": 2, "scope": "turn" }
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "body",
+          "value": 2,
+          "scope": "turn"
+        }
       },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "direct-influence", "value": 6, "scope": "turn" }
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 6,
+          "scope": "turn"
+        }
       },
       {
         "type": "move",
@@ -1770,15 +1921,24 @@
         },
         "when": {
           "$and": [
-            { "target.siteName": "Rivendell" },
-            { "player.deckCount": { "$gte": 5 } }
+            {
+              "target.siteName": "Rivendell"
+            },
+            {
+              "player.deckCount": {
+                "$gte": 5
+              }
+            }
           ]
         }
       },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "enqueue-corruption-check", "modifier": -3 }
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
       }
     ],
     "certified": "2026-04-26"
@@ -1828,15 +1988,25 @@
         "requires": "active-company",
         "condition": {
           "$and": [
-            { "site.name": "Mount Doom" },
-            { "company.itemNames": { "$includes": "The One Ring" } }
+            {
+              "site.name": "Mount Doom"
+            },
+            {
+              "company.itemNames": {
+                "$includes": "The One Ring"
+              }
+            }
           ]
         }
       },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.itemNames": { "$includes": "The One Ring" } }
+        "filter": {
+          "target.itemNames": {
+            "$includes": "The One Ring"
+          }
+        }
       },
       {
         "type": "on-event",
@@ -1844,7 +2014,10 @@
         "apply": {
           "type": "enqueue-corruption-check",
           "modifier": -4,
-          "onSuccess": { "type": "win-game", "via": "one-ring" }
+          "onSuccess": {
+            "type": "win-game",
+            "via": "one-ring"
+          }
         }
       }
     ]
@@ -1870,17 +2043,43 @@
         "requires": "active-company",
         "condition": {
           "$and": [
-            { "site.name": "Mount Doom" },
-            { "company.itemNames": { "$includes": "The One Ring" } },
-            { "company.allyNames": { "$includes": "Gollum" } }
+            {
+              "site.name": "Mount Doom"
+            },
+            {
+              "company.itemNames": {
+                "$includes": "The One Ring"
+              }
+            },
+            {
+              "company.allyNames": {
+                "$includes": "Gollum"
+              }
+            }
           ]
         }
       },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "win-game", "via": "one-ring" }
+        "apply": {
+          "type": "win-game",
+          "via": "one-ring"
+        }
       }
     ]
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-188",
+    "name": "A Chance Meeting",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AChanceMeeting.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "A non-Wizard character (even a Hobbit) may be brought into play with direct influence at any Free-hold [{F}], Border-hold [{B}], or Ruins & Lairs [{R}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site."
   }
 ]
