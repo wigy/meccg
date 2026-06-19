@@ -18,7 +18,7 @@ import { CardStatus } from '../index.js';
 import type { ActionCost } from '../types/effects.js';
 import type { CardDefinitionId, CompanyId } from '../types/common.js';
 import { logDetail } from './legal-actions/log.js';
-import { updatePlayer, removeById } from './reducer-utils.js';
+import { updatePlayer, removeById, updateAttachment } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 
 // ---- Public API ----
@@ -108,9 +108,9 @@ export function applyCost(
       return { state };
     }
     const actor = player.characters[actorId as string];
-    if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
 
     if (cost.tap === 'self' && sourceCardId && sourceCardId !== actorId) {
+      if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
       // Tap the attachment in place (item / ally / hazard).
       const updated = tapAttachment(actor, sourceCardId);
       if (!updated) {
@@ -124,13 +124,27 @@ export function applyCost(
       return { state: newState };
     }
 
-    // Tap the actor character itself.
-    const newState = updatePlayer(state, playerIndex, p => ({
-      ...p,
-      characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Tapped } },
-    }));
-    logDetail(`Cost (${label}): tapped ${actorId as string}`);
-    return { state: newState };
+    if (actor) {
+      // Tap the actor character itself.
+      const newState = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Tapped } },
+      }));
+      logDetail(`Cost (${label}): tapped ${actorId as string}`);
+      return { state: newState };
+    }
+
+    // The actor id is not a top-level character: a "skill only" card (e.g.
+    // Marvels Told) may tap a sage ally borne by one of the player's
+    // characters. Per CoE rule 2.V.2.2 the ally counts as a character for
+    // fulfilling that skill condition, so tap the ally in place.
+    const allyUpdate = updateAttachment(player, 'allies', actorId, a => ({ ...a, status: CardStatus.Tapped }));
+    if (allyUpdate) {
+      const newState = updatePlayer(state, playerIndex, () => allyUpdate.player);
+      logDetail(`Cost (${label}): tapped ally ${actorId as string}`);
+      return { state: newState };
+    }
+    return { error: `applyCost: actor ${actorId as string} not found` };
   }
 
   if (cost.discard === 'self') {

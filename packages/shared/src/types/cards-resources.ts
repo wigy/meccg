@@ -14,6 +14,7 @@ import type {
   CardDefinitionId,
   Keyword,
   Race,
+  Skill,
   SiteType,
   MarshallingCategory,
 } from './common.js';
@@ -189,6 +190,13 @@ export interface HeroAllyCard {
   readonly body: number;
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
+  /**
+   * Skills the ally possesses (e.g. Sage). Per CoE rule 2.V.2.2, allies are
+   * treated as characters when fulfilling "skill only" active conditions, so
+   * a sage ally (e.g. Treebeard) can tap to play a Sage-only card like
+   * Marvels Told. Optional: most allies have no skills.
+   */
+  readonly skills?: readonly Skill[];
   /** Victory points scored at the Free Council for controlling this ally. */
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
@@ -364,6 +372,12 @@ export interface MinionAllyCard {
   readonly body: number;
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
+  /**
+   * Skills the ally possesses. Per CoE rule 2.V.2.2, allies are treated as
+   * characters when fulfilling "skill only" active conditions. Optional:
+   * most allies have no skills.
+   */
+  readonly skills?: readonly Skill[];
   /** Victory points scored for controlling this ally. */
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */

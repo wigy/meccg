@@ -18,9 +18,10 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN, GLORFINDEL_II,
+  TREEBEARD,
   MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  attachHazardToChar,
+  attachHazardToChar, attachAllyToChar, findAllyInstanceId,
   buildTestState, resetMint, mint,
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
@@ -622,5 +623,88 @@ describe('Marvels Told (td-134)', () => {
     expect(aragornAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(aragornAfter.hazards).toHaveLength(1);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
+  });
+
+  test('a sage ally (Treebeard) can tap to play it (rule 2.V.2.2, bug ed155762ed62402e)', () => {
+    // Reported in bug ed155762ed62402e (game mqi3vh2z-32ok2s, seq 1065):
+    // Treebeard — a Sage ally — could not be tapped to play Marvels Told even
+    // though no other sage was available. Per CoE rule 2.V.2.2 allies are
+    // treated as characters for "skill only" cards, so a sage ally must be
+    // an eligible tap target. Legolas (the host) has no sage skill, so the
+    // play is only possible via Treebeard.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = attachAllyToChar(base, RESOURCE_PLAYER, LEGOLAS, TREEBEARD);
+    const treebeardId = findAllyInstanceId(state, RESOURCE_PLAYER, LEGOLAS, TREEBEARD)!;
+
+    // Exactly one play action, tapping Treebeard and discarding Foolish Words.
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
+    expect(action.targetScoutInstanceId).toBe(treebeardId);
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+
+    // Playing it taps the ally, discards the hazard, and discards Marvels Told.
+    const next = dispatch(state, action);
+    const legolasAfter = next.players[0].characters[
+      Object.keys(next.players[0].characters).find(
+        k => next.players[0].characters[k].definitionId === LEGOLAS,
+      )!
+    ];
+    const treebeardAfter = legolasAfter.allies.find(a => a.instanceId === treebeardId)!;
+    expect(treebeardAfter.status).toBe(CardStatus.Tapped);
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsInPlay.instanceId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsInPlay.instanceId);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(handCardId(state, RESOURCE_PLAYER));
+
+    // Rule 7.4: allies never make corruption checks — none is enqueued.
+    expect(next.pendingResolutions).toHaveLength(0);
+  });
+
+  test('a tapped sage ally is not offered as a tap target', () => {
+    // The ally counterpart of "not playable when sage is tapped": a tapped
+    // Treebeard cannot pay the tap cost, and Legolas is not a sage, so
+    // Marvels Told has no eligible sage and must not be playable.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, LEGOLAS, TREEBEARD);
+    const treebeardId = findAllyInstanceId(withTreebeard, RESOURCE_PLAYER, LEGOLAS, TREEBEARD)!;
+    const legolasKey = Object.keys(withTreebeard.players[0].characters).find(
+      k => withTreebeard.players[0].characters[k].definitionId === LEGOLAS,
+    )!;
+    const legolas = withTreebeard.players[0].characters[legolasKey];
+    const tappedTreebeard = {
+      ...withTreebeard,
+      players: [
+        {
+          ...withTreebeard.players[0],
+          characters: {
+            ...withTreebeard.players[0].characters,
+            [legolasKey]: {
+              ...legolas,
+              allies: legolas.allies.map(a => a.instanceId === treebeardId ? { ...a, status: CardStatus.Tapped } : a),
+            },
+          },
+        },
+        withTreebeard.players[1],
+      ] as typeof withTreebeard.players,
+    };
+
+    const playActions = viableActions(tappedTreebeard, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
   });
 });

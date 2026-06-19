@@ -18,7 +18,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
-import { matchesCondition, CardStatus, isResourceEventCard, isSiteCard } from '../../index.js';
+import { matchesCondition, CardStatus, isResourceEventCard, isSiteCard, isAllyCard } from '../../index.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -388,7 +388,8 @@ function playOptionActionsForShortEvent(
 
 /**
  * Returns eligible character IDs for a play-target with character filter.
- * Characters matching the DSL filter condition are eligible.
+ * Characters matching the DSL filter condition are eligible. Sage/scout
+ * allies that satisfy a skill-only filter are also eligible (rule 2.V.2.2).
  */
 function eligibleCharacterTargets(
   state: GameState,
@@ -404,12 +405,15 @@ function eligibleCharacterTargets(
     }
     out.push(charId);
   }
+  out.push(...eligibleSkillAllyTargets(state, player, playTarget, false));
   return out;
 }
 
 /**
  * Returns eligible target character IDs for a play-target with tap cost.
- * Only untapped characters matching the filter are eligible.
+ * Only untapped characters matching the filter are eligible. Untapped
+ * sage/scout allies that satisfy a skill-only filter are also eligible,
+ * since allies count as characters for skill-only cards (rule 2.V.2.2).
  */
 function eligibleTapTargets(
   state: GameState,
@@ -426,5 +430,83 @@ function eligibleTapTargets(
     }
     out.push(charId);
   }
+  out.push(...eligibleSkillAllyTargets(state, player as PlayerState, playTarget, true));
   return out;
+}
+
+/**
+ * Returns eligible *ally* target IDs for a skill-only play-target.
+ *
+ * CoE rule 2.V.2.2 (and CRF) treat allies as characters only for "skill
+ * only" cards or effects (e.g. fulfilling an active condition that requires
+ * a sage). So an ally is offered as a tap/character target only when the
+ * play-target's filter actually constrains `target.skills` and the ally —
+ * evaluated in its host character's company context but with its own skills
+ * and status — satisfies the filter. When `requireUntapped` is true (a tap
+ * cost), tapped allies are excluded.
+ */
+function eligibleSkillAllyTargets(
+  state: GameState,
+  player: PlayerState,
+  playTarget: PlayTargetEffect,
+  requireUntapped: boolean,
+): CardInstanceId[] {
+  if (playTarget.target !== 'character') return [];
+  if (!playTarget.filter || !filterReferencesSkills(playTarget.filter)) return [];
+  const out: CardInstanceId[] = [];
+  for (const [, char] of characterEntries(player)) {
+    if (char.allies.length === 0) continue;
+    const hostCtx = buildPlayOptionContext(state, char, player);
+    for (const ally of char.allies) {
+      if (requireUntapped && ally.status !== CardStatus.Untapped) continue;
+      const allyDef = defById(state, ally.definitionId);
+      if (!allyDef || !isAllyCard(allyDef)) continue;
+      const ctx = buildAllyTargetContext(hostCtx, allyDef, ally.status);
+      if (!matchesCondition(playTarget.filter, ctx)) continue;
+      out.push(ally.instanceId);
+    }
+  }
+  return out;
+}
+
+/**
+ * Builds a play-target filter context for an ally, reusing its host
+ * character's company/player context but overriding the `target` fields
+ * with the ally's own skills and status (the only attributes a skill-only
+ * filter inspects). Items/allies borne by an ally are always empty.
+ */
+function buildAllyTargetContext(
+  hostCtx: Record<string, unknown>,
+  allyDef: import('../../index.js').AllyCard,
+  status: CardStatus,
+): Record<string, unknown> {
+  const baseTarget = (hostCtx.target as Record<string, unknown> | undefined) ?? {};
+  return {
+    ...hostCtx,
+    target: {
+      ...baseTarget,
+      skills: [...(allyDef.skills ?? [])],
+      status: status === CardStatus.Untapped ? 'untapped' : status === CardStatus.Tapped ? 'tapped' : 'inverted',
+      name: allyDef.name,
+      mind: allyDef.mind,
+      itemNames: [],
+      allyNames: [],
+    },
+  };
+}
+
+/**
+ * True if a play-target filter constrains `target.skills` anywhere in its
+ * (possibly nested `$and`/`$or`) structure. Gates whether allies may be
+ * offered as targets — they count as characters only for skill-only cards.
+ */
+function filterReferencesSkills(filter: unknown): boolean {
+  if (Array.isArray(filter)) return filter.some(filterReferencesSkills);
+  if (filter && typeof filter === 'object') {
+    for (const [key, value] of Object.entries(filter)) {
+      if (key === 'target.skills') return true;
+      if (filterReferencesSkills(value)) return true;
+    }
+  }
+  return false;
 }
