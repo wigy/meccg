@@ -1434,19 +1434,27 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
     }
     logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
+    // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
+    // body). If the body check passes, the strike was not defeated and the
+    // creature survives. Record 'survived' (vs the parry's 'success') so
+    // finalizeCombat does not count this strike toward defeating the creature.
+    let combatAfterBodyCheck = combat;
     if (rollTotal > body) {
-      logDetail('Creature body check failed — creature defeated');
-      // Mark in strike assignment that the creature was defeated on this strike
+      logDetail('Creature body check failed — strike defeated');
     } else {
       logDetail('Creature body check passed — creature survives');
+      const survivedAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex ? { ...a, result: 'survived' as const } : a,
+      );
+      combatAfterBodyCheck = { ...combat, strikeAssignments: survivedAssignments };
     }
 
     // Advance to next strike or finalize
-    const next1 = nextStrikePhase(combat);
+    const next1 = nextStrikePhase(combatAfterBodyCheck);
     if (next1) {
-      return { state: { ...stateWithRoll, combat: { ...combat, ...next1 } }, effects };
+      return { state: { ...stateWithRoll, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
     }
-    return finalizeCombat(stateWithRoll, effects);
+    return finalizeCombat({ ...stateWithRoll, combat: combatAfterBodyCheck }, effects);
   }
 
   if (combat.bodyCheckTarget === 'character') {
@@ -3019,9 +3027,11 @@ function discardCardTriggeredCard(
 /**
  * Finalize combat after all strikes are resolved.
  *
- * If all strikes were defeated (result === 'success'), the creature card
- * moves from the hazard player's discard pile to the defending player's
- * marshalling point pile. Otherwise it stays in discard.
+ * If all strikes were defeated (result === 'success' — the character won the
+ * roll and any creature body check failed), the creature card moves to the
+ * defending player's marshalling point pile. If any strike was not defeated
+ * (e.g. a creature that passed its body check, result === 'survived'), the
+ * creature stays in the hazard player's discard pile.
  */
 /**
  * Handle a `take-trophy` action during the `trophy-offer` combat phase.

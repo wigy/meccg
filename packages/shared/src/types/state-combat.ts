@@ -132,12 +132,18 @@ export interface StrikeAssignment {
   readonly resolved: boolean;
   /**
    * The outcome of the strike resolution:
-   * - `'success'` -- The character defeated the strike (no damage).
+   * - `'success'` -- The character defeated the strike (the strike is defeated:
+   *   the character won the roll and the creature's body check failed, or the
+   *   strike had no body and was auto-defeated per CoE 3.iv.7).
+   * - `'survived'` -- The character won the roll but the creature passed its
+   *   body check, so the strike was NOT defeated (the creature survives). The
+   *   character is unharmed. Distinct from `'success'` so the creature is not
+   *   counted as defeated when deciding kill-MP vs discard (CoE 3.v).
    * - `'wounded'` -- The character survived but is wounded (reduced capability).
    * - `'eliminated'` -- The character was killed and removed from play.
    * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
    */
-  readonly result?: 'success' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
+  readonly result?: 'success' | 'survived' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
