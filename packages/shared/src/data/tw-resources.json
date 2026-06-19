@@ -2342,5 +2342,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase if target company plays a new site card. If the site path has at least one Dark-domain [{d}], the hazard limit for the target company decreases by one (or by two if Gates of Morning is in play) to a minimum of two. Cannot be duplicated on the same company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-235",
+    "name": "Fair Travels in Free-domains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FairTravelsinFreedomains.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Free-domain [{f}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
   }
 ]
