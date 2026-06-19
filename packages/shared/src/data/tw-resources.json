@@ -3118,5 +3118,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Old Pûkel-land and Anfalas, Rohan and Lamedon, Rohan and Anfalas, Anórien and Lamedon.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-360",
+    "name": "Wizard’s Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFire.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. +5 prowess for the Wizard against one attack. Wizard makes a corruption check modified by -4."
   }
 ]
