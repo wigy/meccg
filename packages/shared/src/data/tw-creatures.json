@@ -1252,5 +1252,29 @@
     ],
     "effects": [],
     "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-46",
+    "name": "Indûr Dawndeath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IndurDawndeath.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 10,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (4th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Indûr Dawndeath becomes a short-event and makes any wounded character discard an item of his choice (but not a ring)."
   }
 ]
