@@ -2449,5 +2449,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Hobbit only. Cancel one strike against the Hobbit."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-256",
+    "name": "Hiding",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hiding.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn."
   }
 ]
