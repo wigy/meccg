@@ -2874,5 +2874,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Playable only at the end of the organization phase; may not be played on a company moving to a site in a Dark-domain [{d}]. Tap a sage in the company, and no hazard creatures keyed to the site may be played on the company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-325",
+    "name": "Secret Passage",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SecretPassage.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only at the end of the organization phase. If the company that it is played on moves to a Ruins & Lairs [{R}] site, opponent may only play hazard creatures that are keyed to the company’s new site."
   }
 ]
