@@ -1333,5 +1333,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Nazgûl may attack a hero company containing the bearer of The One Ring at any site that is not a Free-hold [{F}] or Haven [{H}].Nazgûl may attack any hero company possessing any Ring in a Shadow-land [{s}] or Shadow-hold [{S}].If Doors of Night is in play, at the end of each turn, each player may return one Nazgûl permanent-event from his discard pile to his hand.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-97",
+    "name": "The Pale Sword",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePaleSword.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Unique. Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +1. If played on a company facing an attack from The Witch-king of Angmar, his prowess is increased by +1 plus the number of Nazgûl permanent-events in play. Cannot be duplicated on a company facing such an attack.‌ Discard if attack doesn’t wound a character.Corruption. One character of attacker’s choice wounded by this attack (on whom a corruption card has not already been played this turn) receives 6 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 5, discard this card. Cannot be duplicated on a given Nazgûl."
   }
 ]
