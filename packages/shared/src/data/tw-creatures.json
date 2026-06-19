@@ -98,7 +98,7 @@
   {
     "cardType": "hazard-creature",
     "id": "tw-016",
-    "name": "\u201cBert\u201d (Bûrat)",
+    "name": "“Bert” (Bûrat)",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BertBurat.jpg",
     "unique": true,
     "strikes": 1,
@@ -324,7 +324,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "\u201cBert\u201d (Bûrat)"
+                "$includes": "“Bert” (Bûrat)"
               }
             },
             {
@@ -384,7 +384,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "\u201cBert\u201d (Bûrat)"
+                "$includes": "“Bert” (Bûrat)"
               }
             },
             {
@@ -534,14 +534,32 @@
     "killMarshallingPoints": 1,
     "race": "men",
     "keyedTo": [
-      { "regionTypes": ["border"], "siteTypes": ["border-hold"] }
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
     ],
     "effects": [
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "discard-character" },
-        "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } }
+        "apply": {
+          "type": "discard-character"
+        },
+        "when": {
+          "$not": {
+            "target.race": {
+              "$in": [
+                "wizard",
+                "ringwraith"
+              ]
+            }
+          }
+        }
       }
     ],
     "certified": "2026-05-19"
@@ -560,7 +578,13 @@
     "race": "wolves",
     "certified": "2026-05-11",
     "keyedTo": [
-      { "regionTypes": ["border", "wilderness", "shadow"] }
+      {
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow"
+        ]
+      }
     ]
   },
   {
@@ -576,12 +600,27 @@
     "killMarshallingPoints": 1,
     "race": "animals",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "wilderness"] },
-      { "regionTypes": ["coastal"] },
-      { "siteNames": ["Moria"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      },
+      {
+        "regionTypes": [
+          "coastal"
+        ]
+      },
+      {
+        "siteNames": [
+          "Moria"
+        ]
+      }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character" }
+      {
+        "type": "combat-one-strike-per-character"
+      }
     ],
     "certified": "2026-05-11"
   },
@@ -621,7 +660,10 @@
     "race": "men",
     "keyedTo": [
       {
-        "regionTypes": ["border", "wilderness"]
+        "regionTypes": [
+          "border",
+          "wilderness"
+        ]
       }
     ],
     "effects": [
@@ -809,14 +851,29 @@
     "race": "animals",
     "keyedTo": [
       {
-        "regionTypes": ["border", "wilderness", "shadow", "dark"],
-        "siteTypes": ["ruins-and-lairs"]
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
       }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character", "excludeAvatars": true },
-      { "type": "play-flag", "flag": "combat-defender-prowess-from-mind" },
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-one-strike-per-character",
+        "excludeAvatars": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "combat-defender-prowess-from-mind"
+      },
+      {
+        "type": "combat-detainment"
+      }
     ],
     "certified": "2026-05-11"
   },
@@ -834,7 +891,10 @@
     "race": "pûkel-creature",
     "keyedTo": [
       {
-        "siteTypes": ["shadow-hold", "dark-hold"]
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
       },
       {
         "regionNames": [
@@ -867,9 +927,637 @@
     "race": "giant",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
       }
     ],
     "certified": "2026-05-19"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-14",
+    "name": "Barrow-wight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowwight.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-4",
+    "name": "Akhôrahil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Akhorahil.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 16,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (5th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Akhôrahil becomes a short-event and modifies any one character’s body by -1 for the rest of this turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-5",
+    "name": "Ambusher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ambusher.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "free"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-25",
+    "name": "Crebain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Crebain.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 5,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-31",
+    "name": "Dwar of Waw",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarofWaw.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 10,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (3rd). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Ithilien; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Dwar of Waw becomes a short-event and gives +1 prowess to all Wolf, Spider, and Animal attacks until the end of the turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-34",
+    "name": "Fell Turtle",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellTurtle.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-38",
+    "name": "Ghouls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ghouls.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. Five strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-43",
+    "name": "Half-trolls of Far Harad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HalftrollsofFarHarad.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Two strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-44",
+    "name": "Hoarmûrath of Dír",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HoarmurathofDir.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (6th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Hoarmûrath of Dír becomes a short-event and gives +1 strike to any one attack."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-45",
+    "name": "Huorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Huorn.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "awakened plant",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-46",
+    "name": "Indûr Dawndeath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IndurDawndeath.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 10,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (4th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Indûr Dawndeath becomes a short-event and makes any wounded character discard an item of his choice (but not a ring)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-66",
+    "name": "Mûmak (Oliphant)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MumakOliphant.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-70",
+    "name": "Old Man Willow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldManWillow.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "awakened plant",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Awakened Plant. One strike. 15 prowess against Hobbits. May also be played keyed to Fangorn, Heart of Mirkwood, Southern Mirkwood, and Western Mirkwood; and may also be played at Ruins & Lairs [{R}], Shadow-holds [{S}], and Dark-holds [{D}] in these regions. Also playable at Old Forest and Drúadan Forest."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-71",
+    "name": "Olog-hai (Trolls)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OloghaiTrolls.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 10,
+    "body": 5,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-75",
+    "name": "Orc-raiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcraiders.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Four strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-77",
+    "name": "Orc-warriors",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwarriors.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-79",
+    "name": "Pick-pocket",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Pickpocket.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-80",
+    "name": "Pick-pocket",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Pickpocket2.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-83",
+    "name": "Ren the Unclean",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RentheUnclean.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 10,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (8th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Horse Plains; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ren the Unclean becomes a short-event: each character in play must make a corruption check.If you tap Ren the Unclean, then you cannot play resources to aid your character’s corruption checks. Your characters may tap in support. The moving player makes corruption checks first. Each player decides the order of the corruption checks for their characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-85",
+    "name": "Rogrog",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rogrog.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 13,
+    "body": 8,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Troll. One strike."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-88",
+    "name": "Silent Watcher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SilentWatcher.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "pûkel-creature",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Pûkel-creature. Each character in the company faces one strike."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-89",
+    "name": "Slayer",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Slayer.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 2,
+    "race": "slayer",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-95",
+    "name": "The Great Goblin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheGreatGoblin.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 12,
+    "body": 7,
+    "killMarshallingPoints": 2,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Orc. One strike. May also be played on a company moving from Rivendell to Lórien or from Lórien to Rivendell. May also be played keyed to High Pass and at sites in High Pass."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-102",
+    "name": "Thief",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Thief.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-107",
+    "name": "Ûvatha the Horseman",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/UvathatheHorseman.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-65",
+    "name": "Mouth of Sauron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MouthofSauron.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 13,
+    "body": 8,
+    "killMarshallingPoints": 3,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-86",
+    "name": "Shelob",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Shelob.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 18,
+    "body": 9,
+    "killMarshallingPoints": 6,
+    "race": "spiders",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Unique.Spider. Spawn. May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may be played at any site in Imlad Morgul or Gorgoroth.If Doors of Night is in play, Shelob may be played as a permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal attacks. She may opt to attack from a permanent-event state and receive these bonuses, but her attack counts as one against the hazard limit. Discard when Shelob attacks or if Doors of Night is not in play."
   }
 ]

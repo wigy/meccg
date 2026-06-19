@@ -728,6 +728,7 @@ function updateDeckFile(filePath, cardName, cardId) {
 
 function printHelp() {
   console.log(`Usage: node bin/add-card.mjs <cardName> <deckId>
+       node bin/add-card.mjs --id <cardId>
 
 Mechanically adds a card from the Council of Elrond database to the local
 card data files. Looks up the card by name, derives its type, writes it to
@@ -739,54 +740,42 @@ Arguments:
   <deckId>     Deck ID used to infer alignment when disambiguating matches
 
 Options:
-  -h, --help   Show this help message`);
+  --id <id>        Look the card up directly by local id (e.g. tw-14),
+                   bypassing the name search. Use this to select a specific
+                   reprint when the same name appears in multiple sets, or
+                   twice within one set. <deckId> is not required in this mode.
+  --no-push        Commit the card locally but do not 'git push'.
+  --no-typecheck   Skip the per-card 'tsc' verification (for bulk runs;
+                   type-check once at the end instead).
+  -h, --help       Show this help message`);
 }
 
 function main() {
-  const args = process.argv.slice(2);
+  let args = process.argv.slice(2);
   if (args.includes('-h') || args.includes('--help')) {
     printHelp();
     process.exit(0);
   }
-  if (args.length < 2) {
-    console.error('Usage: node bin/add-card.mjs <cardName> <deckId>');
+
+  // Optional flags (filtered out of the positional arguments below).
+  const noPush = args.includes('--no-push');
+  const noTypecheck = args.includes('--no-typecheck');
+  const idIdx = args.indexOf('--id');
+  const explicitId = idIdx >= 0 ? args[idIdx + 1] : null;
+  if (idIdx >= 0 && !explicitId) {
+    console.error('ERROR: --id requires a card id argument (e.g. --id tw-14)');
+    process.exit(1);
+  }
+  args = args.filter(
+    (a, i) => a !== '--no-push' && a !== '--no-typecheck' && a !== '--id' && i !== idIdx + 1
+  );
+
+  if (!explicitId && args.length < 2) {
+    console.error('Usage: node bin/add-card.mjs <cardName> <deckId>  (or: --id <cardId>)');
     process.exit(1);
   }
 
-  // Everything before the last arg is the card name (names may contain spaces)
-  const deckId = args[args.length - 1];
-  const cardName = args.slice(0, -1).join(' ');
-
-  console.log(`Looking up card: "${cardName}" for deck: ${deckId}`);
-
-  // Step 1: Read the deck for context.
-  // Deck ids like `wigy-development-proto-dragons` may live under either
-  // `data/decks/<id>.json` (shared decks) or `~/.meccg/players/<player>/decks/<id>.json`
-  // (personal decks). If the first lookup fails and the id carries a
-  // `<player>-<rest>` prefix, also try the player-scoped path and the
-  // bare-suffix path before giving up.
-  const home = process.env.HOME || '';
-  const deckCandidates = [join(PROJECT_DIR, 'data/decks', `${deckId}.json`)];
-  const firstDash = deckId.indexOf('-');
-  if (firstDash > 0) {
-    const playerName = deckId.slice(0, firstDash);
-    const restId = deckId.slice(firstDash + 1);
-    deckCandidates.push(join(home, '.meccg/players', playerName, 'decks', `${deckId}.json`));
-    deckCandidates.push(join(PROJECT_DIR, 'data/decks', `${restId}.json`));
-  }
-  let deckAlignment = 'hero';
-  const foundDeckPath = deckCandidates.find((p) => existsSync(p));
-  if (foundDeckPath) {
-    const deck = JSON.parse(readFileSync(foundDeckPath, 'utf8'));
-    deckAlignment = deck.alignment || 'hero';
-    console.log(`Deck alignment: ${deckAlignment} (from ${foundDeckPath})`);
-  } else {
-    console.log(
-      `Warning: deck file not found (tried ${deckCandidates.join(', ')}), assuming hero alignment`
-    );
-  }
-
-  // Step 2: Search CoE database
+  // Load the CoE database (needed for both lookup modes).
   const dbPath = join(PROJECT_DIR, 'data/cards.json');
   if (!existsSync(dbPath)) {
     console.error('ERROR: CoE database not found at data/cards.json');
@@ -794,57 +783,126 @@ function main() {
   }
   const db = JSON.parse(readFileSync(dbPath, 'utf8'));
 
-  // Search all sets for matching card name. Comparison is normalized so
-  // curly/straight apostrophes and accented vs plain letters all match
-  // (e.g. a request for `Dragon's Desolation` resolves to the database's
-  // `Dragon’s Desolation`).
-  const needle = normalizeName(cardName);
-  const matches = [];
-  for (const [setCode, setData] of Object.entries(db)) {
-    if (!setData.cards) continue;
-    for (const [, card] of Object.entries(setData.cards)) {
-      if (card.name?.en && normalizeName(card.name.en) === needle) {
-        matches.push({ ...card, _setCode: setCode });
+  let coeCard;
+
+  if (explicitId) {
+    // --- Explicit-id mode ---------------------------------------------------
+    // Look the card up directly by its local id (e.g. `tw-14`), bypassing the
+    // name search entirely. This is the only reliable way to select a specific
+    // reprint when the same name appears in more than one set (e.g. Neutral
+    // hazards shared between The Wizards and The Lidless Eye) or twice within a
+    // single set (e.g. the two Pick-pocket variants).
+    const m = explicitId.match(/^([A-Za-z]{2,3})-(\d+)$/);
+    if (!m) {
+      console.error(`ERROR: --id expects a card id like "tw-14", got "${explicitId}"`);
+      process.exit(1);
+    }
+    const setCode = m[1].toUpperCase();
+    const coeId = `${setCode}-${m[2]}`;
+    console.log(`Looking up card by id: ${explicitId} (${coeId})`);
+    const setData = db[setCode];
+    const card = setData?.cards
+      ? Object.values(setData.cards).find((c) => c.id === coeId)
+      : undefined;
+    if (!card) {
+      console.error(`ERROR: Card id ${coeId} not found in CoE database`);
+      process.exit(1);
+    }
+    coeCard = { ...card, _setCode: setCode };
+  } else {
+    // --- Name mode (default) ------------------------------------------------
+    // Everything before the last arg is the card name (names may contain spaces)
+    const deckId = args[args.length - 1];
+    const cardName = args.slice(0, -1).join(' ');
+
+    console.log(`Looking up card: "${cardName}" for deck: ${deckId}`);
+
+    // Step 1: Read the deck for context.
+    // Deck ids like `wigy-development-proto-dragons` may live under either
+    // `data/decks/<id>.json` (shared decks) or `~/.meccg/players/<player>/decks/<id>.json`
+    // (personal decks). If the first lookup fails and the id carries a
+    // `<player>-<rest>` prefix, also try the player-scoped path and the
+    // bare-suffix path before giving up.
+    const home = process.env.HOME || '';
+    const deckCandidates = [join(PROJECT_DIR, 'data/decks', `${deckId}.json`)];
+    const firstDash = deckId.indexOf('-');
+    if (firstDash > 0) {
+      const playerName = deckId.slice(0, firstDash);
+      const restId = deckId.slice(firstDash + 1);
+      deckCandidates.push(join(home, '.meccg/players', playerName, 'decks', `${deckId}.json`));
+      deckCandidates.push(join(PROJECT_DIR, 'data/decks', `${restId}.json`));
+    }
+    let deckAlignment = 'hero';
+    const foundDeckPath = deckCandidates.find((p) => existsSync(p));
+    if (foundDeckPath) {
+      const deck = JSON.parse(readFileSync(foundDeckPath, 'utf8'));
+      deckAlignment = deck.alignment || 'hero';
+      console.log(`Deck alignment: ${deckAlignment} (from ${foundDeckPath})`);
+    } else {
+      console.log(
+        `Warning: deck file not found (tried ${deckCandidates.join(', ')}), assuming hero alignment`
+      );
+    }
+
+    // Step 2: Search all sets for matching card name. Comparison is normalized
+    // so curly/straight apostrophes and accented vs plain letters all match
+    // (e.g. a request for `Dragon's Desolation` resolves to the database's
+    // `Dragon’s Desolation`).
+    const needle = normalizeName(cardName);
+    const matches = [];
+    for (const [setCode, setData] of Object.entries(db)) {
+      if (!setData.cards) continue;
+      for (const [, card] of Object.entries(setData.cards)) {
+        if (card.name?.en && normalizeName(card.name.en) === needle) {
+          matches.push({ ...card, _setCode: setCode });
+        }
       }
     }
-  }
 
-  if (matches.length === 0) {
-    console.error(`ERROR: Card "${cardName}" not found in CoE database`);
-    process.exit(1);
-  }
+    if (matches.length === 0) {
+      console.error(`ERROR: Card "${cardName}" not found in CoE database`);
+      process.exit(1);
+    }
 
-  // Disambiguate by deck alignment if multiple matches
-  let coeCard;
-  if (matches.length === 1) {
-    coeCard = matches[0];
-  } else {
-    // Try to match alignment
-    const alignmentFilter =
-      deckAlignment === 'hero'
-        ? 'Hero'
-        : deckAlignment === 'minion'
-          ? 'Minion'
-          : deckAlignment === 'fallen-wizard'
-            ? 'Fallen-wizard'
-            : 'Hero';
-    const filtered = matches.filter((m) => m.alignment === alignmentFilter);
-    coeCard = filtered.length > 0 ? filtered[0] : matches[0];
-    console.log(
-      `Found ${matches.length} matches for "${cardName}", selected ${coeCard.alignment} version (${coeCard.id})`
-    );
+    // Disambiguate by deck alignment if multiple matches
+    if (matches.length === 1) {
+      coeCard = matches[0];
+    } else {
+      // Try to match alignment
+      const alignmentFilter =
+        deckAlignment === 'hero'
+          ? 'Hero'
+          : deckAlignment === 'minion'
+            ? 'Minion'
+            : deckAlignment === 'fallen-wizard'
+              ? 'Fallen-wizard'
+              : 'Hero';
+      const filtered = matches.filter((mm) => mm.alignment === alignmentFilter);
+      coeCard = filtered.length > 0 ? filtered[0] : matches[0];
+      console.log(
+        `Found ${matches.length} matches for "${cardName}", selected ${coeCard.alignment} version (${coeCard.id})`
+      );
+    }
   }
 
   const set = coeCard._setCode.toLowerCase();
   const cardType = deriveCardType(coeCard);
   console.log(`Card type: ${cardType}, set: ${set}`);
 
-  // Check if card already exists in data files
+  // Check if card already exists in data files. Match the actual `id` field of
+  // a card entry rather than any quoted occurrence of the id string — other
+  // cards may legitimately reference this id elsewhere (e.g. a `manifestId`),
+  // which a naive substring scan would mistake for the card already existing.
   const cardId = `${set}-${coeCard.id.split('-')[1]}`;
   const dataDir = join(PROJECT_DIR, 'packages/shared/src/data');
   for (const f of readdirSync(dataDir).filter((f) => f.endsWith('.json'))) {
-    const content = readFileSync(join(dataDir, f), 'utf8');
-    if (content.includes(`"${cardId}"`)) {
+    let arr;
+    try {
+      arr = JSON.parse(readFileSync(join(dataDir, f), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (Array.isArray(arr) && arr.some((c) => c && c.id === cardId)) {
       console.error(`ERROR: Card ${cardId} already exists in ${f}`);
       process.exit(1);
     }
@@ -878,18 +936,22 @@ function main() {
 
   // Step 7: Skip card-ids.ts (can be added manually if needed)
 
-  // Step 8: Verify with TypeScript
-  console.log('Running type check...');
-  try {
-    execSync('npx tsc --noEmit -p packages/shared/tsconfig.json', {
-      cwd: PROJECT_DIR,
-      stdio: 'pipe',
-    });
-    console.log('Type check passed');
-  } catch (e) {
-    console.error('Type check failed:');
-    console.error(e.stderr?.toString() || e.stdout?.toString() || e.message);
-    process.exit(1);
+  // Step 8: Verify with TypeScript (skippable for bulk runs)
+  if (noTypecheck) {
+    console.log('Skipping type check (--no-typecheck)');
+  } else {
+    console.log('Running type check...');
+    try {
+      execSync('npx tsc --noEmit -p packages/shared/tsconfig.json', {
+        cwd: PROJECT_DIR,
+        stdio: 'pipe',
+      });
+      console.log('Type check passed');
+    } catch (e) {
+      console.error('Type check failed:');
+      console.error(e.stderr?.toString() || e.stdout?.toString() || e.message);
+      process.exit(1);
+    }
   }
 
   // Step 9: Commit and push
@@ -905,13 +967,17 @@ function main() {
     });
     const commitMsg = `Add ${canonicalName} (${cardDef.id}) from card request`;
     execSync(`git commit -m "${commitMsg}"`, { cwd: PROJECT_DIR, stdio: 'pipe' });
-    execSync('git push', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    if (!noPush) {
+      execSync('git push', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    }
 
     const commitHash = execSync('git rev-parse HEAD', { cwd: PROJECT_DIR, stdio: 'pipe' })
       .toString()
       .trim();
 
-    console.log(`\nCard ${canonicalName} (${cardDef.id}) successfully added and pushed.`);
+    console.log(
+      `\nCard ${canonicalName} (${cardDef.id}) successfully added${noPush ? ' (committed locally, not pushed)' : ' and pushed'}.`
+    );
     console.log(`commit hash: ${commitHash}`);
     console.log(`card id: ${cardDef.id}`);
   } catch (e) {
