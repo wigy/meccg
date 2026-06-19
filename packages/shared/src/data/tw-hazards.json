@@ -1290,5 +1290,18 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Playable on a Border-hold [{B}] or Free-hold [{F}] site. A company at this site must face an Orc attack of three strikes at 7 prowess at the beginning of its site phase.At the end of its organization phase, a company at a site with Siege on it must make a roll and subtract one from the result for every non-scout character it contains. If this result is less than 5, the company may not move this turn.Discard when the site card is discarded or when the site card is returned to the location deck.Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-92",
+    "name": "Storms of Ossë",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StormsofOsse.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable if Doors of Night is in play. Each non-Haven/non-Darkhaven site in play with a Coastal Sea [{c}] in its site path is tapped.Cannot be duplicated."
   }
 ]
