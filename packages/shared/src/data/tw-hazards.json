@@ -1098,5 +1098,15 @@
     ],
     "effects": [],
     "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-42",
+    "name": "Greed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Greed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
   }
 ]
