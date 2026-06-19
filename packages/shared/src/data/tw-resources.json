@@ -2520,5 +2520,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "The prowess of each attack is modified by -1. The prowess of each Nazgûl attack is modified by -3."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "tw-265",
+    "name": "Leaflock",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Leaflock.jpg",
+    "unique": true,
+    "prowess": 5,
+    "body": 8,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Wellinghall"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
   }
 ]
