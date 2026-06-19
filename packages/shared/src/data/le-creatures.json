@@ -178,7 +178,8 @@
           "check": "corruption"
         }
       }
-    ]
+    ],
+    "certified": "2026-06-16"
   },
   {
     "cardType": "hazard-creature",
