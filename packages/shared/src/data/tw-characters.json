@@ -2222,5 +2222,28 @@
     "homesite": "Drúadan Forest",
     "effects": [],
     "text": "Unique. +2 direct influence against Wose factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-163",
+    "name": "Haldalam",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Haldalam.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Shrel-Kain",
+    "effects": [],
+    "text": "Unique. +4 direct influence against the Easterlings faction."
   }
 ]
