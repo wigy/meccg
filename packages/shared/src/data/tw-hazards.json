@@ -1413,5 +1413,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Modify the prowesses of all characters in a company attacked by a Nazgûl by -1 until the end of the turn.Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-492",
+    "name": "Fury of the Iron Crown",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FuryoftheIronCrown.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. May not be played if The Iron Crown is in play. The prowess of one strike of an attack by an Orc, Troll, Man, or Nazgûl creature is increased by +4. After the attack is resolved, if the creature is not a Nazgûl: the creature is removed from play (defender receives the marshalling points); and, in addition, if the defender has The Iron Crown in his hand, he may immediately play it with a character in the defending company."
   }
 ]
