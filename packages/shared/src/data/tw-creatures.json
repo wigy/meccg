@@ -1134,5 +1134,26 @@
     ],
     "effects": [],
     "text": "Unique.Nazgûl (3rd). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Ithilien; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Dwar of Waw becomes a short-event and gives +1 prowess to all Wolf, Spider, and Animal attacks until the end of the turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-34",
+    "name": "Fell Turtle",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellTurtle.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
   }
 ]
