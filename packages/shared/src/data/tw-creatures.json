@@ -98,7 +98,7 @@
   {
     "cardType": "hazard-creature",
     "id": "tw-016",
-    "name": "\u201cBert\u201d (Bûrat)",
+    "name": "“Bert” (Bûrat)",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BertBurat.jpg",
     "unique": true,
     "strikes": 1,
@@ -324,7 +324,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "\u201cBert\u201d (Bûrat)"
+                "$includes": "“Bert” (Bûrat)"
               }
             },
             {
@@ -384,7 +384,7 @@
           "$or": [
             {
               "company.hazardsEncountered": {
-                "$includes": "\u201cBert\u201d (Bûrat)"
+                "$includes": "“Bert” (Bûrat)"
               }
             },
             {
@@ -534,14 +534,32 @@
     "killMarshallingPoints": 1,
     "race": "men",
     "keyedTo": [
-      { "regionTypes": ["border"], "siteTypes": ["border-hold"] }
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
     ],
     "effects": [
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "discard-character" },
-        "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } }
+        "apply": {
+          "type": "discard-character"
+        },
+        "when": {
+          "$not": {
+            "target.race": {
+              "$in": [
+                "wizard",
+                "ringwraith"
+              ]
+            }
+          }
+        }
       }
     ],
     "certified": "2026-05-19"
@@ -560,7 +578,13 @@
     "race": "wolves",
     "certified": "2026-05-11",
     "keyedTo": [
-      { "regionTypes": ["border", "wilderness", "shadow"] }
+      {
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow"
+        ]
+      }
     ]
   },
   {
@@ -576,12 +600,27 @@
     "killMarshallingPoints": 1,
     "race": "animals",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "wilderness"] },
-      { "regionTypes": ["coastal"] },
-      { "siteNames": ["Moria"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      },
+      {
+        "regionTypes": [
+          "coastal"
+        ]
+      },
+      {
+        "siteNames": [
+          "Moria"
+        ]
+      }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character" }
+      {
+        "type": "combat-one-strike-per-character"
+      }
     ],
     "certified": "2026-05-11"
   },
@@ -621,7 +660,10 @@
     "race": "men",
     "keyedTo": [
       {
-        "regionTypes": ["border", "wilderness"]
+        "regionTypes": [
+          "border",
+          "wilderness"
+        ]
       }
     ],
     "effects": [
@@ -809,14 +851,29 @@
     "race": "animals",
     "keyedTo": [
       {
-        "regionTypes": ["border", "wilderness", "shadow", "dark"],
-        "siteTypes": ["ruins-and-lairs"]
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
       }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character", "excludeAvatars": true },
-      { "type": "play-flag", "flag": "combat-defender-prowess-from-mind" },
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-one-strike-per-character",
+        "excludeAvatars": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "combat-defender-prowess-from-mind"
+      },
+      {
+        "type": "combat-detainment"
+      }
     ],
     "certified": "2026-05-11"
   },
@@ -834,7 +891,10 @@
     "race": "pûkel-creature",
     "keyedTo": [
       {
-        "siteTypes": ["shadow-hold", "dark-hold"]
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
       },
       {
         "regionNames": [
@@ -867,9 +927,38 @@
     "race": "giant",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
       }
     ],
     "certified": "2026-05-19"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-14",
+    "name": "Barrow-wight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowwight.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
   }
 ]
