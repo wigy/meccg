@@ -1353,5 +1353,15 @@
     "eventType": "short",
     "effects": [],
     "text": "A character in the same company (hazard player’s choice) as The One Ring (not the bearer himself) must make a corruption check modified by -2. If he fails, discard The One Ring along with the target character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-100",
+    "name": "The Will of Sauron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWillofSauron.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if Doors of Night is in play. All hazard long-events remain in play until this card is discarded.Discard this card if Doors of Night isnot in play, or when any play deck is exhausted. When this card is discarded, all hazard long events are discarded. Cannot be duplicated."
   }
 ]
