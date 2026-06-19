@@ -2539,5 +2539,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-267",
+    "name": "Lordly Presence",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LordlyPresence.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card."
   }
 ]
