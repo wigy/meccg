@@ -2590,5 +2590,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-281",
+    "name": "Men of Northern Rhovanion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofNorthernRhovanion.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 7,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Lake-town"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Lake-town if the influence check is greater than 6. Standard Modifications: Men (+1)."
   }
 ]
