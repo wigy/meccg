@@ -2494,5 +2494,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable only at the end of the organization phase. Hazard limit for a company is decreased by two (to a minimum of 2). The prowess of any hazard creatures played against this company is modified by +2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-262",
+    "name": "Kindling of the Spirit",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/KindlingoftheSpirit.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. +2 prowess against one attack for all characters in the same company as the Wizard. Wizard makes a corruption check modified by -2."
   }
 ]
