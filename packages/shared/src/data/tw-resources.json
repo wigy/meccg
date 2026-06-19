@@ -2993,5 +2993,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Play to test a gold ring in a sage’s company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-340",
+    "name": "Test of Lore",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TestofLore.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Play to test a gold ring in a sage’s company; subtract one from the result of the roll."
   }
 ]
