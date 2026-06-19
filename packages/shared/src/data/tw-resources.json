@@ -2290,5 +2290,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-230",
+    "name": "Escape",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Escape2.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an unwounded character facing an attack. The attack is canceled and the character is wounded (no body check is required)."
   }
 ]
