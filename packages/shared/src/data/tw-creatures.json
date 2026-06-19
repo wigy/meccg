@@ -1683,5 +1683,29 @@
     ],
     "effects": [],
     "text": "Unique.Orc. One strike. May also be played on a company moving from Rivendell to Lórien or from Lórien to Rivendell. May also be played keyed to High Pass and at sites in High Pass."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-102",
+    "name": "Thief",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Thief.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed."
   }
 ]
