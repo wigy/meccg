@@ -3086,5 +3086,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-357",
+    "name": "Variags of Khand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/VariagsofKhand.jpg",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Variag"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Variag Camp if the influence check is greater than 9. Standard Modifications: none."
   }
 ]
