@@ -2436,5 +2436,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Ranger only. Playable at the end of the organization phase on an untapped ranger. Tap the ranger. No hazard creatures may be keyed by type to Wilderness [{w}] against the ranger’s company this turn."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-252",
+    "name": "Halfling Stealth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HalflingStealth.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Hobbit only. Cancel one strike against the Hobbit."
   }
 ]
