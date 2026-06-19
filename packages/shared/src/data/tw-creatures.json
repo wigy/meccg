@@ -1337,5 +1337,31 @@
     ],
     "effects": [],
     "text": "Trolls. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-72",
+    "name": "Orc-guard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcguard.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Five strikes."
   }
 ]
