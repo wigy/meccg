@@ -1497,5 +1497,31 @@
     ],
     "effects": [],
     "text": "Orcs. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-78",
+    "name": "Orc-watch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwatch.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes."
   }
 ]
