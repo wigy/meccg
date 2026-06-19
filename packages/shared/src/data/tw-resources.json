@@ -3157,5 +3157,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. All Nazgûl events are discarded or cancels an attack against a Wizard if he is the only character in the company. Wizard makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-365",
+    "name": "Wizard’s Test",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsTest.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only, and only if a character in his company has a gold ring. Play to test a gold ring; make two rolls and choose one result to use for the test. Wizard makes a corruption check modified by -1."
   }
 ]
