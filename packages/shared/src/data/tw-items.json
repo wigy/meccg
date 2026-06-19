@@ -1443,5 +1443,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-299",
+    "name": "Palantír of Minas Tirith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofMinasTirith.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Palantír. Playable only at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return them to the top of your play deck. Do the same to your opponent’s play deck. Bearer makes a corruption check."
   }
 ]
