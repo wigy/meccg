@@ -2887,5 +2887,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable only at the end of the organization phase. If the company that it is played on moves to a Ruins & Lairs [{R}] site, opponent may only play hazard creatures that are keyed to the company’s new site."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "tw-328",
+    "name": "Skinbark",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Skinbark.jpg",
+    "unique": true,
+    "prowess": 10,
+    "body": 9,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Wellinghall"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate."
   }
 ]
