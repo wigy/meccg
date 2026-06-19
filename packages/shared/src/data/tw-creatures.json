@@ -1009,81 +1009,6 @@
   },
   {
     "cardType": "hazard-creature",
-    "id": "tw-15",
-    "name": "Barrow-wight",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowwight2.jpg",
-    "unique": false,
-    "strikes": 1,
-    "prowess": 12,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "undead",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "shadow-hold",
-          "dark-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
-  },
-  {
-    "cardType": "hazard-creature",
-    "id": "tw-16",
-    "name": "“Bert” (Bûrat)",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BertBurat.jpg",
-    "unique": true,
-    "strikes": 1,
-    "prowess": 12,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "trolls",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "wilderness",
-          "shadow"
-        ],
-        "siteTypes": [
-          "shadow-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Unique. Troll. One strike. If played against a company that faced “William” or “Tom” this turn, each character wounded by “Bert” discards all non-special items he bears."
-  },
-  {
-    "cardType": "hazard-creature",
-    "id": "tw-20",
-    "name": "Cave-drake",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cavedrake.jpg",
-    "unique": false,
-    "strikes": 2,
-    "prowess": 10,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "dragon",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "wilderness"
-        ],
-        "siteTypes": [
-          "ruins-and-lairs"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Dragon. Two strikes. Attacker chooses defending characters."
-  },
-  {
-    "cardType": "hazard-creature",
     "id": "tw-25",
     "name": "Crebain",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Crebain.jpg",
@@ -1340,88 +1265,6 @@
   },
   {
     "cardType": "hazard-creature",
-    "id": "tw-72",
-    "name": "Orc-guard",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcguard.jpg",
-    "unique": false,
-    "strikes": 5,
-    "prowess": 8,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "orcs",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "shadow-hold",
-          "dark-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Orcs. Five strikes."
-  },
-  {
-    "cardType": "hazard-creature",
-    "id": "tw-73",
-    "name": "Orc-lieutenant",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orclieutenant.jpg",
-    "unique": false,
-    "strikes": 1,
-    "prowess": 7,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "orcs",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "wilderness",
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "ruins-and-lairs",
-          "shadow-hold",
-          "dark-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Orcs. One strike. If played on a company that has already faced an Orc attack this turn, Orc-lieutenant receives +4 prowess."
-  },
-  {
-    "cardType": "hazard-creature",
-    "id": "tw-74",
-    "name": "Orc-patrol",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcpatrol.jpg",
-    "unique": false,
-    "strikes": 3,
-    "prowess": 6,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "orcs",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "wilderness",
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "ruins-and-lairs",
-          "shadow-hold",
-          "dark-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Orcs. Three strikes."
-  },
-  {
-    "cardType": "hazard-creature",
     "id": "tw-75",
     "name": "Orc-raiders",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcraiders.jpg",
@@ -1447,34 +1290,6 @@
   },
   {
     "cardType": "hazard-creature",
-    "id": "tw-76",
-    "name": "Orc-warband",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwarband.jpg",
-    "unique": false,
-    "strikes": 5,
-    "prowess": 4,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "orcs",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "wilderness",
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "ruins-and-lairs",
-          "shadow-hold",
-          "dark-hold"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess."
-  },
-  {
-    "cardType": "hazard-creature",
     "id": "tw-77",
     "name": "Orc-warriors",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwarriors.jpg",
@@ -1492,32 +1307,6 @@
         ],
         "siteTypes": [
           "ruins-and-lairs"
-        ]
-      }
-    ],
-    "effects": [],
-    "text": "Orcs. Three strikes."
-  },
-  {
-    "cardType": "hazard-creature",
-    "id": "tw-78",
-    "name": "Orc-watch",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwatch.jpg",
-    "unique": false,
-    "strikes": 3,
-    "prowess": 9,
-    "body": null,
-    "killMarshallingPoints": 1,
-    "race": "orcs",
-    "keyedTo": [
-      {
-        "regionTypes": [
-          "shadow",
-          "dark"
-        ],
-        "siteTypes": [
-          "shadow-hold",
-          "dark-hold"
         ]
       }
     ],
