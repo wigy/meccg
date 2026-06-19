@@ -963,5 +963,475 @@
       }
     ],
     "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-6",
+    "name": "Arouse Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseDenizens.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-7",
+    "name": "Arouse Minions",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseMinions.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Shadow-hold [{S}] or Dark-hold [{D}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated at a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-9",
+    "name": "Awaken Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenDenizens.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Ruins & Lairs [{R}] site is doubled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-10",
+    "name": "Awaken Minions",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenMinions.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Shadow-hold [{S}] site or at a Dark-hold [{D}] site is doubled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-11",
+    "name": "Awaken the Earth’s Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakentheEarthsFire.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Modify the prowess of one automatic-attack at a Shadow-hold [{S}] or Dark-hold [{D}] site by +2.Alternatively, if Doors of Night is in play, treat one Shadow-land [{s}] as a Dark-domain [{d}] or one Shadow-hold [{S}] as a Dark-hold [{D}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-13",
+    "name": "Bane of the Ithil-stone",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BaneoftheIthilstone.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption points for Palantíri are doubled.Automatically cancels any effect that causes a player to search through or look at any portion of a play deck or a discard pile outside of the normal sequence of play. Discard Bane of the Ithil-stone whenever a play deck is exhausted.This card has no effect on a minion player.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-19",
+    "name": "Call of the Sea",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CalloftheSea.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Elf character. The character’s player makes a roll. Return the character to the player’s hand if this result plus his unused general influence is less than 10. This result is modified by -3 if the character’s company moved this turn using a site path containing a Coastal Sea [{c}].Any one item held by a character removed in this fashion may automatically be transferred to another character in his company (all other non-follower cards target character controls are discarded)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-22",
+    "name": "Clouds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Clouds.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. If Doors of Night is in play, the prowess of each hazard creature is modified by +2.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-30",
+    "name": "Drowning Seas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DrowningSeas.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-33",
+    "name": "Fell Beast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellBeast.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-35",
+    "name": "Fell Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellWinter.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-41",
+    "name": "Gloom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gloom.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-42",
+    "name": "Greed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Greed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-49",
+    "name": "Long Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LongWinter.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-50",
+    "name": "Lost at Sea",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostatSea.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-51",
+    "name": "Lost in Border-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinBorderlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-52",
+    "name": "Lost in Dark-domains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinDarkdomains.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company that is moving this turn. If the company has a Dark-domain [{d}] in its site path, its hazard limit is doubled until the end of the turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-54",
+    "name": "Lost in Shadow-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinShadowlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Shadow-land [{s}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-55",
+    "name": "Lost in the Wilderness",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostintheWilderness.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Wilderness [{w}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-56",
+    "name": "Lure of Creation",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofCreation.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. A revealed Wizard receives 2 corruption points and makes a corruption check at the end of any movement/hazard phase in a turn during which his company moved to a Haven [{H}]. Cannot be duplicated on a given Wizard.During his organization phase, a Wizard with this card may tap to attempt to remove it. Make a roll: if this result is greater than 6, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-57",
+    "name": "Lure of Expedience",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofExpedience.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-58",
+    "name": "Lure of Nature",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofNature.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-59",
+    "name": "Lure of Power",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofPower.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "The next non-Hobbit character to make a successful influence attempt (e. g., against a faction, an opponent’s character, etc.) must immediately make a corruption check modified by -4. Discard this card after this corruption check."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-62",
+    "name": "Morgul Night",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MorgulNight.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable if Doors of Night is in play. Treat all Wildernesses [{w}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Dark-domains [{d}].Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-63",
+    "name": "Morgul-horse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulhorse.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "This card allows you to place a tapped Nazgûl permanent-event back into your hand instead of discarding it.Alternatively, allows a Nazgûl to be played keyed to a Shadow-land [{s}]."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-64",
+    "name": "Morgul-knife",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulknife.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +2. Discard if attack doesn’t wound a character. Cannot be duplicated on a company facing such an attack.Corruption. One character of attacker’s choice wounded by the attack (on whom a corruption card has not already been played this turn) receives 4 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 4, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-68",
+    "name": "New Moon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/NewMoon.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-69",
+    "name": "Night",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Night.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. The prowess of each non-ranger Dúnadan is modified by -1.Additionally, if Doors of Night is in play, the prowesses of all attacks are modified by +1 and the prowess of each Man and Dúnadan is modified by -1.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-81",
+    "name": "Plague of Wights",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PlagueofWights.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The prowess of all Undead attacks is increased by one. Additionally, if Doors of Night is in play, the number of strikes for each Undead attack is doubled. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-87",
+    "name": "Siege",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Siege.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Border-hold [{B}] or Free-hold [{F}] site. A company at this site must face an Orc attack of three strikes at 7 prowess at the beginning of its site phase.At the end of its organization phase, a company at a site with Siege on it must make a roll and subtract one from the result for every non-scout character it contains. If this result is less than 5, the company may not move this turn.Discard when the site card is discarded or when the site card is returned to the location deck.Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-92",
+    "name": "Storms of Ossë",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StormsofOsse.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable if Doors of Night is in play. Each non-Haven/non-Darkhaven site in play with a Coastal Sea [{c}] in its site path is tapped.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-93",
+    "name": "The Balance of Things",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBalanceofThings.jpg",
+    "unique": true,
+    "eventType": "long",
+    "effects": [],
+    "text": "Unique. Each character has the corruption points doubled for one of his sources of corruption (the player controlling the character chooses)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-94",
+    "name": "The Burden of Time",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBurdenofTime.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on an Elf not in a Haven/Darkhaven [{H}]. Target Elf receives 2 corruption points and must make a corruption check during each of his untap phases if he is not in a Haven. Cannot be duplicated on a given Elf.During his organization phase, an Elf with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-96",
+    "name": "The Nazgûl are Abroad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheNazgulareAbroad.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Nazgûl may attack a hero company containing the bearer of The One Ring at any site that is not a Free-hold [{F}] or Haven [{H}].Nazgûl may attack any hero company possessing any Ring in a Shadow-land [{s}] or Shadow-hold [{S}].If Doors of Night is in play, at the end of each turn, each player may return one Nazgûl permanent-event from his discard pile to his hand.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-97",
+    "name": "The Pale Sword",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePaleSword.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Unique. Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +1. If played on a company facing an attack from The Witch-king of Angmar, his prowess is increased by +1 plus the number of Nazgûl permanent-events in play. Cannot be duplicated on a company facing such an attack.‌ Discard if attack doesn’t wound a character.Corruption. One character of attacker’s choice wounded by this attack (on whom a corruption card has not already been played this turn) receives 6 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 5, discard this card. Cannot be duplicated on a given Nazgûl."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-98",
+    "name": "The Precious",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePrecious.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "A character in the same company (hazard player’s choice) as The One Ring (not the bearer himself) must make a corruption check modified by -2. If he fails, discard The One Ring along with the target character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-100",
+    "name": "The Will of Sauron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWillofSauron.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if Doors of Night is in play. All hazard long-events remain in play until this card is discarded.Discard this card if Doors of Night isnot in play, or when any play deck is exhausted. When this card is discarded, all hazard long events are discarded. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-101",
+    "name": "The Will of the Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWilloftheRing.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "The bearer of The One Ring makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-104",
+    "name": "Tookish Blood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TookishBlood.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Hobbit character. The Hobbit’s player makes a roll; return the Hobbit to the player’s hand if the result plus his unused general influence is less than 11. If the Hobbit is removed from play, one of his items may be transferred to another character in his company; any other cards under his control are discarded.Alternatively, this card can be played as a resource card. For the rest of the turn, the target Hobbit cannot be discarded or returned to its owner's hand for any reason."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-105",
+    "name": "Traitor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Traitor.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-111",
+    "name": "Weariness of the Heart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WearinessoftheHeart.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-115",
+    "name": "Words of Power and Terror",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WordsofPowerandTerror.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Modify the prowesses of all characters in a company attacked by a Nazgûl by -1 until the end of the turn.Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-492",
+    "name": "Fury of the Iron Crown",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FuryoftheIronCrown.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. May not be played if The Iron Crown is in play. The prowess of one strike of an attack by an Orc, Troll, Man, or Nazgûl creature is increased by +4. After the attack is resolved, if the creature is not a Nazgûl: the creature is removed from play (defender receives the marshalling points); and, in addition, if the defender has The Iron Crown in his hand, he may immediately play it with a character in the defending company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-497",
+    "name": "A Pack at the Door",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/APackattheDoor.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
   }
 ]
