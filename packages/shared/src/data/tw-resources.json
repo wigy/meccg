@@ -2316,5 +2316,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Coastal Sea [{c}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-233",
+    "name": "Fair Travels in Border-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FairTravelsinBorderlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Border-land [{b}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
   }
 ]
