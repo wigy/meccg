@@ -3022,5 +3022,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Environment. The prowess of one Elf is modified by +1 until the end of the turn.Additionally, if Gates of Morning is in play: the prowess of each Elf is modified by +1 (until the end of the turn); and, you may choose: one Wilderness [{w}] to treat as a Border-land [{b}] or one Border-land [{b}] to treat as a Free-domain [{f}].Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-344",
+    "name": "The Great Eagles",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheGreatEagles.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "eagle",
+    "playableAt": [
+      {
+        "site": "Eagles’"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none."
   }
 ]
