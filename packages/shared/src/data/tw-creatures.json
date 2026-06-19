@@ -1057,5 +1057,29 @@
     ],
     "effects": [],
     "text": "Unique. Troll. One strike. If played against a company that faced “William” or “Tom” this turn, each character wounded by “Bert” discards all non-special items he bears."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-20",
+    "name": "Cave-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cavedrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "dragon",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Dragon. Two strikes. Attacker chooses defending characters."
   }
 ]
