@@ -960,5 +960,29 @@
     ],
     "effects": [],
     "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-4",
+    "name": "Akhôrahil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Akhorahil.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 16,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (5th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Akhôrahil becomes a short-event and modifies any one character’s body by -1 for the rest of this turn."
   }
 ]
