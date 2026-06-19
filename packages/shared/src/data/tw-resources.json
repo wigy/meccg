@@ -2742,5 +2742,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable only at the end of the organization phase on a company containing Aragorn II at Dunharrow. The company may move to the Vale of Erech site. The only hazard creatures that may be played on this company are Undead, but any Undead may be played on the company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-303",
+    "name": "Persuasive Words",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PersuasiveWords.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. Make two rolls when making an influence check and choose one result to use."
   }
 ]
