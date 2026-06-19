@@ -2337,7 +2337,26 @@
       {
         "site": "Southron Oasis"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Haradrim"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Asdriags"
+        }
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-faction",
