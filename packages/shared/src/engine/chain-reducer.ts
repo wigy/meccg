@@ -807,6 +807,29 @@ function buildConstraintKind(
         filter: { 'region.name': regionName },
       };
     }
+    case 'auto-attacks-detainment': {
+      // "All automatic-attacks become detainment" (Hold Rebuilt and Repaired,
+      // as-88). Resolve the bound site from the active company's current site
+      // during the site phase and flag every automatic-attack at that site
+      // (by definition id) as detainment for as long as the constraint lives.
+      const ps = state.phaseState;
+      let siteDefId: import('../types/common.js').CardDefinitionId | null = null;
+      if (ps.phase === Phase.Site) {
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[ps.activeCompanyIndex];
+        if (company?.currentSite) {
+          siteDefId = company.currentSite.definitionId;
+        }
+      }
+      if (!siteDefId) return null;
+      return {
+        type: 'attribute-modifier',
+        attribute: 'auto-attack.detainment',
+        op: 'override',
+        value: 1,
+        filter: { 'site.definitionId': siteDefId as string },
+      };
+    }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
     case 'auto-attack-race-duplicate': {

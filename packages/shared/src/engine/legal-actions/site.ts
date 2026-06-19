@@ -9,7 +9,8 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType } from '../../index.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
@@ -33,22 +34,26 @@ import { asViable as viable } from './evaluated.js';
  * is evaluated against a context exposing `site.name`, `site.siteType`,
  * and `site.autoAttack.race`.
  */
-function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
+function siteMatchesEntry(
+  siteDef: SiteCard,
+  entry: PlayableAtEntry,
+  effectiveSiteType: SiteType = siteDef.siteType,
+): boolean {
   if ('region' in entry) {
     // Region entries match any non-haven site in the named region.
-    if (siteDef.siteType === 'haven') return false;
+    if (effectiveSiteType === 'haven') return false;
     return siteDef.region === entry.region;
   }
   const baseMatches = 'site' in entry
     ? siteDef.name === entry.site
-    : siteDef.siteType === entry.siteType;
+    : effectiveSiteType === entry.siteType;
   if (!baseMatches) return false;
   if (!entry.when) return true;
   const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
   const ctx: Record<string, unknown> = {
     site: {
       name: siteDef.name,
-      siteType: siteDef.siteType,
+      siteType: effectiveSiteType,
       region: siteDef.region,
       autoAttack: { race: autoAttackRaces },
     },
@@ -1127,7 +1132,10 @@ function playResourcesActions(
 
       // Check ally is playable at this site via playableAt entries or a play-target site filter
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
-      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry));
+      const allyEffSiteType = siteDefForAlly && siteDefId
+        ? getEffectiveSiteType(state, siteDefId, siteDefForAlly.siteType)
+        : siteDefForAlly?.siteType;
+      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
@@ -1214,7 +1222,10 @@ function playResourcesActions(
 
       // Check faction is playable at this site
       const siteDefForFaction = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
-      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry))) {
+      const factionEffSiteType = siteDefForFaction && siteDefId
+        ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType)
+        : siteDefForFaction?.siteType;
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));

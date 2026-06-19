@@ -14,6 +14,7 @@
 
 import type { GameState } from '../index.js';
 import type { ActiveConstraint, AttributePath, ConstraintId } from '../types/pending.js';
+import type { CardDefinitionId, SiteType } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 
 type ConstraintTarget = ActiveConstraint['target'];
@@ -53,6 +54,55 @@ export function resolveEffective<T extends number | string>(
     consumedIds.push(c.id);
   }
   return { value, consumedIds };
+}
+
+/**
+ * Returns the effective {@link SiteType} of a site definition after folding
+ * in any active `site.type` `override` `attribute-modifier` constraint whose
+ * `filter.site.definitionId` matches. Returns `printedType` when none applies.
+ *
+ * Site-type overrides are matched purely by their `site.definitionId` filter
+ * (not by the constraint's entity target), mirroring the existing consumers in
+ * `legal-actions/movement-hazard.ts` and `reducer-untap.ts`. This lets a
+ * site-transforming card (e.g. Hold Rebuilt and Repaired, as-88) change the
+ * type of every in-play copy of the bound site. The last matching override
+ * wins.
+ */
+export function getEffectiveSiteType(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId,
+  printedType: SiteType,
+): SiteType {
+  let value: SiteType = printedType;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier') continue;
+    if (c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
+    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
+    if (filterSiteDefId !== (siteDefinitionId as string)) continue;
+    value = c.kind.value as SiteType;
+  }
+  return value;
+}
+
+/**
+ * True when an active `auto-attack.detainment` `override` `attribute-modifier`
+ * constraint (filter `site.definitionId`) matches the given site — i.e. a card
+ * has decreed that every automatic-attack at that site is detainment
+ * regardless of the defending alignment. Used by Hold Rebuilt and Repaired
+ * (as-88: "all automatic-attacks become detainment").
+ */
+export function siteAutoAttacksForcedDetainment(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId,
+): boolean {
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier') continue;
+    if (c.kind.attribute !== 'auto-attack.detainment' || c.kind.op !== 'override') continue;
+    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
+    if (filterSiteDefId !== (siteDefinitionId as string)) continue;
+    if (c.kind.value) return true;
+  }
+  return false;
 }
 
 function matchesEntity(a: ConstraintTarget, b: ConstraintTarget): boolean {
