@@ -3006,5 +3006,21 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Play to test a gold ring in a sage’s company; subtract one from the result of the roll."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-343",
+    "name": "The Evenstar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheEvenstar.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Environment. The prowess of one Elf is modified by +1 until the end of the turn.Additionally, if Gates of Morning is in play: the prowess of each Elf is modified by +1 (until the end of the turn); and, you may choose: one Wilderness [{w}] to treat as a Border-land [{b}] or one Border-land [{b}] to treat as a Free-domain [{f}].Cannot be duplicated."
   }
 ]
