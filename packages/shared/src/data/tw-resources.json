@@ -2571,5 +2571,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-279",
+    "name": "Men of Lamedon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofLamedon.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Vale"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Vale of Erech if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   }
 ]
