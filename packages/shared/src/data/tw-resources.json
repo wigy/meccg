@@ -2803,5 +2803,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Environment. Until the end of the turn, the number of strikes for one automatic-attack at a Shadow-hold [{S}] or a Ruins & Lairs [{R}] is reduced by half (rounded up).Alternatively, if Gates of Morning is in play, treat one Shadow-land [{s}] as a Wilderness [{w}] or one Shadow-hold [{S}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-314",
+    "name": "Reforging",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Reforging.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage may not untap until Reforging is stored at a Haven [{H}].During your organization phase, you may tap a sage at a Haven and discard a stored Reforging to retrieve any minor or major weapon, armor, or shield (even a hoard item) from your discard pile. The item must be placed under the control of a character in the sage’s company."
   }
 ]
