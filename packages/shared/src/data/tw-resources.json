@@ -2226,5 +2226,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage may not untap until Dreams of Lore is stored at a Haven [{H}] during his organization phase. May not be transferred."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-220",
+    "name": "Eagle-mounts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Eaglemounts.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site."
   }
 ]
