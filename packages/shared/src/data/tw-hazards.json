@@ -1141,5 +1141,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-52",
+    "name": "Lost in Dark-domains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinDarkdomains.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company that is moving this turn. If the company has a Dark-domain [{d}] in its site path, its hazard limit is doubled until the end of the turn."
   }
 ]
