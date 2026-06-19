@@ -1662,5 +1662,26 @@
     ],
     "effects": [],
     "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-95",
+    "name": "The Great Goblin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheGreatGoblin.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 12,
+    "body": 7,
+    "killMarshallingPoints": 2,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Orc. One strike. May also be played on a company moving from Rivendell to Lórien or from Lórien to Rivendell. May also be played keyed to High Pass and at sites in High Pass."
   }
 ]
