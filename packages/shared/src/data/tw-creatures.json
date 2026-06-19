@@ -1181,5 +1181,31 @@
     ],
     "effects": [],
     "text": "Undead. Five strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-43",
+    "name": "Half-trolls of Far Harad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HalftrollsofFarHarad.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Two strikes."
   }
 ]
