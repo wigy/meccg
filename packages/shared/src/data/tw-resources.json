@@ -3060,5 +3060,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-354",
+    "name": "True Fána",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TrueFana.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. Before resolving an attack against the Wizard’s company, make a roll and add the Wizard’s prowess to the result. If the total is greater than the attack’s prowess, all of the attack’s strikes fail (if the attack has body, make body checks to determine if the attack is defeated). Otherwise, the attack proceeds normally. Wizard makes a corruption check modified by -3. Cannot be used in company vs. company combat."
   }
 ]
