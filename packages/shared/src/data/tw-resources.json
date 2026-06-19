@@ -2381,5 +2381,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Wilderness [{w}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-238",
+    "name": "Far-sight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Farsight.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable during the site phase on an untapped sage at an untapped site where Information is playable. Tap the sage and the site. Search through your play deck and choose an item that you must reveal to your opponent. This item is placed in your hand and the play deck is reshuffled. The sage makes a corruption check."
   }
 ]
