@@ -2664,5 +2664,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase on a company that has a size of less than three, contains a scout, and begins the turn at a site in Dagorlad. This card is used as a Dark-hold [{D}] site card in the region of Udûn that is moved to using the site path: {s} {d} (the moving player draws 2 cards and his opponent draws 5 cards). The company can later leave this site using region cards or by using the following site path to move to Lórien: {d} {d} {s} {w} {f} {b} {w}. Discard Morannon when the company successfully plays a new site card."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-287",
+    "name": "Mountains of Shadow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MountainsofShadow.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Ithilien and Gorgoroth, Ithilien and Nurn, Harondor and Nurn. The company faces an attack at the beginning of its movement/hazard phase: Orcs — 4 strikes with 9 prowess.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by 2 (to a minimum of 2). Cannot be duplicated on a given company."
   }
 ]
