@@ -2271,5 +2271,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-228",
+    "name": "Ents of Fangorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EntsofFangorn.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "ent",
+    "playableAt": [
+      {
+        "site": "Wellinghall"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4)."
   }
 ]
