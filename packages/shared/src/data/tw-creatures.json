@@ -1081,5 +1081,34 @@
     ],
     "effects": [],
     "text": "Dragon. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-25",
+    "name": "Crebain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Crebain.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 5,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company."
   }
 ]
