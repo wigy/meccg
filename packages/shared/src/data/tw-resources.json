@@ -2252,5 +2252,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "When Elf-song comes into play, each character at a Haven [{H}] may immediately remove one corruption card.While Elf-song is in play, no character at a Haven may be discarded or returned to its owner’s hand for any reason."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-226",
+    "name": "Elves of Lindon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ElvesofLindon.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "elf",
+    "playableAt": [
+      {
+        "site": "Grey"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2)."
   }
 ]
