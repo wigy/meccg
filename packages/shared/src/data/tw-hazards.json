@@ -1393,5 +1393,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-111",
+    "name": "Weariness of the Heart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WearinessoftheHeart.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check."
   }
 ]
