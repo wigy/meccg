@@ -1444,5 +1444,33 @@
     ],
     "effects": [],
     "text": "Orcs. Four strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-76",
+    "name": "Orc-warband",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwarband.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 4,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess."
   }
 ]
