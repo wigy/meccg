@@ -2199,5 +2199,28 @@
     "homesite": "Edoras",
     "effects": [],
     "text": "Unique."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-157",
+    "name": "Ghân-buri-Ghân",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GhanburiGhan.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Drúadan Forest",
+    "effects": [],
+    "text": "Unique. +2 direct influence against Wose factions."
   }
 ]
