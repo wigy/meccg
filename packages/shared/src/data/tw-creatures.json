@@ -1155,5 +1155,31 @@
     ],
     "effects": [],
     "text": "Animals. One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-38",
+    "name": "Ghouls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ghouls.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. Five strikes."
   }
 ]
