@@ -1927,5 +1927,27 @@
     "homesite": "Edhellond",
     "effects": [],
     "text": "Unique. +2 direct influence against the Variags of Khand faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-125",
+    "name": "Barliman Butterbur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BarlimanButterbur.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 2,
+    "body": 6,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree",
+    "effects": [],
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   }
 ]
