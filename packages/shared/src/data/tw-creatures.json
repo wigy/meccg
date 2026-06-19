@@ -984,5 +984,27 @@
     ],
     "effects": [],
     "text": "Unique.Nazgûl (5th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Akhôrahil becomes a short-event and modifies any one character’s body by -1 for the rest of this turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-5",
+    "name": "Ambusher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ambusher.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "free"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Two strikes. Attacker chooses defending characters."
   }
 ]
