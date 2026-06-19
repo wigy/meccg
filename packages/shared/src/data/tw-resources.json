@@ -3221,5 +3221,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-370",
+    "name": "Woses of the Drúadan Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WosesoftheDruadanForest.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "wose",
+    "playableAt": [
+      {
+        "site": "Drúadan"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Drúadan Forest if the influence check is greater than 9. Standard Modifications: none."
   }
 ]
