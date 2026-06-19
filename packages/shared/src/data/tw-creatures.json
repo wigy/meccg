@@ -1755,5 +1755,20 @@
     ],
     "effects": [],
     "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-86",
+    "name": "Shelob",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Shelob.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 18,
+    "body": 9,
+    "killMarshallingPoints": 6,
+    "race": "spiders",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Unique.Spider. Spawn. May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may be played at any site in Imlad Morgul or Gorgoroth.If Doors of Night is in play, Shelob may be played as a permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal attacks. She may opt to attack from a permanent-event state and receive these bonuses, but her attack counts as one against the hazard limit. Discard when Shelob attacks or if Doors of Night is not in play."
   }
 ]
