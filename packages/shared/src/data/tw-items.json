@@ -1425,5 +1425,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Palantír. With its bearer able to use a Palantír, tap Palantír of Annúminas to search through your play deck and discard pile for a “sage only” card. Put this card in your hand. Reshuffle your play deck. Bearer makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-298",
+    "name": "Palantír of Elostirion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofElostirion.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
   }
 ]
