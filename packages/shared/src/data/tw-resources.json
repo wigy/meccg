@@ -164,7 +164,7 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 8,
+    "influenceNumber": 9,
     "race": "elf",
     "playableAt": [
       {
@@ -209,7 +209,7 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 9,
+    "influenceNumber": 10,
     "race": "dwarf",
     "playableAt": [
       {
@@ -899,7 +899,7 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 9,
+    "influenceNumber": 10,
     "race": "man",
     "playableAt": [
       {
@@ -1299,7 +1299,7 @@
     "unique": true,
     "marshallingPoints": 4,
     "marshallingCategory": "faction",
-    "influenceNumber": 8,
+    "influenceNumber": 9,
     "race": "dwarf",
     "playableAt": [
       {
@@ -1367,7 +1367,7 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 6,
+    "influenceNumber": 7,
     "race": "man",
     "playableAt": [
       {
