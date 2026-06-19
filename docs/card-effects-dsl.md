@@ -2640,6 +2640,35 @@ Supported `apply` kinds today:
   the constraint modifies the hazard limit during the company's M/H phase.
   The `scope` should be `"company-mh-phase"`.
 
+**Hazard short-events.** `play-option` is also honoured on character-targeting
+*hazard* short-events (e.g. Weariness of the Heart le-149). The legal-action
+generator (`legal-actions/movement-hazard.ts`) emits one `play-hazard` action
+per (character, option) pair, carrying the chosen `optionId` on the action and
+threading it onto the short-event chain payload (`reducer-movement-hazard.ts`).
+When the chain entry resolves un-negated, the chain resolver
+(`chain-reducer.ts`) dispatches the selected option's `apply`. The two apply
+kinds supported on this path are `add-constraint` with
+`constraint: "character-stat-modifier"` (a turn-scoped `stat`/`value` modifier
+on the targeted character — e.g. le-149's `-1` prowess) and `force-check` with
+`check: "corruption"` (enqueues a corruption check on the targeted character).
+A Corruption-keyword short-event also marks the target in
+`corruptionCardsPlayedPerChar`, so CoE rule 7.2.1 (one corruption card per
+character per turn) blocks a second copy — this is how le-149's "this use
+cannot be duplicated on a given character" is enforced.
+
+### Weariness of the Heart
+
+```json
+"effects": [
+  { "type": "play-target", "target": "character" },
+  { "type": "play-option", "id": "prowess",
+    "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
+               "stat": "prowess", "value": -1, "scope": "turn" } },
+  { "type": "play-option", "id": "corruption",
+    "apply": { "type": "force-check", "check": "corruption" } }
+]
+```
+
 ### Marvels Told
 
 ```json

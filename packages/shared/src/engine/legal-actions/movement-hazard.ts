@@ -1718,36 +1718,73 @@ function playHazardsActions(
 
         // Character-targeting short events (e.g. Call of Home): one action per eligible character
         if (shortPlayTarget?.target === 'character') {
+          // play-option modes (e.g. Weariness of the Heart le-149): the hazard
+          // player picks one of several mutually-exclusive options. Emit one
+          // action per (character, option). Cards without play-options emit a
+          // single action per character.
+          const shortPlayOptions = getCardEffects(def).filter(
+            (e): e is import('../../index.js').PlayOptionEffect => e.type === 'play-option',
+          );
+          // CoE rule 7.2.1: a Corruption-keyword short-event counts as a
+          // corruption card — only one per character per turn.
+          const isShortCorruption = 'keywords' in def
+            && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true;
           for (const charId of targetCompany.characters) {
-            if (shortPlayTarget.filter) {
-              const charData = resourcePlayer.characters[charId as string];
-              if (charData) {
-                const charDef = defById(state, charData.definitionId);
-                if (charDef && isCharacterCard(charDef)) {
-                  const possessionNames = defNamesOf(state, charData.items);
-                  const itemKeywords = itemKeywordsOf(state, charData.items);
-                  const itemSubtypes = itemSubtypesOf(state, charData.items);
-                  const ctx = {
-                    target: {
-                      race: charDef.race,
-                      skills: charDef.skills,
-                      name: charDef.name,
-                      possessions: possessionNames,
-                      itemKeywords,
-                      itemSubtypes,
-                    },
-                  };
-                  if (!matchesCondition(shortPlayTarget.filter, ctx)) {
-                    logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
-                    actions.push({
-                      action: { ...action, targetCharacterId: charId },
-                      viable: false,
-                      reason: `${charDef.name} does not match play target filter`,
-                    });
-                    continue;
-                  }
-                }
+            const charData = resourcePlayer.characters[charId as string];
+            const charDef = charData ? defById(state, charData.definitionId) : undefined;
+            if (shortPlayTarget.filter && charData && charDef && isCharacterCard(charDef)) {
+              const possessionNames = defNamesOf(state, charData.items);
+              const itemKeywords = itemKeywordsOf(state, charData.items);
+              const itemSubtypes = itemSubtypesOf(state, charData.items);
+              const ctx = {
+                target: {
+                  race: charDef.race,
+                  skills: charDef.skills,
+                  name: charDef.name,
+                  possessions: possessionNames,
+                  itemKeywords,
+                  itemSubtypes,
+                },
+              };
+              if (!matchesCondition(shortPlayTarget.filter, ctx)) {
+                logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
+                actions.push({
+                  action: { ...action, targetCharacterId: charId },
+                  viable: false,
+                  reason: `${charDef.name} does not match play target filter`,
+                });
+                continue;
               }
+            }
+            // CoE 7.2.1: block a second corruption card on a character that
+            // already had one this turn (covers "this use cannot be duplicated
+            // on a given character" for le-149).
+            if (isShortCorruption && mhState.corruptionCardsPlayedPerChar[charId as string]) {
+              const charName = cardName(state, charData?.definitionId, charId as string);
+              logDetail(`Hazard short-event "${def.name}" blocked on ${charName}: corruption card already played this turn (CoE 7.2.1)`);
+              actions.push({
+                action: { ...action, targetCharacterId: charId },
+                viable: false,
+                reason: `Only one corruption card may be played on ${charName} per turn`,
+              });
+              continue;
+            }
+            if (shortPlayOptions.length > 0) {
+              const optionCtx = charDef && isCharacterCard(charDef)
+                ? { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, status: charData?.status } }
+                : { target: {} };
+              for (const opt of shortPlayOptions) {
+                if (opt.when && !matchesCondition(opt.when, optionCtx)) {
+                  logDetail(`Hazard short-event "${def.name}" on ${charId as string}: option "${opt.id}" when-condition rejected`);
+                  continue;
+                }
+                logDetail(`Hazard short-event "${def.name}" playable on character ${charId as string}: option "${opt.id}"`);
+                actions.push({
+                  action: { ...action, targetCharacterId: charId, optionId: opt.id },
+                  viable: true,
+                });
+              }
+              continue;
             }
             logDetail(`Hazard short-event "${def.name}" playable on character ${charId as string}`);
             actions.push({

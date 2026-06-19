@@ -590,6 +590,12 @@ export type ChainEntryPayload =
       readonly targetFactionInstanceId?: CardInstanceId;
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;
+      /**
+       * For hazard short-events with `play-option` effects (e.g. Weariness of
+       * the Heart le-149), the id of the option the hazard player chose at
+       * play time. The chain resolver dispatches that option's `apply`.
+       */
+      readonly optionId?: string;
     }
   | {
       readonly type: 'creature';

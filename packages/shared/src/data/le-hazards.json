@@ -918,8 +918,28 @@
     "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check.",
     "unique": false,
     "eventType": "short",
+    "certified": "2026-06-16",
     "keywords": [
       "corruption"
+    ],
+    "effects": [
+      { "type": "play-target", "target": "character" },
+      {
+        "type": "play-option",
+        "id": "prowess",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": -1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption",
+        "apply": { "type": "force-check", "check": "corruption" }
+      }
     ]
   }
 ]

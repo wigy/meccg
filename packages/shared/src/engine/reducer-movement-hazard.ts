@@ -1241,6 +1241,16 @@ function handlePlayHazardCard(
     // Move card from hand to discard (short events are discarded after resolution)
     const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
+    // CoE rule 7.2.1: only one corruption card may be played per character per
+    // turn. Corruption-keyword short-events played on a character (e.g.
+    // Weariness of the Heart le-149) mark the target so a second corruption
+    // card on the same character is rejected by the legal-action generator.
+    const shortTargetCharId = action.type === 'play-hazard' ? action.targetCharacterId : undefined;
+    const isCorruptionShort = def.keywords?.includes('corruption') === true;
+    const shortCorruptionPerChar = isCorruptionShort && shortTargetCharId
+      ? { ...mhState.corruptionCardsPlayedPerChar, [shortTargetCharId as string]: true as const }
+      : mhState.corruptionCardsPlayedPerChar;
+
     let newState: GameState = {
       ...updatePlayer(state, hazardIndex, p => ({
         ...p,
@@ -1251,6 +1261,7 @@ function handlePlayHazardCard(
         ...mhState,
         hazardsPlayedThisCompany: newHazardCount,
         resourcePlayerPassed: false,
+        corruptionCardsPlayedPerChar: shortCorruptionPerChar,
       },
     };
 
@@ -1320,6 +1331,9 @@ function handlePlayHazardCard(
         : {}),
       ...(action.type === 'play-hazard' && action.targetAllyId
         ? { targetAllyId: action.targetAllyId }
+        : {}),
+      ...(action.type === 'play-hazard' && action.optionId
+        ? { optionId: action.optionId }
         : {}),
     };
     if (newState.chain === null) {
