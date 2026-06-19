@@ -3144,5 +3144,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. All attacks against Wizard’s company suffer a -2 modification to prowess for the rest of the turn. Wizard makes a corruption check modified by -3."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-364",
+    "name": "Wizard’s River-horses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsRiverhorses.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. All Nazgûl events are discarded or cancels an attack against a Wizard if he is the only character in the company. Wizard makes a corruption check modified by -2."
   }
 ]
