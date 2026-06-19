@@ -2848,5 +2848,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at any site in Northern Rhovanion. During the site phase you can tap and discard Roäc the Raven to attempt to bring any faction into play —treat this influence check as if it was made by a diplomat at any site where the faction could be played. Using Roäc the Raven to make an influence attempt does not tap a site, and may be done if his company is at a tapped site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-321",
+    "name": "Sacrifice of Form",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SacrificeofForm.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. All of the strikes from one attack against your Wizard’s company fail; +3 to any body checks made to determine if the attack is defeated. Discard the Wizard (i. e., he becomes unrevealed) and any non-item, non-follower cards he controls. Place any items he controls under this card and keep these off to the side (these items are considered to still be in play).If the Wizard is put back into play, return his items to him and place Sacrifice of Form with him. Wizard receives +1 to his prowess, body, and direct influence. Cannot be duplicated on a given Wizard. Cannot be used in company vs. company combat.After Sacrifice of Form is played, you may not play a different Wizard and your opponent may not play the Wizard you sacrificed. This card is played after strikes are assigned."
   }
 ]
