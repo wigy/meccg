@@ -2094,5 +2094,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-192",
+    "name": "Andúril, the Flame of the West",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AnduriltheFlameoftheWest.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage makes a corruption check modified by -3. Keep sage tapped until Andúril is stored at a Haven [{H}]. Once stored, you may discard a stored Reforging and place Andúril with Narsil.In addition to Narsil’s effects, Andúril gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11), +1 direct influence, and one more corruption point. Andúril may be tapped to untap a Dúnadan character in the same company, but its bearer must make a corruption check modified by -1."
   }
 ]
