@@ -143,7 +143,23 @@
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "sorcery",
+        "cost": { "check": "corruption", "modifier": -4 },
+        "costExemptRace": "ringwraith",
+        "prowessPenalty": 3,
+        "when": { "$not": { "attack.source": { "$in": ["automatic-attack", "played-auto-attack"] } } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ],
+    "certified": "2026-06-17"
   },
   {
     "cardType": "minion-resource-event",

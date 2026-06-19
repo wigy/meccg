@@ -1820,6 +1820,21 @@ function cancelAttackActions(
           },
           viable: true,
         });
+        // Dual-mode cards (e.g. The Tormented Earth) also offer a
+        // "reduce attack prowess" variant paid by the same character.
+        if (cancelEffect.prowessPenalty !== undefined) {
+          logDetail(`Reduce-prowess (-${cancelEffect.prowessPenalty}) available: ${handCard.definitionId as string} via ${charData.definitionId as string}`);
+          actions.push({
+            action: {
+              type: 'cancel-attack',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              scoutInstanceId: charId,
+              mode: 'reduce-prowess',
+            },
+            viable: true,
+          });
+        }
       }
     } else {
       const hasMatch = company.characters.some(charId => {

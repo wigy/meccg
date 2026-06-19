@@ -270,6 +270,14 @@ export interface CancelAttackAction {
    * that character's instance ID here.
    */
   readonly targetCharacterId?: CardInstanceId;
+  /**
+   * Which mode of a dual-mode cancel card the player chose. `"cancel"` (the
+   * default when absent) cancels the attack outright; `"reduce-prowess"`
+   * instead lowers the attack's prowess by the effect's `prowessPenalty`. Set
+   * only for cards that declare a `prowessPenalty` (e.g. The Tormented Earth,
+   * as-102).
+   */
+  readonly mode?: 'cancel' | 'reduce-prowess';
 }
 
 /**
