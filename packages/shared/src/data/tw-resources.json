@@ -2941,5 +2941,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Environment. Modify the prowess of one Undead attack by -1.Alternatively, if Gates of Morning is in play, until the end of the turn, treat oneDark-domain [{d}] as a Shadow-land [{s}] orone Shadow-land [{s}] as a Wilderness [{w}].Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-334",
+    "name": "Stone of Erech",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StoneofErech.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play."
   }
 ]
