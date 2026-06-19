@@ -1472,5 +1472,30 @@
     ],
     "effects": [],
     "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-77",
+    "name": "Orc-warriors",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwarriors.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes."
   }
 ]
