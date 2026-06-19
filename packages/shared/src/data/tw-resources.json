@@ -2703,5 +2703,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable on Galadriel. +2 prowess, +2 body, +2 direct influence for the rest of the turn. Galadriel makes a corruption check modified by -3, by -1 if in a Haven [{H}]. Any one corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold [{D}] is automatically successful."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-293",
+    "name": "Old Friendship",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldFriendship.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. +5 to an influence check against a character by a diplomat. Alternatively, +4 to a corruption check by a character in a diplomat's company."
   }
 ]
