@@ -1121,5 +1121,15 @@
     ],
     "effects": [],
     "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-50",
+    "name": "Lost at Sea",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostatSea.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase."
   }
 ]
