@@ -1006,5 +1006,31 @@
     ],
     "effects": [],
     "text": "Men. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-15",
+    "name": "Barrow-wight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowwight2.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
   }
 ]
