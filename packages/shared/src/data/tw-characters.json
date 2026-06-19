@@ -2424,5 +2424,28 @@
     "homesite": "Southron Oasis",
     "effects": [],
     "text": "Unique. +2 direct influence against the Southron faction. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-187",
+    "name": "Wacho",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Wacho.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "sage"
+    ],
+    "prowess": 1,
+    "body": 8,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Woodmen-town",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Woodmen faction."
   }
 ]
