@@ -1276,5 +1276,20 @@
     ],
     "effects": [],
     "text": "Unique.Nazgûl (4th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Indûr Dawndeath becomes a short-event and makes any wounded character discard an item of his choice (but not a ring)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-66",
+    "name": "Mûmak (Oliphant)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MumakOliphant.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player."
   }
 ]
