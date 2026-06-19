@@ -2245,5 +2245,28 @@
     "homesite": "Shrel-Kain",
     "effects": [],
     "text": "Unique. +4 direct influence against the Easterlings faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-169",
+    "name": "Mablung",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Mablung.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 1,
+    "body": 6,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lond Galen",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Men of Anfalas faction."
   }
 ]
