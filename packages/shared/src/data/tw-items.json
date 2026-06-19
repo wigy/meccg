@@ -1533,5 +1533,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. +3 to bearer’s direct influence against Dwarves and Dwarf factions. If held by a Dwarf, The Arkenstone gives 5 marshalling points and 4 corruption points.The Arkenstone may be tapped to untap a Dwarf character in the same company, but target Dwarf must make a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-363",
+    "name": "Wizard’s Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsRing.jpg",
+    "unique": false,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 4,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
   }
 ]
