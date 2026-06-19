@@ -1423,5 +1423,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Unique. May not be played if The Iron Crown is in play. The prowess of one strike of an attack by an Orc, Troll, Man, or Nazgûl creature is increased by +4. After the attack is resolved, if the creature is not a Nazgûl: the creature is removed from play (defender receives the marshalling points); and, in addition, if the defender has The Iron Crown in his hand, he may immediately play it with a character in the defending company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-497",
+    "name": "A Pack at the Door",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/APackattheDoor.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
   }
 ]
