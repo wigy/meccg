@@ -1257,5 +1257,18 @@
     ],
     "effects": [],
     "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-69",
+    "name": "Night",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Night.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. The prowess of each non-ranger Dúnadan is modified by -1.Additionally, if Doors of Night is in play, the prowesses of all attacks are modified by +1 and the prowess of each Man and Dúnadan is modified by -1.Cannot be duplicated."
   }
 ]
