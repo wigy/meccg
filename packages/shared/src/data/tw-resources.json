@@ -3041,5 +3041,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "tw-350",
+    "name": "Tom Bombadil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TomBombadil.jpg",
+    "unique": true,
+    "prowess": 12,
+    "body": 11,
+    "marshallingPoints": 3,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Old Forest"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire."
   }
 ]
