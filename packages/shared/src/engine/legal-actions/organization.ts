@@ -858,7 +858,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
  * clauses against this context instead of hardcoded action-ID branches
  * in {@link grantedActionActivations}.
  */
-function buildGrantActionContext(
+export function buildGrantActionContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
   charDef: import('../../index.js').CharacterCard | undefined,
@@ -883,6 +883,13 @@ function buildGrantActionContext(
     : '';
   const atHaven = siteType === 'haven';
 
+  // `As your Ringwraith` gating: true only when this character is the player's
+  // own revealed avatar (a Ringwraith follower controlled by another avatar is
+  // an avatar card but is NOT the player's Ringwraith — see findPlayerAvatar).
+  const isRevealedAvatar = player
+    ? findPlayerAvatar(state, player)?.instanceId === char.instanceId
+    : false;
+
   const bearer = {
     status: statusStr,
     name: charDef?.name ?? '',
@@ -891,6 +898,7 @@ function buildGrantActionContext(
     canUsePalantir: !!canUsePalantir,
     siteType,
     atHaven,
+    isRevealedAvatar,
   };
 
   const companyCtx = company ? {
