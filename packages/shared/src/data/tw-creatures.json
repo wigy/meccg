@@ -1616,5 +1616,27 @@
     ],
     "effects": [],
     "text": "Unique.Troll. One strike."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-88",
+    "name": "Silent Watcher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SilentWatcher.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "pûkel-creature",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Pûkel-creature. Each character in the company faces one strike."
   }
 ]
