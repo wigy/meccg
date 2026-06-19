@@ -963,5 +963,15 @@
       }
     ],
     "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-6",
+    "name": "Arouse Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseDenizens.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
   }
 ]
