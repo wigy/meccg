@@ -1234,5 +1234,15 @@
     "eventType": "short",
     "effects": [],
     "text": "This card allows you to place a tapped Nazgûl permanent-event back into your hand instead of discarding it.Alternatively, allows a Nazgûl to be played keyed to a Shadow-land [{s}]."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-64",
+    "name": "Morgul-knife",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulknife.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +2. Discard if attack doesn’t wound a character. Cannot be duplicated on a company facing such an attack.Corruption. One character of attacker’s choice wounded by the attack (on whom a corruption card has not already been played this turn) receives 4 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 4, discard this card."
   }
 ]
