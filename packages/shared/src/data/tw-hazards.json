@@ -1303,5 +1303,15 @@
     ],
     "effects": [],
     "text": "Environment. Playable if Doors of Night is in play. Each non-Haven/non-Darkhaven site in play with a Coastal Sea [{c}] in its site path is tapped.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-93",
+    "name": "The Balance of Things",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBalanceofThings.jpg",
+    "unique": true,
+    "eventType": "long",
+    "effects": [],
+    "text": "Unique. Each character has the corruption points doubled for one of his sources of corruption (the player controlling the character chooses)."
   }
 ]
