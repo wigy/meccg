@@ -1131,5 +1131,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-51",
+    "name": "Lost in Border-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinBorderlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path."
   }
 ]
