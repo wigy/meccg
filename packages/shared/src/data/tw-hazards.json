@@ -1161,5 +1161,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a moving company. Its hazard limit increases by one for every Shadow-land [{s}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-55",
+    "name": "Lost in the Wilderness",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostintheWilderness.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Wilderness [{w}] in its site path."
   }
 ]
