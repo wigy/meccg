@@ -2861,5 +2861,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. All of the strikes from one attack against your Wizard’s company fail; +3 to any body checks made to determine if the attack is defeated. Discard the Wizard (i. e., he becomes unrevealed) and any non-item, non-follower cards he controls. Place any items he controls under this card and keep these off to the side (these items are considered to still be in play).If the Wizard is put back into play, return his items to him and place Sacrifice of Form with him. Wizard receives +1 to his prowess, body, and direct influence. Cannot be duplicated on a given Wizard. Cannot be used in company vs. company combat.After Sacrifice of Form is played, you may not play a different Wizard and your opponent may not play the Wizard you sacrificed. This card is played after strikes are assigned."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-324",
+    "name": "Secret Entrance",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SecretEntrance.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable only at the end of the organization phase; may not be played on a company moving to a site in a Dark-domain [{d}]. Tap a sage in the company, and no hazard creatures keyed to the site may be played on the company."
   }
 ]
