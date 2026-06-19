@@ -1707,5 +1707,29 @@
     ],
     "effects": [],
     "text": "Men. One strike. For each successful strike, an item held by the defending company must be discarded (defender’s choice); the defending character is not harmed."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-107",
+    "name": "Ûvatha the Horseman",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/UvathatheHorseman.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand."
   }
 ]
