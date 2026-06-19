@@ -1515,5 +1515,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Bearer may automatically influence the Riders of Rohan. +5 to the bearer’s direct influence against any character with Edoras as a home site."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-341",
+    "name": "The Arkenstone",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheArkenstone.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. +3 to bearer’s direct influence against Dwarves and Dwarf factions. If held by a Dwarf, The Arkenstone gives 5 marshalling points and 4 corruption points.The Arkenstone may be tapped to untap a Dwarf character in the same company, but target Dwarf must make a corruption check modified by -2."
   }
 ]
