@@ -2274,6 +2274,17 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // attack has ended via cancellation.
   stateWithCancelledPlayers = sweepExpired(stateWithCancelledPlayers, { kind: 'attack-end' });
 
+  // Per CoE 3.i.1 and CRF 22 Annotation 14, a company is still considered to
+  // have "faced" an attack once combat is initiated, even if the attack is
+  // then canceled. Record the canceled creature in hazardsEncountered so that
+  // subsequent creature self-effects see it — e.g. Orc-lieutenant's +4 prowess
+  // "if played on a company that has already faced an Orc attack this turn"
+  // must apply even when the prior Orc attack (e.g. Hobgoblins) was canceled.
+  // recordHazardEncountered is a no-op outside the M/H phase and for
+  // non-creature attack sources, so multi-attack partial cancels (which return
+  // earlier with combat still active) and card-triggered attacks are unaffected.
+  stateWithCancelledPlayers = recordHazardEncountered(stateWithCancelledPlayers, state, combat);
+
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
   return stateWithCancelledPlayers;
 }
