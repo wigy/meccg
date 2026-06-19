@@ -2239,5 +2239,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-223",
+    "name": "Elf-song",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Elfsong.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "When Elf-song comes into play, each character at a Haven [{H}] may immediately remove one corruption card.While Elf-song is in play, no character at a Haven may be discarded or returned to its owner’s hand for any reason."
   }
 ]
