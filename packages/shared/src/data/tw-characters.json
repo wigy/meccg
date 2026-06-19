@@ -2085,5 +2085,28 @@
     "homesite": "Vale of Erech",
     "effects": [],
     "text": "Unique. +2 direct influence against the Men of Lamedon faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-140",
+    "name": "Denethor II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DenethorII.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "sage"
+    ],
+    "prowess": 3,
+    "body": 6,
+    "mind": 4,
+    "directInfluence": 2,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Tower Guard of Minas Tirith faction."
   }
 ]
