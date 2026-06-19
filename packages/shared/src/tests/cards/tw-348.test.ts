@@ -14,7 +14,8 @@
  * - Requires a sage character in the company at Minas Tirith
  * - Site must be Minas Tirith (play-target site filter)
  * - Requires discarding a Sapling of the White Tree (from character
- *   items or out-of-play pile)
+ *   items or the marshalling point pile, where stored items live per
+ *   CoE rule 2.II.4.1)
  * - Not playable without a Sapling
  * - Not playable at other sites
  * - Not playable without a sage
@@ -63,7 +64,10 @@ describe('tw-348 The White Tree', () => {
     expect(action.targetSiteDefinitionId).toBe(MINAS_TIRITH);
   });
 
-  test('playable with Sapling from out-of-play pile (stored)', () => {
+  test('playable with Sapling stored in the marshalling point pile', () => {
+    // Regression for the karmi bug report (game mqi3vh2z-32ok2s, seq 804):
+    // a Sapling stored at Minas Tirith lands in the marshalling point pile
+    // (killPile) per CoE 2.II.4.1, and The White Tree must find it there.
     let state: GameState = buildSitePhaseState({
       site: MINAS_TIRITH,
       characters: [ELROND],
@@ -74,7 +78,7 @@ describe('tw-348 The White Tree', () => {
       definitionId: SAPLING_OF_THE_WHITE_TREE,
     };
     const p0 = state.players[0];
-    const updatedP0 = { ...p0, outOfPlayPile: [...p0.outOfPlayPile, saplingInstance] };
+    const updatedP0 = { ...p0, killPile: [...p0.killPile, saplingInstance] };
     state = { ...state, players: [updatedP0, state.players[1]] } as typeof state;
 
     const actions = computeLegalActions(state, PLAYER_1);
@@ -161,7 +165,7 @@ describe('tw-348 The White Tree', () => {
     expect(wtInPlay).toBe(true);
   });
 
-  test('playing discards the Sapling from out-of-play pile', () => {
+  test('playing discards the Sapling from the marshalling point pile', () => {
     let state: GameState = buildSitePhaseState({
       site: MINAS_TIRITH,
       characters: [ELROND],
@@ -172,7 +176,7 @@ describe('tw-348 The White Tree', () => {
       definitionId: SAPLING_OF_THE_WHITE_TREE,
     };
     const p0 = state.players[0];
-    const updatedP0 = { ...p0, outOfPlayPile: [...p0.outOfPlayPile, saplingInstance] };
+    const updatedP0 = { ...p0, killPile: [...p0.killPile, saplingInstance] };
     state = { ...state, players: [updatedP0, state.players[1]] } as typeof state;
 
     const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
@@ -182,8 +186,8 @@ describe('tw-348 The White Tree', () => {
       discardCardInstanceId: saplingInstance.instanceId,
     });
 
-    // Sapling should be in discard pile, not out-of-play pile
-    expect(state.players[0].outOfPlayPile).toHaveLength(0);
+    // Sapling should be in discard pile, no longer in the marshalling point pile
+    expect(state.players[0].killPile.some(c => c.definitionId === SAPLING_OF_THE_WHITE_TREE)).toBe(false);
     const saplingInDiscard = state.players[0].discardPile.some(
       c => c.definitionId === SAPLING_OF_THE_WHITE_TREE,
     );

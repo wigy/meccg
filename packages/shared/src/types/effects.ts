@@ -2229,13 +2229,15 @@ export interface PlayConditionEffect extends EffectBase {
   /**
    * Where to look for the named card.
    * - `character-items` — items on characters at the current site.
-   * - `out-of-play-pile` — the player's out-of-play pile (stored items).
+   * - `kill-pile` — the player's marshalling point pile, where successfully
+   *   stored items are placed (CoE rule 2.II.4.1). Used by The White Tree to
+   *   discard a Sapling stored at Minas Tirith.
    *
    * Also used for `requires: 'card-not-in-play'`: the card name that must
    * NOT be in play (as a character or in any player's cardsInPlay) for the
    * card to be playable.
    */
-  readonly sources?: readonly ('character-items' | 'out-of-play-pile')[];
+  readonly sources?: readonly ('character-items' | 'kill-pile')[];
   /**
    * For `requires: 'combat-creature-race'`: the required attacker race
    * (lowercase, e.g. `"dragon"`). When the current combat's

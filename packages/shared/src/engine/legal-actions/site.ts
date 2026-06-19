@@ -865,11 +865,14 @@ function playResourcesActions(
                   }
                 }
               }
-            } else if (source === 'out-of-play-pile') {
-              for (const card of player.outOfPlayPile) {
+            } else if (source === 'kill-pile') {
+              // Successfully stored items live in the marshalling point pile
+              // (killPile) per CoE rule 2.II.4.1 — e.g. a Sapling of the White
+              // Tree stored at Minas Tirith.
+              for (const card of player.killPile) {
                 const cardDef = defById(state, card.definitionId);
                 if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'out-of-play-pile' });
+                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
                 }
               }
             }
