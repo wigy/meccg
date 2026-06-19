@@ -3073,5 +3073,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. Before resolving an attack against the Wizard’s company, make a roll and add the Wizard’s prowess to the result. If the total is greater than the attack’s prowess, all of the attack’s strikes fail (if the attack has body, make body checks to determine if the attack is defeated). Otherwise, the attack proceeds normally. Wizard makes a corruption check modified by -3. Cannot be used in company vs. company combat."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-355",
+    "name": "Use Palantír",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/UsePalantir.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn."
   }
 ]
