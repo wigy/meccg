@@ -2356,5 +2356,27 @@
     "homesite": "Bag End",
     "effects": [],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-179",
+    "name": "Robin Smallburrow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RobinSmallburrow.jpg",
+    "unique": true,
+    "race": "hobbit",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 1,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bag End",
+    "effects": [],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
   }
 ]
