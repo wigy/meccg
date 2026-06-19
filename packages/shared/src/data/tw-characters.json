@@ -2153,5 +2153,29 @@
     "homesite": "Edoras",
     "effects": [],
     "text": "Unique. +2 direct influence against the Riders of Rohan faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-154",
+    "name": "Galva",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Galva.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 0,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Shrel-Kain",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Men of Dorwinion faction. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
   }
 ]
