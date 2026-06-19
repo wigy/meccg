@@ -1363,5 +1363,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Playable if Doors of Night is in play. All hazard long-events remain in play until this card is discarded.Discard this card if Doors of Night isnot in play, or when any play deck is exhausted. When this card is discarded, all hazard long events are discarded. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-101",
+    "name": "The Will of the Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWilloftheRing.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "The bearer of The One Ring makes a corruption check modified by -4."
   }
 ]
