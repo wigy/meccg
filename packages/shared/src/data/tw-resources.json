@@ -2081,5 +2081,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "A non-Wizard character (even a Hobbit) may be brought into play with direct influence at any Free-hold [{F}], Border-hold [{B}], or Ruins & Lairs [{R}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-191",
+    "name": "Anduin River",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AnduinRiver.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company."
   }
 ]
