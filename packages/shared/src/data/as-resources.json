@@ -620,7 +620,40 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": "ruins-and-lairs" },
+            { "lairOf": { "$exists": false } },
+            { "adjacentSites": { "$exists": false } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "shadow-hold",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attacks-detainment",
+          "scope": "until-cleared"
+        }
+      }
+    ],
+    "certified": "2026-06-19"
   },
   {
     "cardType": "minion-resource-event",

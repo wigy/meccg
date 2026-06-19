@@ -22,7 +22,7 @@ import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteN
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
-import { resolveEffective } from './effective.js';
+import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
@@ -547,6 +547,16 @@ function handleSiteAutomaticAttacks(
   // company" site effect fires only against a covert company.
   const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
 
+  // Effective site type and forced-detainment flag, honoring any
+  // site-transforming constraint bound to this site's definition id (Hold
+  // Rebuilt and Repaired, as-88: the Ruins & Lairs becomes a Shadow-hold and
+  // all automatic-attacks become detainment). The effective type drives the
+  // standard detainment keying (§3.II.2.R1/B1); the forced flag overrides
+  // detainment unconditionally for every alignment.
+  const siteDefIdForAttacks = company.currentSite!.definitionId;
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType);
+  const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefIdForAttacks);
+
   // Advance past attacks that do not apply to this company's covert/overt
   // status (e.g. Minas Tirith's Dúnedain attack, "against overt company
   // only"). Indices into `autoAttacks` are preserved so combat.attackSource
@@ -596,7 +606,7 @@ function handleSiteAutomaticAttacks(
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, dupBoostCtxR);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = isDetainmentAttack({
+        const dupDetainmentR = forcedDetainment || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -648,7 +658,7 @@ function handleSiteAutomaticAttacks(
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = isDetainmentAttack({
+      const dupDetainment = forcedDetainment || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -752,13 +762,14 @@ function handleSiteAutomaticAttacks(
     phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
-    detainment: isDetainmentAttack({
+    detainment: forcedDetainment || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
-      // Passing the site type lets the standard detainment rules fire correctly for
-      // Ringwraith/Balrog companies at dark-holds and shadow-holds.
-      attackKeyedTo: [{ siteTypes: [siteDef.siteType] }],
+      // The effective type honors any site-type override (e.g. Hold Rebuilt and
+      // Repaired turning a Ruins & Lairs into a Shadow-hold) so the standard
+      // detainment rules fire correctly for Ringwraith/Balrog companies.
+      attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
@@ -1060,7 +1071,7 @@ function handleSitePlaySiteAutoAttack(
     phase: 'assign-strikes',
     assignmentPhase: 'defender',
     bodyCheckTarget: null,
-    detainment: isDetainmentAttack({
+    detainment: (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false) || isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace as Race | null,
       attackKeyedTo: creatureDef.keyedTo,

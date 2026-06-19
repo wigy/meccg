@@ -13,7 +13,16 @@ Conditions use MongoDB-style query operators. An object with multiple keys is an
 { "$or": [{ "enemy.race": "undead" }, { "enemy.race": "nazgul" }] }
 { "$not": { "enemy.race": "undead" } }
 { "bearer.skills": { "$includes": "warrior" } }
+{ "lairOf": { "$exists": false } }
 ```
+
+Operators: `$includes`, `$gt`, `$gte`, `$lt`, `$lte`, `$ne`, `$in`,
+`$exists`, `$noConsecutiveOtherThan`, plus the boolean combinators `$and`,
+`$or`, `$not`. `$exists` is a presence test: `{ "$exists": true }` matches
+when the value is present (not `undefined`/`null`), `{ "$exists": false }`
+when it is absent — used to gate on optional card-definition fields (e.g. a
+site filter excluding Dragon's lairs via `{ "lairOf": { "$exists": false } }`
+and Under-deeps via `{ "adjacentSites": { "$exists": false } }`).
 
 A missing `when` means the effect always applies.
 
@@ -190,7 +199,8 @@ to be three separate constraint kinds
 Fields:
 
 - `attribute: AttributePath` — closed union: `auto-attack.prowess`,
-  `site.type`, `region.type` (extend as cards require).
+  `site.type`, `region.type`, `auto-attack.detainment` (extend as cards
+  require).
 - `op: 'add' | 'override'` — `add` sums; `override` replaces.
 - `value: number | string` — number for `add`; the encoded value
   (SiteType, RegionType, etc.) for `override`.
@@ -200,9 +210,26 @@ Fields:
 
 The card-data JSON keeps the legacy constraint names
 (`auto-attack-prowess-boost`, `site-type-override`,
-`region-type-override`) — `buildConstraintKind` translates them into
-`attribute-modifier` so existing card definitions did not need to
-change during the migration.
+`region-type-override`, `auto-attacks-detainment`) — `buildConstraintKind`
+translates them into `attribute-modifier` so existing card definitions did
+not need to change during the migration.
+
+The `site.type` `override` is honored everywhere a site's effective type is
+read via `engine/effective.ts::getEffectiveSiteType`: detainment keying and
+movement keying, faction/ally playability (`siteMatchesEntry`), and the
+haven/untap check. So a card that overrides a Ruins & Lairs to a Shadow-hold
+(Hold Rebuilt and Repaired, as-88) genuinely makes the site behave as a
+Shadow-hold for those systems.
+
+The `auto-attack.detainment` `override` (value truthy, filter
+`site.definitionId`) forces **every** automatic-attack at that site to be
+detainment, for any defending alignment — consulted via
+`engine/effective.ts::siteAutoAttacksForcedDetainment` and OR-ed into the
+detainment decision at each site automatic-attack call site. The card data
+declares it under the constraint name `auto-attacks-detainment` (resolved to
+the bound site from the active company's current site during the site phase).
+Used by Hold Rebuilt and Repaired (as-88: "all automatic-attacks become
+detainment").
 
 ### 3. `mp-modifier`
 

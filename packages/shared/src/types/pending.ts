@@ -51,11 +51,17 @@ export type ConstraintId = string & { readonly __brand: 'ConstraintId' };
  *    Haven-tests.
  *  - `region.type` — override the effective {@link RegionType} for a named
  *    region (filter: `region.name`). Consulted by creature keying.
+ *  - `auto-attack.detainment` — when overridden truthy for a specific site
+ *    (filter: `site.definitionId`), every automatic-attack at that site is
+ *    resolved as detainment regardless of the defending alignment. Consulted
+ *    via {@link siteAutoAttacksForcedDetainment}. Used by Hold Rebuilt and
+ *    Repaired (as-88).
  */
 export type AttributePath =
   | 'auto-attack.prowess'
   | 'site.type'
-  | 'region.type';
+  | 'region.type'
+  | 'auto-attack.detainment';
 
 // ---- Shape A: Pending resolutions ----
 

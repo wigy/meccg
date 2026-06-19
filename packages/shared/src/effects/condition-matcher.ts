@@ -42,7 +42,7 @@ function isNot(c: Condition): c is ConditionNot {
 }
 
 /** All recognized operator keys in a ConditionOperator. */
-const OPERATOR_KEYS = ['$includes', '$gt', '$gte', '$lt', '$lte', '$ne', '$in', '$noConsecutiveOtherThan'] as const;
+const OPERATOR_KEYS = ['$includes', '$gt', '$gte', '$lt', '$lte', '$ne', '$in', '$exists', '$noConsecutiveOtherThan'] as const;
 
 /** Type guard: is a match value an operator object like `{ $includes: "warrior" }`? */
 function isOperator(v: unknown): v is ConditionOperator {
@@ -81,6 +81,10 @@ function matchesEntry(
     }
     if (expected.$in !== undefined) {
       return expected.$in.includes(contextValue as string | number);
+    }
+    if (expected.$exists !== undefined) {
+      const present = contextValue !== undefined && contextValue !== null;
+      return expected.$exists ? present : !present;
     }
     if (expected.$noConsecutiveOtherThan !== undefined) {
       if (!Array.isArray(contextValue)) return false;

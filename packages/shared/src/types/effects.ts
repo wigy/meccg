@@ -95,6 +95,15 @@ export interface ConditionOperator {
   /** Checks that the context value is a member of the given array. */
   readonly $in?: readonly (string | number)[];
   /**
+   * Presence test. `{ $exists: true }` matches when the context value is
+   * present (not `undefined`); `{ $exists: false }` matches when it is
+   * absent. Used to gate on optional card-definition fields — e.g. a
+   * site filter excluding Dragon's lairs (`lairOf` present) and
+   * Under-deeps sites (`adjacentSites` present):
+   * `{ "lairOf": { "$exists": false } }`.
+   */
+  readonly $exists?: boolean;
+  /**
    * Array predicate: no two consecutive elements both differ from the
    * given value. Used by Great Ship's coastal path condition
    * ("no two consecutive non-Coastal regions"). Context value must be

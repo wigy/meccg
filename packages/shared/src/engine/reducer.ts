@@ -38,12 +38,12 @@ import { accrueRevealedInstances } from './visibility.js';
  * identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(discardOrphanedControlledFactions(applyManifestationCascade(state))));
+  return accrueRevealedInstances(recomputeDerived(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state)))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
