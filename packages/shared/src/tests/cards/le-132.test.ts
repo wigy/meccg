@@ -38,6 +38,7 @@ import {
   charIdAt, dispatch, setCharStatus,
   expectCharStatus, expectInDiscardPile,
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
+  recomputeDerived,
 } from '../test-helpers.js';
 import type { PlayHazardAction, ActivateGrantedAction, CardDefinitionId, MoveToInfluenceAction } from '../../index.js';
 
@@ -281,6 +282,130 @@ describe('Rebel-talk (le-132)', () => {
     expect(current.players[0].characters[faramirId as string].controlledBy).toBe('general');
     // Aragorn should no longer list Faramir as a follower
     expect(current.players[0].characters[aragornId as string].followers).not.toContain(faramirId);
+  });
+
+  // ── Regression: GI subtraction deferred to next org phase (CoE 2.II.2.2.3) ──
+
+  test('does not immediately subtract the bearer mind from general influence when played outside an org phase', () => {
+    // Bug: a follower stripped of direct-influence control by Rebel-talk during
+    // the opponent's hazard phase had its mind subtracted from general influence
+    // immediately. Per CoE 2.II.2.2.3 the subtraction must be deferred to the
+    // controlling player's next organization phase.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: ARAGORN },
+              { defId: FARAMIR, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [REBEL_TALK],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const mhState = { ...base, phaseState: makeMHState() };
+    const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
+    const giBefore = mhState.players[0].generalInfluenceUsed;
+
+    // Play Rebel-talk on Faramir and resolve the chain.
+    const playActions = viableActions(mhState, PLAYER_2, 'play-hazard');
+    const targetFaramir = playActions.find(
+      ea => (ea.action as PlayHazardAction).targetCharacterId === faramirId,
+    );
+    expect(targetFaramir).toBeDefined();
+
+    let current = dispatch(mhState, targetFaramir!.action);
+    for (let i = 0; i < 10 && current.chain !== null; i++) {
+      const pass = viableActions(current, current.chain.priority, 'pass-chain-priority');
+      if (pass.length === 0) break;
+      const r = reduce(current, pass[0].action);
+      if (r.error) break;
+      current = r.state;
+    }
+
+    // Faramir is now under general influence but flagged as not-yet-subtracted.
+    expect(current.players[0].characters[faramirId as string].controlledBy).toBe('general');
+    expect(current.players[0].characters[faramirId as string].influenceUnsubtracted).toBe(true);
+    // General influence used must NOT have increased by Faramir's mind.
+    expect(current.players[0].generalInfluenceUsed).toBe(giBefore);
+  });
+
+  test('subtracts the deferred mind once the controlling player reaches their next org phase', () => {
+    // After the deferral, the character's mind must start counting against
+    // general influence at the start of the player's next organization phase.
+    const base = buildTestState({
+      phase: Phase.Untap,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, FARAMIR] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const faramirId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    // Baseline: both Aragorn and Faramir count under general influence.
+    const giWithFaramir = base.players[0].generalInfluenceUsed;
+
+    // Simulate the deferred state: Faramir under GI but flagged not-yet-subtracted.
+    const flagged = {
+      ...base,
+      phaseState: {
+        phase: Phase.Untap,
+        untapped: false,
+        hazardSideboardDestination: null,
+        hazardSideboardFetched: 0,
+        hazardSideboardAccessed: true,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: true,
+      } as typeof base.phaseState,
+      players: base.players.map((p, idx) => idx !== 0 ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [faramirId as string]: {
+            ...p.characters[faramirId as string],
+            controlledBy: 'general' as const,
+            influenceUnsubtracted: true,
+          },
+        },
+      }) as unknown as typeof base.players,
+    };
+
+    // While flagged, Faramir's mind is excluded from general influence.
+    const recomputedFlagged = recomputeDerived(flagged);
+    const giDeferred = recomputedFlagged.players[0].generalInfluenceUsed;
+    expect(giDeferred).toBeLessThan(giWithFaramir);
+
+    // Advancing to the organization phase clears the flag → mind now counts again.
+    const inOrg = dispatch(recomputedFlagged, { type: 'untap', player: PLAYER_1 });
+    expect(inOrg.phaseState.phase).toBe(Phase.Organization);
+    expect(inOrg.players[0].characters[faramirId as string].influenceUnsubtracted).toBeUndefined();
+    expect(inOrg.players[0].generalInfluenceUsed).toBe(giWithFaramir);
   });
 
   // ── Effect 4: grant-action remove-self-on-roll ────────────────────────────
