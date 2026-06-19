@@ -2407,5 +2407,21 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable during your organization phase. Shuffle your hand and your discard pile into your play deck (site cards remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar from the game.Cannot be included in a Fallen-wizard's deck."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-241",
+    "name": "Fog",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Fog.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Environment. Playable only if Gates of Morning is in play. Treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}] and all Shadow-lands [{s}] as Wildernesses [{w}] and all Dark-domains [{d}] as Shadow-lands [{s}].Cannot be duplicated."
   }
 ]
