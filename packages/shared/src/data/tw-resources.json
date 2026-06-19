@@ -2829,5 +2829,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Playable only during the site phase if a sage is untapped at an untapped site where Information is playable, and only if a character in his company has a gold ring. Tap the sage and the site. Test the gold ring, no roll is used, the player may discard the gold ring and play any ring to replace it (except for The One Ring)."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "tw-320",
+    "name": "Roäc the Raven",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RoactheRaven.jpg",
+    "unique": true,
+    "prowess": -3,
+    "body": 8,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "any site in Northern Rhovanion"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at any site in Northern Rhovanion. During the site phase you can tap and discard Roäc the Raven to attempt to bring any faction into play —treat this influence check as if it was made by a diplomat at any site where the faction could be played. Using Roäc the Raven to make an influence attempt does not tap a site, and may be done if his company is at a tapped site."
   }
 ]
