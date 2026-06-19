@@ -1108,5 +1108,18 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-49",
+    "name": "Long Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LongWinter.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
   }
 ]
