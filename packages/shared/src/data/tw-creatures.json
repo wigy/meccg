@@ -1523,5 +1523,27 @@
     ],
     "effects": [],
     "text": "Orcs. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-79",
+    "name": "Pick-pocket",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Pickpocket.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed."
   }
 ]
