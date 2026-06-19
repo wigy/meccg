@@ -2787,5 +2787,21 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-309",
+    "name": "Quiet Lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/QuietLands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Environment. Until the end of the turn, the number of strikes for one automatic-attack at a Shadow-hold [{S}] or a Ruins & Lairs [{R}] is reduced by half (rounded up).Alternatively, if Gates of Morning is in play, treat one Shadow-land [{s}] as a Wilderness [{w}] or one Shadow-hold [{S}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
   }
 ]
