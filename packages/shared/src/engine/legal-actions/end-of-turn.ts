@@ -13,7 +13,10 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
 import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition, characterEntries, playerById, getCardEffects, defById } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany } from '../reducer-utils.js';
+import { isCharacterCard } from '../../index.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+import { buildGrantActionContext } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
 import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -295,6 +298,22 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     for (const effect of getCardEffects(sourceDef)) {
       const fetchApply = findFetchApply(effect);
       if (!fetchApply || effect.type !== 'grant-action') continue;
+
+      // Evaluate the grant-action's `when` gate (e.g. Indûr the Ringwraith's
+      // "As your Ringwraith" → bearer.isRevealedAvatar). Built against the
+      // bearer-character that pays the tap, so item-borne grants gate on the
+      // bearer too.
+      if (effect.when) {
+        const charDef = defById(state, char.definitionId);
+        const charDefCard = charDef && isCharacterCard(charDef) ? charDef : undefined;
+        const company = findCharacterCompany(player.companies, charId);
+        const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+        if (!matchesCondition(effect.when, ctx)) {
+          logDetail(`Grant-action ${effect.action}: when condition failed on ${sourceDef?.name ?? sourceDefinitionId}`);
+          continue;
+        }
+      }
+
       const filter: Condition | undefined = fetchApply.filter;
 
       // Cost check. 'self' only makes sense when the source IS the bearer

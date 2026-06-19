@@ -1159,8 +1159,29 @@
         "stat": "prowess",
         "value": -3,
         "when": { "bearer.ringwraithMode": "fell-rider" }
+      },
+      {
+        "type": "grant-action",
+        "action": "indur-fetch-magic",
+        "cost": { "tap": "self" },
+        "when": { "bearer.isRevealedAvatar": true },
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "$or": [
+              { "keywords": { "$includes": "spell" } },
+              { "keywords": { "$includes": "sorcery" } },
+              { "keywords": { "$includes": "spirit-magic" } },
+              { "keywords": { "$includes": "shadow-magic" } }
+            ]
+          }
+        }
       }
-    ]
+    ],
+    "certified": "2026-06-19"
   },
   {
     "cardType": "minion-character",

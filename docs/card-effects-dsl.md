@@ -386,6 +386,19 @@ Actions:
   walks both character-direct and attached-item grant-actions, offers
   one activation per discard-pile card matching the apply's filter,
   and requires an untapped bearer.
+- `indur-fetch-magic` — tap Indûr the Ringwraith (le-54) at the
+  beginning of his end-of-turn phase to take one **magic card** from the
+  discard pile to hand. The "magic card" filter is an `$or` over the
+  keywords `"spell"`, `"sorcery"`, `"spirit-magic"`, and `"shadow-magic"`
+  (every magic/spell card carries one). Gated by the grant-action's
+  `when: { "bearer.isRevealedAvatar": true }` so the ability applies only
+  while Indûr is the player's own revealed Ringwraith avatar — when he is
+  played as a *Ringwraith follower* of another avatar (`controlledBy` set
+  to that avatar) the fetch is not offered ("As your Ringwraith"). The
+  end-of-turn fetch scanner (`legal-actions/end-of-turn.ts`) now evaluates
+  the grant-action's `when` gate via the shared grant-action context,
+  which exposes `bearer.isRevealedAvatar` (true only for the character
+  returned by `findPlayerAvatar`).
 - `cancel-return-and-site-tap` — tap bearer (ranger) during
   organization to add a turn-scoped constraint cancelling hazard
   effects that force return to site of origin or tap the company's
