@@ -2062,5 +2062,28 @@
     "homesite": "Iron Hill Dwarf-hold",
     "effects": [],
     "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-139",
+    "name": "Damrod",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Damrod.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "scout",
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Vale of Erech",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Men of Lamedon faction."
   }
 ]
