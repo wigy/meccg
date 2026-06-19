@@ -1227,5 +1227,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-225",
+    "name": "Elven Cloak",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ElvenCloak.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Tap Elven Cloak to cancel one hazard creature strike against bearer keyed by type to one or more Wilderness [{w}]. Cannot be duplicated on a given character."
   }
 ]
