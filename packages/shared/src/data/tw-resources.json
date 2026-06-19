@@ -2481,5 +2481,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-260",
+    "name": "Horses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Horses.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only at the end of the organization phase. Hazard limit for a company is decreased by two (to a minimum of 2). The prowess of any hazard creatures played against this company is modified by +2."
   }
 ]
