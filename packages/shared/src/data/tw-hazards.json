@@ -1181,5 +1181,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Corruption. A revealed Wizard receives 2 corruption points and makes a corruption check at the end of any movement/hazard phase in a turn during which his company moved to a Haven [{H}]. Cannot be duplicated on a given Wizard.During his organization phase, a Wizard with this card may tap to attempt to remove it. Make a roll: if this result is greater than 6, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-57",
+    "name": "Lure of Expedience",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofExpedience.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character."
   }
 ]
