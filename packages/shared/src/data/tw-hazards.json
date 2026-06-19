@@ -1072,5 +1072,18 @@
     "eventType": "short",
     "effects": [],
     "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-35",
+    "name": "Fell Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellWinter.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
   }
 ]
