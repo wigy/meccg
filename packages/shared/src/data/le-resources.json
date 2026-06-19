@@ -1900,7 +1900,7 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 8,
+    "influenceNumber": 9,
     "race": "man",
     "playableAt": [
       {
@@ -2021,7 +2021,7 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 10,
+    "influenceNumber": 11,
     "race": "man",
     "playableAt": [
       {
@@ -2484,7 +2484,7 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 8,
+    "influenceNumber": 9,
     "race": "man",
     "playableAt": [
       {
@@ -2502,7 +2502,7 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 10,
+    "influenceNumber": 11,
     "inPlayInfluenceNumber": 0,
     "race": "wolf",
     "playableAt": [
