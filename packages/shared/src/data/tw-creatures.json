@@ -1231,5 +1231,26 @@
     ],
     "effects": [],
     "text": "Unique.Nazgûl (6th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Hoarmûrath of Dír becomes a short-event and gives +1 strike to any one attack."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-45",
+    "name": "Huorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Huorn.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "awakened plant",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
   }
 ]
