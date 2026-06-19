@@ -2394,5 +2394,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Playable during the site phase on an untapped sage at an untapped site where Information is playable. Tap the sage and the site. Search through your play deck and choose an item that you must reveal to your opponent. This item is placed in your hand and the play deck is reshuffled. The sage makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-239",
+    "name": "Favor of the Valar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FavoroftheValar.jpg",
+    "unique": true,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable during your organization phase. Shuffle your hand and your discard pile into your play deck (site cards remain in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar from the game.Cannot be included in a Fallen-wizard's deck."
   }
 ]
