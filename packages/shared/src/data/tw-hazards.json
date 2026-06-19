@@ -1313,5 +1313,15 @@
     "eventType": "long",
     "effects": [],
     "text": "Unique. Each character has the corruption points doubled for one of his sources of corruption (the player controlling the character chooses)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-94",
+    "name": "The Burden of Time",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBurdenofTime.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on an Elf not in a Haven/Darkhaven [{H}]. Target Elf receives 2 corruption points and must make a corruption check during each of his untap phases if he is not in a Haven. Cannot be duplicated on a given Elf.During his organization phase, an Elf with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
   }
 ]
