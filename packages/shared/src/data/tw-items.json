@@ -1479,5 +1479,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Palantír. If the bearer’s company is ever below 4 characters and the company moves, discard. 5 marshalling pts. if stored in a Haven [{H}]. With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any Palantír in play. Bearer makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-304",
+    "name": "Potion of Prowess",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PotionofProwess.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Discard to give +1 prowess to all characters in bearer’s company until the end of the turn."
   }
 ]
