@@ -2462,5 +2462,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-258",
+    "name": "Hobbits",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hobbits.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "hobbit",
+    "playableAt": [
+      {
+        "site": "Bag"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4)."
   }
 ]
