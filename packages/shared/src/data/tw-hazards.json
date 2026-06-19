@@ -983,5 +983,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a Shadow-hold [{S}] or Dark-hold [{D}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated at a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-9",
+    "name": "Awaken Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenDenizens.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Ruins & Lairs [{R}] site is doubled.Cannot be duplicated."
   }
 ]
