@@ -2954,5 +2954,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-337",
+    "name": "Tempering Friendship",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TemperingFriendship.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "+4 to an influence attempt against a faction."
   }
 ]
