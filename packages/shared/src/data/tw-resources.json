@@ -2107,5 +2107,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage makes a corruption check modified by -3. Keep sage tapped until Andúril is stored at a Haven [{H}]. Once stored, you may discard a stored Reforging and place Andúril with Narsil.In addition to Narsil’s effects, Andúril gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11), +1 direct influence, and one more corruption point. Andúril may be tapped to untap a Dúnadan character in the same company, but its bearer must make a corruption check modified by -1."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-193",
+    "name": "Army of the Dead",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArmyoftheDead.jpg",
+    "unique": true,
+    "marshallingPoints": 6,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "special",
+    "playableAt": [
+      {
+        "site": "Vale"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Vale of Erech. May only be played by Aragorn II on the same turn that he plays Paths of the Dead. May not be influenced by an opponent."
   }
 ]
