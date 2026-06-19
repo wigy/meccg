@@ -1993,5 +1993,27 @@
     "homesite": "Blue Mountain Dwarf-hold",
     "effects": [],
     "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-135",
+    "name": "Boromir II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BoromirII2.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Men of Anórien faction. -1 to all of his corruption checks."
   }
 ]
