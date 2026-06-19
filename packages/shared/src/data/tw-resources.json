@@ -2906,5 +2906,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-329",
+    "name": "Southrons",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Southrons.jpg",
+    "unique": true,
+    "marshallingPoints": 5,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Southron"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2)."
   }
 ]
