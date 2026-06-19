@@ -1343,5 +1343,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Unique. Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +1. If played on a company facing an attack from The Witch-king of Angmar, his prowess is increased by +1 plus the number of Nazgûl permanent-events in play. Cannot be duplicated on a company facing such an attack.‌ Discard if attack doesn’t wound a character.Corruption. One character of attacker’s choice wounded by this attack (on whom a corruption card has not already been played this turn) receives 6 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 5, discard this card. Cannot be duplicated on a given Nazgûl."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-98",
+    "name": "The Precious",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePrecious.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "A character in the same company (hazard player’s choice) as The One Ring (not the bearer himself) must make a corruption check modified by -2. If he fails, discard The One Ring along with the target character."
   }
 ]
