@@ -1391,5 +1391,33 @@
     ],
     "effects": [],
     "text": "Orcs. One strike. If played on a company that has already faced an Orc attack this turn, Orc-lieutenant receives +4 prowess."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-74",
+    "name": "Orc-patrol",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcpatrol.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes."
   }
 ]
