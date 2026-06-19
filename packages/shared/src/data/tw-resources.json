@@ -2552,5 +2552,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-268",
+    "name": "Lossoth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lossoth.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Lossadan"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Lossadan Camp if the influence check is greater than 8. Standard Modifications: Men (+1)."
   }
 ]
