@@ -412,14 +412,52 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PalantirofOrthanc.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to move to your play deck (reshuffle the play deck). Bearer then makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Isengard"
+        ]
+      },
+      {
+        "type": "grant-action",
+        "action": "palantir-fetch-discard",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "$and": [
+            {
+              "bearer.canUsePalantir": true
+            },
+            {
+              "player.playDeckSize": {
+                "$gte": 5
+              }
+            }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": [
+            "discard-pile"
+          ],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true
+        }
+      }
+    ],
+    "text": "Unique. Palantír. Playable at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to move to your play deck (reshuffle the play deck). Bearer then makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
+    "certified": "2026-06-17"
   }
 ]
