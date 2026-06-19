@@ -2268,5 +2268,27 @@
     "homesite": "Lond Galen",
     "effects": [],
     "text": "Unique. +2 direct influence against the Men of Anfalas faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-170",
+    "name": "Merry",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Merry.jpg",
+    "unique": true,
+    "race": "hobbit",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 1,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bag End",
+    "effects": [],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
   }
 ]
