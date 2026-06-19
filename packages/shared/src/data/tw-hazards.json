@@ -973,5 +973,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-7",
+    "name": "Arouse Minions",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseMinions.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Shadow-hold [{S}] or Dark-hold [{D}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated at a given site."
   }
 ]
