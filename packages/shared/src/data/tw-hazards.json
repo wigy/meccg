@@ -1016,5 +1016,15 @@
     ],
     "effects": [],
     "text": "Environment. Modify the prowess of one automatic-attack at a Shadow-hold [{S}] or Dark-hold [{D}] site by +2.Alternatively, if Doors of Night is in play, treat one Shadow-land [{s}] as a Dark-domain [{d}] or one Shadow-hold [{S}] as a Dark-hold [{D}] until the end of the turn.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-13",
+    "name": "Bane of the Ithil-stone",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BaneoftheIthilstone.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption points for Palantíri are doubled.Automatically cancels any effect that causes a player to search through or look at any portion of a play deck or a discard pile outside of the normal sequence of play. Discard Bane of the Ithil-stone whenever a play deck is exhausted.This card has no effect on a minion player.Cannot be duplicated."
   }
 ]
