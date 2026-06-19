@@ -2651,5 +2651,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Environment. If Gates of Morning is in play, treat all Wildernesses [{w}] as Border-lands [{b}] and all Border-lands [{b}] as Free-domains [{f}] for the purposes of playing hazards.If Doors of Night is in play, treat all Dark-domains [{d}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Wildernesses [{w}] for the purposes of playing hazards.Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-286",
+    "name": "Morannon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morannon.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a company that has a size of less than three, contains a scout, and begins the turn at a site in Dagorlad. This card is used as a Dark-hold [{D}] site card in the region of Udûn that is moved to using the site path: {s} {d} (the moving player draws 2 cards and his opponent draws 5 cards). The company can later leave this site using region cards or by using the following site path to move to Lórien: {d} {d} {s} {w} {f} {b} {w}. Discard Morannon when the company successfully plays a new site card."
   }
 ]
