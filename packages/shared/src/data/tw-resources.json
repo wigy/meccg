@@ -3202,5 +3202,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-369",
+    "name": "Woses of Old Pûkel-land",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WosesofOldPukelland.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "wose",
+    "playableAt": [
+      {
+        "site": "Wose"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none."
   }
 ]
