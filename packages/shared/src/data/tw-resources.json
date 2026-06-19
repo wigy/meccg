@@ -2355,5 +2355,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Free-domain [{f}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-236",
+    "name": "Fair Travels in Shadow-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FairTravelsinShadowlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase if target company plays a new site card. If the site path has at least one Shadow-land [{s}], the hazard limit for the target company decreases by one (or by two if Gates of Morning is in play) to a minimum of two. Cannot be duplicated on the same company."
   }
 ]
