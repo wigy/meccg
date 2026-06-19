@@ -2177,5 +2177,27 @@
     "homesite": "Shrel-Kain",
     "effects": [],
     "text": "Unique. +2 direct influence against the Men of Dorwinion faction. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-155",
+    "name": "Gamling the Old",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GamlingtheOld.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 1,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras",
+    "effects": [],
+    "text": "Unique."
   }
 ]
