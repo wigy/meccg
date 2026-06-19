@@ -1245,5 +1245,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Tap Elven Cloak to cancel one hazard creature strike against bearer keyed by type to one or more Wilderness [{w}]. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-227",
+    "name": "Ent-draughts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Entdraughts.jpg",
+    "unique": false,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 1,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Only playable at Wellinghall in addition to an ally or faction that has been successfully played at Wellinghall this turn. +1 to prowess. This item may not be stolen, transferred, or stored. Cannot be duplicated on a given character."
   }
 ]
