@@ -993,5 +993,15 @@
     "eventType": "long",
     "effects": [],
     "text": "The number of strikes for each automatic-attack at a Ruins & Lairs [{R}] site is doubled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-10",
+    "name": "Awaken Minions",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenMinions.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Shadow-hold [{S}] site or at a Dark-hold [{D}] site is doubled.Cannot be duplicated."
   }
 ]
