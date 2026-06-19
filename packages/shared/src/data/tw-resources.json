@@ -2690,5 +2690,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable on Gandalf. +4 prowess, +1 body, +2 direct influence for the rest of the turn.Immediately untap all unwounded characters in Gandalf’s company. Gandalf makes a corruption check modified by -5."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-291",
+    "name": "Nenya",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Nenya.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on Galadriel. +2 prowess, +2 body, +2 direct influence for the rest of the turn. Galadriel makes a corruption check modified by -3, by -1 if in a Haven [{H}]. Any one corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold [{D}] is automatically successful."
   }
 ]
