@@ -1244,5 +1244,18 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +2. Discard if attack doesn’t wound a character. Cannot be duplicated on a company facing such an attack.Corruption. One character of attacker’s choice wounded by the attack (on whom a corruption card has not already been played this turn) receives 4 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 4, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-68",
+    "name": "New Moon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/NewMoon.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated."
   }
 ]
