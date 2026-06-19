@@ -2015,5 +2015,29 @@
     "homesite": "Minas Tirith",
     "effects": [],
     "text": "Unique. +2 direct influence against the Men of Anórien faction. -1 to all of his corruption checks."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-137",
+    "name": "Círdan",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cirdan.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 6,
+    "body": 8,
+    "mind": 8,
+    "directInfluence": 4,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Grey Havens",
+    "effects": [],
+    "text": "Unique. When Círdan is at the Grey Havens, you may keep one more card than normal in your hand.May tap to cancel one attack against his company keyed to a Coastal Sea region.+2 direct influence against the Elves of Lindon faction.-3 marshalling points if eliminated."
   }
 ]
