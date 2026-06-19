@@ -1291,5 +1291,26 @@
     "keyedTo": [],
     "effects": [],
     "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-70",
+    "name": "Old Man Willow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldManWillow.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "awakened plant",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Awakened Plant. One strike. 15 prowess against Hobbits. May also be played keyed to Fangorn, Heart of Mirkwood, Southern Mirkwood, and Western Mirkwood; and may also be played at Ruins & Lairs [{R}], Shadow-holds [{S}], and Dark-holds [{D}] in these regions. Also playable at Old Forest and Drúadan Forest."
   }
 ]
