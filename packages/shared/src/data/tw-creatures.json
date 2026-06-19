@@ -1731,5 +1731,29 @@
     ],
     "effects": [],
     "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-65",
+    "name": "Mouth of Sauron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MouthofSauron.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 13,
+    "body": 8,
+    "killMarshallingPoints": 3,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand."
   }
 ]
