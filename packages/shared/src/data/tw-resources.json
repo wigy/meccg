@@ -2507,5 +2507,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. +2 prowess against one attack for all characters in the same company as the Wizard. Wizard makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-264",
+    "name": "Lapse of Will",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LapseofWill.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "The prowess of each attack is modified by -1. The prowess of each Nazgûl attack is modified by -3."
   }
 ]
