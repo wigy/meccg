@@ -2755,5 +2755,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Diplomat only. Make two rolls when making an influence check and choose one result to use."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-305",
+    "name": "Praise to Elbereth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PraisetoElbereth.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "For each of your characters in play that you choose to tap (when this card is declared), cancel one Nazgûl event or one Nazgûl attack against that character's company. Nazgûl events discarded by Praise to Elbereth have no effect and Nazgûl permanent-events that are targeted by Praise to Elbereth may not be tapped in response to its play.Additionally, if Doors of Night is in play, characters gain +1 prowess until the end of the turn."
   }
 ]
