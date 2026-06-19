@@ -54,11 +54,10 @@ describe('Rule 2.11 — Phase Transitions', () => {
 
   test('Organization to Long-Event: a single pass advances directly', () => {
     // CoE rule wording: end-of-organization-phase plays exist (e.g. Stealth,
-    // Concealment). They are now playable during normal organization
-    // play-actions, and playing one implicitly transitions the engine
-    // into the `end-of-org` sub-step where only further end-of-org plays
-    // remain legal. When the active player has no end-of-org cards to
-    // play, a single pass advances directly to the Long-event phase.
+    // Concealment). They are playable during normal organization
+    // play-actions and do not lock the phase (CoE 2.II.7) — the player
+    // advances to the Long-event phase by passing. A single pass advances
+    // directly; there is no separate end-of-org sub-step to traverse.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,

@@ -10,7 +10,6 @@ import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, Organiza
 import type { PlayFlagEffect } from '../types/effects.js';
 import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
@@ -110,42 +109,27 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
 /**
  * Dispatch a play-short-event action during organization. Hazard short
  * events go through the hazard flow; resource short events resolve their
- * DSL effects. After a resource end-of-org card plays successfully, the
- * phase implicitly transitions into the end-of-org sub-step so the active
- * player can chain more end-of-org plays but no further normal organization
- * actions this turn.
+ * DSL effects.
+ *
+ * Playing an "end of the organization phase" card (e.g. Stealth) does NOT
+ * end the organization phase or foreclose any further normal organization
+ * actions. Per CoE 2.II.7 the resource player may declare movement (and
+ * otherwise organize) "either before or after organizing" at any point
+ * during the organization phase; no rule states that an end-of-org play
+ * terminates those actions. The active player stays in the normal
+ * play-actions window and advances to the Long-event phase only by passing.
  */
 function handleOrganizationPlayShortEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
-  let result: ReducerResult;
-  let endOfOrgPlay = false;
   if (action.cardInstanceId) {
     const player = playerById(state, action.player);
     const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
     const def = card ? defById(state, card.definitionId) : undefined;
     if (isResourceEventCard(def)) {
-      endOfOrgPlay = isEndOfOrgPlay(def);
-      result = handlePlayResourceShortEvent(state, action);
-    } else {
-      result = handlePlayShortEvent(state, action);
-    }
-  } else {
-    result = handlePlayShortEvent(state, action);
-  }
-  if (!result.error && endOfOrgPlay) {
-    const newOrgState = result.state.phaseState as OrganizationPhaseState;
-    if (newOrgState.phase === Phase.Organization && newOrgState.step !== 'end-of-org') {
-      logDetail(`Organization: end-of-org card played → entering end-of-org sub-step`);
-      return {
-        ...result,
-        state: {
-          ...result.state,
-          phaseState: { ...newOrgState, step: 'end-of-org' as const },
-        },
-      };
+      return handlePlayResourceShortEvent(state, action);
     }
   }
-  return result;
+  return handlePlayShortEvent(state, action);
 }
 
 /**

@@ -226,12 +226,18 @@ export interface OrganizationPhaseState {
    *
    * - `'play-actions'` (default): the active player is taking their
    *   normal organization actions (play character, transfer item,
-   *   plan movement, etc.).
-   * - `'end-of-org'`: the active player has finished their normal
-   *   actions and the engine has opened a window for short-events
-   *   that are explicitly tagged as end-of-organization plays
-   *   (e.g. *Stealth*). Passing during this step advances to the
-   *   Long-event phase.
+   *   plan movement, end-of-organization plays such as *Stealth*, etc.).
+   *
+   * Per CoE 2.II.7 the resource player may declare movement and otherwise
+   * organize at any point during the organization phase, including after
+   * playing an "end of the organization phase" card. The engine therefore
+   * does not lock the player into a separate end-of-org window; such cards
+   * are offered alongside all other organization actions and the phase
+   * advances to Long-event only when the active player passes.
+   *
+   * The `'end-of-org'` value is retained for backward compatibility with
+   * older serialized states; it is no longer produced by the engine and is
+   * treated identically to `'play-actions'`.
    *
    * Older callers may omit this field; it defaults to `'play-actions'`.
    */
