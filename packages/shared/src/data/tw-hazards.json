@@ -1003,5 +1003,18 @@
     "eventType": "long",
     "effects": [],
     "text": "The number of strikes for each automatic-attack at a Shadow-hold [{S}] site or at a Dark-hold [{D}] site is doubled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-11",
+    "name": "Awaken the Earth’s Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakentheEarthsFire.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Modify the prowess of one automatic-attack at a Shadow-hold [{S}] or Dark-hold [{D}] site by +2.Alternatively, if Doors of Night is in play, treat one Shadow-land [{s}] as a Dark-domain [{d}] or one Shadow-hold [{S}] as a Dark-hold [{D}] until the end of the turn.Cannot be duplicated."
   }
 ]
