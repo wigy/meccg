@@ -1323,5 +1323,15 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Corruption. Playable on an Elf not in a Haven/Darkhaven [{H}]. Target Elf receives 2 corruption points and must make a corruption check during each of his untap phases if he is not in a Haven. Cannot be duplicated on a given Elf.During his organization phase, an Elf with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-96",
+    "name": "The Nazgûl are Abroad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheNazgulareAbroad.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Nazgûl may attack a hero company containing the bearer of The One Ring at any site that is not a Free-hold [{F}] or Haven [{H}].Nazgûl may attack any hero company possessing any Ring in a Shadow-land [{s}] or Shadow-hold [{S}].If Doors of Night is in play, at the end of each turn, each player may return one Nazgûl permanent-event from his discard pile to his hand.Cannot be duplicated."
   }
 ]
