@@ -1083,5 +1083,23 @@
     "playableAt": [],
     "effects": [],
     "text": "A Dúnadan can tap and use this item to heal a character in his company (change from wounded to well, character remains tapped).Aragorn II can also tap and use this item to remove a corruption card from a character in his company.Discard after use."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-213",
+    "name": "Dwarven Ring of Barin’s Tribe",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofBarinsTribe.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 4,
+    "marshallingCategory": "item",
+    "corruptionPoints": 3,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Dwarven Ring. Playable only with a gold ring and after a test indicates a Dwarven Ring. Values in parentheses and brackets apply to a Dwarf bearer. Tap a Dwarf bearer to search your play deck for a major item playable at the bearer’s site. Play this item immediately or discard; reshuffle the play deck. Bearer makes a corruption check modified by +2."
   }
 ]
