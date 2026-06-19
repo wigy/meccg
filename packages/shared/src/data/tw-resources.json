@@ -3131,5 +3131,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. +5 prowess for the Wizard against one attack. Wizard makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-361",
+    "name": "Wizard’s Flame",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFlame.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. All attacks against Wizard’s company suffer a -2 modification to prowess for the rest of the turn. Wizard makes a corruption check modified by -3."
   }
 ]
