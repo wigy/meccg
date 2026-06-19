@@ -1373,5 +1373,15 @@
     "eventType": "short",
     "effects": [],
     "text": "The bearer of The One Ring makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-104",
+    "name": "Tookish Blood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TookishBlood.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Hobbit character. The Hobbit’s player makes a roll; return the Hobbit to the player’s hand if the result plus his unused general influence is less than 11. If the Hobbit is removed from play, one of his items may be transferred to another character in his company; any other cards under his control are discarded.Alternatively, this card can be played as a resource card. For the rest of the turn, the target Hobbit cannot be discarded or returned to its owner's hand for any reason."
   }
 ]
