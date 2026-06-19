@@ -1419,5 +1419,30 @@
     ],
     "effects": [],
     "text": "Orcs. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-75",
+    "name": "Orc-raiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcraiders.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Four strikes."
   }
 ]
