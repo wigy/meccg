@@ -1049,5 +1049,18 @@
     ],
     "effects": [],
     "text": "Environment. If Doors of Night is in play, the prowess of each hazard creature is modified by +2.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-30",
+    "name": "Drowning Seas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DrowningSeas.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin."
   }
 ]
