@@ -1270,5 +1270,15 @@
     ],
     "effects": [],
     "text": "Environment. The prowess of each non-ranger Dúnadan is modified by -1.Additionally, if Doors of Night is in play, the prowesses of all attacks are modified by +1 and the prowess of each Man and Dúnadan is modified by -1.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-81",
+    "name": "Plague of Wights",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PlagueofWights.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The prowess of all Undead attacks is increased by one. Additionally, if Doors of Night is in play, the number of strikes for each Undead attack is doubled. Cannot be duplicated."
   }
 ]
