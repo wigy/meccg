@@ -1312,5 +1312,30 @@
     ],
     "effects": [],
     "text": "Awakened Plant. One strike. 15 prowess against Hobbits. May also be played keyed to Fangorn, Heart of Mirkwood, Southern Mirkwood, and Western Mirkwood; and may also be played at Ruins & Lairs [{R}], Shadow-holds [{S}], and Dark-holds [{D}] in these regions. Also playable at Old Forest and Drúadan Forest."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-71",
+    "name": "Olog-hai (Trolls)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OloghaiTrolls.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 10,
+    "body": 5,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Three strikes."
   }
 ]
