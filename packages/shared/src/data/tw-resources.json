@@ -3183,5 +3183,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. +6 to direct influence for the Wizard for the rest of the turn. Wizard makes a corruption check modified by -3. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-368",
+    "name": "Woodmen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Woodmen.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Woodmen-town"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1)."
   }
 ]
