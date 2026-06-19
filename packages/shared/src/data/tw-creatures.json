@@ -1363,5 +1363,33 @@
     ],
     "effects": [],
     "text": "Orcs. Five strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-73",
+    "name": "Orc-lieutenant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orclieutenant.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. One strike. If played on a company that has already faced an Orc attack this turn, Orc-lieutenant receives +4 prowess."
   }
 ]
