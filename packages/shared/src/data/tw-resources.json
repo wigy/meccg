@@ -3170,5 +3170,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only, and only if a character in his company has a gold ring. Play to test a gold ring; make two rolls and choose one result to use for the test. Wizard makes a corruption check modified by -1."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-366",
+    "name": "Wizard’s Voice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsVoice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. +6 to direct influence for the Wizard for the rest of the turn. Wizard makes a corruption check modified by -3. Cannot be duplicated on a given turn."
   }
 ]
