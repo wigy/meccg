@@ -1551,5 +1551,23 @@
     "playableAt": [],
     "effects": [],
     "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-496",
+    "name": "The Iron Crown",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheIronCrown.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [],
+    "marshallingPoints": 4,
+    "marshallingCategory": "item",
+    "corruptionPoints": 5,
+    "prowessModifier": 0,
+    "bodyModifier": 1,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Whenever bearer makes an influence check, he must also make a corruption check. If the bearer is not a Hobbit: he receives +1 to body to a maximum of 10; he receives +4 to direct influence; and he may tap The Iron Crown to cancel an attack by Orcs, Trolls, or Men against his company."
   }
 ]
