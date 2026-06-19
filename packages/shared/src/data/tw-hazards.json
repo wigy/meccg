@@ -1085,5 +1085,18 @@
     ],
     "effects": [],
     "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-41",
+    "name": "Gloom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gloom.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
   }
 ]
