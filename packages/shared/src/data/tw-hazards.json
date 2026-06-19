@@ -1224,5 +1224,15 @@
     ],
     "effects": [],
     "text": "Environment. Playable if Doors of Night is in play. Treat all Wildernesses [{w}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Dark-domains [{d}].Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-63",
+    "name": "Morgul-horse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulhorse.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "This card allows you to place a tapped Nazgûl permanent-event back into your hand instead of discarding it.Alternatively, allows a Nazgûl to be played keyed to a Shadow-land [{s}]."
   }
 ]
