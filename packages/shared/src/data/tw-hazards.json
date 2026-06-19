@@ -1036,5 +1036,18 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a Elf character. The character’s player makes a roll. Return the character to the player’s hand if this result plus his unused general influence is less than 10. This result is modified by -3 if the character’s company moved this turn using a site path containing a Coastal Sea [{c}].Any one item held by a character removed in this fashion may automatically be transferred to another character in his company (all other non-follower cards target character controls are discarded)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-22",
+    "name": "Clouds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Clouds.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. If Doors of Night is in play, the prowess of each hazard creature is modified by +2.Cannot be duplicated."
   }
 ]
