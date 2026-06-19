@@ -1569,5 +1569,25 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Whenever bearer makes an influence check, he must also make a corruption check. If the bearer is not a Hobbit: he receives +1 to body to a maximum of 10; he receives +4 to direct influence; and he may tap The Iron Crown to cancel an attack by Orcs, Trolls, or Men against his company."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-499",
+    "name": "Dwarven Axe",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenAxe.jpg",
+    "unique": false,
+    "subtype": "major",
+    "keywords": [
+      "weapon"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Weapon. Warrior only: +2 prowess (to a maximum of 7); +3 prowess if held by a Dwarf (to a maximum of 8)."
   }
 ]
