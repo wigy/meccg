@@ -171,6 +171,41 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Geann a-Lisch. Playable: Information, Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess.",
+    "unique": true,
+    "certified": "2026-06-19"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-374",
+    "name": "Geann a-Lisch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GeannaLisch.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Old Pûkel-land",
+    "havenPaths": {
+      "Carn Dûm": [
+        "shadow",
+        "wilderness",
+        "wilderness",
+        "wilderness",
+        "wilderness"
+      ]
+    },
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Site Path From Carn Dûm: {s}{w}{w}{w}{w}. Special: No character may be brought into play at this site (unless this site is the character's home site). Resources may never be stored at this site. Geann a-Lisch counts as a Ruins & Lairs [{R}] for the purposes of playing and interpreting hazards. Its site path for this purpose, if needed, is the one from Carn Dûm.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "deny-character",
+        "filter": {},
+        "exceptHomesite": true
+      }
+    ],
     "unique": true
   },
   {

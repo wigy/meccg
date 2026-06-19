@@ -118,9 +118,9 @@ describe('Carn Dûm (le-359)', () => {
       .map(r => r.site.name)
       .sort();
 
-    // Carn Dûm's havenPaths also lists Geann a-Lisch, but that site is not
-    // in the current card pool, so only Dol Guldur is reachable as a haven.
-    expect(starterHavens).toEqual(['Dol Guldur']);
+    // Carn Dûm's havenPaths lists both Dol Guldur and Geann a-Lisch (le-374),
+    // and both darkhavens are now present in the card pool.
+    expect(starterHavens).toEqual(['Dol Guldur', 'Geann a-Lisch']);
   });
 
   test('starter movement reaches all sites with nearestHaven Carn Dûm', () => {
