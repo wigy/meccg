@@ -2039,5 +2039,28 @@
     "homesite": "Grey Havens",
     "effects": [],
     "text": "Unique. When Círdan is at the Grey Havens, you may keep one more card than normal in your hand.May tap to cancel one attack against his company keyed to a Coastal Sea region.+2 direct influence against the Elves of Lindon faction.-3 marshalling points if eliminated."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-138",
+    "name": "Dáin II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DainII.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 7,
+    "directInfluence": 3,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Iron Hill Dwarf-hold",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions."
   }
 ]
