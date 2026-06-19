@@ -1062,5 +1062,15 @@
     ],
     "effects": [],
     "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-33",
+    "name": "Fell Beast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellBeast.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl."
   }
 ]
