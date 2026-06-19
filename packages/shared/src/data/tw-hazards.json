@@ -1383,5 +1383,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a Hobbit character. The Hobbit’s player makes a roll; return the Hobbit to the player’s hand if the result plus his unused general influence is less than 11. If the Hobbit is removed from play, one of his items may be transferred to another character in his company; any other cards under his control are discarded.Alternatively, this card can be played as a resource card. For the rest of the turn, the target Hobbit cannot be discarded or returned to its owner's hand for any reason."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-105",
+    "name": "Traitor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Traitor.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check."
   }
 ]
