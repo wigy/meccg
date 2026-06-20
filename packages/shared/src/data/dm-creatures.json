@@ -53,13 +53,37 @@
     "killMarshallingPoints": 3,
     "race": "drake",
     "keyedTo": [
-      { "siteKeywords": ["under-deeps"] },
-      { "adjacentToSiteKeywords": ["under-deeps"], "when": { "inPlay": "Doors of Night" } },
-      { "regionTypes": ["coastal"], "when": { "inPlay": "Doors of Night" } }
+      {
+        "siteKeywords": [
+          "under-deeps"
+        ]
+      },
+      {
+        "adjacentToSiteKeywords": [
+          "under-deeps"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      },
+      {
+        "regionTypes": [
+          "coastal"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
     ],
     "effects": [
-      { "type": "combat-multi-attack", "count": 3 },
-      { "type": "combat-cancel-attack-by-tap", "maxCancels": 1 }
+      {
+        "type": "combat-multi-attack",
+        "count": 3
+      },
+      {
+        "type": "combat-cancel-attack-by-tap",
+        "maxCancels": 1
+      }
     ],
     "text": "Drake. 3 attacks of 2 strikes each. A character can tap to cancel one of these attacks. Playable at any Under-deeps site. If Doors of Night is in play, also playable at an adjacent site of any Under-deeps site or keyed to a Coastal Sea [{c}].",
     "certified": "2026-06-01"
@@ -77,7 +101,12 @@
     "killMarshallingPoints": 1,
     "race": "undead",
     "keyedTo": [
-      { "siteTypes": ["ruins-and-lairs", "shadow-hold"] }
+      {
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
+      }
     ],
     "effects": [
       {
@@ -137,14 +166,98 @@
     "race": "undead",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "shadow", "dark", "coastal"],
-        "siteTypes": ["ruins-and-lairs", "shadow-hold"]
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark",
+          "coastal"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
       }
     ],
     "effects": [
-      { "type": "combat-attacker-chooses-defenders" },
-      { "type": "combat-tap-low-mind" }
+      {
+        "type": "combat-attacker-chooses-defenders"
+      },
+      {
+        "type": "combat-tap-low-mind"
+      }
     ],
     "certified": "2026-06-09"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-105",
+    "name": "Bûthrakaur the Green",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ButhrakaurtheGreen.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "shadow-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Bûthrakaur that turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-107",
+    "name": "Durin's Bane",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/DurinsBane.jpg",
+    "unique": true,
+    "strikes": 2,
+    "prowess": 18,
+    "body": 9,
+    "killMarshallingPoints": 5,
+    "race": "balrog,spawn",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Unique.Manifestation of Balrog of Moria. Balrog. Two strikes—all body checks resulting from a successful strike are modified by +1. May be played at The Under-gates and at all of its adjacent sites. If Doors of Night is in play, Durin's Bane may be played at any Under-deeps site.Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-110",
+    "name": "Spider of the Môrlat",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SpideroftheMorlat.jpg",
+    "unique": true,
+    "strikes": 2,
+    "prowess": 16,
+    "body": 9,
+    "killMarshallingPoints": 4,
+    "race": "spiders",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Unique. Spider. Spawn. May be played as a hazard creature (with two strikes) or as a permanent-event. As a creature, she may be played at Dol Guldur and The Sulfur-deeps. If Doors of Night is in play, she may also be keyed to Southern Mirkwood, Heart of Mirkwood, or Woodland Realm; or at any adjacent site of The Sulfur-deeps.If played as a permanent-event, all Spider attacks receive +1 strike. Additionally, any company moving in Southern Mirkwood, Heart of Mirkwood, Woodland Realm, Dagorlad, or Brown Lands faces a Spider attack of 2 strikes with 10 prowess (detainment against minion companies). You can return Spider of the Môrlat as a permanent-event to your hand—which counts as one against the hazard limit."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-112",
+    "name": "Umagaur the Pale",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/UmagaurthePale.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 14,
+    "body": 8,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "shadow-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Umagaur that turn."
   }
 ]

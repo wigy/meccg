@@ -10,7 +10,10 @@
       {
         "type": "move",
         "select": "target",
-        "from": ["sideboard", "discard"],
+        "from": [
+          "sideboard",
+          "discard"
+        ],
         "to": "deck",
         "shuffleAfter": true,
         "filter": {
@@ -26,7 +29,10 @@
       {
         "type": "move",
         "select": "target",
-        "from": ["sideboard", "discard"],
+        "from": [
+          "sideboard",
+          "discard"
+        ],
         "to": "deck",
         "shuffleAfter": true,
         "filter": {
@@ -163,7 +169,9 @@
     "effects": [
       {
         "type": "play-creature-from-discard",
-        "filter": { "race": "undead" },
+        "filter": {
+          "race": "undead"
+        },
         "prowessModifier": -1
       }
     ],
@@ -183,14 +191,18 @@
         "stat": "prowess",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "undead" }
+        "when": {
+          "enemy.race": "undead"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "strikes",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "undead" }
+        "when": {
+          "enemy.race": "undead"
+        }
       },
       {
         "type": "on-event",
@@ -205,8 +217,12 @@
       {
         "type": "on-event",
         "event": "attack-defeated",
-        "apply": { "type": "discard-self" },
-        "when": { "enemy.race": "undead" }
+        "apply": {
+          "type": "discard-self"
+        },
+        "when": {
+          "enemy.race": "undead"
+        }
       },
       {
         "type": "duplication-limit",
@@ -230,34 +246,74 @@
         "stat": "prowess",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "man" }
+        "when": {
+          "enemy.race": "man"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "strikes",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "man" }
+        "when": {
+          "enemy.race": "man"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
         "target": "all-attacks",
-        "when": { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "giant"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "strikes",
         "value": 1,
         "target": "all-attacks",
-        "when": { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "giant"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       },
       {
         "type": "on-event",
         "event": "attack-defeated",
-        "apply": { "type": "discard-self" },
-        "when": { "$or": [{ "enemy.race": "man" }, { "$and": [{ "enemy.race": "giant" }, { "inPlay": "Doors of Night" }] }] }
+        "apply": {
+          "type": "discard-self"
+        },
+        "when": {
+          "$or": [
+            {
+              "enemy.race": "man"
+            },
+            {
+              "$and": [
+                {
+                  "enemy.race": "giant"
+                },
+                {
+                  "inPlay": "Doors of Night"
+                }
+              ]
+            }
+          ]
+        }
       },
       {
         "type": "duplication-limit",
@@ -284,13 +340,21 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "attack.race": "Spider" }
+        "filter": {
+          "attack.race": "Spider"
+        }
       },
       {
         "type": "take-prisoner",
-        "rescueSiteTypes": ["ruins-and-lairs"],
+        "rescueSiteTypes": [
+          "ruins-and-lairs"
+        ],
         "rescueAttacks": [
-          { "race": "Spider", "strikes": 3, "prowess": 9 }
+          {
+            "race": "Spider",
+            "strikes": 3,
+            "prowess": 9
+          }
         ],
         "autoRescue": {
           "bodyCheckModifier": 1,
@@ -314,8 +378,16 @@
         "requires": "site-path",
         "condition": {
           "$or": [
-            { "sitePath.shadowCount": { "$gte": 1 } },
-            { "sitePath.darkCount": { "$gte": 1 } }
+            {
+              "sitePath.shadowCount": {
+                "$gte": 1
+              }
+            },
+            {
+              "sitePath.darkCount": {
+                "$gte": 1
+              }
+            }
           ]
         }
       },
@@ -324,8 +396,16 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.race": { "$ne": "wizard" } },
-            { "target.race": { "$ne": "ringwraith" } }
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            }
           ]
         }
       },
@@ -335,5 +415,551 @@
       }
     ],
     "certified": "2026-04-25"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-28",
+    "name": "Lobelia Sackville-Baggins",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LobeliaSackvilleBaggins.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. Manifestation of Mistress Lobelia. Agent. +3 direct influence against Hobbits and Hobbit factions. May not move to any site other than Bree, Old Forest, The White Towers, or a site in The Shire."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-29",
+    "name": "My Precious",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/MyPrecious.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. Manifestation of Gollum. Agent. If face-up, may take an extra agent action (not counting against the hazard limit) each time he normally takes an agent action. If he attacks successfully against a company with a ring, he and a ring (attacker's choice) are discarded. If My Precious attacks and fails but is not defeated, the defender may tap a character in the target company to play Gollum (My Precious is discarded). Any player whose character eliminates My Precious receives -1 kill MPs."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-44",
+    "name": "Angmar Arises",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AngmarArises.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Any creature that can be keyed to a one single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar, Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Angmar or Gundabad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-46",
+    "name": "Aware of their Ways",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AwareoftheirWays.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Opponent reveals four cards at random from his discard pile. You may choose a non-unique one and remove it from play. Opponent discards the other three."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-47",
+    "name": "The Black Enemy’s Wrath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheBlackEnemysWrath.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "Each Under-deeps site, Dark-hold [{D}], and Shadow-hold [{S}] has an additional automatic-attack (cannot be canceled): Lava Flows — 1 strike against each character with 6 prowess (weapons do not modify prowess against these strikes). The penalty for an untapped character not tapping against one of these strikes is -5.This card has no effect on a minion player. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-48",
+    "name": "Bring Our Curses Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/BringOurCursesHome.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Wizard character whose company is facing a hazard creature attack. Discard this card if no character is eliminated by the attack. If any character is eliminated, place creature’s card with this card—creature is considered off to the side. Target character’s company faces an attack from creature at the start of each movement/hazard phase if creature is playable. Discard associated creature’s card if this card is discarded. Discard this card if associated creature is defeated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-49",
+    "name": "Chance of Being Lost",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ChanceofBeingLost.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company using region movement if opponent is using the same type of location deck (minion/hero) as yourself. Make a roll modified by -2 for each ranger in the company. If the result is greater than 6, you must replace company’s new site card with a different site from your location deck that is located in the same region or an adjacent region as the company’s new site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-51",
+    "name": "Doubled Vigilance",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/DoubledVigilance.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Shadow-hold [{S}] (or on a Ruins & Lairs [{R}] or Border-hold [{B}] if Doors of Night is in play). If the company chooses to enter the site, its player must make a roll and subtract its company size. If the result is greater than 6, the company may enter the site as normal. Otherwise, the company must face an attack to be resolved before any automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is discarded or returned to its location deck. Can be revealed on-guard."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-52",
+    "name": "Drums",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Drums.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "For each company at or moving to an Under-deeps site, the hazard limit is increased by one and the prowess of all attacks is increased by one. All automatic-attacks at sites in the following regions have their number of strikes and prowess increased by one (by two if Doors of Night is in play): Angmar, Gap of Isen, Gorgoroth, Gundabad, High Pass, Redhorn Gate, Rohan, Southern Mirkwood, and Udûn. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-53",
+    "name": "Earth-tremors",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Earthtremors.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "Any company moving to or from an Under-deeps site faces an attack (cannot be canceled): Rock Fall — 1 strike with 7 prowess against each character (weapons do not modify prowess against these strikes). In addition, cancels the effects of Into Dark Tunnels, Old Road, Great Road, and Bridge. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-54",
+    "name": "Endless Whispers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/EndlessWhispers.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Dark Enchantment. Playable on a non-Wizard character wounded by an Undead attack this turn; does not count against the hazard limit. Target character can never become untapped while bearing this card. Any effect that would move him to an untapped state makes him tapped instead. Cannot be duplicated on a given character.During the organization phase, a sage in target character’s company may tap to attempt to remove this card. Make a roll: if the result is greater than 7, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-56",
+    "name": "Eyes of the Shadow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/EyesoftheShadow.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. May only be played if Gates of Morning is not in play. The hazard limit is increased by two for each moving company with a size of less than four that also contains a Wizard or a non-ranger character with a mind of 6 or more. Cannot be duplicated. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-57",
+    "name": "Faces of the Dead",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FacesoftheDead.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a non-Wizard character moving with at least two Wildernesses [{w}] in his site path if you discard any Undead hazard creature from your hand (show opponent). Target character's player makes a roll and adds character's mind. If the result is less than 13, that character splits off into a different company. This new company immediately returns to his original company’s site of origin."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-59",
+    "name": "Foes Shall Fall",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FoesShallFall.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Wizard character facing a strike from a Dragon or Drake hazard creature attack. If the strike is defeated, discard this card. If the strike is not defeated, place creature’s card with Foes Shall Fall—creature is considered off to the side. Target character’s company faces an attack from creature at the start of each movement/hazard phase if creature is playable. Discard associated creature’s card if Foes Shall Fall is discarded. Discard Foes Shall Fall if attached Dragon or Drake is defeated. If target character is a Dwarf, he receives 2 corruption points."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-60",
+    "name": "Gnaw with Words",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GnawwithWords.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Tap a sage if another sage is in his company or at his current site or at his new site.Alternatively, tap a diplomat if another diplomat is in his company or at his current site or at his new site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-61",
+    "name": "Good Sense Revolts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GoodSenseRevolts.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally, faction, or character. +4 to influence attempt. +8 if ally, faction, or character is playable at agent's home site.Alternatively, modify an influence attempt by an agent by +4. This card cannot serve both functions.Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-63",
+    "name": "Great Secrets Buried There",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GreatSecretsBuriedThere.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if opponent has at least ten cards in his play deck. Opponent reveals the top ten cards of his play deck to himself. If one is available, opponent must choose a non-special, non-hoard item from the revealed cards to place off to the side under this card (item does not give marshalling points and is considered out of play). If none are available, opponent must show you the cards he revealed to himself. Opponent shuffles all remaining revealed cards into his play deck. Opponent may play this item as though it were in his hand at any Under-deeps site where it could be normally playable.Alternatively, you may play this card as a resource on yourself if you have at least ten cards in your play deck. In this case, you and your opponent reverse roles."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-64",
+    "name": "Helms of Iron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HelmsofIron.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Man attacks with body have their body modified by +1; and all Orc, Troll, and Man attacks with no body have 4 body."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-65",
+    "name": "In Darkness Bind Them",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InDarknessBindThem.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-66",
+    "name": "In Great Wrath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InGreatWrath.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Nazgûl in your discard pile that could immediately attack. The Nazgûl attacks immediately (not counting against the hazard limit) with +2 prowess and -1 body."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-67",
+    "name": "In the Heart of his Realm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/IntheHeartofhisRealm.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Each company moving in a Dark-domain [{d}] draws one less card at the start of its movement/hazard phase (to no minimum).Additionally, any sage at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, loses his sage skill. No character at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, can use spells, light enchantments, or rituals. Discard when any play deck is exhausted. This card has no effect on a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-68",
+    "name": "Inner Cunning",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InnerCunning.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "As a permanent-event, playable on a face-down agent who was brought into play this turn. When the agent is revealed, and if his home site is a Shadow-hold [{S}] or a Dark-hold [{D}], the site where he came into play (which is not represented by a card) may legally be any Shadow-hold [{S}] or a Dark-hold [{D}]. Discard when the agent is revealed.Alternatively, as a short-event, take any agent who has a home site that is a Shadow-hold [{S}] or Dark-hold [{D}] from your play deck into your hand (reveal it to your opponent and reshuffle your play deck).Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-69",
+    "name": "Like the Crash of Battering-rams",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LiketheCrashofBatteringrams.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a strike. If the strike is successful, the wounded character’s body is reduced by one until the end of the turn for every complete increment of 5 the strike was successful by (subtract the character’s prowess plus dice roll from the strike’s prowess, divide by five, and drop any fractions)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-70",
+    "name": "Long Dark Reach",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LongDarkReach.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path if you have at least 10 cards in your play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl, Dragon, or a non-unique creature of your choice must immediately attack the company regardless of its playability requirements (not count against the hazard limit). The creature must be playable in a region besides Coastal Sea [{c}]. If the creature could not normally be played on the company, modify its prowess by -4. Shuffle all unused cards and return them to the top of your play deck."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-72",
+    "name": "Mordor in Arms",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/MordorinArms.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Any company moving in Nurn faces three attacks: Orcs — 5 strikes with 8 prowess, Orcs — 4 strikes with 10 prowess, Trolls — 3 strikes with 12 prowess. If all three attacks are defeated by your opponent, he receives this card in his MP pile and 2 kill MPs. Any attempt by a character to influence a faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth, Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster. This card has no effect on a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-73",
+    "name": "Neither so Ancient Nor so Potent",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeithersoAncientNorsoPotent.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a stored item. Return item to opponent’s hand (discarding all attached cards). Place this card in opponent’s marshalling point pile. It gives 2 item marshalling points."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-74",
+    "name": "Never Seen Him",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeverSeenHim.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on an agent. Target agent may take an extra agent action (which does not count against the hazard limit) each time he normally takes an agent action. Cannot be duplicated on a given agent. Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-75",
+    "name": "No Way Forward",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NoWayForward.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. The number of region cards that may be played by a moving company using region movement is reduced by one (by two if Doors of Night is in play) to a minimum of two. This card is effective during each player’s organization phase. Discard when any play deck is exhausted. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-76",
+    "name": "Nobody’s Friend",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NobodysFriend.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "As a permanent-event, playable on a face-down agent who was brought into play this turn. When the agent is revealed, and if his home site is a Border-hold [{B}] or a Free-hold [{F}], the site where he came into play (which is not represented by a card) may legally be any Border-hold [{B}] or a Free-hold [{F}]. Discard when the agent is revealed.Alternatively, as a short-event, take any agent who has a home site that is a Free-hold [{F}] or Border-hold [{B}] from your play deck into your hand (reveal it to your opponent and reshuffle your play deck).Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-77",
+    "name": "Out of the Black Sky",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/OutoftheBlackSky.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if Doors of Night is in play on a Nazgûl permanent-event that could immediately attack as if it were in your hand as a creature. The Nazgûl immediately attacks as a creature from its permanent-event state (not counting against the hazard limit) and chooses defending characters. If the Nazgûl is defeated, place this card in opponent’s marshalling point pile and remove the Nazgûl from play. Otherwise, discard this card. This can be used on an opponent’s Nazgûl permanent-event as well as on your own."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-78",
+    "name": "Pale Dream-maker",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/PaleDreammaker.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Dark Enchantment. Playable on a non-Wizard character wounded by an Undead attack this turn; does not count against the hazard limit. Target character receives 2 corruption points and makes a corruption check each time his player discards a card from his hand during his turn. His direct influence is zero while bearing this card. Cannot be duplicated on a given character.During the organization phase, a sage in target character’s company (other than character) may tap to attempt to remove this card. Make a roll: if the result is greater than 6, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-79",
+    "name": "Pierced by Many Wounds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/PiercedbyManyWounds.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an attack with more strikes than defending characters before strikes are assigned; does not count against the hazard limit. The first excess strike assigned to each character gives a -4 modification to his prowess instead of -1. Cannot be duplicated on a given attack."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-81",
+    "name": "Reaching Shadow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ReachingShadow.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-82",
+    "name": "The Reach of Ulmo",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheReachofUlmo.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "The roll required to move between adjacent Under-deeps sites is increased by 2. In addition, cancels the effects of Great Ship and Ford. May be played when an Under-deeps site is revealed as a new site card (before the roll is made). Discard when any play deck is exhausted or when an Under-deeps site is reached from another Under-deeps site or at the end of the turn after Great Ship or Ford was played. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-83",
+    "name": "Redoubled Force",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RedoubledForce.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "All Orc and Troll automatic-attacks receive +3 strikes and +2 prowess. Discard this card when such an automatic-attack is defeated. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-84",
+    "name": "Reluctant Final Parting",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ReluctantFinalParting.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Discard any ally if its current site is an Under-deeps site or if its current site’s nearest Haven/Darkhaven [{H}] is not the same as the nearest Haven/Darkhaven [{H}] for the site at which the ally can be played. Determine nearest Haven using site cards of the same alignment (minion/hero) as the ally. Discard this card when any play deck is exhausted.Cannot be duplicated. This card has no effect on The Balrog ally and cannot be played if your opponent is a Balrog player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-85",
+    "name": "Revealed to all Watchers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RevealedtoallWatchers.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. Reveal your hand to opponent. Place all non-hazard cards from your hand off to the side. Draw cards from your play deck until your hand size is reached. Place the non-hazard cards from off to the side face down on top of your play deck in any order you choose."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-86",
+    "name": "Scimitars of Steel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ScimitarsofSteel.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Men attacks receive +1 prowess."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-87",
+    "name": "Seek without Success",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SeekwithoutSuccess.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Discard a ranger agent at target company's new site. Company must immediately return to its site of origin.Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-89",
+    "name": "Shadow out of the Dark",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ShadowoutoftheDark.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a face-up agent who can use shadow-magic. If agent is revealed and not in a Free-hold [{F}] or Haven [{H}], he can tap to allow any Undead hazard creatures to be played at his site this turn. Any Undead hazard creatures so played do not count against the hazard limit. Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-90",
+    "name": "Spells of the Barrow-wights",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SpellsoftheBarrowwights.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a character facing an Undead strike. If the strike is successful, target character is not harmed and is taken prisoner at a Ruins & Lairs [{R}] or Shadow-hold [{S}]. Character must discard any rings along with his other items. At the start of each of his untap phases, make a body check for that character.Rescue-attack: Undead — 3 strikes with 8 prowess."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-91",
+    "name": "Sudden Fury",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SuddenFury.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a site. Until the end of the turn, any attack by a scout agent at this site has its number of strikes increased by one and attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-92",
+    "name": "To Get You Away",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ToGetYouAway.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Tap an agent at target company’s new site. Agent may attack (not counting against hazard limit) during the movement/hazard phase. Attacker chooses defending characters. A successful strike doesn’t wound the defending character, instead the character is taken prisoner at one of the agent’s home sites (attacker’s choice, regardless of site’s location) and the agent returns to the same site.Rescue-attack: Same race as agent — 3 strikes with 8 prowess. Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-93",
+    "name": "Tribal Banner",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TribalBanner.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an Orc or Troll attack before strikes are assigned; does not count against the hazard limit. The prowess and body of target attack are each reduced by one. All body checks resulting from successful strikes of this attack are modified by +1. Cannot be duplicated on a given attack."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-94",
+    "name": "Tribal Totem",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TribalTotem.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an Orc or Troll attack before strikes are assigned; does not count against the hazard limit. The prowess and body of target attack and of all Orc and Troll attacks against this company for the rest of the turn are each reduced by three. Any body check resulting from a successful strike of such a modified attack is modified by +2. Cannot be duplicated against a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-95",
+    "name": "Troll-purse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Trollpurse.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a site with an Orc or Troll automatic-attack. When any item is played at this site, the company must face all automatic-attacks of the site again with the attack’s prowess modified by +3. Any successful strike does not harm the character, but rather the character is taken prisoner at the site. The rescue-attack equals all automatic-attacks of the site at the time of rescue."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-96",
+    "name": "Twisted Tales",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TwistedTales.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped diplomat agent. Tap the agent who may then make an influence attempt against a faction playable at the agent’s site. +6 to influence attempt. Attempt is automatically successful if target faction is playable at the agent’s home site. Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-98",
+    "name": "The Way is Shut",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheWayisShut.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "A company moving to or from an Under-deeps site must return to its site of origin.Additionally, cancels the effects of Secret Passage and Secret Entrance. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-99",
+    "name": "Waylaid, Wounded, and Orc-dragged",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WaylaidWoundedandOrcdragged.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Hobbit facing a strike from an Orc attack. Target Hobbit receives +2 prowess against the strike. If strike is successful, he is not harmed and is taken prisoner at a Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}]. If the Hobbit bears a ring, his player makes a roll at the start of each of his untap phases—if the result is less that 7, discard the ring.Rescue-attacks (3): Orcs — 3 strikes with 6 prowess, Orcs — 4 strikes with 7 prowess, Orcs — 5 strikes with 8 prowess."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-100",
+    "name": "Which Might Be Lies",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WhichMightBeLies.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a stored resource permanent-event that required an information site to be played. Discard event."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-101",
+    "name": "Will not Come Down",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WillnotComeDown.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally, faction, or character. Unused general influence modification does not apply. If successful, the target is not discarded, but rather it is returned to its owner’s hand. Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-102",
+    "name": "Wound of Long Burden",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WoundofLongBurden.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a character facing a strike with a prowess of 12 or greater. If the strike is not successful, discard this card. Otherwise, target character receives 1 corruption point and his body is lowered by 1.During his organization phase, a character at a Haven/Darkhaven [{H}] with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-103",
+    "name": "Wraith-lord",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Wraithlord.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company with two Dark-domains [{d}] in its site path. Each Nazgûl that attacks target company this turn receives +2 prowess and lowers the body of any characters it wounds by one (for the rest of the turn). Each Nazgûl so played does not count against the hazard limit. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-104",
+    "name": "Your Welcome Is Doubtful",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/YourWelcomeIsDoubtful.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally or character. +6 to influence attempt (+10 if the agent is a diplomat). An additional +7 to the attempt if target character has the same home site as the agent or if target ally is playable at the agent’s home site. Cannot be played if your opponent is a minion player."
   }
 ]
