@@ -38,12 +38,12 @@ import { accrueRevealedInstances } from './visibility.js';
  * identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state)))));
+  return accrueRevealedInstances(recomputeDerived(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedConvertedAllyEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
@@ -101,7 +101,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // during strike sequences (rule 3.iv / 3.iv.5) are routed to the combat
   // handler rather than the site-phase reducer, which cannot accept them
   // while the automatic-attacks step is active.
-  const combatActionTypes = ['assign-strike', 'allocate-cvcc-excess', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'shield-discard-roll', 'cancel-attack', 'cancel-by-tap', 'cancel-strike', 'protect-from-assignment', 'play-strike-event', 'halve-strikes', 'tap-ally-combat-boost', 'modify-attack', 'tap-item-for-strike', 'salvage-item', 'discard-item-from-company', 'play-hazard', 'haven-join-attack', 'play-short-event', 'agent-strike-roll', 'take-trophy'];
+  const combatActionTypes = ['assign-strike', 'allocate-cvcc-excess', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'shield-discard-roll', 'cancel-attack', 'convert-creature-to-ally', 'cancel-by-tap', 'cancel-strike', 'protect-from-assignment', 'play-strike-event', 'halve-strikes', 'tap-ally-combat-boost', 'modify-attack', 'tap-item-for-strike', 'salvage-item', 'discard-item-from-company', 'play-hazard', 'haven-join-attack', 'play-short-event', 'agent-strike-roll', 'take-trophy'];
   // When a chain is active, play-short-event may be a hazard chain response
   // (e.g. Searching Eye canceling Concealment). Route these through the phase
   // handler, which distinguishes resource vs hazard events correctly.

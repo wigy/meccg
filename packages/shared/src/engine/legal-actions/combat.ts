@@ -13,17 +13,19 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
+import { CardStatus, isCharacterCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
+import { resolveDef } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
 import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
+import { allyEffectiveProwess } from '../ally-stats.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -143,6 +145,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // either side per the card's `player` declaration (e.g. hazard-side Dragon's
   // Desolation Mode A).
   const cancelActions = cancelAttackActions(state, playerId, combat);
+  const convertActions = convertCreatureToAllyActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
@@ -164,6 +167,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         if (playerId !== combat.defendingPlayerId) return [];
         return [
           ...cancelActions,
+          ...convertActions,
           ...halveActions,
           ...protectActions,
           ...modifyActions,
@@ -173,7 +177,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike': {
@@ -819,8 +823,9 @@ function resolveStrikeActions(
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
   let baseProwess: number;
   if (allyMatch) {
-    // Allies use prowess from card definition directly
-    baseProwess = isAllyCard(charDef) ? (charDef).prowess : 0;
+    // Allies use prowess from their instance override (e.g. a creature
+    // converted by Ready to His Will) or their card definition.
+    baseProwess = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
     baseProwess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
   } else {
@@ -1529,6 +1534,77 @@ function shieldDiscardRollActions(
  *    ally itself — `handleCancelAttack` detects this and taps the ally
  *    instead of discarding from hand.
  */
+/**
+ * Offers `convert-creature-to-ally` actions (Ready to His Will le-220) to the
+ * defending player during the creature's attack. The card may be played when:
+ *
+ * - the active attack is a single creature (`attackSource.type === 'creature'`),
+ * - that creature's race is one of the effect's `races` and its printed strike
+ *   count is ≤ `maxStrikes` ("one strike for each of its attacks"),
+ * - the defender holds the card in hand, and
+ * - the company has at least one untapped character to take control and tap.
+ *
+ * One action is generated per (card, eligible controlling character) pair.
+ */
+function convertCreatureToAllyActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+  if (combat.attackSource.type !== 'creature') return [];
+
+  const creatureDef = resolveDef(state, combat.attackSource.instanceId);
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') return [];
+  const creatureRace = (creatureDef as { race: string }).race.toLowerCase();
+  const creatureStrikes = (creatureDef as { strikes: number }).strikes;
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const company = companyById(player.companies, combat.companyId);
+  if (!company) return [];
+
+  // Candidate controlling characters: untapped characters in the company (they
+  // must be able to tap to take control).
+  const untappedChars = company.characters.filter(charId => {
+    const ch = player.characters[charId as string];
+    return ch && ch.status === CardStatus.Untapped;
+  });
+  if (untappedChars.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
+    );
+    if (!effect) continue;
+    if (creatureStrikes > effect.maxStrikes) {
+      logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: creature has ${creatureStrikes} strikes (> ${effect.maxStrikes}) — not playable`);
+      continue;
+    }
+    if (!effect.races.map(r => r.toLowerCase()).includes(creatureRace)) {
+      logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: creature race "${creatureRace}" not eligible — not playable`);
+      continue;
+    }
+    for (const charId of untappedChars) {
+      logDetail(`Convert-creature-to-ally available: "${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}" controlled by ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'convert-creature-to-ally',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          controllingCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
 function cancelAttackActions(
   state: GameState,
   playerId: PlayerId,

@@ -78,6 +78,24 @@ export interface ItemInPlay {
 }
 
 /**
+ * Per-instance stat overrides for an ally whose effective mind/prowess/body
+ * are dictated by the effect that created it rather than by its card
+ * definition. Used when a hazard creature is converted into an ally by
+ * *Ready to His Will* (le-220): the creature card has no ally stats, so the
+ * conversion effect supplies them (mind 1, prowess = creature prowess − 7,
+ * body 8). Ally-stat readers consult these overrides before falling back to
+ * the card definition (see `engine/ally-stats.ts`).
+ */
+export interface AllyStatOverride {
+  /** Effective mind of the ally (used for influence checks, Stay Her Appetite, etc.). */
+  readonly mind: number;
+  /** Effective combat prowess of the ally. */
+  readonly prowess: number;
+  /** Effective body of the ally for body checks. */
+  readonly body: number;
+}
+
+/**
  * An ally card currently in play, traveling with a character.
  * Allies contribute prowess in combat and marshalling points.
  */
@@ -88,6 +106,13 @@ export interface AllyInPlay {
   readonly definitionId: CardDefinitionId;
   /** Current state of this ally — untapped, tapped, or inverted. */
   readonly status: CardStatus;
+  /**
+   * Stat overrides for an ally that does not derive its mind/prowess/body
+   * from its card definition (e.g. a hazard creature converted into an ally
+   * by *Ready to His Will*). When present, these values take precedence over
+   * the definition's stats everywhere ally stats are read.
+   */
+  readonly statOverride?: AllyStatOverride;
 }
 
 /**

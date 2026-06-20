@@ -11,6 +11,7 @@ import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCa
 import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
+import { allyEffectiveMind } from './ally-stats.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
@@ -1906,8 +1907,10 @@ function handleOpponentInfluenceAttempt(
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
         const allyDef = defById(state, allyInst.definitionId);
-        if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
-        targetMind = (allyDef as { mind: number }).mind;
+        // A converted-creature ally (Ready to His Will) carries its mind on the
+        // instance override; otherwise the target must be a real ally card.
+        if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
+        targetMind = allyEffectiveMind(state, allyInst);
         controllerDI = availableDI(state, oppCharId, opponent);
         allyFound = true;
         break;

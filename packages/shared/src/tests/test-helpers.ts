@@ -3362,6 +3362,45 @@ export function assignBothStrikesTo(
 }
 
 /**
+ * Build a Ringwraith (minion) defending company at Moria facing a single
+ * creature attack in the assign-strikes window, for testing
+ * `convert-creature-to-ally` (Ready to His Will le-220). The named creature is
+ * added to the hazard player's cards-in-play as the attack source. Returns the
+ * state and the attacking creature's instance id.
+ */
+export function buildRingwraithCreatureCombat(opts: {
+  creatureDefId: CardDefinitionId;
+  creatureRace: string;
+  characters: readonly CardDefinitionId[];
+  hand: readonly CardDefinitionId[];
+  strikeProwess?: number;
+}): { state: GameState; creatureInstanceId: CardInstanceId } {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site: MORIA, characters: [...opts.characters] }],
+        hand: [...opts.hand],
+        siteDeck: [MINAS_TIRITH],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+  const state = makeCancelWindowCombat(base, {
+    creatureDefId: opts.creatureDefId,
+    creatureRace: opts.creatureRace,
+    strikesTotal: 1,
+    strikeProwess: opts.strikeProwess ?? 9,
+  });
+  const creatureInstanceId = (state.combat!.attackSource as { instanceId: CardInstanceId }).instanceId;
+  return { state, creatureInstanceId };
+}
+
+/**
  * Build an M/H order-effects state where PLAYER_1's company (with the given
  * hero characters) is moving from Rivendell to a fresh copy of the given
  * destination site. Dispatching `pass` triggers the transition into
