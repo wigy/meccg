@@ -13,7 +13,7 @@
  */
 
 import type { CardDefinition, SiteCard, RegionCard } from './types/index.js';
-import { isSiteCard } from './types/index.js';
+import { isSiteCard, Alignment } from './types/index.js';
 
 /** Movement type used to reach a destination. */
 export type MovementType = 'starter' | 'region';
@@ -121,10 +121,19 @@ function computeAllPairsDistance(
  * paths for the region graph (small graph, ~52 nodes).
  *
  * @param cardPool - The full static card definition pool.
+ * @param alignment - When provided, only sites of this alignment are indexed
+ *   into the site/haven maps. This is essential because the same physical
+ *   location has separate site cards per alignment (e.g. hero Rivendell is a
+ *   haven while minion Rivendell is a free-hold reachable from Carn Dûm).
+ *   Indexing by name across alignments would conflate them, so callers must
+ *   pass the moving company's alignment. Region adjacency is alignment-neutral
+ *   and is always built from all region cards. Omitting the argument indexes
+ *   all alignments (only correct when the pool already holds a single side).
  * @returns A frozen {@link MovementMap} ready for queries.
  */
 export function buildMovementMap(
   cardPool: Readonly<Record<string, CardDefinition>>,
+  alignment?: Alignment,
 ): MovementMap {
   const regionGraph = buildRegionGraph(cardPool);
   const regionPathEdges = computeAllPairsDistance(regionGraph);
@@ -135,6 +144,9 @@ export function buildMovementMap(
 
   for (const card of Object.values(cardPool)) {
     if (!isSiteCard(card)) continue;
+    // Only index sites of the moving company's alignment so same-named sites
+    // of other alignments do not pollute this side's haven/region topology.
+    if (alignment !== undefined && card.alignment !== alignment) continue;
 
     const site = card;
     if (site.region) {

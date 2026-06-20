@@ -44,7 +44,7 @@ import {
 import {
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
   DUNNISH_CLAN_HOLD,
-  isSiteCard, buildMovementMap, getReachableSites,
+  isSiteCard, buildMovementMap, getReachableSites, Alignment,
 } from '../../index.js';
 import type { SiteCard, CardDefinitionId } from '../../index.js';
 
@@ -149,8 +149,10 @@ describe('Rivendell (tw-421)', () => {
 
   test('region movement reaches all sites within 4 regions of Rhudaur', () => {
     const rivendell = pool[RIVENDELL as string] as SiteCard;
-    const allSites = Object.values(pool).filter(isSiteCard);
-    const movementMap = buildMovementMap(pool);
+    // Hero company: scope the site graph to the hero (wizard) side so minion
+    // reprints of the same locations don't appear as separate destinations.
+    const allSites = Object.values(pool).filter(isSiteCard).filter(s => s.alignment === Alignment.Wizard);
+    const movementMap = buildMovementMap(pool, Alignment.Wizard);
 
     const reachable = getReachableSites(movementMap, rivendell, allSites);
     const regionNames = [...new Set(
@@ -202,7 +204,6 @@ describe('Rivendell (tw-421)', () => {
       'Rhosgobel',
       'Ruined Signal Tower',
       'Tharbad',
-      'The Drowning-deeps',
       'The Gem-deeps',
       'The Iron-deeps',
       'The Stones',
@@ -213,7 +214,6 @@ describe('Rivendell (tw-421)', () => {
       'The Under-vaults',
       'The White Towers',
       'The Wind Throne',
-      'The Wind-deeps',
       'The Worthy Hills',
       "Thranduil’s Halls",
       'Weathertop',

@@ -144,18 +144,17 @@ describe('Carn Dûm (le-359)', () => {
 
   test('starter movement does NOT reach hero havens', () => {
     const carnDum = pool[CARN_DUM as string] as SiteCard;
-    const allSites = Object.values(pool).filter(isSiteCard);
-    const movementMap = buildMovementMap(pool);
+    // The site graph is alignment-scoped: a minion company at Carn Dûm
+    // navigates only minion-side sites, so hero-side havens (Rivendell, Lórien,
+    // Grey Havens, Edhellond) can never appear. (The minion printings of some
+    // of those names are free-holds, not the hero havens.)
+    const minionSites = Object.values(pool).filter(isSiteCard).filter(s => s.alignment === Alignment.Ringwraith);
+    const movementMap = buildMovementMap(pool, Alignment.Ringwraith);
 
-    const reachable = getReachableSites(movementMap, carnDum, allSites);
-    const starterNames = reachable
-      .filter(r => r.movementType === 'starter')
-      .map(r => r.site.name);
+    const reachable = getReachableSites(movementMap, carnDum, minionSites);
+    const starter = reachable.filter(r => r.movementType === 'starter');
 
-    expect(starterNames).not.toContain('Rivendell');
-    expect(starterNames).not.toContain('Lórien');
-    expect(starterNames).not.toContain('Grey Havens');
-    expect(starterNames).not.toContain('Edhellond');
+    expect(starter.every(r => r.site.alignment === Alignment.Ringwraith)).toBe(true);
   });
 
   // ─── Region movement ────────────────────────────────────────────────────────

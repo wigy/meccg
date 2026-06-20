@@ -178,7 +178,7 @@ function revealNewSiteActions(
     return actions;
   }
 
-  const movementMap = buildMovementMap(state.cardPool);
+  const movementMap = buildMovementMap(state.cardPool, player.alignment);
 
   // Under-deeps sites cannot be reached by starter or region movement — only under-deeps movement applies.
   const originIsUD = originDef.keywords?.includes('under-deeps') ?? false;
@@ -546,9 +546,14 @@ function agentTurnActions(
     // agent at home, hasn't moved yet), movement is from any of the home sites
     // (rule 4.1). When siteStack is non-empty, movement is from the top site.
     if (status === CardStatus.Untapped || status === CardStatus.Tapped) {
-      const movementMap = buildMovementMap(state.cardPool);
-      const allSiteDefs = Object.values(state.cardPool).filter(isSiteCard);
       const hazardAlignment = player.alignment;
+      // Agents navigate their owner's (minion/balrog) side of the site graph;
+      // restrict the map and candidates to that alignment so same-named sites
+      // of the hero side don't create phantom destinations.
+      const movementMap = buildMovementMap(state.cardPool, hazardAlignment);
+      const allSiteDefs = Object.values(state.cardPool).filter(
+        (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardAlignment,
+      );
 
       // Collect reachable site names from all valid starting points
       const reachableNames = new Set<string>();
@@ -702,7 +707,11 @@ function agentInfluenceActions(
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
   if (!company) return [];
 
-  const allSiteDefs = Object.values(state.cardPool).filter(isSiteCard);
+  // Agent site lookups resolve by name; restrict to the agent owner's
+  // (hazard) alignment so a same-named hero site isn't picked by mistake.
+  const allSiteDefs = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
+  );
 
   for (const agent of hazardPlayer.agents) {
     if (!agent.inPlayAtTurnStart) continue;
@@ -2480,6 +2489,11 @@ function findCreatureKeyingMatches(
 
   const inPlayNames = buildInPlayNames(state);
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  // The destination belongs to the active (moving) player. When the by-name
+  // fallback below is used, restrict it to that player's alignment so a
+  // same-named site of another side isn't picked (e.g. the three printings of
+  // The Under-gates: hero, minion, balrog — with different types/keywords).
+  const moverAlignment = state.players[getPlayerIndex(state, state.activePlayer ?? state.players[0].id)]?.alignment;
   const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
@@ -2540,7 +2554,8 @@ function findCreatureKeyingMatches(
       const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
         ? destSiteDef
         : (Object.values(state.cardPool).find(
-          c => isSiteCard(c) && c.name === mhState.destinationSiteName,
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
         ) as SiteCard | undefined);
       if (resolvedDest) {
         const destKeywords = resolvedDest.keywords ?? [];
@@ -2559,7 +2574,8 @@ function findCreatureKeyingMatches(
       const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
         ? destSiteDef
         : (Object.values(state.cardPool).find(
-          c => isSiteCard(c) && c.name === mhState.destinationSiteName,
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
         ) as SiteCard | undefined);
       if (resolvedDest) {
         for (const kw of key.adjacentToSiteKeywords) {
