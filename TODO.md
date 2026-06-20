@@ -16,17 +16,15 @@ FIXES
 FEATS
 -----
 
-A thermometer kind of bar where current phase is explicitly shown as a progress meter. Sub-phases of the bar must be shown. Also name of the phase must be shown including sub-phase.
+A thermometer kind of bar where current phase is explicitly shown as a progress meter. Sub-phases of the phsae must be shown. Each company has own step for mh and site phase. Also name of the phase must be shown including sub-phase.
 
 EPICS
 -----
 
-(I) Morgul Rallying Cry
 Against the shadow Rules
 (J) Seducing Nations of Men
 The White Hand Rules
 The Balrog Rules
-Define all TW cards
 Define all TD cards
 Define all LE cards
 Define all AS cards
