@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -469,6 +469,7 @@ export function connect(name: string): void {
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view, cardPool);
         renderInstructions(msg.view, cardPool);
+        renderPhaseMeter(msg.view, appState.lastCompanyNames);
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);

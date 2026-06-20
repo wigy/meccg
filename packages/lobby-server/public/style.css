@@ -2667,22 +2667,188 @@ h2 {
   z-index: -1;
 }
 
+/* Compact instruction line beneath the phase meter (replaces the old
+   top "situation banner" overlay). Carries per-step guidance, combat,
+   chain, and targeting prompts. */
 #instruction-text {
   font-family: 'MedievalSharp', cursive;
-  font-size: 1.4rem;
-  color: rgba(220, 200, 140, 0.9);
+  font-size: 1.05rem;
+  color: rgba(220, 200, 140, 0.95);
   text-align: center;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 0, 0, 0.6);
-  padding: 0.5rem 2rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
+  margin-top: 0.2rem;
+  pointer-events: none;
+  width: 100%;
+  white-space: normal;
+}
+
+/* ---- Phase progress meter (thermometer) ---- */
+
+#phase-meter {
   position: fixed;
-  top: 0.5rem;
+  top: 0.4rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-instruction);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: min(72vw, 920px);
   pointer-events: none;
-  width: 80vw;
-  max-width: 80vw;
+}
+
+#phase-meter.hidden {
+  display: none;
+}
+
+/* The body must span the full meter width; otherwise it shrinks to its
+   content and the tracks' width:100% collapses, making the meter narrow. */
+#phase-meter-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.phase-meter-label {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  color: rgba(232, 214, 160, 0.95);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
+  text-align: center;
   white-space: normal;
+  max-width: 100%;
+}
+
+.phase-track {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+}
+
+/* The sub-phase track sits visually subordinate to the phase track. */
+.phase-track--sub {
+  width: 88%;
+}
+
+.phase-seg {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(176, 146, 84, 0.35);
+  border-radius: 5px;
+  background: rgba(28, 26, 22, 0.55);
+  backdrop-filter: blur(3px);
+  transition: background 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  padding: 2px 6px;
+}
+
+.phase-track--sub .phase-seg {
+  min-height: 1.2rem;
+  border-radius: 4px;
+}
+
+.phase-seg-label {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.74rem;
+  line-height: 1.05;
+  color: rgba(214, 202, 174, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  /* Wrap long labels (e.g. "Movement/Hazard", "Gandalf's company") onto two
+     lines instead of cutting them off with an ellipsis. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
+  max-width: 100%;
+}
+
+.phase-track--sub .phase-seg-label {
+  font-size: 0.64rem;
+}
+
+/* Completed segments: subtly filled, muted gold. */
+.phase-seg--done {
+  background: rgba(96, 78, 40, 0.55);
+  border-color: rgba(176, 146, 84, 0.45);
+}
+
+.phase-seg--done .phase-seg-label {
+  color: rgba(224, 210, 176, 0.85);
+}
+
+/* Current segment: warm highlight with a soft glow (the "mercury" tip). */
+.phase-seg--current {
+  background: linear-gradient(180deg, rgba(214, 176, 92, 0.95), rgba(180, 138, 56, 0.95));
+  border-color: rgba(238, 206, 138, 0.85);
+  box-shadow: 0 0 6px rgba(228, 188, 110, 0.45);
+}
+
+.phase-seg--current .phase-seg-label {
+  color: rgba(34, 26, 10, 0.95);
+  font-weight: bold;
+  text-shadow: none;
+}
+
+/* Upcoming segments: faint/empty. */
+.phase-seg--upcoming {
+  background: rgba(28, 26, 22, 0.4);
+  border-color: rgba(176, 146, 84, 0.18);
+}
+
+.phase-seg--upcoming .phase-seg-label {
+  color: rgba(204, 194, 168, 0.4);
+}
+
+/* ---- Per-company sub-step progress bar (MH / Site sub-track) ---- */
+
+/* A company segment that doubles as a sub-step progress bar: the flat state
+   fill is replaced by the cell bar, so the dark base shows behind it. The
+   state border-color / glow still convey done / current / upcoming. */
+.phase-seg--hassub {
+  position: relative;
+  background: rgba(28, 26, 22, 0.6);
+}
+
+.substep-bar {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Each cell is one sub-step; its right edge is the vertical bar marking the
+   boundary to the next sub-step. */
+.substep-cell {
+  flex: 1 1 0;
+  border-right: 1px solid rgba(176, 146, 84, 0.4);
+}
+
+.substep-cell:last-child {
+  border-right: none;
+}
+
+/* Filled up to the current sub-step. */
+.substep-cell--on {
+  background: linear-gradient(180deg, rgba(214, 176, 92, 0.85), rgba(180, 138, 56, 0.85));
+}
+
+/* Label rides above the bar and stays legible over both filled and empty
+   cells (mixed background), so force a light colour with a strong shadow. */
+.phase-seg--hassub .phase-seg-label {
+  position: relative;
+  z-index: 1;
+  color: rgba(245, 238, 220, 0.95);
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.85);
 }
 
 .drafted-row {
@@ -3665,7 +3831,8 @@ h2 {
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
 .all-companies-mode #opponent-deck-box,
-.all-companies-mode #opponent-hazard-limit {
+.all-companies-mode #opponent-hazard-limit,
+.all-companies-mode #phase-meter {
   display: none;
 }
 
