@@ -157,7 +157,7 @@ describe('Drór (dm-6)', () => {
     );
     expect(drorAttempt).toBeDefined();
 
-    // influenceNumber(9) - baseDI(2) - diBonusVsDwarfFaction(2) - checkBonusForDwarf(2) = 3
-    expect(drorAttempt!.need).toBe(3);
+    // influenceNumber(10) - baseDI(2) - diBonusVsDwarfFaction(2) - checkBonusForDwarf(2) = 4
+    expect(drorAttempt!.need).toBe(4);
   });
 });

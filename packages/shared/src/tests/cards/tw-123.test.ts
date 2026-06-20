@@ -123,9 +123,9 @@ describe('Balin (tw-123)', () => {
 
   test('+1 DI bonus applies when influencing a dwarf faction (Blue Mountain Dwarves)', () => {
     // Balin (dwarf, base DI 2) attempts to influence Blue Mountain Dwarves at Blue Mountain Dwarf-hold.
-    // Blue Mountain Dwarves influence number = 9, Dwarves get +2 check modifier from faction card.
+    // Blue Mountain Dwarves influence number = 10, Dwarves get +2 check modifier from faction card.
     // With Balin's +1 DI bonus vs dwarves, total modifier = DI 2 + 1 (DI bonus) + 2 (dwarf check) = 5.
-    // Need to roll > 9 - 5 = 4, so need of 4.
+    // Need to roll > 10 - 5 = 5, so need of 5.
     const state = buildSitePhaseState({
       characters: [BALIN],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -148,7 +148,7 @@ describe('Balin (tw-123)', () => {
     expect(balinAttempt).toBeDefined();
 
     // The influence need should reflect the +1 DI bonus:
-    // influenceNumber(9) - baseDI(2) - diBonusVsDwarf(1) - dwarfCheckMod(2) = 4
-    expect(balinAttempt!.need).toBe(4);
+    // influenceNumber(10) - baseDI(2) - diBonusVsDwarf(1) - dwarfCheckMod(2) = 5
+    expect(balinAttempt!.need).toBe(5);
   });
 });

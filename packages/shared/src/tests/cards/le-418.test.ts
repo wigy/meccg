@@ -58,7 +58,7 @@ const KILI = 'tw-167' as CardDefinitionId;           // dwarf, mind 3, DI 0
 const LEGOLAS = 'tw-180' as CardDefinitionId;        // elf
 
 // Dwarf faction for faction-influence test
-const BLUE_MOUNTAIN_DWARVES = 'tw-200' as CardDefinitionId; // dwarf, influenceNumber 9
+const BLUE_MOUNTAIN_DWARVES = 'tw-200' as CardDefinitionId; // dwarf, influenceNumber 10
 
 // Sites
 const LONELY_MOUNTAIN_MINION = 'le-387' as CardDefinitionId; // "The Lonely Mountain" (minion)
@@ -136,10 +136,10 @@ describe('The Arkenstone (le-418)', () => {
 
   // ── Effect 2: +5 DI against Dwarf factions (faction-influence-check) ─────
 
-  test('+5 DI reduces need against Dwarf faction Blue Mountain Dwarves (influenceNumber 9)', () => {
+  test('+5 DI reduces need against Dwarf faction Blue Mountain Dwarves (influenceNumber 10)', () => {
     // Aragorn (dunadan, DI 3) with Arkenstone at Blue Mountain Dwarf-hold.
-    // Blue Mountain Dwarves: influenceNumber 9, +2 for dwarves (Aragorn is not dwarf).
-    // Without Arkenstone: need = 9 - 3 = 6. With Arkenstone: need = 9 - (3+5) = 1.
+    // Blue Mountain Dwarves: influenceNumber 10, +2 for dwarves (Aragorn is not dwarf).
+    // Without Arkenstone: need = 10 - 3 = 7. With Arkenstone: need = 10 - (3+5) = 2.
     const base = buildSitePhaseState({
       characters: [ARAGORN],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -154,8 +154,8 @@ describe('The Arkenstone (le-418)', () => {
 
     const attempt = influenceAttempts.find(a => a.influencingCharacterId === aragornId);
     expect(attempt).toBeDefined();
-    // influenceNumber(9) - baseDI(3) - arkenstone(+5) = 1
-    expect(attempt!.need).toBe(1);
+    // influenceNumber(10) - baseDI(3) - arkenstone(+5) = 2
+    expect(attempt!.need).toBe(2);
   });
 
   test('+5 DI NOT applied against non-Dwarf factions', () => {

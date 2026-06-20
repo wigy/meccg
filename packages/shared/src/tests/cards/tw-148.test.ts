@@ -97,6 +97,6 @@ describe('Erkenbrand (tw-148)', () => {
       a => a.influencingCharacterId === erkenbrandId,
     );
     expect(erkenbrandAttempt).toBeDefined();
-    expect(erkenbrandAttempt!.need).toBe(7);
+    expect(erkenbrandAttempt!.need).toBe(8);
   });
 });

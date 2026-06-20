@@ -79,8 +79,8 @@ describe('Wormtongue (dm-27)', () => {
       a => a.influencingCharacterId === wormtongueId,
     );
     expect(wormtongueAttempt).toBeDefined();
-    // need = influenceNumber(9) - baseDI(2) - checkBonus(-1) = 8; no Riders of Rohan bonus
-    expect(wormtongueAttempt!.need).toBe(8);
+    // need = influenceNumber(10) - baseDI(2) - checkBonus(-1) = 9; no Riders of Rohan bonus
+    expect(wormtongueAttempt!.need).toBe(9);
   });
 
   test('+4 DI applies when influencing a character with Edoras as home site', () => {

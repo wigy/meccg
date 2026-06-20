@@ -109,10 +109,10 @@ describe('Galdor (td-92)', () => {
   });
 
   test('+1 DI bonus applies when attempting to influence an elf faction (Wood-elves)', () => {
-    // Wood-elves: race "elf", influenceNumber 8, own check-modifier +1
+    // Wood-elves: race "elf", influenceNumber 9, own check-modifier +1
     // for elf bearers. With Galdor (elf, DI 2), need =
-    //   8 - 2 (DI) - 1 (Wood-elves own +1 for elf bearer) - 1 (Galdor's
-    //   elf-faction bonus) = 4.
+    //   9 - 2 (DI) - 1 (Wood-elves own +1 for elf bearer) - 1 (Galdor's
+    //   elf-faction bonus) = 5.
     // The elf-faction bonus is reflected in the explanation as "DI bonus +1".
     const state = buildSitePhaseState({
       characters: [GALDOR],
@@ -131,7 +131,7 @@ describe('Galdor (td-92)', () => {
       a => a.influencingCharacterId === galdorId,
     );
     expect(galdorAttempt).toBeDefined();
-    expect(galdorAttempt!.need).toBe(4);
+    expect(galdorAttempt!.need).toBe(5);
     expect(galdorAttempt!.explanation).toContain('DI bonus +1');
   });
 

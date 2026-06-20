@@ -78,8 +78,8 @@ describe('Perchen (as-4)', () => {
       a => a.influencingCharacterId === perchenId,
     );
     expect(perchenAttempt).toBeDefined();
-    // influenceNumber(9) - baseDI(2) - perchenDIBonus(3) - menCheckPenalty(-1 → +1 to need) = 5
-    expect(perchenAttempt!.need).toBe(5);
+    // influenceNumber(10) - baseDI(2) - perchenDIBonus(3) - menCheckPenalty(-1 → +1 to need) = 6
+    expect(perchenAttempt!.need).toBe(6);
   });
 
   test('+3 DI bonus does NOT apply to factions not playable at Dunnish Clan-hold', () => {

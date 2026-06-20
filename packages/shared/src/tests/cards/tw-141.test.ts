@@ -175,7 +175,7 @@ describe('Dori (tw-141)', () => {
 
     const doriAttempt = influenceActions.find(a => a.influencingCharacterId === doriId);
     expect(doriAttempt).toBeDefined();
-    // need = influenceNumber(9) - DI(0) - dwarfBonus(+2) - doriPenalty(-1) = 8
-    expect(doriAttempt!.need).toBe(8);
+    // need = influenceNumber(10) - DI(0) - dwarfBonus(+2) - doriPenalty(-1) = 9
+    expect(doriAttempt!.need).toBe(9);
   });
 });

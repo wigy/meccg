@@ -164,7 +164,7 @@ describe('Join With That Power (as-90)', () => {
         && (ea.action as { influencingCharacterId: CardInstanceId }).influencingCharacterId === asternak);
     expect(influenceActions.length).toBeGreaterThan(0);
     const influenceAction = influenceActions[0].action as { need: number };
-    expect(influenceAction.need).toBe(3);
+    expect(influenceAction.need).toBe(4);
   });
 
   test('corruption-check-boost: offered during pending CC on character in diplomat company', () => {

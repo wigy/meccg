@@ -151,7 +151,7 @@ describe('Fíli (tw-150)', () => {
 
     const filiAttempt = influenceActions.find(a => a.influencingCharacterId === filiId);
     expect(filiAttempt).toBeDefined();
-    // need = 9 (influenceNumber) - 0 (DI) - 2 (dwarf check mod) - (-1) (Fíli penalty) = 8
-    expect(filiAttempt!.need).toBe(8);
+    // need = 10 (influenceNumber) - 0 (DI) - 2 (dwarf check mod) - (-1) (Fíli penalty) = 9
+    expect(filiAttempt!.need).toBe(9);
   });
 });

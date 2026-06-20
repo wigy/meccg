@@ -96,7 +96,7 @@ describe('Glóin (tw-160)', () => {
 
     const gloinAttempt = influenceActions.find(a => a.influencingCharacterId === gloinId);
     expect(gloinAttempt).toBeDefined();
-    expect(gloinAttempt!.need).toBe(2);
+    expect(gloinAttempt!.need).toBe(3);
   });
 
   test('+1 DI allows Glóin to control a dwarf character (Kíli, mind 3) as a follower', () => {

@@ -117,9 +117,9 @@ describe('Kíli (tw-167)', () => {
 
   test('-1 influence penalty increases need when Kíli influences Blue Mountain Dwarves', () => {
     // Kíli (dwarf, DI 0) at Blue Mountain Dwarf-hold influencing Blue Mountain Dwarves
-    // (influenceNumber 9, +2 for dwarves, -2 for elves).
+    // (influenceNumber 10, +2 for dwarves, -2 for elves).
     // infModifier = DI(0) + dwarf bonus(+2) + Kíli penalty(-1) = +1
-    // need = 9 - 1 = 8
+    // need = 10 - 1 = 9
     const state = buildSitePhaseState({
       characters: [KILI],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -138,16 +138,16 @@ describe('Kíli (tw-167)', () => {
     const kiliAttempt = influenceActions.find(a => a.influencingCharacterId === kiliId);
     expect(kiliAttempt).toBeDefined();
 
-    // Without the -1 penalty: need = 9 - (DI 0 + dwarf +2) = 7
-    // With Kíli's -1 penalty: need = 9 - (DI 0 + dwarf +2 - 1) = 8
-    expect(kiliAttempt!.need).toBe(8);
+    // Without the -1 penalty: need = 10 - (DI 0 + dwarf +2) = 8
+    // With Kíli's -1 penalty: need = 10 - (DI 0 + dwarf +2 - 1) = 9
+    expect(kiliAttempt!.need).toBe(9);
   });
 
   test('-1 influence penalty is worse than a dwarf with no penalty', () => {
     // Balin (dwarf, DI 2, no check-modifier penalty):
-    // infModifier = DI(2) + dwarf bonus(+2) = 4, need = 9 - 4 = 5
+    // infModifier = DI(2) + dwarf bonus(+2) = 4, need = 10 - 4 = 6
     // Kíli (dwarf, DI 0, -1 penalty):
-    // infModifier = DI(0) + dwarf bonus(+2) - 1 = 1, need = 9 - 1 = 8
+    // infModifier = DI(0) + dwarf bonus(+2) - 1 = 1, need = 10 - 1 = 9
     // Kíli's need > Balin's need.
     const kiliState = buildSitePhaseState({
       characters: [KILI],

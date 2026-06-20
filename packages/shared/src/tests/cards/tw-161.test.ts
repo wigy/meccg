@@ -132,7 +132,7 @@ describe('Glorfindel II (tw-161)', () => {
     expect(glorfindelAttempt).toBeDefined();
 
     // The influence need should reflect the +1 DI bonus:
-    // influenceNumber(8) - baseDI(2) - diBonusVsElf(1) - elfCheckMod(1) = 4
-    expect(glorfindelAttempt!.need).toBe(4);
+    // influenceNumber(9) - baseDI(2) - diBonusVsElf(1) - elfCheckMod(1) = 5
+    expect(glorfindelAttempt!.need).toBe(5);
   });
 });

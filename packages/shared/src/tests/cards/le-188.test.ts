@@ -154,7 +154,7 @@ describe('Gifts as Given of Old (le-188)', () => {
 
   test('the active +3 constraint lowers the influence-attempt need by exactly 3', () => {
     // Asternak (DI 2, +2 more vs Variag Camp factions) at Variag Camp; Variags
-    // influence# 8. Baseline modifier = 2 + 2 = 4 → need = 8 - 4 = 4.
+    // influence# 9. Baseline modifier = 2 + 2 = 4 → need = 9 - 4 = 5.
     const base = buildSitePhaseState({
       characters: [ASTERNAK],
       site: VARIAG_CAMP,
@@ -167,7 +167,7 @@ describe('Gifts as Given of Old (le-188)', () => {
       .map(ea => ea.action as InfluenceAttemptAction)
       .find(a => a.influencingCharacterId === asternak);
     expect(baseAttempt).toBeDefined();
-    expect(baseAttempt!.need).toBe(4);
+    expect(baseAttempt!.need).toBe(5);
 
     const boosted = addConstraint(base, {
       source: 'gifts-1' as CardInstanceId,
@@ -182,7 +182,7 @@ describe('Gifts as Given of Old (le-188)', () => {
       .map(ea => ea.action as InfluenceAttemptAction)
       .find(a => a.influencingCharacterId === asternak);
     expect(boostedAttempt).toBeDefined();
-    expect(boostedAttempt!.need).toBe(1); // 8 - 4 - 3
+    expect(boostedAttempt!.need).toBe(2); // 9 - 4 - 3
   });
 
   test('faction-influence-roll need reflects the +3 constraint', () => {
@@ -216,7 +216,7 @@ describe('Gifts as Given of Old (le-188)', () => {
       .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')
       .map(ea => ea.action as FactionInfluenceRollAction);
     expect(rollActions.length).toBeGreaterThan(0);
-    expect(rollActions[0].need).toBe(1); // 8 - 4 - 3
+    expect(rollActions[0].need).toBe(2); // 9 - 4 - 3
   });
 
   test('the constraint is consumed after the faction-influence-roll resolves', () => {

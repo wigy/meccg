@@ -8,7 +8,7 @@
  * "Unique. Playable at Blue Mountain Dwarf-hold if the influence check is
  *  greater than 9. Standard Modifications: Elves (-2), Dwarves (+2)."
  *
- * influenceNumber = 9, race = dwarf, playableAt = Blue Mountain Dwarf-hold.
+ * influenceNumber = 10, race = dwarf, playableAt = Blue Mountain Dwarf-hold.
  *
  * Effects tested:
  * 1. check-modifier: +2 to influence check when the influencing character is a dwarf
@@ -34,9 +34,9 @@ describe('Blue Mountain Dwarves (tw-200)', () => {
 
   test('dwarf character gets +2 check modifier when influencing', () => {
     // Gimli (dwarf, base DI 2) attempts to influence Blue Mountain Dwarves at
-    // Blue Mountain Dwarf-hold.  Influence number = 9.  No special DI bonus
+    // Blue Mountain Dwarf-hold.  Influence number = 10.  No special DI bonus
     // for this faction; the faction card's Dwarves (+2) check modifier applies.
-    //   need = influenceNumber(9) − DI(2) − dwarfCheckMod(+2) = 5
+    //   need = influenceNumber(10) − DI(2) − dwarfCheckMod(+2) = 6
     const state = buildSitePhaseState({
       characters: [GIMLI],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -57,15 +57,15 @@ describe('Blue Mountain Dwarves (tw-200)', () => {
     );
     expect(gimliAttempt).toBeDefined();
 
-    // need = 9 − 2 (DI) − 2 (dwarf check modifier) = 5
-    expect(gimliAttempt!.need).toBe(5);
+    // need = 10 − 2 (DI) − 2 (dwarf check modifier) = 6
+    expect(gimliAttempt!.need).toBe(6);
   });
 
   test('elf character gets −2 check penalty when influencing', () => {
     // Legolas (elf, base DI 2) attempts to influence Blue Mountain Dwarves at
-    // Blue Mountain Dwarf-hold.  Influence number = 9.  The faction card's
+    // Blue Mountain Dwarf-hold.  Influence number = 10.  The faction card's
     // Elves (−2) check modifier applies as a penalty.
-    //   need = influenceNumber(9) − DI(2) − elfCheckMod(−2) = 9
+    //   need = influenceNumber(10) − DI(2) − elfCheckMod(−2) = 10
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -86,8 +86,8 @@ describe('Blue Mountain Dwarves (tw-200)', () => {
     );
     expect(legolasAttempt).toBeDefined();
 
-    // need = 9 − 2 (DI) − (−2) (elf check modifier) = 9
-    expect(legolasAttempt!.need).toBe(9);
+    // need = 10 − 2 (DI) − (−2) (elf check modifier) = 10
+    expect(legolasAttempt!.need).toBe(10);
   });
 
   test('dwarf needs lower roll than elf to win the faction', () => {

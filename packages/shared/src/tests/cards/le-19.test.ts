@@ -88,8 +88,8 @@ describe('Layos (le-19)', () => {
     );
     expect(layosAttempt).toBeDefined();
 
-    // influenceNumber(10) - baseDI(2) - diBonusVsMenOfDorwinion(2) = 6
-    expect(layosAttempt!.need).toBe(6);
+    // influenceNumber(11) - baseDI(2) - diBonusVsMenOfDorwinion(2) = 7
+    expect(layosAttempt!.need).toBe(7);
   });
 
   test('+2 DI bonus does NOT apply to other factions (Goblins of Goblin-gate)', () => {
