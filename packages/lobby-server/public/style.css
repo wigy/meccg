@@ -535,6 +535,25 @@ h2 {
   flex: 1;
 }
 
+/* Bug-report / feature-request icon buttons in the lobby nav bar. Match the
+   nav item colours (muted grey, gold on hover). */
+.lobby-nav-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #8a8a98;
+  padding: 0.3rem 0.5rem;
+  transition: color 0.15s, text-shadow 0.15s;
+}
+
+.lobby-nav-icon-btn:hover {
+  color: #d4b36a;
+  text-shadow: 0 0 12px rgba(196, 163, 90, 0.4);
+}
+
 .lobby-header {
   display: flex;
   align-items: center;

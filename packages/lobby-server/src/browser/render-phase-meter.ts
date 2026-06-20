@@ -286,9 +286,9 @@ function renderTrack(segments: Segment[], extraClass: string): string {
   const cells = segments
     .map(seg => {
       const safe = seg.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const hasSub = seg.substeps && seg.substeps.total > 0;
-      const bar = hasSub ? renderSubstepBar(seg.substeps!) : '';
-      const subClass = hasSub ? ' phase-seg--hassub' : '';
+      const sub = seg.substeps;
+      const bar = sub && sub.total > 0 ? renderSubstepBar(sub) : '';
+      const subClass = sub && sub.total > 0 ? ' phase-seg--hassub' : '';
       return `<div class="phase-seg phase-seg--${seg.state}${subClass}" title="${safe}">${bar}<span class="phase-seg-label">${safe}</span></div>`;
     })
     .join('');
