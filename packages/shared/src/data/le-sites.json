@@ -893,13 +893,21 @@
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
         "target": "wounded-character"
       },
       {
         "type": "site-rule",
         "rule": "attacks-not-detainment",
-        "filter": { "enemy.race": { "$ne": "nazgul" } }
+        "filter": {
+          "enemy.race": {
+            "$ne": "nazgul"
+          }
+        }
       }
     ]
   },
@@ -968,7 +976,9 @@
         "creatureType": "Men",
         "strikes": 1,
         "prowess": 9,
-        "combatRules": ["each-character"]
+        "combatRules": [
+          "each-character"
+        ]
       },
       {
         "creatureType": "Dúnedain",
@@ -980,7 +990,9 @@
     "effects": [
       {
         "type": "combat-detainment",
-        "when": { "defender.covert": true }
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 1,
@@ -1141,14 +1153,32 @@
         "rule": "deny-item",
         "when": {
           "$and": [
-            { "subtype": "major" },
+            {
+              "subtype": "major"
+            },
             {
               "$not": {
                 "$or": [
-                  { "keywords": { "$includes": "weapon" } },
-                  { "keywords": { "$includes": "armor" } },
-                  { "keywords": { "$includes": "shield" } },
-                  { "keywords": { "$includes": "helmet" } }
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
                 ]
               }
             }
@@ -1288,13 +1318,17 @@
         "creatureType": "Men",
         "strikes": 1,
         "prowess": 5,
-        "combatRules": ["each-character"]
+        "combatRules": [
+          "each-character"
+        ]
       }
     ],
     "effects": [
       {
         "type": "combat-detainment",
-        "when": { "defender.covert": true }
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
@@ -1355,11 +1389,18 @@
         "creatureType": "Men",
         "strikes": 1,
         "prowess": 6,
-        "combatRules": ["each-character"]
+        "combatRules": [
+          "each-character"
+        ]
       }
     ],
     "effects": [
-      { "type": "combat-detainment", "when": { "defender.covert": true } }
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      }
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
@@ -1394,5 +1435,690 @@
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company).",
     "unique": true
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-349",
+    "name": "Amon Hen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AmonHen.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "shadow"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check modified by -2"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-353",
+    "name": "Barrow-downs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Barrowdowns.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Cardolan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-355",
+    "name": "Blue Mountain Dwarf-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlueMountainDwarfhold.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Númeriador",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dwarves",
+        "strikes": 4,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major, greater, gold ring)Automatic-attacks: Dwarves — 4 strikes with 10 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-356",
+    "name": "Bree",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Bree.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Arthedain",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Information, Items (minor, gold ring)Automatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company)Special: Agent minions may be brought into play under direct influence at this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-357",
+    "name": "Buhr Widu",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BuhrWidu.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Southern Rhovanion",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 1,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks: Troll — 1 strike with 10 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-358",
+    "name": "Cameth Brin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CamethBrin.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Rhudaur",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-366",
+    "name": "Dol Amroth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DolAmroth.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "free",
+      "free"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Belfalas",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(2nd) Dúnedain",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 8 prowess (detainment against covert company) (2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-368",
+    "name": "Drúadan Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DruadanForest.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Anórien",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulAutomatic-attacks: Men — 3 strikes with 6 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-369",
+    "name": "Dunharrow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Dunharrow.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "shadow"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 6 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-370",
+    "name": "Dunnish Clan-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DunnishClanhold.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Dunland",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-375",
+    "name": "Gladden Fields",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GladdenFields.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Anduin Vales",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (gold ring)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-376",
+    "name": "Glittering Caves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GlitteringCaves.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Gap of Isen",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-377",
+    "name": "Gobel Mírlond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GobelMirlond.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Harondor",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-380",
+    "name": "Haudh-in-Gwanûr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HaudhinGwanur.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Harondor",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 10 prowess; each character wounded must make a corruption check modified by -2"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-381",
+    "name": "Henneth Annûn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HennethAnnun.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Ithilien",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Minas MorgulAutomatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-382",
+    "name": "Hermit’s Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HermitsHill.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Wold & Foothills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a covert company may discard two minor items they bear to make any one gold ring item (regardless of its text restrictions) playable at this untapped site this turn."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-383",
+    "name": "Iron Hill Dwarf-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IronHillDwarfhold.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Iron Hills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dwarves",
+        "strikes": 4,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major, greater, gold ring)Automatic-attacks: Dwarves — 4 strikes with 10 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-385",
+    "name": "Lake-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Laketown.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Northern Rhovanion",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 6 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-386",
+    "name": "Lond Galen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LondGalen.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Anfalas",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (gold ring)Automatic-attacks: Men — each character faces 1 strike with 6 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-389",
+    "name": "Lossadan Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LossadanCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Forochel",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (gold ring)Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-397",
+    "name": "Ost-in-Edhil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OstinEdhil.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Hollin",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Wolves",
+        "strikes": 3,
+        "prowess": 5
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-398",
+    "name": "Pelargir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Pelargir.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "free"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Lebennin",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "(2nd) Dúnedain",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 7 prowess (detainment against covert company)(2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-400",
+    "name": "Ruined Signal Tower",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RuinedSignalTower.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Enedhwaith",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Spiders",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Spiders — 2 strikes with 8 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-405",
+    "name": "Stone-circle",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Stonecircle.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Old Pûkel Gap",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-406",
+    "name": "The Stones",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheStones.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Andrast",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creatures",
+        "strikes": 2,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-407",
+    "name": "Tharbad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Tharbad.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Cardolan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: Items may be played at this site even if it is tapped."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-409",
+    "name": "Urlurtsu Nurn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UrlurtsuNurn.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "shadow",
+      "dark",
+      "dark"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Nurn",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Minas MorgulSpecial: If your Ringwraith is at this site, he may tap during the organization phase to bring one Orc or Troll character from your discard pile into play at this site (as another company). The character must move to a different site from that of your Ringwraith this turn or be discarded at the end of the movement/hazard phase."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-410",
+    "name": "Vale of Erech",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ValeofErech.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "free",
+      "shadow"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Lamedon",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (gold ring)Automatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-416",
+    "name": "Wose Passage-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WosePassagehold.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Old Pûkel-land",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 5
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Geann a-LischAutomatic-attacks: Men — 3 strikes with 5 prowess"
   }
 ]

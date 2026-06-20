@@ -923,7 +923,10 @@
       "corruption"
     ],
     "effects": [
-      { "type": "play-target", "target": "character" },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
       {
         "type": "play-option",
         "id": "prowess",
@@ -938,8 +941,330 @@
       {
         "type": "play-option",
         "id": "corruption",
-        "apply": { "type": "force-check", "check": "corruption" }
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        }
       }
     ]
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-101",
+    "name": "Arouse Defenders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ArouseDefenders.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 2 and cannot be canceled. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-102",
+    "name": "Arouse Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ArouseDenizens.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-103",
+    "name": "Awaken Defenders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AwakenDefenders.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Free-hold [{F}] or Border-hold [{B}] is doubled. Additionally, each detainment automatic-attack at a Free-hold [{F}] or Border-hold [{B}] becomes a normal automatic-attack. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-104",
+    "name": "Awaken Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AwakenDenizens.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes for each automatic-attack at a Ruins & Lairs [{R}] site is doubled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-105",
+    "name": "Call of Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CallofHome.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player’s hand if the result plus his player’s unused general influence is less than 10.Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-106",
+    "name": "Chill Them with Fear",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ChillThemwithFear.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "All Elf, Dwarf, Dúnadan, and Hobbit attacks receive +2 prowess and +2 strikes (+1 prowess and +1 strike if Doors of Night is in play). Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-108",
+    "name": "Darkness Under Tree",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DarknessUnderTree.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped Orc, Troll, or Man character if Doors of Night is in play. Tap the character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-109",
+    "name": "Despair of the Heart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DespairoftheHeart.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a non-Hobbit, non-Wizard, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check each time a character in his company becomes wounded. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-110",
+    "name": "Doors of Night",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DoorsofNight.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-111",
+    "name": "Fell Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FellWinter.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-113",
+    "name": "Greed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Greed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-114",
+    "name": "Heedless Revelry",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HeedlessRevelry.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a non-Ringwraith company that is not moving. Make a roll for each untapped non-Wizard character in the company; modify this roll by -2 for hero characters. If the result is greater than the character’s mind, the character becomes tapped. Alternatively, may be revealed as an on-guard card on a company in response to the play of an item, ally, or faction (does not interfere with the playing of the card it is revealed in response to). Tap all untapped non-Ringwraith, non-Wizard characters in the company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-116",
+    "name": "Incite Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/InciteDenizens.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Ruins & Lairs [{R}]. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack at the site of your choice. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-118",
+    "name": "Lost in Border-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LostinBorderlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-120",
+    "name": "Lost in Shadow-lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LostinShadowlands.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Shadow-land [{s}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-121",
+    "name": "Lost in the Wilderness",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LostintheWilderness.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Wilderness [{w}] in its site path."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-125",
+    "name": "Minions Stir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MinionsStir.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-126",
+    "name": "Muster Disperses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MusterDisperses.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-127",
+    "name": "News of Doom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NewsofDoom.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique.Each player makes a roll for each faction he has in play. Discard any faction if its result is 2 or 3, or if its result plus that player’s unused general influence is less than 10. Remove News of Doom from the game."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-129",
+    "name": "Plague",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Plague.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a non-Ringwraith, non-Wizard, non-Elf character at or moving to a non-Haven, non-Ruins & Lairs site. At the end of your opponent’s turn, each non-Ringwraith, non-Wizard, non-Elf character at the same site as the target must make a roll modified by -2. If the result is greater than the character’s body, he is wounded or he is eliminated if he is already wounded. Discard this card during the target’s organization phase if he is at a Haven/Darkhaven [{H}]."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-131",
+    "name": "Rats!",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rats.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company containing at least one minor item that is at or moving to a Ruins & Lairs [{R}], Shadow-hold [{S}], or Dark-hold [{D}]. Company discards one minor item of its choice or chooses one of its unwounded characters to become wounded (no body check required)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-133",
+    "name": "The Ring Will Have But One Master",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRingWillHaveButOneMaster.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on the bearer of The One Ring. During each of his organization phases, one character (other than the bearer) in bearer’s company is discarded (of bearer’s player’s choice) along with all non-follower cards played with him. During his organization phase, the target character may tap to attempt to remove this card. Make a roll—if the result is greater than 8, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-135",
+    "name": "The Roving Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRovingEye.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a non-Wizard, non-Ringwraith character bearing a Palantír, greater item, or ring that is not a gold ring. Target character is forced to make corruption check modified by -2. If the character would normally be eliminated as a result of this check, he is instead discarded (along with all non-follower cards played with him)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-137",
+    "name": "Shut Yer Mouth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShutYerMouth.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a non-Wizard, non-Ringwraith character. -2 to character’s direct influence (to a minimum of zero). Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-138",
+    "name": "So You’ve Come Back ",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SoYouveComeBack.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a character of 5 mind or less. The mind of each other non-follower, non-Ringwraith, non-Wizard character in his company increases by one. Discard this card during the organization phase if target character is in a company by himself and at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-139",
+    "name": "Something Has Slipped",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SomethingHasSlipped.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a company. If a character in the company becomes wounded, the prowess of each character in the company is modified by -2 for the rest of the turn. Discard this card during its organization phase if the company is at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-144",
+    "name": "Tidings of Doubt and Danger",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TidingsofDoubtandDanger.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "The direct influence of each Ringwraith is lowered by 2 (by 3 if Doors of Night is in play). Discard when any play deck is exhausted. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-147",
+    "name": "Waiting Shadow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WaitingShadow.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable on a company with an untapped Orc, Troll, or Man character. Tap an Orc, Troll, or Man character in that company (defender’s choice). If Doors of Night is in play, the company need not contain an Orc, Troll, or Man and any one character in that company is tapped (defender’s choice)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-148",
+    "name": "Wake of War",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WakeofWar.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-150",
+    "name": "Webs of Fear & Treachery",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WebsofFearTreachery.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [],
+    "text": "Except for unused general influence and unused normal direct influence (including influence modifications given in a character’s card text), all modifications to each influence attempt are reduced to zero."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-151",
+    "name": "Wrath of the West",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WrathoftheWest.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a minion resource short-event declared earlier in the same chain of effects. Make a roll—if the result is greater than 6, the event is canceled and discarded."
   }
 ]

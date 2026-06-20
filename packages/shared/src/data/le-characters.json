@@ -302,13 +302,17 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": -2,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       },
       {
         "type": "cancel-attack",
@@ -836,7 +840,10 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 3,
-        "when": { "reason": "faction-influence-check", "faction.name": "Woodmen" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Woodmen"
+        }
       }
     ],
     "certified": "2026-06-15"
@@ -865,7 +872,11 @@
       8
     ],
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": -1 }
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
     ],
     "certified": "2026-06-11"
   },
@@ -894,7 +905,11 @@
       8
     ],
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": -1 }
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
     ],
     "certified": "2026-06-08"
   },
@@ -921,7 +936,11 @@
       8
     ],
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": -1 }
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
     ],
     "certified": "2026-06-04"
   },
@@ -1044,20 +1063,30 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": -3,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": -1,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       },
       {
         "type": "grant-action",
         "action": "company-stat-boost",
-        "cost": { "tap": "self" },
-        "when": { "bearer.atHaven": true },
-        "targets": { "scope": "player-companies" },
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.atHaven": true
+        },
+        "targets": {
+          "scope": "player-companies"
+        },
         "apply": {
           "type": "sequence",
           "apps": [
@@ -1109,18 +1138,24 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 1,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 2,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       },
       {
         "type": "hand-size-modifier",
         "value": 1,
-        "when": { "self.atDarkhaven": true }
+        "when": {
+          "self.atDarkhaven": true
+        }
       }
     ],
     "certified": "2026-06-08"
@@ -1152,19 +1187,27 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": -1,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": -3,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       },
       {
         "type": "grant-action",
         "action": "indur-fetch-magic",
-        "cost": { "tap": "self" },
-        "when": { "bearer.isRevealedAvatar": true },
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.isRevealedAvatar": true
+        },
         "apply": {
           "type": "move",
           "select": "target",
@@ -1172,10 +1215,26 @@
           "to": "hand",
           "filter": {
             "$or": [
-              { "keywords": { "$includes": "spell" } },
-              { "keywords": { "$includes": "sorcery" } },
-              { "keywords": { "$includes": "spirit-magic" } },
-              { "keywords": { "$includes": "shadow-magic" } }
+              {
+                "keywords": {
+                  "$includes": "spell"
+                }
+              },
+              {
+                "keywords": {
+                  "$includes": "sorcery"
+                }
+              },
+              {
+                "keywords": {
+                  "$includes": "spirit-magic"
+                }
+              },
+              {
+                "keywords": {
+                  "$includes": "shadow-magic"
+                }
+              }
             ]
           }
         }
@@ -1210,13 +1269,17 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": -2,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       }
     ]
   },
@@ -1247,13 +1310,17 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": -2,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 2,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       }
     ]
   },
@@ -1284,13 +1351,17 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": -3,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": -1,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       }
     ]
   },
@@ -1322,13 +1393,17 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 3,
-        "when": { "bearer.ringwraithMode": "heralded-lord" }
+        "when": {
+          "bearer.ringwraithMode": "heralded-lord"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
-        "when": { "bearer.ringwraithMode": "fell-rider" }
+        "when": {
+          "bearer.ringwraithMode": "fell-rider"
+        }
       },
       {
         "type": "ringwraith-follower-slots",
@@ -1365,5 +1440,505 @@
     ],
     "text": "Unique. -1 to all corruption checks.",
     "certified": "2026-06-01"
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-2",
+    "name": "Belegorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Belegorn.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Carn Dûm",
+    "effects": [],
+    "text": "Unique. Can use spirit-magic."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-3",
+    "name": "Bróin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Broin.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria",
+    "effects": [],
+    "text": "Unique. +1 prowess against Orcs and Elves."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-5",
+    "name": "Carambor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Carambor.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Carn Dûm",
+    "effects": [],
+    "text": "Unique. May tap at the end of his company's movement/hazard phase to allow it to move to an additional site on the same turn. Another site card may be played and another movement/hazard phase immediately follows for his company. The new site path must contain at least one Wilderness [{w}]."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-8",
+    "name": "Dorelas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Dorelas.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "sage"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lond Galen",
+    "effects": [],
+    "text": "Unique."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-9",
+    "name": "Dunlending Spy",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DunlendingSpy.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree",
+    "effects": [],
+    "text": "Unique."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-13",
+    "name": "Gulla",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Gulla.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Carn Dûm",
+    "effects": [],
+    "text": "Unique. +1 prowess against Orcs and Elves."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-15",
+    "name": "Hendolen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Hendolen.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Morgul",
+    "effects": [],
+    "text": "Unique. May tap to cancel a detainment attack against his company. +2 direct influence against Elves and Elf factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-20",
+    "name": "Lieutenant of Angmar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LieutenantofAngmar.jpg",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 8,
+    "body": 9,
+    "mind": 9,
+    "directInfluence": 1,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Carn Dûm",
+    "effects": [],
+    "text": "Unique. Olog-hai. Leader. Manifestation of Rogrog. Discard on a body check result of 9. +4 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Carn Dûm, you may keep one more card than normal in your hand."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-26",
+    "name": "Náin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Nain.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "sage"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dol Guldur",
+    "effects": [],
+    "text": "Unique. +1 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-29",
+    "name": "Old Troll",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OldTroll.jpg",
+    "unique": false,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Discard on a body check result of 8. +1 direct influence against Trolls, Orcs, Troll factions, and Orc factions. -1 to all corruption checks."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-32",
+    "name": "Orc Chieftain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcChieftain.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-33",
+    "name": "Orc Sniffler",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcSniffler.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Discard on a body check result of 7 or 8. -1 to all corruption checks."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-37",
+    "name": "Pon Opar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PonOpar.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Southron Oasis",
+    "effects": [],
+    "text": "Unique. +2 direct influence against any faction playable at Southron Oasis."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-40",
+    "name": "Shámas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Shamas.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dunnish Clan-hold",
+    "effects": [],
+    "text": "Unique. +1 direct influence against Man factions. Additionally, +2 direct influence against the Dunlendings faction."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-41",
+    "name": "Snaga",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Snaga.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any site in Imlad Morgul",
+    "effects": [],
+    "text": "Unique. Uruk-hai. Discard on a body check result of 9."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-42",
+    "name": "Tarcil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Tarcil.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Morgul",
+    "effects": [],
+    "text": "Unique."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-43",
+    "name": "Threlin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Threlin.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Morgul",
+    "effects": [],
+    "text": "Unique. +2 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-44",
+    "name": "Troll Lout",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TrollLout.jpg",
+    "unique": false,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Discard on a body check result of 8. -1 to all corruption checks."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-45",
+    "name": "Troll-chief",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Trollchief.jpg",
+    "unique": false,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": 6,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Olog-hai. Leader. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-47",
+    "name": "Uchel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Uchel.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Cameth Brin",
+    "effects": [],
+    "text": "Unique. +4 direct influence against the Hillmen faction."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-49",
+    "name": "Ulkaur the Tongueless",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UlkaurtheTongueless.jpg",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Barad-dûr",
+    "effects": [],
+    "text": "Unique. Olog-hai. Leader. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. -1 to all corruption checks."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-51",
+    "name": "Akhôrahil the Ringwraith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AkhorahiltheRingwraith.jpg",
+    "unique": true,
+    "race": "ringwraith",
+    "skills": [
+      "sage"
+    ],
+    "prowess": 8,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 3,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any site in Nurn",
+    "effects": [],
+    "text": "Unique. Manifestation of Akhôrahil. Can use sorcery, spirit-magic, and shadow-magic. +3 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. As your Ringwraith, when a magic card used by him has to be discarded, return it to the play deck and reshuffle."
   }
 ]

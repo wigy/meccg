@@ -44,9 +44,18 @@
       }
     ],
     "effects": [
-      { "type": "combat-attacker-chooses-defenders" },
-      { "type": "combat-multi-attack", "count": 2 },
-      { "type": "combat-cancel-attack-by-tap", "maxCancels": 1, "allowTargetToCancel": true }
+      {
+        "type": "combat-attacker-chooses-defenders"
+      },
+      {
+        "type": "combat-multi-attack",
+        "count": 2
+      },
+      {
+        "type": "combat-cancel-attack-by-tap",
+        "maxCancels": 1,
+        "allowTargetToCancel": true
+      }
     ],
     "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character.",
     "certified": "2026-04-23"
@@ -65,11 +74,20 @@
     "race": "drake",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness", "wilderness"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness",
+          "wilderness"
+        ]
       },
       {
-        "regionTypes": ["wilderness", "wilderness"],
-        "when": { "inPlay": "Doors of Night" }
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [],
@@ -95,7 +113,9 @@
       }
     ],
     "effects": [
-      { "type": "combat-attacker-chooses-defenders" }
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
     ],
     "text": "Men. Two strikes. Attacker chooses defending characters.",
     "certified": "2026-04-23"
@@ -166,8 +186,19 @@
     "killMarshallingPoints": 1,
     "race": "undead",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "shadow", "dark"] },
-      { "siteTypes": ["shadow-hold", "dark-hold"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ]
+      },
+      {
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
     ],
     "effects": [
       {
@@ -195,7 +226,11 @@
     "race": "wolves",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness", "shadow"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness",
+          "shadow"
+        ]
       }
     ],
     "certified": "2026-06-04"
@@ -215,11 +250,22 @@
     "race": "awakened plant",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness", "border", "free"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness",
+          "border",
+          "free"
+        ]
       },
       {
-        "regionTypes": ["shadow"],
-        "when": { "$not": { "inPlay": "Doors of Night" } }
+        "regionTypes": [
+          "shadow"
+        ],
+        "when": {
+          "$not": {
+            "inPlay": "Doors of Night"
+          }
+        }
       }
     ],
     "effects": [
@@ -227,11 +273,17 @@
         "type": "combat-detainment",
         "when": {
           "$or": [
-            { "defender.alignment": "hero" },
+            {
+              "defender.alignment": "hero"
+            },
             {
               "$and": [
-                { "defender.alignment": "fallen-wizard" },
-                { "defender.covert": true }
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
               ]
             }
           ]
@@ -292,8 +344,14 @@
     "race": "undead",
     "keyedTo": [
       {
-        "regionTypes": ["shadow", "dark"],
-        "siteTypes": ["shadow-hold", "dark-hold"]
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
       }
     ],
     "certified": "2026-06-09"
@@ -362,20 +420,33 @@
     "race": "men",
     "keyedTo": [
       {
-        "regionNames": ["Rohan", "Wold & Foothills", "Gap of Isen", "Anórien"]
+        "regionNames": [
+          "Rohan",
+          "Wold & Foothills",
+          "Gap of Isen",
+          "Anórien"
+        ]
       }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character" },
+      {
+        "type": "combat-one-strike-per-character"
+      },
       {
         "type": "combat-detainment",
         "when": {
           "$or": [
-            { "defender.alignment": "hero" },
+            {
+              "defender.alignment": "hero"
+            },
             {
               "$and": [
-                { "defender.alignment": "fallen-wizard" },
-                { "defender.covert": true }
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
               ]
             }
           ]
@@ -385,7 +456,9 @@
         "type": "play-condition",
         "requires": "target-company",
         "condition": {
-          "$not": { "company.homeSites": "Edoras" }
+          "$not": {
+            "company.homeSites": "Edoras"
+          }
         }
       }
     ],
@@ -405,7 +478,11 @@
     "race": "men",
     "keyedTo": [
       {
-        "regionTypes": ["border", "wilderness", "shadow"]
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow"
+        ]
       }
     ],
     "effects": [],
@@ -424,7 +501,14 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": [{ "siteTypes": ["border-hold", "shadow-hold"] }]
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "border-hold",
+          "shadow-hold"
+        ]
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -441,16 +525,36 @@
     "starredKillMarshallingPoints": true,
     "race": "dúnedain",
     "keyedTo": [
-      { "regionTypes": ["free"] },
-      { "regionTypes": ["border"] },
-      { "siteTypes": ["border-hold"] },
-      { "siteTypes": ["free-hold"] }
+      {
+        "regionTypes": [
+          "free"
+        ]
+      },
+      {
+        "regionTypes": [
+          "border"
+        ]
+      },
+      {
+        "siteTypes": [
+          "border-hold"
+        ]
+      },
+      {
+        "siteTypes": [
+          "free-hold"
+        ]
+      }
     ],
     "effects": [
       {
         "type": "play-condition",
         "requires": "target-company",
-        "condition": { "company.alignment": { "$ne": "hero" } }
+        "condition": {
+          "company.alignment": {
+            "$ne": "hero"
+          }
+        }
       }
     ]
   },
@@ -467,8 +571,20 @@
     "killMarshallingPoints": 1,
     "race": "undead",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "wilderness", "shadow", "dark"] },
-      { "siteTypes": ["ruins-and-lairs", "shadow-hold"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness",
+          "shadow",
+          "dark"
+        ]
+      },
+      {
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
+      }
     ],
     "certified": "2026-06-09"
   },
@@ -488,11 +604,20 @@
     "race": "elves",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "wilderness"]
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
       },
       {
-        "regionTypes": ["shadow"],
-        "when": { "$not": { "inPlay": "Doors of Night" } }
+        "regionTypes": [
+          "shadow"
+        ],
+        "when": {
+          "$not": {
+            "inPlay": "Doors of Night"
+          }
+        }
       }
     ],
     "effects": [
@@ -500,11 +625,17 @@
         "type": "combat-detainment",
         "when": {
           "$or": [
-            { "defender.alignment": "hero" },
+            {
+              "defender.alignment": "hero"
+            },
             {
               "$and": [
-                { "defender.alignment": "fallen-wizard" },
-                { "defender.covert": true }
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
               ]
             }
           ]
@@ -514,7 +645,9 @@
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 4,
-        "when": { "defender.alignment": "ringwraith" }
+        "when": {
+          "defender.alignment": "ringwraith"
+        }
       }
     ]
   },
@@ -533,23 +666,42 @@
     "starredKillMarshallingPoints": true,
     "race": "elves",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "border"] },
       {
-        "regionTypes": ["free"],
-        "when": { "$not": { "inPlay": "Doors of Night" } }
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ]
+      },
+      {
+        "regionTypes": [
+          "free"
+        ],
+        "when": {
+          "$not": {
+            "inPlay": "Doors of Night"
+          }
+        }
       }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character" },
+      {
+        "type": "combat-one-strike-per-character"
+      },
       {
         "type": "combat-detainment",
         "when": {
           "$or": [
-            { "defender.alignment": "hero" },
+            {
+              "defender.alignment": "hero"
+            },
             {
               "$and": [
-                { "defender.alignment": "fallen-wizard" },
-                { "defender.covert": true }
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
               ]
             }
           ]
@@ -570,7 +722,15 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "wolves",
-    "keyedTo": [{ "regionTypes": ["border", "wilderness", "shadow"] }],
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "wilderness",
+          "shadow"
+        ]
+      }
+    ],
     "effects": []
   },
   {
@@ -586,13 +746,498 @@
     "killMarshallingPoints": 1,
     "race": "animals",
     "keyedTo": [
-      { "regionTypes": ["wilderness", "wilderness"] },
-      { "regionTypes": ["coastal"] },
-      { "siteNames": ["Moria"] }
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      },
+      {
+        "regionTypes": [
+          "coastal"
+        ]
+      },
+      {
+        "siteNames": [
+          "Moria"
+        ]
+      }
     ],
     "effects": [
-      { "type": "combat-one-strike-per-character" }
+      {
+        "type": "combat-one-strike-per-character"
+      }
     ],
     "certified": "2026-06-04"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-60",
+    "name": "Arthadan Rangers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ArthadanRangers.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 10,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "dúnedain",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Arthedain, Rhudaur, Cardolan, Hollin, and The Shire; and may also be played at sites in these regions. May not be played against a company containing a character with Bree as a home site."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-61",
+    "name": "Barrow-wight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Barrowwight.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-62",
+    "name": "Beorning Toll",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BeorningToll.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "men",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Men. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Anduin Vales, Wold & Foothills, High Pass, and Redhorn Gate; and may also be played at non-Haven sites in these regions. May not be played against a company containing a character with Beorn’s House as a home site."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-63",
+    "name": "The Border-watch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheBorderwatch.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "free"
+        ],
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Five strikes (two strikes and detainment against hero companies)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-64",
+    "name": "Brigands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Brigands.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Two strikes. If any strike of Brigands wounds a character, the company must immediately discard one item (of defender’s choice)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-66",
+    "name": "Cave-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Cavedrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "dragon",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Dragon. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-70",
+    "name": "Elves upon Errantry",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ElvesuponErrantry.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "elves",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border",
+          "free"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Elves. Four strikes (playable only against minion companies)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-74",
+    "name": "Giant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Giant.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "giants",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Giant. One strike."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-76",
+    "name": "Gondorian Rangers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GondorianRangers.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 9,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "dúnedain",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Ithilien, Dagorlad, Harondor, Mouths of the Anduin, and Brown Lands; and may also be played at sites in these regions. May not be played against a company containing a character with Henneth Annûn as a home site."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-79",
+    "name": "Huorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Huorn.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "awakened plant",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-80",
+    "name": "Land-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Landdrake.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. One strike. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-81",
+    "name": "Landroval",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Landroval.jpg",
+    "unique": true,
+    "strikes": 2,
+    "prowess": 12,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border",
+          "shadow"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Animal. Two strikes (playable only against an overt minion company). Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-83",
+    "name": "Lesser Spiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LesserSpiders.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "spiders",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Spiders. Four strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-85",
+    "name": "Orc-raiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcraiders.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Four strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-86",
+    "name": "Orc-warband",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcwarband.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 4,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-87",
+    "name": "Orc-watch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcwatch.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-88",
+    "name": "Pirates",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Pirates.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "coastal-sea"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Three strikes. If any strike of Pirates wounds a character, the company must immediately discard one item (of defender’s choice). Pirates receives +2 prowess when keyed to Coastal Seas [{c}]."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-93",
+    "name": "Thranduil’s Folk",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThranduilsFolk.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 10,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "elves",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions. May not be played against a company containing a character with Thranduil’s Halls as a home site."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-94",
+    "name": "Thunder’s Companion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThundersCompanion.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "giants",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Giants. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-96",
+    "name": "Uruk-lieutenant",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Uruklieutenant.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orc. One strike. If played on a company that has already faced an Orc attack this turn, Uruk-lieutenant receives +3 prowess. Orc-lieutenant receives an additional +3 prowess if played on a company that has already faced Uruk-lieutenant this turn."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-100",
+    "name": "Wild Trolls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WildTrolls.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Two strikes."
   }
 ]

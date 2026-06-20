@@ -383,7 +383,10 @@
       {
         "type": "move",
         "select": "target",
-        "from": ["sideboard", "discard"],
+        "from": [
+          "sideboard",
+          "discard"
+        ],
         "to": "deck",
         "shuffleAfter": true,
         "filter": {
@@ -892,19 +895,41 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "site" },
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "sage" } },
-        "cost": { "tap": "character" }
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
       },
-      { "type": "play-condition", "requires": "site-has-resource", "subtype": "information" },
-      { "type": "play-condition", "requires": "company-has-item", "subtype": "gold-ring" },
+      {
+        "type": "play-condition",
+        "requires": "site-has-resource",
+        "subtype": "information"
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-has-item",
+        "subtype": "gold-ring"
+      },
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "enqueue-ring-play-offer", "excludeCategories": ["the-one-ring"] }
+        "apply": {
+          "type": "enqueue-ring-play-offer",
+          "excludeCategories": [
+            "the-one-ring"
+          ]
+        }
       }
     ],
     "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item.",
@@ -924,12 +949,16 @@
       {
         "type": "play-target",
         "target": "site",
-        "filter": { "siteType": "free-hold" }
+        "filter": {
+          "siteType": "free-hold"
+        }
       },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.status": "untapped" }
+        "filter": {
+          "target.status": "untapped"
+        }
       },
       {
         "type": "play-flag",
@@ -941,7 +970,9 @@
       },
       {
         "type": "storable-at",
-        "siteTypes": ["haven"],
+        "siteTypes": [
+          "haven"
+        ],
         "marshallingPoints": 3
       },
       {
@@ -973,8 +1004,14 @@
       {
         "type": "cancel-influence",
         "requiredSkill": "spirit-magic",
-        "targetKindFilter": ["character", "ally"],
-        "cost": { "check": "corruption", "modifier": -3 }
+        "targetKindFilter": [
+          "character",
+          "ally"
+        ],
+        "cost": {
+          "check": "corruption",
+          "modifier": -3
+        }
       }
     ],
     "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent’s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3.",
@@ -1119,7 +1156,11 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.mind": { "$lte": 6 } }
+        "filter": {
+          "target.mind": {
+            "$lte": 6
+          }
+        }
       },
       {
         "type": "play-condition",
@@ -1211,8 +1252,16 @@
       {
         "type": "trigger-attack-on-play",
         "attacks": [
-          { "creatureType": "Men", "strikes": 4, "prowess": 7 },
-          { "creatureType": "Men", "strikes": 1, "prowess": 9 }
+          {
+            "creatureType": "Men",
+            "strikes": 4,
+            "prowess": 7
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 1,
+            "prowess": 9
+          }
         ],
         "afterAttack": "move-to-mp-pile",
         "discardFactionsAtSite": true
@@ -1233,18 +1282,56 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-03",
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "$not": { "target.race": "ringwraith" } } },
-      { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
-      { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" },
-      { "type": "duplication-limit", "scope": "player", "max": 1 },
-      { "type": "grant-keyword", "keyword": "Leader" },
-      { "type": "stat-modifier", "stat": "direct-influence", "value": 4 },
-      { "type": "protect-from-body-check" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": [
+          "haven"
+        ]
+      },
+      {
+        "type": "play-condition",
+        "requires": "same-site-has-character-race",
+        "race": "ringwraith"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "grant-keyword",
+        "keyword": "Leader"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4
+      },
+      {
+        "type": "protect-from-body-check"
+      },
       {
         "type": "on-event",
         "event": "company-composition-changed",
-        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
-        "when": { "company.hasHigherMindThanBearer": true }
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.hasHigherMindThanBearer": true
+        }
       }
     ]
   },
@@ -1260,7 +1347,10 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      {"type": "ringwraith-mode", "mode": "black-rider"}
+      {
+        "type": "ringwraith-mode",
+        "mode": "black-rider"
+      }
     ]
   },
   {
@@ -1278,12 +1368,16 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "company.containsDiplomat": true }
+        "filter": {
+          "company.containsDiplomat": true
+        }
       },
       {
         "type": "play-option",
         "id": "influence-check-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": {
+          "player.hasFactionInHand": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1295,7 +1389,9 @@
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "pending.corruptionCheckTargetsMe": true },
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1322,10 +1418,20 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.status": { "$ne": "inverted" } }
+        "filter": {
+          "target.status": {
+            "$ne": "inverted"
+          }
+        }
       },
-      { "type": "cancel-attack" },
-      { "type": "set-character-status", "status": "inverted", "target": "target-character" }
+      {
+        "type": "cancel-attack"
+      },
+      {
+        "type": "set-character-status",
+        "status": "inverted",
+        "target": "target-character"
+      }
     ],
     "certified": "2026-06-04"
   },
@@ -1342,12 +1448,39 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-09",
     "effects": [
-      {"type": "play-target", "target": "company", "filter": {"target.siteType": "haven"}},
-      {"type": "ringwraith-mode", "mode": "fell-rider"},
-      {"type": "company-overt"},
-      {"type": "play-flag", "flag": "block-company-joins"},
-      {"type": "duplication-limit", "scope": "company", "max": 1},
-      {"type": "on-event", "event": "organization-phase-start", "when": {"company.atHaven": true}, "apply": {"type": "discard-self"}}
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.siteType": "haven"
+        }
+      },
+      {
+        "type": "ringwraith-mode",
+        "mode": "fell-rider"
+      },
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "play-flag",
+        "flag": "block-company-joins"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "company.atHaven": true
+        },
+        "apply": {
+          "type": "discard-self"
+        }
+      }
     ]
   },
   {
@@ -1415,11 +1548,16 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-12",
     "effects": [
-      { "type": "play-target", "target": "character" },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
       {
         "type": "play-option",
         "id": "influence-boost",
-        "when": { "player.hasFactionInHand": true },
+        "when": {
+          "player.hasFactionInHand": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -1442,9 +1580,20 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      {"type": "stat-modifier", "stat": "prowess", "value": -2},
-      {"type": "stat-modifier", "stat": "direct-influence", "value": 3},
-      {"type": "ringwraith-mode", "mode": "heralded-lord"}
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3
+      },
+      {
+        "type": "ringwraith-mode",
+        "mode": "heralded-lord"
+      }
     ]
   },
   {
@@ -1458,13 +1607,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "keywords": ["Command"],
+    "keywords": [
+      "Command"
+    ],
     "certified": "2026-06-04",
     "effects": [
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.keywords": { "$includes": "Leader" } }
+        "filter": {
+          "target.keywords": {
+            "$includes": "Leader"
+          }
+        }
       },
       {
         "type": "on-event",
@@ -1474,7 +1629,11 @@
           "select": "filter-all",
           "from": "items-on-target",
           "to": "hand",
-          "filter": { "keywords": { "$includes": "Command" } }
+          "filter": {
+            "keywords": {
+              "$includes": "Command"
+            }
+          }
         }
       },
       {
@@ -1516,10 +1675,22 @@
     "effects": [
       {
         "type": "convert-creature-to-ally",
-        "races": ["orc", "orcs", "troll", "trolls", "giant", "slayer", "men"],
+        "races": [
+          "orc",
+          "orcs",
+          "troll",
+          "trolls",
+          "giant",
+          "slayer",
+          "men"
+        ],
         "maxStrikes": 1,
         "controllerTaps": true,
-        "ally": { "mind": 1, "body": 8, "prowessModifier": -7 }
+        "ally": {
+          "mind": 1,
+          "body": 8,
+          "prowessModifier": -7
+        }
       }
     ],
     "certified": "2026-06-20"
@@ -1634,9 +1805,23 @@
         "target": "company",
         "filter": {
           "$and": [
-            { "target.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } },
-            { "target.overt": true },
-            { "target.orcCount": { "$gte": 2 } }
+            {
+              "target.siteType": {
+                "$in": [
+                  "haven",
+                  "shadow-hold",
+                  "dark-hold"
+                ]
+              }
+            },
+            {
+              "target.overt": true
+            },
+            {
+              "target.orcCount": {
+                "$gte": 2
+              }
+            }
           ]
         }
       },
@@ -1655,7 +1840,12 @@
       {
         "type": "on-event",
         "event": "company-membership-changes",
-        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       },
       {
         "type": "duplication-limit",
@@ -1681,7 +1871,11 @@
         "type": "strike-modifier",
         "reroll": true,
         "prowessBonus": 1,
-        "filter": { "target.skills": { "$includes": "warrior" } }
+        "filter": {
+          "target.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "certified": "2026-06-04"
@@ -2350,25 +2544,39 @@
     "influenceNumber": 9,
     "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": [{ "site": "Cirith Gorgor" }],
+    "playableAt": [
+      {
+        "site": "Cirith Gorgor"
+      }
+    ],
     "effects": [
       {
         "type": "leader-control",
-        "races": ["orc", "troll"],
+        "races": [
+          "orc",
+          "troll"
+        ],
         "requiresKeyword": "Leader",
-        "groupBonus": { "count": 3, "mp": 2 }
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
       },
       {
         "type": "check-modifier",
         "check": "influence",
         "value": 2,
-        "when": { "controller.inPlay": "Orcs of Gorgoroth" }
+        "when": {
+          "controller.inPlay": "Orcs of Gorgoroth"
+        }
       },
       {
         "type": "check-modifier",
         "check": "influence",
         "value": -2,
-        "when": { "controller.inPlay": "Orcs of the Red Eye" }
+        "when": {
+          "controller.inPlay": "Orcs of the Red Eye"
+        }
       }
     ],
     "certified": "2026-06-12"
@@ -2558,5 +2766,1231 @@
     ],
     "effects": [],
     "certified": "2026-05-31"
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "le-152",
+    "name": "Blackbole",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Blackbole.jpg",
+    "unique": true,
+    "prowess": 5,
+    "body": 9,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur)"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "le-155",
+    "name": "“Two-headed” Troll",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TwoheadedTroll.jpg",
+    "unique": false,
+    "prowess": 5,
+    "body": 8,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack. Its controlling character's company is overt. Tap to cancel an Orc or Troll attack against his company. Cannot be duplicated in a given company."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "le-156",
+    "name": "War-warg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Warwarg.jpg",
+    "unique": false,
+    "prowess": 3,
+    "body": 6,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-159",
+    "name": "A Malady Without Healing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AMaladyWithoutHealing.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-161",
+    "name": "Adûnaphel Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AdunaphelUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-162",
+    "name": "Akhôrahil Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AkhorahilUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on Akhôrahil the Ringwraith (as your Ringwraith). You may take a magic card from your play deck or discard pile to your hand (reshuffle play deck if searched)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-163",
+    "name": "All Thought Bent upon It",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AllThoughtBentuponIt.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable during the site phase on an untapped sage at a site where Information is playable. Tap the sage and the site. Search your play deck and choose a item you must reveal to your opponent. Place the item in your hand and reshuffle your play deck. The sage makes a corruption check."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-164",
+    "name": "An Untimely Whisper",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AnUntimelyWhisper.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Opponent reveals to you 5 random cards at once from his hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-166",
+    "name": "Back to the Fray",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BacktotheFray.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Each player may remove any number of characters from his discard pile and shuffle them into his play deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-168",
+    "name": "Bitter Cold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BitterCold.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character. All attacks against the character’s company suffer a -1 modification to prowess and body this turn. Unless he is a Ringwraith, character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-169",
+    "name": "Black Rain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackRain.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable on an untapped sage during the site phase at a Ruins & Lairs [{R}] in a Wilderness [{w}]. Opponent must reveal to you a non-Ringwraith, non-Wizard character from his hand if available; otherwise, he must reveal his entire hand. If a character is so revealed, make a roll. If the sage is a Ringwraith, modify the roll by -2. According to the result, you may play an item from your hand with the sage (tapping the sage): The One Ring (10,11,12), a Dwarven Ring (8,9,10,11,12), or a Spirit Ring (0,1,2,3,4,5,6,7)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-171",
+    "name": "Blow Turned",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlowTurned.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Warrior only. Warrior does not tap against one strike. If wounded by the strike, his body check is modified by -1."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-175",
+    "name": "Catch an Elusive Scent",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CatchanElusiveScent.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play any minor, major, or gold ring item normally playable at the site. This does not tap the site, and Catch an Elusive Scent can be played at a site that is already tapped."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-176",
+    "name": "Come By Night Upon Them",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ComeByNightUponThem.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Border-hold [{B}]. -1 to the prowess of all automatic-attacks at the site (-2 if Doors of Night is in play). The first item played at the site does not tap the site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-177",
+    "name": "Crack in the Wall",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CrackintheWall.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable during the organization phase on an untapped sage in a moving company. Tap the sage. Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company’s new site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-181",
+    "name": "Down Down to Goblin-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DownDowntoGoblintown.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase on a moving company. If the company moves to a Ruins & Lairs [{R}], no hazard creatures may be played (by type or name) keyed to regions against his company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-182",
+    "name": "Dwar Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase on Dwar the Ringwraith’s company (as your Ringwraith) if in a mode. His own company may use region movement this turn."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-185",
+    "name": "Forced March",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ForcedMarch.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the movement/hazard phase on a company that moved to a Darkhaven [{DH}]. The company may move to an additional site this turn. Another site card may be played and another movement/hazard phase immediately follows for that company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-186",
+    "name": "Foul Trophies",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FoulTrophies.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped Orc or Troll character in a company that has just defeated an attack by Elves, Dwarves, Dúnedain, or Men. Tap the character. Discard this card to modify another attack by Elves, Dwarves, Dúnedain, or Men against the character’s company. The attack is reduced to one strike with +3 prowess and -2 body. Only one Foul Trophies may be so discarded against a given attack."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-187",
+    "name": "Freeze the Flesh",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FreezetheFlesh.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Shadow-magic. Playable on a charactereliminated by a body check, that was eliminated this turn, if you have a shadow-magic-using character in play that was in the same company when the character was eliminated. Return the character to the company and tap him. Target character has -2 mind to a minimum of 1, -1 prowess, and -2 body. The character’s company is now overt. Unless he is a Ringwraith, the shadow-magic-using character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-189",
+    "name": "Gold Chains in the Wind",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GoldChainsintheWind.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Shadow-magic. Playable on a shadow-magic-using character facing an attack before strikes are assigned. An ally with a prowess of 5 is created which leaves the game when the attack is finished. In all cases, the ally must face one of the attack’s strikes. Unless he is a Ringwraith, character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-191",
+    "name": "Hidden Ways",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HiddenWays.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Ranger only. Playable during the organization phase on an untapped ranger whose company has declared a new site. Tap the ranger. No hazard creatures may be keyed by type to Wilderness [{w}] against the ranger’s company this turn."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-192",
+    "name": "Hide in Dark Places",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HideinDarkPlaces.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Playable during the organization phase on a scout whose company is not moving. All hazard creature attacks against the scout’s company this turn are canceled."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-193",
+    "name": "Hoarmûrath Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HoarmurathUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on Hoarmûrath the Ringwraith (as your Ringwraith). Cancel an attack against any one of your companies."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-194",
+    "name": "Honey on the Tongue",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HoneyontheTongue.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. +5 direct influence against characters by a character in a diplomat’s company until the end of the turn. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-195",
+    "name": "I’ll Be At Your Heels",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IllBeAtYourHeels.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader’s direct influence (to a minimum of 0) and +1 to all corruption checks by characters in his company. You may return this card to your hand during any organization phase."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-197",
+    "name": "In the Name of Mordor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IntheNameofMordor.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped character whose company is facing a detainment attack keyed to (by name or type) a Dark-hold [{D}], Dark-domain [{d}], Shadow-hold [{S}], or Shadow-land [{s}]. Tap the character and cancel the attack. Alternatively, this card cancels and discards one Nazgûl hazard event."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-198",
+    "name": "Indûr Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IndurUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on any attack against Indûr the Ringwraith’s own company (as your Ringwraith). The attack is canceled. Alternatively, playable when Indûr the Ringwraith’s own company (as your Ringwraith) declares an attack. The attack cannot be canceled."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-199",
+    "name": "Iron-road",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ironroad.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase on a moving company at a Darkhaven [{DH}]. Opponent draws twice the normal number of cards for this company during the movement/hazard phase. At the end of the turn, the company may replace its site card with the Darkhaven [{DH}] at which it began the turn."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-200",
+    "name": "Khamûl Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/KhamulUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on any attack against Khamûl the Ringwraith’s own company (as your Ringwraith). The prowess of the attack is modified by -3. Alternatively, playable on any attack by Khamûl the Ringwraith’s own company (as your Ringwraith). You choose defending characters."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-201",
+    "name": "Kill All But NOT the Halflings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/KillAllButNOTtheHalflings.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a company at Bag End. It faces a Hobbit attack (4 strikes with 6 prowess). If no characters are untapped after the attack, discard this card. Otherwise, you may tap one character in the company and put this card under his control. No marshalling points are received and that character may not untap until this card is stored at Barad-dûr during his organization phase. Only the first Kill All But NOT the Halflings stored is worth 5 marshalling points, all others are only worth 1 point each. Cannot be included in a Balrog's/Fallen-wizard's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-202",
+    "name": "Leg It Double Quick",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LegItDoubleQuick.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the movement/hazard phase on a moving company. Tap all untapped characters in the company. The company may move to an additional site this turn. Another site card may be played and another movement/hazard phase immediately follows for that company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-203",
+    "name": "The Lidless Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheLidlessEye.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if your opponent is a Wizard and you have not revealed a Ringwraith. You are Sauron, not a Ringwraith. You may not reveal a Ringwraith or play Ringwraith followers. +7 to your general influence. You may keep one more card than normal in your hand. Discards and prevents the subsequent play of Bade of Rule. Once during each of your organization phases, you may: bring a resource or character from your sideboard into your play deck and shuffle or choose and discard a card from your hand to look at up to 5 random cards at once from your opponent’s hand. Cannot be duplicated. Cannot be included in a Balrog's/Fallen-wizard's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-204",
+    "name": "Messenger of Mordor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MessengerofMordor.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}]. Any items and resource events with his company that can be stored at a Darkhaven [{DH}] may now be so stored. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be included in a Fallen-wizard's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-205",
+    "name": "Morgul-blade",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Morgulblade.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body and -1 prowess. Discard Morgul-blade after a strike against the Ringwraith fails.Cannot be duplicated on a given Ringwraith.Cannot be included in a Balrog's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-206",
+    "name": "Motionless Among the Slain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MotionlessAmongtheSlain.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an attack. You assign all strikes of the attack regardless of the attack’s normal capabilities and character status. +1 to all body checks by your characters resulting from the attack."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-207",
+    "name": "The Names Among Them",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheNamesAmongThem.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped scout immediately after facing an automatic-attack at a Border-hold [{B}] or Free-hold [{F}]. Tap the scout. No marshalling points are received until this card is stored at a Darkhaven [{DH}] during his organization phase. Once stored, this card may be discarded to cancel an automatic-attack at a Free-hold [{F}] or Border-hold [{B}]."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-208",
+    "name": "News Must Get Trough",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NewsMustGetThrough.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a company at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}]. Any resource events with the company that can be stored at a Darkhaven [{DH}] may now be so stored.Cannot be included in a Fallen-wizard's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-209",
+    "name": "News of the Shire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NewsoftheShire.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on an untapped character at Bag End. Tap the character. No marshalling points are received until this card is stored at Barad-dûr during his organization phase. Only the first News of the Shire stored is worth 3 marshalling points, all others are only worth 1 marshalling point each. If stored, The Shire becomes a Border-land [{b}], and Bag End becomes a Border-hold [{B}]. Cannot be included in a Balrog's/Fallen-wizard's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-210",
+    "name": "No More Nonsense",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NoMoreNonsense.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a leader during the organization phase. Make a roll for the leader. Choose another character in the company and do the same. If the leader’s result plus his prowess is greater than the other character’s result plus his prowess, discard any hazard permanent-events on the other character and the leader receives +2 direct influence. Otherwise, the leader receives -2 direct influence. Cannot be duplicated on a given leader."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-211",
+    "name": "No News of Our Riding",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NoNewsofOurRiding.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped character immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap the character. The character can later tap to cancel an Elf, Dúnadan, or Man hazard creature attack against his company. Cannot be duplicated in a given company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-213",
+    "name": "Old Cache",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OldCache.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a company at a tapped Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}]. During the site phase, one or two characters in that company may each tap to take control of a non-unique, non-hoard minor item of the following type: weapon, armor, shield, or helmet. You may take these items from your play deck (reshuffle if used), discard pile, and/or sideboard."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-214",
+    "name": "Old Prejudice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OldPrejudice.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Triple all standard modifications for influence checks against factions."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-215",
+    "name": "One Dear to You",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OneDeartoYou.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a faction you have in play. -1 faction marshalling points. Any influence attempt against the faction is modified by -8 and Muster may not be used against the faction."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-217",
+    "name": "Orc Stealth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcStealth.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Orc scout only. Cancel one strike against an Orc scout."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-218",
+    "name": "Orc-mounts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcmounts.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase on a moving overt company. The hazard limit against the company increases by two and the prowess of any hazard creatures played against it this turn is modified by -1. Cannot be duplicated on a given company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-221",
+    "name": "Remnants of Old Robberies",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RemnantsofOldRobberies.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a non-Wolves, non-Animals, non-Nazgûl hazard creature attack that a company has just defeated. Place this card with the attack’s card. The company receives a number of miscellaneous marshalling points equal to the kill marshalling points the defeated creature would give a hero player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-222",
+    "name": "Ren Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RenUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on Ren the Ringwraith (as your Ringwraith). All characters at the same site as Ren must make a corruption check modified by -2."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-223",
+    "name": "The Ring Leaves Its Mark",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRingLeavesItsMark.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-224",
+    "name": "Rumor of the One",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RumoroftheOne.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "+1 to the corruption points and the marshalling points for all ring items. Discard when any play deck is exhausted. Cannot be duplicated."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-227",
+    "name": "Seize Prisoners",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SeizePrisoners.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase at an already tapped Free-hold [{F}]. The company faces an attack (attack type as first automatic-attack at site—3 strikes with 8 prowess). If no characters are untapped after the attack, discard Seize Prisoners. Otherwise, tap a character in the company and put Seize Prisoners under his control. No marshalling points are received and that character may not untap until Seize Prisoners is stored at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}] during his organization phase. Cannot be duplicated at a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-229",
+    "name": "Smart and Secret",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmartandSecret.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader’s direct influence (to a minimum of 0) and +1 body to all characters in his company. You may return this card to your hand during any organization phase."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-230",
+    "name": "Smoke on the Wind",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmokeontheWind.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at an already tapped Free-hold [{F}] during the site phase. The company faces two attacks (Men — 5 strikes with 8 prowess, 1 strike with 10 prowess). If no characters are untapped following the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at this site. Cannot be duplicated at a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-232",
+    "name": "Some Secret Art of Flame",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SomeSecretArtofFlame.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an attack. +4 prowess for the character against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be duplicated against a given attack."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-233",
+    "name": "Spying out the Land",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SpyingouttheLand.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character during the organization phase. Opponent may reveal to you any hazards from his hand, and only those hazards can be played during the character company’s movement/hazard phase. Unless he is a Ringwraith, character makes a corruption check modified by -3."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-234",
+    "name": "Stabbed Him in His Sleep",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StabbedHiminHisSleep.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on an untapped scout in a covert company at an already tapped Border-hold [{B}] or Free-hold [{F}]. The scout faces an attack (attack type as first automatic-attack at site — 1 strike with 8 prowess). If the scout is not untapped after the attack, discard this card. Otherwise, the scout may tap and place this card in his player’s marshalling point pile."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-236",
+    "name": "Swag",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Swag.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a company at a tapped Ruins & Lairs [{R}], Border-hold [{B}], or Free-hold [{F}]. During the site phase, one or two characters in that company may each tap to take control of a non-unique, non-hoard minor item of the following type: weapon, armor, shield, or helmet. You may take these items from your play deck (reshuffle if used), discard pile, and/or sideboard."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-239",
+    "name": "Test of Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TestofFire.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Play to test a gold ring in a sage’s company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-242",
+    "name": "They Ride Together",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheyRideTogether.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only at a Darkhaven [{DH}] during the organization phase on your Ringwraith’s company. You may bring any Ringwraith followers into play with your Ringwraith’s company as you have in your hand and have direct influence to control."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-243",
+    "name": "Thing Stolen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThingStolen.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable after a faction is successfully played at a Shadow-hold [{S}] or Dark-hold [{D}]. Tap a character at the site to play a non-unique, non-hoard minor or major item (even if the item is not normally playable there)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-244",
+    "name": "Threats",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Threats.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Warrior only. Playable on a warrior attempting to influence a faction.Warrior does not use his unused direct influence for the attempt. Instead he uses his prowess, to a maximum modifier of +6."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "dual",
+    "id": "le-245",
+    "name": "Tidings of Death",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TidingsofDeath.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "-1 to each influence check against a faction, but for each influence check make an additional roll and choose which result to use. May also be played as a hero resource."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-248",
+    "name": "Ûvatha Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UvathaUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on Ûvatha the Ringwraith’s own company (if Ûvatha is your Ringwraith) at the end of his movement/hazard phase. His company may move to an additional site this turn. A site card may be played and another movement/hazard phase immediately follows for his company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-249",
+    "name": "Veils of Shadow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VeilsofShadow.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an automatic-attack. The number of strikes of all automatic-attacks at the site this turn are reduced to one. Unless he is a Ringwraith, character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-251",
+    "name": "The Water’s Tithe",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWatersTithe.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Playable on a non-Ringwraith sorcery-using character during the organization phase. If using region movement, the character’s company may play up to two additional region cards. Character makes a corruption check modified by -3."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-252",
+    "name": "We Have Come to Kill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WeHaveCometoKill.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "A character may be brought into play under general or direct influence (if you have enough unused) at any Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold [{B}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site. May be used to bring in Ringwraith followers or agents, but not Ringwraiths or Fallen-wizards."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-254",
+    "name": "Where There’s a Whip",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WhereTheresaWhip.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped Orc or Troll character bearing a Whip. Each tapped character in the bearer’s company with a mind and prowess less than the bearer’s makes a body check modified by -2. Failing the body check wounds, but does not eliminate the character. An Orc or Troll is discarded according to its card. Each unwounded character in the company becomes untapped."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-255",
+    "name": "While the Yellow Face Sleeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WhiletheYellowFaceSleeps.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase on your Ringwraith at a Darkhaven [{DH}]. You may keep one more card than normal in your hand. Discard this card if your Ringwraith moves. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-256",
+    "name": "Wisdom to Wield",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WisdomtoWield.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable on a non-Ringwraith sage bearing a Dwarven Ring and/or a Palantír. This turn, the sage: bears the Dwarven Ring as though he were a Dwarf or is able to use the Palantír."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-257",
+    "name": "The Witch-king Unleashed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWitchkingUnleashed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on The Witch-king (as your Ringwraith). +5 to his direct influence this turn. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-258",
+    "name": "Words of Menace and Deceit",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WordsofMenaceandDeceit.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character. +5 to the character’s direct influence for the rest of the turn. Unless he is a Ringwraith, he makes a corruption check modified by -4. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-259",
+    "name": "Agburanar Roused",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AgburanarRoused.jpg",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 13,
+    "race": "dragon",
+    "playableAt": [
+      {
+        "site": "Caves"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of Agburanar. Playable at Caves of Ûlund if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Agburanar against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 15/9."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-261",
+    "name": "Beornings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Beornings.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Beorn's"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of hero Beornings. Playable at Beorn's House if the influence check is greater than 9."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-263",
+    "name": "Dunlendings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Dunlendings.jpg",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Dunnish"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of hero Dunlendings. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications:Hillmen (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-267",
+    "name": "Half-trolls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Halftrolls.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "troll",
+    "playableAt": [
+      {
+        "site": "Cirith"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Cirith Ungol or Barad-dûr if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra faction marshalling points. Standard Modifications: Variags of Khand (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-268",
+    "name": "Hill Trolls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HillTrolls.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "troll",
+    "playableAt": [
+      {
+        "site": "Ettenmoors"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Stone-trolls (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-269",
+    "name": "Hillmen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Hillmen.jpg",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Cameth"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of hero Hillmen. Playable at Cameth Brin if the influence check is greater than 10. Standard Modifications: Dunlendings (+2), Angmarim (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-272",
+    "name": "Misty Mountain Wargs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MistyMountainWargs.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "wolf",
+    "playableAt": [
+      {
+        "site": "Ettenmoorsif"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Ettenmoorsif the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Goblins of Goblin-gate (+2), Wargs of Forochel (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-280",
+    "name": "Orcs of the Ephel Dúath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsoftheEphelDuath.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Cirith"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Snaga-hai (+2), Orcs of Angmar (-2). ￼"
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-283",
+    "name": "Scatha Roused",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ScathaRoused.jpg",
+    "unique": true,
+    "marshallingPoints": 5,
+    "marshallingCategory": "faction",
+    "influenceNumber": 14,
+    "race": "dragon",
+    "playableAt": [
+      {
+        "site": "Gondmaeglom"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of Scatha. Playable at Gondmaeglom if the influence check is greater than 13. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scatha against any of your companies are canceled. Any company moving in Withered Heath, Woodland Realm, Northern Rhovanion, and/or Grey Mountain Narrows faces one attack: Dragon — 3 strikes at 15/9."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-284",
+    "name": "Scorba Roused",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ScorbaRoused.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "dragon",
+    "playableAt": [
+      {
+        "site": "Zarak"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of Scorba. Playable at Zarak Dûm if the influence check is greater than 11. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scorba against any of your companies are canceled. Any company moving in Angmar, Gundabad, and/or Forochel faces one attack: Dragon — 3 strikes at 12/8 (attacker chooses defending characters)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-285",
+    "name": "Smaug Roused",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmaugRoused.jpg",
+    "unique": true,
+    "marshallingPoints": 5,
+    "marshallingCategory": "faction",
+    "influenceNumber": 13,
+    "race": "dragon",
+    "playableAt": [
+      {
+        "site": "The"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of Smaug. Playable at The Lonely Mountain if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Smaug against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 17/8 (attacker chooses defending characters)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-288",
+    "name": "Stone Trolls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StoneTrolls.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "troll",
+    "playableAt": [
+      {
+        "site": "Ettenmoors"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Black Trolls (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-289",
+    "name": "Umbarean Corsairs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UmbareanCorsairs.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Gobel"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Gobel Mírlond if the influence check is greater than 8. Standard Modifications: Black Númenóreans (+2), Southrons (+2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-290",
+    "name": "Ungol-orcs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ungolorcs.jpg",
+    "unique": true,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Cirith"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Uruk-hai (+2), Morgul-orcs (-2)."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-294",
+    "name": "White Mountain Wolves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WhiteMountainWolves.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "wolf",
+    "playableAt": [
+      {
+        "site": "Stone-circle"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Stone-circle if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Dunlendings (+2)."
   }
 ]
