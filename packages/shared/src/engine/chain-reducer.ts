@@ -26,6 +26,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
@@ -2118,17 +2119,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
       // Find the host character and ally
       let hostCharId: import('../index.js').CardInstanceId | null = null;
+      let allyInst: import('../types/state-cards.js').AllyInPlay | undefined;
       for (const [charId, char] of Object.entries(resourcePlayer.characters)) {
-        if (char.allies.some(a => a.instanceId === allyInstId)) {
+        const found = char.allies.find(a => a.instanceId === allyInstId);
+        if (found) {
           hostCharId = charId as import('../index.js').CardInstanceId;
+          allyInst = found;
           break;
         }
       }
 
-      if (hostCharId) {
+      if (hostCharId && allyInst) {
         const allyDefId = resolveInstanceId(current, allyInstId);
         const allyDef = allyDefId ? defById(current, allyDefId) : undefined;
-        if (allyDef && isAllyCard(allyDef)) {
+        // A converted-creature ally (Ready to His Will) carries its stats on the
+        // instance override even though its definition is not an ally card.
+        if (allyInst.statOverride || (allyDef && isAllyCard(allyDef))) {
+          const allyMindVal = allyEffectiveMind(current, allyInst);
+          const allyProwessVal = allyEffectiveProwess(current, allyInst);
+          const allyDisplayName = (allyDef && 'name' in allyDef ? (allyDef as { name: string }).name : allyDefId) as string;
           const activeCompanyIdx = current.phaseState.phase === 'movement-hazard'
             ? (current.phaseState as { activeCompanyIndex: number }).activeCompanyIndex
             : 0;
@@ -2136,7 +2145,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const controllerUnusedDI = availableDI(current, hostCharId, resourcePlayer);
           const opponentUnusedGI = GENERAL_INFLUENCE + hazardPlayerState.generalInfluenceBonus - hazardPlayerState.generalInfluenceUsed;
 
-          logDetail(`Stay Her Appetite: targeting ally "${allyDef.name}" (mind ${allyDef.mind}, prowess ${allyDef.prowess}) on character ${hostCharId as string}; opp.GI=${opponentUnusedGI}, controller.DI=${controllerUnusedDI}`);
+          logDetail(`Stay Her Appetite: targeting ally "${allyDisplayName}" (mind ${allyMindVal}, prowess ${allyProwessVal}) on character ${hostCharId as string}; opp.GI=${opponentUnusedGI}, controller.DI=${controllerUnusedDI}`);
 
           current = enqueueResolution(current, {
             source: entry.card.instanceId,
@@ -2147,8 +2156,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               allyInstanceId: allyInstId,
               allyOwnerPlayerIndex: activeIdx,
               hostCharacterInstanceId: hostCharId,
-              allyMind: allyDef.mind,
-              allyProwess: allyDef.prowess,
+              allyMind: allyMindVal,
+              allyProwess: allyProwessVal,
               opponentUnusedGI,
               controllerUnusedDI,
               companyId: targetCompany.id,

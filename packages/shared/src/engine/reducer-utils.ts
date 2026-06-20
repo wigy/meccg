@@ -1301,6 +1301,55 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
 }
 
 /**
+ * Discard "placed with the creature" events whose converted-creature ally has
+ * left play. A `convert-creature-to-ally` event (Ready to His Will le-220) is
+ * kept in cards-in-play with `attachedTo` set to the ally created from the
+ * converted creature. When that ally is eliminated or otherwise removed from
+ * every company, the event is orphaned and must be discarded (it can no longer
+ * score its ally marshalling point). Mirrors
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedConvertedAllyEvents(state: GameState): GameState {
+  // Collect every ally instance currently in play.
+  const allyIds = new Set<string>();
+  for (const p of state.players) {
+    for (const ch of Object.values(p.characters)) {
+      for (const ally of ch.allies) allyIds.add(ally.instanceId as string);
+    }
+  }
+
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const orphaned = player.cardsInPlay.filter(c => {
+      if (c.attachedTo === undefined || allyIds.has(c.attachedTo as string)) return false;
+      const def = resolveDef(state, c.instanceId);
+      const effects = def ? getCardEffects(def) : [];
+      return effects.some(e => e.type === 'convert-creature-to-ally');
+    });
+    if (orphaned.length === 0) continue;
+    changed = true;
+    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
+    for (const card of orphaned) {
+      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      logDetail(`converted-ally event: discarding "${def?.name ?? card.definitionId}" — its converted-creature ally left play`);
+    }
+    newPlayers[pi] = {
+      ...player,
+      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
+      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
+    };
+  }
+
+  if (!changed) return state;
+  return {
+    ...state,
+    players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players,
+  };
+}
+
+/**
  * Generate a unique company ID for a player by finding the highest existing
  * index among their companies and incrementing it. This avoids ID collisions
  * that can occur when companies are merged (removing lower-indexed IDs) and

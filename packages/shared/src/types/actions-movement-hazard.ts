@@ -288,6 +288,23 @@ export interface CancelAttackAction {
 }
 
 /**
+ * Play a resource permanent-event carrying a `convert-creature-to-ally`
+ * effect (e.g. Ready to His Will le-220) during the creature's attack. All of
+ * the creature's attacks are canceled and the creature becomes an ally
+ * controlled by `controllingCharacterId`, which taps.
+ */
+export interface ConvertCreatureToAllyAction {
+  /** Action discriminant. */
+  readonly type: 'convert-creature-to-ally';
+  /** The defending player playing the event. */
+  readonly player: PlayerId;
+  /** The permanent-event card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character that takes control of the new ally (and taps, if the card requires it). */
+  readonly controllingCharacterId: CardInstanceId;
+}
+
+/**
  * Tap an in-play item attached to a character in the defending company to
  * modify the current attack's prowess and/or body. The modifiers are
  * applied uniformly to every strike (prowess) and to the creature body

@@ -1061,6 +1061,60 @@ Subtract variant (e.g. Not at Home — reduces by 2, minimum 1):
   "when": { "inPlay": "Gates of Morning", "attack.source": "automatic-attack" } }
 ```
 
+### 9c. `convert-creature-to-ally`
+
+Carried by a resource permanent-event that the **defending** player plays
+during a creature's attack (the assign-strikes combat window, before any
+strikes are assigned). All of the creature's attacks are canceled and the
+creature card becomes an ally controlled by a chosen character in the
+defending company.
+
+Eligibility (checked in `convertCreatureToAllyActions`,
+`engine/legal-actions/combat.ts`):
+
+- the active attack is a single creature (`attackSource.type === 'creature'`),
+- the creature's race (lowercased) is one of `races`,
+- the creature's printed strike count is ≤ `maxStrikes` ("one strike for
+  each of its attacks" → `maxStrikes: 1`), and
+- the defending company has at least one untapped character (when
+  `controllerTaps` is true) to take control.
+
+One `convert-creature-to-ally` action is offered per (card, eligible
+controlling character) pair. On reduce (`handleConvertCreatureToAlly`,
+`engine/reducer-combat.ts`):
+
+1. The controlling character taps (when `controllerTaps`).
+2. The creature card moves from the attacker's cards-in-play into the
+   controlling character's `allies` list with a `statOverride`:
+   `mind = ally.mind`, `body = ally.body`,
+   `prowess = creature printed prowess + ally.prowessModifier`.
+3. The event card moves from the defender's hand into their cards-in-play
+   with `attachedTo` set to the new ally ("Place this card with the
+   creature"); there it scores its printed ally marshalling point.
+4. Combat ends (all attacks canceled), running the same attack-end
+   housekeeping as a cancel-attack.
+
+The ally's overridden stats are read via `engine/ally-stats.ts`
+(`allyEffectiveProwess` / `allyEffectiveBody` / `allyEffectiveMind`),
+which every ally-stat consumer consults before falling back to the card
+definition (combat prowess/body, agent influence, Stay Her Appetite). When
+the converted-creature ally later leaves play, the orphaned event card is
+discarded by the `discardOrphanedConvertedAllyEvents` postReduce sweep
+(`engine/reducer-utils.ts`).
+
+```json
+{
+  "type": "convert-creature-to-ally",
+  "races": ["orc", "orcs", "troll", "trolls", "giant", "slayer", "men"],
+  "maxStrikes": 1,
+  "controllerTaps": true,
+  "ally": { "mind": 1, "body": 8, "prowessModifier": -7 }
+}
+```
+
+Used by Ready to His Will (le-220). Memories of Old Torture (ba-67) uses
+the same effect with `controllerTaps: false` and `body: 7`.
+
 ### 10. `strike-modifier`
 
 Played from hand during strike resolution as a short event. Covers three

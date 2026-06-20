@@ -8,13 +8,14 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard, isHalfOrc, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isHalfOrc, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect, AbsorbWoundEffect, TriggerAttackOnPlayEffect, CombatTapCompanyBoostEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
+import { allyEffectiveProwess, allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeAttachment, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -71,6 +72,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleShieldDiscardRoll(state, action, combat);
     case 'cancel-attack':
       return handleCancelAttack(state, action, combat);
+    case 'convert-creature-to-ally':
+      return handleConvertCreatureToAlly(state, action, combat);
     case 'cancel-by-tap':
       return handleCancelByTap(state, action, combat);
     case 'play-strike-event':
@@ -550,7 +553,7 @@ function resolveStrikeCore(
     prowess = charDef.mind;
     logDetail(`Defender prowess from mind: ${charDef.mind} (${charDef.name ?? targetDefId as string})`);
   } else if (allyMatch) {
-    prowess = isAllyCard(charDef) ? charDef.prowess : 0;
+    prowess = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
   } else {
@@ -1471,7 +1474,10 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 
     const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
     const charDef2 = stateWithRoll.cardPool[targetDefId as string] as { body?: number } | undefined;
-    let body = charDef2?.body ?? 9; // Default body if not specified
+    // Allies with an instance stat override (e.g. a creature converted by
+    // Ready to His Will) use that body; otherwise fall back to the definition.
+    const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
+    let body = allyOverrideBody ?? charDef2?.body ?? 9; // Default body if not specified
     // Dodge body penalty: if the character was dodging and got wounded, apply body modifier
     if (strike.dodged && strike.dodgeBodyPenalty) {
       logDetail(`Dodge body penalty: body ${body} + (${strike.dodgeBodyPenalty}) = ${body + strike.dodgeBodyPenalty}`);
@@ -2138,6 +2144,126 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   }
 
   return { state: resultState };
+}
+
+/**
+ * Handle a `convert-creature-to-ally` action (Ready to His Will le-220).
+ *
+ * Validates eligibility, then:
+ * 1. taps the controlling character (if the card requires it),
+ * 2. moves the attacking creature card from the attacker's cards-in-play into
+ *    the controlling character's `allies` with the effect's stat overrides
+ *    (mind, body, prowess = creature prowess + prowessModifier),
+ * 3. moves the event card from the defender's hand into their cards-in-play
+ *    with `attachedTo` set to the new ally ("Place this card with the
+ *    creature"), where it scores its 1 ally marshalling point, and
+ * 4. cancels all the creature's attacks by ending combat, running the same
+ *    attack-end housekeeping as a cancel-attack.
+ */
+function handleConvertCreatureToAlly(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'convert-creature-to-ally') return wrongActionType(state, action, 'convert-creature-to-ally');
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player may convert a creature' };
+  if (combat.phase !== 'assign-strikes' || combat.strikeAssignments.length > 0) {
+    return { state, error: 'Creature may only be converted before strikes are assigned' };
+  }
+  if (combat.attackSource.type !== 'creature') return { state, error: 'Attack is not a single creature' };
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const defPlayer = state.players[defIdx];
+
+  // The event card being played.
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Conversion card not in hand' };
+  const cardDef = defById(state, handCard.definitionId);
+  const effect = getCardEffects(cardDef).find(
+    (e): e is import('../types/effects.js').ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
+  );
+  if (!effect) return { state, error: 'Card has no convert-creature-to-ally effect' };
+
+  // The attacking creature card.
+  const creatureInstanceId = combat.attackSource.instanceId;
+  const creatureDef = resolveDef(state, creatureInstanceId);
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') return { state, error: 'Attacking creature not found' };
+  const creatureRace = (creatureDef as { race: string }).race.toLowerCase();
+  const creatureStrikes = (creatureDef as { strikes: number }).strikes;
+  if (creatureStrikes > effect.maxStrikes) return { state, error: 'Creature has too many strikes to convert' };
+  if (!effect.races.map(r => r.toLowerCase()).includes(creatureRace)) return { state, error: 'Creature race is not eligible for conversion' };
+
+  // The controlling character.
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company || !company.characters.includes(action.controllingCharacterId)) {
+    return { state, error: 'Controlling character not in defending company' };
+  }
+  const controller = defPlayer.characters[action.controllingCharacterId as string];
+  if (!controller) return { state, error: 'Controlling character not found' };
+  if (effect.controllerTaps && controller.status !== CardStatus.Untapped) {
+    return { state, error: 'Controlling character must be untapped to take control' };
+  }
+
+  const creatureInPlay = findById(state.players[atkIdx].cardsInPlay, creatureInstanceId);
+  if (!creatureInPlay) return { state, error: 'Creature card not in attacker cards-in-play' };
+
+  const creatureName = (creatureDef as { name?: string }).name ?? (creatureInstanceId as string);
+  const allyProwess = (creatureDef as { prowess: number }).prowess + effect.ally.prowessModifier;
+  const statOverride: import('../types/state-cards.js').AllyStatOverride = {
+    mind: effect.ally.mind,
+    prowess: allyProwess,
+    body: effect.ally.body,
+  };
+  const newAlly: import('../types/state-cards.js').AllyInPlay = {
+    instanceId: creatureInstanceId,
+    definitionId: creatureInPlay.definitionId,
+    status: CardStatus.Untapped,
+    statOverride,
+  };
+
+  logDetail(
+    `Convert-creature-to-ally: "${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}" converts ${creatureName} ` +
+    `into an ally (mind ${statOverride.mind}, prowess ${statOverride.prowess}, body ${statOverride.body}) ` +
+    `controlled by ${action.controllingCharacterId as string}${effect.controllerTaps ? ' (taps)' : ''}`,
+  );
+
+  let newState: GameState = state;
+
+  // Remove the creature from the attacker's cards-in-play.
+  newState = updatePlayer(newState, atkIdx, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+  }));
+
+  // Add the ally to the controlling character and tap that character.
+  newState = updatePlayer(newState, defIdx, p => updateCharacter(p, action.controllingCharacterId, ch => ({
+    ...ch,
+    status: effect.controllerTaps ? CardStatus.Tapped : ch.status,
+    allies: [...ch.allies, newAlly],
+  })));
+
+  // Move the event card from hand to cards-in-play, "placed with the creature"
+  // (attachedTo the new ally so the two are discarded together). The event card
+  // scores its printed 1 ally marshalling point while in play.
+  newState = updatePlayer(newState, defIdx, p => ({
+    ...p,
+    hand: p.hand.filter(c => c.instanceId !== action.cardInstanceId),
+    cardsInPlay: [
+      ...p.cardsInPlay,
+      {
+        instanceId: handCard.instanceId,
+        definitionId: handCard.definitionId,
+        status: CardStatus.Untapped,
+        attachedTo: creatureInstanceId,
+      },
+    ],
+  }));
+
+  // All attacks of the creature are canceled — end combat and run the same
+  // attack-end housekeeping as a cancel-attack.
+  newState = { ...newState, combat: null };
+  newState = sweepExpired(newState, { kind: 'attack-end' });
+  newState = recordHazardEncountered(newState, state, combat);
+
+  logDetail('Creature converted to ally — combat ended, returning to enclosing phase');
+  return { state: newState };
 }
 
 /**

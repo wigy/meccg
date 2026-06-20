@@ -28,6 +28,7 @@ import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { roll2d6, diceRollEffect } from './reducer-utils.js';
+import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI } from './legal-actions/organization.js';
 import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
@@ -920,8 +921,10 @@ function handleAgentInfluenceAttempt(
       const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
       if (allyInst) {
         const allyDef = defById(state, allyInst.definitionId);
-        if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
-        targetMind = (allyDef as { mind: number }).mind;
+        // A converted-creature ally (Ready to His Will) carries its mind on the
+        // instance override; otherwise the target must be a real ally card.
+        if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
+        targetMind = allyEffectiveMind(state, allyInst);
         controllerDI = availableDI(state, oppCharId, resourcePlayer);
 
         // Rule 10.14: shared home site → mind = 0, +2 roll

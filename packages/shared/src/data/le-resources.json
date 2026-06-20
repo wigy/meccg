@@ -1512,7 +1512,17 @@
     "unique": false,
     "eventType": "permanent",
     "marshallingPoints": 1,
-    "marshallingCategory": "ally"
+    "marshallingCategory": "ally",
+    "effects": [
+      {
+        "type": "convert-creature-to-ally",
+        "races": ["orc", "orcs", "troll", "trolls", "giant", "slayer", "men"],
+        "maxStrikes": 1,
+        "controllerTaps": true,
+        "ally": { "mind": 1, "body": 8, "prowessModifier": -7 }
+      }
+    ],
+    "certified": "2026-06-20"
   },
   {
     "cardType": "minion-resource-event",

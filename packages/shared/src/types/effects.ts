@@ -1940,6 +1940,46 @@ export interface CancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Converts an attacking hazard creature into an ally controlled by the
+ * defending company (CoE — *Ready to His Will* le-220, *Memories of Old
+ * Torture* ba-67). Carried by a resource permanent-event that the defending
+ * player plays during the creature's attack (assign-strikes combat window).
+ *
+ * On play: all the creature's attacks are canceled (combat ends without
+ * resolution), the creature card moves from the attacker's cards-in-play into
+ * a chosen controlling character's `allies` list with the stats from `ally`,
+ * and the event card is "placed with the creature" — kept in the defender's
+ * cards-in-play with `attachedTo` set to the new ally so the two are
+ * discarded together.
+ *
+ * Eligibility: the attacking creature's race must be one of `races` and its
+ * printed strike count must be ≤ `maxStrikes` ("one strike for each of its
+ * attacks").
+ */
+export interface ConvertCreatureToAllyEffect extends EffectBase {
+  readonly type: 'convert-creature-to-ally';
+  /**
+   * Lowercase creature races eligible for conversion (matched against the
+   * combat's normalized `creatureRace`). Both singular and plural data forms
+   * should be listed where they differ (e.g. "orc"/"orcs").
+   */
+  readonly races: readonly string[];
+  /** Maximum printed strikes the creature may have (1 for "one strike for each of its attacks"). */
+  readonly maxStrikes: number;
+  /** Whether the controlling character taps when taking control (le-220: yes; ba-67: no). */
+  readonly controllerTaps: boolean;
+  /** Stats granted to the resulting ally. */
+  readonly ally: {
+    /** Fixed mind value for the new ally. */
+    readonly mind: number;
+    /** Fixed body value for the new ally. */
+    readonly body: number;
+    /** Amount added to the creature's printed prowess to get the ally's prowess (e.g. -7). */
+    readonly prowessModifier: number;
+  };
+}
+
+/**
  * Flattery attempt: the bearer's company is facing a creature attack and
  * a character in the company makes an influence check to cancel the attack.
  *
@@ -2777,6 +2817,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | ConvertCreatureToAllyEffect
   | FlatteryCancelAttackEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect
