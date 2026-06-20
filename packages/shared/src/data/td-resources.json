@@ -177,8 +177,12 @@
         "toOwner": "opponent",
         "filter": {
           "$and": [
-            { "cardType": "hazard-event" },
-            { "eventType": "permanent" }
+            {
+              "cardType": "hazard-event"
+            },
+            {
+              "eventType": "permanent"
+            }
           ]
         },
         "corruptionCheck": {
@@ -201,9 +205,18 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "site" },
-      { "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "set-site-phase-flag", "flag": "hoardBountyAvailable" } }
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-site-phase-flag",
+          "flag": "hoardBountyAvailable"
+        }
+      }
     ],
     "certified": "2026-05-14"
   },
@@ -225,9 +238,28 @@
         "diplomatBonus": 2,
         "hazardLimitReduction": 2,
         "thresholds": [
-          { "races": ["dragon"], "threshold": 10 },
-          { "races": ["man", "drake"], "threshold": 11 },
-          { "races": ["troll", "orc", "elf", "giant"], "threshold": 12 }
+          {
+            "races": [
+              "dragon"
+            ],
+            "threshold": 10
+          },
+          {
+            "races": [
+              "man",
+              "drake"
+            ],
+            "threshold": 11
+          },
+          {
+            "races": [
+              "troll",
+              "orc",
+              "elf",
+              "giant"
+            ],
+            "threshold": 12
+          }
         ]
       }
     ]
@@ -285,11 +317,23 @@
         "type": "cancel-attack",
         "when": {
           "$and": [
-            { "enemy.race": { "$in": ["dragon", "drake", "troll"] } },
+            {
+              "enemy.race": {
+                "$in": [
+                  "dragon",
+                  "drake",
+                  "troll"
+                ]
+              }
+            },
             {
               "$or": [
-                { "attack.source": "automatic-attack" },
-                { "attack.siteKeyed": true }
+                {
+                  "attack.source": "automatic-attack"
+                },
+                {
+                  "attack.siteKeyed": true
+                }
               ]
             }
           ]
@@ -307,5 +351,705 @@
       }
     ],
     "certified": "2026-05-11"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-95",
+    "name": "A Short Rest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AShortRest.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Each moving company may draw an extra card for each region less than four in its site path."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-97",
+    "name": "Alert the Folk",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AlerttheFolk.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a company facing a Dragon or Drake attack (not Eärcaraxë). Discard from your hand any one or two factions playable at sites in Northern Rhovanion, Iron Hills, Woodland Realm, or Anduin Vales. All characters facing the attack gain a bonus to their prowess equal to the total marshalling point values (as printed on their cards) of the factions discarded."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-100",
+    "name": "Belegaer ",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Belegaer.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin, Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, and Harondor. The site path is [{c} {c} {c}] and the hazard limit is decreased by two to a minimum of two."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-103",
+    "name": "Burglary ",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Burglary.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Burglary attempt. Tap a character to make a burglary attempt at a site in lieu of facing its automatic-attacks. Tap the site and make a roll modified by +2 if the character is a scout and by +3 if he is a Hobbit. If the result is greater than 10, an item normally playable at the site may be played with the character. If the attempt fails, the character must face all automatic-attacks alone."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-104",
+    "name": "Cloudless Day",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/CloudlessDay.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Environment. Playable only if Gates of Morning is in play. Whenever a company faces a hazard creature attack, the defender may choose which characters in the company will be the targets of the attack’s strikes (regardless of tapped status, wounded status, and the normal abilities of the attack)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-106",
+    "name": "Dragon’s Hunger",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DragonsHunger.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Dragon or Drake attack. If one is available, opponent must discard a hazard creature from his hand; this reduces the company’s hazard limit by one. Otherwise, the attack is canceled and the opponent must reveal his hand."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-107",
+    "name": "Dragon-feuds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonfeuds.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the organization phase. For the rest of the turn, you may discard a Dragon or Drake hazard creature from your hand to cancel a Dragon or Drake attack against any of your companies."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-108",
+    "name": "Dragon-lore",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonlore.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a sage during the site phase at an untapped site where Information is playable. Tap the sage and the site. During a site phase at a tapped Dragon’s lair, tap bearer and discard Dragon-lore. Search your play deck and/or discard pile for any item playable at the Dragon’s lair. This item may be immediately played with bearer’s company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-109",
+    "name": "Dwarven Hoard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DwarvenHoard.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Tap a Dwarf at a Dark-hold [{D}] or Shadow-hold [{S}]. The site is considered to contain a hoard until the end of the turn."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-110",
+    "name": "Echo of all Joy",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EchoofallJoy.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Play on a resource long-event if Doors of Night is not in play. The long-event is not discarded as normal during a long-event phase. Discard Echo of All Joy and target long-event when any play deck is exhausted or when Doors of Night comes into play."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-111",
+    "name": "Elf-path",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Elfpath.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only at the end of the organization phase. Tap an Elf. If his company’s site path only has one or two regions with no Dark-domains [{d}] and no Shadow-lands [{s}], opponent may only play hazard creatures this turn that are keyed to the company’s new site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-115",
+    "name": "Fast Asleep",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/FastAsleep.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "+3 to one burglary attempt.Alternatively, -2 to the prowess of one automatic-attack."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-117",
+    "name": "Forod",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Forod.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills. The site path is [{w} {w} {w}] and the hazard limit is decreased by two to a minimum of two."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-118",
+    "name": "Gift of Comprehension",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/GiftofComprehension.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Dúnadan at a Haven [{H}]; tap the Dúnadan. Gives the bearer sage skill."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-121",
+    "name": "Harad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Harad.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Horse Plains, Khand, Nurn, and Harondor.The site path is [{w} {w} {w}] and the hazard limit is decreased by two to a minimum of two."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-122",
+    "name": "Helm of Her Secrecy",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HelmofHerSecrecy.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "If Éowyn is in your hand, this card is playable on a company facing an attack (before strikes are assigned)—the company must contain a character with Edoras as a home site. If enough influence is available to control her, Éowyn may be played with (i. e., joins) the company. She gains +2 prowess, +1 body, and +1 direct influence. If the attack is a Nazgûl, place Helm of Her Secrecy with Éowyn following the attack. Otherwise, discard this card following the attack. Regardless, Éowyn remains in play."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-123",
+    "name": "Here, There, or Yonder",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HereThereorYonder.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Tap a character during his site phase at a tapped or untapped Ruins & Lairs [{R}]. Make a roll modified by +3 if character is a diplomat. An ally may be played and placed under the character’s control if the result is greater than 6 plus the ally’s mind stat and the ally is not restricted from moving in this site’s region. If an ally is played, tap the site if it is not already tapped."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-124",
+    "name": "Hey! come merry dol!",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Heycomemerrydol.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a moving company. Each Wilderness [{w}] symbol in the company’s site path counts as half a Wilderness [{w}]. When calculating the number of Wildernesses [{w}] in such a site path, round down the final result."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-125",
+    "name": "Houses of Healing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HousesofHealing.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Free-hold [{F}]. Site becomes a Haven [{H}] for the purposes of healing. Discard Houses of Healing when the site is returned to the location deck or discarded."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-126",
+    "name": "King under the Mountain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/KingundertheMountain.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable on Balin, Dáin II, Thorin II, or Thráin II if his company has defeated an at home Dragon manifestation attack other than Eärcaraxë at Home. The target Dwarf receives +5 direct influence against Dwarves and Dwarf factions.The site where the Dragon was defeated becomes a Border-hold [{B}] and Dwarf-hold for all purposes and has no Dragon automatic-attacks. Only Dwarves may play items at this site."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-127",
+    "name": "Legendary Hoard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LegendaryHoard.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an at home Dragon manifestation. Target Dragon’s automatic-attack cannot be cancelled. Rotate this card 90˚ each time a manifestation of target Dragon is played. If the site receiving the Dragon’s automatic-attack is untapped, a number of items played there do not tap the site: not rotated: 1 item; rotated once: 2 items; rotated twice or more: 3 items. If target Dragon is required to be discarded or removed from play, invert Dragon on table until this card is discarded. Discard this card when any item is played at target Dragon’s lair that taps the site. Cannot be duplicated on a given Dragon."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-128",
+    "name": "Look More Closely Later",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LookMoreCloselyLater.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Ritual. Tap a sage to untap a site at which Information is playable. Sage makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-129",
+    "name": "Lore of the Ages",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LoreoftheAges.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped Elf at a Haven [{H}]. Tap the Elf. When facing an attack, bearer may tap to give +1 prowess to all characters in his company against the attack. Bearer makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-131",
+    "name": "Many Foes He Fought",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ManyFoesHeFought.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "If defender chooses a warrior to be the target of a strike from an attack, that character may choose to face any number of the strikes from that attack. The character suffers a cumulative -1 prowess/-1 body for each additional strike faced. The character faces a separate strike sequence for each strike."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-133",
+    "name": "Map to Mithril",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MaptoMithril.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Dwarf during the site phase at a site at which Information is playable. Tap the Dwarf and site.Tap Map to Mithril if bearer is ever at Moria; this card never untaps.If Map to Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and place this card with a non-unique weapon in his company. This gives the weapon a +3 prowess bonus."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-135",
+    "name": "Master of Esgaroth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MasterofEsgaroth.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a moving company. If the company moves to a Border-hold [{B}], it can take a second movement/hazard phase immediately following its first movement/hazard phase."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-136",
+    "name": "Master of Wood, Water, or Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MasterofWoodWaterorHill.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Ritual. Tap a sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}] to a Wilderness [{w}]. Sage makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-137",
+    "name": "Mathom Lore",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MathomLore.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped Hobbit at Bag End. Tap the Hobbit. During the organization phase, bearer may tap to choose a minor item from your play deck or discard pile to place into your hand. Reshuffle your play deck if it was used. Bearer makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "td-139",
+    "name": "Men of Lake-town",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MenofLaketown.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Lake-town"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Lake-town if the influence check is greater than 8. Standard Modifications: Men (+2), Dwarves (-1)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-140",
+    "name": "More Sense than You",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MoreSensethanYou.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable before strikes are assigned on an untapped character or ally whose company is facing an attack. Tap target character or ally. He may not be assigned a strike from this attack."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "td-142",
+    "name": "Nenseldë the Wingild",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/NenseldetheWingild.jpg",
+    "unique": true,
+    "prowess": null,
+    "body": null,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Dol Amroth"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Dol Amroth.May not be attacked.Tap Nenseldë to return one environment resource long-event or short-event from your discard pile to your hand. Discard Nenseldë if her company moves to a site that is not in: Belfalas, Bay of Belfalas, Anfalas, or Mouths of the Anduin."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-144",
+    "name": "Pledge of Conduct",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/PledgeofConduct.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. A character facing a corruption check in the diplomat’s company may automatically transfer one item he bears to another character in his company. The item must be transferrable, and the new bearer must be able to bear it."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-145",
+    "name": "Refuge",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Refuge.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable only if you discard an Elf from your hand and only at the end of the organization phase on a company using region cards with the last one being a Wilderness [{w}]. (Play regions face-up.)This card is used as a site card, Free-hold [{F}] (cards drawn: 1/1). The company may only leave this site using region movement. Characters at this site heal as though they were in a Haven [{H}]. Discard Refuge when the company moves to a new site."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "td-146",
+    "name": "Returned Exiles",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ReturnedExiles.jpg",
+    "unique": true,
+    "marshallingPoints": 5,
+    "marshallingCategory": "faction",
+    "influenceNumber": 13,
+    "race": "dwarf",
+    "playableAt": [
+      {
+        "site": "a"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at a tapped or untapped site where an at home Dragon manifestation was defeated if the influence check is greater than 12. Standard Modifications:King under the Mountain Dwarf (+5),other Dwarves (+2)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-147",
+    "name": "Rhûn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Rhun.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Iron Hills, Dorwinion, Horse Plains, and Khand.The site path is [{w} {w} {w}] and the hazard limit is decreased by two to a minimum of two."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-148",
+    "name": "Riddling Talk",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/RiddlingTalk.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Riddling attempt. Playable on a character whose company is facing an attack of the type listed below. Character makes a roll modified by: +2 for each sage and +1 for each Hobbit in his company. If the result is greater than: 8 against Dragons and Drakes, 10 against Men and Giants, 12 against Slayers, Awakened Plants, Orcs, Spiders, and Trolls; then name a card and opponent must reveal his hand. If the named card is in opponent’s hand, the creature’s card is discarded (all of its attacks are canceled) and the hazard limit against the character’s company is decreased by three."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-149",
+    "name": "Sated Beast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SatedBeast.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Target ahunt Dragon manifestation is discarded.Alternatively, if Doors of Night is in play, decreases the number of strikes from one Dragon or Drake attack by one (to a minimum of one).This card may also be played during opponent’s movement/hazard phase."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-151",
+    "name": "Secret News",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SecretNews.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Opponent reveals to you 5 random cards at once from his hand."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-152",
+    "name": "Skin-changer",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Skinchanger.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Only playable on Beorn. Until the end of the turn, his prowess and body are each modified by +2. If Beorn is chosen to be the target of a strike from an attack, he may choose to face a second strike from that attack (he faces a separate strike sequence for each strike). Beorn makes a corruption check modified by -2 after any attack made against his company. If still in play at the end of the turn, place Beorn in your hand. Any items he bears may be transferred to unwounded characters in his company (no corruption checks are required)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-153",
+    "name": "Staff Asunder",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/StaffAsunder.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a Wizard bearing Wizard’s Staff whose company is facing an attack. Wizard makes a corruption check. Place Wizard’s Staff in yourmarshalling point pile. Wizard gains +5 prowess against the attack. Modify the attack’s body by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-154",
+    "name": "Star of High Hope",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/StarofHighHope.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Environment. The prowess of each Elf and Dúnadan is modified by +1 (by +2 if Gates of Morning is in play)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-155",
+    "name": "Tales of the Hunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TalesoftheHunt.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an untapped Man at a Border-hold [{B}]. Tap the Man. Bearer may tap to untap any character in his company. Bearer makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-156",
+    "name": "The Riddle Game",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TheRiddleGame.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Riddling attempt. Playable during site phase on a character at the same site as one of opponent’s companies. Tap the character. Opponent chooses a character from his company to play the riddle game.Each player makes a riddling roll modified by +2 if his character is a sage and by +1 if a Hobbit (re-roll ties). The player with the highest result wins. He then names two cards and the other player reveals his hand. If any of the named cards are revealed, they are immediately discarded."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-157",
+    "name": "Three Golden Hairs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ThreeGoldenHairs.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable at any site on a non-Wizard, non-Hobbit diplomat character (other than Galadriel) at the same site as Galadriel. All corruption cards on the bearer are discarded when this card comes into play. +2 to all corruption checks by bearer."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-159",
+    "name": "Trickery",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Trickery.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-162",
+    "name": "Vanish in Sunlight!",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/VanishinSunlight.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Modify the prowess of one Nazgûl or Undead attack by -2 (by -4 if Gates of Morning is in play)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-163",
+    "name": "Warm Now Be Heart and Limb",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WarmNowBeHeartandLimb.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Ritual. Playable on a company during organization phase. Each sage in company that taps may heal one character (from wounded to tapped). Each sage so tapping makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-164",
+    "name": "Washed and Refreshed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WashedandRefreshed.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a moving company. When the company’s new site is revealed, the company may untap a number of characters equal to the number of regions less than four in its site path."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-166",
+    "name": "When I Know Anything",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WhenIKnowAnything.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Light enchantment. Playable on a sage during the site phase at a site where Information is playable. Tap sage and site.Tap sage to modify one corruption check by a character in his company by +3. Sage makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-167",
+    "name": "Wielded Twice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WieldedTwice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Ritual. Tap a sage to untap an item in his company. Sage makes a corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-168",
+    "name": "Wit",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Wit.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Modify one riddling roll by +3. If applicable, this card may also be played during your opponent’s site phase if a riddling roll is called for."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-171",
+    "name": "Wondrous Maps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WondrousMaps.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at the end of the organization phase on a company using region cards with the last one being a Shadow-land [{s}]. (Play regions face-up.)This card is used as a site card, Ruins & Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor, major), cards opponent draws: 3, you draw: 1). The company may only leave the site using region movement. Discard Wonderous Maps when the company moves to a new site."
   }
 ]

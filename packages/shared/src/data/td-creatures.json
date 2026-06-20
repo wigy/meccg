@@ -20,11 +20,21 @@
         ]
       },
       {
-        "siteTypes": ["ruins-and-lairs"],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ],
         "when": {
           "$or": [
-            { "destinationSite.sitePath.wildernessCount": { "$gte": 2 } },
-            { "destinationSite.sitePath.coastalCount": { "$gte": 1 } }
+            {
+              "destinationSite.sitePath.wildernessCount": {
+                "$gte": 2
+              }
+            },
+            {
+              "destinationSite.sitePath.coastalCount": {
+                "$gte": 1
+              }
+            }
           ]
         }
       }
@@ -46,11 +56,20 @@
     "race": "drake",
     "keyedTo": [
       {
-        "regionNames": ["Khand", "Harondor"]
+        "regionNames": [
+          "Khand",
+          "Harondor"
+        ]
       },
       {
-        "regionNames": ["Ithilien", "Nurn", "Horse Plains"],
-        "when": { "inPlay": "Doors of Night" }
+        "regionNames": [
+          "Ithilien",
+          "Nurn",
+          "Horse Plains"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [
@@ -102,7 +121,9 @@
     "race": "dragon",
     "keyedTo": [
       {
-        "siteNames": ["Ovir Hollow"]
+        "siteNames": [
+          "Ovir Hollow"
+        ]
       },
       {
         "regionNames": [
@@ -111,7 +132,9 @@
           "Anduin Vales",
           "Grey Mountain Narrows"
         ],
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [
@@ -136,7 +159,9 @@
     "race": "dragon",
     "keyedTo": [
       {
-        "siteNames": ["Isle of the Ulond"]
+        "siteNames": [
+          "Isle of the Ulond"
+        ]
       },
       {
         "regionNames": [
@@ -145,7 +170,9 @@
           "Eriadoran Coast",
           "Andrast"
         ],
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [
@@ -186,7 +213,9 @@
     "race": "dragon",
     "keyedTo": [
       {
-        "siteNames": ["Gondmaeglom"]
+        "siteNames": [
+          "Gondmaeglom"
+        ]
       },
       {
         "regionNames": [
@@ -195,7 +224,9 @@
           "Northern Rhovanion",
           "Grey Mountain Narrows"
         ],
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "effects": [],
@@ -233,8 +264,13 @@
     "race": "spiders",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness", "shadow"],
-        "siteTypes": ["ruins-and-lairs"]
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
       }
     ],
     "effects": [],
@@ -269,5 +305,380 @@
     ],
     "effects": [],
     "certified": "2026-05-11"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-7",
+    "name": "Carrion Birds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/CarrionBirds.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Animals. May be played keyed to wilderness [{w}] after any Orc, Troll, or Man attack keyed to wilderness and against the same company. Each character in the company faces one strike. Any character wounded by Carrion Birds makes two body checks instead of one, both checks modified by -1."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-13",
+    "name": "Dire Wolves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DireWolves.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "wolves",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Wolves. Four strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-19",
+    "name": "Dunlending Raiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DunlendingRaiders.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Men. Five strikes. Playable keyed to Enedhwaith, Cardolan, Hollin, Rhudaur, and Dunland; and may also be played at Ruins & Lairs [{R}] in these regions."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-28",
+    "name": "Gothmog",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Gothmog.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 14,
+    "body": 9,
+    "killMarshallingPoints": 3,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. May also be played following an Orc or Troll attack in a Shadow-land [{s}] or Shadow-hold [{S}]."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-30",
+    "name": "Hobgoblins ",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Hobgoblins.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Two strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-32",
+    "name": "Ice-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Icedrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Drake. Two strikes. May be played keyed to Elven Shores, Forochel, Angmar, Gundabad, Grey Mountain Narrows, and Withered Heath."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-40",
+    "name": "Land-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Landdrake.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. One strike. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-45",
+    "name": "Light-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Lightdrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-47",
+    "name": "Marsh-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Marshdrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-49",
+    "name": "Morgul-rats",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Morgulrats.jpg",
+    "unique": false,
+    "strikes": 15,
+    "prowess": 2,
+    "body": 5,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Animals. 15 strikes. Only playable at a Shadow-hold [{S}] or at a Dark-hold [{D}], and only if a character in target company is wounded or Doors of Night is in play."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-66",
+    "name": "Sea Serpent",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SeaSerpent.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 14,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-75",
+    "name": "Thunder’s Companion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ThundersCompanion.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "giants",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Giants. Three strikes."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-78",
+    "name": "True Fire-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TrueFiredrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes. Only two Wildernesses [{w}] in site path are required if Doors of Night is in play."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-80",
+    "name": "Were-worm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Wereworm.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 13,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. One strike. Attacker chooses defending characters. Defending company must discard one item of attacker’s choice for each character wounded by Were-worm."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-81",
+    "name": "Wild Fell Beast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WildFellBeast.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 12,
+    "body": 6,
+    "killMarshallingPoints": 2,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Three strikes. Attacker chooses defending characters. Unless this attack is canceled, all untapped characters in defending company are tapped following attack. Two Shadow-lands [{s}] in site path are required."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-83",
+    "name": "Winged Cold-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WingedColddrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-84",
+    "name": "Winged Fire-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WingedFiredrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-86",
+    "name": "Wolf-riders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Wolfriders.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-87",
+    "name": "Wolf-riders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Wolfriders2.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
   }
 ]

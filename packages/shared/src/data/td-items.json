@@ -154,13 +154,23 @@
       },
       {
         "type": "modify-attack",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "strikesModifier": -1,
         "when": {
           "$and": [
-            { "bearer.skills": { "$includes": "warrior" } },
-            { "attack.source": "creature" },
-            { "attack.siteKeyed": false }
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "attack.source": "creature"
+            },
+            {
+              "attack.siteKeyed": false
+            }
           ]
         }
       }
@@ -260,8 +270,14 @@
       },
       {
         "type": "cancel-strike",
-        "cost": { "tap": "self" },
-        "when": { "bearer.skills": { "$includes": "warrior" } }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "text": "Unique. Hoard item. Shield. +3 to body to a maximum of 10. Warrior only: tap Enruned Shield to cause one strike against bearer to be ineffectual (i. e., it doesn’t fail and it is not successful).",
@@ -333,7 +349,9 @@
       {
         "type": "grant-action",
         "action": "cancel-character-discard",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "anyPhase": true,
         "opposingSitePhase": true,
         "freeCouncil": true,
@@ -532,9 +550,21 @@
               "to": "hand",
               "filter": {
                 "$or": [
-                  { "keywords": { "$includes": "spell" } },
-                  { "keywords": { "$includes": "ritual" } },
-                  { "keywords": { "$includes": "light-enchantment" } }
+                  {
+                    "keywords": {
+                      "$includes": "spell"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "ritual"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "light-enchantment"
+                    }
+                  }
                 ]
               }
             },
@@ -659,9 +689,16 @@
       {
         "type": "grant-action",
         "action": "untap-site",
-        "cost": { "discard": "self" },
-        "when": { "site.isTapped": true, "site.hasDragonAutoAttack": true },
-        "apply": { "type": "untap-site" }
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "site.isTapped": true,
+          "site.hasDragonAutoAttack": true
+        },
+        "apply": {
+          "type": "untap-site"
+        }
       }
     ],
     "certified": "2026-05-15"
@@ -696,7 +733,14 @@
         "max": 12,
         "overrides": "wormsbane-prowess",
         "when": {
-          "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }]
+          "$or": [
+            {
+              "enemy.race": "dragon"
+            },
+            {
+              "enemy.race": "drake"
+            }
+          ]
         }
       },
       {
@@ -705,10 +749,71 @@
         "op": "subtract",
         "value": 2,
         "when": {
-          "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }]
+          "$or": [
+            {
+              "enemy.race": "dragon"
+            },
+            {
+              "enemy.race": "drake"
+            }
+          ]
         }
       }
     ],
     "certified": "2026-05-15"
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-119",
+    "name": "Gold Belt of Lórien ",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/GoldBeltofLorien.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Only playable at Lórien. +1 direct influence to bearer."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-160",
+    "name": "Twice-baked Cakes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TwicebakedCakes.jpg",
+    "unique": false,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Playable only at a Free-hold [{F}] or Border-hold [{B}]. May also be played if the site is tapped. Discard during organization phase to allow its bearer’s company to play two additional region cards."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-165",
+    "name": "Waybread",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Waybread.jpg",
+    "unique": false,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Only playable at Lórien. Discard to untap bearer or bearer and one other character in his company.Alternatively, discard during organization phase to allow its bearer’s company to play an additional region card."
   }
 ]
