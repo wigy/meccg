@@ -275,6 +275,40 @@ document.addEventListener('DOMContentLoaded', () => {
       void openCreditsPage();
     });
 
+    // Nav bar bug-report / feature-request icon buttons. Each opens the same
+    // modal used elsewhere (bug report in-game, feature request on the mail
+    // page) after a credit check.
+    document.getElementById('nav-bug-report-btn')!.addEventListener('click', () => {
+      if (appState.lobbyPlayerCredits <= 0) {
+        void showAlert('No credits available. Top up your credits before sending a bug report.');
+        return;
+      }
+      const modal = document.getElementById('bug-report-modal')!;
+      modal.dataset.context = 'lobby';
+      const hint = document.getElementById('bug-report-hint');
+      if (hint) {
+        hint.textContent = 'Describe the bug or problem you ran into. Include what you were doing in the lobby (e.g. deck building, matchmaking, mail) when it happened.';
+      }
+      const subject = document.getElementById('bug-report-subject') as HTMLInputElement;
+      const body = document.getElementById('bug-report-body') as HTMLTextAreaElement;
+      subject.value = '';
+      body.value = '';
+      modal.classList.remove('hidden');
+      subject.focus();
+    });
+    document.getElementById('nav-feature-request-btn')!.addEventListener('click', () => {
+      if (appState.lobbyPlayerCredits <= 0) {
+        void showAlert('No credits available. Top up your credits before sending a feature request.');
+        return;
+      }
+      const subject = document.getElementById('feature-request-subject') as HTMLInputElement;
+      const body = document.getElementById('feature-request-body') as HTMLTextAreaElement;
+      subject.value = '';
+      body.value = '';
+      document.getElementById('feature-request-modal')!.classList.remove('hidden');
+      subject.focus();
+    });
+
     // Feature request modal handlers
     const frModal = document.getElementById('feature-request-modal')!;
     const frSubject = document.getElementById('feature-request-subject') as HTMLInputElement;
@@ -315,7 +349,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const brief = brSubject.value.trim();
     const text = brBody.value.trim();
     if (!brief || !text) return;
-    const fullBody = `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}\n\n${text}`;
+    // A report filed from the lobby has no active game, so omit the game
+    // reference lines (Game ID / sequence number) — there is no save to point
+    // the AI at. In-game reports keep them so the captured state can be found.
+    const inGame = brModal.dataset.context !== 'lobby' && appState.currentGameId !== null;
+    const fullBody = inGame
+      ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}\n\n${text}`
+      : text;
     void (async () => {
       const r = await apiSend('/api/mail/bug-report', 'POST', {
         subject: `Bug Report: ${brief}`,
@@ -334,6 +374,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (appState.lobbyPlayerCredits <= 0) {
       void showAlert('No credits available. Top up your credits before sending a bug report.');
       return;
+    }
+    brModal.dataset.context = 'game';
+    const hint = document.getElementById('bug-report-hint');
+    if (hint) {
+      hint.textContent = 'Describe the bug you encountered. The full game state at this moment is captured automatically, so there is no need to list steps to reproduce — just describe what went wrong.';
     }
     brSubject.value = '';
     brBody.value = '';

@@ -4,6 +4,10 @@
  * Renders contextual instruction text and the pass/action button
  * in the visual game view. Instructions guide the player through
  * each phase and step of the game.
+ *
+ * The instruction text no longer renders as the old top "situation
+ * banner" overlay; it now fills the compact instruction line beneath
+ * the phase progress meter (see {@link module:render-phase-meter}).
  */
 
 import type { PlayerView, CardDefinition, GameAction } from '@meccg/shared';
@@ -191,7 +195,7 @@ function getInstructionText(
           ? 'Movement/Hazard — Order ongoing effects for this company.'
           : 'Movement/Hazard — Opponent is ordering ongoing effects.';
       case 'draw-cards':
-        return 'Movement/Hazard — Drawing cards for movement.';
+        return null;
       case 'play-hazards': {
         const mh = view.phaseState;
         const pathDesc = buildMovementPathHtml(mh);
@@ -325,6 +329,33 @@ function getInstructionText(
   return null;
 }
 
+/**
+ * Turn-phase name prefixes that the phase meter's breadcrumb already shows.
+ * The leading `"<prefix> — "` is stripped from instruction text so the line
+ * reads just the actionable guidance (e.g. "Play hazards or pass.") rather
+ * than duplicating the phase name. Contextual prefixes that are *not* shown
+ * in the breadcrumb (e.g. "Combat", "Chain of Effects", "Faction Influence")
+ * are intentionally absent and remain in the instruction text.
+ */
+const REDUNDANT_PHASE_PREFIXES: readonly string[] = [
+  'Movement/Hazard',
+  'Site',
+  'Long-event',
+  'End of Turn',
+  'Organization',
+  'Free Council',
+  'Game Over',
+];
+
+/** Strip a leading redundant phase prefix (`"<phase> — "`) if present. */
+function stripRedundantPhasePrefix(text: string): string {
+  for (const prefix of REDUNDANT_PHASE_PREFIXES) {
+    const lead = `${prefix} — `;
+    if (text.startsWith(lead)) return text.slice(lead.length);
+  }
+  return text;
+}
+
 /** Render instruction text in the visual board. Targeting instructions take priority. */
 export function renderInstructions(
   view: PlayerView,
@@ -332,7 +363,10 @@ export function renderInstructions(
 ): void {
   const el = document.getElementById('instruction-text');
   if (!el) return;
-  const text = getTargetingInstruction() ?? getInstructionText(view, cardPool) ?? '';
+  // Targeting prompts are shown verbatim; phase-step guidance has its
+  // redundant phase prefix stripped (the meter breadcrumb already names it).
+  const targeting = getTargetingInstruction();
+  const text = targeting ?? stripRedundantPhasePrefix(getInstructionText(view, cardPool) ?? '');
   // Use innerHTML to support inline region icons; all content comes from
   // card pool data (no user input), so this is safe.
   el.innerHTML = text;

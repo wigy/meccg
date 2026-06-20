@@ -48,6 +48,9 @@ export { renderDeckPiles, resetDeckPiles, prepareSiteSelection, openMovementView
 // Instructions and pass button
 export { renderInstructions, renderPassButton } from './render-instructions.js';
 
+// Phase progress meter (thermometer)
+export { renderPhaseMeter } from './render-phase-meter.js';
+
 // Card preview and attributes
 export { setupCardPreview, buildCardAttributes } from './render-card-preview.js';
 

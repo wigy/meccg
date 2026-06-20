@@ -928,6 +928,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
+  // The HTML shell and its bundled assets change on every redeploy and have
+  // no content hash in their filenames, so instruct the browser to always
+  // revalidate rather than serving a stale cached copy. (Hashed/long-lived
+  // assets like card images set their own long max-age above.)
+  const NO_CACHE_EXTS = new Set(['.html', '.css', '.js']);
+  const cacheHeader: Record<string, string> = NO_CACHE_EXTS.has(ext)
+    ? { 'Cache-Control': 'no-cache' }
+    : {};
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(404);
@@ -939,11 +948,11 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const html = data.toString()
         .replace('</head>', `${CONFIG_SCRIPT}</head>`)
         .replace('</body>', `${reloadInject}</body>`);
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 'Content-Type': contentType, ...cacheHeader });
       res.end(html);
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, { 'Content-Type': contentType, ...cacheHeader });
     res.end(data);
   });
 }
