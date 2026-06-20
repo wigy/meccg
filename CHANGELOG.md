@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.41.0 — 2026-06-20
+
+Challenge Deck J
+
+### Card Certification
+
+- Certify the full Challenge Deck J (Seducing Nations of Men) minion pool to 100%
+- Certify the Easterling/Southron faction set: Easterlings (le-264), Southrons (le-287), Haradrim (as-63), Wain-easterlings (as-66), Corsairs of Rhûn (as-114), Balchoth (le-260), and Asdriags' Southron Oasis (le-404)
+- Certify minion leaders Jerrek (le-17), Odoacer (le-28), Hador (le-14), and Indûr the Ringwraith (le-54)
+- Certify minion resources Ready to His Will (le-220), Isengard (le-384), Crooked Promptings (le-178), The Tormented Earth (as-102), Hold Rebuilt and Repaired (as-88), Skies of Fire (le-228), Weariness of the Heart (le-149), and Focus Palantír (le-184)
+- Certify minion items Palantír of Orthanc (le-334) and Secret Book (as-131)
+- Certify Corpse-candle (le-67) and minion sites Easterling Camp (le-371) and The Wind Throne (le-413)
+
+### Game Engine
+
+- Fix off-by-one influence numbers on 9 factions and refresh stale influence-need expectations
+- Fix Rebel-talk to defer general-influence subtraction to the next organization phase
+- Record canceled attacks as faced (e.g. Orc-lieutenant +4 prowess)
+- Allow sage allies (e.g. Treebeard) to tap for skill-only cards
+- Fix The White Tree to find a stored Sapling in the marshalling-point pile
+- Fix Little Snuffler (dm-108) body check
+- Fix organization phase locking out movement after an end-of-org play
+
+### Web Client
+
+- Fix Marvels Told discard tooltip showing "?" for the target card
+- Fix Poisonous Despair magic skill and allow searching skills in the deck editor
+
+### Card Data
+
+- Add the missing The Wizards (TW) cards, completing the set at 500/500
+- Mark magic on the relevant cards
+
 ## 0.40.0 — 2026-06-15
 
 Challenge Deck I

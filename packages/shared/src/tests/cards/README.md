@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 529 | 520 | 9 | 98.3% |
+| 553 | 544 | 9 | 98.4% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 39 | 39 | 100.0% |
+| AS | 45 | 45 | 100.0% |
 | BA | 3 | 1 | 33.3% |
 | DM | 41 | 41 | 100.0% |
-| LE | 153 | 151 | 98.7% |
+| LE | 171 | 169 | 98.8% |
 | TD | 52 | 52 | 100.0% |
 | TW | 231 | 226 | 97.8% |
 | WH | 10 | 10 | 100.0% |
@@ -30,27 +30,33 @@
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
-| as-24 | Alone and Unadvised | — | 13 | ☑ |
+| as-24 | Alone and Unadvised | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
 | as-39 | Summons from Long Sleep | — | 8 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
+| as-63 | Haradrim | — | 8 | ☑ |
+| as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
 | as-74 | Great Bats | — | 17 | ☑ |
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
+| as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
+| as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
+| as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
-| as-126 | Helm of Fear | — | 16 | ☑ |
+| as-126 | Helm of Fear | — | 15 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
+| as-131 | Secret Book | — | 11 | ☑ |
 | as-134 | Thrór’s Map | — | 4 | ☑ |
 | as-137 | Cirith Gorgor | — | 7 | ☑ |
 | as-138 | Geann a-Lisch | — | 7 | ☑ |
@@ -95,7 +101,7 @@
 | dm-88 | Seized by Terror | — | 8 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
-| dm-108 | Little Snuffler | — | 4 | ☑ |
+| dm-108 | Little Snuffler | — | 5 | ☑ |
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
@@ -112,8 +118,10 @@
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 4 | ☑ |
+| le-12 | Grishnákh | — | 3 | ☑ |
+| le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
+| le-17 | Jerrek | — | 4 | ☑ |
 | le-18 | Lagduf | — | 2 | ☑ |
 | le-19 | Layos | — | 3 | ☑ |
 | le-21 | Lieutenant of Dol Guldur | — | 7 | ☑ |
@@ -122,6 +130,7 @@
 | le-24 | The Mouth | — | 7 | ☑ |
 | le-25 | Muzgash | — | 2 | ☑ |
 | le-27 | Nevido Smôd | — | 2 | ☑ |
+| le-28 | Odoacer | — | 3 | ☑ |
 | le-30 | Orc Brawler | — | 5 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
 | le-34 | Orc Tracker | — | 5 | ☑ |
@@ -134,9 +143,11 @@
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
+| le-54 | Indûr the Ringwraith | — | 9 | ☑ |
 | le-58 | The Witch-king | — | 12 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
+| le-67 | Corpse-candle | — | 10 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
 | le-71 | Ent in Search of the Entwives | — | 12 | ☑ |
@@ -163,13 +174,14 @@
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
-| le-132 | Rebel-talk | — | 10 | ☑ |
+| le-132 | Rebel-talk | — | 12 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-140 | Stay Her Appetite | — | 5 | ☑ |
 | le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
+| le-149 | Weariness of the Heart | — | 4 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
@@ -180,16 +192,20 @@
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
 | le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
+| le-178 | Crooked Promptings | — | 9 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-183 | Fell Rider | — | 12 | ☑ |
+| le-184 | Focus Palantír | — | 10 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
 | le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
-| le-219 | Poisonous Despair | — | 8 | ☑ |
+| le-219 | Poisonous Despair | — | 9 | ☑ |
+| le-220 | Ready to His Will | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
+| le-228 | Skies of Fire | — | 9 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
@@ -200,7 +216,9 @@
 | le-247 | Under His Blow | — | 5 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
+| le-260 | Balchoth | — | 8 | ☑ |
 | le-262 | Black Trolls | — | 7 | ☑ |
+| le-264 | Easterlings | — | 8 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
@@ -213,17 +231,19 @@
 | le-281 | Orcs of the Red Eye | — | 7 | ☑ |
 | le-282 | Orcs of Udûn | — | 14 | ☑ |
 | le-286 | Snaga-hai | — | 7 | ☑ |
+| le-287 | Southrons | — | 9 | ☑ |
 | le-291 | Uruk-hai | — | 8 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |
-| le-311 | Gleaming Gold Ring | — | 22 | ☑ |
+| le-311 | Gleaming Gold Ring | — | 24 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
-| le-324 | Minor Ring | — | 8 | ☑ |
+| le-324 | Minor Ring | — | 9 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
+| le-334 | Palantír of Orthanc | — | 10 | ☑ |
 | le-339 | Red Book of Westmarch | — | 11 | ☑ |
 | le-341 | Sable Shield | — | 6 | ☑ |
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
@@ -241,23 +261,27 @@
 | le-364 | Dead Marshes | — | 15 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-367 | Dol Guldur | — | 15 | ☑ |
+| le-371 | Easterling Camp | — | 7 | ☑ |
 | le-372 | Edoras | — | 7 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
+| le-384 | Isengard | — | 14 | ☑ |
 | le-387 | The Lonely Mountain | — | 8 | ☑ |
 | le-390 | Minas Morgul | — | 14 | ☑ |
 | le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
-| le-393 | Mount Doom | — | 11 | ☑ |
+| le-393 | Mount Doom | — | 13 | ☑ |
 | le-394 | Mount Gram | — | 9 | ☑ |
 | le-395 | Mount Gundabad | — | 10 | ☑ |
 | le-396 | Nûrniag Camp | — | 9 | ☑ |
 | le-399 | Raider-hold | — | 12 | ☑ |
 | le-401 | Sarn Goriwing | — | 6 | ☑ |
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
+| le-404 | Southron Oasis | — | 7 | ☑ |
 | le-408 | Thranduil’s Halls | — | 6 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
+| le-413 | The Wind Throne | — | 12 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
@@ -295,7 +319,7 @@
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
-| td-134 | Marvels Told | — | 23 | ☑ |
+| td-134 | Marvels Told | — | 25 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-143 | Not at Home | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 4 | ☑ |
@@ -336,7 +360,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-067 | — | — | 6 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
-| tw-073 | Orc-lieutenant | — | 3 | ☑ |
+| tw-073 | Orc-lieutenant | — | 4 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
@@ -454,7 +478,7 @@
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-327 | Shield of Iron-bound Ash | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 14 | ☑ |
-| tw-332 | Stealth | — | 10 | ☑ |
+| tw-332 | Stealth | — | 11 | ☑ |
 | tw-333 | Sting | — | 2 | ☐ |
 | tw-335 | Sun | — | 6 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
