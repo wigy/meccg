@@ -75,9 +75,9 @@ describe('Théoden (tw-182)', () => {
 
   test('+2 DI bonus does not apply to other factions', () => {
     // Théoden attempts to influence Wood-elves at Thranduil’s Halls.
-    // Wood-elves influence number = 8, standard mod: Men (-1).
+    // Wood-elves influence number = 9, standard mod: Men (-1).
     // Théoden is man, so -1 penalty applies. No DI bonus (only for Riders of Rohan).
-    // need = 8 - 3 (base DI) - (-1) (men penalty) = 6
+    // need = 9 - 3 (base DI) - (-1) (men penalty) = 7
     const state = buildSitePhaseState({
       characters: [THEODEN],
       site: THRANDUILS_HALLS,
@@ -95,6 +95,6 @@ describe('Théoden (tw-182)', () => {
       a => a.influencingCharacterId === theodenId,
     );
     expect(theodenAttempt).toBeDefined();
-    expect(theodenAttempt!.need).toBe(6);
+    expect(theodenAttempt!.need).toBe(7);
   });
 });

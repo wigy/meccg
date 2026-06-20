@@ -70,10 +70,10 @@ function inPlay(definitionId: CardDefinitionId, instanceId: string): CardInPlay 
 describe('Easterlings (le-264)', () => {
   beforeEach(() => resetMint());
 
-  test('influence-attempt is legal at Easterling Camp with baseline need = 8 - DI', () => {
+  test('influence-attempt is legal at Easterling Camp with baseline need = 9 - DI', () => {
     // Ciryaher (DI 2, no effects) at Easterling Camp with Easterlings in hand.
     // No standard-modification factions in play → modifier = DI 2.
-    // need = influenceNumber(8) - DI(2) = 6.
+    // need = influenceNumber(9) - DI(2) = 7.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -88,11 +88,11 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(6);
+    expect(attempt!.need).toBe(7);
   });
 
   test('+2 check modifier applies when controller also has Balchoth in play', () => {
-    // modifier = DI 2 + check bonus 2 = 4; need = 8 - 4 = 4.
+    // modifier = DI 2 + check bonus 2 = 4; need = 9 - 4 = 5.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -107,11 +107,11 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(4);
+    expect(attempt!.need).toBe(5);
   });
 
   test('+2 check modifier applies when controller also has Wain-easterlings in play', () => {
-    // modifier = DI 2 + check bonus 2 = 4; need = 8 - 4 = 4.
+    // modifier = DI 2 + check bonus 2 = 4; need = 9 - 4 = 5.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -126,11 +126,11 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(4);
+    expect(attempt!.need).toBe(5);
   });
 
   test('-2 check penalty applies when controller has Men of Dorwinion in play', () => {
-    // Negative standard modification: modifier = DI 2 - 2 = 0; need = 8 - 0 = 8.
+    // Negative standard modification: modifier = DI 2 - 2 = 0; need = 9 - 0 = 9.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -145,11 +145,11 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(8);
+    expect(attempt!.need).toBe(9);
   });
 
   test('standard modifications stack: Balchoth + Wain-easterlings + Men of Dorwinion', () => {
-    // modifier = DI 2 + 2 (Balchoth) + 2 (Wain) - 2 (Dorwinion) = 4; need = 8 - 4 = 4.
+    // modifier = DI 2 + 2 (Balchoth) + 2 (Wain) - 2 (Dorwinion) = 4; need = 9 - 4 = 5.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -164,12 +164,12 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(4);
+    expect(attempt!.need).toBe(5);
   });
 
   test('bonus does NOT apply when only the OPPONENT has Balchoth in play', () => {
     // Balchoth is on the opponent's side — controller.inPlay is per-player.
-    // need stays at baseline 8 - 2 = 6.
+    // need stays at baseline 9 - 2 = 7.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Site,
@@ -184,7 +184,7 @@ describe('Easterlings (le-264)', () => {
     const factionInstanceId = state.players[0].hand[0].instanceId;
     const attempt = firstFactionInfluenceAttempt(state, factionInstanceId);
     expect(attempt).toBeDefined();
-    expect(attempt!.need).toBe(6);
+    expect(attempt!.need).toBe(7);
   });
 
   test('faction is NOT influence-able at a site other than Easterling Camp', () => {

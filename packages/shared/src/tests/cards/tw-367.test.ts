@@ -8,7 +8,7 @@
  * "Unique. Playable at Thranduil's Halls if the influence check is greater
  *  than 8. Standard Modifications: Men (-1), Elves (+1), Dwarves (-2)."
  *
- * influenceNumber = 8, race = elf, playableAt = Thranduil's Halls.
+ * influenceNumber = 9, race = elf, playableAt = Thranduil's Halls.
  *
  * Effects tested:
  * 1. check-modifier: +1 to influence check when the influencing character is an elf
@@ -35,10 +35,10 @@ describe('Wood-elves (tw-367)', () => {
 
   test('elf character gets +1 check modifier when influencing', () => {
     // Legolas (elf, base DI 2) attempts to influence Wood-elves at
-    // Thranduil's Halls. Influence number = 8. The faction card's
+    // Thranduil's Halls. Influence number = 9. The faction card's
     // Elves (+1) check modifier applies. Legolas also has a +2 DI bonus
     // specifically against the Wood-elves faction.
-    //   need = influenceNumber(8) − DI(2) − DIbonus(2) − elfCheckMod(+1) = 3
+    //   need = influenceNumber(9) − DI(2) − DIbonus(2) − elfCheckMod(+1) = 4
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: THRANDUILS_HALLS,
@@ -59,15 +59,15 @@ describe('Wood-elves (tw-367)', () => {
     );
     expect(legolasAttempt).toBeDefined();
 
-    // need = 8 − 2 (DI) − 2 (Legolas DI bonus vs Wood-elves) − 1 (elf check modifier) = 3
-    expect(legolasAttempt!.need).toBe(3);
+    // need = 9 − 2 (DI) − 2 (Legolas DI bonus vs Wood-elves) − 1 (elf check modifier) = 4
+    expect(legolasAttempt!.need).toBe(4);
   });
 
   test('man character gets −1 check penalty when influencing', () => {
     // Éowyn (man, base DI 0) attempts to influence Wood-elves at
-    // Thranduil's Halls. Influence number = 8. The faction card's
+    // Thranduil's Halls. Influence number = 9. The faction card's
     // Men (−1) check modifier applies as a penalty.
-    //   need = influenceNumber(8) − DI(0) − manCheckMod(−1) = 9
+    //   need = influenceNumber(9) − DI(0) − manCheckMod(−1) = 10
     const state = buildSitePhaseState({
       characters: [EOWYN],
       site: THRANDUILS_HALLS,
@@ -88,16 +88,16 @@ describe('Wood-elves (tw-367)', () => {
     );
     expect(eowynAttempt).toBeDefined();
 
-    // need = 8 − 0 (DI) − (−1) (man check modifier) = 9
-    expect(eowynAttempt!.need).toBe(9);
+    // need = 9 − 0 (DI) − (−1) (man check modifier) = 10
+    expect(eowynAttempt!.need).toBe(10);
   });
 
   test('dwarf character gets −2 check penalty when influencing', () => {
     // Gimli (dwarf, base DI 2) attempts to influence Wood-elves at
-    // Thranduil's Halls. Influence number = 8. The faction card's
+    // Thranduil's Halls. Influence number = 9. The faction card's
     // Dwarves (−2) check modifier applies as a penalty. Gimli also has
     // +1 DI bonus against elf factions.
-    //   need = influenceNumber(8) − DI(2) − DIbonus(1) − dwarfCheckMod(−2) = 7
+    //   need = influenceNumber(9) − DI(2) − DIbonus(1) − dwarfCheckMod(−2) = 8
     const state = buildSitePhaseState({
       characters: [GIMLI],
       site: THRANDUILS_HALLS,
@@ -118,8 +118,8 @@ describe('Wood-elves (tw-367)', () => {
     );
     expect(gimliAttempt).toBeDefined();
 
-    // need = 8 − 2 (DI) − 1 (Gimli DI bonus vs elf factions) − (−2) (dwarf check modifier) = 7
-    expect(gimliAttempt!.need).toBe(7);
+    // need = 9 − 2 (DI) − 1 (Gimli DI bonus vs elf factions) − (−2) (dwarf check modifier) = 8
+    expect(gimliAttempt!.need).toBe(8);
   });
 
   test('elf needs lower roll than dwarf or man to win the faction', () => {

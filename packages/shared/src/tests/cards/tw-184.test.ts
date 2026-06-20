@@ -40,9 +40,9 @@ describe('Thranduil (tw-184)', () => {
 
   test('+2 DI reduces need to 2 when Thranduil influences Wood-elves', () => {
     // Thranduil (elf, DI 3) at Thranduil's Halls influencing Wood-elves
-    // (influenceNumber 8, elf +1 check-modifier).
+    // (influenceNumber 9, elf +1 check-modifier).
     // effective DI = baseDI(3) + Thranduil +2 bonus = 5
-    // need = 8 - 5 - 1 (elf check-modifier) = 2
+    // need = 9 - 5 - 1 (elf check-modifier) = 3
     const state = buildSitePhaseState({
       characters: [THRANDUIL],
       site: THRANDUILS_HALLS,
@@ -61,8 +61,8 @@ describe('Thranduil (tw-184)', () => {
     const thranduilAttempt = influenceActions.find(a => a.influencingCharacterId === thranduilId);
     expect(thranduilAttempt).toBeDefined();
 
-    // influenceNumber(8) - baseDI(3) - diBonus(2) - elfCheckMod(1) = 2
-    expect(thranduilAttempt!.need).toBe(2);
+    // influenceNumber(9) - baseDI(3) - diBonus(2) - elfCheckMod(1) = 3
+    expect(thranduilAttempt!.need).toBe(3);
   });
 
   test('+2 DI bonus is specific to Wood-elves (no boost for site deck)', () => {

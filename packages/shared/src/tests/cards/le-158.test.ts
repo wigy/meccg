@@ -298,7 +298,7 @@ describe('The Warg-king (le-158)', () => {
     // Asternak (man, base DI 2) attempts to influence Wargs of the Forochel
     // (wolf faction, influenceNumber 10) at Lossadan Cairn. The Warg-king
     // is attached to Luitprand, not Asternak — but the bonus is company-wide.
-    //   modifier = DI 2 + Warg-king bonus 2 = 4 → need = 10 - 4 = 6
+    //   modifier = DI 2 + Warg-king bonus 2 = 4 → need = 11 - 4 = 7
     const base = buildSitePhaseState({
       characters: [ASTERNAK, LUITPRAND],
       site: LOSSADAN_CAIRN,
@@ -317,13 +317,13 @@ describe('The Warg-king (le-158)', () => {
       a => a.influencingCharacterId === asternakId,
     );
     expect(asternakAttempt).toBeDefined();
-    // influenceNumber(10) - baseDI(2) - wargKingBonus(+2) = 6
-    expect(asternakAttempt!.need).toBe(6);
+    // influenceNumber(11) - baseDI(2) - wargKingBonus(+2) = 7
+    expect(asternakAttempt!.need).toBe(7);
   });
 
   test('+2 influence does NOT apply when the Warg-king is not in the company', () => {
     // Same setup, but the Warg-king is not attached anywhere. Asternak's
-    // attempt sees only his base DI 2 → need = 10 - 2 = 8.
+    // attempt sees only his base DI 2 → need = 11 - 2 = 9.
     const state = buildSitePhaseState({
       characters: [ASTERNAK],
       site: LOSSADAN_CAIRN,
@@ -341,7 +341,7 @@ describe('The Warg-king (le-158)', () => {
       a => a.influencingCharacterId === asternakId,
     );
     expect(asternakAttempt).toBeDefined();
-    expect(asternakAttempt!.need).toBe(8);
+    expect(asternakAttempt!.need).toBe(9);
   });
 
   test('+2 influence does NOT apply against non-Wolf factions (faction-race-gated)', () => {

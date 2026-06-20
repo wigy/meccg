@@ -38,8 +38,8 @@ describe('Elf-stone (tw-224)', () => {
 
   test('+2 DI bonus applies during faction influence check against an Elf faction', () => {
     // Aragorn (dunadan, base DI 3) with Elf-stone at Thranduil's Halls.
-    // Wood-elves: race "elf", influenceNumber 8, no check-modifier for Dúnadan.
-    // With Elf-stone: need = 8 - (3 + 2) = 3.
+    // Wood-elves: race "elf", influenceNumber 9, no check-modifier for Dúnadan.
+    // With Elf-stone: need = 9 - (3 + 2) = 4.
     const state = buildSitePhaseState({
       characters: [{ defId: ARAGORN, items: [ELF_STONE] }],
       site: THRANDUILS_HALLS,
@@ -57,12 +57,12 @@ describe('Elf-stone (tw-224)', () => {
 
     const attempt = influenceActions.find(a => a.influencingCharacterId === aragornId);
     expect(attempt).toBeDefined();
-    // influenceNumber(8) - baseDI(3) - elfStoneDIBonus(2) = 3
-    expect(attempt!.need).toBe(3);
+    // influenceNumber(9) - baseDI(3) - elfStoneDIBonus(2) = 4
+    expect(attempt!.need).toBe(4);
   });
 
   test('+2 DI bonus compared to same character without Elf-stone', () => {
-    // Without Elf-stone: need = 8 - 3 = 5.
+    // Without Elf-stone: need = 9 - 3 = 6.
     const state = buildSitePhaseState({
       characters: [ARAGORN],
       site: THRANDUILS_HALLS,
@@ -76,8 +76,8 @@ describe('Elf-stone (tw-224)', () => {
       .find(a => a.influencingCharacterId === aragornId);
 
     expect(attempt).toBeDefined();
-    // influenceNumber(8) - baseDI(3) = 5
-    expect(attempt!.need).toBe(5);
+    // influenceNumber(9) - baseDI(3) = 6
+    expect(attempt!.need).toBe(6);
   });
 
   // ─── Effect 1: +2 DI vs Elf character (influence-check) ──────────────────

@@ -127,9 +127,9 @@ describe('Bofur (tw-132)', () => {
 
   test('-1 to faction influence checks increases need when influencing a faction', () => {
     // Bofur (DI 0) at Blue Mountain Dwarf-hold attempts to influence the Blue Mountain Dwarves
-    // (influenceNumber 9). The faction gives dwarves +2 check bonus. Bofur's -1 penalty reduces
-    // the net check bonus to +1, giving need = 9 - 0 - 1 = 8.
-    // Without Bofur's -1 penalty a dwarf with DI 0 would get need = 9 - 0 - 2 = 7 (see next test).
+    // (influenceNumber 10). The faction gives dwarves +2 check bonus. Bofur's -1 penalty reduces
+    // the net check bonus to +1, giving need = 10 - 0 - 1 = 9.
+    // Without Bofur's -1 penalty a dwarf with DI 0 would get need = 10 - 0 - 2 = 8 (see next test).
     const state = buildSitePhaseState({
       characters: [BOFUR],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -150,13 +150,13 @@ describe('Bofur (tw-132)', () => {
     );
     expect(bofurAttempt).toBeDefined();
 
-    // need = influenceNumber(9) - DI(0) - (dwarf bonus +2 + Bofur penalty -1) = 8
-    expect(bofurAttempt!.need).toBe(8);
+    // need = influenceNumber(10) - DI(0) - (dwarf bonus +2 + Bofur penalty -1) = 9
+    expect(bofurAttempt!.need).toBe(9);
   });
 
   test('-1 influence penalty makes need higher than an equivalent dwarf without the penalty', () => {
     // Óin (tw-172) is a dwarf with DI 0 and no faction influence check modifier.
-    // At Blue Mountain Dwarf-hold: need = 9 - DI(0) - dwarf bonus(+2) = 7.
+    // At Blue Mountain Dwarf-hold: need = 10 - DI(0) - dwarf bonus(+2) = 8.
     // Bofur's -1 penalty raises his need to 8 (see previous test), proving the penalty fires.
     const oinState = buildSitePhaseState({
       characters: [OIN],
@@ -171,7 +171,7 @@ describe('Bofur (tw-132)', () => {
 
     const oinAttempt = oinActions.find(a => a.influencingCharacterId === oinId);
     expect(oinAttempt).toBeDefined();
-    // need = 9 - DI(0) - dwarf bonus(+2) = 7 (no Bofur penalty)
-    expect(oinAttempt!.need).toBe(7);
+    // need = 10 - DI(0) - dwarf bonus(+2) = 8 (no Bofur penalty)
+    expect(oinAttempt!.need).toBe(8);
   });
 });

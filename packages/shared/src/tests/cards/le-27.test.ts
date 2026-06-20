@@ -56,8 +56,8 @@ describe('Nevido Smôd (le-27)', () => {
       a => a.influencingCharacterId === nevidoId,
     );
     expect(nevidoAttempt).toBeDefined();
-    // influenceNumber(8) - baseDI(1) - easterlingBonus(2) = 5
-    expect(nevidoAttempt!.need).toBe(5);
+    // influenceNumber(9) - baseDI(1) - easterlingBonus(2) = 6
+    expect(nevidoAttempt!.need).toBe(6);
   });
 
   test('+2 DI bonus does NOT apply to factions not playable at Easterling Camp', () => {

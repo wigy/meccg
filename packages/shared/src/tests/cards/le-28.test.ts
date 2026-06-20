@@ -118,7 +118,7 @@ describe('Odoacer (le-28)', () => {
     );
     expect(odoacerAttempt).toBeDefined();
 
-    // influenceNumber(10) - baseDI(0) = 10 (no bonus for non-Woodmen)
-    expect(odoacerAttempt!.need).toBe(10);
+    // influenceNumber(11) - baseDI(0) = 11 (no bonus for non-Woodmen)
+    expect(odoacerAttempt!.need).toBe(11);
   });
 });

@@ -56,8 +56,8 @@ describe('Mionid (as-3)', () => {
       a => a.influencingCharacterId === mionidId,
     );
     expect(mionidAttempt).toBeDefined();
-    // influenceNumber(8) - baseDI(0) - variagBonus(2) = 6
-    expect(mionidAttempt!.need).toBe(6);
+    // influenceNumber(9) - baseDI(0) - variagBonus(2) = 7
+    expect(mionidAttempt!.need).toBe(7);
   });
 
   test('+2 DI bonus does NOT apply to factions not playable at Variag Camp', () => {

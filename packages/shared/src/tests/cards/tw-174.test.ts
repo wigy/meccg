@@ -73,10 +73,10 @@ describe('Orophin (tw-174)', () => {
   });
 
   test('-1 to influence checks increases need when influencing a faction', () => {
-    // Orophin (elf, DI 0) attempts to influence Wood-elves (influence # 8) at
+    // Orophin (elf, DI 0) attempts to influence Wood-elves (influence # 9) at
     // Thranduil’s Halls. Wood-elves give Elves +1 check modifier.
-    // Without Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 8 - 1 = 7.
-    // With Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) + penalty(-1) = 0, need = 8.
+    // Without Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 9 - 1 = 8.
+    // With Orophin's -1 penalty: modifier = DI(0) + elf bonus(+1) + penalty(-1) = 0, need = 9.
     const state = buildSitePhaseState({
       characters: [OROPHIN],
       site: THRANDUILS_HALLS,
@@ -97,14 +97,14 @@ describe('Orophin (tw-174)', () => {
     );
     expect(orophinAttempt).toBeDefined();
 
-    // need = influenceNumber(8) - DI(0) - elfBonus(+1) - orophinPenalty(-1) = 8
-    expect(orophinAttempt!.need).toBe(8);
+    // need = influenceNumber(9) - DI(0) - elfBonus(+1) - orophinPenalty(-1) = 9
+    expect(orophinAttempt!.need).toBe(9);
   });
 
   test('-1 influence penalty makes faction checks harder than for a character without the penalty', () => {
     // Compare Orophin vs Legolas influencing Wood-elves at Thranduil’s Halls.
-    // Legolas (elf, DI 2, +2 DI vs Wood-elves): need = 8 - DI(2) - elfBonus(+1) - diBonus(+2) = 3
-    // Orophin (elf, DI 0): need = 8 - DI(0) - elfBonus(+1) - penalty(-1) = 8
+    // Legolas (elf, DI 2, +2 DI vs Wood-elves): need = 9 - DI(2) - elfBonus(+1) - diBonus(+2) = 4
+    // Orophin (elf, DI 0): need = 9 - DI(0) - elfBonus(+1) - penalty(-1) = 9
     const legolasState = buildSitePhaseState({
       characters: [LEGOLAS],
       site: THRANDUILS_HALLS,
@@ -120,7 +120,7 @@ describe('Orophin (tw-174)', () => {
       a => a.influencingCharacterId === legolasId,
     );
     expect(legolasAttempt).toBeDefined();
-    expect(legolasAttempt!.need).toBe(3);
+    expect(legolasAttempt!.need).toBe(4);
 
     // Orophin's need is much higher due to lower DI and the -1 penalty
     const orophinState = buildSitePhaseState({

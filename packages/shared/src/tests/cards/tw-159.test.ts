@@ -99,8 +99,8 @@ describe('Gimli (tw-159)', () => {
 
     const gimliAttempt = influenceActions.find(a => a.influencingCharacterId === gimliId);
     expect(gimliAttempt).toBeDefined();
-    // 8 - (2 + 2) - 2 = 2 (DI 2 base + 2 bonus, dwarf check +2)
-    expect(gimliAttempt!.need).toBe(2);
+    // 9 - (2 + 2) - 2 = 3 (DI 2 base + 2 bonus, dwarf check +2)
+    expect(gimliAttempt!.need).toBe(3);
   });
 
   // ── Effect 2: +2 prowess vs Orcs ───────────────────────────────────────────
@@ -194,7 +194,7 @@ describe('Gimli (tw-159)', () => {
 
     const gimliAttempt = influenceActions.find(a => a.influencingCharacterId === gimliId);
     expect(gimliAttempt).toBeDefined();
-    // 8 - (2 + 1) - (-2) = 7 (DI 2 base + 1 bonus vs elf faction, dwarf check -2)
-    expect(gimliAttempt!.need).toBe(7);
+    // 9 - (2 + 1) - (-2) = 8 (DI 2 base + 1 bonus vs elf faction, dwarf check -2)
+    expect(gimliAttempt!.need).toBe(8);
   });
 });

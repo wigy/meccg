@@ -168,7 +168,7 @@ describe('Fori the Beardless (dm-11)', () => {
     expect(foriAttempt).toBeDefined();
 
     // baseDI(1) + DI bonus vs dwarves(2) + faction check-bonus for dwarves(2) = 5
-    // need = influenceNumber(9) - totalModifier(5) = 4
-    expect(foriAttempt!.need).toBe(4);
+    // need = influenceNumber(10) - totalModifier(5) = 5
+    expect(foriAttempt!.need).toBe(5);
   });
 });

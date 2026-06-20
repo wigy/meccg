@@ -20,14 +20,14 @@
  *
  * Rules exercised:
  * 1. +1 DI bonus applies when influencing Easterlings (playableAt Easterling Camp):
- *    DI 0 + 1 = 1; need = influenceNumber(8) - DI(1) = 7.
+ *    DI 0 + 1 = 1; need = influenceNumber(9) - DI(1) = 8.
  * 2. +1 DI bonus does NOT apply to factions not playable at Easterling Camp:
  *    DI 0; need = influenceNumber(9) - DI(0) = 9.
  * 3. -1 corruption modifier increases need on pending corruption check.
  *
  * Fixtures: minion-character (ringwraith), minion sites (LE), minion factions, minion item.
  *   TROS_HESNEF (le-46)                - minion man warrior, mind 2, DI 0
- *   EASTERLINGS (le-264)               - minion faction, influenceNumber 8, playableAt Easterling Camp
+ *   EASTERLINGS (le-264)               - minion faction, influenceNumber 9, playableAt Easterling Camp
  *   EASTERLING_CAMP (le-371)           - minion site
  *   GOBLINS_OF_GOBLIN_GATE (le-265)    - minion faction, influenceNumber 9, playableAt Goblin-gate
  *   GOBLIN_GATE (le-378)               - minion site
@@ -62,8 +62,8 @@ describe('Tros Hesnef (le-46)', () => {
   // ── Effect 1: +1 DI against factions playable at Easterling Camp ──
 
   test('+1 DI bonus applies when influencing Easterlings (playable at Easterling Camp)', () => {
-    // Tros Hesnef (base DI 0) gets +1 when influencing Easterlings (influenceNumber 8).
-    // need = 8 - (0 + 1) = 7
+    // Tros Hesnef (base DI 0) gets +1 when influencing Easterlings (influenceNumber 9).
+    // need = 9 - (0 + 1) = 8
     const state = buildSitePhaseState({
       characters: [TROS_HESNEF],
       site: EASTERLING_CAMP,
@@ -81,8 +81,8 @@ describe('Tros Hesnef (le-46)', () => {
       a => a.influencingCharacterId === trosId,
     );
     expect(trosAttempt).toBeDefined();
-    // influenceNumber(8) - DI(0) - easterlingBonus(1) = 7
-    expect(trosAttempt!.need).toBe(7);
+    // influenceNumber(9) - DI(0) - easterlingBonus(1) = 8
+    expect(trosAttempt!.need).toBe(8);
   });
 
   test('+1 DI bonus does NOT apply to factions not playable at Easterling Camp', () => {

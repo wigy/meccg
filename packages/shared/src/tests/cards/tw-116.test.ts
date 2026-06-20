@@ -80,14 +80,14 @@ describe('Adrazar (tw-116)', () => {
 
   test('+1 DI bonus applies when influencing Wood-elves (elf faction)', () => {
     // Adrazar (dunadan, base DI 1) attempts to influence Wood-elves at Thranduil’s Halls.
-    // Wood-elves influence number = 8, Elves get +1 check modifier for elf bearers only.
+    // Wood-elves influence number = 9, Elves get +1 check modifier for elf bearers only.
     // Adrazar is dunadan, not elf, so the elf check modifier does NOT apply.
     // With Adrazar's +1 DI bonus vs all factions:
     //   modifier = DI 1 + DI bonus 1 = 2
-    //   need = 8 - 2 = 6
+    //   need = 9 - 2 = 7
     // Without the DI bonus:
     //   modifier = DI 1
-    //   need = 8 - 1 = 7
+    //   need = 9 - 1 = 8
     const state = buildSitePhaseState({
       characters: [ADRAZAR],
       site: THRANDUILS_HALLS,
@@ -108,7 +108,7 @@ describe('Adrazar (tw-116)', () => {
     );
     expect(adrazarAttempt).toBeDefined();
 
-    // influenceNumber(8) - baseDI(1) - diBonusAllFactions(1) = 6
-    expect(adrazarAttempt!.need).toBe(6);
+    // influenceNumber(9) - baseDI(1) - diBonusAllFactions(1) = 7
+    expect(adrazarAttempt!.need).toBe(7);
   });
 });

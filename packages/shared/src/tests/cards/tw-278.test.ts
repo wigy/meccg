@@ -33,9 +33,9 @@ describe('Men of Dorwinion (tw-278)', () => {
 
   test('+1 influence check bonus when bearer is Man', () => {
     // Éowyn (man, base DI 0) attempts to influence Men of Dorwinion at Shrel-Kain.
-    // Men of Dorwinion influence number = 6, Men get +1 check modifier from faction card.
+    // Men of Dorwinion influence number = 7, Men get +1 check modifier from faction card.
     //   modifier = DI 0 + check bonus 1 = 1
-    //   need = 6 - 1 = 5
+    //   need = 7 - 1 = 6
     const state = buildSitePhaseState({
       characters: [EOWYN],
       site: SHREL_KAIN,
@@ -56,15 +56,15 @@ describe('Men of Dorwinion (tw-278)', () => {
     );
     expect(eowynAttempt).toBeDefined();
 
-    // influenceNumber(6) - baseDI(0) - manCheckMod(1) = 5
-    expect(eowynAttempt!.need).toBe(5);
+    // influenceNumber(7) - baseDI(0) - manCheckMod(1) = 6
+    expect(eowynAttempt!.need).toBe(6);
   });
 
   test('no bonus when bearer is non-Man', () => {
     // Legolas (elf, base DI 2) attempts to influence Men of Dorwinion at Shrel-Kain.
-    // Men of Dorwinion influence number = 6, Man check modifier does NOT apply to elves.
+    // Men of Dorwinion influence number = 7, Man check modifier does NOT apply to elves.
     //   modifier = DI 2
-    //   need = 6 - 2 = 4
+    //   need = 7 - 2 = 5
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: SHREL_KAIN,
@@ -85,7 +85,7 @@ describe('Men of Dorwinion (tw-278)', () => {
     );
     expect(legolasAttempt).toBeDefined();
 
-    // influenceNumber(6) - baseDI(2) = 4 (no Man bonus)
-    expect(legolasAttempt!.need).toBe(4);
+    // influenceNumber(7) - baseDI(2) = 5 (no Man bonus)
+    expect(legolasAttempt!.need).toBe(5);
   });
 });

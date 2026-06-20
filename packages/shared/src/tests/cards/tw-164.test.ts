@@ -71,10 +71,10 @@ describe('Haldir (tw-164)', () => {
   });
 
   test('-1 to influence checks increases need when influencing a faction', () => {
-    // Haldir (elf, DI 0) attempts to influence Wood-elves (influence # 8) at Thranduil’s Halls.
+    // Haldir (elf, DI 0) attempts to influence Wood-elves (influence # 9) at Thranduil’s Halls.
     // Wood-elves give Elves +1 check modifier.
-    // Without Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 8 - 1 = 7.
-    // With Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) + Haldir penalty(-1) = 0, need = 8 - 0 = 8.
+    // Without Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) = 1, need = 9 - 1 = 8.
+    // With Haldir's -1 penalty: modifier = DI(0) + elf bonus(+1) + Haldir penalty(-1) = 0, need = 9 - 0 = 9.
     const state = buildSitePhaseState({
       characters: [HALDIR],
       site: THRANDUILS_HALLS,
@@ -95,15 +95,15 @@ describe('Haldir (tw-164)', () => {
     );
     expect(haldirAttempt).toBeDefined();
 
-    // need = influenceNumber(8) - DI(0) - elfBonus(+1) - haldirPenalty(-1) = 8
-    expect(haldirAttempt!.need).toBe(8);
+    // need = influenceNumber(9) - DI(0) - elfBonus(+1) - haldirPenalty(-1) = 9
+    expect(haldirAttempt!.need).toBe(9);
   });
 
   test('-1 influence penalty is worse than a normal elf character', () => {
     // Compare Haldir vs Glorfindel II influencing Wood-elves.
     // Glorfindel II (elf, DI 2, +1 DI vs elf factions) should have lower need.
-    // Glorfindel: need = 8 - DI(2) - elfBonus(+1) - diBonusVsElf(+1) = 4
-    // Haldir:     need = 8 - DI(0) - elfBonus(+1) - influencePenalty(-1) = 8
+    // Glorfindel: need = 9 - DI(2) - elfBonus(+1) - diBonusVsElf(+1) = 5
+    // Haldir:     need = 9 - DI(0) - elfBonus(+1) - influencePenalty(-1) = 9
     const glorfindelState = buildSitePhaseState({
       characters: [GLORFINDEL_II],
       site: THRANDUILS_HALLS,
@@ -119,7 +119,7 @@ describe('Haldir (tw-164)', () => {
       a => a.influencingCharacterId === glorfindelId,
     );
     expect(glorfindelAttempt).toBeDefined();
-    expect(glorfindelAttempt!.need).toBe(4);
+    expect(glorfindelAttempt!.need).toBe(5);
 
     // Haldir's need is much higher due to lower DI and the -1 penalty
     const haldirState = buildSitePhaseState({

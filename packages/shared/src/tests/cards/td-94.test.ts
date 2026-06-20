@@ -110,9 +110,9 @@ describe('Thráin II (td-94)', () => {
   test('+3 DI bonus applies when influencing a dwarf faction (Blue Mountain Dwarves)', () => {
     // Thráin II (dwarf, base DI 2) attempts to influence Blue Mountain
     // Dwarves at Blue Mountain Dwarf-hold.
-    // Blue Mountain Dwarves influenceNumber = 9. Dwarves standard mod = +2.
+    // Blue Mountain Dwarves influenceNumber = 10. Dwarves standard mod = +2.
     // With Thráin II's +3 DI bonus vs dwarf factions:
-    //   need = 9 - (DI 2 + DI bonus 3 + dwarf check mod 2) = 9 - 7 = 2.
+    //   need = 10 - (DI 2 + DI bonus 3 + dwarf check mod 2) = 10 - 7 = 3.
     const state = buildSitePhaseState({
       characters: [THRAIN_II],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -132,6 +132,6 @@ describe('Thráin II (td-94)', () => {
       a => a.influencingCharacterId === thrainId,
     );
     expect(thrainAttempt).toBeDefined();
-    expect(thrainAttempt!.need).toBe(2);
+    expect(thrainAttempt!.need).toBe(3);
   });
 });

@@ -58,11 +58,11 @@ describe('Peath (tw-176)', () => {
 
   test('+4 direct influence against Dunlendings faction', () => {
     // Peath (man, base DI 1) attempts to influence Dunlendings at Dunnish Clan-hold.
-    // Dunlendings influence number = 9.
+    // Dunlendings influence number = 10.
     // Peath has +4 DI bonus specifically for Dunlendings.
     // Dunlendings gives Men -1 check modifier.
     //   modifier = DI 1 + DI bonus 4 + Men check penalty (-1) = 4
-    //   need = 9 - 4 = 5
+    //   need = 10 - 4 = 6
     const state = buildSitePhaseState({
       characters: [PEATH],
       site: DUNNISH_CLAN_HOLD,
@@ -83,10 +83,10 @@ describe('Peath (tw-176)', () => {
     );
     expect(peathAttempt).toBeDefined();
 
-    // influenceNumber(9) - baseDI(1) - peathDIBonus(4) - menCheckPenalty(-1 → adds 1) = 5
+    // influenceNumber(10) - baseDI(1) - peathDIBonus(4) - menCheckPenalty(-1 → adds 1) = 6
     // Wait: Men check modifier is -1, so it makes the check harder (+1 to need).
-    // need = influenceNumber - DI - DIbonus - checkMod = 9 - 1 - 4 - (-1) = 5
-    expect(peathAttempt!.need).toBe(5);
+    // need = influenceNumber - DI - DIbonus - checkMod = 10 - 1 - 4 - (-1) = 6
+    expect(peathAttempt!.need).toBe(6);
   });
 
   test('+4 DI bonus does not apply to non-Dunlendings factions', () => {
@@ -112,8 +112,8 @@ describe('Peath (tw-176)', () => {
     );
     expect(legolasAttempt).toBeDefined();
 
-    // Legolas (elf, DI 2): influenceNumber(9) - baseDI(2) - no race penalty = 7
-    expect(legolasAttempt!.need).toBe(7);
+    // Legolas (elf, DI 2): influenceNumber(10) - baseDI(2) - no race penalty = 8
+    expect(legolasAttempt!.need).toBe(8);
   });
 
   test('+5 prowess bonus applies in combat vs nazgul (no tap)', () => {

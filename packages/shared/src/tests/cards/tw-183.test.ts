@@ -134,10 +134,10 @@ describe('Thorin II (tw-183)', () => {
 
   // ── Effects 1 + 4: +2 DI (Blue Mountain Dwarves specific) and +2 DI (Dwarf faction) stack ──
 
-  test('+2 DI vs Blue Mountain Dwarves faction and +2 DI vs Dwarf factions stack (need=1)', () => {
-    // Blue Mountain Dwarves: influenceNumber=9, Dwarves get +2 from the faction's check-modifier.
+  test('+2 DI vs Blue Mountain Dwarves faction and +2 DI vs Dwarf factions stack (need=2)', () => {
+    // Blue Mountain Dwarves: influenceNumber=10, Dwarves get +2 from the faction's check-modifier.
     // Thorin DI 2 + 2 (Blue Mountain Dwarves specific) + 2 (Dwarf faction) = 6 effective DI.
-    // need = 9 - 6 - 2 (Dwarf check modifier) = 1.
+    // need = 10 - 6 - 2 (Dwarf check modifier) = 2.
     const state = buildSitePhaseState({
       characters: [THORIN_II],
       site: BLUE_MOUNTAIN_DWARF_HOLD,
@@ -156,8 +156,8 @@ describe('Thorin II (tw-183)', () => {
     const thorinAttempt = influenceActions.find(a => a.influencingCharacterId === thorinId);
     expect(thorinAttempt).toBeDefined();
 
-    // influenceNumber(9) - baseDI(2) - diBonusBMDwarves(2) - diBonusDwarfFaction(2) - dwarfCheckMod(2) = 1
-    expect(thorinAttempt!.need).toBe(1);
+    // influenceNumber(10) - baseDI(2) - diBonusBMDwarves(2) - diBonusDwarfFaction(2) - dwarfCheckMod(2) = 2
+    expect(thorinAttempt!.need).toBe(2);
   });
 
   // ── Sanity: base stats not inflated by conditional bonuses ──

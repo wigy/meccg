@@ -138,8 +138,8 @@ describe('Crooked Promptings (le-178)', () => {
   });
 
   test('influence-check-boost: +3 constraint reduces the influence-attempt need', () => {
-    // Asternak DI 2, +2 vs Variag Camp factions = 4 against Variags (inf# 8).
-    // Baseline need = 8 - 4 = 4. With +3 constraint: need = 1.
+    // Asternak DI 2, +2 vs Variag Camp factions = 4 against Variags (inf# 9).
+    // Baseline need = 9 - 4 = 5. With +3 constraint: need = 2.
     const base = buildSitePhaseState({
       characters: [ASTERNAK],
       site: VARIAG_CAMP,
@@ -157,7 +157,7 @@ describe('Crooked Promptings (le-178)', () => {
       .filter(ea => ea.viable && ea.action.type === 'influence-attempt'
         && (ea.action as { influencingCharacterId: CardInstanceId }).influencingCharacterId === asternak);
     expect(influenceActions.length).toBeGreaterThan(0);
-    expect((influenceActions[0].action as { need: number }).need).toBe(1);
+    expect((influenceActions[0].action as { need: number }).need).toBe(2);
   });
 
   test('corruption-check-boost: offered during pending CC on a character in a diplomat company', () => {

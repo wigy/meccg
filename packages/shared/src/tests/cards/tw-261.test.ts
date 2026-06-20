@@ -8,7 +8,7 @@
  * "Unique. Playable at Iron Hill Dwarf-hold if the influence check is greater
  *  than 8. Standard Modifications: Elves (-2), Dwarves (+2)."
  *
- * influenceNumber = 8, race = dwarf, playableAt = Iron Hill Dwarf-hold.
+ * influenceNumber = 9, race = dwarf, playableAt = Iron Hill Dwarf-hold.
  *
  * Effects tested:
  * 1. check-modifier: +2 to influence check when the influencing character is a dwarf
@@ -35,11 +35,11 @@ describe('Iron Hill Dwarves (tw-261)', () => {
 
   test('dwarf character gets +2 check modifier when influencing', () => {
     // Gimli (dwarf, base DI 2) attempts to influence Iron Hill Dwarves at
-    // Iron Hill Dwarf-hold.  Influence number = 8.  Gimli has a personal
+    // Iron Hill Dwarf-hold.  Influence number = 9.  Gimli has a personal
     // +2 DI bonus vs Iron Hill Dwarves (from his own stat-modifier effect).
     // The faction card's Dwarves (+2) check modifier also applies.
     //   effective DI = 2 (base) + 2 (Gimli stat-modifier) = 4
-    //   need = influenceNumber(8) − DI(4) − dwarfCheckMod(+2) = 2
+    //   need = influenceNumber(9) − DI(4) − dwarfCheckMod(+2) = 3
     const state = buildSitePhaseState({
       characters: [GIMLI],
       site: IRON_HILL_DWARF_HOLD,
@@ -60,15 +60,15 @@ describe('Iron Hill Dwarves (tw-261)', () => {
     );
     expect(gimliAttempt).toBeDefined();
 
-    // need = 8 − 4 (effective DI) − 2 (dwarf check modifier) = 2
-    expect(gimliAttempt!.need).toBe(2);
+    // need = 9 − 4 (effective DI) − 2 (dwarf check modifier) = 3
+    expect(gimliAttempt!.need).toBe(3);
   });
 
   test('elf character gets −2 check penalty when influencing', () => {
     // Legolas (elf, base DI 2) attempts to influence Iron Hill Dwarves at
-    // Iron Hill Dwarf-hold.  Influence number = 8.  The faction card's
+    // Iron Hill Dwarf-hold.  Influence number = 9.  The faction card's
     // Elves (−2) check modifier applies as a penalty.
-    //   need = influenceNumber(8) − DI(2) − elfCheckMod(−2) = 8
+    //   need = influenceNumber(9) − DI(2) − elfCheckMod(−2) = 9
     const state = buildSitePhaseState({
       characters: [LEGOLAS],
       site: IRON_HILL_DWARF_HOLD,
@@ -89,8 +89,8 @@ describe('Iron Hill Dwarves (tw-261)', () => {
     );
     expect(legolasAttempt).toBeDefined();
 
-    // need = 8 − 2 (DI) − (−2) (elf check modifier) = 8
-    expect(legolasAttempt!.need).toBe(8);
+    // need = 9 − 2 (DI) − (−2) (elf check modifier) = 9
+    expect(legolasAttempt!.need).toBe(9);
   });
 
   test('dwarf needs lower roll than elf to win the faction', () => {

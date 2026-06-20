@@ -98,7 +98,7 @@ describe('Forlong (tw-151)', () => {
 
     const forlongAttempt = influenceActions.find(a => a.influencingCharacterId === forlongId);
     expect(forlongAttempt).toBeDefined();
-    // need = 9 (influenceNumber) - 0 (DI) - (-1) (Forlong penalty) = 10
-    expect(forlongAttempt!.need).toBe(10);
+    // need = 10 (influenceNumber) - 0 (DI) - (-1) (Forlong penalty) = 11
+    expect(forlongAttempt!.need).toBe(11);
   });
 });

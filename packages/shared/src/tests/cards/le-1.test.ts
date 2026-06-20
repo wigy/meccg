@@ -58,8 +58,8 @@ describe('Asternak (le-1)', () => {
       a => a.influencingCharacterId === asternakId,
     );
     expect(asternakAttempt).toBeDefined();
-    // influenceNumber(8) - baseDI(2) - variagBonus(2) = 4
-    expect(asternakAttempt!.need).toBe(4);
+    // influenceNumber(9) - baseDI(2) - variagBonus(2) = 5
+    expect(asternakAttempt!.need).toBe(5);
   });
 
   test('+2 DI bonus does NOT apply to factions not playable at Variag Camp', () => {
