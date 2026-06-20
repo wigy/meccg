@@ -169,22 +169,33 @@
         "type": "stat-modifier",
         "stat": "corruption-points",
         "value": 2,
-        "when": { "bearer.race": "dwarf" }
+        "when": {
+          "bearer.race": "dwarf"
+        }
       },
       {
         "type": "grant-action",
         "action": "recall-to-hand",
-        "cost": { "tap": "bearer" },
-        "when": { "bearer.race": "dwarf" },
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.race": "dwarf"
+        },
         "apply": {
           "type": "enqueue-pending-fetch",
-          "fetchFrom": ["deck", "discard-pile"],
+          "fetchFrom": [
+            "deck",
+            "discard-pile"
+          ],
           "fetchCount": 2,
           "fetchShuffle": true,
           "fetchTo": "hand",
           "postCorruptionCheck": true,
           "postCorruptionCheckModifier": 2,
-          "filter": { "subtype": "minor" }
+          "filter": {
+            "subtype": "minor"
+          }
         }
       }
     ],
@@ -214,20 +225,31 @@
         "type": "stat-modifier",
         "stat": "corruption-points",
         "value": 2,
-        "when": { "bearer.race": "dwarf" }
+        "when": {
+          "bearer.race": "dwarf"
+        }
       },
       {
         "type": "grant-action",
         "action": "dwarven-ring-fetch",
-        "cost": { "tap": "bearer" },
-        "when": { "bearer.race": "dwarf" },
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.race": "dwarf"
+        },
         "apply": {
           "type": "enqueue-pending-fetch",
-          "fetchFrom": ["play-deck", "discard-pile"],
+          "fetchFrom": [
+            "play-deck",
+            "discard-pile"
+          ],
           "fetchTo": "hand",
           "fetchCount": 2,
           "fetchShuffle": true,
-          "filter": { "subtype": "minor" },
+          "filter": {
+            "subtype": "minor"
+          },
           "postCorruptionCheck": true,
           "postCorruptionCheckModifier": 2
         }
@@ -253,19 +275,29 @@
     "effects": [
       {
         "type": "item-play-site",
-        "sites": ["Barad-dûr"],
+        "sites": [
+          "Barad-dûr"
+        ],
         "allowTapped": true,
         "doesNotTapSite": true
       },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.race": "ringwraith" }
+        "filter": {
+          "target.race": "ringwraith"
+        }
       },
       {
         "type": "cancel-attack",
-        "cost": { "tap": "self" },
-        "when": { "attack.heroCompany": { "$ne": true } }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "attack.heroCompany": {
+            "$ne": true
+          }
+        }
       },
       {
         "type": "body-check-modifier",
@@ -290,19 +322,35 @@
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
-      { "type": "play-flag", "flag": "no-starting-company" },
-      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "play-flag",
+        "flag": "no-starting-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
       {
         "type": "grant-action",
         "action": "untap-site",
-        "cost": { "discard": "self" },
-        "when": { "bearer.siteType": "shadow-hold", "site.isTapped": true },
-        "apply": { "type": "untap-site" }
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "bearer.siteType": "shadow-hold",
+          "site.isTapped": true
+        },
+        "apply": {
+          "type": "untap-site"
+        }
       },
       {
         "type": "grant-action",
         "action": "unlock-information-at-shadow-holds",
-        "cost": { "discard": "self" },
+        "cost": {
+          "discard": "self"
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "site-resource-unlocked",
@@ -331,19 +379,40 @@
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
-      { "type": "play-flag", "flag": "no-starting-company" },
-      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "play-flag",
+        "flag": "no-starting-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
       {
         "type": "grant-action",
         "action": "untap-site",
-        "cost": { "discard": "self" },
-        "when": { "bearer.siteType": { "$in": ["free-hold", "border-hold"] }, "site.isTapped": true },
-        "apply": { "type": "untap-site" }
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "bearer.siteType": {
+            "$in": [
+              "free-hold",
+              "border-hold"
+            ]
+          },
+          "site.isTapped": true
+        },
+        "apply": {
+          "type": "untap-site"
+        }
       },
       {
         "type": "grant-action",
         "action": "unlock-information-at-ruins-and-lairs",
-        "cost": { "discard": "self" },
+        "cost": {
+          "discard": "self"
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "site-resource-unlocked",
@@ -375,9 +444,16 @@
       {
         "type": "grant-action",
         "action": "untap-site",
-        "cost": { "discard": "self" },
-        "when": { "site.isTapped": true, "site.hasDragonAutoAttack": true },
-        "apply": { "type": "untap-site" }
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "site.isTapped": true,
+          "site.hasDragonAutoAttack": true
+        },
+        "apply": {
+          "type": "untap-site"
+        }
       }
     ],
     "certified": "2026-06-04"
@@ -420,5 +496,117 @@
       }
     ],
     "certified": "2026-06-01"
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "as-69",
+    "name": "The Ithil-stone",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheIthilstone.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 5,
+    "marshallingCategory": "item",
+    "corruptionPoints": 4,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Palantír. Playable at Barad-dûr. When a character taps to play Ithil-stone, make a roll. If the result plus the number of scouts in his company is greater than 9, The Ithil-stone is successfully played. Otherwise, the bearer is eliminated and The Ithil-stone is placed in your out-of-play pile. Bearer makes a corruption check at the end of each of his untap phases. Bane of the Ithil-stone is discarded and cannot be played. If The Lidless Eye is in play, its player’s hand size decreases by two."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "as-122",
+    "name": "Ancient Black Axe",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/AncientBlackAxe.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [
+      "weapon"
+    ],
+    "marshallingPoints": 4,
+    "marshallingCategory": "item",
+    "corruptionPoints": 4,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Playable at any Under-deeps Shadow-hold [{S}]. Weapon. +2 direct influence. Warrior only: +3 prowess (to a maximum of 11); -1 to strike’s body; tap this item to make a character at the same site automatically pass a corruption check. When this item becomes tapped, bearer makes a corruption check."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "as-125",
+    "name": "Goblin Earth-plumb",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/GoblinEarthplumb.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Playable only on an Orc or Troll. +1 to all rolls required for bearer’s company to move to adjacent Under-deeps sites."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "as-127",
+    "name": "Iron Shield of Old",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/IronShieldofOld.jpg",
+    "unique": false,
+    "subtype": "special",
+    "keywords": [
+      "shield"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 3,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Shield. Playable at any Under-deeps Shadow-hold [{S}] or Ruins & Lairs [{R}]. +2 to all rolls required for bearer’s company to move to adjacent Under-deeps sites. Warrior only: tap this item to make one strike against its bearer ineffectual (i. e., the strike neither succeeds nor fails)."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "as-133",
+    "name": "Thrall-ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Thrallring.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to direct influence. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "as-135",
+    "name": "Troth-ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Trothring.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Mind Ring. -1 to mind to a minimum of 1, -1 to all body checks against bearer. Cannot be duplicated on a given character."
   }
 ]
