@@ -19,7 +19,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12, HAZARD_DECK_30 } from '../../test-helpers.js';
 import { validateDeck } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
@@ -32,14 +32,46 @@ const validDeck: DeckList = {
   sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
   deck: {
     characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
-    hazards: [...HAZARD_CREATURES_12],
+    hazards: [...HAZARD_DECK_30],
     resources: [...HERO_RESOURCES_30],
   },
 };
 
 describe('Rule 1.30 — Play Deck Composition', () => {
-  test('Valid deck (30 resources, 12 creatures, 0 non-avatar characters) has no composition error', () => {
+  test('Valid deck (30 resources, 30 hazards, 0 non-avatar characters) has no composition error', () => {
     expect(validateDeck(validDeck, pool).filter(e => ['resources', 'hazards', 'characters'].includes(e.section))).toHaveLength(0);
+  });
+
+  test('Hazards fewer than resources (30 resources, 29 hazards) produces a hazards error', () => {
+    // Drop one hazard so the deck has 30 resources but only 29 hazards.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [...HAZARD_CREATURES_12,
+          { name: 'Orc-lieutenant', card: 'tw-073' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-warband', card: 'tw-076' as CardDefinitionId, qty: 3 },
+          { name: 'Orc-watch', card: 'tw-078' as CardDefinitionId, qty: 3 },
+          { name: 'Doors of Night', card: 'tw-28' as CardDefinitionId, qty: 3 },
+          { name: 'Twilight', card: 'tw-106' as CardDefinitionId, qty: 3 },
+          { name: 'Choking Shadows', card: 'tw-21' as CardDefinitionId, qty: 2 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('must equal'))).toBe(true);
+  });
+
+  test('Hazards more than resources (30 resources, 31 hazards) produces a hazards error', () => {
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [...HAZARD_DECK_30, { name: 'Wargs', card: 'tw-109' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('must equal'))).toBe(true);
   });
 
   test('Fewer than 30 resources produces a resources error', () => {

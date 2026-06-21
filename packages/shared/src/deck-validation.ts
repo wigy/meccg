@@ -572,6 +572,17 @@ export function validateDeck(
     });
   }
 
+  // Rule 1.30 (CoE 1.5) — the play deck must contain a number of hazards
+  // equal to the number of resources. Fewer or more hazards than resources
+  // makes the deck illegal (e.g. 30 resources requires exactly 30 hazards).
+  const hazardTotal = hazards.reduce((sum, e) => sum + e.qty, 0);
+  if (hazardTotal !== resourceTotal) {
+    errors.push({
+      section: 'hazards',
+      message: `play deck: ${hazardTotal} hazards must equal ${resourceTotal} resources`,
+    });
+  }
+
   let creatureCount = 0;
   for (const entry of hazards) {
     if (entry.card === null) continue;
