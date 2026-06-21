@@ -11,13 +11,13 @@
  */
 
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
-import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
+import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, Alignment } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
 
 
 /**
@@ -207,9 +207,26 @@ function resolveCorruptionCheck(
   const newChecked = [...fcState.checkedCharacters, pending.characterId as string];
   const newFcBase = { ...fcState, checkedCharacters: newChecked, pendingCheck: null };
 
-  if (total > cp) {
-    // Passed
-    logDetail(`Free Council corruption check passed (${total} > ${cp})`);
+  // Classify against the controlling player's alignment (CoE 7.1 / 7.1.F1): a
+  // minion character or the Fallen-wizard avatar *taps and succeeds* on a roll
+  // of CP or CP-1 rather than failing.
+  const outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+
+  if (outcome === 'success' || outcome === 'tap-success') {
+    if (outcome === 'tap-success') {
+      // The character taps but stays in play; the check counts as a success.
+      // Only an untapped character changes state — an already-tapped or wounded
+      // character stays as it is (you cannot tap it "further").
+      const tappedChars = { ...newPlayers[playerIndex].characters };
+      const tappedChar = tappedChars[pending.characterId as string];
+      if (tappedChar && tappedChar.status === CardStatus.Untapped) {
+        tappedChars[pending.characterId as string] = { ...tappedChar, status: CardStatus.Tapped };
+      }
+      newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: tappedChars };
+      logDetail(`Free Council corruption check (${total} within 1 of ${cp}) — ${charName} taps and the check is considered successful (CoE 7.1)`);
+    } else {
+      logDetail(`Free Council corruption check passed (${total} > ${cp})`);
+    }
     return {
       state: {
         ...state,
@@ -247,10 +264,6 @@ function resolveCorruptionCheck(
     newPlayers[safeIdx] = { ...newPlayers[safeIdx], discardPile: [...newPlayers[safeIdx].discardPile, toCardInstance(hazard)] };
   }
 
-  // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
-  // on any failed corruption check, regardless of how close the roll was.
-  const isWizardAvatar = charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef) && charDef.alignment === Alignment.Wizard;
-
   // Separate hazards (owned by opponent) from non-hazard possessions (owned by resource player)
   const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
   const hazardPossessions: CardInstance[] = [];
@@ -274,8 +287,8 @@ function resolveCorruptionCheck(
     };
   }
 
-  if (total >= cp - 1 && !isWizardAvatar) {
-    // Roll == CP or CP-1: hero character and possessions discarded
+  if (outcome === 'discard') {
+    // Roll == CP or CP-1 on a hero character: it and its possessions are discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
     const toDiscard: CardInstance[] = [
       { instanceId: pending.characterId, definitionId: char.definitionId },
@@ -295,9 +308,9 @@ function resolveCorruptionCheck(
       newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
     }
   } else {
-    // Roll < CP-1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
-    const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
-    logDetail(`Free Council corruption check FAILED (${elimReason}) — eliminating ${charName}`);
+    // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
+    // failure — character eliminated, possessions discarded.
+    logDetail(`Free Council corruption check FAILED (outcome eliminate, ${total} vs CP ${cp}) — eliminating ${charName}`);
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       characters: newCharacters,

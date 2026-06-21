@@ -53,7 +53,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 3 | **Wizardhavens** — FW's 4 sites are havens *for this player*; METW/MELE havens are not | ✗ missing | Per-player haven resolution |
 | 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | ✗ missing | FW MP override in scoring |
 | 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | △ partial | Gate + naming |
-| 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✗ missing | Per-character corruption-class resolution (also fixes base minion gap) |
+| 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✓ done (CP attribution → §2) | Per-character corruption-class resolution (also fixed base minion gap) |
 | 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | ✗ missing | Site-eligibility + draw rules |
 | 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✗ missing | CvCC permission matrix |
 | 9 | **Special Orc & Troll rules** — overt triggers, play-gating, hero-resource restrictions, Half-orcs | △ partial | Large; overt mostly done, the rest missing |
@@ -244,7 +244,18 @@ triggers.
 
 ---
 
-## 6. Corruption checks (Fallen-wizard) — ✗ MISSING
+## 6. Corruption checks (Fallen-wizard) — ✓ DONE
+
+> **Implemented.** `classifyCorruptionOutcome(charDef, ownerAlignment, total, cp)` in
+> `reducer-utils.ts` returns `success | tap-success | discard | eliminate` per CoE 7.1 /
+> 7.1.F1; both corruption resolvers (`reducer-free-council.ts` and `pending-reducers.ts`)
+> dispatch on it and add the new **tap-success** branch (character taps, stays in play, the
+> check counts as successful). This also closed the **base minion gap** (minion characters
+> were previously discarded on CP/CP−1 instead of tapping). The FW avatar taps; a FW's
+> non-Orc/Troll character is treated as a hero (discard); a FW's Orc/Troll taps. Tests:
+> `rule-mewh-corruption.test.ts`, `10.06-fw-orc-troll-corruption` (todo completed),
+> existing `rule-10.01` still green. *Remaining:* non-item stage-card CP attribution to the
+> FW avatar is part of §2.
 
 **Rule.**
 

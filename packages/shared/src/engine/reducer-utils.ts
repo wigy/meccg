@@ -458,6 +458,73 @@ export function isHavenForPlayer(
 }
 
 /**
+ * The result of a corruption check on a character, before any cards are moved.
+ *
+ * - `success` — the roll exceeded the corruption point total; nothing happens.
+ * - `tap-success` — a roll of CP or CP-1 on a character resolved as a *minion*
+ *   (a minion character or the Fallen-wizard avatar): the character taps and the
+ *   check is **considered successful** (so a store/transfer it gated still
+ *   succeeds). CoE 7.1.
+ * - `discard` — a roll of CP or CP-1 on a hero character: it is discarded.
+ * - `eliminate` — a roll of CP or CP-1 on a Wizard avatar, or any roll two or
+ *   more below CP on any character: the character is eliminated.
+ */
+export type CorruptionOutcome = 'success' | 'tap-success' | 'discard' | 'eliminate';
+
+/** True when `charDef` is the Wizard avatar (eliminated on any failed check, CoE 10.01). */
+function isWizardAvatarChar(charDef: CardDefinition | undefined): boolean {
+  return !!charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef)
+    && charDef.alignment === 'wizard';
+}
+
+/**
+ * Whether a character resolves corruption checks as a *minion* — i.e. taps (and
+ * the check is considered successful) on a roll of CP or CP-1 rather than being
+ * discarded/eliminated (CoE 7.1, 7.1.F1).
+ *
+ * - The **Fallen-wizard avatar** always taps like a minion.
+ * - For a **Fallen-wizard** player, only **Orc/Troll** characters are minions;
+ *   all his other characters are treated as hero characters (MEWH "all of your
+ *   non-Orc/Troll characters are considered hero characters"), so a minion-typed
+ *   Man he controls still resolves as a hero.
+ * - For **Ringwraith/Balrog** players, any **minion-character** card is a minion.
+ */
+function isCorruptionMinionMode(
+  charDef: CardDefinition | undefined,
+  ownerAlignment: Alignment,
+): boolean {
+  if (!charDef || !isCharacterCard(charDef)) return false;
+  if (isAvatarCharacter(charDef) && charDef.alignment === 'fallen-wizard') return true;
+  if (ownerAlignment === 'fallen-wizard') {
+    return charDef.race === Race.Orc || charDef.race === Race.Troll;
+  }
+  return charDef.cardType === 'minion-character';
+}
+
+/**
+ * Classifies the outcome of a corruption check from the modified roll `total`,
+ * the corruption point total `cp`, the character definition, and the alignment
+ * of the player who controls it. Implements CoE 7.1 (with the MEWH minion/
+ * Fallen-wizard tap rule and 7.1.F1 Orc/Troll handling). Pure — moves no cards.
+ */
+export function classifyCorruptionOutcome(
+  charDef: CardDefinition | undefined,
+  ownerAlignment: Alignment,
+  total: number,
+  cp: number,
+): CorruptionOutcome {
+  if (total > cp) return 'success';
+  if (total >= cp - 1) {
+    // Roll of CP or CP-1: alignment/type dependent.
+    if (isCorruptionMinionMode(charDef, ownerAlignment)) return 'tap-success';
+    if (isWizardAvatarChar(charDef)) return 'eliminate';
+    return 'discard';
+  }
+  // Two or more below CP: eliminated regardless of alignment.
+  return 'eliminate';
+}
+
+/**
  * Returns the `leader-control` effect on a faction definition, or `undefined`.
  * Carried by LE "Orcs of Udûn"-style factions (le-262, le-275, le-279, le-281,
  * le-282, le-291) that an Orc or Troll leader may place under their control.
