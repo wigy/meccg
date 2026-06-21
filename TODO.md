@@ -16,8 +16,6 @@ FIXES
 FEATS
 -----
 
-A thermometer kind of bar where current phase is explicitly shown as a progress meter. Sub-phases of the phsae must be shown. Each company has own step for mh and site phase. Also name of the phase must be shown including sub-phase.
-
 EPICS
 -----
 
