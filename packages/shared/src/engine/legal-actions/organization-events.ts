@@ -21,6 +21,7 @@ import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 
 /**
  * Evaluates permanent-event resource cards in hand for play during organization.
@@ -298,9 +299,13 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
       return !!d && 'keywords' in d
         && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
     };
+    // MEAS §1: cards placed "off to the side" are untargetable except by cards
+    // that specifically affect set-aside cards.
+    const mayTargetSetAside = cardTargetsSetAside(def);
     const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
     for (const p of state.players) {
       for (const c of p.cardsInPlay) {
+        if (isSetAsideCard(c) && !mayTargetSetAside) continue;
         if (isEnv(c.definitionId as string)) envTargets.push(c);
       }
     }

@@ -84,6 +84,14 @@ export interface PlayerState {
    */
   readonly marshallingPoints: MarshallingPointTotals;
   /**
+   * Marshalling point totals that count toward *calling* the endgame (Free
+   * Council / Audience with Sauron). Identical to {@link marshallingPoints}
+   * except that MPs of cards held by companies at an Under-deeps site are
+   * excluded (MEAS §6e) — those still count in the final tally, just not toward
+   * reaching the call threshold. Recomputed alongside `marshallingPoints`.
+   */
+  readonly callableMarshallingPoints: MarshallingPointTotals;
+  /**
    * How much of the player's 20-point general influence pool is currently committed
    * to controlling characters. Characters whose mind value exceeds remaining GI cannot be played.
    */

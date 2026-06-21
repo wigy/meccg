@@ -921,11 +921,23 @@ function playResourcesActions(
       const itemDef = def as HeroItemCard;
       evaluatedInstances.add(cardInstanceId as string);
 
+      // MEAS §6(f): at an Under-deeps site the "one extra minor item" allowance
+      // (rule 2.V.5) is widened — the extra character may play any item the site
+      // itself allows (minor, major, or gold ring), not only a minor item.
+      const siteIsUnderDeeps = siteDef && isSiteCard(siteDef)
+        && (siteDef.keywords ?? []).includes('under-deeps');
+
       // Rule 2.V.5: when a resource that tapped the site has already been
       // successfully played, the resource player may attempt one additional
       // minor item, even though the site is tapped and even if the site
-      // does not normally list "minor" in its playable resources.
-      const minorItemBonus = siteState.minorItemAvailable && itemDef.subtype === 'minor';
+      // does not normally list "minor" in its playable resources. At an
+      // Under-deeps site this widens to any subtype the site lists as playable
+      // (MEAS §6(f)).
+      const minorItemBonus = siteState.minorItemAvailable && (
+        siteIsUnderDeeps
+          ? playableTypes.has(itemDef.subtype)
+          : itemDef.subtype === 'minor'
+      );
 
       // site-rule: allow-items-when-tapped — items remain playable even when the site is tapped
       const allowWhenTapped = siteDef && isSiteCard(siteDef)

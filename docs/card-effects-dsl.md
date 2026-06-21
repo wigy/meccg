@@ -4377,3 +4377,54 @@ Behaviour (all implemented in the engine):
 The "Standard Modifications" line on these cards (e.g. *Orcs of Gorgoroth (+2),
 Orcs of the Red Eye (-2)*) is modeled separately with `check-modifier` effects
 gated on `controller.inPlay`, exactly as for the simpler LE factions.
+
+### 49. `set-aside` — placement of cards "off to the side" (MEAS §1)
+
+Carried by a host permanent-event whose resolution places one or more target
+cards "off to the side" and keeps them with the host (e.g. *Sack Over the Head*,
+*Summons from Long Sleep*, *Sacrifice of Form*). A set-aside card:
+
+- is kept with the host — the host's `cardsInPlay` entry lists it in `setAside`,
+  and the child is stamped with `setAsideHost` (both on `CardInPlay`);
+- remains registered in the host player's `cardsInPlay`, so no instance
+  disappears and it stays **in play for uniqueness** (`countCopiesInPlay`);
+- **cannot be targeted** except by cards whose `play-target` declares
+  `targetsSetAside: true` (`cardTargetsSetAside`, `engine/set-aside.ts`);
+- is **discarded to its owner** when the host leaves the playing surface, unless
+  the host states otherwise via `keepOnHostRemoval` (captured on the child as
+  `setAsideKeepOnRemoval`);
+- awards its **marshalling points to its owner** (`ownerOf`), not the host's
+  player (`recompute-derived.ts`).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `keepOnHostRemoval` | no | When `true`, the set-aside cards are **not** discarded when the host leaves play — they remain in play under their owner (e.g. *Sacrifice of Form* keeps the converted item). Defaults to `false`. |
+
+```json
+{ "type": "set-aside" }
+```
+
+The target(s) to set aside are chosen by the host's accompanying `play-target`
+effect; this effect only declares the off-to-the-side disposition.
+
+Behaviour (engine mechanics in `engine/set-aside.ts`):
+
+- **Placement.** `placeCardSetAside` registers a child as an untapped
+  `CardInPlay` in the host player's `cardsInPlay` with `setAsideHost`, and
+  appends its id to the host's `setAside`. `setAsideCompanyCharacter` performs
+  the *Sack Over the Head* shape — a company character (with its items/allies)
+  leaves its owner's company and is set aside; its attached hazards return to
+  their owners' discards.
+- **Targeting exclusion.** Target collectors skip `setAsideHost` cards unless
+  the playing card's `play-target` declares `targetsSetAside`.
+- **Host-removal sweep.** `sweepSetAside` (called from `postReduce`) discards
+  every orphaned set-aside child to its owner when the host has left play, or —
+  for `keepOnHostRemoval` children — detaches them and keeps them in play. It
+  also prunes dangling ids from surviving hosts' `setAside` lists. This is the
+  single load-bearing disposition point: a forgotten child surfaces here as an
+  orphan, never a silently dropped instance.
+- **Marshalling points.** `recompute-derived.ts` skips set-aside cards in the
+  host player's tally and credits their MPs to `ownerOf` instead.
+
+Per-card wiring of *which* cards a given host sets aside is card-certification
+work; the mechanics above are alignment-agnostic.

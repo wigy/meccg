@@ -165,6 +165,30 @@ export interface CardInPlay {
    */
   readonly companyId?: import('./common.js').CompanyId;
   /**
+   * Instance IDs of cards placed "off to the side" with this host
+   * permanent-event (MEAS §1, e.g. *Sack Over the Head*, *Summons from Long
+   * Sleep*). These cards remain reachable in state via the host's player's
+   * `cardsInPlay`; they are in play for uniqueness, untargetable except by
+   * cards that name "off to the side", and discarded to their owner when the
+   * host leaves the playing surface (unless the host card says otherwise).
+   */
+  readonly setAside?: readonly CardInstanceId[];
+  /**
+   * Set on a card that has itself been placed "off to the side": the instance
+   * ID of the host permanent-event it is kept with (MEAS §1). A set-aside card
+   * is excluded from ordinary targeting and from its host player's marshalling
+   * points (its MPs are credited to {@link ownerOf} instead).
+   */
+  readonly setAsideHost?: CardInstanceId;
+  /**
+   * When true, this set-aside card is *not* discarded when its host leaves the
+   * playing surface — the host card overrides the default discard (e.g.
+   * *Sacrifice of Form* keeps the converted item in play). Captured at
+   * set-aside time so the host-removal sweep can honour the override without
+   * re-reading the (already gone) host definition.
+   */
+  readonly setAsideKeepOnRemoval?: boolean;
+  /**
    * For a faction placed *under the control of a specific leader* (the LE
    * "Orcs of Udûn"-style factions, e.g. le-262, le-275, le-279, le-281,
    * le-282, le-291): the instance ID of the controlling character. Set when

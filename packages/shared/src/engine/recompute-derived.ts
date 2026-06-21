@@ -388,6 +388,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
+  // MEAS §6e: marshalling points of company-held cards (characters, their items
+  // and allies) at an Under-deeps site, accumulated separately so they can be
+  // excluded from the *call* threshold while remaining in the final tally.
+  let underDeepsMp = ZERO_MARSHALLING_POINTS;
   let charactersChanged = false;
   const newCharacters: Record<string, CharacterInPlay> = {};
 
@@ -461,13 +465,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       generalInfluenceUsed += mindCost;
     }
 
+    // MEAS §6e: is this character's company sitting at an Under-deeps site? Its
+    // MPs are credited normally to `mp` (final tally) but also mirrored into
+    // `underDeepsMp` so they can be removed from the call threshold.
+    const charSiteDefId = charCompany?.currentSite?.definitionId;
+    const charSiteDef = charSiteDefId ? state.cardPool[charSiteDefId as string] : undefined;
+    const atUnderDeeps = !!(charSiteDef && 'keywords' in charSiteDef
+      && (charSiteDef as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
+
     // Character MPs: prisoners contribute negative MPs
     if (isPrisoner) {
       const charMp = charDef.marshallingPoints ?? 0;
       const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
       mp = { ...mp, [cat]: mp[cat] - charMp };
+      if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
     } else {
       mp = addMP(mp, charDef);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)
@@ -475,6 +489,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
       mp = addItemMP(mp, itemDef, player.alignment);
+      if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment);
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf)
       const itemEffects = (itemDef as { effects?: readonly CardEffect[] }).effects;
@@ -487,6 +502,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
             ? (itemDef as { marshallingCategory: MarshallingCategory }).marshallingCategory
             : 'item' as MarshallingCategory;
           mp = { ...mp, [cat]: mp[cat] + effect.value };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + effect.value };
         }
       }
     }
@@ -494,7 +510,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Ally MPs
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
-      if (allyDef) mp = addMP(mp, allyDef);
+      if (allyDef) {
+        mp = addMP(mp, allyDef);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef);
+      }
     }
   }
 
@@ -514,10 +533,26 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
-  // Cards in play: factions, permanent events, etc.
+  // Cards in play: factions, permanent events, etc. Set-aside cards (MEAS §1)
+  // are skipped here — they are physically kept in their host player's
+  // cardsInPlay, but their marshalling points are credited to their owner in
+  // the dedicated pass below.
   for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     if (def) mp = addMP(mp, def);
+  }
+
+  // MEAS §1: cards placed "off to the side" award their marshalling points to
+  // their owner (derivable from the instance id), independent of which player's
+  // cardsInPlay they are kept in.
+  for (const other of state.players) {
+    for (const card of other.cardsInPlay) {
+      if (card.setAsideHost === undefined) continue;
+      if (ownerOf(card.instanceId) !== player.id) continue;
+      const def = resolveDef(state, card.instanceId);
+      if (def) mp = addMP(mp, def);
+    }
   }
 
   // Leader-controlled faction group bonus (LE "Orcs of Udûn"-style factions):
@@ -614,12 +649,27 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.
+  // Reuse the `mp` reference when nothing is excluded (the common case) so the
+  // no-allocation fast path below still holds.
+  const callable: MarshallingPointTotals = underDeepsMp === ZERO_MARSHALLING_POINTS
+    ? mp
+    : {
+        character: mp.character - underDeepsMp.character,
+        item: mp.item - underDeepsMp.item,
+        faction: mp.faction - underDeepsMp.faction,
+        ally: mp.ally - underDeepsMp.ally,
+        kill: mp.kill - underDeepsMp.kill,
+        misc: mp.misc - underDeepsMp.misc,
+      };
+
   // Skip update if nothing changed
   if (
     !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.generalInfluenceBonus === generalInfluenceBonus &&
-    player.marshallingPoints === mp
+    player.marshallingPoints === mp &&
+    player.callableMarshallingPoints === callable
   ) {
     return player;
   }
@@ -630,6 +680,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     generalInfluenceUsed,
     generalInfluenceBonus,
     marshallingPoints: mp,
+    callableMarshallingPoints: callable,
   };
 }
 
