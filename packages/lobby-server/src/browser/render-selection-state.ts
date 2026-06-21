@@ -19,18 +19,18 @@ import type { CardDefinitionId, CardDefinition, CardInstanceId, GameAction, Play
 let targetingInstruction: string | null = null;
 
 /**
- * Set or clear the targeting instruction displayed in the center of the board.
- * Called from within render modules and by external modules (e.g. company-view)
- * when entering/exiting two-step selection flows.
+ * Set or clear the targeting instruction shown in the phase meter breadcrumb
+ * (#phase-target-hint). Called from within render modules and by external
+ * modules (e.g. company-view) when entering/exiting two-step selection flows.
  */
 export function setTargetingInstruction(text: string | null): void {
   targetingInstruction = text;
-  const el = document.getElementById('instruction-text');
+  const el = document.getElementById('phase-target-hint');
   if (!el) return;
-  el.textContent = text ?? '';
+  el.textContent = text ? ` — ${text}` : '';
 }
 
-/** Get the current targeting instruction (for renderInstructions to check priority). */
+/** Get the current targeting instruction (re-applied by renderPhaseMeter). */
 export function getTargetingInstruction(): string | null {
   return targetingInstruction;
 }

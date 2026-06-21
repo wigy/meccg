@@ -2686,21 +2686,6 @@ h2 {
   z-index: -1;
 }
 
-/* Compact instruction line beneath the phase meter (replaces the old
-   top "situation banner" overlay). Carries per-step guidance, combat,
-   chain, and targeting prompts. */
-#instruction-text {
-  font-family: 'MedievalSharp', cursive;
-  font-size: 1.05rem;
-  color: rgba(220, 200, 140, 0.95);
-  text-align: center;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
-  margin-top: 0.2rem;
-  pointer-events: none;
-  width: 100%;
-  white-space: normal;
-}
-
 /* ---- Phase progress meter (thermometer) ---- */
 
 #phase-meter {
@@ -2736,6 +2721,24 @@ h2 {
   font-size: 1rem;
   letter-spacing: 0.03em;
   color: rgba(232, 214, 160, 0.95);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  white-space: normal;
+  max-width: 100%;
+}
+
+/* Live targeting hint appended to the breadcrumb during two-step selections
+   (e.g. "Click a company to join into"). Empty when no selection is active. */
+.phase-target-hint {
+  color: rgba(120, 190, 255, 0.95);
+}
+
+/* Opponent's movement path (region names + type icons) shown under the
+   breadcrumb while they resolve a company's movement. */
+.phase-meter-path {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.9rem;
+  color: rgba(220, 200, 140, 0.95);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
   text-align: center;
   white-space: normal;
@@ -2996,10 +2999,6 @@ h2 {
     0 4px 16px rgba(0, 0, 0, 0.7);
 }
 
-
-#instruction-text:empty {
-  display: none;
-}
 
 #visual-board {
   position: relative;

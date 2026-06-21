@@ -46,7 +46,7 @@ export { renderPlayerNames } from './render-player-names.js';
 export { renderDeckPiles, resetDeckPiles, prepareSiteSelection, openMovementViewer, prepareFetchFromPile, closeSelectionViewer, clearSelectionState, clearSiteSelection } from './render-piles.js';
 
 // Instructions and pass button
-export { renderInstructions, renderPassButton } from './render-instructions.js';
+export { renderPassButton } from './render-instructions.js';
 
 // Phase progress meter (thermometer)
 export { renderPhaseMeter } from './render-phase-meter.js';

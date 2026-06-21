@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -113,15 +113,12 @@ export function disconnect(): void {
 
 /**
  * Clear the visual board and restore its skeleton child elements
- * (instruction text, drafted rows, set-aside) so that subsequent
- * renderDrafted() calls can find them.
+ * (drafted rows, set-aside) so that subsequent renderDrafted() calls
+ * can find them.
  */
 export function resetVisualBoard(): void {
   const board = document.getElementById('visual-board')!;
   board.innerHTML = '';
-  // Clear instruction text (lives outside visual-board now)
-  const instrEl = document.getElementById('instruction-text');
-  if (instrEl) instrEl.textContent = '';
   for (const [id, cls] of [
     ['drafted-opponent', 'drafted-row'],
     ['set-aside', ''],
@@ -468,7 +465,6 @@ export function connect(name: string): void {
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view, cardPool);
-        renderInstructions(msg.view, cardPool);
         renderPhaseMeter(msg.view, appState.lastCompanyNames);
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);

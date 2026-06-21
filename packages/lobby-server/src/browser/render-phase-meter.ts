@@ -20,6 +20,32 @@
 
 import type { PlayerView } from '@meccg/shared';
 import { Phase, PHASE_ORDER } from '@meccg/shared';
+import { getTargetingInstruction } from './render-selection-state.js';
+import { REGION_ICON_CODES } from './render-text-format.js';
+
+/**
+ * Build a compact movement-path readout (region names + type icons) for the
+ * company currently being resolved, sourced from the Movement/Hazard phase
+ * state. Used to show the opponent's path while they move — the on-board
+ * visual path (company-site.ts) only renders for the viewer's own companies.
+ * Returns null if the active company is not moving.
+ */
+function buildMovementPathHtml(
+  mh: { resolvedSitePathNames?: readonly string[]; resolvedSitePath?: readonly string[] },
+): string | null {
+  const names = mh.resolvedSitePathNames ?? [];
+  if (names.length === 0) return null;
+  const types = mh.resolvedSitePath ?? [];
+  const parts: string[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const code = REGION_ICON_CODES[types[i] ?? ''];
+    const icon = code
+      ? `<img src="/images/regions/${code}.png" alt="${types[i]}" width="22" height="22" style="vertical-align:middle;position:relative;top:-3px">`
+      : '';
+    parts.push(`${names[i]} ${icon}`);
+  }
+  return parts.join(' ');
+}
 
 /** Visual state of a single segment in either track. */
 type SegmentState = 'done' | 'current' | 'upcoming';
@@ -306,9 +332,9 @@ export function renderPhaseMeter(
   companyNames: Readonly<Record<string, string>>,
 ): void {
   const container = document.getElementById('phase-meter');
-  // The body holds the breadcrumb + tracks; the sibling instruction line
-  // (#instruction-text) is rendered separately by renderInstructions, so we
-  // must not overwrite it here — write only into #phase-meter-body.
+  // The body holds the breadcrumb + tracks. Live targeting hints (set via
+  // setTargetingInstruction during two-step selections) render into the
+  // #phase-target-hint span appended to the breadcrumb below.
   const el = document.getElementById('phase-meter-body');
   if (!container || !el) return;
 
@@ -318,11 +344,26 @@ export function renderPhaseMeter(
   const breadcrumb = subLabel ? `${phaseLabel} › ${subLabel}` : phaseLabel;
   const safeCrumb = breadcrumb.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  let html = `<div class="phase-meter-label">${safeCrumb}</div>`;
+  let html = `<div class="phase-meter-label">${safeCrumb}<span id="phase-target-hint" class="phase-target-hint"></span></div>`;
+
+  // While the opponent moves, show their company's movement path here — the
+  // on-board visual path renders only for the viewer's own companies, so this
+  // is the only place a defender can see where the active company is heading.
+  if (view.phaseState.phase === Phase.MovementHazard && view.activePlayer !== view.self.id) {
+    const path = buildMovementPathHtml(view.phaseState);
+    if (path) html += `<div class="phase-meter-path">${path}</div>`;
+  }
   html += renderTrack(phaseSegments, 'phase-track--phases');
   if (subSegments.length > 0) {
     html += renderTrack(subSegments, 'phase-track--sub');
   }
   el.innerHTML = html;
+
+  // Re-apply any active targeting hint (the body innerHTML above replaced the
+  // span). setTargetingInstruction updates this span directly during clicks.
+  const hint = getTargetingInstruction();
+  const hintEl = document.getElementById('phase-target-hint');
+  if (hintEl) hintEl.textContent = hint ? ` — ${hint}` : '';
+
   container.classList.remove('hidden');
 }
