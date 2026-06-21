@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.42.0 — 2026-06-21
+
+Against the Shadow
+
+### Game Engine
+
+- Implement Against the Shadow (MEAS) rule mechanics: creature-as-auto-attack, hoard items, off-to-the-side cards, region movement limits, and under-deeps sites
+- Add the Against the Shadow rules implementation spec
+- Enforce the hazards-equal-resources play-deck rule (CoE 1.5)
+- Make site movement alignment-aware for multi-printing locations
+- Fix item click forcing store over transfer in the browser UI
+
+### Card Data
+
+- Define all Against the Shadow (AS) cards
+- Define all The Lidless Eye (LE) cards
+- Define all The Dragons (DM) cards
+- Define all The Dark Minions (TD) cards
+
+### Web Client
+
+- Add a phase progress meter to the game board
+- Remove the instruction-text slot and relocate hints to the phase meter
+- Use action wording for the strike tap choice
+- Brighten company-nav arrows and label them in the shift overlay
+
+### Infrastructure
+
+- Add bug-report / feature-request icons to the lobby nav
+
 ## 0.41.0 — 2026-06-20
 
 Challenge Deck J

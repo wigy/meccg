@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 553 | 544 | 9 | 98.4% |
+| 554 | 544 | 10 | 98.2% |
 
 ## Category Breakdown
 
@@ -15,7 +15,7 @@
 | AS | 45 | 45 | 100.0% |
 | BA | 3 | 1 | 33.3% |
 | DM | 41 | 41 | 100.0% |
-| LE | 171 | 169 | 98.8% |
+| LE | 172 | 169 | 98.3% |
 | TD | 52 | 52 | 100.0% |
 | TW | 231 | 226 | 97.8% |
 | WH | 10 | 10 | 100.0% |
@@ -54,7 +54,7 @@
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
-| as-126 | Helm of Fear | — | 15 | ☑ |
+| as-126 | Helm of Fear | — | 16 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-131 | Secret Book | — | 11 | ☑ |
 | as-134 | Thrór’s Map | — | 4 | ☑ |
@@ -118,7 +118,7 @@
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 3 | ☑ |
+| le-12 | Grishnákh | — | 4 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
 | le-17 | Jerrek | — | 4 | ☑ |
@@ -284,6 +284,7 @@
 | le-413 | The Wind Throne | — | 12 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
+| le-pending-effects-parity | — | — | 1 | ☐ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |

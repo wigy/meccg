@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 309 | 189 | 120 | 61.2% |
+| 314 | 195 | 119 | 62.1% |
 
 ## Section Breakdown
 
@@ -20,9 +20,10 @@
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 27 | 64.3% |
+| 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 22 | 41.5% |
+| — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -215,7 +216,7 @@
 | 8.02 | Combat | [Combat Step1 Pre Assignment](08-combat/rule-8.02-combat-step1-pre-assignment.test.ts) | ☐ |
 | 8.03 | Combat | [Faced Attack](08-combat/rule-8.03-faced-attack.test.ts) | ☐ |
 | 8.04 | Combat | [Attack Modification Rules](08-combat/rule-8.04-attack-modification-rules.test.ts) | ☐ |
-| 8.05 | Combat | [Multiple Strikes Assignment](08-combat/rule-8.05-multiple-strikes-assignment.test.ts) | ☐ |
+| 8.05 | Combat | [Multiple Strikes Assignment](08-combat/rule-8.05-multiple-strikes-assignment.test.ts) | ☑ |
 | 8.06 | Combat | [Combat Step2 Defender Assigns](08-combat/rule-8.06-combat-step2-defender-assigns.test.ts) | ☑ |
 | 8.07 | Combat | [Each Character Faces Strike](08-combat/rule-8.07-each-character-faces-strike.test.ts) | ☐ |
 | 8.08 | Combat | [Strike Assignment Precedence](08-combat/rule-8.08-strike-assignment-precedence.test.ts) | ☐ |
@@ -253,10 +254,10 @@
 | 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☑ |
 | 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☑ |
 | 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☑ |
+| — | Agents, Events, Items & Rings | [9.02b Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
 | 9.00 | Agents, Events, Items & Rings | [Agent State Model](09-agents-events-items/rule-9.00-agent-state-model.test.ts) | ☑ |
 | 9.01 | Agents, Events, Items & Rings | [Agent Actions](09-agents-events-items/rule-9.01-agent-actions.test.ts) | ☑ |
 | 9.02 | Agents, Events, Items & Rings | [Agent Action Options](09-agents-events-items/rule-9.02-agent-action-options.test.ts) | ☑ |
-| 9.02b | Agents, Events, Items & Rings | [Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
 | 9.03 | Agents, Events, Items & Rings | [Agent Reveal](09-agents-events-items/rule-9.03-agent-reveal.test.ts) | ☑ |
 | 9.04 | Agents, Events, Items & Rings | [Agent Reveal Home](09-agents-events-items/rule-9.04-agent-reveal-home.test.ts) | ☑ |
 | 9.05 | Agents, Events, Items & Rings | [Agent Uniqueness](09-agents-events-items/rule-9.05-agent-uniqueness.test.ts) | ☑ |
@@ -337,6 +338,11 @@
 | 10.51 | Corruption, Influence, Actions/Timing & Ending the Game | [Mp General Rules](10-corruption-influence-endgame/rule-10.51-mp-general-rules.test.ts) | ☑ |
 | 10.52 | Corruption, Influence, Actions/Timing & Ending the Game | [Alignment Item Mp](10-corruption-influence-endgame/rule-10.52-alignment-item-mp.test.ts) | ☑ |
 | METD | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption No Tap](10-corruption-influence-endgame/rule-metd-corruption-no-tap.test.ts) | ☑ |
+| MEAS | Against the Shadow (MEAS) | [Creature As Auto Attack](rule-meas-creature-as-auto-attack.test.ts) | ☑ |
+| MEAS | Against the Shadow (MEAS) | [Hoard Item](rule-meas-hoard-item.test.ts) | ☑ |
+| MEAS | Against the Shadow (MEAS) | [Off To The Side](rule-meas-off-to-the-side.test.ts) | ☑ |
+| MEAS | Against the Shadow (MEAS) | [Region Movement Limit](rule-meas-region-movement-limit.test.ts) | ☑ |
+| MEAS | Against the Shadow (MEAS) | [Under Deeps Site](rule-meas-under-deeps-site.test.ts) | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = implemented, ◐ = partial*
