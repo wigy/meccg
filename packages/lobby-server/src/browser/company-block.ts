@@ -52,6 +52,7 @@ import {
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip } from './company-modals.js';
+import { showTooltipMenu } from './tooltip-menu.js';
 import { switchToAllCompanies } from './company-view.js';
 
 /**
@@ -318,42 +319,65 @@ export function renderCompanyBlock(
       return undefined;
     }
 
-    // Not in targeting mode — check if this item has a store-item action (takes priority over transfer)
-    if (options?.onAction) {
-      const storeAction = options.storeItemActions?.get(itemInstId as string);
-      if (storeAction && storeAction.characterId === charInstId) {
-        const onAction = options.onAction;
-        return {
-          cls: 'company-card--transfer-source',
-          handler: (e) => {
-            e.stopPropagation();
-            onAction(storeAction);
-          },
-        };
-      }
+    // Not in targeting mode — gather the item's possible actions. An item may be
+    // both storable at the current site AND transferable to other characters; we
+    // must never silently commit to one when the other is also legal.
+    const onAction = options.onAction;
+    const storeAction = options.storeItemActions?.get(itemInstId as string);
+    const hasStore = !!storeAction && storeAction.characterId === charInstId;
+    const transferActions = options.transferActions?.get(itemInstId as string) ?? [];
+    const hasTransfer = transferActions.length > 0;
+
+    if (!hasStore && !hasTransfer) return undefined;
+
+    const itemDefId = cachedInstanceLookup(itemInstId);
+    const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+
+    /** Enter spatial targeting mode so the player picks a recipient character. */
+    const enterTransferMode = (): void => {
+      setTransferItemSourceId(itemInstId);
+      setTransferItemFromCharId(charInstId);
+      setTargetingInstruction(
+        `Click a highlighted character to receive ${itemName ?? 'item'}`,
+      );
+      rerender();
+    };
+
+    // Both options available — present a menu so the player explicitly chooses
+    // between storing and transferring instead of one action being forced.
+    if (hasStore && hasTransfer) {
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          showTooltipMenu(e.currentTarget as HTMLElement, [
+            { label: 'Store at site', onClick: () => onAction(storeAction) },
+            { label: `Transfer ${itemName ?? 'item'}`, onClick: enterTransferMode },
+          ], { placement: 'auto' });
+        },
+      };
     }
 
-    // Check if this item has transfer actions
-    if (!options.transferActions) return undefined;
-    const actions = options.transferActions.get(itemInstId as string);
-    if (!actions || actions.length === 0) return undefined;
+    // Only storing is available — commit the store action directly.
+    if (hasStore) {
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(storeAction);
+        },
+      };
+    }
 
-    const allRegress = actions.every(a => a.regress);
+    // Only transferring is available — always enter targeting mode, even with a
+    // single target, so the player confirms explicitly.
+    const allRegress = transferActions.every(a => a.regress);
     const cls = allRegress ? '' : 'company-card--transfer-source';
-
-    // Always enter targeting mode — even with a single target, ask explicitly
     return {
       cls,
       handler: (e) => {
         e.stopPropagation();
-        setTransferItemSourceId(itemInstId);
-        setTransferItemFromCharId(charInstId);
-        const itemDefId = cachedInstanceLookup(itemInstId);
-        const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
-        setTargetingInstruction(
-          `Click a highlighted character to receive ${itemName ?? 'item'}`,
-        );
-        rerender();
+        enterTransferMode();
       },
     };
   };
