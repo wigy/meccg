@@ -409,3 +409,15 @@ export interface SelectCardBearerAction {
   /** The untapped character chosen to bear the card. */
   readonly characterId: CardInstanceId;
 }
+
+/**
+ * A Fallen-wizard discards one of their in-play stage resource permanent-events
+ * during the organization phase (MEWH "The Player Turn"). Only offered when the
+ * resulting stage-point total stays at 3 or more.
+ */
+export interface DiscardStageResourceAction {
+  readonly type: 'discard-stage-resource';
+  readonly player: PlayerId;
+  /** The in-play stage permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+}

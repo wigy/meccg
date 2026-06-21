@@ -49,7 +49,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | # | MEWH rule area | Engine status | Work in this spec |
 |---|---|---|---|
 | 1 | **Stage points** — player-state counter, aggregation, start-with-3 | ✗ missing | New player-state field + derive from stage permanent-events |
-| 2 | **Stage resources** — org-phase-only play, discard-not-below-3, corruption points apply | ✗ missing | Phase gating + discard action + CP attribution |
+| 2 | **Stage resources** — org-phase-only play, discard-not-below-3, corruption points apply | △ partial (discard + gating done; start-cards → §11, CP attribution deferred) | Phase gating + discard action + CP attribution |
 | 3 | **Wizardhavens** — FW's 4 sites are havens *for this player*; METW/MELE havens are not | ✗ missing | Per-player haven resolution |
 | 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | △ partial (core done; storage-site + Day-of-Reckoning deferred) | FW MP override in scoring |
 | 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | ✓ done (gate confirmed; Day-of-Reckoning label deferred) | Gate + naming |
@@ -104,7 +104,22 @@ contribution; total is per-player and not visible to the opponent beyond project
 
 ---
 
-## 2. Stage resources — ✗ MISSING
+## 2. Stage resources — △ PARTIAL
+
+> **Implemented:** the **discard-a-stage-card** action — a new `discard-stage-resource`
+> organization-phase action (`discardStageResourceActions` +
+> `handleDiscardStageResource`), offered for an in-play stage permanent-event only when the
+> resulting derived stage total stays ≥ 3, moving the card to the owner's discard pile.
+> Added a shared `stagePointsOfCard` helper (reused by the §1 derivation). Stage
+> permanent-events are already **org-phase-gated** (only the org-phase permanent-event
+> computer offers them). Test: `rule-mewh-stage-resources.test.ts`.
+>
+> **Deferred (noted):** **start-with-stage-cards** belongs to setup (§11). **CP attribution
+> of non-item stage cards** has no live consumer — the only stage cards carrying corruption
+> points are *items* (wh-88/wh-89), already attributed via the normal item-bearing path; no
+> certified non-item stage card prints corruption points, so building that path now would be
+> speculative (`feedback_card_data`). The FW-specific deck-inclusion rule is a
+> deck-validation concern.
 
 **Rule.**
 

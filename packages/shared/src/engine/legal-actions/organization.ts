@@ -31,7 +31,7 @@ import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -161,6 +161,35 @@ export function availableDI(
  * Returns {@link EvaluatedAction} items so that non-viable play-character
  * candidates carry a human-readable reason for the client to display.
  */
+/**
+ * Discard-stage-resource actions (MEWH "The Player Turn"): a Fallen-wizard may
+ * discard one of their in-play stage resource permanent-events during the
+ * organization phase, but not if doing so would drop their stage-point total
+ * below 3. One action is offered per eligible stage permanent-event.
+ */
+export function discardStageResourceActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player || player.alignment !== 'fallen-wizard') return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def || !isResourceEventCard(def) || (def as { alignment?: string }).alignment !== 'stage' || def.eventType !== 'permanent') continue;
+    // Discarding must keep the running total at 3 or more (MEWH).
+    const contribution = stagePointsOfCard(def);
+    if (player.stagePoints - contribution < 3) {
+      logDetail(`Discard-stage-resource: ${def.name} not offered — would drop stage points to ${player.stagePoints - contribution} (< 3)`);
+      continue;
+    }
+    logDetail(`Discard-stage-resource: ${def.name} can be discarded (stage points ${player.stagePoints} → ${player.stagePoints - contribution})`);
+    actions.push({
+      action: { type: 'discard-stage-resource', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -232,6 +261,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId as string,
     ),
   );
+
+  // MEWH: a Fallen-wizard may discard an in-play stage resource (keeping ≥3 stage points)
+  actions.push(...discardStageResourceActions(state, playerId));
 
   // Play short-event cards as resource (e.g. Twilight cancels an environment)
   const shortEventActions = playShortEventActions(state, playerId);

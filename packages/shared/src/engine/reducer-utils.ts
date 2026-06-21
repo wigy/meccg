@@ -432,6 +432,19 @@ export function getCardEffects(
 }
 
 /**
+ * Total stage points a single card definition contributes (MEWH §1): the sum of
+ * its `stage-points` effect values (usually one, may be zero). Used both by the
+ * derived per-player total and by the discard-stage-resource legality check.
+ */
+export function stagePointsOfCard(def: CardDefinition | null | undefined): number {
+  let total = 0;
+  for (const effect of getCardEffects(def)) {
+    if (effect.type === 'stage-points') total += effect.value;
+  }
+  return total;
+}
+
+/**
  * Whether `siteDef` functions as a *haven* for a player of the given alignment
  * (MEWH §3, "Wizardhavens").
  *
