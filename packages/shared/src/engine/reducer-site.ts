@@ -17,7 +17,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -2517,43 +2517,6 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
   return newState;
 }
 
-/**
- * CvCC alignment matrix (CoE rule 8.41).
- *
- * Returns true if a company of `attackerAlignment` (and `attackerCovert` for
- * fallen-wizards) may legally attack a company of `defenderAlignment`.
- * Since covert/overt tracking is not yet implemented, fallen-wizard
- * companies default to covert restrictions (most conservative).
- */
-function canAttackAlignment(
-  attackerAlignment: Alignment,
-  defenderAlignment: Alignment,
-  _attackerCovert = true,
-): boolean {
-  switch (attackerAlignment) {
-    case Alignment.Wizard:
-      // Wizard can attack: Ringwraith, Fallen-wizard (overt), Balrog
-      // Since overt is not tracked, include all fallen-wizard for now
-      return defenderAlignment === Alignment.Ringwraith
-        || defenderAlignment === Alignment.FallenWizard
-        || defenderAlignment === Alignment.Balrog;
-    case Alignment.Ringwraith:
-      // Ringwraith can attack: Wizard, Fallen-wizard
-      return defenderAlignment === Alignment.Wizard
-        || defenderAlignment === Alignment.FallenWizard;
-    case Alignment.FallenWizard:
-      // Covert fallen-wizard: Ringwraith, Balrog
-      // Overt fallen-wizard: any company (not yet tracked — use covert restrictions)
-      return defenderAlignment === Alignment.Ringwraith
-        || defenderAlignment === Alignment.Balrog;
-    case Alignment.Balrog:
-      // Balrog can attack: Wizard, Fallen-wizard
-      return defenderAlignment === Alignment.Wizard
-        || defenderAlignment === Alignment.FallenWizard;
-    default:
-      return false;
-  }
-}
 
 /**
  * Returns true if the given company could initiate a CvCC attack this turn.
@@ -2586,7 +2549,9 @@ function hasCvCCAttackTargets(
       ? atkSiteName === oppSiteName
       : attackingCompany.currentSite.definitionId === opponentCompany.currentSite.definitionId;
     if (!sameSite) continue;
-    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment)) continue;
+    const attackerCovert = isCovertCompany(attackingCompany, attackingPlayer, state);
+    const defenderCovert = isCovertCompany(opponentCompany, opponent, state);
+    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)) continue;
     return true;
   }
   return false;
@@ -2651,7 +2616,9 @@ function handleDeclareCompanyAttack(
     return { state, error: 'Target company is not at the same site' };
   }
 
-  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment)) {
+  const attackerCovert = isCovertCompany(company, player, state);
+  const defenderCovert = isCovertCompany(targetCompany, hazardPlayerState, state);
+  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)) {
     return { state, error: 'Alignment restrictions prevent this CvCC attack' };
   }
 

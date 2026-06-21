@@ -26,11 +26,20 @@ import {
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
 const PERCHEN = 'as-4' as CardDefinitionId;
+const GORBAG = 'le-11' as CardDefinitionId; // Orc — makes its company overt (MEWH §9)
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;
 const RIVENDELL = 'tw-d01' as CardDefinitionId;
 
-function buildAlignmentState(p1Alignment: Alignment, p2Alignment: Alignment) {
+function buildAlignmentState(
+  p1Alignment: Alignment,
+  p2Alignment: Alignment,
+  p1Overt = false,
+  p2Overt = false,
+) {
+  // A company is overt when it contains an Orc/Troll; add Gorbag to make it so.
+  const p1Chars = p1Overt ? [ARAGORN, GORBAG] : [ARAGORN];
+  const p2Chars = p2Overt ? [PERCHEN, GORBAG] : [PERCHEN];
   const state = buildTestState({
     activePlayer: PLAYER_1,
     recompute: true,
@@ -38,14 +47,14 @@ function buildAlignmentState(p1Alignment: Alignment, p2Alignment: Alignment) {
       {
         id: PLAYER_1,
         alignment: p1Alignment,
-        companies: [{ site: MORIA, characters: [ARAGORN] }],
+        companies: [{ site: MORIA, characters: p1Chars }],
         hand: [],
         siteDeck: [RIVENDELL],
       },
       {
         id: PLAYER_2,
         alignment: p2Alignment,
-        companies: [{ site: MORIA, characters: [PERCHEN] }],
+        companies: [{ site: MORIA, characters: p2Chars }],
         hand: [],
         siteDeck: [MORIA_AS],
       },
@@ -74,8 +83,13 @@ function buildAlignmentState(p1Alignment: Alignment, p2Alignment: Alignment) {
   return { ...state, phaseState: sitePhaseState };
 }
 
-function canDeclareAttack(p1Alignment: Alignment, p2Alignment: Alignment): boolean {
-  const state = buildAlignmentState(p1Alignment, p2Alignment);
+function canDeclareAttack(
+  p1Alignment: Alignment,
+  p2Alignment: Alignment,
+  p1Overt = false,
+  p2Overt = false,
+): boolean {
+  const state = buildAlignmentState(p1Alignment, p2Alignment, p1Overt, p2Overt);
   const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
   const actions = viableActions(afterPass, PLAYER_1, 'declare-company-attack');
   return actions.length > 0;
@@ -89,8 +103,12 @@ describe('Rule 8.41 — CvCC Alignment Restrictions', () => {
     expect(canDeclareAttack(Alignment.Wizard, Alignment.Ringwraith)).toBe(true);
   });
 
-  test('Wizard can attack Fallen-wizard', () => {
-    expect(canDeclareAttack(Alignment.Wizard, Alignment.FallenWizard)).toBe(true);
+  test('Wizard can attack an overt Fallen-wizard', () => {
+    expect(canDeclareAttack(Alignment.Wizard, Alignment.FallenWizard, false, true)).toBe(true);
+  });
+
+  test('Wizard cannot attack a covert Fallen-wizard', () => {
+    expect(canDeclareAttack(Alignment.Wizard, Alignment.FallenWizard, false, false)).toBe(false);
   });
 
   test('Wizard can attack Balrog', () => {
@@ -133,6 +151,19 @@ describe('Rule 8.41 — CvCC Alignment Restrictions', () => {
 
   test('Fallen-wizard (covert) cannot attack Fallen-wizard', () => {
     expect(canDeclareAttack(Alignment.FallenWizard, Alignment.FallenWizard)).toBe(false);
+  });
+
+  // Fallen-wizard (overt) — may attack any company, and may be attacked by any.
+  test('Fallen-wizard (overt) can attack Wizard', () => {
+    expect(canDeclareAttack(Alignment.FallenWizard, Alignment.Wizard, true, false)).toBe(true);
+  });
+
+  test('Fallen-wizard (overt) can attack a covert Fallen-wizard', () => {
+    expect(canDeclareAttack(Alignment.FallenWizard, Alignment.FallenWizard, true, false)).toBe(true);
+  });
+
+  test('Ringwraith can attack an overt Fallen-wizard (vice versa)', () => {
+    expect(canDeclareAttack(Alignment.Ringwraith, Alignment.FallenWizard, false, true)).toBe(true);
   });
 
   // Balrog attacks

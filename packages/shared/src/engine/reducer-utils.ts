@@ -458,6 +458,52 @@ export function isHavenForPlayer(
 }
 
 /**
+ * CvCC alignment matrix (CoE rule 8.41, MEWH §8 "attack permissions" and the
+ * Special Orc & Troll overt rule).
+ *
+ * Returns true if a company of `attackerAlignment` may legally attack a company
+ * of `defenderAlignment`, given each side's covert/overt status (`attackerCovert`
+ * / `defenderCovert`). Overt status comes from {@link isCovertCompany} at the
+ * call site (a Fallen-wizard company with an Orc/Troll, or a named overt ally,
+ * is overt).
+ *
+ * Key MEWH rules:
+ * - An **overt** Fallen-wizard company may attack **any** opponent company, and
+ *   any company may attack an **overt** Fallen-wizard company ("…and vice versa").
+ * - **Non-overt** Fallen-wizard companies and **Wizard** companies may **not**
+ *   attack each other.
+ * - Fallen-wizard ↔ Ringwraith may always attack (MELE p. 80).
+ */
+export function canAttackAlignment(
+  attackerAlignment: Alignment,
+  defenderAlignment: Alignment,
+  attackerCovert = true,
+  defenderCovert = true,
+): boolean {
+  // An overt Fallen-wizard attacks anyone; anyone attacks an overt Fallen-wizard.
+  if (attackerAlignment === 'fallen-wizard' && !attackerCovert) return true;
+  if (defenderAlignment === 'fallen-wizard' && !defenderCovert) return true;
+
+  switch (attackerAlignment) {
+    case 'wizard':
+      // Wizard can attack Ringwraith / Balrog. A Fallen-wizard defender is
+      // reachable only when overt (handled above); a covert one is off-limits.
+      return defenderAlignment === 'ringwraith' || defenderAlignment === 'balrog';
+    case 'ringwraith':
+      // Ringwraith can attack Wizard / Fallen-wizard (FW ↔ Ringwraith always).
+      return defenderAlignment === 'wizard' || defenderAlignment === 'fallen-wizard';
+    case 'fallen-wizard':
+      // Covert Fallen-wizard can attack Ringwraith / Balrog, but not a Wizard.
+      return defenderAlignment === 'ringwraith' || defenderAlignment === 'balrog';
+    case 'balrog':
+      // Balrog can attack Wizard / Fallen-wizard.
+      return defenderAlignment === 'wizard' || defenderAlignment === 'fallen-wizard';
+    default:
+      return false;
+  }
+}
+
+/**
  * The result of a corruption check on a character, before any cards are moved.
  *
  * - `success` — the roll exceeded the corruption point total; nothing happens.
