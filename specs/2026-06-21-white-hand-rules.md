@@ -425,6 +425,22 @@ company can against any opponent.
 
 ## 9. Special Orc & Troll rules — △ PARTIAL
 
+> **Implemented (hero item on Orc/Troll bearer).** In `recompute-derived.ts`, an Orc/Troll
+> bearer's effective-stats computation drops every effect sourced from a `hero-resource-item`
+> (so DSL stat-modifiers and item abilities are ignored) and skips the structural
+> prowess/body bonus; the item's **corruption points still apply** (a cost, not a bonus), as
+> do movement/playability restrictions. Test: `rule-mewh-orc-troll-hero-item.test.ts`.
+>
+> **Already done earlier:** overt detection incl. Half-orc exception (`isCovertCompany`);
+> Orc/Troll corruption-as-minion (§6).
+>
+> **Still missing (each its own follow-up):** Half-orcs cannot take trophies; play-gating
+> Orc/Troll until a permitting stage card; the Orc/Troll company-composition restriction
+> (no Elf/Dwarf/Dúnadan/Hobbit unless at a Wizardhaven); overt site-version usage (needs the
+> §7 site-linkage model); detainment classification of overt companies; and the
+> hero-resource targeting/skill/tap/perm-event restrictions on Orc/Troll (overlap with the
+> §10 targeting bar).
+
 **Rule (whole MEWH section).**
 
 - A company with **any Orc/Troll character** is **overt**. So is a company with any of:
