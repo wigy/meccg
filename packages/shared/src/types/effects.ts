@@ -1435,6 +1435,13 @@ export interface PlayTargetEffect extends EffectBase {
    * tree (e.g. Searching Eye cancels any card that "requires scout skill").
    */
   readonly requiredSkill?: string;
+  /**
+   * MEAS §1: when true, this card *specifically affects cards placed "off to
+   * the side"* — its target collector reaches cards carrying `setAsideHost`,
+   * which are otherwise untargetable. Ordinary targeting cards omit this flag
+   * and never see set-aside cards.
+   */
+  readonly targetsSetAside?: boolean;
 }
 
 /**
@@ -2888,6 +2895,7 @@ export type CardEffect =
   | ExtraTrollLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
+  | SetAsideEffect
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StayHerAppetiteEffect;
@@ -3304,6 +3312,35 @@ export interface StartingCompanyPlacementEffect extends EffectBase {
  */
 export interface SummonsFromLongSleepEffect extends EffectBase {
   readonly type: 'summons-from-long-sleep';
+}
+
+/**
+ * MEAS §1 ("Placement of cards off to the side"). Carried by a host
+ * permanent-event whose resolution places one or more target cards "off to the
+ * side" with it (e.g. *Sack Over the Head*, *Summons from Long Sleep*,
+ * *Sacrifice of Form*). Set-aside cards:
+ *
+ * - are kept with the host (recorded in the host {@link CardInPlay}'s
+ *   `setAside` list, each child stamped with `setAsideHost`);
+ * - count as "in play" for uniqueness;
+ * - cannot be targeted except by cards whose `play-target` declares
+ *   `targetsSetAside`;
+ * - are discarded to their **owner** when the host leaves play, unless
+ *   {@link keepOnHostRemoval} is set (the host states otherwise);
+ * - award their marshalling points to their **owner**, not the host's player.
+ *
+ * The target(s) are selected by the host's accompanying `play-target` effect;
+ * this effect only declares the off-to-the-side disposition. Per-card wiring of
+ * which cards a given host sets aside is card-certification work.
+ */
+export interface SetAsideEffect extends EffectBase {
+  readonly type: 'set-aside';
+  /**
+   * When true, the host card states the set-aside cards are *not* discarded
+   * when the host leaves play (they remain in play under their owner).
+   * Defaults to false — set-aside cards are discarded with the host.
+   */
+  readonly keepOnHostRemoval?: boolean;
 }
 
 /**

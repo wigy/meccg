@@ -262,6 +262,13 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
 
     // Gwaihir special movement: can reach any non-shadow/dark site
     if (company.specialMovement === 'gwaihir') {
+      // MEAS §6(b): Eagle-mounts and Gwaihir cannot move to or from an
+      // Under-deeps site. When the origin is Under-deeps, special movement is
+      // unavailable entirely.
+      if (currentSiteDef.keywords?.includes('under-deeps')) {
+        logDetail(`Company ${company.id as string} at ${currentSiteDef.name} is under-deeps — excluded from Eagle/Gwaihir movement`);
+        continue;
+      }
       const regionTypeMap = buildRegionTypeMap(state);
       logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Gwaihir special movement — filtering sites`);
       for (const siteDef of candidateSites) {
@@ -269,6 +276,11 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         if (!destInstId) continue;
         if (blockedByRule_2_II_7_1.has(siteDef.id)) {
           logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        // MEAS §6(b): an Under-deeps destination is never reachable by Eagle/Gwaihir.
+        if (siteDef.keywords?.includes('under-deeps')) {
+          logDetail(`  ${siteDef.name} is under-deeps — excluded from Eagle/Gwaihir movement`);
           continue;
         }
         // Exclude sites in Shadow-land (shadow) or Dark-domain (dark) regions
@@ -293,7 +305,15 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
-    const effectiveMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0) + collectPassiveMovementBonus(state, company.characters, player);
+    // CoE 3.44 / MEAS §3: region movement spans a maximum of 4 consecutive
+    // regions, or 6 when an effect grants extra region distance. The total is
+    // hard-capped at 6 no matter how much extra distance is granted.
+    const MAX_EXTENDED_REGION_DISTANCE = BASE_MAX_REGION_DISTANCE + 2;
+    const requestedMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0) + collectPassiveMovementBonus(state, company.characters, player);
+    const effectiveMaxRegions = Math.min(requestedMaxRegions, MAX_EXTENDED_REGION_DISTANCE);
+    if (effectiveMaxRegions < requestedMaxRegions) {
+      logDetail(`Company ${company.id as string}: region distance capped at ${MAX_EXTENDED_REGION_DISTANCE} (requested ${requestedMaxRegions})`);
+    }
     const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
     // regular starter/region movement. When already at an under-deeps site, regular movement

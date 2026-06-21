@@ -73,6 +73,15 @@ export function getEffectiveSiteType(
   siteDefinitionId: CardDefinitionId,
   printedType: SiteType,
 ): SiteType {
+  // MEAS §6(d): an environment card that changes a site's type (Choking
+  // Shadows, Quiet Lands, …) cannot change the type of an Under-deeps site.
+  // Short-circuit before folding any override constraint so every consumer
+  // (hazard keying, item playability, untap) sees the unchanged printed type.
+  const siteDef = state.cardPool[siteDefinitionId as string] as { keywords?: readonly string[] } | undefined;
+  if (siteDef?.keywords?.includes('under-deeps')) {
+    return printedType;
+  }
+
   let value: SiteType = printedType;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier') continue;

@@ -168,7 +168,10 @@ export function isWizard(player: PlayerState): boolean {
  * applied at the legal-action site.
  */
 export function canCallEndgameNow(player: PlayerState): boolean {
-  const mp = player.marshallingPoints;
+  // MEAS §6e: MPs of companies at an Under-deeps site do not count toward
+  // *reaching* the call threshold — use the callable totals, not the full tally.
+  // Fall back to the full tally for states constructed before this field exists.
+  const mp = player.callableMarshallingPoints ?? player.marshallingPoints;
   const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
   const exhaustions = player.deckExhaustionCount;
   return (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;

@@ -30,15 +30,16 @@ import { recomputeDerived } from './recompute-derived.js';
 import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
+import { sweepSetAside } from './set-aside.js';
 
 /**
- * Post-action housekeeping: sweep manifestation cascades (METD §4.2)
- * before re-deriving aggregates so MP/influence totals reflect any
- * cards moved by the cascade, then record any newly-revealed card
- * identities from public locations.
+ * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
+ * orphaned "off to the side" cards (MEAS §1) whose host has left play, then
+ * re-derive aggregates so MP/influence totals reflect any cards moved, then
+ * record any newly-revealed card identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))));
+  return accrueRevealedInstances(recomputeDerived(sweepSetAside(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state)))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
