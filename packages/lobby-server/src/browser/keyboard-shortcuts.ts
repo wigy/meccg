@@ -375,6 +375,12 @@ function showShortcutLabels(): void {
   const radar = document.querySelector<HTMLElement>('.map-radar');
   if (radar) placeLabel(radar, 'End');
 
+  // Company-nav arrows are driven by ArrowLeft / ArrowRight (see company-view.ts).
+  const leftArrow = document.querySelector<HTMLElement>('.company-nav-arrow--left');
+  if (leftArrow) placeLabel(leftArrow, 'Left');
+  const rightArrow = document.querySelector<HTMLElement>('.company-nav-arrow--right');
+  if (rightArrow) placeLabel(rightArrow, 'Right');
+
   // Own piles get Tab+letter labels.
   for (const { key, id } of TAB_PILE_BINDINGS) {
     const el = document.getElementById(id);
