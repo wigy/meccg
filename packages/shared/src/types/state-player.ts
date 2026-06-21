@@ -92,6 +92,15 @@ export interface PlayerState {
    */
   readonly callableMarshallingPoints: MarshallingPointTotals;
   /**
+   * Fallen-wizard stage points (MEWH): the running total of stage points
+   * printed on this player's in-play stage permanent-events. Derived (summed
+   * from `stage-points` effects) by `recomputeDerived`, never mutated directly.
+   * Always 0 for non-Fallen-wizard players. A Fallen-wizard must keep this at
+   * 3 or more, and some rules key off higher thresholds (e.g. the optional
+   * company-vs-company combat rule above 10).
+   */
+  readonly stagePoints: number;
+  /**
    * How much of the player's 20-point general influence pool is currently committed
    * to controlling characters. Characters whose mind value exceeds remaining GI cannot be played.
    */

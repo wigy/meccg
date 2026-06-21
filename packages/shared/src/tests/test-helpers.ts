@@ -520,6 +520,12 @@ export interface PlayerSetup {
   marshallingPoints?: Partial<MarshallingPointTotals>;
   /** Override how many times the play deck has been exhausted (defaults to 0). */
   deckExhaustionCount?: number;
+  /**
+   * Override the Fallen-wizard stage-point total (defaults to 0). Normally
+   * derived by `recomputeDerived`; set this for tests that assert directly on a
+   * starting stage total without placing stage cards in play.
+   */
+  stagePoints?: number;
 }
 
 /** Options for {@link buildTestState}. */
@@ -652,6 +658,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
       marshallingPoints: { ...ZERO_MARSHALLING_POINTS, ...(setup.marshallingPoints ?? {}) },
       callableMarshallingPoints: { ...ZERO_MARSHALLING_POINTS, ...(setup.marshallingPoints ?? {}) },
+      stagePoints: setup.stagePoints ?? 0,
       generalInfluenceUsed: 0,
       generalInfluenceBonus: 0,
       deckExhaustionCount: setup.deckExhaustionCount ?? 0,

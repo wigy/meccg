@@ -107,6 +107,7 @@ contribution; total is per-player and not visible to the opponent beyond project
 ## 2. Stage resources — ✗ MISSING
 
 **Rule.**
+
 - A FW player **must attempt to start** with 1–3 stage **permanent-event** cards in play
   totalling exactly **3 stage points**; ≥1 must be **non-unique**; cards whose play
   conditions don't exist may not be started; revealed like starting characters (duplicate
@@ -182,6 +183,7 @@ a Wizard at Rivendell still heals (no regression).
 ## 4. Marshalling points (Fallen-wizard) — ✗ MISSING
 
 **Rule.**
+
 - Stage resource MP is handled normally (as printed).
 - **All other** MP cards are worth **only 1 MP each** to a FW, regardless of printed value.
 - That 1 MP **cannot be modified by a hero or minion resource event** (Rumor of the One,
@@ -218,6 +220,7 @@ MP scores as printed.
 
 **Rule.** FW wins as a METW Wizard (opponent eliminated / recover The One Ring / most MP at
 Free Council), with exceptions:
+
 - One Ring win requires ***A New Ringlord*** (wh-60) to have been played and its conditions
   met.
 - Free Council MP comparison is normal but is the FW's **Day of Reckoning** (§4).
@@ -244,6 +247,7 @@ triggers.
 ## 6. Corruption checks (Fallen-wizard) — ✗ MISSING
 
 **Rule.**
+
 - A **Fallen-wizard avatar**'s corruption check is handled **as a minion**: if the roll
   equals his CP total **or one less**, he is **tapped instead of discarded**, and is **not**
   considered to have failed.
@@ -284,6 +288,7 @@ CP−1 is tapped (minion-mode), guarding the newly-introduced general rule.
 ## 7. Movement & site usage — ✗ MISSING
 
 **Rule.**
+
 - FW companies **must use region movement**.
 - Moving to a site, **both players draw** based on the destination — **even at a
   Wizardhaven** (no haven no-draw exception for FW).
@@ -334,6 +339,7 @@ site-type-change swaps the in-play site card; an Agent uses the hero version.
 ## 8. Attack permissions — ✗ MISSING
 
 **Rule.**
+
 - FW companies may attack **Ringwraith** companies and vice versa (MELE p. 80).
 - **Non-overt** FW companies and **Wizard** companies may **not** attack each other.
 - **Overt** FW companies may attack **any** company controlled by another player and vice
@@ -343,6 +349,7 @@ site-type-change swaps the in-play site card; an Agent uses the hero version.
 
 Centralize a **`canAttack(attackerCompany, defenderCompany)`** permission used by the
 company-vs-company / face-up attack legal actions:
+
 - FW(overt) ↔ anyone: allowed.
 - FW(non-overt) ↔ Ringwraith/Balrog: allowed.
 - FW(non-overt) ↔ Wizard: **forbidden**.
@@ -359,6 +366,7 @@ company can against any opponent.
 ## 9. Special Orc & Troll rules — △ PARTIAL
 
 **Rule (whole MEWH section).**
+
 - A company with **any Orc/Troll character** is **overt**. So is a company with any of:
   Great Bats, Great Lord of Goblin-gate, Last Child of Ungoliant, Regiment of Black Crows,
   Two-Headed Troll (ally `company-overt`).
@@ -441,6 +449,7 @@ bonus is ignored on an Orc bearer but applied on a Man bearer; Half-orc takes no
 ## 10. Resource targeting, playing at a site, gold rings — ✗ MISSING
 
 **Rule.**
+
 - A **hero** resource may not target/affect a **minion** site or minion resource; a
   **minion** resource may not target/affect a **hero** site or hero resource. *(Exception:
   Spells and Magic are not subject to this.)*
@@ -473,6 +482,7 @@ site; a FW hero gold-ring test is at −1 and the offered ring may be hero or mi
 ## 11. Setup — △ PARTIAL
 
 **Rule.**
+
 - The FW must **declare which Fallen-wizard** he plays **before** choosing starting
   companies. The opponent may then **replace** any matching hero Wizard cards in his deck /
   sideboard with other available Wizards, and may **add 10 cards** to his sideboard
