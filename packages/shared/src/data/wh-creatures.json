@@ -1,0 +1,27 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "wh-13",
+    "name": "Goblin-faces",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Goblinfaces.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "orcs,men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "shadow"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Men. 3 strikes. Following the attack, the attacker looks at a number of cards from the top of the defender’s play deck equal to the number of successful strikes of the attack. The attacker may place any of these cards face down on the bottom of the defender’s play deck (in any order he chooses). He places the rest on top of the defender’s deck (in any order he chooses)."
+  }
+]

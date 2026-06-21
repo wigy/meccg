@@ -42,6 +42,8 @@ import whCharacters from './wh-characters.json';
 import whItems from './wh-items.json';
 import whResources from './wh-resources.json';
 import whSites from './wh-sites.json';
+import whCreatures from './wh-creatures.json';
+import whHazards from './wh-hazards.json';
 
 // ---- The Dragons (TD) — dragon expansion ----
 import tdCharacters from './td-characters.json';
@@ -96,6 +98,8 @@ const allCards: readonly CardDefinition[] = [
   ...(whItems as unknown as CardDefinition[]),
   ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
+  ...(whCreatures as unknown as CardDefinition[]),
+  ...(whHazards as unknown as CardDefinition[]),
   // The Dragons
   ...(tdCharacters as unknown as CardDefinition[]),
   ...(tdItems as unknown as CardDefinition[]),

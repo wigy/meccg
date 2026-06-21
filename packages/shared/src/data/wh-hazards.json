@@ -1,0 +1,192 @@
+[
+  {
+    "cardType": "hazard-event",
+    "id": "wh-14",
+    "name": "Blind to the West",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BlindtotheWest.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Targets and cancels one hero short-event played by a Fallen-wizard earlier in the same chain of effects. This card can be played at any time and does not count against the hazard limit. Remove this card from the game."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-15",
+    "name": "Cast from the Order",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/CastfromtheOrder.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Fallen-wizard. Make a roll and add the Fallen-wizard’s stage points. If the result is less than 16, discard this card. Otherwise, place this card with the Fallen-wizard. The Fallen-wizard’s player must use minion sites for Border-holds [{B}], Free-holds [{F}], and hero Havens [{H}]. Also, the Fallen-wizard’s company is overt."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-16",
+    "name": "Cruel Claw Perceived",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/CruelClawPerceived.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Wizard, Fallen-wizard, or Ringwraith. His general influence is modified by -1. If he is a Fallen-wizard, this modifier is instead: -9 if his stage points (SPs) exceed 20, -7 if his SPs exceed 15, -5 if his SPs exceed 10, or -3 if his SPs exceed 5 (use the first modifier that applies). Additionally, the Fallen-wizard’s hand size is reduced by 1 if his SPs exceed 10, and by 1 more if his SPs exceed 20. Cannot be duplicated on a given character. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-17",
+    "name": "Echoes of the Song",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/EchoesoftheSong.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "If your opponent has more than one stage card and 4 or more stage points, he must discard one stage card of his choice. Alternatively, force a target character to make a corruption check. Remove this card from the game."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-18",
+    "name": "Flotsam and Jetsam",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FlotsamandJetsam.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "If a player has 15 or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects are automatically canceled which allow him to search through or look at any portion of his play deck or discard pile outside of the normal sequence of play. Discard when any play deck is exhausted. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-19",
+    "name": "Fool’s Bane",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FoolsBane.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Fallen-wizard. Influence checks he makes against hero resources are modified by: -9 if his stage points (SPs) exceed 18, -7 if his SPs exceed 12, -5 if his SPs exceed 7, -3 if his SPs exceed 3, or -1 if his SPs exceed 0 (use the first modifier that applies). Additionally, his Elf characters and Elf factions are each worth 0 marshalling points in all cases. Cannot be duplicated on a given Fallen-wizard. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-20",
+    "name": "Foul Tooth Unsheathed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FoulToothUnsheathed.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if your opponent is a Fallen-wizard. If your opponent has 7 or more stage points and is not Alatar, hazards his companies defeat (while this card is in play) without an asterisk [*] are worth no marshalling points. This card overrides any conflicting resources."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-21",
+    "name": "Heart Grown Cold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/HeartGrownCold.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Fallen-wizard players must use minion site cards for hero Havens [{H}]. If a Fallen-wizard has more than 4 stage points, his player must also use minion site cards for Free-holds [{F}]. If a Fallen-wizard has more than 7 stage points, his player must also use minion site cards for Border-holds [{B}]."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-22",
+    "name": "In the Grip of Ambition",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/IntheGripofAmbition.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a Fallen-wizard or a Wizard. He receives 1 corruption point (CP). If he is a Fallen-wizard, he receives 2 stage points. If he has more than 7 stage points, he receives an additional stage point. Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 8, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-23",
+    "name": "Inner Rot",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/InnerRot.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a Wizard or a Fallen-wizard. He receives 1 corruption point (CP). If he is a Fallen-wizard, he receives 2 stage points and the CPs received are instead: 4 CPs if his stage points (SPs) exceed 18, 3 CPs if his SPs exceed 11, 2 CPs if his SPs exceed 5, 1 CP if his SPs exceed 0 (use the first that applies). The target makes a corruption check whenever his controlling player plays a stage card. Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 6, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-24",
+    "name": "Ire of the East",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/IreoftheEast.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Targets and cancels one minion short-event played by a Fallen-wizard earlier in the same chain of effects. This card can be played at any time and does not count against the hazard limit. Remove this card from the game."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-25",
+    "name": "Longing for the West",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LongingfortheWest.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Corruption. Playable on a Wizard or a Fallen-wizard. He receives 2 corruption points and makes a corruption check at the end of his untap phase if not at a Haven [{H}] (or Wizardhaven). Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 6, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-26",
+    "name": "Mask Torn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MaskTorn.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Fallen-wizards may not bring characters with more than 4 mind into play. If a Fallen-wizard has more than 9 stage points, he may not bring characters with more than 3 mind into play. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-27",
+    "name": "Nature’s Revenge",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/NaturesRevenge.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a site in a Wilderness [{w}] that normally is a Border-hold [{B}] or a Shadow-hold [{S}], or on a non-protected Wizardhaven [{H}] in a Wilderness [{w}]. All versions of the site become Ruins & Lairs [{R}] and each gains an additional automatic-attack: Animals — each character faces 1 strike with 7 prowess. Discard this card when the site is discarded or returned to its location deck."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-28",
+    "name": "Power Relinquished to Artifice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PowerRelinquishedtoArtifice.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Wizard, Fallen-wizard, or Ringwraith. His prowess and direct influence are each modified by -1. If he is a Fallen-wizard, these modifiers are instead: -5 if his stage points (SPs) exceed 20, -4 if his SPs exceed 15, -3 if his SPs exceed 10, -2 if his SPs exceed 5 (use the first modifer that applies). For Alatar and Radagast, reduce the modifier to 0 for prowess and double it for direct influence. Cannot be duplicated on a given character. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-29",
+    "name": "Rolled down to the Sea",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/RolleddowntotheSea.jpg",
+    "unique": true,
+    "eventType": "short",
+    "effects": [],
+    "text": "Unique. Opponent must discard a ring from his hand or from one of his companies if available. If no rings are available as such, he must reveal his hand to you."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-30",
+    "name": "Something Else at Work",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SomethingElseatWork.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a character. Any influence check he makes is modified by -1 and any test for a gold ring in his company is modified by -1. If he is a Fallen-wizard, these modifiers are both instead: -4 if his stage points (SPs) exceed 14, -3 if his SPs exceed 9, -2 if his SPs exceed 4, -1 is his SPs exceed 0 (use the first modifier that applies). Cannot be duplicated on a given character. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-31",
+    "name": "Whole Villages Roused",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WholeVillagesRoused.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a hero Border-hold [{B}] or Free-hold [{F}]. The site has the automatic-attacks indicated on the corresponding minion site card (detainment against hero companies) but with +2 prowess. Alternatively, playable on a minion Shadow-hold [{S}] or Dark-hold [{D}]. The site has the automatic-attacks indicated on the corresponding hero site card (detainment against overt companies) but with +2 prowess."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "wh-32",
+    "name": "Will You Not Come Down?",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WillYouNotComeDown.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a Fallen-wizard at a Wizardhaven [{H}]. Your opponent must choose to either: discard from play enough stage cards (of his choice) to reduce his stage point total below 7 or to receive 4 stage points. Cannot be duplicated on a given Fallen-wizard."
+  }
+]

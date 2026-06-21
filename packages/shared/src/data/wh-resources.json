@@ -14,15 +14,23 @@
       {
         "type": "play-condition",
         "requires": "site-type",
-        "siteTypes": ["haven"]
+        "siteTypes": [
+          "haven"
+        ]
       },
       {
         "type": "play-target",
         "target": "character",
         "filter": {
           "$and": [
-            { "target.isAvatar": true },
-            { "target.itemNames": { "$includes": "The One Ring" } }
+            {
+              "target.isAvatar": true
+            },
+            {
+              "target.itemNames": {
+                "$includes": "The One Ring"
+              }
+            }
           ]
         }
       },
@@ -31,10 +39,18 @@
         "event": "owner-end-of-turn",
         "apply": {
           "type": "win-condition-roll",
-          "rollModifiers": ["copies-in-play"],
+          "rollModifiers": [
+            "copies-in-play"
+          ],
           "bands": [
-            { "lt": 6, "outcome": "eliminate-avatar" },
-            { "gt": 9, "outcome": "win-game" }
+            {
+              "lt": 6,
+              "outcome": "eliminate-avatar"
+            },
+            {
+              "gt": 9,
+              "outcome": "win-game"
+            }
           ]
         }
       }
@@ -134,7 +150,14 @@
         "requiredSkill": "ranger",
         "when": {
           "enemy.race": {
-            "$in": ["wolf", "animal", "spider", "dragon", "drake", "undead"]
+            "$in": [
+              "wolf",
+              "animal",
+              "spider",
+              "dragon",
+              "drake",
+              "undead"
+            ]
           }
         }
       }
@@ -206,12 +229,24 @@
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
-      { "region": "Rohan" },
-      { "region": "Southern Rhovanion" },
-      { "region": "Khand" },
-      { "region": "Dorwinion" },
-      { "region": "Horse Plains" },
-      { "region": "Harondor" }
+      {
+        "region": "Rohan"
+      },
+      {
+        "region": "Southern Rhovanion"
+      },
+      {
+        "region": "Khand"
+      },
+      {
+        "region": "Dorwinion"
+      },
+      {
+        "region": "Horse Plains"
+      },
+      {
+        "region": "Harondor"
+      }
     ],
     "effects": [
       {
@@ -221,14 +256,1020 @@
       {
         "type": "passive-movement-bonus",
         "value": 2,
-        "allyNames": ["Noble Steed", "Bill the Pony", "Shadowfax"]
+        "allyNames": [
+          "Noble Steed",
+          "Bill the Pony",
+          "Shadowfax"
+        ]
       },
       {
         "type": "cancel-strike",
-        "cost": { "tap": "self" },
-        "when": { "$not": { "attack.source": { "$in": ["automatic-attack", "played-auto-attack"] } } }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "$not": {
+            "attack.source": {
+              "$in": [
+                "automatic-attack",
+                "played-auto-attack"
+              ]
+            }
+          }
+        }
       }
     ],
     "certified": "2026-05-18"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "wh-35",
+    "name": "The White Council",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteCouncil.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during your organization phase in your marshalling point pile if your Wizard is in a Haven [{H}] and you have more marshalling points than your opponent. Your opponent must be a Fallen-wizard or a Wizard. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "wh-36",
+    "name": "The White Wizard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteWizard.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable on a Wizard with Sacrifice of Form. +2 to his direct influence, +1 to all of his corruption checks. Discard if Saruman is in play as an opposing Wizard."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "wh-37",
+    "name": "A Panoply of Wings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/APanoplyofWings.jpg",
+    "unique": false,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "animal",
+    "playableAt": [
+      {
+        "site": "any"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to make information playable at such a site."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "dual",
+    "id": "wh-38",
+    "name": "Beasts of the Wood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BeastsoftheWood.jpg",
+    "unique": false,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "animal",
+    "playableAt": [
+      {
+        "site": "any"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped non-Haven, non-Darkhaven, non-Dark-hold site in Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Fangorn, or Cardolan if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Tap this faction to cancel an attack keyed by name to one of the regions listed above. May also be used as a minion resource card that is only playable by a character in a covert company."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "wh-39",
+    "name": "Wild Horses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WildHorses.jpg",
+    "unique": false,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "animal",
+    "playableAt": [
+      {
+        "site": "any"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped non-Haven site in Rohan, Khand, Dorwinion, Horse Plains, Southern Rhovanion, or Harondor if the influence check is greater than 11.Standard Modifications: Men with home sites in the regions listed above (+3).Tap this faction to allow any company with one of the regions listed above in its site path to move up to 1 additional region."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "dual",
+    "id": "wh-40",
+    "name": "Wild Hounds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WildHounds.jpg",
+    "unique": false,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "animal",
+    "playableAt": [
+      {
+        "site": "any"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to cancel an automatic-attack at a Ruins & Lairs [{R}] or an attack keyed to Wilderness [{w}] or Ruins & Lairs [{R}]. May also be used as a minion resource card that is only playable by a character in a covert company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-41",
+    "name": "The Black Council",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheBlackCouncil.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during your organization phase in your marshalling points pile if your Ringwraith is in a Darkhaven [{DH}] and you have more marshalling points than your opponent and your opponent is a Ringwraith.Cannot be duplicated on a given turn. Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-42",
+    "name": "Counterfeit",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Counterfeit.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on an Orc character in a spirit-magic using character’s company. The Orc is considered to be a Half-orc for all purposes. Unless he is a Ringwraith, the spirit-magic using character makes a corruption check modified by -3. Discard if the Orc character is in a company that does not contain a spirit-magic using character."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-44",
+    "name": "The Fiery Blade",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheFieryBlade.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body (-2 body and -2 prowess against The Witch-king). Discard The Fiery Blade after a strike against the Ringwraith fails or if the Ringwraith has Morgul-blade. Cannot be duplicated. Cannot be included in a Balrog's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-45",
+    "name": "Govern the Storms",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GoverntheStorms.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Cancel all hazard effects for the rest of the turn that: force a sorcery-using character’s company to return to its site of origin or would tap its current or new site. Unless he is a Ringwraith, the sorcery using character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-46",
+    "name": "Open to the Summons",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/OpentotheSummons.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a company. One agent character may be played with target company at a Darkhaven [{DH}] or in your starting company — place this card with the agent. -1 to his mind to a minimum of 1. This card may be played with a starting company in lieu of a minor item. When played as such, reveal it when starting companies are determined as if it were a character.Does not allow you to start with a character that says he cannot be in the starting company. Cannot be duplicated on a given character. Cannot be included in a Balrog's deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-48",
+    "name": "Poison of his Voice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PoisonofhisVoice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on a hazard permanent-event on a character in a spirit-magic-using character’s company. Discard target hazard. Alternatively, playable on a spirit-magic-using Fallen-wizard. -6 to his stage points (to a minimum of 3) for the rest of the turn. Unless the spirit-magic-user is a Ringwraith, he makes a corruption check modified by -3."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-49",
+    "name": "Sojourn in Shadows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SojourninShadows.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Shadow-magic. Playable before strikes are assigned on a character facing an attack in a shadow-magic using character’s company. Target character cannot be assigned a strike from the attack. Unless he is a Ringwraith, the shadow-magic using character makes a corruption check modified by -4."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-50",
+    "name": "White Light Broken",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WhiteLightBroken.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character. All of his corruption checks are modified by +2 for the rest of the turn.Alternatively, playable on a sorcery-using Fallen-wizard. -4 to his stage points (to a minimum of 3) for the rest of the turn.Unless the sorcery-user is a Ringwraith, he makes a corruption check."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-59",
+    "name": "A Merrier World",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AMerrierWorld.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-61",
+    "name": "A Strident Spawn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AStridentSpawn.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Playable if you are Pallando or Saruman and have 6 or more stage points and a protected Wizardhaven [{H}]. Each of your Half-orcs requires one less point of influence to control. During your organization phase, you may take one Half-orc character from your discard pile to your hand. You may play Half-orc characters at your Wizardhavens [{H}], even if your Fallen-wizard is not there or Bad Company is not in play. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-62",
+    "name": "An Untimely Brood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AnUntimelyBrood.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-63",
+    "name": "Bad Company",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BadCompany.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "You may play Orc and Troll characters and include them in your starting company. You cannot start with a character that says he cannot be in the starting company. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-64",
+    "name": "Blind to All Else",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BlindtoAllElse.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Your ring items are each worth full marshalling points. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-65",
+    "name": "Delver’s Harvest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DelversHarvest.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase if one of your companies enters the Deep Mines site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-66",
+    "name": "Double-dealing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Doubledealing.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-67",
+    "name": "Earth-eater",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Eartheater.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Technology. Playable during the site phase if one of your companies enters the Deep Mines site and you have more Delver’s Harvest cards in play than you have Earth-eater cards. Tap Earth-eater to take a minion non-unique weapon/armor/shield/helmet major item from your sideboard or discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-68",
+    "name": "The Fortress of Isen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheFortressofIsen.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on Isengard. Isengard is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for Isengard. Cards that give marshalling points cannot be played at Isengard by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-69",
+    "name": "Fortress of the Towers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FortressoftheTowers.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on The White Towers. The White Towers is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for The White Towers. Cards that give marshalling points cannot be played at The White Towers by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-70",
+    "name": "Gatherer of Loyalties",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GathererofLoyalties.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-71",
+    "name": "Gnawed Ways",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GnawedWays.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on one of your Deep Mines sites. The Deep Mines site is now adjacent to an Under-deeps site of your choice whose surface site is in a region containing or adjacent to the region containing the Deep Mines surface site. The movement number required to move between these two Under-deeps sites is (7). This card may also be played as a hazard on one of your opponent’s Deep Mines sites. Discard this card when Deep Mines is discarded or returned to its location deck. Cannot be duplicated on a given Deep Mines site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-72",
+    "name": "Great Patron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GreatPatron.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Your characters and allies that normally give 2 or more marshalling points are each worth 2 marshalling points. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-73",
+    "name": "Great Ruse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GreatRuse.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a Shadow-hold [{S}] or Dark-hold [{D}] hero site if you have an overt company there. Replace the hero site card with the corresponding minion site card. Discard when this site is discarded or returned to your location deck."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-74",
+    "name": "Guarded Haven",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GuardedHaven.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-76",
+    "name": "Legacy of Smiths",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LegacyofSmiths.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-77",
+    "name": "Mischief in a Mean Way",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MischiefinaMeanWay.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-78",
+    "name": "Never Refuse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/NeverRefuse.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "All corruption checks by your non-Wizard characters caused by your magic cards are modified by +2."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-79",
+    "name": "Plotting Ruin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PlottingRuin.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you have more than 7 stage points. You must use minion site cards for Hero Havens [{H}], Free-holds [{F}], and Border-holds [{B}]."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-80",
+    "name": "Shameful Deeds",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ShamefulDeeds.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable if you are not Alatar and have more than 6 stage points. Hazards with an asterisk [*] attack your companies normally, not as detainment. Such hazards your companies defeat while this card is in play give you full kill marshalling points. You receive no kill marshalling points from other hazards if this card is in play. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-81",
+    "name": "Spells Born of Discord",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SpellsBornofDiscord.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Your Fallen-wizard may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-83",
+    "name": "War-forges",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Warforges.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on one of your protected Wizardhavens [{H}] (not by Radagast). You may tap War-forges to make an additional non-hoard, non-unique minor item playable at this site this turn (if the site is tapped or not). The item may be taken from your discard pile or sideboard. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-84",
+    "name": "Wizard’s Myrmidon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WizardsMyrmidon.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-85",
+    "name": "Wizard’s Trove",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WizardsTrove.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "You may play The White Tree at one of your Wizardhavens [{H}] if Sapling of the White Tree is stored there. Place Wizard’s Trove with The White Tree—which is worth full marshalling points. Your Wizardhaven [{H}] becomes protected. Ignore the text of The White Tree (including the Unique keyword). Alternatively, you may store one miscellaneous marshalling point card at one of your Wizardhavens [{H}]. Any reference to the site where the card can normally be stored are transferred instead to the Wizardhaven [{H}]. Place Wizard’s Trove with the stored card—which is worth full marshalling points."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "stage",
+    "id": "wh-86",
+    "name": "Greater Half-orcs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GreaterHalforcs.jpg",
+    "unique": false,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 12,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "one"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn and Half-orcs in play and if the influence check is greater than 11."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "stage",
+    "id": "wh-87",
+    "name": "Half-orcs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Halforcs.jpg",
+    "unique": false,
+    "marshallingPoints": 1,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "one"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-90",
+    "name": "Bow of Alatar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BowofAlatar.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-91",
+    "name": "The Great Hunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheGreatHunt.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Alatar specific. Playable if you are Alatar and have at least 12 stage points. Your opponent reveals cards one at a time from his play deck or his discard pile (your choice). Any hazard creature revealed immediately attacks Alatar’s company. This process stops when 5 creatures or all cards of the deck (or pile) have been revealed. Reshuffle play deck if used. Thereafter, your opponent discards face-up. Whenever your opponent discards a creature during your turn, you may choose to have it attack Alatar’s company instead. Cannot be duplicated."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-92",
+    "name": "Huntsman’s Garb",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/HuntsmansGarb.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-93",
+    "name": "Join the Hunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/JointheHunt.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-94",
+    "name": "Oromë’s Warders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/OromesWarders.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Alatar specific. Playable on Alatar if Join the Hunt is in play. Your weapon/shield/ armor/helmet items are each worth full marshalling points. Your allies with a prowess attribute are each worth full marshalling points. Your Elf factions are each worth 2 marshalling points."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-95",
+    "name": "Squire of the Hunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SquireoftheHunt.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-96",
+    "name": "Await the Onset",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AwaittheOnset.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Gandalf specific. Playable if you are Gandalf and have at least: 12 stage points, two protected Wizardhavens [{H}], 4 factions, and 6 characters. Each faction you play after Await the Onset is worth 1 marshalling point regardless of other cards in play (place these factions under Await the Onset). Each of your marshalling point cards in a company not in one of your Wizardhavens [{H}] when the game ends is worth 1 marshalling point regardless of other cards in play. Cannot be duplicated."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-97",
+    "name": "Chambers in the Royal Court",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ChambersintheRoyalCourt.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-98",
+    "name": "Gandalf’s Friend",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GandalfsFriend.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Gandalf specific. Playable on one of your characters at one of your Wizardhavens [{H}] (or in your starting company). +2 to his direct influence. This character requires 1 point of influence to control and may only be controlled by general influence or Gandalf."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-99",
+    "name": "Give Welcome to the Unexpected",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GiveWelcometotheUnexpected.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique non-character cards normally worth 1 marshalling point are each worth 2 marshalling points."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-100",
+    "name": "Grey Embassy",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GreyEmbassy.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique hero factions normally worth 2 or fewer marshalling points are each worth 2 marshalling points. If on Gandalf, your unique hero factions normally worth 3 or more marshalling points are each worth 3 marshalling points."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-101",
+    "name": "The Grey Hat",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheGreyHat.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap The Grey Hat during your end-of-turn phase to take New Friendship, Wizard’s Test, or Hobbit-lore from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-102",
+    "name": "Ring of Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/RingofFire.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap Ring of Fire during your organization phase to take Narya from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-103",
+    "name": "Arcane School",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ArcaneSchool.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage at one of your Wizardhavens [{H}] (or in your starting company). The character may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-104",
+    "name": "Pallando’s Apprentice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PallandosApprentice.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-105",
+    "name": "Pallando’s Hood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PallandosHood.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-106",
+    "name": "Prophet of Doom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ProphetofDoom.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-107",
+    "name": "Stave of Pallando",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/StaveofPallando.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Stave of Pallando during your end-of-turn phase to take a faction from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-108",
+    "name": "Truths of Doom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TruthsofDoom.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-109",
+    "name": "Friend of Secret Things",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FriendofSecretThings.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique.Radagast specific. Your companies with a company size of 2 or less may play allies at tapped sites."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-110",
+    "name": "Girdle of Radagast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GirdleofRadagast.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Radagast specific. Playable on one of your protected Wizardhavens [{H}] if you are Radagast and have at least 12 SPs and 6 allies and/or unique factions in play (the factions must be playable at sites in the Wizardhaven’s [{H}] region or adjacent regions). The Wizardhaven’s region and all adjacent regions become Wilderness [{w}]. Cannot be duplicated."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-111",
+    "name": "Glove of Radagast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/GloveofRadagast.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-112",
+    "name": "Master of Shapes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MasterofShapes.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Ranger. Radagast’s prowess is only modified by -1 when not tapping to face a strike. Radagast may bear, but may not use items."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-113",
+    "name": "Pocketed Robes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PocketedRobes.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "stage",
+    "id": "wh-114",
+    "name": "Radagast’s Black Bird",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/RadagastsBlackBird.jpg",
+    "unique": true,
+    "prowess": 2,
+    "body": 8,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "one of your Wizardhavens [{H}]"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-115",
+    "name": "Shifter of Hues",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ShifterofHues.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-116",
+    "name": "Winged Change-master",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WingedChangemaster.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Scout/Diplomat. If no other characters or allies (except his Black Bird) are in his company: Radagast may move to a new site with no region card maximum, he has no site path, and he is considered to move through no regions. Radagast may bear, but may not use, items."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-117",
+    "name": "The Forge-master",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheForgemaster.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-118",
+    "name": "Many-coloured Robes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ManycolouredRobes.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, he may tap during his end-of-turn phase to take Ringlore, Lordly Presence, or First of the Order from his discard pile to his hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-119",
+    "name": "Man of Skill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ManofSkill.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-120",
+    "name": "Saruman’s Machinery",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SarumansMachinery.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-121",
+    "name": "Saruman’s Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SarumansRing.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, you may tap Saruman’s Ring during your end-of-turn phase to take a ring item (other than The One Ring) from your discard pile to your hand."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "stage",
+    "id": "wh-122",
+    "name": "The White Hand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteHand.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Saruman specific. Playable on Saruman if he has the following in play: at least 12 stage points, at least 3 factions, A Strident Spawn, and Saruman’s Machinery. Cannot be duplicated."
   }
 ]

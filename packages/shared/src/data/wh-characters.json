@@ -205,5 +205,96 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "homesite": "Isengard"
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "wh-2",
+    "name": "Doeth (Durthak)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DoethDurthak.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "sage"
+    ],
+    "prowess": 4,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Unique. Half-orc. Discard on a body check result of 9."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "wh-3",
+    "name": "Euog (Ulzog)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/EuogUlzog.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Unique. Half-orc. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "wh-11",
+    "name": "Squint-eyed Brute",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SquinteyedBrute.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 3,
+    "body": 9,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "effects": [],
+    "text": "Half-orc. Discard on a body check result of 9."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "wh-12",
+    "name": "Uglúk",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Ugluk.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Isengard",
+    "effects": [],
+    "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions."
   }
 ]
