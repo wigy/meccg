@@ -38,7 +38,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, stagePointsOfCard } from './reducer-utils.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -709,9 +709,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   let stagePoints = 0;
   if (player.alignment === 'fallen-wizard') {
     for (const def of playerCardsInPlayDefs(state, player)) {
-      for (const effect of getCardEffects(def)) {
-        if (effect.type === 'stage-points') stagePoints += effect.value;
-      }
+      stagePoints += stagePointsOfCard(def);
     }
   }
 

@@ -508,6 +508,8 @@ export function describeAction(
       return `${action.player as string} taps ally ${action.allyInstanceId as string} to discard hazard ${action.targetInstanceId as string}`;
     case 'convert-creature-to-ally':
       return `${action.player as string} plays ${action.cardInstanceId as string} to convert the attacking creature into an ally controlled by ${action.controllingCharacterId as string}`;
+    case 'discard-stage-resource':
+      return `${action.player as string} discards stage resource ${action.cardInstanceId as string}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

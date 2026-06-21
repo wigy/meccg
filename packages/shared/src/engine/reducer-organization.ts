@@ -12,7 +12,7 @@ import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, 
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -51,6 +51,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'fetch-from-sideboard': handleFetchFromSideboard,
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
+  'discard-stage-resource': handleDiscardStageResource,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -104,6 +105,40 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
       phaseState: { phase: Phase.LongEvent },
     },
   };
+}
+
+/**
+ * Discard one of a Fallen-wizard's in-play stage resource permanent-events
+ * during the organization phase (MEWH "The Player Turn"). Rejected if it would
+ * drop the stage-point total below 3, or if the target is not the player's own
+ * in-play stage permanent-event. The card moves to the owner's discard pile;
+ * `recomputeDerived` re-derives the stage total.
+ */
+function handleDiscardStageResource(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-stage-resource') return wrongActionType(state, action, 'discard-stage-resource');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  if (player.alignment !== 'fallen-wizard') {
+    return { state, error: 'Only a Fallen-wizard may discard a stage resource' };
+  }
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Stage resource not found in play' };
+  const def = defById(state, card.definitionId);
+  if (!isResourceEventCard(def) || (def as { alignment?: string }).alignment !== 'stage' || def.eventType !== 'permanent') {
+    return { state, error: 'Target is not a stage resource permanent-event' };
+  }
+  const contribution = stagePointsOfCard(def);
+  if (player.stagePoints - contribution < 3) {
+    return { state, error: 'Discarding this stage resource would drop stage points below 3' };
+  }
+
+  logDetail(`Organization: ${player.name} discards stage resource ${def.name} (stage points ${player.stagePoints} → ${player.stagePoints - contribution})`);
+  const next = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
 }
 
 /**
