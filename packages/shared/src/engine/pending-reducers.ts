@@ -1529,9 +1529,20 @@ function applyGoldRingTestResolution(
     }
   }
 
+  // MEWH §10: "Whenever a Fallen-wizard player tests a hero gold ring item, the
+  // roll is modified by -1." A hero gold ring is a `hero-resource-item`; minion
+  // gold rings are unaffected.
+  const fwGoldRingModifier = player.alignment === 'fallen-wizard'
+    && ringDef !== undefined && 'cardType' in ringDef
+    && (ringDef as { cardType?: string }).cardType === 'hero-resource-item'
+    ? -1 : 0;
+  if (fwGoldRingModifier !== 0) {
+    logDetail(`Gold-ring test: Fallen-wizard testing a hero gold ring — applying ${formatSignedNumber(fwGoldRingModifier)} (MEWH §10)`);
+  }
+
   const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + rollModifier + itemCheckModifier;
-  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''} = ${total}; ring discarded`);
+  const total = roll.die1 + roll.die2 + rollModifier + itemCheckModifier + fwGoldRingModifier;
+  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''}${fwGoldRingModifier !== 0 ? ` fw ${formatSignedNumber(fwGoldRingModifier)}` : ''} = ${total}; ring discarded`);
 
   const rollEffect = diceRollEffect(player.name, roll, `Gold-ring test: ${ringName}`);
 

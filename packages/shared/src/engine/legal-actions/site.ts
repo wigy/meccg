@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1879,20 +1879,14 @@ function declareCompanyAttackActions(
         : company.currentSite.definitionId === opponentCompany.currentSite.definitionId;
       if (!sameSite) continue;
 
-      const A = player.alignment as string;
-      const D = otherPlayer.alignment as string;
-      let canAttack = false;
-      if (A === 'wizard') canAttack = D === 'ringwraith' || D === 'fallen-wizard' || D === 'balrog';
-      else if (A === 'ringwraith') canAttack = D === 'wizard' || D === 'fallen-wizard';
-      else if (A === 'fallen-wizard') canAttack = D === 'ringwraith' || D === 'balrog';
-      else if (A === 'balrog') canAttack = D === 'wizard' || D === 'fallen-wizard';
-
-      if (!canAttack) {
-        logDetail(`CvCC: alignment ${A} cannot attack ${D} — skipping ${opponentCompany.id}`);
+      const attackerCovert = isCovertCompany(company, player, state);
+      const defenderCovert = isCovertCompany(opponentCompany, otherPlayer, state);
+      if (!canAttackAlignment(player.alignment, otherPlayer.alignment, attackerCovert, defenderCovert)) {
+        logDetail(`CvCC: alignment ${player.alignment} cannot attack ${otherPlayer.alignment} — skipping ${opponentCompany.id}`);
         continue;
       }
 
-      logDetail(`CvCC: ${company.id} (${A}) can attack ${opponentCompany.id} (${D})`);
+      logDetail(`CvCC: ${company.id} (${player.alignment}) can attack ${opponentCompany.id} (${otherPlayer.alignment})`);
       actions.push({
         type: 'declare-company-attack',
         player: playerId,

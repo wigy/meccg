@@ -55,9 +55,9 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | △ partial | Gate + naming |
 | 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✓ done (CP attribution → §2) | Per-character corruption-class resolution (also fixed base minion gap) |
 | 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | ✗ missing | Site-eligibility + draw rules |
-| 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✗ missing | CvCC permission matrix |
+| 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✓ done | CvCC permission matrix |
 | 9 | **Special Orc & Troll rules** — overt triggers, play-gating, hero-resource restrictions, Half-orcs | △ partial | Large; overt mostly done, the rest missing |
-| 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | ✗ missing | Targeting guards + ring modifier |
+| 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | △ partial (gold ring done; targeting/site-tap deferred) | Targeting guards + ring modifier |
 | 11 | **Setup** — declare FW, opponent swap + 10 sideboard, start with stage cards, FW starting site | △ partial | New setup sub-step |
 | 12 | **FW leaves play** — discard wizard-specific stage permanent-events | ✗ missing | Removal sweep |
 | 13 | **Optional rules** — CvCC at >10 stage points; Wizard→FW conversion | ✗ missing | Optional/deferred |
@@ -361,7 +361,16 @@ site-type-change swaps the in-play site card; an Agent uses the hero version.
 
 ---
 
-## 8. Attack permissions — ✗ MISSING
+## 8. Attack permissions — ✓ DONE
+
+> **Implemented.** `canAttackAlignment(attacker, defender, attackerCovert, defenderCovert)`
+> moved into `reducer-utils.ts` (was a private, overt-blind copy in `reducer-site.ts` plus
+> an inlined duplicate in `legal-actions/site.ts` — both now call the shared helper). An
+> overt FW may attack anyone and may be attacked by anyone; a covert FW and a Wizard may not
+> attack each other; FW ↔ Ringwraith always. Covert status comes from `isCovertCompany` at
+> both CvCC call sites (`hasCvCCAttackTargets` and `handleDeclareCompanyAttack`). Test:
+> `rule-8.41-cvcc-alignment-restrictions.test.ts` extended with overt/covert cases (the old
+> overt-blind "Wizard can attack Fallen-wizard" assertion was corrected).
 
 **Rule.**
 
@@ -471,7 +480,18 @@ bonus is ignored on an Orc bearer but applied on a Man bearer; Half-orc takes no
 
 ---
 
-## 10. Resource targeting, playing at a site, gold rings — ✗ MISSING
+## 10. Resource targeting, playing at a site, gold rings — △ PARTIAL
+
+> **Implemented (gold ring).** A Fallen-wizard testing a **hero** gold ring
+> (`hero-resource-item`) rolls at −1, applied in the gold-ring-test resolution
+> (`pending-reducers.ts`); minion gold rings and other alignments are unaffected. Test:
+> `rule-mewh-gold-ring.test.ts`.
+>
+> **Deferred (noted):** the cross-alignment **targeting bar** (hero resource can't
+> target/affect a minion site/resource and vice versa, Spells/Magic exempt) and the
+> **site-tap alignment match** (a site-tapping non-FW resource must match the site's
+> alignment; FW sites/Wizardhavens count as both) are larger legal-action guards left for a
+> follow-up.
 
 **Rule.**
 
