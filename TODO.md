@@ -22,12 +22,8 @@ EPICS
 -----
 
 Against the shadow Rules
-(J) Seducing Nations of Men
 The White Hand Rules
 The Balrog Rules
-Define all TD cards
-Define all LE cards
-Define all AS cards
 Define all WH cards
 Define all BA cards
 Finalise tests section 01
