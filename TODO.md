@@ -19,7 +19,6 @@ FEATS
 EPICS
 -----
 
-Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
 Define all WH cards
