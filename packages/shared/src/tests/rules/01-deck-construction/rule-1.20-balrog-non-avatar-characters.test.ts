@@ -74,7 +74,8 @@ describe('Rule 1.20 — Balrog Non-Avatar Characters', () => {
         ],
       },
     };
-    const creatureErrors = validateDeck(deckAtMinimum, pool).filter(e => e.section === 'hazards');
+    const creatureErrors = validateDeck(deckAtMinimum, pool)
+      .filter(e => e.section === 'hazards' && e.message.includes('creatures'));
     expect(creatureErrors).toHaveLength(0);
   });
 
@@ -93,7 +94,8 @@ describe('Rule 1.20 — Balrog Non-Avatar Characters', () => {
         ],
       },
     };
-    const creatureErrors = validateDeck(deckBelowMinimum, pool).filter(e => e.section === 'hazards');
+    const creatureErrors = validateDeck(deckBelowMinimum, pool)
+      .filter(e => e.section === 'hazards' && e.message.includes('creatures'));
     expect(creatureErrors.length).toBeGreaterThan(0);
     expect(creatureErrors[0].message).toContain('creatures');
   });

@@ -106,6 +106,22 @@ export const HAZARD_CREATURES_12 = [
   { name: 'Orc-guard', card: 'tw-072' as CardDefinitionId, qty: 3 },
 ] as const;
 
+/**
+ * 30 hazards (21 creatures + 9 hazard events) for deck fixtures that must
+ * satisfy rule 1.30's requirement that the hazard count equal the resource
+ * count (30 resources ⇒ 30 hazards), while also meeting the 12-creature
+ * minimum and respecting the rule-1.04 copy limit.
+ */
+export const HAZARD_DECK_30 = [
+  ...HAZARD_CREATURES_12,
+  { name: 'Orc-lieutenant', card: 'tw-073' as CardDefinitionId, qty: 3 },
+  { name: 'Orc-warband', card: 'tw-076' as CardDefinitionId, qty: 3 },
+  { name: 'Orc-watch', card: 'tw-078' as CardDefinitionId, qty: 3 },
+  { name: 'Doors of Night', card: 'tw-28' as CardDefinitionId, qty: 3 },
+  { name: 'Twilight', card: 'tw-106' as CardDefinitionId, qty: 3 },
+  { name: 'Choking Shadows', card: 'tw-21' as CardDefinitionId, qty: 3 },
+] as const;
+
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
 
 export function makePlayDeck(): CardDefinitionId[] {

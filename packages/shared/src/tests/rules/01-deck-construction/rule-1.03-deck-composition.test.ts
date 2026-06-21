@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
+import { pool, HERO_RESOURCES_30, HAZARD_DECK_30 } from '../../test-helpers.js';
 import { validateDeck } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
@@ -28,7 +28,7 @@ const validDeck: DeckList = {
   sites: [{ name: 'Moria', card: 'tw-413' as CardDefinitionId, qty: 1 }],
   deck: {
     characters: [{ name: 'Gandalf', card: 'tw-156' as CardDefinitionId, qty: 1 }],
-    hazards: [...HAZARD_CREATURES_12],
+    hazards: [...HAZARD_DECK_30],
     resources: [...HERO_RESOURCES_30],
   },
 };
