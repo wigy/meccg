@@ -239,6 +239,19 @@ Modifies marshalling points conditionally.
 { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
 ```
 
+### 3a. `stage-points`
+
+Contributes Fallen-wizard **stage points** (MEWH) to the player controlling the
+card. Place on a stage resource permanent-event. The controller's running total
+is derived in `recompute-derived.ts` by summing this effect across the player's
+in-play cards (`PlayerState.stagePoints`), so it stays a single source of truth
+rather than a mutable counter. A negative `value` reduces the total. Always 0 for
+non-Fallen-wizard players (who never hold stage cards).
+
+```json
+{ "type": "stage-points", "value": 3 }
+```
+
 ### 4. `company-modifier`
 
 Applies a stat or check modifier to every character in the company the

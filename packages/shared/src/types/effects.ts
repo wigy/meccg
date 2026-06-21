@@ -218,6 +218,30 @@ export interface MpModifierEffect extends EffectBase {
 }
 
 /**
+ * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
+ *
+ * Stage points reflect how far a Fallen-wizard has deviated from his original
+ * mission. Most *stage resource* permanent-events (`alignment: 'stage'`) give
+ * stage points; a Fallen-wizard must start with cards totalling exactly 3, and
+ * various rules key off the running total (e.g. the optional company-vs-company
+ * combat rule unlocks above 10). The total is **derived** in
+ * `recompute-derived.ts` by summing this effect's `value` across the player's
+ * in-play cards, so it stays a single source of truth (like the marshalling
+ * point tally) — never a free-floating counter.
+ *
+ * A negative `value` is permitted so a card can reduce the contribution of
+ * another effect when the total is summed.
+ *
+ * Example: a stage card printed with "(3)" carries `{ type: 'stage-points',
+ * value: 3 }`.
+ */
+export interface StagePointsEffect extends EffectBase {
+  readonly type: 'stage-points';
+  /** Stage points this card contributes to its controller's running total. */
+  readonly value: number;
+}
+
+/**
  * Applies a stat or check-roll modifier to every character in the company that
  * this permanent event is associated with (identified by `CardInPlay.companyId`).
  *
@@ -2898,6 +2922,7 @@ export type CardEffect =
   | SetAsideEffect
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
+  | StagePointsEffect
   | StayHerAppetiteEffect;
 
 /**

@@ -663,13 +663,29 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         misc: mp.misc - underDeepsMp.misc,
       };
 
+  // MEWH §1: derive Fallen-wizard stage points by summing the `stage-points`
+  // effect across this player's in-play stage permanent-events. Kept here so the
+  // running total is a single source of truth alongside the MP tally rather than
+  // a mutable counter. Only Fallen-wizard players accrue stage points (stage
+  // resources are a Fallen-wizard-only card type), so this stays 0 for everyone
+  // else regardless of what is in play.
+  let stagePoints = 0;
+  if (player.alignment === 'fallen-wizard') {
+    for (const def of playerCardsInPlayDefs(state, player)) {
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'stage-points') stagePoints += effect.value;
+      }
+    }
+  }
+
   // Skip update if nothing changed
   if (
     !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.generalInfluenceBonus === generalInfluenceBonus &&
     player.marshallingPoints === mp &&
-    player.callableMarshallingPoints === callable
+    player.callableMarshallingPoints === callable &&
+    player.stagePoints === stagePoints
   ) {
     return player;
   }
@@ -681,6 +697,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     generalInfluenceBonus,
     marshallingPoints: mp,
     callableMarshallingPoints: callable,
+    stagePoints,
   };
 }
 

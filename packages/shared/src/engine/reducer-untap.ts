@@ -9,7 +9,7 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag, isAvatarCharacter, isCharacterCard } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, getCardEffects, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, defById, getCardEffects, isHavenForPlayer, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -158,7 +158,9 @@ function performUntap(state: GameState): GameState {
     if (!company.currentSite) continue;
     const siteDef = state.cardPool[company.currentSite.definitionId];
     if (!siteDef || !isSiteCard(siteDef)) continue;
-    let isHaven = siteDef.siteType === SiteType.Haven;
+    // MEWH §3: a Fallen-wizard heals only at his Wizardhavens; METW Havens and
+    // MELE Darkhavens (siteType `haven`, other alignment) are not havens for him.
+    let isHaven = isHavenForPlayer(siteDef, player.alignment);
     if (!isHaven) {
       const siteDefId = company.currentSite.definitionId as string;
       isHaven = state.activeConstraints.some(c => {

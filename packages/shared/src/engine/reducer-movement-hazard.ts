@@ -3400,8 +3400,12 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
   const destDef = destDefId2 ? defById(state, destDefId2) : undefined;
   const originDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
 
-  // Use new site for non-haven destination, site of origin for haven destination
-  const movingToHaven = destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
+  // Use new site for non-haven destination, site of origin for haven destination.
+  // MEWH §7: a Fallen-wizard always draws based on the site he moves *to*, even
+  // when it is one of his Wizardhavens — the "draw from origin at a haven"
+  // exception never applies to him.
+  const movingToHaven = player.alignment !== 'fallen-wizard'
+    && !!destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
   const drawSite = movingToHaven ? originDef : destDef;
 
   let resourceDrawMax = 0;

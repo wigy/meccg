@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
-import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect } from '../index.js';
+import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
 import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
@@ -429,6 +429,32 @@ export function getCardEffects(
 ): readonly CardEffect[] {
   if (!def || !('effects' in def)) return [];
   return (def as { readonly effects?: readonly CardEffect[] }).effects ?? [];
+}
+
+/**
+ * Whether `siteDef` functions as a *haven* for a player of the given alignment
+ * (MEWH §3, "Wizardhavens").
+ *
+ * For most alignments a haven is simply any site whose `siteType` is `haven`
+ * (each side plays at its own havens/darkhavens). A **Fallen-wizard** is the
+ * exception: his havens are his own Wizardhaven sites only (the fallen-wizard
+ * haven sites Isengard, The White Towers and Rhosgobel). METW Havens (Grey
+ * Havens, Rivendell, Lórien, Edhellond) and MELE Darkhavens (Minas Morgul, Dol
+ * Guldur, Carn Dûm, Geann a-Lisch) are **not** havens for him even though their
+ * `siteType` is `haven` — so haven-only effects (healing, bringing characters
+ * into play, etc.) do not apply to a Fallen-wizard standing there.
+ *
+ * Use this in place of a bare `siteDef.siteType === 'haven'` check wherever the
+ * haven property is consumed *for a particular player*.
+ */
+export function isHavenForPlayer(
+  siteDef: CardDefinition | undefined,
+  alignment: Alignment,
+): boolean {
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  if (siteDef.siteType !== 'haven') return false;
+  if (alignment === 'fallen-wizard') return siteDef.alignment === 'fallen-wizard';
+  return true;
 }
 
 /**
