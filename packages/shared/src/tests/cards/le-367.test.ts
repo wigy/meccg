@@ -55,7 +55,7 @@ import {
   viableFor, viableActions, makeMHState,
 } from '../test-helpers.js';
 import {
-  isSiteCard, buildMovementMap, getReachableSites, computeLegalActions, Phase,
+  isSiteCard, buildMovementMap, getReachableSites, computeLegalActions, Phase, Alignment,
 } from '../../index.js';
 import type { SiteCard, CardDefinitionId, StoreItemAction, GameState } from '../../index.js';
 
@@ -99,19 +99,16 @@ describe('Dol Guldur (le-367)', () => {
 
   test('starter movement does NOT reach hero havens', () => {
     const dolGuldur = pool[DOL_GULDUR as string] as SiteCard;
-    const allSites = Object.values(pool).filter(isSiteCard);
-    const movementMap = buildMovementMap(pool);
+    // The site graph is alignment-scoped: a minion company at Dol Guldur
+    // navigates only minion-side sites, so hero-side havens (Rivendell, Lórien,
+    // Grey Havens, Edhellond) can never appear.
+    const minionSites = Object.values(pool).filter(isSiteCard).filter(s => s.alignment === Alignment.Ringwraith);
+    const movementMap = buildMovementMap(pool, Alignment.Ringwraith);
 
-    const reachable = getReachableSites(movementMap, dolGuldur, allSites);
-    const starterNames = reachable
-      .filter(r => r.movementType === 'starter')
-      .map(r => r.site.name);
+    const reachable = getReachableSites(movementMap, dolGuldur, minionSites);
+    const starter = reachable.filter(r => r.movementType === 'starter');
 
-    // Hero havens are not listed in Dol Guldur's havenPaths
-    expect(starterNames).not.toContain('Rivendell');
-    expect(starterNames).not.toContain('Lórien');
-    expect(starterNames).not.toContain('Grey Havens');
-    expect(starterNames).not.toContain('Edhellond');
+    expect(starter.every(r => r.site.alignment === Alignment.Ringwraith)).toBe(true);
   });
 
   // ─── Haven-to-site starter movement ─────────────────────────────────────────
