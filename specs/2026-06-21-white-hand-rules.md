@@ -54,7 +54,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | △ partial (core done; storage-site + Day-of-Reckoning deferred) | FW MP override in scoring |
 | 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | ✓ done (gate confirmed; Day-of-Reckoning label deferred) | Gate + naming |
 | 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✓ done (CP attribution → §2) | Per-character corruption-class resolution (also fixed base minion gap) |
-| 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | ✗ missing | Site-eligibility + draw rules |
+| 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | △ partial (region-force + draw done; site-version needs linkage model) | Site-eligibility + draw rules |
 | 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✓ done | CvCC permission matrix |
 | 9 | **Special Orc & Troll rules** — overt triggers, play-gating, hero-resource restrictions, Half-orcs | △ partial | Large; overt mostly done, the rest missing |
 | 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | △ partial (gold ring done; targeting/site-tap deferred) | Targeting guards + ring modifier |
@@ -336,9 +336,19 @@ CP−1 is tapped (minion-mode), guarding the newly-introduced general rule.
 
 ---
 
-## 7. Movement & site usage — ✗ MISSING
+## 7. Movement & site usage — △ PARTIAL
 
-**Rule.**
+> **Implemented:** **draw-at-Wizardhaven** (§3, merged) and now **forced region movement** —
+> a Fallen-wizard company's reachable destinations are filtered to `movementType === 'region'`
+> in `planMovementActions` (`organization-companies.ts`), so starter (printed-path) movement
+> is never offered to a Fallen-wizard (MEWH §7). Test: rule-3.43 `[FALLEN-WIZARD]` case
+> (Edhellond is starter-only from Lórien — a Wizard may move there, a FW may not).
+>
+> **Deferred (noted):** the **hero/minion site-version selection** rules (non-overt FW uses
+> hero sites for non-R&L; either version for R&L; the opposite version barred when in
+> play/discard; Agents use hero sites) need a canonical hero↔minion **site-linkage** data
+> model that does not yet exist — best done as its own sub-spec. The site-type-change
+> exchange depends on the same model.
 
 - FW companies **must use region movement**.
 - Moving to a site, **both players draw** based on the destination — **even at a

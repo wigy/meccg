@@ -321,6 +321,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const regularCandidates = currentIsUD ? [] : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false));
     let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
 
+    // MEWH §7: a Fallen-wizard's companies must use region movement — they may
+    // not use starter (printed-path) movement between adjacent sites/havens.
+    if (player.alignment === 'fallen-wizard') {
+      const beforeStarter = reachable.length;
+      reachable = reachable.filter(r => r.movementType === 'region');
+      if (reachable.length !== beforeStarter) {
+        logDetail(`Company ${company.id as string}: Fallen-wizard must use region movement — dropped ${beforeStarter - reachable.length} starter destination(s)`);
+      }
+    }
+
     // MELE §1.2: Ringwraith movement restrictions.
     // Check whether this company has a Ringwraith avatar.
     const hasRingwraithAvatar = player.alignment === 'ringwraith' && company.characters.some(cId => {
