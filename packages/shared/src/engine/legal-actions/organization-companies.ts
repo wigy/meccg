@@ -195,7 +195,10 @@ function collectPassiveMovementBonus(
 export function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
-  const movementMap = buildMovementMap(state.cardPool);
+  // Build the movement map for this player's alignment so same-named sites of
+  // the opposing side don't pollute its haven/region topology. The candidate
+  // sites already come from the player's (single-alignment) site deck.
+  const movementMap = buildMovementMap(state.cardPool, player.alignment);
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;

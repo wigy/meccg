@@ -11,7 +11,8 @@ import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfl
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, Alignment, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import type { SiteCard } from '../index.js';
 import { isMinionOrBalrog } from '../state-utils.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes, getItemGrantedSkills } from './effects/resolver.js';
@@ -356,9 +357,14 @@ function isLegalMovementHop(
   state: GameState,
   fromSiteName: string,
   toSiteName: string,
+  alignment: Alignment,
 ): boolean {
-  const movementMap = buildMovementMap(state.cardPool);
-  const allSites = Object.values(state.cardPool).filter(isSiteCard);
+  // Restrict the map and candidate sites to the moving (agent owner's)
+  // alignment so same-named sites of other sides don't create phantom hops.
+  const movementMap = buildMovementMap(state.cardPool, alignment);
+  const allSites = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === alignment,
+  );
   const fromDef = allSites.find(s => s.name === fromSiteName);
   if (!fromDef) return false;
   const reachable = getReachableSites(movementMap, fromDef, allSites);
@@ -440,7 +446,7 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
       movementLegal = false;
       break;
     }
-    if (!isLegalMovementHop(state, fromDef.name, toDef.name)) {
+    if (!isLegalMovementHop(state, fromDef.name, toDef.name, hazardPlayer.alignment)) {
       logDetail(`Agent reveal: illegal hop ${fromDef.name} → ${toDef.name} — discarding agent`);
       movementLegal = false;
       break;
@@ -2459,9 +2465,17 @@ function regionTypesMatch(required: readonly RegionType[], path: readonly Region
  * @returns An error string if the creature cannot be keyed, or undefined if legal.
  */
 function checkCreatureKeying(state: GameState, def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
-  // Look up the destination site definition by name for keyword checks
+  // Look up the destination site definition by name for keyword checks.
+  // The destination belongs to the active (moving) player, so restrict the
+  // by-name lookup to that player's alignment — the same physical location
+  // has a separate site card per side (e.g. The Under-gates exists as hero,
+  // minion, and balrog versions with different keywords/types).
+  const moverAlignment = state.players[getPlayerIndex(state, state.activePlayer ?? state.players[0].id)]?.alignment;
   const destSiteDef = mhState.destinationSiteName
-    ? Object.values(state.cardPool).find(c => isSiteCard(c) && c.name === mhState.destinationSiteName)
+    ? Object.values(state.cardPool).find(
+        c => isSiteCard(c) && c.name === mhState.destinationSiteName
+          && (moverAlignment === undefined || c.alignment === moverAlignment),
+      )
     : undefined;
   const destSiteCard = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef : undefined;
 

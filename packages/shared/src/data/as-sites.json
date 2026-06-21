@@ -97,7 +97,9 @@
         "strikes": 2,
         "prowess": 10,
         "special": "attacker chooses defending characters",
-        "combatRules": ["attacker-chooses-defenders"]
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ]
       }
     ],
     "resourceDraws": 1,
@@ -298,7 +300,9 @@
       }
     ],
     "effects": [
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-detainment"
+      }
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
@@ -333,7 +337,9 @@
       }
     ],
     "effects": [
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-detainment"
+      }
     ],
     "resourceDraws": 3,
     "hazardDraws": 4,
@@ -453,5 +459,538 @@
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 7 prowess",
     "certified": "2026-05-10",
     "unique": true
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-145",
+    "name": "Edhellond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Edhellond.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Anfalas",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Elves",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 5,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Information, Items (minor, major, greater)Automatic-attacks (2): (1st) Elves — 4 strikes with 7 prowess (2nd) Dúnedain — 3 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-146",
+    "name": "Framsburg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Framsburg.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Anduin Vales",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor)Automatic-attacks: Men — 1 strike with 10 prowessSpecial: The first minor item played at this site each turn does not tap the site. Contains a hoard."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-147",
+    "name": "The Gem-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheGemdeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gap of Isen",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead (1st attack)",
+        "strikes": 3,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess; (2nd) Opponent may play as an automatic- attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}].Special: Any Undead creature or Pûkel-creature may be played at this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-149",
+    "name": "Grey Havens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/GreyHavens.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Lindon",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Elves",
+        "strikes": 3,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Elves",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Information, Items (minor, major, greater)Automatic-attacks (2): (1st) Elves — 3 strikes with 8 prowess (2nd) Elves — 2 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-150",
+    "name": "Himring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Himring.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "coastal-sea",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Elven Shores",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-152",
+    "name": "The Iron-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheIrondeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (5), The Under-vaults (6)Playable: Items (minor)Automatic-attacks: Trolls — 3 strikes with 10 prowess (detainment)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-154",
+    "name": "Isles of the Dead That Live",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/IslesoftheDeadThatLive.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Eriadoran Coast",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major, gold ring)Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check modified by -2Special: A covert company must tap an untapped character (if available) if this site is revealed as its new site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-155",
+    "name": "Lórien",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Lorien.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Wold & Foothills",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Elves",
+        "strikes": 4,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Elves",
+        "strikes": 3,
+        "prowess": 9
+      },
+      {
+        "creatureType": "Elves",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Elves — 4 strikes with 8 prowess (2nd) Elves — 3 strikes with 9 prowess (3rd) Elves — 2 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-156",
+    "name": "Old Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/OldForest.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Cardolan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Maia",
+        "strikes": 2,
+        "prowess": 15
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major)Automatic-attacks: Maia (cannot be canceled) — 2 strikes with 15 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-158",
+    "name": "The Pûkel-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ThePukeldeeps.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature (1st attack)",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (9), The Sulfur-deeps (9)Playable: Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Pûkel-creature – 2 strikes with 11 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}].Special: Any Undead creature or Pûkel-creature may be played at this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-159",
+    "name": "Rhosgobel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Rhosgobel.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Maia",
+        "strikes": 1,
+        "prowess": 13
+      },
+      {
+        "creatureType": "Maia",
+        "strikes": 1,
+        "prowess": 13
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor)Automatic-attacks (2): (1st) Maia — 1 strike with 13 prowess (2nd) Maia — 1 strike with 13 prowessSpecial: If the Wizard card Radagast is in play, the automatic-attacks are removed."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-160",
+    "name": "Rivendell",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Rivendell.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Rhudaur",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Elves",
+        "strikes": 4,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (2): (1st) Elves — 4 strikes with 8 prowess (2nd) Dúnedain — 3 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-161",
+    "name": "The Sulfur-deeps",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheSulfurdeeps.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (4), The Pûkel-deeps (9), The Under-gates (4), The Under-galleries (7)Playable: Items (minor)Automatic-attacks: Trolls — 2 strikes with 10 prowess (detainment)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-162",
+    "name": "Tolfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Tolfalas.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness",
+      "coastal-sea"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Mouths of the Anduin",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major, greater*)*—Scroll of Isildur onlyAutomatic-attacks: Undead — 3 strikes with 7 prowess; each character wounded must make a corruption check modified by -2Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-163",
+    "name": "The Under-courts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUndercourts.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (4), The Under-galleries (4)Playable: Items (minor)Automatic-attacks: Trolls — 3 strikes with 10 prowess (detainment)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-164",
+    "name": "The Under-galleries",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUndergalleries.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Ûdun",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 4,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Any site in Udûn (0), The Under-courts (4), The Sulfur-deeps (7)Playable: Information, Items (minor)Automatic-attacks: Trolls — 4 strikes with 10 prowess (detainment)"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-165",
+    "name": "The Under-gates",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUndergates.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Redhorn Gate",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Balrog (1st attack)",
+        "strikes": 2,
+        "prowess": 16
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Moria (0), The Under-grottos (7), The Gem-deeps (6), The Sulfur-deeps (4), Under-leas (5)Playable: Items (minor, major)Automatic-attacks (2): (1st) Balrog — 2 strikes with 16 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins & Lairs [{R}]Special: Non-Nazgûl creatures played at this site attack normally, not as detainment. If a manifestation of Balrog of Moria is in play or defeated, the first automatic-attack is canceled."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-166",
+    "name": "The Under-grottos",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUndergrottos.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "High Pass",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs (1st attack)",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (7), The Under-gates (7)Playable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: When a gold ring is tested in a company at this site, the result of the roll is modified by +1."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-167",
+    "name": "The Under-leas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUnderleas.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gundabad",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs (1st attack)",
+        "strikes": 5,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (5), The Under-grottos (7), The Under-gates (5), The Under-vaults (6)Playable: Items (minor, major)Automatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (detainment against overt company) (2nd) Opponent may play as an automatic-attack one non- unique hazard creature from his hand normally keyed to a Ruins & Lairs [{R}]Special: Non-Nazgûl creatures played at this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-168",
+    "name": "The Under-vaults",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheUndervaults.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead (1st attack)",
+        "strikes": 3,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (6), The Under-leas (6)Playable: Items (minor, major)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Opponent may play as an automatic- attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature may be played at this site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-170",
+    "name": "Wellinghall",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Wellinghall.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Fangorn",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Awakened Plant",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks (2): (1st) Awakened Plant – 2 strikes with 10 prowess (2nd) Awakened Plant – 2 strikes with 10 prowess"
   }
 ]
