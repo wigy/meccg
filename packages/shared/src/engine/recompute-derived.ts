@@ -295,8 +295,18 @@ function computeEffectiveStats(
   ringwraithMode?: RingwraithModeEffect['mode'],
 ): EffectiveStats {
   const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
-  const charEffects = collectCharacterEffects(state, char, context);
+  let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
+
+  // MEWH §9: an Orc or Troll may bear a hero item, but all of its bonuses and
+  // special abilities are ignored (movement/playability restrictions and the
+  // item's corruption points still apply — the latter via the structural
+  // `corruptionPoints` sum below, not through these effects). Drop every effect
+  // sourced from a hero item carried by an Orc/Troll bearer before resolving.
+  const bearerIsOrcOrTroll = charDef.race === 'orc' || charDef.race === 'troll';
+  if (bearerIsOrcOrTroll) {
+    charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
+  }
   const collected = [...charEffects, ...globalEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
@@ -354,7 +364,10 @@ function computeEffectiveStats(
     if (isItemCard(itemDef)) {
       const itemEffects = itemDef.effects ?? [];
       const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
-      if (!itemHasStatMod && activeItems.has(item.instanceId as string)) {
+      // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
+      // an Orc/Troll bearer (its corruption points still apply below).
+      const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
+      if (!itemHasStatMod && !heroItemOnOrcTroll && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
