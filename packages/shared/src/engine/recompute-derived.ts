@@ -71,23 +71,42 @@ function hasMarshallingPoints(def: CardDefinition): def is MarshallingScoredCard
 }
 
 /**
- * Adds a card's marshalling points to the running totals by its category.
+ * Applies the MEWH §4 marshalling-point rule for a Fallen-wizard: every card
+ * other than a stage resource is worth only **1** marshalling point to him,
+ * regardless of its printed value, while stage resource cards (`alignment:
+ * 'stage'`) score their printed MP normally. For all other player alignments
+ * the printed value is returned unchanged.
+ *
+ * Only positive MP is clamped — a card worth 0 contributes 0, and any negative
+ * value (e.g. a prisoner penalty) passes through.
+ */
+function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignment): number {
+  if (playerAlignment !== 'fallen-wizard') return baseMp;
+  if ('alignment' in def && (def as { alignment?: string }).alignment === 'stage') return baseMp;
+  return baseMp > 0 ? 1 : baseMp;
+}
+
+/**
+ * Adds a card's marshalling points to the running totals by its category,
+ * applying the Fallen-wizard 1-MP-per-card rule (MEWH §4) via {@link fwClampMp}.
  */
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
+  playerAlignment: Alignment,
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
-  const mp = def.marshallingPoints;
+  const mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
   if (mp === 0) return totals;
   const cat = def.marshallingCategory;
   return { ...totals, [cat]: totals[cat] + mp };
 }
 
 /**
- * Adds an item card's marshalling points to the running totals, applying the
- * cross-alignment half-MP rule (MELE Part IV) when the player's alignment
- * does not match the item's alignment.
+ * Adds an item card's marshalling points to the running totals. For a
+ * Fallen-wizard the item is worth a flat 1 MP (MEWH §4); otherwise the
+ * cross-alignment half-MP rule applies (MELE Part IV) when the player's
+ * alignment does not match the item's alignment.
  */
 function addItemMP(
   totals: MarshallingPointTotals,
@@ -98,8 +117,14 @@ function addItemMP(
   const baseMp = def.marshallingPoints;
   if (baseMp === 0) return totals;
   const cat = def.marshallingCategory;
-  const factor = crossAlignmentItemMpFactor(playerAlignment, def.cardType);
-  const mp = factor < 1 ? Math.ceil(baseMp * factor) : baseMp;
+  let mp: number;
+  if (playerAlignment === 'fallen-wizard') {
+    mp = fwClampMp(baseMp, def, playerAlignment);
+  } else {
+    const factor = crossAlignmentItemMpFactor(playerAlignment, def.cardType);
+    mp = factor < 1 ? Math.ceil(baseMp * factor) : baseMp;
+  }
+  if (mp === 0) return totals;
   return { ...totals, [cat]: totals[cat] + mp };
 }
 
@@ -480,8 +505,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
     } else {
-      mp = addMP(mp, charDef);
-      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef);
+      mp = addMP(mp, charDef, player.alignment);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)
@@ -491,8 +516,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       mp = addItemMP(mp, itemDef, player.alignment);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment);
       // Apply bearer-conditional mp-modifier effects on items
-      // (e.g. Durin's Axe: +2 MP if held by a Dwarf)
-      const itemEffects = (itemDef as { effects?: readonly CardEffect[] }).effects;
+      // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
+      // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such
+      // hero/minion resource modifiers.
+      const itemEffects = player.alignment === 'fallen-wizard'
+        ? undefined
+        : (itemDef as { effects?: readonly CardEffect[] }).effects;
       if (itemEffects) {
         const bearerCtx = { bearer: { race: charDef.race } };
         for (const effect of itemEffects) {
@@ -511,8 +540,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
-        mp = addMP(mp, allyDef);
-        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef);
+        mp = addMP(mp, allyDef, player.alignment);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment);
       }
     }
   }
@@ -540,7 +569,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
-    if (def) mp = addMP(mp, def);
+    if (def) mp = addMP(mp, def, player.alignment);
   }
 
   // MEAS §1: cards placed "off to the side" award their marshalling points to
@@ -551,7 +580,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       if (card.setAsideHost === undefined) continue;
       if (ownerOf(card.instanceId) !== player.id) continue;
       const def = resolveDef(state, card.instanceId);
-      if (def) mp = addMP(mp, def);
+      if (def) mp = addMP(mp, def, player.alignment);
     }
   }
 
@@ -595,9 +624,15 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         // Stored items with an explicit storable-at MP override still apply the
         // cross-alignment half-MP rule (MELE Part IV): the override MP counts
         // at the declared value, not at the card's base MP, but is halved when
-        // the player's alignment does not match the item's alignment.
-        const factor = crossAlignmentItemMpFactor(player.alignment, def.cardType);
-        const finalMp = factor < 1 ? Math.ceil(storableEffect.marshallingPoints * factor) : storableEffect.marshallingPoints;
+        // the player's alignment does not match the item's alignment. For a
+        // Fallen-wizard the item is instead worth a flat 1 MP (MEWH §4).
+        let finalMp: number;
+        if (player.alignment === 'fallen-wizard') {
+          finalMp = storableEffect.marshallingPoints > 0 ? 1 : storableEffect.marshallingPoints;
+        } else {
+          const factor = crossAlignmentItemMpFactor(player.alignment, def.cardType);
+          finalMp = factor < 1 ? Math.ceil(storableEffect.marshallingPoints * factor) : storableEffect.marshallingPoints;
+        }
         const cat = ('marshallingCategory' in def)
           ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
           : 'item' as MarshallingCategory;
@@ -614,7 +649,9 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (killMP === 0) continue;
     const mid = manifestIdOf(def);
     if (mid && ownerOf(card.instanceId) === player.id) continue;
-    mp = { ...mp, kill: mp.kill + killMP };
+    // MEWH §4: a defeated creature is worth a flat 1 MP to a Fallen-wizard.
+    const killContribution = player.alignment === 'fallen-wizard' && killMP > 0 ? 1 : killMP;
+    mp = { ...mp, kill: mp.kill + killContribution };
   }
 
   // Out-of-play pile: holds eliminated characters and sites stored via
