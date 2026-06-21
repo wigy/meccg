@@ -51,7 +51,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 1 | **Stage points** — player-state counter, aggregation, start-with-3 | ✗ missing | New player-state field + derive from stage permanent-events |
 | 2 | **Stage resources** — org-phase-only play, discard-not-below-3, corruption points apply | ✗ missing | Phase gating + discard action + CP attribution |
 | 3 | **Wizardhavens** — FW's 4 sites are havens *for this player*; METW/MELE havens are not | ✗ missing | Per-player haven resolution |
-| 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | ✗ missing | FW MP override in scoring |
+| 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | △ partial (core done; storage-site + Day-of-Reckoning deferred) | FW MP override in scoring |
 | 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | △ partial | Gate + naming |
 | 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✓ done (CP attribution → §2) | Per-character corruption-class resolution (also fixed base minion gap) |
 | 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | ✗ missing | Site-eligibility + draw rules |
@@ -180,7 +180,21 @@ a Wizard at Rivendell still heals (no regression).
 
 ---
 
-## 4. Marshalling points (Fallen-wizard) — ✗ MISSING
+## 4. Marshalling points (Fallen-wizard) — △ PARTIAL
+
+> **Implemented (core).** `fwClampMp(baseMp, def, alignment)` in `recompute-derived.ts`:
+> for a Fallen-wizard every non-stage card scores a flat **1** MP (positive values clamped;
+> 0/negative pass through) while stage resources (`alignment: 'stage'`) score their printed
+> MP. Threaded through `addMP`/`addItemMP`, the kill-pile contribution, and the storable-at
+> override; the bearer-conditional item `mp-modifier` boost is suppressed for a FW (his
+> items are a flat 1). Test: `rule-mewh-fallen-wizard-mp.test.ts`.
+>
+> **Deferred (noted):** (c) *no MP for cards stored at non-Wizardhaven sites* needs the
+> storage site recorded on the stored instance (not tracked today). (d) general suppression
+> of hero/minion `mp-modifier` **resource events** (Rumor of the One, etc.) vs FW-ability /
+> stage-card modifiers needs a source tag on the modifier — no FW/stage MP-modifier cards
+> are certified yet, so today every `mp-modifier` is a hero/minion one and the item boost is
+> already suppressed. (e) the cosmetic "Day of Reckoning" projection label.
 
 **Rule.**
 
