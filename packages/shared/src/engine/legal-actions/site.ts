@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition } from '../../index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -34,6 +34,34 @@ import { asViable as viable } from './evaluated.js';
  * is evaluated against a context exposing `site.name`, `site.siteType`,
  * and `site.autoAttack.race`.
  */
+/**
+ * MEWH §10 (site-tap alignment match): a non-Fallen-wizard resource that taps a
+ * site (faction, ally, or item) may only be played at a site of the same
+ * alignment class — a hero resource at a hero site, a minion resource at a
+ * minion site. A Fallen-wizard site (Wizardhaven) counts as **both**, and
+ * Fallen-wizard / stage / dual resources are themselves exempt. Returns true
+ * when the play is barred by the alignment mismatch.
+ *
+ * Only relevant for a Fallen-wizard player, who mixes hero and minion resources
+ * and visits both site types; for single-alignment players the classes always
+ * match. The caller gates this on `player.alignment === 'fallen-wizard'`.
+ */
+function siteTapCrossAlignmentBlocked(
+  def: CardDefinition,
+  siteDef: CardDefinition | undefined,
+): boolean {
+  if (!isItemCard(def) && !isAllyCard(def) && !isFactionCard(def)) return false;
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  const resAlign = (def as { alignment?: string }).alignment;
+  const siteAlign = (siteDef as { alignment?: string }).alignment;
+  // Fallen-wizard / stage / dual resources are exempt; FW sites count as both.
+  if (resAlign === 'fallen-wizard' || resAlign === 'stage' || resAlign === 'dual') return false;
+  if (siteAlign === 'fallen-wizard') return false;
+  if (resAlign === 'wizard' && siteAlign === 'ringwraith') return true;
+  if (resAlign === 'ringwraith' && siteAlign === 'wizard') return true;
+  return false;
+}
+
 function siteMatchesEntry(
   siteDef: SiteCard,
   entry: PlayableAtEntry,
@@ -659,6 +687,14 @@ function playResourcesActions(
     const cardInstanceId = handCard.instanceId;
     const def = defById(state, handCard.definitionId);
     if (!def) continue;
+
+    // MEWH §10: a Fallen-wizard may not play a hero resource that taps a minion
+    // site (or a minion resource at a hero site). Wizardhavens count as both, so
+    // FW sites and FW/stage resources pass through `siteTapCrossAlignmentBlocked`.
+    if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(def, siteDef)) {
+      logDetail(`Site ${siteName}: ${def.name} barred — cross-alignment site-tap (MEWH §10)`);
+      continue;
+    }
 
     // Permanent resource events — playable like in organization phase
     // Handles both hero (wizard) and minion (ringwraith) permanent events.

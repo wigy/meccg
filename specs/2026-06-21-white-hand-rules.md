@@ -513,11 +513,20 @@ bonus is ignored on an Orc bearer but applied on a Man bearer; Half-orc takes no
 > (`pending-reducers.ts`); minion gold rings and other alignments are unaffected. Test:
 > `rule-mewh-gold-ring.test.ts`.
 >
-> **Deferred (noted):** the cross-alignment **targeting bar** (hero resource can't
-> target/affect a minion site/resource and vice versa, Spells/Magic exempt) and the
-> **site-tap alignment match** (a site-tapping non-FW resource must match the site's
-> alignment; FW sites/Wizardhavens count as both) are larger legal-action guards left for a
-> follow-up.
+> **Implemented (site-tap alignment match).** `siteTapCrossAlignmentBlocked` in
+> `legal-actions/site.ts`: a Fallen-wizard's site-tapping resource (faction, ally, item)
+> is barred when its alignment class mismatches the site (hero resource at a minion site or
+> vice versa). Fallen-wizard sites (Wizardhavens) count as both and FW/stage/dual resources
+> are exempt; gated on `player.alignment === 'fallen-wizard'` (single-alignment players
+> always match). Test: `rule-mewh-site-tap-alignment.test.ts`. (The FW-site "counts as both"
+> branch is in the guard but the four FW sites list no playable resources, so it has no
+> item-play consumer to exercise.)
+>
+> **Deferred (noted):** the cross-alignment **targeting bar** (a hero resource event can't
+> target/affect a minion site/resource and vice versa, Spells/Magic exempt). This is a
+> diffuse change across every effect's target collector; in normal play, site/play
+> restrictions already prevent most cross-alignment targeting, so it is left for a focused
+> follow-up with concrete card consumers.
 
 **Rule.**
 
