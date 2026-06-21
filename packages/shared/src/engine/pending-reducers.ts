@@ -22,11 +22,11 @@ import type {
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber, isAvatarCharacter, Alignment } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { activePlayerState, cardName, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -196,9 +196,30 @@ function applyCorruptionCheckResolution(
     }
   }
 
-  if (total > cp) {
-    logDetail(`Corruption check passed (${total} > ${cp})`);
-    let stateAfterDequeue = dequeueResolution(postRollState, top.id);
+  // Classify against the controlling player's alignment (CoE 7.1 / 7.1.F1): a
+  // minion character or the Fallen-wizard avatar *taps and succeeds* on a roll
+  // of CP or CP-1 rather than being discarded.
+  const outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+
+  if (outcome === 'success' || outcome === 'tap-success') {
+    let successState: GameState = postRollState;
+    if (outcome === 'tap-success') {
+      // The character taps but stays in play; the check counts as a success.
+      // Only an untapped character changes state — an already-tapped or wounded
+      // character stays as it is (you cannot tap it "further").
+      const tappedPlayers = clonePlayers(postRollState);
+      const tappedChars = { ...tappedPlayers[playerIndex].characters };
+      const tappedChar = tappedChars[characterId as string];
+      if (tappedChar && tappedChar.status === CardStatus.Untapped) {
+        tappedChars[characterId as string] = { ...tappedChar, status: CardStatus.Tapped };
+      }
+      tappedPlayers[playerIndex] = { ...tappedPlayers[playerIndex], characters: tappedChars };
+      successState = { ...postRollState, players: tappedPlayers };
+      logDetail(`Corruption check (${total} within 1 of ${cp}) — ${charName} taps and the check is considered successful (CoE 7.1)`);
+    } else {
+      logDetail(`Corruption check passed (${total} > ${cp})`);
+    }
+    let stateAfterDequeue = dequeueResolution(successState, top.id);
     // onSuccess hook (CoE 10.39): Cracks of Doom wins the game on a passing
     // −4 corruption check. The source card is the win card (tw-205); the
     // actor is its controller.
@@ -260,12 +281,8 @@ function applyCorruptionCheckResolution(
     }
   }
 
-  // Per CoE 10.01: a Wizard avatar is immediately eliminated (not merely discarded)
-  // on any failed corruption check, regardless of how close the roll was.
-  const isWizardAvatar = charDef && isAvatarCharacter(charDef) && isCharacterCard(charDef) && charDef.alignment === Alignment.Wizard;
-
-  if (total >= cp - 1 && !isWizardAvatar) {
-    // Roll == CP or CP - 1: hero character + possessions discarded (not followers)
+  if (outcome === 'discard') {
+    // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
     logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
 
     delete newCharacters[characterId as string];
@@ -322,9 +339,9 @@ function applyCorruptionCheckResolution(
       playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
     }
   } else {
-    // Roll < CP - 1 (hard fail), or wizard avatar on any failure: character eliminated, possessions discarded
-    const elimReason = isWizardAvatar ? 'Wizard avatar always eliminated on failure' : `${total} < ${cp - 1}`;
-    logDetail(`Corruption check FAILED (${elimReason}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
+    // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
+    // failure — character eliminated, possessions discarded.
+    logDetail(`Corruption check FAILED (outcome eliminate, ${total} vs CP ${cp}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
 
     delete newCharacters[characterId as string];
 

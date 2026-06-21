@@ -48,11 +48,11 @@ import {
   buildTestState, makeSitePhase, makeMHState,
   setupAutoAttackStep, runAutoAttackCombatMulti,
   playCreatureHazardAndResolve, handCardId, companyIdAt,
-  viableActions, dispatch, findCharInstanceId, expectCharNotInPlay,
+  viableActions, dispatch, findCharInstanceId, expectCharStatus,
 } from '../test-helpers.js';
 import {
   isSiteCard, buildMovementMap, getReachableSites,
-  Phase, Alignment, SiteType, RegionType,
+  Phase, Alignment, SiteType, RegionType, CardStatus,
 } from '../../index.js';
 import { isDetainmentAttack } from '../../engine/detainment.js';
 import { Race } from '../../types/common.js';
@@ -200,22 +200,25 @@ describe('Dead Marshes (le-364)', () => {
     expect(pending[0].kind.modifier).toBe(-2);
   });
 
-  test('the -2 modifier turns an otherwise-passing roll into a failure (character discarded)', () => {
-    // Gorbag has 0 corruption points. With a roll of 2 the unmodified total
-    // (2) would pass (> 0), but the site's -2 makes it 0 — not > 0 — so the
-    // check fails and the wounded character is discarded.
+  test('the -2 modifier drops the roll to CP, but the minion Orc taps (CoE 7.1) rather than being discarded', () => {
+    // Gorbag has 0 corruption points. With a roll of 2 the unmodified total (2)
+    // would pass (> 0); the site's -2 makes it 0, which equals CP. For a hero
+    // that would be a soft fail, but Gorbag is a minion character (Ringwraith's
+    // Orc), so per CoE 7.1 it taps and the check is considered successful — it
+    // stays in play. Already wounded, it remains wounded (no further tapping).
     const result = runAutoAttackCombatMulti(autoAttackReady(), [
       { characterDefId: GORBAG, roll: 2, tapToFight: false, bodyRoll: 5 },
       { characterDefId: LT_MORGUL, roll: 12, tapToFight: true },
     ]);
-    const gorbagId = findCharInstanceId(result.state, RESOURCE_PLAYER, GORBAG);
 
     const cc = viableActions(result.state, PLAYER_1, 'corruption-check')[0].action;
     expect(cc.type).toBe('corruption-check');
     const after = dispatch({ ...result.state, cheatRollTotal: 2 }, cc);
 
     expect(after.pendingResolutions).toHaveLength(0);
-    expectCharNotInPlay(after, RESOURCE_PLAYER, gorbagId);
+    // Not discarded — still in play, still wounded.
+    expect(() => findCharInstanceId(after, RESOURCE_PLAYER, GORBAG)).not.toThrow();
+    expectCharStatus(after, RESOURCE_PLAYER, GORBAG, CardStatus.Inverted);
   });
 
   test('corruption check survives a roll high enough to clear the -2 penalty', () => {
