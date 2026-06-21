@@ -52,7 +52,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 2 | **Stage resources** — org-phase-only play, discard-not-below-3, corruption points apply | ✗ missing | Phase gating + discard action + CP attribution |
 | 3 | **Wizardhavens** — FW's 4 sites are havens *for this player*; METW/MELE havens are not | ✗ missing | Per-player haven resolution |
 | 4 | **Marshalling points** — non-stage cards worth 1 MP; immune to hero/minion MP events; none stored at non-Wizardhaven | △ partial (core done; storage-site + Day-of-Reckoning deferred) | FW MP override in scoring |
-| 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | △ partial | Gate + naming |
+| 5 | **Victory** — One Ring win gated on *A New Ringlord*; "Day of Reckoning" | ✓ done (gate confirmed; Day-of-Reckoning label deferred) | Gate + naming |
 | 6 | **Corruption checks** — FW as minion; FW non-Orc/Troll chars as Wizard; stage-card CP applies | ✓ done (CP attribution → §2) | Per-character corruption-class resolution (also fixed base minion gap) |
 | 7 | **Movement & site usage** — region movement only; draw even at Wizardhaven; hero/minion site selection rules | ✗ missing | Site-eligibility + draw rules |
 | 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✓ done | CvCC permission matrix |
@@ -230,7 +230,18 @@ MP scores as printed.
 
 ---
 
-## 5. Victory conditions — △ PARTIAL
+## 5. Victory conditions — ✓ DONE (One Ring gate)
+
+> **Already satisfied / confirmed.** The Fallen-wizard One Ring win runs exclusively through
+> *A New Ringlord* (wh-60), which is fully certified (`wh-60.test.ts`): played on the FW
+> avatar bearing The One Ring at a Wizardhaven, it makes an end-of-turn `win-condition-roll`
+> (>9 wins, <6 eliminates) handled by `scanEndOfTurnWinConditions` in
+> `reducer-win-conditions.ts`. No *generic* avatar-bearing One Ring win exists for a FW: the
+> Ringwraith Barad-dûr win (`checkOneRingWin`) is alignment-gated, and the Wizard's Cracks of
+> Doom win card is in `FALLEN_WIZARD_BANNED_CARD_IDS`. Added the negative-gate rule test
+> `rule-mewh-new-ringlord-win.test.ts` (a FW bearing The One Ring without A New Ringlord does
+> not win or get eliminated at end of turn). *Deferred:* the cosmetic "Day of Reckoning" Free
+> Council label, and the non-Wizardhaven storage MP exclusion (tracked in §4).
 
 **Rule.** FW wins as a METW Wizard (opponent eliminated / recover The One Ring / most MP at
 Free Council), with exceptions:
