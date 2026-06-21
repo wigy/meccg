@@ -277,8 +277,8 @@ function renderPhaseBanner(
       const resolved = combat.strikeAssignments.filter((sa: { resolved: boolean }) => sa.resolved).length;
       const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex] as { attackerTapToFight?: boolean } | undefined;
       const sub = currentStrike?.attackerTapToFight === undefined
-        ? (!iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Attacker declares tap choice')
-        : (iAmDefender ? 'Your turn — tap or stay untapped (-3)' : 'Defender resolves strike');
+        ? (!iAmDefender ? 'Your turn — tapping or not tapping (-3)' : 'Attacker declares tap choice')
+        : (iAmDefender ? 'Your turn — tapping or not tapping (-3)' : 'Defender resolves strike');
       const excessSuffix = (combat.cvccExcessPool ?? 0) > 0 ? ` • ${combat.cvccExcessPool} × −1 to assign` : '';
       phaseText = `${cvccPrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal} — ${sub}${excessSuffix}`;
     } else if (combat.phase === 'body-check') {
@@ -1265,7 +1265,7 @@ function renderCombatActionButtons(
 /** Short label for combat action buttons in the visual view. */
 function combatButtonLabel(action: GameAction): string {
   if (action.type === 'resolve-strike') {
-    return action.tapToFight ? 'Tapped' : 'Untapped';
+    return action.tapToFight ? 'Tapping' : 'Not tapping';
   }
   if (action.type === 'agent-strike-roll') return 'Roll for Agent';
   if (action.type === 'body-check-roll') return 'Body Check';
