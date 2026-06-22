@@ -59,7 +59,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 9 | **Special Orc & Troll rules** — overt triggers, play-gating, hero-resource restrictions, Half-orcs | △ partial | Large; overt mostly done, the rest missing |
 | 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | △ partial (gold ring done; targeting/site-tap deferred) | Targeting guards + ring modifier |
 | 11 | **Setup** — declare FW, opponent swap + 10 sideboard, start with stage cards, FW starting site | △ partial (mind ≤ 5 done; start-flow deferred) | New setup sub-step |
-| 12 | **FW leaves play** — discard wizard-specific stage permanent-events | ✗ missing | Removal sweep |
+| 12 | **FW leaves play** — discard wizard-specific stage permanent-events | ✓ done | Removal sweep |
 | 13 | **Optional rules** — CvCC at >10 stage points; Wizard→FW conversion | ✗ missing | Optional/deferred |
 | 14 | **Tournament rules** — sideboard sizes, reveal FW, stage cards as draft characters | △ n/a (single-deck cap already 30; rest → §11) | Mostly config/data |
 
@@ -665,7 +665,20 @@ declaration of the FW is recorded.
 
 ---
 
-## 12. Fallen-wizard leaves play — ✗ MISSING
+## 12. Fallen-wizard leaves play — ✓ DONE
+
+> **Implemented.** The 33 wizard-specific WH stage cards (wh-90–wh-122) now carry a
+> **per-wizard** keyword in the card data — `alatar-specific`, `gandalf-specific`,
+> `pallando-specific`, `radagast-specific`, or `saruman-specific` — sourced from the
+> authoritative database's `attributes.specific` (lossless: the specific wizard is
+> preserved, so deck-validation's "may not include cards specific to *another* wizard" can
+> use it later). A post-reduce sweep `sweepFallenWizardSpecific` (`fallen-wizard-specific.ts`,
+> wired into `postReduce`) discards a Fallen-wizard's in-play wizard-specific stage
+> permanent-events once their avatar is no longer in play — idempotent, and skipped during
+> setup. Because a Fallen-wizard deck may only contain cards specific to their own declared
+> wizard, every such card in play is theirs, so the sweep matches any of the five keywords.
+> Hazards on the removed avatar are discarded by the normal character-removal path. Test:
+> `rule-mewh-wizard-leaves-play.test.ts`.
 
 **Rule.** If the FW avatar leaves play, **discard all in-play stage permanent-events
 specific to that wizard** (e.g. Alatar's, if you are Alatar). As normal, all hazard
