@@ -750,7 +750,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
       for (const targetCompany of companiesAtSite) {
         if (targetCompany.id === company.id) continue;
 
-        const atHaven = companyAtHaven(state, targetCompany, player.alignment);
+        const atHaven = companyAtHaven(state, targetCompany, player.alignment, player.id);
         const resultingCharIds = [...targetCompany.characters, charInstId];
 
         // Rules 3.24–3.26 apply only at non-haven sites.
@@ -808,6 +808,7 @@ function companyAtHaven(
   state: GameState,
   company: { currentSite?: { instanceId: CardInstanceId } | null },
   alignment: import('../../index.js').Alignment,
+  playerId: PlayerId,
 ): boolean {
   if (!company.currentSite) return false;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
@@ -817,8 +818,9 @@ function companyAtHaven(
   // Elf/Dwarf/Dúnadan/Hobbit) applies only at a *haven for this player*. For a
   // Fallen-wizard that means a Wizardhaven — not a METW Haven or MELE Darkhaven.
   // `isHavenForPlayer` is identical to the plain siteType check for every other
-  // alignment, so non-Fallen-wizard behaviour is unchanged.
-  return isHavenForPlayer(siteDef, alignment);
+  // alignment, so non-Fallen-wizard behaviour is unchanged. A site converted to
+  // a Wizardhaven for this player (Hidden Haven, wh-75) also qualifies.
+  return isHavenForPlayer(siteDef, alignment, { state, siteDefinitionId: siteDefId, playerId });
 }
 
 /** The MECCG races that cannot mix with Orcs/Trolls (CoE rule 3.25). */
@@ -923,7 +925,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
 
-      const atHaven = companyAtHaven(state, targetCompany, player.alignment);
+      const atHaven = companyAtHaven(state, targetCompany, player.alignment, player.id);
       const mergedCharIds = [...targetCompany.characters, ...company.characters];
 
       // Rules 3.24–3.26 apply only at non-haven sites.

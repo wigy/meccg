@@ -804,6 +804,50 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Hidden Haven (wh-75): the bound Ruins & Lairs "becomes one of your
+         * Wizardhavens". The accompanying `site.type` override already makes the
+         * site read as a haven for every effective-type consumer; this
+         * player-targeted marker is what {@link isHavenForPlayer} consults so the
+         * *converting* Fallen-wizard player gains the player-gated haven benefits
+         * (bringing characters into play, untapping, item storage, no site-tap on
+         * departure) at a site whose printed alignment is not `fallen-wizard`.
+         * Matched by `siteDefinitionId` against the player's company site. Scoped
+         * `until-cleared`; discarded with the card when the site leaves play.
+         */
+        readonly type: 'wizardhaven-conversion';
+        /** The definition ID of the site converted into a Wizardhaven. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
+         * Hidden Haven (wh-75): "Nothing is considered playable as written on the
+         * site card." Suppresses every play that relies on the site's *printed*
+         * playable-resources / on-site listings — items, factions, allies, and
+         * resource short-events keyed to the site's own card. Consulted in
+         * `legal-actions/site.ts` for the company occupying the bound site.
+         * Matched by `siteDefinitionId`; scoped `until-cleared`.
+         */
+        readonly type: 'site-nothing-playable-as-written';
+        /** The definition ID of the site on which nothing is playable as written. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
+         * Hidden Haven (wh-75): "If one of your companies is at this site, all
+         * attacks against it are canceled." Every attack that would be initiated
+         * against a company occupying the bound site — the site's own
+         * automatic-attacks (already removed here by `skip-automatic-attacks`),
+         * revealed on-guard creature attacks, and declared agent attacks — is
+         * canceled. Consulted at each attack-initiation point in
+         * `reducer-site.ts`. Matched by `siteDefinitionId`; scoped
+         * `until-cleared`.
+         */
+        readonly type: 'cancel-attacks-at-site';
+        /** The definition ID of the site at which attacks are canceled. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
          * Vile Fumes (wh-54): the site's printed automatic-attacks are
          * *replaced* by a single bespoke attack (Gas). Added via the
          * `transform-site` grant-action and scoped `until-cleared`,

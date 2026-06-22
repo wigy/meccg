@@ -160,7 +160,11 @@ function performUntap(state: GameState): GameState {
     if (!siteDef || !isSiteCard(siteDef)) continue;
     // MEWH §3: a Fallen-wizard heals only at his Wizardhavens; METW Havens and
     // MELE Darkhavens (siteType `haven`, other alignment) are not havens for him.
-    let isHaven = isHavenForPlayer(siteDef, player.alignment);
+    let isHaven = isHavenForPlayer(siteDef, player.alignment, {
+      state,
+      siteDefinitionId: company.currentSite.definitionId,
+      playerId: player.id,
+    });
     if (!isHaven) {
       const siteDefId = company.currentSite.definitionId as string;
       isHaven = state.activeConstraints.some(c => {

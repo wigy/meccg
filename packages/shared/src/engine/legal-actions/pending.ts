@@ -1201,6 +1201,20 @@ function applyOneConstraint(
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
       // filtering needed here.
       return base;
+    case 'wizardhaven-conversion':
+      // Consulted directly by `isHavenForPlayer` (haven-benefit gates) and the
+      // effective-type readers — no broad legal-action filtering needed here.
+      return base;
+    case 'site-nothing-playable-as-written':
+      // Consulted directly by the resource/faction/ally/item emitters in
+      // `legal-actions/site.ts` for the company at the bound site — no broad
+      // legal-action filtering needed here.
+      return base;
+    case 'cancel-attacks-at-site':
+      // Consumed directly at each attack-initiation point in `reducer-site.ts`
+      // (auto-attacks, on-guard creatures, agent attacks) — no broad
+      // legal-action filtering needed here.
+      return base;
   }
 }
 

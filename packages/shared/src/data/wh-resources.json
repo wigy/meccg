@@ -86,11 +86,67 @@
               "adjacentSites": {
                 "$exists": false
               }
+            },
+            {
+              "regionType": {
+                "$in": [
+                  "wilderness",
+                  "border",
+                  "shadow"
+                ]
+              }
             }
           ]
         }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
       }
-    ]
+    ],
+    "certified": "2026-06-22"
   },
   {
     "cardType": "hero-resource-event",

@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
-import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment } from '../index.js';
+import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
 import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
@@ -378,6 +378,27 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Resolve the {@link RegionType} of the region a site sits in.
+ *
+ * A site definition records its containing region only by name (`region`);
+ * the region's type lives on the separate region card. This joins the two via
+ * the card pool. Used to gate plays that care about a site's own region type —
+ * e.g. Hidden Haven (wh-75), "Playable on a … Ruins & Lairs in a Wilderness,
+ * Border-land, or Shadow-land" — which a filter over the site definition alone
+ * cannot express. Returns `undefined` when the site has no region or the region
+ * card is absent from the pool.
+ */
+export function siteRegionTypeOf(state: GameState, siteDef: CardDefinition | undefined): RegionType | undefined {
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.region) return undefined;
+  for (const card of Object.values(state.cardPool)) {
+    if (card.cardType === 'region' && card.name === siteDef.region) {
+      return (card as { regionType?: RegionType }).regionType;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Find the first element matching `id` in a read-only array of card-like
  * objects, or `undefined` if none matches. Centralizes the ubiquitous
  * `pile.find(c => c.instanceId === id)` lookup used to locate a card instance
@@ -445,6 +466,28 @@ export function stagePointsOfCard(def: CardDefinition | null | undefined): numbe
 }
 
 /**
+ * True when an active `wizardhaven-conversion` constraint (Hidden Haven, wh-75)
+ * has turned the site with `siteDefinitionId` into a Wizardhaven for `playerId`.
+ *
+ * The conversion is player-scoped (matched on the constraint's player target),
+ * so an opponent's company sharing the same site does not gain haven benefits —
+ * the card grants "one of *your* Wizardhavens".
+ */
+export function isWizardhavenConversionFor(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  if (!siteDefinitionId) return false;
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'wizardhaven-conversion'
+    && c.kind.siteDefinitionId === siteDefinitionId
+    && c.target.kind === 'player'
+    && c.target.playerId === playerId,
+  );
+}
+
+/**
  * Whether `siteDef` functions as a *haven* for a player of the given alignment
  * (MEWH §3, "Wizardhavens").
  *
@@ -459,12 +502,23 @@ export function stagePointsOfCard(def: CardDefinition | null | undefined): numbe
  *
  * Use this in place of a bare `siteDef.siteType === 'haven'` check wherever the
  * haven property is consumed *for a particular player*.
+ *
+ * A site dynamically converted into a Wizardhaven by Hidden Haven (wh-75) is
+ * also a haven — but only for the Fallen-wizard who converted it, and only at
+ * the bound site. Pass the `conversion` context (state + the site's definition
+ * id + the player) so this returns true for the converting player even though
+ * the site's printed type is Ruins & Lairs and its alignment is not
+ * `fallen-wizard`. See {@link isWizardhavenConversionFor}.
  */
 export function isHavenForPlayer(
   siteDef: CardDefinition | undefined,
   alignment: Alignment,
+  conversion?: { state: GameState; siteDefinitionId: CardDefinitionId | undefined; playerId: PlayerId },
 ): boolean {
   if (!siteDef || !isSiteCard(siteDef)) return false;
+  if (conversion && isWizardhavenConversionFor(conversion.state, conversion.siteDefinitionId, conversion.playerId)) {
+    return true;
+  }
   if (siteDef.siteType !== 'haven') return false;
   if (alignment === 'fallen-wizard') return siteDef.alignment === 'fallen-wizard';
   return true;
