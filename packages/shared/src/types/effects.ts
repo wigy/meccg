@@ -1266,6 +1266,21 @@ export interface AgentTapAttackEffect extends EffectBase {
 }
 
 /**
+ * Restricts the site types an agent (acting as a hazard moving around the map)
+ * may move to. When the bearer takes an `agent-move` action, any destination
+ * whose {@link SiteType} appears in `siteTypes` is excluded from the legal
+ * destinations.
+ *
+ * Models text such as "Agent only: Cannot move to Free-holds [{F}] and
+ * Border-holds [{B}]." Used by Baugúr (dm-181).
+ */
+export interface AgentMoveRestrictionEffect extends EffectBase {
+  readonly type: 'agent-move-restriction';
+  /** Site types the agent may NOT move to. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * Played from hand as a short event during combat (pre-assignment window).
  * Applies a stat modifier to every character in the defending company
  * whose card definition satisfies the optional `filter` condition.
@@ -2882,6 +2897,7 @@ export type CardEffect =
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
+  | AgentMoveRestrictionEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | CallCouncilEffect

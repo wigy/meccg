@@ -805,9 +805,41 @@
     "marshallingCategory": "character",
     "homesite": "Isengard",
     "keywords": [
-      "agent"
+      "agent",
+      "Half-orc",
+      "Leader"
     ],
-    "effects": [],
+    "discardBodyCheck": [
+      8
+    ],
+    "certified": "2026-06-22",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "agent-move-restriction",
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
     "text": "Unique.Half-orc. Agent. Leader. Discard on a body check result of 8. +2 direct influence against Orcs and Orc factions. Agent only: Cannot move to Free-holds [{F}] and Border-holds [{B}]."
   },
   {
