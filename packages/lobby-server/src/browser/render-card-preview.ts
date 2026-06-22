@@ -42,11 +42,23 @@ function formatCardType(cardType: string): string {
 }
 
 /** Add an attribute row to the info panel. Value may contain HTML. */
-function addAttr(parent: HTMLElement, label: string, value: string | number): void {
+function addAttr(parent: HTMLElement, label: string, value: string | number | null | undefined): void {
+  // Never surface a raw "undefined"/"null" to the player — show a dash instead.
+  const display = value === null || value === undefined || value === '' ? '—' : value;
   const row = document.createElement('div');
   row.className = 'card-preview-attr';
-  row.innerHTML = `<span class="attr-label">${label}</span><span class="attr-value">${value}</span>`;
+  row.innerHTML = `<span class="attr-label">${label}</span><span class="attr-value">${display}</span>`;
   parent.appendChild(row);
+}
+
+/**
+ * Total stage points a card contributes (Fallen-wizard "stage" resources), summed
+ * from its `stage-points` effects. Mirrors the engine's `stagePointsOfCard`.
+ */
+function stagePointsOf(def: CardDefinition): number {
+  const effects = (def as { effects?: readonly { type: string; value?: number }[] }).effects;
+  if (!effects) return 0;
+  return effects.reduce((sum, e) => e.type === 'stage-points' ? sum + (e.value ?? 0) : sum, 0);
 }
 
 /** Render an array of region types as inline icon images. */
@@ -144,7 +156,8 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       addAttr(el, 'Duration', formatLabel(def.eventType));
       break;
     }
-    case 'hero-resource-event': {
+    case 'hero-resource-event':
+    case 'minion-resource-event': {
       addAttr(el, 'Duration', formatLabel(def.eventType));
       if (def.marshallingPoints !== 0) addAttr(el, 'MP', def.marshallingPoints);
       break;
@@ -178,6 +191,12 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       if (def.adjacentRegions.length > 0) addAttr(el, 'Adjacent', def.adjacentRegions.join(', '));
       break;
     }
+  }
+
+  // Fallen-wizard "stage" resources contribute stage points toward their
+  // controller's running total — surface this for any stage-aligned card.
+  if ((def as { alignment?: string }).alignment === 'stage') {
+    addAttr(el, 'Stage Points', stagePointsOf(def));
   }
 }
 

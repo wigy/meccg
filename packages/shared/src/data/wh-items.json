@@ -188,7 +188,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique.Playable at Minas Tirith. During your organization phase, you may: take The Fortress of Isen card from your play deck or discard pile to your hand or discard The Fortress of Isen card if in play by another player. Reshuffle your play deck if searched."
   },
   {
@@ -206,7 +211,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique.Playable at Barrow-downs. During your organization phase, you may: take the Fortress of the Towers card from your play deck or discard pile to your hand or discard the Fortress of the Towers card if in play by another player. Reshuffle your play deck if searched."
   }
 ]
