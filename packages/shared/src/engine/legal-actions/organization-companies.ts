@@ -20,7 +20,7 @@ import type {
 import { GENERAL_INFLUENCE, isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeOf } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
@@ -750,7 +750,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
       for (const targetCompany of companiesAtSite) {
         if (targetCompany.id === company.id) continue;
 
-        const atHaven = companyAtHaven(state, targetCompany);
+        const atHaven = companyAtHaven(state, targetCompany, player.alignment);
         const resultingCharIds = [...targetCompany.characters, charInstId];
 
         // Rules 3.24–3.26 apply only at non-haven sites.
@@ -804,12 +804,21 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
  * Check whether a company's current site is a haven.
  * Havens exempt companies from size limits, race-mixing, and leader restrictions.
  */
-function companyAtHaven(state: GameState, company: { currentSite?: { instanceId: CardInstanceId } | null }): boolean {
+function companyAtHaven(
+  state: GameState,
+  company: { currentSite?: { instanceId: CardInstanceId } | null },
+  alignment: import('../../index.js').Alignment,
+): boolean {
   if (!company.currentSite) return false;
   const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
   if (!siteDefId) return false;
   const siteDef = defById(state, siteDefId);
-  return !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+  // MEWH §9: the race-mixing exception (Orc/Troll may share a company with
+  // Elf/Dwarf/Dúnadan/Hobbit) applies only at a *haven for this player*. For a
+  // Fallen-wizard that means a Wizardhaven — not a METW Haven or MELE Darkhaven.
+  // `isHavenForPlayer` is identical to the plain siteType check for every other
+  // alignment, so non-Fallen-wizard behaviour is unchanged.
+  return isHavenForPlayer(siteDef, alignment);
 }
 
 /** The MECCG races that cannot mix with Orcs/Trolls (CoE rule 3.25). */
@@ -914,7 +923,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
 
-      const atHaven = companyAtHaven(state, targetCompany);
+      const atHaven = companyAtHaven(state, targetCompany, player.alignment);
       const mergedCharIds = [...targetCompany.characters, ...company.characters];
 
       // Rules 3.24–3.26 apply only at non-haven sites.

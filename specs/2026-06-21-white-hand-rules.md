@@ -447,9 +447,17 @@ company can against any opponent.
 > **Already done (verified):** Half-orcs cannot take trophies — `reducer-combat.ts` already
 > excludes `isHalfOrc` characters from the trophy-eligible set (`!isHalfOrc(def)`).
 >
+> **Implemented (company composition).** The base race-mixing restriction (CoE 3.25,
+> `wouldViolateRaceMixing`) already bars Orc/Troll from sharing a company with
+> Elf/Dwarf/Dúnadan/Hobbit (Man excluded) at non-haven sites. The MEWH gap was the *haven
+> exception*: `companyAtHaven` now resolves the haven through `isHavenForPlayer(siteDef,
+> alignment)`, so a Fallen-wizard's exception applies only at his Wizardhavens — at a METW
+> Haven the restriction still holds. Non-Fallen-wizard behaviour is unchanged. Test:
+> `rule-mewh-orc-troll-company.test.ts` (Orc may join a Hobbit company at Isengard, not at
+> Rivendell).
+>
 > **Still missing (each its own follow-up):** play-gating
-> Orc/Troll until a permitting stage card; the Orc/Troll company-composition restriction
-> (no Elf/Dwarf/Dúnadan/Hobbit unless at a Wizardhaven); overt site-version usage (needs the
+> Orc/Troll until a permitting stage card; overt site-version usage (needs the
 > §7 site-linkage model); detainment classification of overt companies; and the
 > hero-resource targeting/skill/tap/perm-event restrictions on Orc/Troll (overlap with the
 > §10 targeting bar).
