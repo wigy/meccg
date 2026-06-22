@@ -1968,7 +1968,10 @@
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Enedhwaith",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Spiders",
@@ -1978,7 +1981,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Spiders — 2 strikes with 8 prowess"
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Spiders — 2 strikes with 8 prowess",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-site",
