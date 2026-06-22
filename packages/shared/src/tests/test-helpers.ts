@@ -6,8 +6,6 @@
  */
 
 import { expect } from 'vitest';
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
 import { createGame } from '../engine/init.js';
 import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -23,7 +21,6 @@ import {
 } from '../index.js';
 import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction, ActiveConstraint, CheckKind } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
-import type { DeckList } from '../types/cards.js';
 import { enqueueResolution, addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { CollectedEffect } from '../engine/effects/index.js';
@@ -2832,16 +2829,6 @@ export function pushCardInPlay(
   const updated = { ...state.players[playerIdx], cardsInPlay: [...state.players[playerIdx].cardsInPlay, card] };
   const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
   return { ...state, players: players as unknown as typeof state.players };
-}
-
-// ─── Deck fixture loaders ───────────────────────────────────────────────────
-
-const DECKS_DIR = join(__dirname, '../../../../data/decks');
-
-/** Load every JSON deck under `data/decks`. Used by deck-construction rule tests. */
-export function loadAllDecks(): DeckList[] {
-  const files = readdirSync(DECKS_DIR).filter(f => f.endsWith('.json'));
-  return files.map(f => JSON.parse(readFileSync(join(DECKS_DIR, f), 'utf-8')) as DeckList);
 }
 
 // ─── Effect / constraint fixture builders ───────────────────────────────────

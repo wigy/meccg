@@ -2,6 +2,19 @@
   {
     "cardType": "minion-resource-event",
     "alignment": "ringwraith",
+    "id": "as-80",
+    "name": "Dark Tryst",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/DarkTryst.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Draw three cards and remove this card from the game."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
     "id": "as-90",
     "name": "Join With That Power",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/JoinWithThatPower.jpg",

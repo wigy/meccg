@@ -35,14 +35,48 @@ interface DeckSection { id: string; label: string; entries: DeckListEntry[] }
 let editingDeck: FullDeck | null = null;
 
 /**
+ * Editor-only check (not a deck-construction rule): one marker per card whose
+ * definition has not been certified (its effects implemented and verified by a
+ * card test — such cards lack the `certified` date field). Returned in the same
+ * shape as validation errors so the editor can render the same per-card marker.
+ */
+function collectUncertifiedCards(deck: FullDeck): { section: string; message: string; card: string }[] {
+  const sections: [DeckListEntry[], string][] = [
+    [deck.pool, 'pool'],
+    [deck.deck.characters, 'characters'],
+    [deck.deck.hazards, 'hazards'],
+    [deck.deck.resources, 'resources'],
+    [deck.sites, 'sites'],
+    [deck.sideboard ?? [], 'sideboard'],
+    [deck.antiFwSideboard ?? [], 'anti-fw-sideboard'],
+  ];
+  const out: { section: string; message: string; card: string }[] = [];
+  const seen = new Set<string>();
+  for (const [entries, section] of sections) {
+    for (const e of entries) {
+      if (!e.card || seen.has(`${section}:${e.card}`)) continue;
+      const def = cardPool[e.card] as { name?: string; certified?: string } | undefined;
+      if (!def || def.certified) continue;
+      seen.add(`${section}:${e.card}`);
+      out.push({ section, message: `card "${def.name ?? e.card}" is not yet certified`, card: e.card });
+    }
+  }
+  return out;
+}
+
+/**
  * Re-run deck validation and refresh the error display: general errors go
  * to the common area above the sections, card-specific errors put a warning
  * marker (with the messages as tooltip) on every row showing that card.
+ * Uncertified-card markers are an editor-only overlay, not rule violations.
  */
 function refreshValidation(): void {
   const box = document.getElementById('deck-editor-errors');
   if (!editingDeck || !box) return;
-  const errors = validateDeck(editingDeck as unknown as DeckList, cardPool);
+  const errors = [
+    ...validateDeck(editingDeck as unknown as DeckList, cardPool),
+    ...collectUncertifiedCards(editingDeck),
+  ];
   const general = errors.filter(e => !e.card);
   const cardErrorCount = errors.length - general.length;
   box.textContent = '';
