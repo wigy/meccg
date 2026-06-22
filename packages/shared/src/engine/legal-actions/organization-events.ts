@@ -24,6 +24,24 @@ import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCo
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 
 /**
+ * Whether `company` contains an Orc or Troll character (MEWH §9). Half-orcs
+ * carry `race: Orc`, so they are included.
+ */
+function companyHasOrcOrTroll(
+  state: GameState,
+  company: import('../../index.js').PlayerState['companies'][number],
+  player: import('../../index.js').PlayerState,
+): boolean {
+  return company.characters.some(cId => {
+    const ch = player.characters[cId as string];
+    if (!ch) return false;
+    const def = defById(state, ch.definitionId);
+    return !!def && 'race' in def
+      && ((def as { race: string }).race === Race.Orc || (def as { race: string }).race === Race.Troll);
+  });
+}
+
+/**
  * Evaluates permanent-event resource cards in hand for play during organization.
  * Permanent resource events can be played directly to the table without a site.
  * Unique permanent events cannot be played if one with the same name is already in play.
@@ -216,9 +234,17 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // play-target DSL: company-targeting permanent events get one action per qualifying company
     if (playTarget?.target === 'company') {
       const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+      // MEWH §9: a Fallen-wizard may not play a hero resource permanent-event on
+      // a company containing an Orc or Troll.
+      const heroEventForFw = player.alignment === 'fallen-wizard'
+        && (def as { alignment?: string }).alignment === 'wizard';
       let anyTarget = false;
       for (const company of player.companies) {
         if (!company.currentSite) continue;
+        if (heroEventForFw && companyHasOrcOrTroll(state, company, player)) {
+          logDetail(`Permanent event ${def.name}: hero resource cannot be played on company ${company.id as string} — contains an Orc/Troll (MEWH §9)`);
+          continue;
+        }
         const siteDef = defById(state, company.currentSite.definitionId);
         if (!siteDef || !('siteType' in siteDef)) continue;
         const siteType = (siteDef as { siteType: string }).siteType;
