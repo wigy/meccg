@@ -114,6 +114,26 @@ export function siteAutoAttacksForcedDetainment(
   return false;
 }
 
+/**
+ * True when an active `cancel-attacks-at-site` constraint matches the given
+ * site — i.e. Hidden Haven (wh-75) has decreed that every attack against a
+ * company occupying that site is canceled. Consulted at each attack-initiation
+ * point in `reducer-site.ts` (on-guard creature attacks and declared agent
+ * attacks; the site's own automatic-attacks are separately removed by the
+ * accompanying `skip-automatic-attacks` constraint).
+ */
+export function siteAttacksCanceled(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId,
+): boolean {
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'cancel-attacks-at-site') continue;
+    if (c.kind.siteDefinitionId !== (siteDefinitionId as string)) continue;
+    return true;
+  }
+  return false;
+}
+
 function matchesEntity(a: ConstraintTarget, b: ConstraintTarget): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'company' && b.kind === 'company') return a.companyId === b.companyId;

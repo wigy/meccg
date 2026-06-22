@@ -864,9 +864,41 @@ function buildConstraintKind(
       if (!siteDefId) return null;
       return { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
     }
+    case 'wizardhaven-conversion': {
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'wizardhaven-conversion', siteDefinitionId: siteDefId };
+    }
+    case 'site-nothing-playable': {
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'site-nothing-playable-as-written', siteDefinitionId: siteDefId };
+    }
+    case 'cancel-attacks-at-site': {
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'cancel-attacks-at-site', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }
+}
+
+/**
+ * Resolve the definition id of the site the active company currently occupies
+ * during the site phase. Shared by the site-bound permanent-event constraints
+ * (Hidden Haven's Wizardhaven conversion, playability suppression, and
+ * attack cancellation), which all bind to "the site the card is played at".
+ * Returns null outside the site phase or when the company has no current site.
+ */
+function activeCompanySiteDefId(
+  state: GameState,
+): import('../types/common.js').CardDefinitionId | null {
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.Site) return null;
+  const activePlayer = activePlayerState(state);
+  const company = activePlayer?.companies[ps.activeCompanyIndex];
+  return company?.currentSite?.definitionId ?? null;
 }
 
 /**

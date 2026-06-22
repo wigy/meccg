@@ -21,6 +21,7 @@ import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins } from '../reducer-utils.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -129,7 +130,11 @@ function findPlayableSites(
     const siteDef = resolveDef(state, siteId);
     if (!isSiteCard(siteDef)) continue;
 
-    const isHaven = siteDef.siteType === SiteType.Haven;
+    // A site converted into a Wizardhaven (Hidden Haven, wh-75) lets the
+    // Fallen-wizard bring characters into play there, just like a printed
+    // haven. The conversion installs a `site.type` → haven override, so the
+    // effective type already reads as a haven.
+    const isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {

@@ -23,7 +23,7 @@ import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteN
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
-import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment } from './effective.js';
+import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
@@ -1112,6 +1112,36 @@ function handleSiteResolveAttacks(
 
   // If revealed on-guard creature attacks remain, initiate the next one via chain
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+  // Hidden Haven (wh-75): "all attacks against it are canceled." If the company
+  // occupies a site under a `cancel-attacks-at-site` constraint, every revealed
+  // on-guard creature attack is canceled — the creature is discarded without
+  // combat — and the step advances straight to play-resources.
+  const cancelSiteDefId = company?.currentSite?.definitionId;
+  if (company && cancelSiteDefId && siteAttacksCanceled(state, cancelSiteDefId)) {
+    const canceled = company.onGuardCards.filter(og => {
+      if (!og.revealed) return false;
+      const def = defById(state, og.definitionId);
+      return def?.cardType === 'hazard-creature';
+    });
+    if (canceled.length > 0) {
+      logDetail(`Site: ${canceled.length} on-guard creature attack(s) canceled by Hidden Haven`);
+      const remainingOnGuard = company.onGuardCards.filter(og => !canceled.includes(og));
+      const newCompanies = [...state.players[activePlayerIndex].companies];
+      newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: remainingOnGuard };
+      let newState: GameState = updatePlayer(state, activePlayerIndex, p => ({ ...p, companies: newCompanies }));
+      // A canceled attack creature is discarded to its owner (the hazard player).
+      const hazardPlayerIndex = getPlayerIndex(newState, hazardPlayer(newState).id);
+      newState = updatePlayer(newState, hazardPlayerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, ...canceled.map(c => toCardInstance(c))],
+      }));
+      return {
+        state: { ...newState, phaseState: { ...siteState, step: 'play-resources' as const } },
+      };
+    }
+  }
+
   if (company) {
     const revealedIdx = company.onGuardCards.findIndex(og => {
       if (!og.revealed) return false;

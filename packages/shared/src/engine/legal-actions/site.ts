@@ -10,10 +10,10 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition } from '../../index.js';
-import { getEffectiveSiteType } from '../effective.js';
+import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -529,6 +529,13 @@ function declareAgentAttackActions(
     return [{ type: 'pass', player: playerId }];
   }
 
+  // Hidden Haven (wh-75): "all attacks against it are canceled" — no agent may
+  // declare an attack on a company occupying the converted site.
+  if (siteAttacksCanceled(state, currentSiteDefId)) {
+    logDetail(`declare-agent-attack: attacks canceled at ${currentSiteName} (Hidden Haven) — only pass`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
   const hazardPlayer = playerById(state, playerId)!;
 
   const actions: GameAction[] = [];
@@ -660,8 +667,21 @@ function playResourcesActions(
   const siteInstanceId = company.currentSite?.instanceId ?? null;
   const siteDefId = siteInstanceId ? resolveInstanceId(state, siteInstanceId) : undefined;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
-  const playableTypes = siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
+  // Hidden Haven (wh-75): "Nothing is considered playable as written on the
+  // site card." When the company's site has been converted, the site's printed
+  // playable-resource categories (minor/major/greater items, gold-ring,
+  // information) are nullified, and factions/allies that would be playable at
+  // the site as written are blocked below.
+  const nothingPlayableAsWritten = !!siteDefId && state.activeConstraints.some(
+    c => c.kind.type === 'site-nothing-playable-as-written' && c.kind.siteDefinitionId === siteDefId,
+  );
+  const playableTypes = nothingPlayableAsWritten
+    ? new Set<string>()
+    : siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
   const siteName = siteDef?.name ?? 'unknown site';
+  if (nothingPlayableAsWritten) {
+    logDetail(`Site ${siteName}: nothing playable as written (Hidden Haven) — printed resources, factions, and allies suppressed`);
+  }
 
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   logDetail(`Site ${siteName}: playable resource types: ${[...playableTypes].join(', ') || 'none'}, tapped: ${siteIsTapped}`);
@@ -762,7 +782,13 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
         );
         if (sitePlayTarget?.filter && siteDef) {
-          if (!matchesDefinition(siteDef, sitePlayTarget.filter)) {
+          // Augment the matched object with the site's own region type so a
+          // filter can gate on it (e.g. Hidden Haven's "in a Wilderness,
+          // Border-land, or Shadow-land"). The region type lives on a separate
+          // region card, so it is not a field on the site definition itself.
+          const regionType = siteRegionTypeOf(state, siteDef);
+          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType };
+          if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
             continue;
@@ -1183,7 +1209,7 @@ function playResourcesActions(
       const allyEffSiteType = siteDefForAlly && siteDefId
         ? getEffectiveSiteType(state, siteDefId, siteDefForAlly.siteType)
         : siteDefForAlly?.siteType;
-      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
+      const matchesPlayableAt = !nothingPlayableAsWritten && siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
@@ -1273,7 +1299,7 @@ function playResourcesActions(
       const factionEffSiteType = siteDefForFaction && siteDefId
         ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType)
         : siteDefForFaction?.siteType;
-      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
+      if (!siteDefForFaction || nothingPlayableAsWritten || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));

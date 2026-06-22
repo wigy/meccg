@@ -1658,7 +1658,16 @@ Supported targets:
   emitter evaluates the filter per-candidate bearer and only offers
   `play-hero-resource` actions for matching characters.
 - `company` — the active company (hazard permanent events that target the whole company rather than individual characters). The filter is evaluated against a context `{ company: { alignment: string, destinationSiteType: string } }` where `alignment` is the resource player's alignment (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and `destinationSiteType` is the site type of the company's current (or destination) site. Used by *Nothing to Eat or Drink* (le-128) to restrict play to minion companies at free-hold/border-hold or hero companies at shadow-hold/dark-hold.
-- `site` — the company's destination/current site (e.g. River).
+- `site` — the company's destination/current site (e.g. River). The `filter`
+  matches against the site definition's own fields (`siteType`, `region`,
+  `lairOf`, `adjacentSites`, `keywords`, …) **plus** a synthetic `regionType`
+  field — the {@link RegionType} of the region the site sits in, resolved via
+  `siteRegionTypeOf` and injected at match time (the region's type lives on a
+  separate region card, not on the site). This lets a site filter gate on the
+  site's own region type, e.g. Hidden Haven (wh-75): `{ "$and": [ {
+  "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
+  "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
+  ["wilderness", "border", "shadow"] } } ] }`.
 
 Optional fields:
 
