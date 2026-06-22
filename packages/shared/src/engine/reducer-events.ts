@@ -1184,6 +1184,9 @@ function applyShortEventOnEntersPlay(
         case 'no-creature-hazards-on-company':
           kind = { type: 'no-creature-hazards-on-company' };
           break;
+        case 'company-cannot-move':
+          kind = { type: 'company-cannot-move' };
+          break;
         case 'site-phase-do-nothing':
           kind = { type: 'site-phase-do-nothing' };
           break;

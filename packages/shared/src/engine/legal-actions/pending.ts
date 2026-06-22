@@ -1094,6 +1094,11 @@ function applyOneConstraint(
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'company-cannot-move':
+      // Enforced directly by the org-phase `plan-movement` emitter
+      // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
+      // legal-action filtering needed here. Used by Hide in Dark Places (le-192).
+      return base;
     case 'check-modifier':
       return base;
     case 'deny-scout-resources':

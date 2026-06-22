@@ -2100,6 +2100,17 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   const company = player.companies[companyIdx];
   if (company.destinationSite) return { state, error: 'Company already has planned movement' };
 
+  // Hide in Dark Places (le-192) locks its scout's company stationary for the
+  // turn — such a company may not declare movement.
+  if (state.activeConstraints.some(
+    c => c.kind.type === 'company-cannot-move'
+      && c.target.kind === 'company'
+      && c.target.companyId === company.id,
+  )) {
+    logDetail(`Plan movement rejected: company ${company.id as string} is locked stationary (company-cannot-move)`);
+    return { state, error: 'Company is locked stationary this turn (cannot declare movement)' };
+  }
+
   const deckCard = findById(player.siteDeck, action.destinationSite);
   // Rules 3.37 / 3.39: the destination may be another of this player's
   // companies' currentSite or pending destinationSite. In that case the
