@@ -331,23 +331,50 @@ function handleItemDraft(
       return { state, error: 'Company not found' };
     }
     const newPlayDeck = player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
-    const eventInPlay: CardInPlay = {
-      instanceId: deckCard.instanceId,
-      definitionId: deckCard.definitionId,
-      status: CardStatus.Untapped,
-      companyId: action.companyId,
-    };
     const newItemDraft: ItemDraftPlayerState = {
       ...itemDraft,
       startingEventsPlaced: (itemDraft.startingEventsPlaced ?? 0) + 1,
     };
     const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
     newItemDraftState[playerIndex] = newItemDraft;
-    const stateWithCard = updatePlayer(state, playerIndex, p => ({
-      ...p,
-      playDeck: newPlayDeck,
-      cardsInPlay: [...p.cardsInPlay, eventInPlay],
-    }));
+
+    // Recruitment vehicle (Thrall of the Voice, wh-82): "place this card with
+    // the character" — when a target starting character is named, attach the
+    // event to that character (so its "-1 to his mind" applies and such a
+    // character may be in the starting company) rather than binding it to the
+    // company at large.
+    const eventDef = defById(state, deckCard.definitionId);
+    const isRecruitmentVehicle = (eventDef as { effects?: readonly { type: string }[] } | undefined)?.effects?.some(
+      e => e.type === 'recruitment-vehicle',
+    ) ?? false;
+    const targetCharId = action.targetCharacterInstanceId;
+    const targetChar = targetCharId ? player.characters[targetCharId as string] : undefined;
+
+    const stateWithCard = (isRecruitmentVehicle && targetChar)
+      ? updatePlayer(state, playerIndex, p => ({
+          ...p,
+          playDeck: newPlayDeck,
+          characters: {
+            ...p.characters,
+            [targetCharId as string]: {
+              ...targetChar,
+              items: [
+                ...targetChar.items,
+                { instanceId: deckCard.instanceId, definitionId: deckCard.definitionId, status: CardStatus.Untapped },
+              ],
+            },
+          },
+        }))
+      : updatePlayer(state, playerIndex, p => ({
+          ...p,
+          playDeck: newPlayDeck,
+          cardsInPlay: [...p.cardsInPlay, {
+            instanceId: deckCard.instanceId,
+            definitionId: deckCard.definitionId,
+            status: CardStatus.Untapped,
+            companyId: action.companyId,
+          } as CardInPlay],
+        }));
     if (newItemDraftState[0].done && newItemDraftState[1].done) {
       return { state: transitionAfterItemDraft(stateWithCard, stepState.remainingPool) };
     }

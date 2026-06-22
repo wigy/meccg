@@ -16,7 +16,7 @@ import type {
   SiteCard,
 } from '../../index.js';
 import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
-import type { PlayFlagEffect, RingwraithFollowerSlotsEffect } from '../../types/effects.js';
+import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
@@ -55,6 +55,25 @@ function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard):
  */
 function isAgentCharacter(charDef: CharacterCard): boolean {
   return (charDef.keywords ?? []).includes('agent');
+}
+
+/**
+ * Find an in-hand recruitment vehicle (Thrall of the Voice, wh-82) for this
+ * player, returning its card instance and `maxMind`. A recruitment vehicle lets
+ * a Fallen-wizard bring one otherwise-ineligible character into play; see
+ * {@link RecruitmentVehicleEffect}. Returns the first such card, or undefined.
+ */
+function recruitmentVehicleInHand(
+  state: GameState,
+  player: { readonly hand: readonly { readonly instanceId: CardInstanceId; readonly definitionId: import('../../index.js').CardDefinitionId }[] },
+): { instanceId: CardInstanceId; maxMind: number } | undefined {
+  for (const card of player.hand) {
+    const def = defById(state, card.definitionId);
+    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
+    const eff = effects.find((e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle');
+    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind };
+  }
+  return undefined;
 }
 
 /**
@@ -467,20 +486,45 @@ export function playCharacterActions(
       // Non-avatar: check GI/DI constraints
       const charMind = cardDef.mind;
 
+      // Recruitment vehicle (Thrall of the Voice, wh-82): a Fallen-wizard may
+      // bring one character with printed mind above the standard maximum of 5
+      // (up to the vehicle's maxMind) into play "instead of a normal character"
+      // by placing the vehicle with it. Per the CRF this cannot bring an Orc or
+      // Troll into play. The recruit may be a minion agent. When recruiting, the
+      // vehicle's "-1 to his mind" reduces the influence cost (min 1).
+      const vehicle = recruitmentVehicleInHand(state, player);
+      const recruitViaVehicle = vehicle !== undefined
+        && player.alignment === Alignment.FallenWizard
+        && charMind > 5
+        && charMind <= vehicle.maxMind
+        && cardDef.race !== Race.Orc
+        && cardDef.race !== Race.Troll;
+      const costMind = recruitViaVehicle ? Math.max(1, charMind - 1) : charMind;
+      const recruitField = recruitViaVehicle && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : {};
+      if (recruitViaVehicle) {
+        logDetail(`  → recruitment vehicle available: ${charName} (mind ${charMind} → cost ${costMind}) may be brought in via Thrall of the Voice`);
+      }
+
       // MEWH §11 / Characters: a Fallen-wizard may not start or bring into play
-      // any character with a mind greater than 5.
-      if (player.alignment === 'fallen-wizard' && charMind > 5) {
-        logDetail(`  → blocked: ${charName} mind ${charMind} > 5 — a Fallen-wizard cannot bring such a character into play (MEWH)`);
+      // any character with a mind greater than 5 — unless a recruitment vehicle
+      // lifts the limit for this one character.
+      if (player.alignment === 'fallen-wizard' && charMind > 5 && !recruitViaVehicle) {
+        const reason = (vehicle && charMind > vehicle.maxMind)
+          ? `${charName}: mind ${charMind} exceeds Thrall of the Voice's maximum of ${vehicle.maxMind}`
+          : (vehicle && (cardDef.race === Race.Orc || cardDef.race === Race.Troll))
+            ? `${charName}: Thrall of the Voice cannot bring an Orc or Troll into play`
+            : `${charName}: mind ${charMind} exceeds the Fallen-wizard maximum of 5`;
+        logDetail(`  → blocked: ${reason}`);
         results.push({
           action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
           viable: false,
-          reason: `${charName}: mind ${charMind} exceeds the Fallen-wizard maximum of 5`,
+          reason,
         });
         continue;
       }
 
       const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
-      const canPlayUnderGI = charMind <= remainingGI;
+      const canPlayUnderGI = costMind <= remainingGI;
 
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers.
@@ -490,17 +534,17 @@ export function playCharacterActions(
         const ctrlDef = resolveDef(state, char.instanceId);
         if (!isCharacterCard(ctrlDef)) continue;
         const avail = availableDI(state, char.instanceId, player, cardDef);
-        if (avail >= charMind) {
+        if (avail >= costMind) {
           diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });
         }
       }
 
       if (!canPlayUnderGI && diControllers.length === 0) {
-        logDetail(`  → blocked: mind ${charMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
+        logDetail(`  → blocked: mind cost ${costMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
         results.push({
           action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
           viable: false,
-          reason: `${charName}: mind ${charMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
+          reason: `${charName}: mind ${costMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
         });
         continue;
       }
@@ -510,7 +554,7 @@ export function playCharacterActions(
         // Rule 2.II.2.2: with avatar in play, GI play only at avatar's site
         const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId;
         if (canPlayUnderGI && giAllowedAtSite) {
-          logDetail(`  → viable: play under GI at ${site.siteName} (mind ${charMind}, remaining GI ${remainingGI})`);
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costMind}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}`);
           results.push({
             action: {
               type: 'play-character',
@@ -518,6 +562,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: 'general',
+              ...recruitField,
             },
             viable: true,
           });
@@ -546,6 +591,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: ctrl.instanceId,
+              ...recruitField,
             },
             viable: true,
           });

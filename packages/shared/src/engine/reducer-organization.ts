@@ -187,12 +187,28 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
 
+  // Recruitment vehicle (Thrall of the Voice, wh-82): "place this card with the
+  // character". When the play is made via a recruitment vehicle, move the
+  // vehicle from hand and attach it to the recruit, so its "-1 to his mind"
+  // stat-modifier resolves against the recruit during recomputeDerived.
+  let recruitItems: readonly import('../types/state-cards.js').ItemInPlay[] = [];
+  let handAfterVehicle = player.hand;
+  if (action.viaRecruitmentInstanceId) {
+    const vehicleCard = findById(player.hand, action.viaRecruitmentInstanceId);
+    if (!vehicleCard) {
+      return { state, error: 'Recruitment vehicle not in hand' };
+    }
+    recruitItems = [{ instanceId: vehicleCard.instanceId, definitionId: vehicleCard.definitionId, status: CardStatus.Untapped }];
+    handAfterVehicle = removeById(player.hand, vehicleCard.instanceId);
+    logDetail(`  Recruitment vehicle ${vehicleCard.definitionId as string} placed with ${charDef.name}`);
+  }
+
   // Build the new CharacterInPlay
   const newChar: CharacterInPlay = {
     instanceId: charInstId,
     definitionId: handCard.definitionId,
     status: CardStatus.Untapped,
-    items: [],
+    items: recruitItems,
     allies: [],
     hazards: [],
     followers: [],
@@ -201,7 +217,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   };
 
   // Remove character from hand
-  const newHand = removeById(player.hand, charInstId);
+  const newHand = removeById(handAfterVehicle, charInstId);
 
   // Find existing company at the target site
   const companies = [...player.companies];

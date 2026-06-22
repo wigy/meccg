@@ -104,17 +104,31 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
       const effects = isItem ? [] : ((def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? []);
       if (!effects.some(e => e.type === 'starting-company-placement')) continue;
       seenEventDefIds.add(defId as string);
+      // Recruitment vehicle (Thrall of the Voice, wh-82) is "placed with a
+      // character": offer one placement per character in the starting company,
+      // so it attaches to that character and reduces its mind.
+      const isRecruitmentVehicle = effects.some(e => e.type === 'recruitment-vehicle');
       for (const company of player.companies) {
         // Skip if already placed on this company
         const alreadyOnCompany = player.cardsInPlay.some(
           c => c.companyId === company.id && c.definitionId === defId,
         );
         if (alreadyOnCompany) continue;
-        evaluated.push({
-          action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id },
-          viable: true,
-        });
-        logDetail(`Starting company event '${def?.name ?? defId as string}' offered for company ${company.id as string}`);
+        if (isRecruitmentVehicle) {
+          for (const charId of company.characters) {
+            evaluated.push({
+              action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id, targetCharacterInstanceId: charId },
+              viable: true,
+            });
+          }
+          logDetail(`Recruitment vehicle '${def?.name ?? defId as string}' offered for ${company.characters.length} character(s) in company ${company.id as string}`);
+        } else {
+          evaluated.push({
+            action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id },
+            viable: true,
+          });
+          logDetail(`Starting company event '${def?.name ?? defId as string}' offered for company ${company.id as string}`);
+        }
       }
     }
   }

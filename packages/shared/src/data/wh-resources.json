@@ -106,11 +106,19 @@
     "text": "Instead of a normal character, during your organization phase you may bring into play one character (including a minion agent) with up to a 6 mind. Place this card with the character. -1 to his mind to a minimum of 1. Such a character may also be in your starting company.",
     "effects": [
       {
+        "type": "recruitment-vehicle",
+        "maxMind": 6
+      },
+      {
+        "type": "starting-company-placement"
+      },
+      {
         "type": "stat-modifier",
         "stat": "mind",
         "value": "max(1, bearer.baseMind - 1) - bearer.baseMind"
       }
-    ]
+    ],
+    "certified": "2026-06-22"
   },
   {
     "cardType": "hero-resource-event",
