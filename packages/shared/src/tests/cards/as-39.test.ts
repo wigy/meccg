@@ -41,8 +41,10 @@ import {
   findHandCardId,
   handCardId,
   HAZARD_PLAYER,
+  pool,
 } from '../test-helpers.js';
-import { Phase } from '../../index.js';
+import { Phase, describeAction } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const SUMMONS_FROM_LONG_SLEEP = 'as-39' as CardDefinitionId;
@@ -146,6 +148,47 @@ describe('Summons from Long Sleep (as-39)', () => {
     expect(reservations).toHaveLength(1);
     expect(reservations[0].sourceCardInstanceId).toBe(sourceId);
     expect(reservations[0].creature.instanceId).toBe(dragonId);
+  });
+
+  test('describeAction for reserve-creature resolves card names, not raw instance IDs', () => {
+    // Regression: the reserve-creature description previously emitted raw
+    // instance IDs (e.g. "p1 reserves creature p1-50 via p1-56"), which is
+    // unreadable in the log and on the action button. It must resolve the
+    // creature and source-card names.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const withCard = addCardInPlay(base, HAZARD_PLAYER, SUMMONS_FROM_LONG_SLEEP);
+    const mhState = makeDoubleWildernessMHState();
+    const state = { ...withCard, phaseState: mhState };
+
+    const actions = viableActions(state, PLAYER_2, 'reserve-creature');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const instLookup = (id: string) => resolveInstanceId(state, id as never);
+    const desc = describeAction(actions[0].action, pool, instLookup);
+
+    // Both the reserved creature and the source card are named...
+    expect(desc).toContain('Cave-drake');
+    expect(desc).toContain('Summons from Long Sleep');
+    // ...and no raw instance ID (e.g. "p2-1") leaks into the description.
+    expect(desc).not.toMatch(/\bp\d+-\d+\b/);
   });
 
   test('reserving does not consume hazard limit (limit remains unchanged)', () => {
