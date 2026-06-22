@@ -3290,6 +3290,28 @@ Used by *The Grimburgoth* (dm-15).
 { "type": "agent-tap-attack", "prowessBonus": 2 }
 ```
 
+### 40a. `agent-move-restriction`
+
+Restricts the site types this agent may move to while acting as a hazard
+(taking an `agent-move` action around the map). Any candidate destination whose
+{@link SiteType} appears in `siteTypes` is excluded from the legal `agent-move`
+destinations.
+
+Models text such as "Agent only: Cannot move to Free-holds [{F}] and
+Border-holds [{B}]." The exclusion is applied in `agentTurnActions()` in
+`legal-actions/movement-hazard.ts`, alongside the rule-9.07 haven exclusion and
+the rule-9.08 alignment exclusions.
+
+| Field       | Required | Description                                      |
+|-------------|----------|--------------------------------------------------|
+| `siteTypes` | yes      | Array of {@link SiteType} values the agent may NOT move to. |
+
+Used by *Baugúr* (dm-181): cannot move to free-holds or border-holds.
+
+```json
+{ "type": "agent-move-restriction", "siteTypes": ["free-hold", "border-hold"] }
+```
+
 ### 41. `permanent-event-auto-attack`
 
 While this hazard permanent event is in play, each site listed in `siteIds`

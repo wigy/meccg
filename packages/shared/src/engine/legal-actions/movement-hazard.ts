@@ -598,6 +598,19 @@ function agentTurnActions(
         }
       }
 
+      // Per-card site-type movement restriction (e.g. Baugúr dm-181: "Agent
+      // only: Cannot move to Free-holds and Border-holds"). Collect the
+      // forbidden site types from the agent's own `agent-move-restriction`
+      // effects.
+      const restrictedSiteTypes = new Set<string>();
+      if (agentDef && isCharacterCard(agentDef)) {
+        for (const eff of agentDef.effects ?? []) {
+          if (eff.type === 'agent-move-restriction') {
+            for (const st of eff.siteTypes) restrictedSiteTypes.add(st);
+          }
+        }
+      }
+
       const seenDest = new Set<string>();
       for (const siteInst of player.siteDeck) {
         const destDef = defById(state, siteInst.definitionId);
@@ -606,6 +619,11 @@ function agentTurnActions(
         if (!reachableNames.has(destDef.name)) continue;
         // Exclude haven sites (rule 9.07)
         if (isHavenSite(state, siteInst.definitionId as string)) continue;
+        // Per-card restriction: skip forbidden site types (rule on card text).
+        if (restrictedSiteTypes.has(destDef.siteType)) {
+          logDetail(`Agent ${agentName}: cannot move to "${destDef.name}" (${destDef.siteType} restricted by card text)`);
+          continue;
+        }
         // Exclude Under-deeps sites (rule 4.1: agents can only move to non-Under-deeps sites).
         if (destDef.keywords?.includes('under-deeps')) continue;
         // Rule 9.08: Fallen-wizard agents use only hero site cards
