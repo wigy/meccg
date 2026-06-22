@@ -67,7 +67,30 @@
       "starting-item"
     ],
     "text": "Playable on a non-Dragon's lair Ruins & Lairs in a Wilderness, Border-land, or Shadow-land. This site becomes one of your Wizardhavens and loses all automatic-attacks. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled.",
-    "eventType": "permanent"
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            {
+              "siteType": "ruins-and-lairs"
+            },
+            {
+              "lairOf": {
+                "$exists": false
+              }
+            },
+            {
+              "adjacentSites": {
+                "$exists": false
+              }
+            }
+          ]
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",
