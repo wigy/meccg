@@ -527,7 +527,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player."
   },
   {
@@ -540,7 +545,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Unique. Playable if you are Pallando or Saruman and have 6 or more stage points and a protected Wizardhaven [{H}]. Each of your Half-orcs requires one less point of influence to control. During your organization phase, you may take one Half-orc character from your discard pile to your hand. You may play Half-orc characters at your Wizardhavens [{H}], even if your Fallen-wizard is not there or Bad Company is not in play. Cannot be duplicated by a given player."
   },
   {
@@ -553,7 +563,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player."
   },
   {
@@ -566,7 +581,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "You may play Orc and Troll characters and include them in your starting company. You cannot start with a character that says he cannot be in the starting company. Cannot be duplicated by a given player."
   },
   {
@@ -579,7 +599,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Your ring items are each worth full marshalling points. Cannot be duplicated by a given player."
   },
   {
@@ -605,7 +630,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck."
   },
   {
@@ -631,7 +661,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on Isengard. Isengard is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for Isengard. Cards that give marshalling points cannot be played at Isengard by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck."
   },
   {
@@ -644,7 +679,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on The White Towers. The White Towers is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for The White Towers. Cards that give marshalling points cannot be played at The White Towers by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck."
   },
   {
@@ -657,7 +697,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player."
   },
   {
@@ -670,7 +715,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable on one of your Deep Mines sites. The Deep Mines site is now adjacent to an Under-deeps site of your choice whose surface site is in a region containing or adjacent to the region containing the Deep Mines surface site. The movement number required to move between these two Under-deeps sites is (7). This card may also be played as a hazard on one of your opponent’s Deep Mines sites. Discard this card when Deep Mines is discarded or returned to its location deck. Cannot be duplicated on a given Deep Mines site."
   },
   {
@@ -683,7 +733,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Your characters and allies that normally give 2 or more marshalling points are each worth 2 marshalling points. Cannot be duplicated by a given player."
   },
   {
@@ -696,7 +751,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable during the site phase on a Shadow-hold [{S}] or Dark-hold [{D}] hero site if you have an overt company there. Replace the hero site card with the corresponding minion site card. Discard when this site is discarded or returned to your location deck."
   },
   {
@@ -709,7 +769,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site."
   },
   {
@@ -722,7 +787,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player."
   },
   {
@@ -735,7 +805,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise."
   },
   {
@@ -748,7 +823,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "All corruption checks by your non-Wizard characters caused by your magic cards are modified by +2."
   },
   {
@@ -761,7 +841,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Playable if you have more than 7 stage points. You must use minion site cards for Hero Havens [{H}], Free-holds [{F}], and Border-holds [{B}]."
   },
   {
@@ -774,7 +859,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Playable if you are not Alatar and have more than 6 stage points. Hazards with an asterisk [*] attack your companies normally, not as detainment. Such hazards your companies defeat while this card is in play give you full kill marshalling points. You receive no kill marshalling points from other hazards if this card is in play. Cannot be duplicated by a given player."
   },
   {
@@ -787,7 +877,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Your Fallen-wizard may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated by a given player."
   },
   {
@@ -800,7 +895,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Playable on one of your protected Wizardhavens [{H}] (not by Radagast). You may tap War-forges to make an additional non-hoard, non-unique minor item playable at this site this turn (if the site is tapped or not). The item may be taken from your discard pile or sideboard. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
   },
   {
@@ -813,7 +913,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player."
   },
   {
@@ -826,7 +931,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "You may play The White Tree at one of your Wizardhavens [{H}] if Sapling of the White Tree is stored there. Place Wizard’s Trove with The White Tree—which is worth full marshalling points. Your Wizardhaven [{H}] becomes protected. Ignore the text of The White Tree (including the Unique keyword). Alternatively, you may store one miscellaneous marshalling point card at one of your Wizardhavens [{H}]. Any reference to the site where the card can normally be stored are transferred instead to the Wizardhaven [{H}]. Place Wizard’s Trove with the stored card—which is worth full marshalling points."
   },
   {
@@ -845,7 +955,12 @@
         "site": "one"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn and Half-orcs in play and if the influence check is greater than 11."
   },
   {
@@ -864,7 +979,12 @@
         "site": "one"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9."
   },
   {
@@ -878,7 +998,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."
   },
   {
@@ -892,7 +1017,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Alatar specific. Playable if you are Alatar and have at least 12 stage points. Your opponent reveals cards one at a time from his play deck or his discard pile (your choice). Any hazard creature revealed immediately attacks Alatar’s company. This process stops when 5 creatures or all cards of the deck (or pile) have been revealed. Reshuffle play deck if used. Thereafter, your opponent discards face-up. Whenever your opponent discards a creature during your turn, you may choose to have it attack Alatar’s company instead. Cannot be duplicated."
   },
   {
@@ -906,7 +1036,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand."
   },
   {
@@ -920,7 +1055,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points."
   },
   {
@@ -934,7 +1074,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Unique. Alatar specific. Playable on Alatar if Join the Hunt is in play. Your weapon/shield/ armor/helmet items are each worth full marshalling points. Your allies with a prowess attribute are each worth full marshalling points. Your Elf factions are each worth 2 marshalling points."
   },
   {
@@ -948,7 +1093,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar."
   },
   {
@@ -962,7 +1112,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Gandalf specific. Playable if you are Gandalf and have at least: 12 stage points, two protected Wizardhavens [{H}], 4 factions, and 6 characters. Each faction you play after Await the Onset is worth 1 marshalling point regardless of other cards in play (place these factions under Await the Onset). Each of your marshalling point cards in a company not in one of your Wizardhavens [{H}] when the game ends is worth 1 marshalling point regardless of other cards in play. Cannot be duplicated."
   },
   {
@@ -976,7 +1131,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site."
   },
   {
@@ -990,7 +1150,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Gandalf specific. Playable on one of your characters at one of your Wizardhavens [{H}] (or in your starting company). +2 to his direct influence. This character requires 1 point of influence to control and may only be controlled by general influence or Gandalf."
   },
   {
@@ -1004,7 +1169,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique non-character cards normally worth 1 marshalling point are each worth 2 marshalling points."
   },
   {
@@ -1018,7 +1188,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique hero factions normally worth 2 or fewer marshalling points are each worth 2 marshalling points. If on Gandalf, your unique hero factions normally worth 3 or more marshalling points are each worth 3 marshalling points."
   },
   {
@@ -1032,7 +1207,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap The Grey Hat during your end-of-turn phase to take New Friendship, Wizard’s Test, or Hobbit-lore from your discard pile to your hand."
   },
   {
@@ -1046,7 +1226,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap Ring of Fire during your organization phase to take Narya from your discard pile to your hand."
   },
   {
@@ -1060,7 +1245,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage at one of your Wizardhavens [{H}] (or in your starting company). The character may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated on a given character."
   },
   {
@@ -1074,7 +1264,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears."
   },
   {
@@ -1088,7 +1283,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand."
   },
   {
@@ -1102,7 +1302,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated."
   },
   {
@@ -1116,7 +1321,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Stave of Pallando during your end-of-turn phase to take a faction from your discard pile to your hand."
   },
   {
@@ -1130,7 +1340,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters."
   },
   {
@@ -1144,7 +1359,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique.Radagast specific. Your companies with a company size of 2 or less may play allies at tapped sites."
   },
   {
@@ -1158,7 +1378,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Radagast specific. Playable on one of your protected Wizardhavens [{H}] if you are Radagast and have at least 12 SPs and 6 allies and/or unique factions in play (the factions must be playable at sites in the Wizardhaven’s [{H}] region or adjacent regions). The Wizardhaven’s region and all adjacent regions become Wilderness [{w}]. Cannot be duplicated."
   },
   {
@@ -1172,7 +1397,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand."
   },
   {
@@ -1186,7 +1416,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Ranger. Radagast’s prowess is only modified by -1 when not tapping to face a strike. Radagast may bear, but may not use items."
   },
   {
@@ -1200,7 +1435,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand."
   },
   {
@@ -1220,7 +1460,12 @@
         "site": "one of your Wizardhavens [{H}]"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped."
   },
   {
@@ -1234,7 +1479,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items."
   },
   {
@@ -1248,7 +1498,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Scout/Diplomat. If no other characters or allies (except his Black Bird) are in his company: Radagast may move to a new site with no region card maximum, he has no site path, and he is considered to move through no regions. Radagast may bear, but may not use, items."
   },
   {
@@ -1262,7 +1517,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand."
   },
   {
@@ -1276,7 +1536,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      }
+    ],
     "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, he may tap during his end-of-turn phase to take Ringlore, Lordly Presence, or First of the Order from his discard pile to his hand."
   },
   {
@@ -1290,7 +1555,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
   },
   {
@@ -1304,7 +1574,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 4
+      }
+    ],
     "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
   },
   {
@@ -1318,7 +1593,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 2
+      }
+    ],
     "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, you may tap Saruman’s Ring during your end-of-turn phase to take a ring item (other than The One Ring) from your discard pile to your hand."
   },
   {
@@ -1332,7 +1612,12 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stage-points",
+        "value": 3
+      }
+    ],
     "text": "Saruman specific. Playable on Saruman if he has the following in play: at least 12 stage points, at least 3 factions, A Strident Spawn, and Saruman’s Machinery. Cannot be duplicated."
   }
 ]
