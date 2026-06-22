@@ -38,7 +38,8 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, stagePointsOfCard } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard } from './reducer-utils.js';
+import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
@@ -107,11 +108,16 @@ function addMP(
  * Fallen-wizard the item is worth a flat 1 MP (MEWH §4); otherwise the
  * cross-alignment half-MP rule applies (MELE Part IV) when the player's
  * alignment does not match the item's alignment.
+ *
+ * `fwItemMpExempt` overrides the §4 clamp for a Fallen-wizard: when `true`, the
+ * item scores its full printed MP. Used by Saruman (wh-9), whose
+ * `fw-item-mp-full` effect exempts his non-combat items.
  */
 function addItemMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
   playerAlignment: Alignment,
+  fwItemMpExempt = false,
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
   const baseMp = def.marshallingPoints;
@@ -119,7 +125,7 @@ function addItemMP(
   const cat = def.marshallingCategory;
   let mp: number;
   if (playerAlignment === 'fallen-wizard') {
-    mp = fwClampMp(baseMp, def, playerAlignment);
+    mp = fwItemMpExempt ? baseMp : fwClampMp(baseMp, def, playerAlignment);
   } else {
     const factor = crossAlignmentItemMpFactor(playerAlignment, def.cardType);
     mp = factor < 1 ? Math.ceil(baseMp * factor) : baseMp;
@@ -422,7 +428,42 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
     a.mind === b.mind;
 }
 
+/**
+ * Collects the item marshalling-point exemption filters a Fallen-wizard player
+ * currently has in play (MEWH §4 exception, e.g. Saruman wh-9). Scans the
+ * player's in-play characters for `fw-item-mp-full` effects and returns each
+ * effect's `filter` (an absent filter is represented as `null`, meaning "every
+ * item"). Empty for any non-Fallen-wizard player.
+ *
+ * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
+ */
+function fwItemMpExemptFilters(state: GameState, player: PlayerState): (Condition | null)[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const filters: (Condition | null)[] = [];
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-item-mp-full') filters.push(effect.filter ?? null);
+    }
+  }
+  return filters;
+}
+
+/**
+ * Whether an item definition is exempt from the Fallen-wizard 1-MP clamp given
+ * the active `fw-item-mp-full` filters. An item is exempt if any filter matches
+ * it (a `null` filter matches every item).
+ */
+function itemExemptFromFwClamp(itemDef: CardDefinition, filters: (Condition | null)[]): boolean {
+  return filters.some(f => f === null || matchesDefinition(itemDef, f));
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
+  // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
+  // filter (e.g. Saruman's non-combat items) score full printed MP instead of
+  // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
+  const fwItemExemptions = fwItemMpExemptFilters(state, player);
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
@@ -526,8 +567,9 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
-      mp = addItemMP(mp, itemDef, player.alignment);
-      if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment);
+      const fwExempt = fwItemExemptions.length > 0 && itemExemptFromFwClamp(itemDef, fwItemExemptions);
+      mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
+      if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
       // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such
