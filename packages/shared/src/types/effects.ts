@@ -302,6 +302,45 @@ export interface RecruitmentVehicleEffect extends EffectBase {
 }
 
 /**
+ * Marks a short resource-event as a "character recruitment" event — A Chance
+ * Meeting (tw-188) and We Have Come to Kill (le-252). Playing the event brings
+ * one character from hand into play in an existing company, relaxing the normal
+ * organization-phase recruitment rules:
+ *
+ * - **Where.** The recruit enters play at a company whose current site is one
+ *   of {@link siteTypes} (e.g. Free-hold / Border-hold / Ruins & Lairs), not
+ *   only at a haven or the character's home site.
+ * - **When.** The event "may be played on your turn during any phase the
+ *   company is at a site", so the recruit action is emitted in the
+ *   organization, movement/hazard, and site phases (the helper self-gates on a
+ *   company being present at a qualifying site).
+ * - **One per turn.** When {@link bypassOneCharacterLimit} is set the play does
+ *   **not** consume the one-character-per-turn slot.
+ * - **Influence.** {@link controlledBy} `"direct-influence"` means the recruit
+ *   must be controlled by a character already in that company with enough
+ *   unused direct influence (the event does not allow general-influence play).
+ * - **Who.** The optional {@link filter} (matched against the recruit's card
+ *   definition) restricts which characters may be brought in — e.g. A Chance
+ *   Meeting excludes Wizard avatars with `{ "$not": { "race": "wizard" } }`.
+ *
+ * Consumed by `recruitViaEventActions` (legal-action emission, one
+ * `play-character` per eligible recruit/site/controller, carrying
+ * `viaEventInstanceId`) and `handlePlayCharacter` (discards the event and skips
+ * the one-character-per-turn bookkeeping).
+ */
+export interface RecruitCharacterEffect extends EffectBase {
+  readonly type: 'recruit-character';
+  /** How the recruit is controlled. Only direct influence is supported today. */
+  readonly controlledBy: 'direct-influence';
+  /** Site types ({@link import('./common.js').SiteType}) where the recruit may enter play. */
+  readonly siteTypes: readonly string[];
+  /** Optional filter on the recruit's card definition (e.g. exclude Wizards). */
+  readonly filter?: Condition;
+  /** When true, the play does not count against the one-character-per-turn limit. */
+  readonly bypassOneCharacterLimit?: boolean;
+}
+
+/**
  * Applies a stat or check-roll modifier to every character in the company that
  * this permanent event is associated with (identified by `CardInPlay.companyId`).
  *
@@ -3001,6 +3040,7 @@ export type CardEffect =
   | LeaderControlEffect
   | StagePointsEffect
   | RecruitmentVehicleEffect
+  | RecruitCharacterEffect
   | StayHerAppetiteEffect;
 
 /**

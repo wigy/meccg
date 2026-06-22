@@ -25,6 +25,7 @@ import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { recruitViaEventActions } from './recruit-via-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
@@ -2328,6 +2329,10 @@ function playHazardsActions(
     actions.push(...playPermanentEventActions(state, playerId));
     actions.push(...playShortEventActions(state, playerId));
     actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
+    // Character-recruitment events (A Chance Meeting tw-188): bring a character
+    // into play at a company at a qualifying site during M/H, bypassing the
+    // one-character-per-turn limit.
+    actions.push(...recruitViaEventActions(state, playerId));
     // Granted-action constraints (Great Ship's cancel-chain-entry, etc.)
     const playerIndex = getPlayerIndex(state, playerId);
     const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];

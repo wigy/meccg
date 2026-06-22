@@ -2079,8 +2079,17 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "A non-Wizard character (even a Hobbit) may be brought into play with direct influence at any Free-hold [{F}], Border-hold [{B}], or Ruins & Lairs [{R}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site."
+    "effects": [
+      {
+        "type": "recruit-character",
+        "controlledBy": "direct-influence",
+        "siteTypes": ["free-hold", "border-hold", "ruins-and-lairs"],
+        "filter": { "$not": { "race": "wizard" } },
+        "bypassOneCharacterLimit": true
+      }
+    ],
+    "text": "A non-Wizard character (even a Hobbit) may be brought into play with direct influence at any Free-hold [{F}], Border-hold [{B}], or Ruins & Lairs [{R}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site.",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "hero-resource-event",

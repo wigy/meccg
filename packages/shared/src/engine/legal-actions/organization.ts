@@ -38,6 +38,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { isRegressive } from '../reverse-actions.js';
 import { playCharacterActions } from './organization-characters.js';
+import { recruitViaEventActions } from './recruit-via-event.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import {
   planMovementActions,
@@ -289,12 +290,25 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       .filter((id): id is string => typeof id === 'string'),
   );
 
+  // Character-recruitment events (A Chance Meeting tw-188): bring a character
+  // into play at a relaxed set of sites, bypassing the one-character-per-turn
+  // limit. Emitted as play-character actions carrying viaEventInstanceId.
+  const recruitViaEventEvaluated = recruitViaEventActions(state, playerId);
+  actions.push(...recruitViaEventEvaluated);
+  const recruitViaEventInstances = new Set<string>();
+  for (const ea of recruitViaEventEvaluated) {
+    const a = ea.action as { characterInstanceId?: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+    if (a.characterInstanceId) recruitViaEventInstances.add(a.characterInstanceId as string);
+    if (a.viaEventInstanceId) recruitViaEventInstances.add(a.viaEventInstanceId as string);
+  }
+
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
     if (permanentEventInstances.has(handCard.instanceId as string)) continue;
     if (shortEventInstances.has(handCard.instanceId as string)) continue;
     if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
+    if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Not playable during the organization'));
   }
 
