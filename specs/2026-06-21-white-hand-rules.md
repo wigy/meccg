@@ -456,10 +456,16 @@ company can against any opponent.
 > `rule-mewh-orc-troll-company.test.ts` (Orc may join a Hobbit company at Isengard, not at
 > Rivendell).
 >
+> **Implemented (no hero perm-event on Orc/Troll company).** In the company-targeting
+> permanent-event path (`organization-events.ts`), a Fallen-wizard's hero (wizard-aligned)
+> permanent-event is not offered on a company containing an Orc/Troll (`companyHasOrcOrTroll`,
+> Half-orcs included via `race: Orc`). Test: `rule-mewh-hero-event-orc-troll.test.ts`
+> (Fellowship playable on an all-Man company, not once an Orc joins).
+>
 > **Still missing (each its own follow-up):** play-gating
 > Orc/Troll until a permitting stage card; overt site-version usage (needs the
-> §7 site-linkage model); detainment classification of overt companies; and the
-> hero-resource targeting/skill/tap/perm-event restrictions on Orc/Troll (overlap with the
+> §7 site-linkage model); detainment classification of overt companies; and the remaining
+> hero-resource targeting/skill/tap restrictions on Orc/Troll (overlap with the
 > §10 targeting bar).
 
 **Rule (whole MEWH section).**
