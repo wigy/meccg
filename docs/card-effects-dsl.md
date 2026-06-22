@@ -377,6 +377,22 @@ path".
   "value": "sitePath.wildernessCount", "min": 0 }
 ```
 
+### 6c. `draw-cards`
+
+Carried by a resource short-event. On play, draws `count` cards from the
+top of the playing player's play deck into their hand (stopping early if
+the deck runs out — no card disappears). When `removeFromGame` is true,
+the spent event card is placed in the player's out-of-play pile instead
+of the discard pile, so it can never be recurred. Resolved directly in
+`handlePlayResourceShortEvent` (`reducer-events.ts`).
+
+```json
+{ "type": "draw-cards", "count": 3, "removeFromGame": true }
+```
+
+Used by Dark Tryst (as-80): "Draw three cards and remove this card from
+the game."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

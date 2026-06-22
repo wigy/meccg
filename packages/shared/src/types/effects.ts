@@ -411,6 +411,26 @@ export interface DrawModifierEffect extends EffectBase {
 }
 
 /**
+ * Draws cards from the top of the playing player's play deck into their
+ * hand when the carrying resource event is played.
+ *
+ * Used by Dark Tryst (as-80): "Draw three cards and remove this card
+ * from the game." The `removeFromGame` flag routes the spent event card
+ * to the player's out-of-play pile instead of the discard pile, so it
+ * can never be recurred.
+ */
+export interface DrawCardsEffect extends EffectBase {
+  readonly type: 'draw-cards';
+  /** Number of cards to draw from the top of the play deck. */
+  readonly count: number;
+  /**
+   * When true, the played event card is removed from the game (placed
+   * in the out-of-play pile) rather than discarded after resolution.
+   */
+  readonly removeFromGame?: boolean;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -2959,6 +2979,7 @@ export type CardEffect =
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect
+  | DrawCardsEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
