@@ -797,10 +797,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-22",
     "effects": [
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-character-ally-mp",
+        "threshold": 2,
+        "value": 2
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
     "text": "Your characters and allies that normally give 2 or more marshalling points are each worth 2 marshalling points. Cannot be duplicated by a given player."

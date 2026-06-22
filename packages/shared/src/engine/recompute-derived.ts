@@ -27,6 +27,7 @@ import type {
   Alignment,
   CompanyId,
   RingwraithModeEffect,
+  FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
 import {
@@ -90,17 +91,59 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
 /**
  * Adds a card's marshalling points to the running totals by its category,
  * applying the Fallen-wizard 1-MP-per-card rule (MEWH §4) via {@link fwClampMp}.
+ *
+ * `fwCharAllyCaps` carries any in-play `fw-character-ally-mp` overrides (Great
+ * Patron wh-72). Passed only when scoring **characters and allies**: a
+ * Fallen-wizard card whose printed MP meets a cap's threshold is worth the cap's
+ * `value` instead of the flat §4 1-MP clamp. Stage cards and non-Fallen-wizard
+ * players are never affected.
  */
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
   playerAlignment: Alignment,
+  fwCharAllyCaps: readonly FallenWizardCharacterAllyMpEffect[] = [],
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
-  const mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
+  let mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
+  // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally give
+  // at least `threshold` MP are each worth `value` instead of the §4 1-MP clamp.
+  if (
+    playerAlignment === 'fallen-wizard'
+    && fwCharAllyCaps.length > 0
+    && def.marshallingPoints > 0
+    && !('alignment' in def && (def as { alignment?: string }).alignment === 'stage')
+  ) {
+    for (const cap of fwCharAllyCaps) {
+      if (def.marshallingPoints >= cap.threshold) {
+        mp = cap.value;
+        break;
+      }
+    }
+  }
   if (mp === 0) return totals;
   const cat = def.marshallingCategory;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/**
+ * Collects the active `fw-character-ally-mp` overrides (Great Patron wh-72) a
+ * Fallen-wizard player has in play. Empty for non-Fallen-wizard players, who
+ * never field stage resources. The overrides apply to the player's characters
+ * and allies when their printed MP meets the threshold.
+ */
+function fwCharacterAllyMpCaps(
+  state: GameState,
+  player: PlayerState,
+): FallenWizardCharacterAllyMpEffect[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const caps: FallenWizardCharacterAllyMpEffect[] = [];
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-character-ally-mp') caps.push(effect);
+    }
+  }
+  return caps;
 }
 
 /**
@@ -464,6 +507,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // filter (e.g. Saruman's non-combat items) score full printed MP instead of
   // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
   const fwItemExemptions = fwItemMpExemptFilters(state, player);
+  // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
+  // characters/allies that normally give >= threshold MP score `value` instead
+  // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
+  const fwCharAllyCaps = fwCharacterAllyMpCaps(state, player);
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
@@ -559,8 +606,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
     } else {
-      mp = addMP(mp, charDef, player.alignment);
-      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment);
+      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)
@@ -595,8 +642,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
-        mp = addMP(mp, allyDef, player.alignment);
-        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment);
+        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps);
       }
     }
   }
