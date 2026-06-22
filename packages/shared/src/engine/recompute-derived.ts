@@ -38,7 +38,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayConditionEffect } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
@@ -459,6 +459,48 @@ function itemExemptFromFwClamp(itemDef: CardDefinition, filters: (Condition | nu
   return filters.some(f => f === null || matchesDefinition(itemDef, f));
 }
 
+/**
+ * Collects the `permanent-event-mp` overrides a player currently has in play
+ * (e.g. Man of Skill wh-119). Scans the player's in-play cards and returns each
+ * effect's `{ value, requiresResource }`. A permanent-event is matched by such
+ * an override when it carries a `play-condition` requiring that resource
+ * subtype's site (see {@link permanentEventMpOverride}).
+ */
+function permanentEventMpOverrides(
+  state: GameState,
+  player: PlayerState,
+): { value: number; requiresResource: string }[] {
+  const overrides: { value: number; requiresResource: string }[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'permanent-event-mp') {
+        overrides.push({ value: effect.value, requiresResource: effect.requiresResource });
+      }
+    }
+  }
+  return overrides;
+}
+
+/**
+ * If an in-play permanent-event is subject to a `permanent-event-mp` override,
+ * returns the overridden marshalling-point value; otherwise `undefined`. A
+ * permanent-event matches an override iff it carries a `play-condition` with
+ * `requires: 'site-has-resource'` and a `subtype` equal to the override's
+ * `requiresResource` (the "requires a site where X is playable" prerequisite).
+ */
+function permanentEventMpOverride(
+  def: CardDefinition,
+  overrides: { value: number; requiresResource: string }[],
+): number | undefined {
+  if (overrides.length === 0) return undefined;
+  const siteHasResource = findPlayConditionEffect(def, 'site-has-resource');
+  if (!siteHasResource?.subtype) return undefined;
+  const match = overrides.find(o => o.requiresResource === siteHasResource.subtype);
+  return match?.value;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
   // filter (e.g. Saruman's non-combat items) score full printed MP instead of
@@ -621,10 +663,21 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // are skipped here — they are physically kept in their host player's
   // cardsInPlay, but their marshalling points are credited to their owner in
   // the dedicated pass below.
+  // Man of Skill (wh-119) and similar: in-play `permanent-event-mp` effects
+  // override the MP of the player's permanent-events that require a given
+  // resource site. Computed once per player; empty when no such effect is in play.
+  const peMpOverrides = permanentEventMpOverrides(state, player);
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
-    if (def) mp = addMP(mp, def, player.alignment);
+    if (!def) continue;
+    const override = permanentEventMpOverride(def, peMpOverrides);
+    if (override !== undefined) {
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      if (override !== 0) mp = { ...mp, [cat]: mp[cat] + override };
+    } else {
+      mp = addMP(mp, def, player.alignment);
+    }
   }
 
   // MEAS §1: cards placed "off to the side" award their marshalling points to

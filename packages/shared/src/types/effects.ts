@@ -276,6 +276,38 @@ export interface StagePointsEffect extends EffectBase {
 }
 
 /**
+ * Overrides the marshalling-point value of the controller's in-play
+ * permanent-events that "require a site where [a resource category] is
+ * playable".
+ *
+ * A permanent-event "requires a site where X is playable" iff it carries a
+ * `play-condition` with `requires: 'site-has-resource'` and `subtype: X` — the
+ * same prerequisite the legal-action layer reports as "requires a site where X
+ * is playable". While the card carrying this effect is in play, every such
+ * permanent-event the player controls scores exactly {@link value} marshalling
+ * points (in its own marshalling category), overriding its printed value and,
+ * for a Fallen-wizard, the MEWH §4 flat-1-MP clamp.
+ *
+ * Used by Man of Skill (wh-119): "Your permanent-events that require a site
+ * where Information is playable are each worth 2 marshalling points."
+ *
+ * ```json
+ * { "type": "permanent-event-mp", "value": 2, "requiresResource": "information" }
+ * ```
+ */
+export interface PermanentEventMpEffect extends EffectBase {
+  readonly type: 'permanent-event-mp';
+  /** Marshalling points each matching permanent-event is worth. */
+  readonly value: number;
+  /**
+   * The resource subtype whose playability the permanent-event requires
+   * (matched against a `site-has-resource` play-condition's `subtype`), e.g.
+   * `"information"`.
+   */
+  readonly requiresResource: string;
+}
+
+/**
  * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
  *
  * Marks a permanent resource-event as a "recruitment vehicle": during the
@@ -3039,6 +3071,7 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | StayHerAppetiteEffect;
