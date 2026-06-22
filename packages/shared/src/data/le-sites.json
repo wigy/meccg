@@ -784,7 +784,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess",
-    "unique": true
+    "unique": true,
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-site",
