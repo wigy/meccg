@@ -1487,6 +1487,37 @@ the `site-has-resource` play-condition check in
 `legal-actions/organization.ts`. Records Unread targets the discarding
 `player` and scopes the unlock to `turn`.
 
+### 13b. `cross-alignment-resources-unlocked` active constraint
+
+Produced by an `on-event: self-enters-play → add-constraint` apply on a
+stage permanent-event played on a site (`play-target` target `site`). The
+constraint kind resolves the bound site from the active company's current
+site during the site phase and is filtered by that `siteDefinitionId`,
+targeted at the controlling `player`, scoped `until-cleared`. While active,
+the MEWH §10 cross-alignment site-tap block in `legal-actions/site.ts`
+(`siteTapCrossAlignmentBlocked`) — which normally stops a Fallen-wizard from
+playing a hero resource that taps a minion site (or a minion resource at a
+hero site) — is lifted at the bound site, so the opposite alignment's
+items/allies/factions become playable there. The constraint (and the card)
+are cleared by `discardOrphanedSiteAttachedEvents` once no company occupies
+the bound site.
+
+```json
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "cross-alignment-resources-unlocked",
+    "scope": "until-cleared"
+  }
+}
+```
+
+Used by Double-dealing (wh-66): "If the site is a minion site, you may play
+appropriate hero resources there. If the site is a hero site, you may play
+appropriate minion resources there."
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
