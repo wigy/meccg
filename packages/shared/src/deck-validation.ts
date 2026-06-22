@@ -798,5 +798,40 @@ export function validateDeck(
     });
   }
 
+  // Certification — every card in the deck must have been certified (its
+  // effects implemented and verified by a card test). Uncertified cards
+  // lack the `certified` date field; report one error per offending card,
+  // routed to the section it appears in.
+  {
+    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+      [characters, 'characters'],
+      [hazards, 'hazards'],
+      [resources, 'resources'],
+      [sites, 'sites'],
+      [poolCards, 'pool'],
+      [sideboard, 'sideboard'],
+      [antiFwSideboard, 'anti-fw-sideboard'],
+    ];
+    const reported = new Set<string>();
+    for (const [section, sectionKey] of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const key = `${sectionKey}:${entry.card}`;
+        if (reported.has(key)) continue;
+        const def = cardPool[entry.card];
+        if (!def) continue;
+        const certified = (def as { certified?: string }).certified;
+        if (!certified) {
+          reported.add(key);
+          errors.push({
+            section: sectionKey,
+            message: `card "${(def as { name: string }).name}" is not yet certified`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
   return errors;
 }
