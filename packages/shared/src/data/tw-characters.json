@@ -2445,7 +2445,18 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Woodmen-town",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Woodmen faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Woodmen"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Woodmen faction.",
+    "certified": "2026-06-22"
   }
 ]
