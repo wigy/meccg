@@ -73,6 +73,13 @@ export interface PlaceStartingCompanyEventAction {
   readonly cardDefId: CardDefinitionId;
   /** The company the event will be placed on. */
   readonly companyId: CompanyId;
+  /**
+   * For a recruitment vehicle (Thrall of the Voice, wh-82): the starting
+   * character the card is "placed with". The event attaches to that character
+   * (reducing its mind) and lets that otherwise-ineligible character be in the
+   * starting company. Absent for ordinary company-level starting events.
+   */
+  readonly targetCharacterInstanceId?: CardInstanceId;
 }
 
 // ---- Character deck draft phase ----

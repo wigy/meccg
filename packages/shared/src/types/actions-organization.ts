@@ -47,6 +47,16 @@ export interface PlayCharacterAction {
    * - A `CardInstanceId` -- As a follower under another character's direct influence.
    */
   readonly controlledBy: 'general' | CardInstanceId;
+  /**
+   * Recruitment-vehicle play (Thrall of the Voice, wh-82). When set, this is
+   * the in-hand permanent resource-event with a `recruitment-vehicle` effect
+   * that enables an otherwise-ineligible character (a minion agent, or one
+   * with printed mind above the Fallen-wizard maximum, up to the vehicle's
+   * `maxMind`) to be brought into play "instead of a normal character". On
+   * resolution the vehicle is placed with the recruited character. Absent for
+   * a normal character play.
+   */
+  readonly viaRecruitmentInstanceId?: CardInstanceId;
 }
 
 /**

@@ -242,6 +242,32 @@ export interface StagePointsEffect extends EffectBase {
 }
 
 /**
+ * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
+ *
+ * Marks a permanent resource-event as a "recruitment vehicle": during the
+ * organization phase its Fallen-wizard controller may bring **one** otherwise
+ * ineligible character into play "instead of a normal character" (it consumes
+ * the one-character-per-turn slot), placing this card with that character. The
+ * character's printed mind may be up to {@link maxMind} — above the standard
+ * Fallen-wizard maximum of 5 — and it may be a minion **agent**, which a
+ * Fallen-wizard normally could not field. Per the CRF, it may **not** bring an
+ * Orc or Troll character into play (that needs an appropriate other card).
+ *
+ * The card's separate `stat-modifier` (stat `mind`) supplies the "-1 to his
+ * mind, to a minimum of 1" once it is placed with the recruit. The same card,
+ * placed in a starting company with such a character, satisfies "such a
+ * character may also be in your starting company".
+ *
+ * Consumed by `playCharacterActions` (legal-action emission) and
+ * `handlePlayCharacter` (attaches the vehicle to the recruit).
+ */
+export interface RecruitmentVehicleEffect extends EffectBase {
+  readonly type: 'recruitment-vehicle';
+  /** Maximum printed mind of a character this vehicle may bring into play. */
+  readonly maxMind: number;
+}
+
+/**
  * Applies a stat or check-roll modifier to every character in the company that
  * this permanent event is associated with (identified by `CardInPlay.companyId`).
  *
@@ -2939,6 +2965,7 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | RecruitmentVehicleEffect
   | StayHerAppetiteEffect;
 
 /**

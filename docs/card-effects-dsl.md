@@ -4472,3 +4472,38 @@ Behaviour (engine mechanics in `engine/set-aside.ts`):
 
 Per-card wiring of *which* cards a given host sets aside is card-certification
 work; the mechanics above are alignment-agnostic.
+
+### 50. `recruitment-vehicle`
+
+Marks a permanent resource-event as a "recruitment vehicle" — Thrall of the
+Voice (wh-82). During the organization phase its Fallen-wizard controller may
+bring **one** otherwise-ineligible character into play "instead of a normal
+character" (it consumes the one-character-per-turn slot), placing this card with
+that character.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `maxMind` | yes | Maximum **printed** mind of a character the vehicle may bring in (above the Fallen-wizard maximum of 5). |
+
+```json
+{ "type": "recruitment-vehicle", "maxMind": 6 }
+```
+
+Behaviour:
+
+- **Eligibility (legal actions, `legal-actions/organization-characters.ts`).**
+  When the Fallen-wizard holds the vehicle, `playCharacterActions` emits a
+  `play-character` carrying `viaRecruitmentInstanceId` for any in-hand character
+  whose printed mind is above 5 and ≤ `maxMind` and whose race is **not** Orc or
+  Troll (CRF: the vehicle alone cannot bring an Orc/Troll into play). The recruit
+  may be a minion **agent**. The influence cost uses the *reduced* mind (the
+  vehicle's accompanying `stat-modifier`, "-1 … min 1").
+- **Resolution (`reducer-organization.ts`).** `handlePlayCharacter` moves the
+  vehicle from hand and attaches it to the recruit (in the character's `items`),
+  so the mind reduction resolves against the recruit during `recomputeDerived`,
+  and consumes the one-character-per-turn slot.
+- **Starting company (`reducer-setup.ts`).** When the card also declares
+  `starting-company-placement`, placing it on a starting character (a
+  `place-starting-company-event` with `targetCharacterInstanceId`) attaches it to
+  that character and reduces its mind — "such a character may also be in your
+  starting company."
