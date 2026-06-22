@@ -466,6 +466,19 @@ export function playCharacterActions(
     } else {
       // Non-avatar: check GI/DI constraints
       const charMind = cardDef.mind;
+
+      // MEWH §11 / Characters: a Fallen-wizard may not start or bring into play
+      // any character with a mind greater than 5.
+      if (player.alignment === 'fallen-wizard' && charMind > 5) {
+        logDetail(`  → blocked: ${charName} mind ${charMind} > 5 — a Fallen-wizard cannot bring such a character into play (MEWH)`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: mind ${charMind} exceeds the Fallen-wizard maximum of 5`,
+        });
+        continue;
+      }
+
       const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
       const canPlayUnderGI = charMind <= remainingGI;
 

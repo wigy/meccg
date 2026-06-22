@@ -58,10 +58,10 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 8 | **Attack permissions** — non-overt FW ↔ Wizard cannot attack; FW ↔ Ringwraith can; overt FW any | ✓ done | CvCC permission matrix |
 | 9 | **Special Orc & Troll rules** — overt triggers, play-gating, hero-resource restrictions, Half-orcs | △ partial | Large; overt mostly done, the rest missing |
 | 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | △ partial (gold ring done; targeting/site-tap deferred) | Targeting guards + ring modifier |
-| 11 | **Setup** — declare FW, opponent swap + 10 sideboard, start with stage cards, FW starting site | △ partial | New setup sub-step |
+| 11 | **Setup** — declare FW, opponent swap + 10 sideboard, start with stage cards, FW starting site | △ partial (mind ≤ 5 done; start-flow deferred) | New setup sub-step |
 | 12 | **FW leaves play** — discard wizard-specific stage permanent-events | ✗ missing | Removal sweep |
 | 13 | **Optional rules** — CvCC at >10 stage points; Wizard→FW conversion | ✗ missing | Optional/deferred |
-| 14 | **Tournament rules** — sideboard sizes, reveal FW, stage cards as draft characters | △ partial | Mostly config/data |
+| 14 | **Tournament rules** — sideboard sizes, reveal FW, stage cards as draft characters | △ n/a (single-deck cap already 30; rest → §11) | Mostly config/data |
 
 The structurally new engine pieces are **§1 stage points**, **§3 Wizardhavens**,
 **§4 FW marshalling points**, **§6 corruption-class resolution**, and the **§9** Orc/Troll
@@ -444,7 +444,10 @@ company can against any opponent.
 > **Already done earlier:** overt detection incl. Half-orc exception (`isCovertCompany`);
 > Orc/Troll corruption-as-minion (§6).
 >
-> **Still missing (each its own follow-up):** Half-orcs cannot take trophies; play-gating
+> **Already done (verified):** Half-orcs cannot take trophies — `reducer-combat.ts` already
+> excludes `isHalfOrc` characters from the trophy-eligible set (`!isHalfOrc(def)`).
+>
+> **Still missing (each its own follow-up):** play-gating
 > Orc/Troll until a permitting stage card; the Orc/Troll company-composition restriction
 > (no Elf/Dwarf/Dúnadan/Hobbit unless at a Wizardhaven); overt site-version usage (needs the
 > §7 site-linkage model); detainment classification of overt companies; and the
@@ -483,7 +486,7 @@ company can against any opponent.
 |---|---|---|
 | Orc/Troll ⇒ overt; named allies ⇒ overt; Half-orc covert exception | ✓ | `isCovertCompany()` (`reducer-utils.ts`) handles all three. |
 | Orc/Troll corruption as minion | ✗ | Covered by §6 corruption-mode. |
-| Half-orcs cannot take trophies | ✗ | No trophy-taking restriction keyed on `isHalfOrc`. |
+| Half-orcs cannot take trophies | ✓ | `reducer-combat.ts` excludes `isHalfOrc` from trophy-eligible. |
 | Play-gating: no Orc/Troll until *Bad Company*-type stage card | ✗ | No prerequisite check on bringing Orc/Troll into play. |
 | Orc/Troll cannot company with Elf/Dwarf/Dúnadan/Hobbit unless at Wizardhaven | ✗ | No company-composition guard. |
 | Overt site usage (hero for Shadow/Dark/minion-Darkhaven; minion for Border/Free/hero-Haven) | ✗ | §7 selection logic must add the overt branch. |
@@ -587,6 +590,18 @@ site; a FW hero gold-ring test is at −1 and the offered ring may be hero or mi
 
 ## 11. Setup — △ PARTIAL
 
+> **Implemented (mind ≤ 5):** a Fallen-wizard may not start or bring into play any character
+> with mind > 5. Guard in `playCharacterActions` (`organization-characters.ts`); completes
+> the `rule-3.16-fw-character-mind-limit` todo (a mind-9 character is non-viable for a FW,
+> viable for a Wizard). Already in `alignment-rules.ts`: FW starting sites and
+> `maxStartingCompanySize: 5`.
+>
+> **Deferred (noted):** the **declare-Fallen-wizard** setup step + opponent Wizard-swap /
+> +10 sideboard; **start-with-stage-cards** (1–3 stage permanent-events totalling 3, ≥1
+> non-unique); Orc/Troll start-gating; the broader R&L-in-Rhudaur/Arthedain starting sites;
+> and the Hidden Haven option — these are a substantial new setup sub-flow best built as a
+> dedicated effort.
+
 **Rule.**
 
 - The FW must **declare which Fallen-wizard** he plays **before** choosing starting
@@ -671,7 +686,13 @@ Mark both as out-of-scope-for-now unless explicitly requested; note the §8/§1 
 
 ---
 
-## 14. Tournament rules — △ PARTIAL
+## 14. Tournament rules — △ PARTIAL (n/a for the modeled game)
+
+> **Assessed:** the engine models a **single-deck** game. The standard sideboard cap is
+> already 30 (`deck-validation.ts` rule 1.31), which equals the Fallen-wizard 1-/2-deck
+> tournament size — so there is no FW-specific gap for the modeled format; the 35/40 sizes
+> apply only to 3-/4-deck tournament formats that are not modeled. **Reveal the
+> Fallen-wizard** and **stage cards as draft characters** fold into the §11 setup work.
 
 - **Stage cards as draft characters**: when the Character Draft is used, treat starting
   stage cards as characters. Wire into the draft once §11 start-with-stage-cards exists.
