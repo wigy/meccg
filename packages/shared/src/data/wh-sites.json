@@ -9,6 +9,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Arthedain",
+    "havenPaths": {},
     "playableResources": [],
     "automaticAttacks": [],
     "resourceDraws": 2,
@@ -19,7 +20,8 @@
         "type": "site-rule",
         "rule": "cancel-attacks"
       }
-    ]
+    ],
+    "certified": "2026-06-22"
   },
   {
     "cardType": "fallen-wizard-site",
