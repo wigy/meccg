@@ -31,15 +31,17 @@ import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
 import { sweepSetAside } from './set-aside.js';
+import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
- * orphaned "off to the side" cards (MEAS §1) whose host has left play, then
- * re-derive aggregates so MP/influence totals reflect any cards moved, then
- * record any newly-revealed card identities from public locations.
+ * orphaned "off to the side" cards (MEAS §1) whose host has left play, discard a
+ * Fallen-wizard's wizard-specific stage cards once their avatar leaves (MEWH
+ * §12), then re-derive aggregates so MP/influence totals reflect any cards
+ * moved, then record any newly-revealed card identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(sweepSetAside(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state)))))));
+  return accrueRevealedInstances(recomputeDerived(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';

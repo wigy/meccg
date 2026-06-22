@@ -273,7 +273,13 @@ export type Keyword =
   | 'corruption'
   | 'under-deeps'
   | 'Spawn'
-  | 'starting-item';
+  | 'starting-item'
+  // MEWH wizard-specific stage cards (the card is bound to one Fallen-wizard).
+  | 'alatar-specific'
+  | 'gandalf-specific'
+  | 'pallando-specific'
+  | 'radagast-specific'
+  | 'saruman-specific';
 
 /**
  * How a finished game was decided (CoE rule 10.39 / MELE §1).
