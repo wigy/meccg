@@ -19,9 +19,7 @@ FEATS
 EPICS
 -----
 
-The White Hand Rules
 The Balrog Rules
-Define all WH cards
 Define all BA cards
 Finalise tests section 01
 Finalise tests section 02

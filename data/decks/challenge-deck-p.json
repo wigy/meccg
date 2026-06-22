@@ -1,0 +1,439 @@
+{
+  "id": "challenge-deck-p",
+  "name": "(P) Join the Hunt",
+  "alignment": "fallen-wizard",
+  "pool": [
+    {
+      "name": "Beregond",
+      "card": "tw-127",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Eomer",
+      "card": "tw-146",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Haldir",
+      "card": "tw-164",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Ivic",
+      "card": "dm-17",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Peath",
+      "card": "tw-176",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Dagger of Westernesse",
+      "card": "tw-206",
+      "qty": 2
+    },
+    {
+      "name": "Squire of the Hunt",
+      "card": "wh-95",
+      "qty": 1
+    },
+    {
+      "name": "Thrall of the Voice",
+      "card": "wh-82",
+      "qty": 1
+    },
+    {
+      "name": "Asternak",
+      "card": "le-1",
+      "qty": 1
+    },
+    {
+      "name": "Balin",
+      "card": "tw-123",
+      "qty": 1
+    },
+    {
+      "name": "Beretar",
+      "card": "tw-128",
+      "qty": 1
+    },
+    {
+      "name": "Faramir",
+      "card": "tw-149",
+      "qty": 1
+    },
+    {
+      "name": "Gloin",
+      "card": "tw-160",
+      "qty": 1
+    },
+    {
+      "name": "Kili",
+      "card": "tw-167",
+      "qty": 1
+    },
+    {
+      "name": "Oin",
+      "card": "tw-172",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Alatar",
+        "card": "wh-1",
+        "qty": 3
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Cave Worm",
+        "card": "le-65",
+        "qty": 2
+      },
+      {
+        "name": "Cave-drake",
+        "card": "tw-020",
+        "qty": 2
+      },
+      {
+        "name": "Chill Douser",
+        "card": "dm-106",
+        "qty": 3
+      },
+      {
+        "name": "Corsairs of Umbar",
+        "card": "tw-24",
+        "qty": 1
+      },
+      {
+        "name": "Ent in search of the entwives",
+        "card": "le-71",
+        "qty": 1
+      },
+      {
+        "name": "Slayer",
+        "card": "tw-89",
+        "qty": 3
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 2
+      },
+      {
+        "name": "Call of Home",
+        "card": "tw-18",
+        "qty": 2
+      },
+      {
+        "name": "Faces of the Dead",
+        "card": "dm-57",
+        "qty": 1
+      },
+      {
+        "name": "Foolish Words",
+        "card": "td-25",
+        "qty": 3
+      },
+      {
+        "name": "Muster Disperses",
+        "card": "tw-67",
+        "qty": 1
+      },
+      {
+        "name": "Rebel-talk",
+        "card": "le-132",
+        "qty": 2
+      },
+      {
+        "name": "Shut Yer Mouth",
+        "card": "le-137",
+        "qty": 2
+      },
+      {
+        "name": "So You've Come Back",
+        "card": "le-138",
+        "qty": 2
+      },
+      {
+        "name": "Twilight",
+        "card": "tw-106",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Barrow-blade",
+        "card": "dm-119",
+        "qty": 2
+      },
+      {
+        "name": "Durin's Axe",
+        "card": "tw-212",
+        "qty": 1
+      },
+      {
+        "name": "Glamdring",
+        "card": "tw-244",
+        "qty": 1
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Noble Hound",
+        "card": "dm-179",
+        "qty": 1
+      },
+      {
+        "name": "Rangers of the North",
+        "card": "tw-311",
+        "qty": 1
+      },
+      {
+        "name": "Tom Bombadil",
+        "card": "tw-350",
+        "qty": 1
+      },
+      {
+        "name": "War-warg",
+        "card": "le-156",
+        "qty": 2
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 2
+      },
+      {
+        "name": "Wild Hounds",
+        "card": "wh-40",
+        "qty": 2
+      },
+      {
+        "name": "Bow of Alatar",
+        "card": "wh-90",
+        "qty": 1
+      },
+      {
+        "name": "Huntsman's Garb",
+        "card": "wh-92",
+        "qty": 1
+      },
+      {
+        "name": "Join the Hunt",
+        "card": "wh-93",
+        "qty": 1
+      },
+      {
+        "name": "Wizard's Myrmidon",
+        "card": "wh-84",
+        "qty": 1
+      },
+      {
+        "name": "A Chance Meeting",
+        "card": "tw-188",
+        "qty": 1
+      },
+      {
+        "name": "A Friend or Three",
+        "card": "tw-189",
+        "qty": 2
+      },
+      {
+        "name": "A Short Rest",
+        "card": "td-95",
+        "qty": 2
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": "wh-43",
+        "qty": 2
+      },
+      {
+        "name": "Risky Blow",
+        "card": "tw-319",
+        "qty": 2
+      },
+      {
+        "name": "Smoke Rings",
+        "card": "dm-159",
+        "qty": 1
+      },
+      {
+        "name": "Swift Strokes",
+        "card": "le-238",
+        "qty": 2
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Barrow-downs",
+      "card": "le-353",
+      "qty": 1
+    },
+    {
+      "name": "Bree",
+      "card": "tw-378",
+      "qty": 1
+    },
+    {
+      "name": "Glittering Caves",
+      "card": "le-376",
+      "qty": 1
+    },
+    {
+      "name": "Himring",
+      "card": "tw-401",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "tw-404",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "wh-56",
+      "qty": 1
+    },
+    {
+      "name": "Old Forrest",
+      "card": "tw-417",
+      "qty": 1
+    },
+    {
+      "name": "Ost-in-Edhil",
+      "card": "le-397",
+      "qty": 1
+    },
+    {
+      "name": "Ruined Signal Tower",
+      "card": "le-400",
+      "qty": 1
+    },
+    {
+      "name": "The White Towers",
+      "card": "tw-430",
+      "qty": 1
+    },
+    {
+      "name": "The White Towers",
+      "card": "wh-58",
+      "qty": 1
+    },
+    {
+      "name": "Weathertop",
+      "card": "as-169",
+      "qty": 1
+    },
+    {
+      "name": "Zarak Dum",
+      "card": "le-417",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "A Panoply of Wings",
+      "card": "wh-37",
+      "qty": 1
+    },
+    {
+      "name": "Zwergenaxt",
+      "card": "tw-499",
+      "qty": 1
+    },
+    {
+      "name": "Goldberry",
+      "card": "tw-245",
+      "qty": 1
+    },
+    {
+      "name": "Noble Hound",
+      "card": "dm-179",
+      "qty": 1
+    },
+    {
+      "name": "Promptings of Wisdom",
+      "card": "wh-34",
+      "qty": 1
+    },
+    {
+      "name": "Sable Shield",
+      "card": "le-341",
+      "qty": 1
+    },
+    {
+      "name": "Gatherer of Loyalties",
+      "card": "wh-70",
+      "qty": 1
+    },
+    {
+      "name": "Great Patron",
+      "card": "wh-72",
+      "qty": 1
+    },
+    {
+      "name": "Hidden Haven",
+      "card": "wh-75",
+      "qty": 1
+    },
+    {
+      "name": "Legacy of Smiths",
+      "card": "wh-76",
+      "qty": 1
+    },
+    {
+      "name": "The Great Hunt",
+      "card": "wh-91",
+      "qty": 1
+    },
+    {
+      "name": "Ambusher",
+      "card": "tw-5",
+      "qty": 1
+    },
+    {
+      "name": "Barrow-wight",
+      "card": "tw-015",
+      "qty": 1
+    },
+    {
+      "name": "Daelomin Ahunt",
+      "card": "td-10",
+      "qty": 1
+    },
+    {
+      "name": "Lost in Free Domains",
+      "card": "tw-53",
+      "qty": 1
+    },
+    {
+      "name": "Orc-guard",
+      "card": "tw-072",
+      "qty": 1
+    },
+    {
+      "name": "Searching Eye",
+      "card": "td-67",
+      "qty": 1
+    },
+    {
+      "name": "Sellswords Between Charters",
+      "card": "le-89",
+      "qty": 1
+    }
+  ]
+}
