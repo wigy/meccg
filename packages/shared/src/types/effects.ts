@@ -218,6 +218,40 @@ export interface MpModifierEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard item marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 normally clamps every non-stage card a Fallen-wizard controls to a
+ * flat **1** marshalling point, regardless of its printed value. A Fallen-wizard
+ * avatar may carry this effect to *exempt* a subset of the player's items from
+ * that clamp, so they score their full printed MP instead. The {@link filter}
+ * is matched against each item's card definition (via `matchesDefinition`);
+ * every item the Fallen-wizard player controls — on any character — that matches
+ * scores its printed MP while the card carrying this effect is in play. Items
+ * that do not match remain clamped to 1.
+ *
+ * Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
+ * are each worth full marshalling points." His filter excludes items keyworded
+ * `weapon`, `armor`, `shield`, or `helmet`.
+ *
+ * ```json
+ * { "type": "fw-item-mp-full",
+ *   "filter": { "$not": { "$or": [
+ *     { "keywords": { "$includes": "weapon" } },
+ *     { "keywords": { "$includes": "armor" } },
+ *     { "keywords": { "$includes": "shield" } },
+ *     { "keywords": { "$includes": "helmet" } } ] } } }
+ * ```
+ */
+export interface FallenWizardItemMpEffect extends EffectBase {
+  readonly type: 'fw-item-mp-full';
+  /**
+   * Condition matched against an item's card definition. Items that match score
+   * full printed MP for the Fallen-wizard; omit to exempt every item.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -2881,6 +2915,7 @@ export type CardEffect =
   | CheckModifierEffect
   | BodyCheckModifierEffect
   | MpModifierEffect
+  | FallenWizardItemMpEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect

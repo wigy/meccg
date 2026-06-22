@@ -204,7 +204,49 @@
     "generalInfluence": 15,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Isengard"
+    "homesite": "Isengard",
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
+      },
+      {
+        "type": "fw-item-mp-full",
+        "filter": {
+          "$not": {
+            "$or": [
+              { "keywords": { "$includes": "weapon" } },
+              { "keywords": { "$includes": "armor" } },
+              { "keywords": { "$includes": "shield" } },
+              { "keywords": { "$includes": "helmet" } }
+            ]
+          }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "saruman-fetch-spell",
+        "cost": { "tap": "self" },
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "$or": [
+              { "keywords": { "$includes": "spell" } },
+              { "keywords": { "$includes": "sorcery" } }
+            ]
+          }
+        }
+      }
+    ],
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-character",

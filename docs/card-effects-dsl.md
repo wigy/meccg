@@ -239,6 +239,31 @@ Modifies marshalling points conditionally.
 { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
 ```
 
+### 3b. `fw-item-mp-full`
+
+Fallen-wizard item marshalling-point exemption (MEWH §4 exception). MEWH §4
+normally clamps every non-stage card a Fallen-wizard controls to a flat **1**
+marshalling point. A Fallen-wizard avatar may carry this effect to exempt a
+subset of the player's items from that clamp, so they score their full printed
+MP instead. The `filter` is matched against each item's card definition (via
+`matchesDefinition`); every item the Fallen-wizard player controls — on any
+character — that matches scores its printed MP while the card carrying this
+effect is in play. Items that do not match remain clamped to 1. Collected once
+per player from the player's in-play characters and consumed in
+`recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+
+Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
+are each worth full marshalling points."
+
+```json
+{ "type": "fw-item-mp-full",
+  "filter": { "$not": { "$or": [
+    { "keywords": { "$includes": "weapon" } },
+    { "keywords": { "$includes": "armor" } },
+    { "keywords": { "$includes": "shield" } },
+    { "keywords": { "$includes": "helmet" } } ] } } }
+```
+
 ### 3a. `stage-points`
 
 Contributes Fallen-wizard **stage points** (MEWH) to the player controlling the
