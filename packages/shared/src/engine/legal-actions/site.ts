@@ -20,6 +20,7 @@ import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { recruitViaEventActions } from './recruit-via-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -1449,6 +1450,17 @@ function playResourcesActions(
   for (const ea of shortEventActions) {
     const id = (ea.action as { cardInstanceId?: string }).cardInstanceId;
     if (typeof id === 'string') evaluatedInstances.add(id);
+  }
+
+  // Character-recruitment events (A Chance Meeting tw-188): bring a character
+  // into play at a company at a qualifying site during the site phase, bypassing
+  // the one-character-per-turn limit.
+  const recruitViaEventEvaluated = recruitViaEventActions(state, playerId);
+  actions.push(...recruitViaEventEvaluated);
+  for (const ea of recruitViaEventEvaluated) {
+    const a = ea.action as { characterInstanceId?: string; viaEventInstanceId?: string };
+    if (a.characterInstanceId) evaluatedInstances.add(a.characterInstanceId);
+    if (a.viaEventInstanceId) evaluatedInstances.add(a.viaEventInstanceId);
   }
 
   // Mark remaining hand cards as not playable

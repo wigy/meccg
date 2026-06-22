@@ -4532,3 +4532,42 @@ Behaviour:
   `place-starting-company-event` with `targetCharacterInstanceId`) attaches it to
   that character and reduces its mind — "such a character may also be in your
   starting company."
+
+### 51. `recruit-character`
+
+Marks a **short** resource-event as a character-recruitment event — A Chance
+Meeting (tw-188). Playing the event brings one character from hand into play in
+an existing company under relaxed recruitment rules.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `controlledBy` | yes | How the recruit is controlled. Only `"direct-influence"` is supported (the event does not allow general-influence play). |
+| `siteTypes` | yes | {@link SiteType} values where the recruit may enter play (e.g. `["free-hold", "border-hold", "ruins-and-lairs"]`). |
+| `filter` | no | DSL `Condition` matched against the recruit's card definition (e.g. `{ "$not": { "race": "wizard" } }` to bar Wizards). |
+| `bypassOneCharacterLimit` | no | When `true`, the play does **not** consume the one-character-per-turn slot. |
+
+```json
+{ "type": "recruit-character", "controlledBy": "direct-influence",
+  "siteTypes": ["free-hold", "border-hold", "ruins-and-lairs"],
+  "filter": { "$not": { "race": "wizard" } },
+  "bypassOneCharacterLimit": true }
+```
+
+Behaviour:
+
+- **Eligibility (legal actions, `legal-actions/recruit-via-event.ts`).** For the
+  active player, `recruitViaEventActions` finds in-hand events carrying this
+  effect and emits one `play-character` action — carrying `viaEventInstanceId`
+  (the event card) — per eligible (recruit-in-hand, company at a `siteTypes`
+  site, direct-influence controller with enough unused DI) combination. Avatars
+  (null mind) and recruits failing `filter` or the uniqueness rule are skipped.
+  The helper is wired into the organization, movement/hazard, and site phase
+  aggregators, so the event "may be played on your turn during any phase the
+  company is at a site"; it self-gates on a company actually being at a
+  qualifying site.
+- **Resolution (`reducer-organization.ts`).** `handlePlayCharacter` (now shared
+  by the site and movement/hazard reducers for this path) brings the recruit into
+  the company under the controller's direct influence, discards the enabling
+  event to the discard pile, and — when `bypassOneCharacterLimit` is set — skips
+  the one-character-per-turn bookkeeping (and the organization-phase state is only
+  touched when actually in the organization phase).

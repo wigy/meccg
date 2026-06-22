@@ -57,6 +57,16 @@ export interface PlayCharacterAction {
    * a normal character play.
    */
   readonly viaRecruitmentInstanceId?: CardInstanceId;
+  /**
+   * Character-recruitment event play (A Chance Meeting tw-188, We Have Come to
+   * Kill le-252). When set, this is the in-hand short resource-event with a
+   * `recruit-character` effect that lets the player bring a character into play
+   * outside the normal organization-phase rules: at a relaxed set of site types,
+   * during any phase a company is at a site, and without consuming the
+   * one-character-per-turn slot. On resolution the event card is discarded.
+   * Absent for a normal character play.
+   */
+  readonly viaEventInstanceId?: CardInstanceId;
 }
 
 /**

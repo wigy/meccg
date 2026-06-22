@@ -19,7 +19,7 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName } from './reducer-organization.js';
+import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
@@ -1315,6 +1315,14 @@ function handleSitePlayResources(
 ): ReducerResult {
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
+
+  // Character-recruitment event (A Chance Meeting tw-188): bring a character
+  // into play during the site phase. Routed to the shared play-character
+  // reducer, which discards the enabling event and skips the
+  // one-character-per-turn bookkeeping.
+  if (action.type === 'play-character' && action.viaEventInstanceId) {
+    return handlePlayCharacter(state, action);
+  }
 
   // Pass — check whether CvCC attack is possible before advancing
   if (action.type === 'pass') {

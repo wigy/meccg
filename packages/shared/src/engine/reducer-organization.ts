@@ -174,11 +174,17 @@ function handleOrganizationPlayShortEvent(state: GameState, action: GameAction):
  * adds it to an existing company at the target site or creates a new
  * company (taking the site card from the site deck if needed).
  */
-function handlePlayCharacter(state: GameState, action: GameAction): ReducerResult {
+export function handlePlayCharacter(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-character') return wrongActionType(state, action, 'play-character');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
+  // The one-character-per-turn bookkeeping lives on the organization phase
+  // state. A recruit brought in via a `recruit-character` event (A Chance
+  // Meeting, tw-188) may be played in other phases and never consumes that
+  // slot, so the phase-state update is guarded on actually being in the
+  // organization phase below.
+  const isOrgPhase = state.phaseState.phase === Phase.Organization;
   const phaseState = state.phaseState as OrganizationPhaseState;
 
   const charInstId = action.characterInstanceId;
@@ -201,6 +207,20 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     recruitItems = [{ instanceId: vehicleCard.instanceId, definitionId: vehicleCard.definitionId, status: CardStatus.Untapped }];
     handAfterVehicle = removeById(player.hand, vehicleCard.instanceId);
     logDetail(`  Recruitment vehicle ${vehicleCard.definitionId as string} placed with ${charDef.name}`);
+  }
+
+  // Character-recruitment event (A Chance Meeting tw-188): the enabling short
+  // event is played from hand and goes to the discard pile when the recruit
+  // enters play.
+  let eventToDiscard: CardInstance | undefined;
+  if (action.viaEventInstanceId) {
+    const eventCard = findById(handAfterVehicle, action.viaEventInstanceId);
+    if (!eventCard) {
+      return { state, error: 'Recruitment event not in hand' };
+    }
+    eventToDiscard = eventCard;
+    handAfterVehicle = removeById(handAfterVehicle, eventCard.instanceId);
+    logDetail(`  Recruitment event ${eventCard.definitionId as string} discarded as ${charDef.name} enters play`);
   }
 
   // Build the new CharacterInPlay
@@ -296,6 +316,18 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     logDetail(`  Buddy-play group updated: [${newBuddyGroup.join(', ')}]`);
   }
 
+  // A recruit brought in via a `recruit-character` event (A Chance Meeting,
+  // tw-188) bypasses the one-character-per-turn limit and may be played outside
+  // the organization phase: the organization-phase bookkeeping is only applied
+  // for a normal organization-phase play.
+  const bypassOneCharLimit = (() => {
+    if (!eventToDiscard) return false;
+    const eventDef = defById(state, eventToDiscard.definitionId);
+    const effects = (eventDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+    return effects.some(e => e.type === 'recruit-character' && e.bypassOneCharacterLimit === true);
+  })();
+  const updateOrgState = isOrgPhase && !bypassOneCharLimit;
+
   return {
     state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
       ...updatePlayer(state, playerIndex, p => ({
@@ -304,14 +336,17 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
         siteDeck: newSiteDeck,
         characters: newCharacters,
         companies,
+        ...(eventToDiscard ? { discardPile: [...p.discardPile, eventToDiscard] } : {}),
         ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
       })),
-      phaseState: {
-        ...phaseState,
-        characterPlayedThisTurn: true,
-        lastPlayedCharacterDefinitionId: handCard.definitionId as string,
-        ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
-      },
+      phaseState: updateOrgState
+        ? {
+            ...phaseState,
+            characterPlayedThisTurn: true,
+            lastPlayedCharacterDefinitionId: handCard.definitionId as string,
+            ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
+          }
+        : state.phaseState,
     })), affectedIds),
   };
 }

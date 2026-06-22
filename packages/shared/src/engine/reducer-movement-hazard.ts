@@ -26,7 +26,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, handlePlayCharacter } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { roll2d6, diceRollEffect } from './reducer-utils.js';
 import { allyEffectiveMind } from './ally-stats.js';
@@ -209,8 +209,16 @@ function handlePlayHazards(
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
   let result: ReducerResult;
 
+  // --- Character-recruitment event (A Chance Meeting tw-188): bring a
+  //     character into play during M/H. Routed to the shared play-character
+  //     reducer, which discards the enabling event and skips the
+  //     one-character-per-turn bookkeeping. ---
+  if (action.type === 'play-character' && action.viaEventInstanceId) {
+    result = handlePlayCharacter(state, action);
+  }
+
   // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---
-  if (action.type === 'play-permanent-event') {
+  else if (action.type === 'play-permanent-event') {
     result = handlePlayPermanentEvent(state, action);
   }
 
