@@ -1532,7 +1532,8 @@
     "corruptionModifier": 0,
     "homesite": "Lond Galen",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-character",
