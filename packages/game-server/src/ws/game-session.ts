@@ -85,6 +85,7 @@ function joinToDeckList(
     },
     sites: toDeckEntries(join.siteDeck, cardPool),
     sideboard: toDeckEntries(join.sideboard, cardPool),
+    antiFwSideboard: toDeckEntries(join.antiFwSideboard ?? [], cardPool),
   };
 }
 
@@ -475,6 +476,7 @@ export class GameSession {
       playDeck: p.join.playDeck,
       siteDeck: p.join.siteDeck,
       sideboard: p.join.sideboard,
+      antiFwSideboard: p.join.antiFwSideboard,
     };
   }
 

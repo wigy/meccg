@@ -68,6 +68,13 @@ export interface PlayerConfig {
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly sideboard: readonly CardDefinitionId[];
+  /**
+   * Anti-Fallen-wizard sideboard (MEWH): up to 10 cards preselected for facing a
+   * Fallen-wizard opponent. When this player's *opponent* is a Fallen-wizard,
+   * these cards are added to {@link sideboard} at game start ("Your opponent may
+   * also add 10 cards to his sideboard"). Ignored against non-Fallen-wizards.
+   */
+  readonly antiFwSideboard?: readonly CardDefinitionId[];
 }
 
 /**
@@ -135,8 +142,10 @@ export function createGame(
   const minter1 = createMinter(config.players[1].id);
   let rng: RngState = createRng(config.seed);
 
-  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter0, rng);
-  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter1, rng0);
+  // Each player's anti-Fallen-wizard sideboard is folded into their main
+  // sideboard only when their *opponent* is a Fallen-wizard (MEWH).
+  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter0, rng, config.players[1].alignment);
+  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter1, rng0, config.players[0].alignment);
   rng = rng1;
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
@@ -197,6 +206,7 @@ function initPlayerPreDraft(
   cardPool: Readonly<Record<string, CardDefinition>>,
   minter: InstanceMinter,
   rng: RngState,
+  opponentAlignment?: Alignment,
 ): [PlayerState, RngState] {
   // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
   const playDeckMinted = config.playDeck.map(defId => mint(minter, defId));
@@ -206,8 +216,14 @@ function initPlayerPreDraft(
   // Mint site deck
   const siteDeckCards = config.siteDeck.map(defId => mint(minter, defId));
 
-  // Mint sideboard
+  // Mint sideboard. MEWH: when the opponent is a Fallen-wizard, fold in this
+  // player's preselected anti-Fallen-wizard sideboard (up to 10 cards).
   const sideboardCards = config.sideboard.map(defId => mint(minter, defId));
+  if (opponentAlignment === Alignment.FallenWizard && config.antiFwSideboard) {
+    for (const defId of config.antiFwSideboard) {
+      sideboardCards.push(mint(minter, defId));
+    }
+  }
 
   const playerState: PlayerState = {
     id: config.id,

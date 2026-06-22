@@ -49,6 +49,12 @@ export interface JoinMessage {
   readonly siteDeck: readonly CardDefinitionId[];
   /** Reserve card definition IDs for the sideboard. */
   readonly sideboard: readonly CardDefinitionId[];
+  /**
+   * Anti-Fallen-wizard sideboard (MEWH): up to 10 card definition IDs
+   * preselected for facing a Fallen-wizard opponent. Added to the main
+   * sideboard at game start when the opponent is a Fallen-wizard.
+   */
+  readonly antiFwSideboard?: readonly CardDefinitionId[];
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
 }

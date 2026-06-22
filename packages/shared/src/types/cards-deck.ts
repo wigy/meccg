@@ -84,4 +84,11 @@ export interface DeckList {
   readonly sites: readonly DeckListEntry[];
   /** Sideboard -- reserve cards accessible under specific game conditions. */
   readonly sideboard: readonly DeckListEntry[];
+  /**
+   * Anti-Fallen-wizard sideboard (MEWH) -- up to 10 cards preselected for facing
+   * a Fallen-wizard opponent. Added to the main sideboard at game start when the
+   * opponent is a Fallen-wizard. Optional (absent on decks built before this
+   * section existed).
+   */
+  readonly antiFwSideboard?: readonly DeckListEntry[];
 }

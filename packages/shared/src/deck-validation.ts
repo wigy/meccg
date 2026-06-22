@@ -32,7 +32,8 @@ export type DeckSection =
   | 'hazards'    // play deck hazards section
   | 'sites'      // location deck
   | 'pool'       // starting pool (non-character cards)
-  | 'sideboard'; // sideboard
+  | 'sideboard'  // sideboard
+  | 'anti-fw-sideboard'; // anti-Fallen-wizard sideboard (MEWH, max 10)
 
 /**
  * A single deck validation error.
@@ -188,6 +189,7 @@ export function validateDeck(
   const sites = deck.sites ?? [];
   const poolCards = deck.pool ?? [];
   const sideboard = deck.sideboard ?? [];
+  const antiFwSideboard = deck.antiFwSideboard ?? [];
 
   // Section typing — the location deck holds sites and nothing else.
   // Site cards may not appear in any other section, and no other card
@@ -212,6 +214,7 @@ export function validateDeck(
       [resources, 'resources'],
       [poolCards, 'pool'],
       [sideboard, 'sideboard'],
+      [antiFwSideboard, 'anti-fw-sideboard'],
     ];
     for (const [section, sectionKey] of nonSiteSections) {
       for (const entry of section) {
@@ -620,6 +623,16 @@ export function validateDeck(
     errors.push({
       section: 'sideboard',
       message: `sideboard: ${sideboardTotal} cards (max 30 for Short Game)`,
+    });
+  }
+
+  // MEWH — anti-Fallen-wizard sideboard: up to 10 preselected cards added to the
+  // main sideboard when the opponent is a Fallen-wizard.
+  const antiFwTotal = antiFwSideboard.reduce((sum, e) => sum + e.qty, 0);
+  if (antiFwTotal > 10) {
+    errors.push({
+      section: 'anti-fw-sideboard',
+      message: `anti-Fallen-wizard sideboard: ${antiFwTotal} cards (max 10)`,
     });
   }
 
