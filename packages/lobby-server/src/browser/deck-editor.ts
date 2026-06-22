@@ -96,6 +96,7 @@ function renderSection(section: DeckSection, deckId: string): void {
     resources: { preset: 'resources', title: 'Add a resource card' },
     hazards: { preset: 'hazards', title: 'Add a hazard card' },
     sideboard: { preset: 'sideboard', title: 'Add a sideboard card' },
+    'anti-fw-sideboard': { preset: 'sideboard', title: 'Add an anti-Fallen-wizard sideboard card' },
     sites: { preset: 'sites', title: 'Add a site card' },
   };
   const actions = document.createElement('span');
@@ -819,6 +820,7 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   document.getElementById('deck-editor-title')!.textContent = deck.name;
   editingDeck = deck;
   if (!deck.sideboard) deck.sideboard = [];
+  if (!deck.antiFwSideboard) deck.antiFwSideboard = [];
   const sections: DeckSection[] = [
     { id: 'pool', label: 'Pool', entries: deck.pool },
     { id: 'characters', label: 'Characters', entries: deck.deck.characters },
@@ -826,6 +828,7 @@ export async function openDeckEditor(deckId: string): Promise<void> {
     { id: 'resources', label: 'Resources', entries: deck.deck.resources },
     { id: 'sites', label: 'Sites', entries: deck.sites },
     { id: 'sideboard', label: 'Sideboard', entries: deck.sideboard },
+    { id: 'anti-fw-sideboard', label: 'Anti-FW Sideboard', entries: deck.antiFwSideboard },
   ];
   for (const s of sections) {
     renderSection(s, deckId);

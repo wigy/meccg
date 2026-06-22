@@ -28,6 +28,8 @@ export interface FullDeck extends DeckSummary {
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
   sideboard: DeckListEntry[];
+  /** Anti-Fallen-wizard sideboard (MEWH): up to 10 cards added vs a FW opponent. */
+  antiFwSideboard?: DeckListEntry[];
 }
 
 // ---- Screen type ----
@@ -373,6 +375,7 @@ export function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessa
     ],
     siteDeck: expandEntries(deck.sites),
     sideboard: expandEntries(deck.sideboard ?? []),
+    antiFwSideboard: expandEntries(deck.antiFwSideboard ?? []),
   };
 }
 
@@ -383,6 +386,7 @@ export function missingCards(deck: FullDeck): string[] {
     ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
     ...deck.sites,
     ...(deck.sideboard ?? []),
+    ...(deck.antiFwSideboard ?? []),
   ];
   return allEntries.filter(e => e.card === null).map(e => e.name);
 }
@@ -394,6 +398,7 @@ export function uncertifiedCards(deck: FullDeck): string[] {
     ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
     ...deck.sites,
     ...(deck.sideboard ?? []),
+    ...(deck.antiFwSideboard ?? []),
   ];
   const seen = new Set<string>();
   const result: string[] = [];

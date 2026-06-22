@@ -51,4 +51,22 @@ describe('Rule 1.31 — Sideboard Rules', () => {
     const errors = validateDeck(deck, pool);
     expect(errors.some(e => e.section === 'sideboard' && e.message.includes('max 30'))).toBe(true);
   });
+
+  // MEWH — anti-Fallen-wizard sideboard: up to 10 preselected cards.
+  test('Anti-FW sideboard with 10 cards has no size error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      antiFwSideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 10 }],
+    };
+    expect(validateDeck(deck, pool).filter(e => e.section === 'anti-fw-sideboard')).toHaveLength(0);
+  });
+
+  test('Anti-FW sideboard with 11 cards produces an anti-fw-sideboard error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      antiFwSideboard: [{ name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 11 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'anti-fw-sideboard' && e.message.includes('max 10'))).toBe(true);
+  });
 });
