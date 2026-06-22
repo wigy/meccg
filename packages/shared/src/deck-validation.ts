@@ -233,7 +233,7 @@ export function validateDeck(
   // Rule 1.04 — unique card limits (across entire deck except haven sites)
   {
     const counts = new Map<string, number>();
-    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
     for (const section of allSections) {
       for (const entry of section) {
         if (entry.card === null) continue;
@@ -275,7 +275,7 @@ export function validateDeck(
   // Rule 1.05 — total mind of agent cards ≤ 36
   {
     let totalAgentMind = 0;
-    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
     for (const section of allSections) {
       for (const entry of section) {
         if (entry.card === null) continue;
@@ -299,7 +299,7 @@ export function validateDeck(
   // the card) retain the standard max of 3.
   if (deck.alignment === 'fallen-wizard') {
     const fw14Counts = new Map<string, number>();
-    const allSections = [poolCards, characters, hazards, resources, sideboard];
+    const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
     for (const section of allSections) {
       for (const entry of section) {
         if (entry.card === null) continue;
@@ -711,6 +711,7 @@ export function validateDeck(
       [hazards, 'hazards'],
       [poolCards, 'pool'],
       [sideboard, 'sideboard'],
+      [antiFwSideboard, 'anti-fw-sideboard'],
     ];
     for (const [section, sectionKey] of allSections) {
       for (const entry of section) {
@@ -753,6 +754,7 @@ export function validateDeck(
       [hazards, 'hazards'],
       [poolCards, 'pool'],
       [sideboard, 'sideboard'],
+      [antiFwSideboard, 'anti-fw-sideboard'],
     ];
     for (const [section, sectionKey] of allSections) {
       for (const entry of section) {

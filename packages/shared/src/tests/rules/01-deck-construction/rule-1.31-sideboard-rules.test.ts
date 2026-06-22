@@ -69,4 +69,22 @@ describe('Rule 1.31 — Sideboard Rules', () => {
     const errors = validateDeck(deck, pool);
     expect(errors.some(e => e.section === 'anti-fw-sideboard' && e.message.includes('max 10'))).toBe(true);
   });
+
+  test('Anti-FW sideboard cards count toward combined deck limits (unique card)', () => {
+    // Orcrist (unique, max 1) appears once in the play deck; a second copy in
+    // the anti-FW sideboard pushes the combined count to 2 — illegal.
+    const deck: DeckList = {
+      ...baseDeck,
+      deck: {
+        ...baseDeck.deck,
+        resources: [
+          { name: 'Gates of Morning', card: 'tw-243' as CardDefinitionId, qty: 29 },
+          { name: 'Orcrist', card: 'tw-295' as CardDefinitionId, qty: 1 },
+        ],
+      },
+      antiFwSideboard: [{ name: 'Orcrist', card: 'tw-295' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.message.includes('Orcrist') && e.message.includes('max 1'))).toBe(true);
+  });
 });

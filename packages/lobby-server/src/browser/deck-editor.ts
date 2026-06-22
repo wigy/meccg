@@ -196,15 +196,23 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
     balrog: ['ringwraith', 'balrog'],
   };
   const enabled = deckCardAlignments[alignment];
-  const toggle = (icon: string, title: string, cardAlignment: string): BrowserToggle => ({
+  // Stage resources (alignment 'stage') are Fallen-wizard-only cards, and 'dual'
+  // cards are playable by either minion or Fallen-wizard players — so the
+  // Fallen-wizard selector also matches stage/dual cards, and the minion
+  // selector also matches dual cards. Otherwise the bulk of Fallen-wizard
+  // resources (the stage cards) would be hidden from a Fallen-wizard deck.
+  const toggle = (icon: string, title: string, cardAlignment: string, alsoMatch: readonly string[] = []): BrowserToggle => ({
     icon, title, group: 'alignment',
     active: enabled?.includes(cardAlignment) ?? true,
-    match: d => traits(d).alignment === undefined || traits(d).alignment === cardAlignment,
+    match: d => {
+      const a = traits(d).alignment;
+      return a === undefined || a === cardAlignment || alsoMatch.includes(a);
+    },
   });
   return [
     toggle('\u{1F9DD}', 'Hero cards', 'wizard'),
-    toggle('\u{1F479}', 'Minion cards', 'ringwraith'),
-    toggle('\u{1F52E}', 'Fallen-wizard cards', 'fallen-wizard'),
+    toggle('\u{1F479}', 'Minion cards', 'ringwraith', ['dual']),
+    toggle('\u{1F52E}', 'Fallen-wizard cards', 'fallen-wizard', ['stage', 'dual']),
     toggle('\u{1F525}', 'Balrog cards', 'balrog'),
   ];
 }
