@@ -294,9 +294,10 @@ export function validateDeck(
   }
 
   // Rule 1.14 — fallen-wizard stricter copy limits
-  // Applies on top of rule 1.04: non-unique characters and non-Stage resources
-  // are limited to 2 copies. Stage resources (alignment === 'fallen-wizard' on
-  // the card) retain the standard max of 3.
+  // Applies on top of rule 1.04: non-unique characters and non-stage resources
+  // are limited to 2 copies. Stage resources retain the standard max of 3. Stage
+  // resources carry alignment 'stage'; some Fallen-wizard-only cards carry
+  // alignment 'fallen-wizard' — both are treated as the 3-copy category.
   if (deck.alignment === 'fallen-wizard') {
     const fw14Counts = new Map<string, number>();
     const allSections = [poolCards, characters, hazards, resources, sideboard, antiFwSideboard];
@@ -322,8 +323,9 @@ export function validateDeck(
           });
         }
       } else {
-        // Stage resources (alignment === 'fallen-wizard') keep the default max of 3
-        if (defTyped.alignment === 'fallen-wizard') continue;
+        // Stage resources (alignment 'stage') and Fallen-wizard-only resources
+        // (alignment 'fallen-wizard') keep the default max of 3.
+        if (defTyped.alignment === 'fallen-wizard' || defTyped.alignment === 'stage') continue;
         if (HERO_RESOURCE_TYPES.has(defTyped.cardType) || MINION_RESOURCE_TYPES.has(defTyped.cardType)) {
           if (count > 2) {
             errors.push({
@@ -798,40 +800,10 @@ export function validateDeck(
     });
   }
 
-  // Certification — every card in the deck must have been certified (its
-  // effects implemented and verified by a card test). Uncertified cards
-  // lack the `certified` date field; report one error per offending card,
-  // routed to the section it appears in.
-  {
-    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-      [characters, 'characters'],
-      [hazards, 'hazards'],
-      [resources, 'resources'],
-      [sites, 'sites'],
-      [poolCards, 'pool'],
-      [sideboard, 'sideboard'],
-      [antiFwSideboard, 'anti-fw-sideboard'],
-    ];
-    const reported = new Set<string>();
-    for (const [section, sectionKey] of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const key = `${sectionKey}:${entry.card}`;
-        if (reported.has(key)) continue;
-        const def = cardPool[entry.card];
-        if (!def) continue;
-        const certified = (def as { certified?: string }).certified;
-        if (!certified) {
-          reported.add(key);
-          errors.push({
-            section: sectionKey,
-            message: `card "${(def as { name: string }).name}" is not yet certified`,
-            card: entry.card,
-          });
-        }
-      }
-    }
-  }
+  // Note: card *certification* status (whether a card's effects are implemented
+  // and verified by a card test) is NOT a deck-construction rule. It is surfaced
+  // only in the deck editor as a per-card marker, not as a validation error
+  // here — see `collectUncertifiedCards` in the lobby deck editor.
 
   return errors;
 }
