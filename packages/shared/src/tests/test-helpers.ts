@@ -1002,6 +1002,53 @@ export function buildSitePhaseState(opts: {
 }
 
 /**
+ * Build a Fallen-wizard site-phase state at the play-resources step with one
+ * company at `site`. Mirrors {@link buildSitePhaseState} but for Fallen-wizard
+ * card tests, where alignment-sensitive logic (Wizardhaven gates, Stage
+ * resources) must run against a Fallen-wizard company. P1 is the active
+ * resource player; P2 is a placeholder Wizard company at a Haven.
+ */
+export function buildFallenWizardSitePhaseState(opts: {
+  characters: CharacterEntry[];
+  site: CardDefinitionId;
+  hand?: CardDefinitionId[];
+  siteStatus?: CardStatus;
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], siteDeck: [ISENGARD] },
+      { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+    phase: Phase.Site,
+  });
+
+  if (opts.siteStatus) {
+    (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'play-resources',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: true,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+  return { ...state, phaseState: sitePhaseState };
+}
+
+/**
  * Build a minion (Ringwraith) site-phase state at the play-resources step
  * with one company at `site`. Mirrors {@link buildSitePhaseState} but for
  * minion card tests, where alignment-sensitive logic (detainment, item MP,
