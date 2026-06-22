@@ -1915,7 +1915,10 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Hollin",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Wolves",
@@ -1925,7 +1928,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess"
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, gold ring)Automatic-attacks: Wolves — 3 strikes with 5 prowess",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-site",
