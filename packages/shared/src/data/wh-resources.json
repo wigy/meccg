@@ -1585,6 +1585,26 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$or": [
+            {
+              "$and": [
+                { "target.skills": { "$includes": "sage" } },
+                { "$not": { "target.race": "hobbit" } }
+              ]
+            },
+            { "target.race": "man" }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
       }
     ],
     "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand."
