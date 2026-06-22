@@ -172,5 +172,175 @@
       }
     ],
     "certified": "2026-05-24"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-23",
+    "name": "A Lie in Your Eyes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ALieinYourEyes.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped non-Ringwraith, non-Wizard character. Your opponent may either: tap the character, tap an ally the character controls, or choose for you to make a roll. If the result is greater than the character’s mind plus 6, the character is discarded (along with all non-follower cards he controls)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-25",
+    "name": "Come at Need",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ComeatNeed.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable if you have an ally able to be attacked in your hand. When this card is played, place one ally from your hand “off to the side” with it (the ally gives no marshalling points). The ally must be able to be attacked. If an opponent’s company moves to a site where the ally is playable, it faces a single-strike attack (with no type) with the attributes of the ally, except the prowess is increased by 7. The attack is detainment if the ally and the company are both minion or both hero; and this card is discarded afterwards. If defeated, discard this card and place the ally in your opponent’s marshalling point pile—he receives the ally’s marshalling points as kill points. You may return the ally to your hand and discard this card during your organization phase."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-26",
+    "name": "Early Harvest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/EarlyHarvest.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a faction that is normally playable at a Border-hold [{B}] (except Army of the Dead). Make a roll modified by -1 if the faction is a minion faction. Return the faction to opponent’s hand if the result plus the normal marshalling points the faction gives is greater than 12."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-27",
+    "name": "Enchanted Stream",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/EnchantedStream.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path. A ranger in the company can tap to cancel this card before it resolves. The company cannot voluntarily split or move to a new site unless it taps all of its untapped characters to a maximum of two during its organization phase. Discard during any organization phase if the  company is at a Haven/Darkhaven [{DH}]."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-28",
+    "name": "Fealty Under Trial",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FealtyUnderTrial.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a minion in a Darkhaven [{DH}] or Barad-dûr. Make a roll adding the marshalling points (as though they were stored) and corruption points of all items and events played with target minion. All items and storable events played with target minion are then automatically stored (no corruption checks are made). Then, if the result was greater than 15, discard the minion (and all other cards played with him)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-29",
+    "name": "FEAR! FIRE! FOES!",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FEARFIREFOES.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. An additional automatic-attack is created at the site this turn: 5 strikes with 8 prowess (detainment, no attack type). Alternatively, playable on a detainment automatic-attack a minion company is facing. The attack becomes normal (not detainment) and has -1 prowess."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-31",
+    "name": "Near to Hear a Whisper",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/NeartoHearaWhisper.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-32",
+    "name": "One Foe to Breed a War",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/OneFoetoBreedaWar.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a wounded non-Wizard, non-Ringwraith character. The next time target character would otherwise heal, discard this card instead. Attacking player may always assign the first strike of any attack to this character (unless Alatar moves into the company to face a strike). Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-33",
+    "name": "Pilfer Anything Unwatched",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/PilferAnythingUnwatched.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an untapped agent. Tap the agent. Make a roll for a character in play of your choice with a home site the same as the agent’s current site. To the roll add 5 if the agent’s current site is also the agent’s home site. If the result is greater than the character’s mind plus 5, the character is returned to his player’s hand (one item may be transferred to another character in the same company). Cannot be played if your opponent is a minion player."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-35",
+    "name": "Returned Beyond All Hope",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ReturnedBeyondAllHope.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "As a short-event, bring one hazard creature of the following type from your discard pile to your hand: Maia, Elf, Dwarf, or Dúnedain. Alternatively, as a short-event, bring a Maia permanent-event from active play to your hand. Alternatively, as a permanent-event, make a roll—if the result is greater than 8, bring an eliminated Elf or Maia hazard creature to its owner’s discard pile and place this card in your opponent’s marshalling point pile, otherwise, discard this card."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-36",
+    "name": "Ride Against the Enemy",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/RideAgainsttheEnemy.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company moving through a Wilderness [{w}] if you have a character in your hand. Reveal the character. A single-strike hazard creature attack is made on the company with the attributes of the revealed character, except the prowess is increased by 7. Other cards have no effect on this attack. The attack is detainment if the revealed character and the company are both minion or both hero. If defeated, place the character in your opponent’s marshalling point pile— he receives the character’s marshalling points as kill points. Otherwise, discard the character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-37",
+    "name": "Short Legs Are Slow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/ShortLegsAreSlow.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "This card affects companies with at least as many Hobbits as non-Hobbit characters. The number of region cards affected companies can play is reduced by one (normally from four to three). Affected companies cannot use starter movement if region movement is being used in the game. Cannot be duplicated. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-38",
+    "name": "Slip Treacherously",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/SlipTreacherously.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Tap all untapped items in play. Items effects not requiring tapping apply normally."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-40",
+    "name": "Trouble on All Borders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TroubleonAllBorders.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on a unique faction in play. Any company moving through the region containing a site where the faction is playable, or through any region adjacent to this one, faces an attack. The attack is the same type as the faction and has 4 strikes with 8 prowess. The attack is detainment if the company and faction are both minion or both hero. Cannot be duplicated on a given  faction. Discard when any play deck is  exhausted."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-41",
+    "name": "Turning Hope to Despair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TurningHopetoDespair.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company facing a non-detainment attack from: Undead, Nazgûl, or Maia; does not count against the hazard limit. If the attack is not defeated, each character in the company makes a roll and adds his mind. If the result is less than 11, the character splits off from the company and forms his own company with the same site path as his original company. The character faces a separate movement/hazard phase this turn with a hazard limit of one."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-42",
+    "name": "Unhappy Blows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/UnhappyBlows.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company containing both Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five (seven for Orcs and Trolls). If available, your opponent must choose and return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in the company whose total mind equals or exceeds this result. Items played with these characters are also returned to opponent’s hand. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-43",
+    "name": "Will Shaken",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/WillShaken.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "This card cannot be played. If your opponent looks at cards from your hand (due to the use of one of his cards or abilities) and sees Will Shaken, place this card in his marshalling point pile. He loses two miscellaneous marshalling points. Your opponent may skip his turn in order to place this card in your discard pile."
   }
 ]

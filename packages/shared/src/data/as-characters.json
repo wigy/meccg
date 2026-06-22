@@ -170,7 +170,10 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any non-Under-deeps Ruins & Lairs",
-    "coPlayCompanions": ["as-5", "as-6"],
+    "coPlayCompanions": [
+      "as-5",
+      "as-6"
+    ],
     "discardBodyCheck": [
       8
     ],
@@ -235,7 +238,8 @@
       }
     ],
     "certified": "2026-06-04"
-  },  {
+  },
+  {
     "cardType": "minion-character",
     "id": "as-5",
     "name": "Tûma",
@@ -254,7 +258,10 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Any non-Under-deeps Ruins & Lairs",
-    "coPlayCompanions": ["as-1", "as-6"],
+    "coPlayCompanions": [
+      "as-1",
+      "as-6"
+    ],
     "discardBodyCheck": [
       8
     ],
@@ -319,5 +326,26 @@
       }
     ],
     "certified": "2026-06-04"
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "as-2",
+    "name": "Mauhúr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Mauhur.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "homesite": "Dol Guldur",
+    "effects": [],
+    "text": "Unique. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions."
   }
 ]
