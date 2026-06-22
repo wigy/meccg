@@ -506,13 +506,17 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.24 — non-haven sites appear at most once in location deck
+  // Rule 1.24 — non-haven sites appear at most once in location deck.
+  // Exception (MEWH / rule 1.28): a Fallen-wizard's location deck may include
+  // multiple copies of the Fallen-wizard site cards (Isengard, The White Towers,
+  // Rhosgobel, Deep Mines).
   const nonHavenSeen = new Set<string>();
   for (const entry of sites) {
     if (entry.card === null) continue;
     const def = cardPool[entry.card];
     if (!isSiteCard(def)) continue;
     if (def.siteType === SiteType.Haven) continue;
+    if (deck.alignment === 'fallen-wizard' && def.cardType === 'fallen-wizard-site') continue;
     const cardId = entry.card as string;
     if (entry.qty > 1) {
       errors.push({

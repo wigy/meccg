@@ -1,5 +1,18 @@
 [
   {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "as-51",
+    "name": "No Strangers at this Time",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/NoStrangersatthisTime.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 1,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a Free-hold or Border-hold if you have played a faction there. This site is never discarded and never untaps."
+  },
+  {
     "cardType": "minion-resource-event",
     "alignment": "ringwraith",
     "id": "as-80",
