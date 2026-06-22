@@ -495,7 +495,7 @@ export function describeAction(
     case 'place-starting-company-event':
       return `${action.player as string} places ${action.cardDefId as string} on company ${action.companyId as string} as a starting event`;
     case 'reserve-creature':
-      return `${action.player as string} reserves creature ${action.cardInstanceId as string} via ${action.sourceCardInstanceId as string}`;
+      return `${action.player as string} reserves creature ${instName(action.cardInstanceId)} via ${instName(action.sourceCardInstanceId)}`;
     case 'play-reserved-creature':
       return `${action.player as string} plays reserved creature from ${action.sourceCardInstanceId as string} against company ${action.targetCompanyId as string}`;
     case 'play-creature-from-discard':
