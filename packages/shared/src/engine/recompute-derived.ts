@@ -38,7 +38,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
@@ -132,6 +132,52 @@ function addItemMP(
   }
   if (mp === 0) return totals;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/** One faction-MP-override rule: a condition and the MP it grants when matched. */
+type FactionMpOverrideRule = { readonly when: Condition; readonly value: number };
+
+/**
+ * Collects the faction-MP-override rule sets a player has in play (e.g. Gatherer
+ * of Loyalties wh-70). Each in-play card carrying a `faction-mp-override` effect
+ * contributes its ordered rule list; the lists are concatenated in card order so
+ * the shared "last matching rule wins" precedence still holds. Returns an empty
+ * array when no such card is in play.
+ */
+function factionMpOverrideRules(
+  state: GameState,
+  player: PlayerState,
+): FactionMpOverrideRule[] {
+  const rules: FactionMpOverrideRule[] = [];
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'faction-mp-override') rules.push(...effect.rules);
+    }
+  }
+  return rules;
+}
+
+/**
+ * Resolves the overridden marshalling-point value for a faction the player
+ * controls, or `undefined` if no rule matches (so the faction scores normally).
+ * Each rule is evaluated against the per-faction context
+ * `{ faction: { unique, race, normalMp, name }, player: { avatar } }`; the last
+ * matching rule wins, letting avatar-specific rules override the base rule.
+ */
+function resolveFactionMpOverride(
+  def: FactionCard,
+  rules: readonly FactionMpOverrideRule[],
+  avatarName: string | undefined,
+): number | undefined {
+  const ctx = {
+    faction: { unique: def.unique, race: def.race, normalMp: def.marshallingPoints, name: def.name },
+    player: { avatar: avatarName },
+  };
+  let value: number | undefined;
+  for (const rule of rules) {
+    if (matchesContext(rule.when, ctx)) value = rule.value;
+  }
+  return value;
 }
 
 /**
@@ -621,10 +667,25 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // are skipped here — they are physically kept in their host player's
   // cardsInPlay, but their marshalling points are credited to their owner in
   // the dedicated pass below.
+  // A Fallen-wizard stage card (e.g. Gatherer of Loyalties wh-70) can re-value
+  // the player's factions, replacing both their printed MP and the §4 flat-1
+  // clamp. Collect the active override rules once and the player's revealed
+  // avatar name (Alatar/Pallando/Saruman) so avatar-specific rules can match.
+  const factionOverrides = factionMpOverrideRules(state, player);
+  const avatarChar = factionOverrides.length > 0 ? findPlayerAvatar(state, player) : undefined;
+  const avatarName = avatarChar ? (resolveDef(state, avatarChar.instanceId) as { name?: string } | undefined)?.name : undefined;
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
-    if (def) mp = addMP(mp, def, player.alignment);
+    if (!def) continue;
+    if (factionOverrides.length > 0 && isFactionCard(def)) {
+      const overrideMp = resolveFactionMpOverride(def, factionOverrides, avatarName);
+      if (overrideMp !== undefined) {
+        mp = { ...mp, faction: mp.faction + overrideMp };
+        continue;
+      }
+    }
+    mp = addMP(mp, def, player.alignment);
   }
 
   // MEAS §1: cards placed "off to the side" award their marshalling points to

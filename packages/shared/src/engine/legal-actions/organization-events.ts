@@ -96,6 +96,31 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
     }
 
+    // play-condition: player-state — a generic DSL condition on the active
+    // player's avatar/alignment/stage-point context. Used by Gatherer of
+    // Loyalties (wh-70): "Playable if you have more than 3 stage points."
+    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
+    if (playerStateCondition?.condition) {
+      const opponent = state.players.find(p => p.id !== playerId);
+      let hasRingwraithInPlay = false;
+      for (const ch of Object.values(player.characters)) {
+        const chDef = defById(state, ch.definitionId);
+        if (isAvatarCharacter(chDef) && (chDef as { race?: string }).race === 'ringwraith') {
+          hasRingwraithInPlay = true;
+          break;
+        }
+      }
+      const ctx = {
+        player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints },
+        opponent: { alignment: opponent?.alignment },
+      };
+      if (!matchesCondition(playerStateCondition.condition, ctx)) {
+        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
+        continue;
+      }
+    }
+
     // play-target DSL: cards targeting a site can only be played during the site phase
     const sitePlayTarget = def.effects?.find(
       (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',

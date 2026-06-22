@@ -277,6 +277,34 @@ non-Fallen-wizard players (who never hold stage cards).
 { "type": "stage-points", "value": 3 }
 ```
 
+### 3c. `faction-mp-override`
+
+Re-values the controlling player's factions while the carrying card is in play
+(MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event.
+Each faction the player controls is scored against the ordered `rules`: every
+rule's `when` condition is evaluated against the per-faction context
+`{ faction: { unique, race, normalMp, name }, player: { avatar } }`
+(`faction.normalMp` is the faction's printed MP; `player.avatar` is the name of
+the controller's revealed avatar, e.g. `"Alatar"`). The **last** matching rule
+sets the faction's MP, so order entries from least to most specific. A faction
+matching no rule scores normally. The override value replaces both the printed
+MP and the Fallen-wizard §4 flat-1 clamp. Collected from the player's in-play
+cards and consumed in `recompute-derived.ts`.
+
+Used by Gatherer of Loyalties (wh-70): "Your unique factions are each worth 2
+marshalling points. If you are Alatar, your unique Dragon factions are each
+worth 4 marshalling points. If you are Pallando, your unique factions normally
+worth 3 or more marshalling points are each worth 3 marshalling points."
+
+```json
+{ "type": "faction-mp-override",
+  "rules": [
+    { "when": { "faction.unique": true }, "value": 2 },
+    { "when": { "faction.unique": true, "faction.race": "dragon", "player.avatar": "Alatar" }, "value": 4 },
+    { "when": { "faction.unique": true, "faction.normalMp": { "$gte": 3 }, "player.avatar": "Pallando" }, "value": 3 }
+  ] }
+```
+
 ### 4. `company-modifier`
 
 Applies a stat or check modifier to every character in the company the
@@ -2262,17 +2290,21 @@ check) and `reducer-events.ts` (discard execution).
   ] } }
 ```
 
-- `player-state` — for resource short-events: a generic DSL `condition`
-  evaluated against the active player's avatar/alignment context
-  `{ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }`.
+- `player-state` — for resource short-events **and** permanent-events: a
+  generic DSL `condition` evaluated against the active player's
+  avatar/alignment context
+  `{ player: { alignment, hasRingwraithInPlay, stagePoints }, opponent: { alignment } }`.
   `alignment` is the card-text alignment string (`"wizard"`,
   `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
   is `true` when the active player has a Ringwraith-race avatar character in
-  play. Lets a card gate on the opposing player's alignment and the
-  controller's revealed avatar without a per-card keyword. Used by *Above the
-  Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
-  play". Implemented in `legal-actions/organization.ts`
-  (`buildPlayerStateContext`).
+  play; `player.stagePoints` is the Fallen-wizard's current stage-point total.
+  Lets a card gate on the opposing player's alignment, the controller's
+  revealed avatar, or stage points without a per-card keyword. Used by *Above
+  the Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
+  play"; and by *Gatherer of Loyalties* (wh-70): "Playable if you have more
+  than 3 stage points". Implemented in `legal-actions/organization.ts`
+  (`buildPlayerStateContext`, short-events) and
+  `legal-actions/organization-events.ts` (permanent-events).
 
 ```json
 { "type": "play-condition", "requires": "player-state",
