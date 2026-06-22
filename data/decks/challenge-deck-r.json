@@ -1,0 +1,404 @@
+{
+  "id": "challenge-deck-r",
+  "name": "(R) The Ally-Armada",
+  "alignment": "fallen-wizard",
+  "pool": [
+    {
+      "name": "Barliman Butterbur",
+      "card": "tw-125",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Elrohir",
+      "card": "tw-144",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Gildor Inglorion",
+      "card": "tw-158",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Imrahil",
+      "card": "tw-166",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Perchen",
+      "card": "as-4",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Glove of Radagast",
+      "card": "wh-111",
+      "qty": 1
+    },
+    {
+      "name": "Thrall of the Voice",
+      "card": "wh-82",
+      "qty": 1
+    },
+    {
+      "name": "Dagger of Westernesse",
+      "card": "tw-206",
+      "qty": 1
+    },
+    {
+      "name": "Elf-stone",
+      "card": "tw-224",
+      "qty": 1
+    },
+    {
+      "name": "Annalena",
+      "card": "tw-119",
+      "qty": 1
+    },
+    {
+      "name": "Asternak",
+      "card": "le-1",
+      "qty": 1
+    },
+    {
+      "name": "Balin",
+      "card": "tw-123",
+      "qty": 1
+    },
+    {
+      "name": "Dorelas",
+      "card": "le-8",
+      "qty": 1
+    },
+    {
+      "name": "Galdor",
+      "card": "td-92",
+      "qty": 1
+    },
+    {
+      "name": "Ostisen",
+      "card": "le-36",
+      "qty": 1
+    },
+    {
+      "name": "Voteli",
+      "card": "tw-185",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Radagast",
+        "card": "wh-8",
+        "qty": 3
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Ambusher",
+        "card": "tw-5",
+        "qty": 2
+      },
+      {
+        "name": "Barrow-wight",
+        "card": "tw-015",
+        "qty": 1
+      },
+      {
+        "name": "Cave Worm",
+        "card": "le-65",
+        "qty": 2
+      },
+      {
+        "name": "Corsairs of Umbar",
+        "card": "tw-24",
+        "qty": 2
+      },
+      {
+        "name": "Dunlending Raiders",
+        "card": "td-19",
+        "qty": 2
+      },
+      {
+        "name": "Sellswords Between Charters",
+        "card": "le-89",
+        "qty": 3
+      },
+      {
+        "name": "Slayer",
+        "card": "tw-89",
+        "qty": 2
+      },
+      {
+        "name": "Alone and Unadvised",
+        "card": "as-24",
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 2
+      },
+      {
+        "name": "Despair of the Heart",
+        "card": "tw-27",
+        "qty": 2
+      },
+      {
+        "name": "Dragon-sickness",
+        "card": "td-18",
+        "qty": 1
+      },
+      {
+        "name": "Lure of Expedience",
+        "card": "tw-57",
+        "qty": 3
+      },
+      {
+        "name": "Lure of Nature",
+        "card": "tw-58",
+        "qty": 2
+      },
+      {
+        "name": "Lure of the Senses",
+        "card": "tw-60",
+        "qty": 2
+      },
+      {
+        "name": "Rank upon Rank",
+        "card": "dm-80",
+        "qty": 2
+      }
+    ],
+    "resources": [
+      {
+        "name": "Barrow-blade",
+        "card": "dm-119",
+        "qty": 1
+      },
+      {
+        "name": "Radagast's Black Bird",
+        "card": "wh-114",
+        "qty": 1
+      },
+      {
+        "name": "War-warg",
+        "card": "le-156",
+        "qty": 2
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 2
+      },
+      {
+        "name": "Wild Hounds",
+        "card": "wh-40",
+        "qty": 2
+      },
+      {
+        "name": "Great Patron",
+        "card": "wh-72",
+        "qty": 1
+      },
+      {
+        "name": "Shifter of Hues",
+        "card": "wh-115",
+        "qty": 1
+      },
+      {
+        "name": "Wizard's Myrmidon",
+        "card": "wh-84",
+        "qty": 1
+      },
+      {
+        "name": "Awaiting the Call",
+        "card": "le-165",
+        "qty": 1
+      },
+      {
+        "name": "Bold Thrust",
+        "card": "le-172",
+        "qty": 2
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 2
+      },
+      {
+        "name": "Hall of Fire",
+        "card": "dm-134",
+        "qty": 2
+      },
+      {
+        "name": "Marvels Told",
+        "card": "td-134",
+        "qty": 2
+      },
+      {
+        "name": "Muster",
+        "card": "tw-288",
+        "qty": 1
+      },
+      {
+        "name": "Risky Blow",
+        "card": "tw-319",
+        "qty": 2
+      },
+      {
+        "name": "Smoke Rings",
+        "card": "dm-159",
+        "qty": 2
+      },
+      {
+        "name": "Swift Strokes",
+        "card": "le-238",
+        "qty": 2
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": "le-253",
+        "qty": 2
+      },
+      {
+        "name": "Withdrawn to Mordor",
+        "card": "dm-165",
+        "qty": 1
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Bree",
+      "card": "tw-378",
+      "qty": 1
+    },
+    {
+      "name": "Deep Mines",
+      "card": "wh-55",
+      "qty": 1
+    },
+    {
+      "name": "Rhosgobel",
+      "card": "wh-57",
+      "qty": 1
+    },
+    {
+      "name": "Rhosgobel",
+      "card": "wh-57",
+      "qty": 1
+    },
+    {
+      "name": "Rivendell",
+      "card": "tw-421",
+      "qty": 1
+    },
+    {
+      "name": "The White Towers",
+      "card": "tw-430",
+      "qty": 1
+    },
+    {
+      "name": "Weathertop",
+      "card": "as-169",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "A Friend or Three",
+      "card": "tw-189",
+      "qty": 1
+    },
+    {
+      "name": "A Panoply of Wings",
+      "card": "wh-37",
+      "qty": 1
+    },
+    {
+      "name": "An Untimely Brood",
+      "card": "wh-62",
+      "qty": 1
+    },
+    {
+      "name": "Delver's Harvest",
+      "card": "wh-65",
+      "qty": 2
+    },
+    {
+      "name": "Dwarven Light-stone",
+      "card": "dm-168",
+      "qty": 2
+    },
+    {
+      "name": "Girdle of Radagast",
+      "card": "wh-110",
+      "qty": 1
+    },
+    {
+      "name": "Great Bats",
+      "card": "as-74",
+      "qty": 2
+    },
+    {
+      "name": "Legacy of Smiths",
+      "card": "wh-76",
+      "qty": 1
+    },
+    {
+      "name": "Noble Hound",
+      "card": "dm-179",
+      "qty": 2
+    },
+    {
+      "name": "Noble Steed",
+      "card": "wh-33",
+      "qty": 2
+    },
+    {
+      "name": "Regiment of Black Crows",
+      "card": "as-76",
+      "qty": 2
+    },
+    {
+      "name": "Voices of Malice",
+      "card": "le-250",
+      "qty": 1
+    },
+    {
+      "name": "Call of Home",
+      "card": "tw-18",
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": "le-107",
+      "qty": 1
+    },
+    {
+      "name": "Searching Eye",
+      "card": "td-67",
+      "qty": 1
+    },
+    {
+      "name": "Smaug Ahunt",
+      "card": "td-70",
+      "qty": 1
+    },
+    {
+      "name": "Stormcrow",
+      "card": "td-73",
+      "qty": 1
+    },
+    {
+      "name": "The Way is Shut",
+      "card": "dm-98",
+      "qty": 1
+    }
+  ]
+}
