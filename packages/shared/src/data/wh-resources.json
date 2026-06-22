@@ -981,6 +981,21 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$ne": "fallen-wizard" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
     "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player."
