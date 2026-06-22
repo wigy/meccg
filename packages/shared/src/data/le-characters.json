@@ -1861,6 +1861,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Trollchief.jpg",
     "unique": false,
     "race": "troll",
+    "keywords": [
+      "Leader",
+      "Olog-hai"
+    ],
     "skills": [
       "warrior"
     ],
@@ -1872,8 +1876,49 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
-    "text": "Olog-hai. Leader. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions."
+    "discardBodyCheck": [
+      9
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      }
+    ],
+    "text": "Olog-hai. Leader. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions.",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-character",
