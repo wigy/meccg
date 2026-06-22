@@ -20,11 +20,12 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import { Alignment } from '../../../index.js';
 import {
   buildTestState, resetMint, viableFor, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
-  RIVENDELL, BREE, LORIEN, MINAS_TIRITH,
+  RIVENDELL, BREE, LORIEN, MINAS_TIRITH, EDHELLOND,
 } from '../../test-helpers.js';
 import type { PlanMovementAction } from '../../../types/actions-organization.js';
 
@@ -99,5 +100,28 @@ describe('Rule 3.43 — Starter Movement', () => {
       .filter(a => a.action.type === 'plan-movement') as { action: PlanMovementAction }[];
 
     expect(movements2.some(a => a.action.destinationSite === rivendellSiteInstId)).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] a Fallen-wizard cannot use starter movement (MEWH §7)', () => {
+    // From Lórien, Edhellond is reachable only via starter movement (haven-to-
+    // haven; it is beyond region-movement range). A Wizard may move there; a
+    // Fallen-wizard, who must use region movement, may not.
+    function edhellondReachable(alignment: Alignment): boolean {
+      const state = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.Organization,
+        players: [
+          { id: PLAYER_1, alignment, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [EDHELLOND] },
+          { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        ],
+      });
+      const edhellondInst = state.players[0].siteDeck.find(s => s.definitionId === EDHELLOND)!.instanceId;
+      const movements = viableFor(state, PLAYER_1)
+        .filter(a => a.action.type === 'plan-movement') as { action: PlanMovementAction }[];
+      return movements.some(a => a.action.destinationSite === edhellondInst);
+    }
+
+    expect(edhellondReachable(Alignment.Wizard)).toBe(true);
+    expect(edhellondReachable(Alignment.FallenWizard)).toBe(false);
   });
 });
