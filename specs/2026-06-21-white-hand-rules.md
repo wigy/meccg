@@ -60,7 +60,7 @@ Everything below is the **runtime gameplay** that is not yet wired.
 | 10 | **Resource targeting / playing at site / gold rings** — hero↔minion targeting bar; site-alignment match; −1 gold ring | △ partial (gold ring done; targeting/site-tap deferred) | Targeting guards + ring modifier |
 | 11 | **Setup** — declare FW, opponent swap + 10 sideboard, start with stage cards, FW starting site | △ partial (mind ≤ 5 done; start-flow deferred) | New setup sub-step |
 | 12 | **FW leaves play** — discard wizard-specific stage permanent-events | ✓ done | Removal sweep |
-| 13 | **Optional rules** — CvCC at >10 stage points; Wizard→FW conversion | ✗ missing | Optional/deferred |
+| 13 | **Optional rules** — CvCC at >10 stage points; Wizard→FW conversion | ✗ out of scope (optional rules not implemented by policy) | Not done |
 | 14 | **Tournament rules** — sideboard sizes, reveal FW, stage cards as draft characters | △ n/a (single-deck cap already 30; rest → §11) | Mostly config/data |
 
 The structurally new engine pieces are **§1 stage points**, **§3 Wizardhavens**,
@@ -700,16 +700,20 @@ disappears.
 
 ---
 
-## 13. Optional rules — ✗ MISSING (deferred)
+## 13. Optional rules — ✗ OUT OF SCOPE (not implemented by policy)
+
+> **Decision (wigy):** optional rules are not implemented in this engine. §13 is therefore
+> **out of scope** — neither the company-vs-company >10-stage-points variant nor the
+> Wizard→Fallen-wizard conversion will be built. The two are documented below only so the
+> hook points are recorded should the policy ever change.
 
 - **Company vs. Company combat**: a company containing a FW with **>10 stage points** may
-  initiate CvCC against any opponent company, and vice versa. Layers onto §8 `canAttack`
-  (consult the derived stage total from §1). Gate behind an "optional rules enabled" flag.
+  initiate CvCC against any opponent company, and vice versa. Would layer onto §8
+  `canAttackAlignment` (consult the derived stage total from §1), behind an "optional rules
+  enabled" flag.
 - **Wizard→Fallen-wizard conversion**: a Wizard player who fails a corruption check by 0/1
   may, with the right sideboard cards, convert to a FW (replace avatar, play a ≤3-point
-  stage card, resume under FW rules). Substantial; **deferred** unless prioritized.
-
-Mark both as out-of-scope-for-now unless explicitly requested; note the §8/§1 hook points.
+  stage card, resume under FW rules).
 
 ---
 
