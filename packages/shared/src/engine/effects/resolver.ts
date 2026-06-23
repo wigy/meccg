@@ -916,13 +916,17 @@ export function resolveAttackProwess(
  * Collects all effects with `target: "all-attacks"` from events and cards
  * in play, evaluates conditions against the context (including `enemy.race`
  * for creature-type filtering), and sums strikes modifiers. When
- * `attackBoostCtx` is provided, also applies active `creature-attack-boost`
- * constraints targeting the defending company.
+ * `isAutomaticAttack` is true, also collects `target: "all-automatic-attacks"`
+ * effects that only apply to site automatic-attacks (e.g. Redoubled Force's
+ * +3 strikes to Orc/Troll automatic-attacks). When `attackBoostCtx` is
+ * provided, also applies active `creature-attack-boost` constraints targeting
+ * the defending company.
  *
  * @param state - The full game state.
  * @param baseStrikes - The creature's or automatic attack's base number of strikes.
  * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
+ * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
  * @returns The modified strikes value after applying all-attacks effects.
  */
@@ -931,10 +935,14 @@ export function resolveAttackStrikes(
   baseStrikes: number,
   inPlayNames: readonly string[],
   creatureRace?: string,
+  isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
   const context = buildAttackContext(inPlayNames, creatureRace);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
+  if (isAutomaticAttack) {
+    globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
+  }
   if (attackBoostCtx) {
     globalEffects.push(...collectCreatureAttackBoostEffects(state, 'strikes', creatureRace, attackBoostCtx));
   }

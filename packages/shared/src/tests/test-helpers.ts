@@ -3365,6 +3365,9 @@ export function setupCombatWithCaveDrake(opts: {
   heroHand?: readonly CardDefinitionId[];
   creatureDefId: CardDefinitionId;
   hazardCharacter?: CardDefinitionId;
+  /** Cards to seed into the hazard player's cardsInPlay (e.g. a permanent
+   * hazard event whose effect modifies the creature attack). */
+  hazardCardsInPlay?: readonly CardInPlay[];
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -3382,6 +3385,7 @@ export function setupCombatWithCaveDrake(opts: {
         companies: [{ site: LORIEN, characters: [opts.hazardCharacter ?? GIMLI] }],
         hand: [opts.creatureDefId],
         siteDeck: [RIVENDELL],
+        ...(opts.hazardCardsInPlay ? { cardsInPlay: [...opts.hazardCardsInPlay] } : {}),
       },
     ],
   });

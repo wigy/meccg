@@ -605,7 +605,7 @@ function handleSiteAutomaticAttacks(
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
         const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
-        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, dupBoostCtxR);
+        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
         const dupDetainmentR = forcedDetainment || isDetainmentAttack({
@@ -656,7 +656,7 @@ function handleSiteAutomaticAttacks(
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
       const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
-      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, dupBoostCtx);
+      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
@@ -714,7 +714,7 @@ function handleSiteAutomaticAttacks(
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const aaBoostCtx = { companyId: company.id };
   const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, aaBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
   // One-shot prowess boost from short-event environments like Choking
@@ -1050,7 +1050,7 @@ function handleSitePlaySiteAutoAttack(
   const creatureRace = creatureDef.race;
   const sitePlayedBoostCtx = { companyId: company.id, creatureInstanceId: creatureCard.instanceId };
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, undefined, sitePlayedBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, sitePlayedBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, sitePlayedBoostCtx);
   const effectiveSiteDynBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, sitePlayedBoostCtx);
 
   logDetail(`Site: hazard plays "${creatureDef.name}" as dynamic auto-attack (${effectiveStrikes} strikes, ${effectiveProwess} prowess) vs company ${company.id as string}`);
