@@ -613,6 +613,11 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
     "text": "Unique. Playable if you are Pallando or Saruman and have 6 or more stage points and a protected Wizardhaven [{H}]. Each of your Half-orcs requires one less point of influence to control. During your organization phase, you may take one Half-orc character from your discard pile to your hand. You may play Half-orc characters at your Wizardhavens [{H}], even if your Fallen-wizard is not there or Bad Company is not in play. Cannot be duplicated by a given player."
