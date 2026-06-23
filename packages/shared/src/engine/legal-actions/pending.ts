@@ -92,6 +92,8 @@ export function resolutionLegalActions(
       return cvccAllyDiscardRollActions(state, actor, top);
     case 'tap-one-character':
       return tapOneCharacterActions(state, actor, top);
+    case 'haven-restore-character':
+      return havenRestoreCharacterActions(state, actor, top);
     case 'stay-her-appetite-roll':
       return stayHerAppetiteRollActions(state, actor, top);
   }
@@ -1830,6 +1832,52 @@ function tapOneCharacterActions(
   }
 
   // pass is always available (required when no untapped characters exist)
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Legal actions while a `haven-restore-character` resolution is pending
+ * (Hall of Fire, dm-134).
+ *
+ * The controlling player may untap or heal one character in the company:
+ * one `restore-character-by-effect` action is emitted per tapped (untap) or
+ * wounded/inverted (heal to tapped) character. The benefit is optional, so
+ * `pass` is always available.
+ */
+function havenRestoreCharacterActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'haven-restore-character') return [];
+  const { companyId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  if (!ownerPlayer) return [];
+  const company = companyById(ownerPlayer.companies, companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const ch = ownerPlayer.characters[charId as string];
+    if (!ch) continue;
+    if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
+    const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);
+    const verb = ch.status === CardStatus.Tapped ? 'untap' : 'heal';
+    logDetail(`haven-restore-character: offering to ${verb} ${charName}`);
+    actions.push({
+      action: {
+        type: 'restore-character-by-effect' as const,
+        player: actor,
+        characterInstanceId: ch.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  // "may choose" — pass is always available.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
 
   return actions;

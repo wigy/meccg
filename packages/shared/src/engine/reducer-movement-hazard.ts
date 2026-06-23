@@ -2120,6 +2120,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     );
   }
 
+  // Hall of Fire (dm-134): immediately following this company's M/H phase,
+  // if it is at a Haven where a Hall of Fire is in play, the controlling
+  // player may untap or heal one of its characters. Enqueued as a pending
+  // resolution so it is offered before the company proceeds (whether the
+  // turn advances to reset-hand or to the next sub-phase).
+  updatedState = fireHavenRestoreTriggers(updatedState, mhStateLocal);
+
   if (needsDiscard) {
     logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
     return {
@@ -2134,6 +2141,72 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   }
 
   return advanceAfterCompanyMH(updatedState, mhStateLocal);
+}
+
+/**
+ * Fire the Hall of Fire (dm-134) restore offer for the active company once
+ * its movement/hazard phase has ended. Hall of Fire is a permanent event
+ * attached to a Haven (`attachedToSite` = the haven's definition id); when a
+ * company controlled by the same player finishes its M/H phase at that haven,
+ * the player "may choose for one of its characters to untap or heal (from
+ * wounded to tapped)".
+ *
+ * One `haven-restore-character` pending resolution is enqueued per Hall of
+ * Fire copy on the haven, but only when the company actually has a tapped or
+ * wounded character to act on — the benefit is optional, so there is no point
+ * forcing a pass when nothing can change. The resolution is scoped to the
+ * company's M/H sub-phase so it auto-clears if left unresolved.
+ */
+function fireHavenRestoreTriggers(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): GameState {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company?.currentSite) return state;
+
+  const siteDefId = company.currentSite.definitionId;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== 'haven') return state;
+
+  const hasRestorable = company.characters.some(charId => {
+    const ch = player.characters[charId as string];
+    return ch && (ch.status === CardStatus.Tapped || ch.status === CardStatus.Inverted);
+  });
+
+  let result = state;
+  for (const card of player.cardsInPlay) {
+    if (card.attachedToSite !== siteDefId) continue;
+    const def = result.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../index.js').CardEffect[] } | undefined;
+    for (const e of getOnEventEffects(def, 'company-mh-end-at-site')) {
+      if (e.apply?.type !== 'offer-restore-character') continue;
+      if (!hasRestorable) {
+        logDetail(`company-mh-end-at-site: "${def?.name ?? card.definitionId}" — company ${company.id as string} at ${siteDef.name} has no tapped/wounded character; no offer`);
+        continue;
+      }
+      logDetail(`company-mh-end-at-site: "${def?.name ?? card.definitionId}" fires for company ${company.id as string} at ${siteDef.name}`);
+      // Scope to the upcoming Site phase: the company's M/H sub-phase is about
+      // to end (advanceAfterCompanyMH sweeps `company-mh-subphase` immediately),
+      // so a sub-phase scope would be dropped before the player could act. A
+      // Site-phase scope survives the M/H→Site boundary; because any pending
+      // resolution short-circuits every phase action, the player resolves it at
+      // the very next decision point — i.e. immediately following the company's
+      // movement/hazard phase, before the next company's M/H or the site phase.
+      result = enqueueResolution(result, {
+        source: card.instanceId,
+        actor: state.activePlayer!,
+        scope: { kind: 'phase', phase: Phase.Site },
+        kind: {
+          type: 'haven-restore-character',
+          companyId: company.id,
+          sourceDefinitionId: card.definitionId,
+        },
+      });
+    }
+  }
+
+  return result;
 }
 
 /**

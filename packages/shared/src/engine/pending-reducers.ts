@@ -99,6 +99,8 @@ export function applyResolution(
       return applyCvccAllyDiscardRollResolution(state, action, top);
     case 'tap-one-character':
       return applyTapOneCharacterResolution(state, action, top);
+    case 'haven-restore-character':
+      return applyHavenRestoreCharacterResolution(state, action, top);
     case 'stay-her-appetite-roll':
       return applyStayHerAppetiteRollResolution(state, action, top);
   }
@@ -2410,6 +2412,74 @@ function applyTapOneCharacterResolution(
     characters: {
       ...p.characters,
       [characterInstanceId as string]: { ...char, status: CardStatus.Tapped },
+    },
+  }));
+
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `haven-restore-character` pending resolution (Hall of Fire,
+ * dm-134).
+ *
+ * The controlling player either passes (declines the optional benefit) or
+ * selects one tapped or wounded character in the company via a
+ * `restore-character-by-effect` action. A tapped character is untapped; a
+ * wounded (inverted) character is healed one step to tapped.
+ */
+function applyHavenRestoreCharacterResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'haven-restore-character') return null;
+
+  // pass: the player declines the optional untap/heal.
+  if (action.type === 'pass') {
+    logDetail('haven-restore-character: pass (Hall of Fire benefit declined)');
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  if (action.type !== 'restore-character-by-effect') {
+    return { state, error: `Pending haven-restore-character requires restore-character-by-effect or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for haven-restore-character' };
+  }
+
+  const { characterInstanceId } = action;
+  const { companyId } = top.kind;
+
+  const playerIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
+  if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
+  const player = state.players[playerIdx];
+
+  // The character must belong to the eligible company.
+  const company = player.companies.find(co => co.id === companyId);
+  if (!company || !company.characters.some(id => id === characterInstanceId)) {
+    return { state, error: `Character ${characterInstanceId as string} not in company ${companyId as string}` };
+  }
+
+  const char = player.characters[characterInstanceId as string];
+  if (!char) return { state, error: `Character ${characterInstanceId as string} not found` };
+
+  let nextStatus: CardStatus;
+  if (char.status === CardStatus.Tapped) {
+    nextStatus = CardStatus.Untapped;
+  } else if (char.status === CardStatus.Inverted) {
+    nextStatus = CardStatus.Tapped;
+  } else {
+    return { state, error: `Character ${characterInstanceId as string} is neither tapped nor wounded` };
+  }
+
+  const charName = (defById(state, char.definitionId) as { name?: string })?.name ?? (characterInstanceId as string);
+  logDetail(`haven-restore-character: Hall of Fire restores ${charName} (${char.status} → ${nextStatus})`);
+
+  const newState = updatePlayer(state, playerIdx, p => ({
+    ...p,
+    characters: {
+      ...p.characters,
+      [characterInstanceId as string]: { ...char, status: nextStatus },
     },
   }));
 
