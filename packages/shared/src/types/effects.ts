@@ -306,6 +306,38 @@ export interface StagePointsEffect extends EffectBase {
 }
 
 /**
+ * Overrides the marshalling-point value of the controller's in-play
+ * permanent-events that "require a site where [a resource category] is
+ * playable".
+ *
+ * A permanent-event "requires a site where X is playable" iff it carries a
+ * `play-condition` with `requires: 'site-has-resource'` and `subtype: X` — the
+ * same prerequisite the legal-action layer reports as "requires a site where X
+ * is playable". While the card carrying this effect is in play, every such
+ * permanent-event the player controls scores exactly {@link value} marshalling
+ * points (in its own marshalling category), overriding its printed value and,
+ * for a Fallen-wizard, the MEWH §4 flat-1-MP clamp.
+ *
+ * Used by Man of Skill (wh-119): "Your permanent-events that require a site
+ * where Information is playable are each worth 2 marshalling points."
+ *
+ * ```json
+ * { "type": "permanent-event-mp", "value": 2, "requiresResource": "information" }
+ * ```
+ */
+export interface PermanentEventMpEffect extends EffectBase {
+  readonly type: 'permanent-event-mp';
+  /** Marshalling points each matching permanent-event is worth. */
+  readonly value: number;
+  /**
+   * The resource subtype whose playability the permanent-event requires
+   * (matched against a `site-has-resource` play-condition's `subtype`), e.g.
+   * `"information"`.
+   */
+  readonly requiresResource: string;
+}
+
+/**
  * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
  *
  * Marks a permanent resource-event as a "recruitment vehicle": during the
@@ -438,6 +470,26 @@ export interface DrawModifierEffect extends EffectBase {
   readonly value: ValueExpr;
   /** Floor for the modified draw count. */
   readonly min?: number;
+}
+
+/**
+ * Draws cards from the top of the playing player's play deck into their
+ * hand when the carrying resource event is played.
+ *
+ * Used by Dark Tryst (as-80): "Draw three cards and remove this card
+ * from the game." The `removeFromGame` flag routes the spent event card
+ * to the player's out-of-play pile instead of the discard pile, so it
+ * can never be recurred.
+ */
+export interface DrawCardsEffect extends EffectBase {
+  readonly type: 'draw-cards';
+  /** Number of cards to draw from the top of the play deck. */
+  readonly count: number;
+  /**
+   * When true, the played event card is removed from the game (placed
+   * in the out-of-play pile) rather than discarded after resolution.
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
@@ -2990,6 +3042,7 @@ export type CardEffect =
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect
+  | DrawCardsEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
@@ -3070,6 +3123,7 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | StayHerAppetiteEffect;

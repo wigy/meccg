@@ -698,9 +698,23 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cross-alignment-resources-unlocked",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck."
+    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -1634,8 +1648,14 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "permanent-event-mp",
+        "value": 2,
+        "requiresResource": "information"
       }
     ],
+    "certified": "2026-06-22",
     "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
   },
   {

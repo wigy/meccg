@@ -9,11 +9,11 @@
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
 import type { TwoDiceSix } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
-import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
+import { Phase, SetupStep, Alignment, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -81,11 +81,51 @@ function handleCharacterDraft(
       }
       // Resolve definition from instance
       const charDefId = poolCard.definitionId;
-      // Check mind constraint
       const charDef = charDefId ? defById(state, charDefId) : undefined;
+
+      // Fallen-wizard Stage resources (Thrall of the Voice, Hidden Haven) are
+      // drafted from the same pool but are not characters: they resolve
+      // immediately into draftedStageResources without consuming a round, a
+      // character slot, or the mind budget (rules 1.42/1.44/1.50).
+      if (isStageResourceCard(charDef)) {
+        if (state.players[playerIndex].alignment !== Alignment.FallenWizard) {
+          return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
+        }
+        logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource`);
+        const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
+        newDraftState[playerIndex] = {
+          ...playerDraft,
+          draftedStageResources: [...playerDraft.draftedStageResources, poolCard],
+          pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
+        };
+        return {
+          state: {
+            ...state,
+            phaseState: setupPhase({ ...draft, draftState: newDraftState }),
+          },
+        };
+      }
+
       if (!isCharacterCard(charDef)) {
         return { state, error: 'Invalid character' };
       }
+
+      // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage
+      // resource (Thrall), a Fallen-wizard cannot draft a mind > 5 or agent
+      // character.
+      const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
+      const enablerDrafted = playerDraft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
+      if (isFallenWizard && !enablerDrafted) {
+        if (charDef.mind !== null && charDef.mind > 5) {
+          logDetail(`${charDef.name} (mind ${charDef.mind}) blocked: Fallen-wizard mind > 5 requires an enabling Stage resource`);
+          return { state, error: 'A Fallen-wizard cannot draft a character with mind > 5 without an enabling Stage resource' };
+        }
+        if (isAgentCharacter(charDef)) {
+          logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource`);
+          return { state, error: 'A Fallen-wizard cannot draft an agent character without an enabling Stage resource' };
+        }
+      }
+
       const currentMind = playerDraft.drafted.reduce((sum, card) => {
         const def = defById(state, card.definitionId);
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);

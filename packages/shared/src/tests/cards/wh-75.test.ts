@@ -44,18 +44,19 @@
  * | 5 | nothing is considered playable as written on the site card    | OK     |
  * | 6 | all attacks against a company at this site are canceled        | OK     |
  * | 7 | discarded when the site leaves play                            | OK     |
+ * | 8 | drafted as a Stage resource during the character draft (1.50)  | OK     |
  *
  * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, RESOURCE_PLAYER, HAZARD_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
-  dispatch, phaseStateAs,
+  dispatch, phaseStateAs, createGame, draftInstId, runActions, makePlayDeck, pool, RIVENDELL,
 } from '../test-helpers.js';
 import { computeLegalActions, SiteType, Alignment } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, GameState, SitePhaseState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../../engine/effective.js';
 import { isHavenForPlayer, isWizardhavenConversionFor, discardOrphanedSiteAttachedEvents, defById } from '../../engine/reducer-utils.js';
 
@@ -63,6 +64,8 @@ const HIDDEN_HAVEN = 'wh-75' as CardDefinitionId;
 
 // A character a Fallen-wizard may field.
 const ARAGORN = 'tw-120' as CardDefinitionId;
+// A low-mind (5), non-agent character a Fallen-wizard may freely draft.
+const BALIN = 'tw-123' as CardDefinitionId;
 
 // Sites (alignment-appropriate Ruins & Lairs for a Fallen-wizard player).
 const WORTHY_HILLS = 'as-142' as CardDefinitionId;   // Ruins & Lairs in Cardolan (wilderness), non-lair, non-Under-deeps
@@ -294,5 +297,40 @@ describe('Hidden Haven (wh-75)', () => {
     expect(swept.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(false);
     expect(swept.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(true);
     expect(swept.activeConstraints.filter(c => c.source === sourceId)).toHaveLength(0);
+  });
+
+  // ── Rule 8: drafted as a Stage resource during the character draft (1.50) ────
+
+  test('is draftable during the character draft and lands in hand for the starting site', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Hidden Haven is offered as a draftable Stage resource for the FW player.
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    const offered = computeLegalActions(state, PLAYER_1).find(
+      a => a.action.type === 'draft-pick'
+        && (a.action as { characterInstanceId?: CardInstanceId }).characterInstanceId === hhInst,
+    );
+    expect(offered?.viable).toBe(true);
+
+    // Draft Hidden Haven (resolves immediately), then the character; the draft
+    // pools empty and the draft finalises.
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
+
+    // After finalize, Hidden Haven is in the FW player's hand, ready to be played
+    // on the starting Ruins & Lairs.
+    expect(state.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(true);
   });
 });

@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag, isResourceEventCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -29,6 +29,39 @@ export interface ReducerResult {
   readonly effects?: readonly GameEffect[];
 }
 
+
+/**
+ * True if `def` is a character carrying the `agent` keyword. Agents are
+ * restricted during normal play (home-site-only) and, for Fallen-wizards,
+ * during the character draft (rule 1.42) unless an enabling Stage resource
+ * (e.g. Thrall of the Voice) has been drafted.
+ */
+export function isAgentCharacter(def: CardDefinition | undefined): boolean {
+  return isCharacterCard(def) && (def.keywords ?? []).includes('agent');
+}
+
+/**
+ * True if `def` is a Fallen-wizard "Stage" resource drafted during the
+ * character draft — Thrall of the Voice (wh-82), Hidden Haven (wh-75): a
+ * resource event flagged as a `starting-item`. Such cards are neither
+ * characters nor minor items, so they ride in
+ * {@link DraftPlayerState.draftedStageResources} rather than `drafted` and do
+ * not consume the starting-company budget.
+ */
+export function isStageResourceCard(def: CardDefinition | undefined): boolean {
+  return isResourceEventCard(def) && (def.keywords ?? []).includes('starting-item');
+}
+
+/**
+ * True if `def` carries a `recruitment-vehicle` effect (Thrall of the Voice).
+ * Drafting such a Stage resource lifts the Fallen-wizard restriction on
+ * drafting characters with mind > 5 (rule 1.44) or agent characters (rule
+ * 1.42). Detected by effect, not card id, so future enablers work unchanged.
+ */
+export function hasRecruitmentVehicleEffect(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
+  return effects.some(e => e.type === 'recruitment-vehicle');
+}
 
 /**
  * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
