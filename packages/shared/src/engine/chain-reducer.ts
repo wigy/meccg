@@ -879,6 +879,14 @@ function buildConstraintKind(
       if (!siteDefId) return null;
       return { type: 'cancel-attacks-at-site', siteDefinitionId: siteDefId };
     }
+    case 'cross-alignment-resources-unlocked': {
+      // Double-dealing (wh-66): bind to the site the card is played on (the
+      // active company's current site during the site phase) so cross-alignment
+      // resources may be played there.
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'cross-alignment-resources-unlocked', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }

@@ -712,9 +712,21 @@ function playResourcesActions(
     // MEWH §10: a Fallen-wizard may not play a hero resource that taps a minion
     // site (or a minion resource at a hero site). Wizardhavens count as both, so
     // FW sites and FW/stage resources pass through `siteTapCrossAlignmentBlocked`.
+    // Double-dealing (wh-66) lifts this restriction at the site it is played on:
+    // a `cross-alignment-resources-unlocked` constraint for this player + site
+    // makes the opposite alignment's resources playable there.
     if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(def, siteDef)) {
-      logDetail(`Site ${siteName}: ${def.name} barred — cross-alignment site-tap (MEWH §10)`);
-      continue;
+      const crossUnlocked = !!siteDefId && state.activeConstraints.some(
+        c => c.kind.type === 'cross-alignment-resources-unlocked'
+          && c.kind.siteDefinitionId === siteDefId
+          && c.target.kind === 'player'
+          && c.target.playerId === playerId,
+      );
+      if (!crossUnlocked) {
+        logDetail(`Site ${siteName}: ${def.name} barred — cross-alignment site-tap (MEWH §10)`);
+        continue;
+      }
+      logDetail(`Site ${siteName}: ${def.name} cross-alignment play allowed by Double-dealing`);
     }
 
     // Permanent resource events — playable like in organization phase
@@ -745,10 +757,16 @@ function playResourcesActions(
           }
         }
 
-        // duplication-limit: scope "player" — one copy per player across all their characters
+        // duplication-limit: scope "player" — one copy per player across both
+        // their cards in play (non-attached permanent events like Great Patron
+        // wh-72) and their characters' items.
         const playerDupLimit = findDuplicationLimitEffect(eventDef, 'player');
         if (playerDupLimit) {
-          const copiesForPlayer = Object.values(player.characters).reduce(
+          const copiesInPlayForPlayer = player.cardsInPlay.filter(c => {
+            const cDef = defById(state, c.definitionId);
+            return cDef && cDef.name === eventDef.name;
+          }).length;
+          const copiesForPlayer = copiesInPlayForPlayer + Object.values(player.characters).reduce(
             (count, ch) =>
               count +
               ch.items.filter(item => {

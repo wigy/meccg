@@ -5,7 +5,7 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, HazardHost } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, CardDefinition, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isHalfOrc, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeAttachment, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
-import { isDetainmentAttack } from './detainment.js';
+import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -507,6 +507,65 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 }
 
 /**
+ * Computes the per-strike prowess adjustment a creature gains against the
+ * specific defending character based on its own `stat-modifier` self-effects
+ * that are gated on the defender's race (e.g. Old Man Willow's "15 prowess
+ * against Hobbits", encoded as `+2 when defender.race = hobbit`).
+ *
+ * Such modifiers cannot be folded into `combat.strikeProwess` at combat
+ * initiation: the struck character — and therefore its race — is not known
+ * until strike assignment. The defending company's *alignment* IS known at
+ * initiation, so alignment-gated self-modifiers (e.g. Elf-lord Revealed in
+ * Wrath's "+4 vs Ringwraith") are already baked into `strikeProwess`. To avoid
+ * double-counting them, a modifier contributes here only when it matches the
+ * struck character's race context but did NOT already match the race-less
+ * (initiation-equivalent) context.
+ *
+ * Returns the extra prowess for this strike (0 when the source is not a
+ * creature hazard, or no defender-race-gated modifier matches).
+ */
+function creatureDefenderProwessDelta(
+  state: GameState,
+  combat: CombatState,
+  charDef: CardDefinition | undefined,
+): number {
+  if (combat.attackSource.type !== 'creature') return 0;
+  if (!charDef || !isCharacterCard(charDef)) return 0;
+  const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
+  const creatureDef = creatureDefId ? defById(state, creatureDefId) : undefined;
+  if (!creatureDef) return 0;
+  const effects = getCardEffects(creatureDef);
+  if (!effects.length) return 0;
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defenderAlignment = defenderAlignmentLabel(state.players[defPlayerIndex].alignment);
+  const enemy = { race: combat.creatureRace ?? '', name: creatureDef.name ?? '', prowess: combat.strikeProwess, body: combat.creatureBody };
+  // Race-less context mirrors what was available at combat initiation: the
+  // defending company's alignment is known, an individual character's race is not.
+  const baseCtx = {
+    reason: 'combat' as const,
+    inPlay: buildInPlayNames(state),
+    enemy,
+    defender: { alignment: defenderAlignment },
+  };
+  // Context augmented with the struck character's race.
+  const raceCtx = { ...baseCtx, defender: { alignment: defenderAlignment, race: charDef.race } };
+
+  let delta = 0;
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier' || effect.stat !== 'prowess') continue;
+    if (effect.target) continue; // company/all-* scoped modifiers are not the creature's own strike bonus
+    if (!effect.when) continue; // unconditional modifiers are already in strikeProwess
+    if (typeof effect.value !== 'number') continue;
+    if (matchesContext(effect.when, raceCtx) && !matchesContext(effect.when, baseCtx)) {
+      delta += effect.value;
+      logDetail(`Creature "${creatureDef.name}" prowess ${formatSignedNumber(effect.value)} against ${charDef.race}${charDef.name ? ` (${charDef.name})` : ''}`);
+    }
+  }
+  return delta;
+}
+
+/**
  * Core strike resolution shared by `resolve-strike`, `play-dodge`, and
  * `play-reroll-strike`.
  *
@@ -606,10 +665,14 @@ function resolveStrikeCore(
   const rollTotal = roll.die1 + roll.die2;
   const characterTotal = rollTotal + prowess;
   // For agent attacks, compare against the agent's rolled total (rule 3.iv.6.1).
-  const effectiveProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+  // A creature may gain prowess against the specific character it strikes
+  // (e.g. Old Man Willow's "15 prowess against Hobbits"). This depends on the
+  // defender's race, unknown until now, so it is applied per strike here.
+  const defenderProwessDelta = combat.attackSource.type === 'agent' ? 0 : creatureDefenderProwessDelta(state, combat, charDef);
+  const effectiveProwess = (combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
     ? combat.agentRollTotal
-    : combat.strikeProwess;
-  logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs ${combat.attackSource.type === 'agent' ? `agent roll ${effectiveProwess}` : `creature prowess ${combat.strikeProwess}`}`);
+    : combat.strikeProwess) + defenderProwessDelta;
+  logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs ${combat.attackSource.type === 'agent' ? `agent roll ${effectiveProwess}` : `creature prowess ${effectiveProwess}`}`);
 
   // Determine outcome
   let result: 'success' | 'wounded' | 'eliminated';

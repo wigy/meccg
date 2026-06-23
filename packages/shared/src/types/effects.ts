@@ -252,6 +252,36 @@ export interface FallenWizardItemMpEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point. A stage permanent-event may carry this effect to let the
+ * player's **characters and allies** whose *printed* MP is at least
+ * {@link threshold} each score {@link value} MP instead of the clamped 1. Cards
+ * printed below the threshold remain at their normal value (1 under the §4
+ * clamp). Only characters and allies are affected — factions, items, and other
+ * cards in play keep the §4 clamp.
+ *
+ * Used by Great Patron (wh-72): "Your characters and allies that normally give 2
+ * or more marshalling points are each worth 2 marshalling points." Here
+ * `threshold` and `value` are both 2.
+ *
+ * ```json
+ * { "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
+ * ```
+ */
+export interface FallenWizardCharacterAllyMpEffect extends EffectBase {
+  readonly type: 'fw-character-ally-mp';
+  /**
+   * Minimum *printed* marshalling points a character/ally must normally give for
+   * the override to apply.
+   */
+  readonly threshold: number;
+  /** MP each qualifying character/ally is worth, overriding the §4 1-MP clamp. */
+  readonly value: number;
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -273,6 +303,68 @@ export interface StagePointsEffect extends EffectBase {
   readonly type: 'stage-points';
   /** Stage points this card contributes to its controller's running total. */
   readonly value: number;
+}
+
+/**
+ * Overrides the marshalling-point value of the controlling player's factions
+ * (MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event;
+ * while it is in play, each faction the player controls is re-valued according
+ * to the matching {@link rules} entry, replacing both the faction's printed MP
+ * and the Fallen-wizard §4 flat-1 clamp.
+ *
+ * Rules are evaluated in array order against a per-faction context
+ * `{ faction: { unique, race, normalMp, name }, player: { avatar } }`, where
+ * `faction.normalMp` is the faction's printed MP and `player.avatar` is the
+ * name of the controller's revealed avatar (e.g. `"Alatar"`). The **last**
+ * matching rule wins, so order entries from least to most specific (base rule
+ * first, avatar-specific overrides after). A faction matching no rule keeps its
+ * normal scoring. Collected and consumed in `recompute-derived.ts`.
+ *
+ * Used by Gatherer of Loyalties (wh-70): unique factions worth 2 MP each, with
+ * Alatar's unique Dragon factions worth 4 and Pallando's unique factions
+ * normally worth 3+ worth 3.
+ */
+export interface FactionMpOverrideEffect extends EffectBase {
+  readonly type: 'faction-mp-override';
+  /** Ordered override rules; the last matching rule sets the faction's MP. */
+  readonly rules: readonly {
+    /** Condition matched against the per-faction override context. */
+    readonly when: Condition;
+    /** Marshalling points the faction is worth when this rule matches. */
+    readonly value: number;
+  }[];
+}
+
+/**
+ * Overrides the marshalling-point value of the controller's in-play
+ * permanent-events that "require a site where [a resource category] is
+ * playable".
+ *
+ * A permanent-event "requires a site where X is playable" iff it carries a
+ * `play-condition` with `requires: 'site-has-resource'` and `subtype: X` — the
+ * same prerequisite the legal-action layer reports as "requires a site where X
+ * is playable". While the card carrying this effect is in play, every such
+ * permanent-event the player controls scores exactly {@link value} marshalling
+ * points (in its own marshalling category), overriding its printed value and,
+ * for a Fallen-wizard, the MEWH §4 flat-1-MP clamp.
+ *
+ * Used by Man of Skill (wh-119): "Your permanent-events that require a site
+ * where Information is playable are each worth 2 marshalling points."
+ *
+ * ```json
+ * { "type": "permanent-event-mp", "value": 2, "requiresResource": "information" }
+ * ```
+ */
+export interface PermanentEventMpEffect extends EffectBase {
+  readonly type: 'permanent-event-mp';
+  /** Marshalling points each matching permanent-event is worth. */
+  readonly value: number;
+  /**
+   * The resource subtype whose playability the permanent-event requires
+   * (matched against a `site-has-resource` play-condition's `subtype`), e.g.
+   * `"information"`.
+   */
+  readonly requiresResource: string;
 }
 
 /**
@@ -408,6 +500,54 @@ export interface DrawModifierEffect extends EffectBase {
   readonly value: ValueExpr;
   /** Floor for the modified draw count. */
   readonly min?: number;
+}
+
+/**
+ * Draws cards from the top of the playing player's play deck into their
+ * hand when the carrying resource event is played.
+ *
+ * Used by Dark Tryst (as-80): "Draw three cards and remove this card
+ * from the game." The `removeFromGame` flag routes the spent event card
+ * to the player's out-of-play pile instead of the discard pile, so it
+ * can never be recurred.
+ */
+export interface DrawCardsEffect extends EffectBase {
+  readonly type: 'draw-cards';
+  /** Number of cards to draw from the top of the play deck. */
+  readonly count: number;
+  /**
+   * When true, the played event card is removed from the game (placed
+   * in the out-of-play pile) rather than discarded after resolution.
+   */
+  readonly removeFromGame?: boolean;
+}
+
+/**
+ * Moves every card matching `filter` from a discard pile back into the
+ * owner's play deck, then shuffles that deck.
+ *
+ * Carried by a resource short-event and resolved when the event is played.
+ * The `scope` selects whose piles are affected: `'all-players'` (the
+ * default) walks every player's discard pile — used by *Horns, Horns,
+ * Horns* (dm-140): "Each player removes all factions from his discard pile
+ * and shuffles them into his play deck." — while `'self'` touches only the
+ * playing player's piles. The `filter` is a DSL {@link Condition} matched
+ * against each candidate card's definition (e.g. the faction card types),
+ * so no card-specific category code is needed.
+ */
+export interface ReshuffleFromDiscardEffect extends EffectBase {
+  readonly type: 'reshuffle-from-discard';
+  /**
+   * DSL filter matched against each candidate card's definition. Cards in a
+   * discard pile that match are pulled out and shuffled into that owner's
+   * play deck.
+   */
+  readonly filter: Condition;
+  /**
+   * Whose discard piles are processed. `'all-players'` (default) affects
+   * every player; `'self'` affects only the playing player.
+   */
+  readonly scope?: 'self' | 'all-players';
 }
 
 /**
@@ -2955,10 +3095,13 @@ export type CardEffect =
   | BodyCheckModifierEffect
   | MpModifierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardCharacterAllyMpEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect
+  | DrawCardsEffect
+  | ReshuffleFromDiscardEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
@@ -3039,6 +3182,8 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | FactionMpOverrideEffect
+  | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | StayHerAppetiteEffect;

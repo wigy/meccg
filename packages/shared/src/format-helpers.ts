@@ -63,11 +63,22 @@ const RINGWRAITH_CSS = 'color:#b05030;font-weight:bold';
 const BALROG_CSS = 'color:#8b0000;font-weight:bold';
 
 /**
- * Get the CSS style string for a card definition, considering both card type
- * and race. Wizard, Ringwraith, and Balrog avatars get distinct colors from
- * their alignment's regular characters.
+ * Fallen-wizard "stage" resources get their own distinct cyan, so they read
+ * apart from ordinary resources (which mirror their underlying card-type color)
+ * everywhere they render.
  */
-export function getCardCss(def: { cardType: string; race?: string }): string | undefined {
+const STAGE_CSS = 'color:#20c8d8';
+
+/**
+ * Get the CSS style string for a card definition, considering alignment, card
+ * type, and race. Stage-aligned (Fallen-wizard) resources get a distinct cyan;
+ * Wizard, Ringwraith, and Balrog avatars get distinct colors from their
+ * alignment's regular characters.
+ */
+export function getCardCss(def: { cardType: string; race?: string; alignment?: string }): string | undefined {
+  if (def.alignment === 'stage') {
+    return STAGE_CSS;
+  }
   if (def.cardType === 'hero-character' && def.race === 'wizard') {
     return WIZARD_CSS;
   }

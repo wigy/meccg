@@ -2399,7 +2399,36 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lossadan Camp",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Lossoth"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 5,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "halve-round-up",
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
+      }
+    ],
+    "certified": "2026-06-22",
     "text": "Unique. +2 direct influence against the Lossoth faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
   },
   {

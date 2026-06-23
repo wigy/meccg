@@ -10,10 +10,10 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
+import { GENERAL_INFLUENCE, Alignment, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById } from '../reducer-utils.js';
+import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from '../reducer-utils.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.CharacterDraft);
@@ -49,12 +49,37 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
   }, 0);
 
-  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}`);
+  // Fallen-wizard draft gate (rules 1.42, 1.44): until an enabling Stage
+  // resource (Thrall of the Voice) has been drafted, a Fallen-wizard may not
+  // draft a character with mind > 5 or an agent character.
+  const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
+  const enablerDrafted = draft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
+  const fwGateActive = isFallenWizard && !enablerDrafted;
+
+  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'}`);
 
   const evaluated: EvaluatedAction[] = [];
 
   for (const charCard of draft.pool) {
     const charDef = defById(state, charCard.definitionId);
+
+    // Fallen-wizard Stage resources (Thrall, Hidden Haven) share the pool with
+    // characters but are drafted under their own (relaxed) rule set.
+    if (isStageResourceCard(charDef)) {
+      const stageContext = {
+        card: {
+          name: charDef?.name ?? (charCard.instanceId as string),
+          isStageResource: true,
+        },
+        ctx: { isFallenWizard },
+      };
+      const action = { type: 'draft-pick' as const, player: playerId, characterInstanceId: charCard.instanceId };
+      const result = evaluateAction(action, STAGE_RESOURCE_DRAFT_RULES, stageContext);
+      logDetail(`${stageContext.card.name} (Stage resource): ${result.viable ? 'eligible' : result.reason}`);
+      evaluated.push(result);
+      continue;
+    }
+
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
 
@@ -65,12 +90,15 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         mind,
         unique: isChar ? charDef.unique : false,
         cannotBeStartingCharacter: isChar && hasPlayFlag(charDef, 'not-starting-character'),
+        isAgent: isAgentCharacter(charDef),
       },
       ctx: {
         opponentHasCard: opponentDrafted.has(charCard.definitionId as string),
         currentMind,
         mindLimit: GENERAL_INFLUENCE,
         projectedMind: currentMind + (mind !== null ? mind : 0),
+        fwMindGateActive: fwGateActive,
+        fwAgentGateActive: fwGateActive,
       },
     };
 
