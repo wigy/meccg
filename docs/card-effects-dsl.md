@@ -2502,17 +2502,23 @@ check) and `reducer-events.ts` (discard execution).
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
   avatar/alignment context
-  `{ player: { alignment, hasRingwraithInPlay, stagePoints }, opponent: { alignment } }`.
+  `{ player: { alignment, hasRingwraithInPlay, stagePoints, factionCount }, opponent: { alignment }, inPlay: [<names>] }`.
   `alignment` is the card-text alignment string (`"wizard"`,
   `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
   is `true` when the active player has a Ringwraith-race avatar character in
-  play; `player.stagePoints` is the Fallen-wizard's current stage-point total.
-  Lets a card gate on the opposing player's alignment, the controller's
-  revealed avatar, or stage points without a per-card keyword. Used by *Above
-  the Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
-  play"; and by *Gatherer of Loyalties* (wh-70): "Playable if you have more
-  than 3 stage points". Implemented in `legal-actions/organization.ts`
-  (`buildPlayerStateContext`, short-events) and
+  play; `player.stagePoints` is the Fallen-wizard's current stage-point total;
+  `player.factionCount` is the number of faction cards the active player
+  controls in play (factions held under a leader's control included); `inPlay`
+  is the list of card names the active player has in play, so a condition can
+  require a named prerequisite via `{ "inPlay": "<name>" }`. Lets a card gate
+  on the opposing player's alignment, the controller's revealed avatar, stage
+  points, faction count, or named in-play prerequisites without a per-card
+  keyword. Used by *Above the Abyss* (as-77): "if your opponent is a Wizard and
+  your Ringwraith is in play"; *Gatherer of Loyalties* (wh-70): "Playable if
+  you have more than 3 stage points"; and *The White Hand* (wh-122): "Playable
+  on Saruman if he has the following in play: at least 12 stage points, at
+  least 3 factions, A Strident Spawn, and Saruman's Machinery." Implemented in
+  `legal-actions/organization.ts` (`buildPlayerStateContext`, short-events) and
   `legal-actions/organization-events.ts` (permanent-events).
 
 ```json
