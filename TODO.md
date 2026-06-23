@@ -32,3 +32,4 @@ Finalise tests section 09
 Finalise tests section 10
 Uploading Gccg deck format.
 Tournaments
+Super Good AI
