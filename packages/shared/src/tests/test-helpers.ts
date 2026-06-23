@@ -227,6 +227,17 @@ export function draftInstId(state: GameState, playerIndex: number, defId: CardDe
 }
 
 /**
+ * Find the site-deck instance ID for a given site definition in a player's
+ * site deck. Mirrors {@link draftInstId} for sites — used by tests that pair a
+ * drafted Hidden Haven (wh-75) with a Ruins & Lairs from the site deck.
+ */
+export function siteDeckInstId(state: GameState, playerIndex: number, defId: CardDefinitionId): CardInstanceId {
+  const siteCard = state.players[playerIndex].siteDeck.find(c => c.definitionId === defId);
+  if (!siteCard) throw new Error(`Definition ${defId} not found in player ${playerIndex}'s site deck`);
+  return siteCard.instanceId;
+}
+
+/**
  * Run through the character draft: both players pick one character each,
  * then both stop. Returns the state after draft completion (in item-draft or later).
  */

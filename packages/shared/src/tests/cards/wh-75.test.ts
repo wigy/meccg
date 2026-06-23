@@ -45,6 +45,9 @@
  * | 6 | all attacks against a company at this site are canceled        | OK     |
  * | 7 | discarded when the site leaves play                            | OK     |
  * | 8 | drafted as a Stage resource during the character draft (1.50)  | OK     |
+ * | 9 | at draft, pair it with an eligible R&L from the site deck      | OK     |
+ * |10 | the paired site auto-becomes a starting Wizardhaven (CRF 22)   | OK     |
+ * |11 | both players reveal it on the same site → set aside (CRF 22)   | OK     |
  *
  * Playable: YES
  */
@@ -53,9 +56,9 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
-  dispatch, phaseStateAs, createGame, draftInstId, runActions, makePlayDeck, pool, RIVENDELL,
+  dispatch, phaseStateAs, createGame, draftInstId, siteDeckInstId, runActions, makePlayDeck, pool, RIVENDELL,
 } from '../test-helpers.js';
-import { computeLegalActions, SiteType, Alignment } from '../../index.js';
+import { computeLegalActions, SiteType, Alignment, reduce } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../../engine/effective.js';
 import { isHavenForPlayer, isWizardhavenConversionFor, discardOrphanedSiteAttachedEvents, defById } from '../../engine/reducer-utils.js';
@@ -332,5 +335,143 @@ describe('Hidden Haven (wh-75)', () => {
     // After finalize, Hidden Haven is in the FW player's hand, ready to be played
     // on the starting Ruins & Lairs.
     expect(state.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(true);
+  });
+});
+
+// ── CRF 22: choose the starting site when Hidden Haven is revealed at draft ──
+//
+// "If you start with Hidden Haven, you must bring out your starting site when
+//  you reveal Hidden Haven." (CRF 22, Stage Resources). The drafting player
+// pairs Hidden Haven with an eligible Ruins & Lairs from their own site deck;
+// at draft finalize that site auto-becomes a starting Wizardhaven. "If both
+// players reveal this … on the same site … it is set aside" — a same-site-
+// definition collision sets both Hidden Havens aside (to hand) instead.
+describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
+  beforeEach(() => resetMint());
+
+  test('offers pairing for an eligible Ruins & Lairs from the site deck, not ineligible sites', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(),
+          siteDeck: [WORTHY_HILLS, MORIA, GOLD_HILL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) }]);
+
+    // Only the lone eligible Ruins & Lairs (Worthy Hills) is offered — not the
+    // shadow-hold (Moria) nor the Dragon's lair (Gold Hill).
+    const pairOffers = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'select-stage-resource-site',
+    );
+    expect(pairOffers).toHaveLength(1);
+    expect((pairOffers[0].action as { siteInstanceId?: CardInstanceId }).siteInstanceId)
+      .toBe(siteDeckInstId(state, 0, WORTHY_HILLS));
+  });
+
+  test('cannot stop drafting while a pairable Hidden Haven is unpaired', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) }]);
+
+    const stop = computeLegalActions(state, PLAYER_1).find(a => a.action.type === 'draft-stop');
+    expect(stop?.viable).toBe(false);
+    // The reducer also rejects a forced stop while the pairing is outstanding.
+    expect(reduce(state, { type: 'draft-stop', player: PLAYER_1 }).error).toBeTruthy();
+  });
+
+  test('pairing then finishing the draft converts the site to a starting Wizardhaven', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    // The instance id is stable from the pool through draftedStageResources, so
+    // capture it before drafting and reuse it for the pairing.
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhInst,
+      siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
+    }]);
+    // Draft the remaining character on each side; pools empty → both finalise.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
+
+    const p1 = state.players[RESOURCE_PLAYER];
+    // The paired Ruins & Lairs is now the base company's starting site …
+    expect(p1.companies[0].currentSite?.definitionId).toBe(WORTHY_HILLS);
+    // … removed from the site deck …
+    expect(p1.siteDeck.some(c => c.definitionId === WORTHY_HILLS)).toBe(false);
+    // … Hidden Haven is in play, bound to that site (not left in hand) …
+    const inPlay = p1.cardsInPlay.find(c => c.definitionId === HIDDEN_HAVEN);
+    expect(inPlay?.attachedToSite).toBe(WORTHY_HILLS);
+    expect(p1.hand.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(false);
+    // … and the Wizardhaven conversion is active for the owning player only.
+    expect(isWizardhavenConversionFor(state, WORTHY_HILLS, PLAYER_1)).toBe(true);
+    expect(isWizardhavenConversionFor(state, WORTHY_HILLS, PLAYER_2)).toBe(false);
+  });
+
+  test('collision: both players pairing the same site set both Hidden Havens aside', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    // Both reveal (draft) Hidden Haven — Stage resources resolve immediately.
+    // Capture each instance id before drafting (stable through the draft).
+    const hhP1 = draftInstId(state, 0, HIDDEN_HAVEN);
+    const hhP2 = draftInstId(state, 1, HIDDEN_HAVEN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhP1 }]);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_2, characterInstanceId: hhP2 }]);
+    // Both pair the SAME site definition (distinct instances in each deck).
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhP1, siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
+    }]);
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_2,
+      stageResourceInstanceId: hhP2, siteInstanceId: siteDeckInstId(state, 1, WORTHY_HILLS),
+    }]);
+    // Both stop (now allowed — each Hidden Haven is paired) → draft finalises.
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_1 }]);
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_2 }]);
+
+    // CRF 22: same-site reveal → both Hidden Havens set aside (to hand), no
+    // conversion, and each paired site stays in its owner's site deck.
+    for (const idx of [RESOURCE_PLAYER, HAZARD_PLAYER]) {
+      const p = state.players[idx];
+      expect(p.hand.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(true);
+      expect(p.cardsInPlay.some(c => c.definitionId === HIDDEN_HAVEN)).toBe(false);
+      expect(p.siteDeck.some(c => c.definitionId === WORTHY_HILLS)).toBe(true);
+      expect(p.companies[0].currentSite).toBeNull();
+    }
+    expect(isWizardhavenConversionFor(state, WORTHY_HILLS, PLAYER_1)).toBe(false);
+    expect(isWizardhavenConversionFor(state, WORTHY_HILLS, PLAYER_2)).toBe(false);
   });
 });

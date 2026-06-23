@@ -41,6 +41,20 @@ export interface DraftStopAction {
   readonly player: PlayerId;
 }
 
+/**
+ * Pair a drafted site-targeting Stage resource (Hidden Haven, wh-75) with a
+ * Ruins & Lairs site chosen from the player's site deck. CRF 22: "If you start
+ * with Hidden Haven, you must bring out your starting site when you reveal it."
+ */
+export interface SelectStageResourceSiteAction {
+  readonly type: 'select-stage-resource-site';
+  readonly player: PlayerId;
+  /** The drafted Stage resource instance (e.g. Hidden Haven) to pair. */
+  readonly stageResourceInstanceId: CardInstanceId;
+  /** The site instance from the player's site deck to pair with it. */
+  readonly siteInstanceId: CardInstanceId;
+}
+
 // ---- Item draft phase ----
 
 /**

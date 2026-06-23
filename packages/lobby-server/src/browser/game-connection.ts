@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, setTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -506,6 +506,12 @@ export function connect(name: string): void {
         // Prepare/clear site selection or fetch-from-pile based on legal actions
         if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
           prepareSiteSelection(msg.view, cardPool, sendAction);
+        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'select-stage-resource-site')) {
+          // Character-draft: a Fallen-wizard who drafted Hidden Haven (wh-75)
+          // must pair it with a Ruins & Lairs site from their own site deck.
+          // Reuses the same site-deck picker as starting-site-selection.
+          prepareSiteSelection(msg.view, cardPool, sendAction);
+          setTargetingInstruction('Click a Ruins & Lairs in your site deck to pair with Hidden Haven');
         } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
           prepareFetchFromPile(msg.view, cardPool, sendAction);
         } else {
