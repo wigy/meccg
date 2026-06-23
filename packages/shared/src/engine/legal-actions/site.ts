@@ -757,10 +757,16 @@ function playResourcesActions(
           }
         }
 
-        // duplication-limit: scope "player" — one copy per player across all their characters
+        // duplication-limit: scope "player" — one copy per player across both
+        // their cards in play (non-attached permanent events like Great Patron
+        // wh-72) and their characters' items.
         const playerDupLimit = findDuplicationLimitEffect(eventDef, 'player');
         if (playerDupLimit) {
-          const copiesForPlayer = Object.values(player.characters).reduce(
+          const copiesInPlayForPlayer = player.cardsInPlay.filter(c => {
+            const cDef = defById(state, c.definitionId);
+            return cDef && cDef.name === eventDef.name;
+          }).length;
+          const copiesForPlayer = copiesInPlayForPlayer + Object.values(player.characters).reduce(
             (count, ch) =>
               count +
               ch.items.filter(item => {

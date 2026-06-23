@@ -264,6 +264,27 @@ are each worth full marshalling points."
     { "keywords": { "$includes": "helmet" } } ] } } }
 ```
 
+### 3c. `fw-character-ally-mp`
+
+Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception). MEWH §4
+clamps every non-stage card a Fallen-wizard controls to a flat **1** marshalling
+point. A stage permanent-event may carry this effect so the player's
+**characters and allies** whose *printed* MP is at least `threshold` each score
+`value` MP instead of the clamped 1. Cards printed below the threshold keep their
+normal value (1 under the §4 clamp). Only characters and allies are affected —
+factions, items, and other cards in play keep the §4 clamp. Collected per player
+from in-play cards and consumed in `recompute-derived.ts` (`addMP`'s
+`fwCharAllyCaps` path; the override never applies to stage cards or to
+non-Fallen-wizard players).
+
+Used by Great Patron (wh-72): "Your characters and allies that normally give 2 or
+more marshalling points are each worth 2 marshalling points." Both `threshold`
+and `value` are 2.
+
+```json
+{ "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
+```
+
 ### 3a. `stage-points`
 
 Contributes Fallen-wizard **stage points** (MEWH) to the player controlling the

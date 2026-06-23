@@ -252,6 +252,36 @@ export interface FallenWizardItemMpEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point. A stage permanent-event may carry this effect to let the
+ * player's **characters and allies** whose *printed* MP is at least
+ * {@link threshold} each score {@link value} MP instead of the clamped 1. Cards
+ * printed below the threshold remain at their normal value (1 under the §4
+ * clamp). Only characters and allies are affected — factions, items, and other
+ * cards in play keep the §4 clamp.
+ *
+ * Used by Great Patron (wh-72): "Your characters and allies that normally give 2
+ * or more marshalling points are each worth 2 marshalling points." Here
+ * `threshold` and `value` are both 2.
+ *
+ * ```json
+ * { "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
+ * ```
+ */
+export interface FallenWizardCharacterAllyMpEffect extends EffectBase {
+  readonly type: 'fw-character-ally-mp';
+  /**
+   * Minimum *printed* marshalling points a character/ally must normally give for
+   * the override to apply.
+   */
+  readonly threshold: number;
+  /** MP each qualifying character/ally is worth, overriding the §4 1-MP clamp. */
+  readonly value: number;
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -3007,6 +3037,7 @@ export type CardEffect =
   | BodyCheckModifierEffect
   | MpModifierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardCharacterAllyMpEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
