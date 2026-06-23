@@ -3189,6 +3189,7 @@ export type CardEffect =
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
   | PassiveMovementBonusEffect
+  | RegionMovementLimitEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
@@ -3240,6 +3241,34 @@ export interface PassiveMovementBonusEffect extends EffectBase {
    * name appears in this list for the bonus to apply.
    */
   readonly allyNames: readonly string[];
+}
+
+/**
+ * Environment effect that reduces the maximum number of regions any moving
+ * company may traverse with region movement. Carried by an in-play hazard
+ * environment permanent-event; it applies game-wide (to every player's
+ * companies), not just to the controller's.
+ *
+ * The effective max region distance is reduced by {@link reduce}, or by
+ * {@link reduceWithDoorsOfNight} while *Doors of Night* is in play, and is
+ * never lowered below {@link min}.
+ *
+ * Consumed at movement-plan time (`organization-companies.ts`) and at
+ * company selection in the Movement/Hazard phase
+ * (`reducer-movement-hazard.ts`) via `collectRegionMovementReduction`.
+ *
+ * Used by No Way Forward (dm-75): "The number of region cards that may be
+ * played by a moving company using region movement is reduced by one (by
+ * two if Doors of Night is in play) to a minimum of two."
+ */
+export interface RegionMovementLimitEffect extends EffectBase {
+  readonly type: 'region-movement-limit';
+  /** Regions subtracted from the max region distance for every moving company. */
+  readonly reduce: number;
+  /** Reduction applied instead of {@link reduce} while Doors of Night is in play. */
+  readonly reduceWithDoorsOfNight?: number;
+  /** Floor below which the reduced max region distance may never drop. */
+  readonly min: number;
 }
 
 // ---- Rescue attack shape (used by TakePrisonerEffect) ----

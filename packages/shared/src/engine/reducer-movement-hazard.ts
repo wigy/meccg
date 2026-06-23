@@ -35,7 +35,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
-import { buildInPlayNames } from './recompute-derived.js';
+import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
 import { isDetainmentAttack } from './detainment.js';
 
@@ -2681,9 +2681,11 @@ function handleSelectCompany(
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 
-  // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement)
-  const maxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
-  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} (base ${BASE_MAX_REGION_DISTANCE} + extra ${company.extraRegionDistance ?? 0}) → advancing to reveal-new-site`);
+  // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement),
+  // then apply any game-wide environment reduction (e.g. No Way Forward, dm-75).
+  const baseMaxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
+  const maxRegionDistance = applyRegionMovementReduction(state, baseMaxRegionDistance);
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} (base ${BASE_MAX_REGION_DISTANCE} + extra ${company.extraRegionDistance ?? 0}${maxRegionDistance < baseMaxRegionDistance ? `, reduced from ${baseMaxRegionDistance} by environment` : ''}) → advancing to reveal-new-site`);
   return {
     state: {
       ...state,

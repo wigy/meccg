@@ -4827,3 +4827,33 @@ Behaviour:
   event to the discard pile, and — when `bypassOneCharacterLimit` is set — skips
   the one-character-per-turn bookkeeping (and the organization-phase state is only
   touched when actually in the organization phase).
+
+### 52. `region-movement-limit`
+
+Carried by an in-play **environment** hazard permanent-event; reduces the
+maximum number of regions any moving company may traverse with region movement,
+game-wide (it affects every player's companies, not just the controller's).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `reduce` | yes | Regions subtracted from the max region distance for every moving company. |
+| `reduceWithDoorsOfNight` | no | Reduction applied **instead of** `reduce` while *Doors of Night* is in play. |
+| `min` | yes | Floor below which the reduced max region distance may never drop. |
+
+```json
+{ "type": "region-movement-limit", "reduce": 1, "reduceWithDoorsOfNight": 2, "min": 2 }
+```
+
+Behaviour (`recompute-derived.ts` `collectRegionMovementReduction` /
+`applyRegionMovementReduction`): both players' `cardsInPlay` are scanned for this
+effect; each contributes `reduceWithDoorsOfNight` (if present and Doors of Night
+is in play) or `reduce`, summed across cards, and the largest `min` becomes the
+floor. The reduction is applied to the candidate max region distance — after the
+base/extra/passive bonuses and the hard cap of six — never lowering it below the
+floor. Consumed both at movement-plan time (`organization-companies.ts`
+`planMovementActions`) and at company selection in the Movement/Hazard phase
+(`reducer-movement-hazard.ts` `handleSelectCompany`, which sets
+`phaseState.maxRegionDistance` used by `declare-path`). Used by No Way Forward
+(dm-75): "The number of region cards that may be played by a moving company
+using region movement is reduced by one (by two if Doors of Night is in play) to
+a minimum of two."

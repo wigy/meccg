@@ -699,8 +699,28 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. The number of region cards that may be played by a moving company using region movement is reduced by one (by two if Doors of Night is in play) to a minimum of two. This card is effective during each player’s organization phase. Discard when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "region-movement-limit",
+        "reduce": 1,
+        "reduceWithDoorsOfNight": 2,
+        "min": 2
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "discard-self"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. The number of region cards that may be played by a moving company using region movement is reduced by one (by two if Doors of Night is in play) to a minimum of two. This card is effective during each player’s organization phase. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "hazard-event",

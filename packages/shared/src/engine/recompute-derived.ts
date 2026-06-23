@@ -267,6 +267,52 @@ export function buildInPlayNames(state: GameState): readonly string[] {
 }
 
 /**
+ * Computes the game-wide reduction to the maximum region distance for region
+ * movement, contributed by in-play environment cards carrying a
+ * `region-movement-limit` effect (e.g. No Way Forward, dm-75).
+ *
+ * Environments affect every player's companies, so both players' `cardsInPlay`
+ * are scanned. For each such effect the contribution is `reduceWithDoorsOfNight`
+ * while Doors of Night is in play, otherwise `reduce`; contributions sum across
+ * cards. The returned `floor` is the largest `min` among contributing effects —
+ * the effective max region distance must never be reduced below it.
+ *
+ * Returns `{ reduction: 0, floor: 0 }` when no such environment is in play.
+ */
+export function collectRegionMovementReduction(state: GameState): { reduction: number; floor: number } {
+  const doorsOfNight = buildInPlayNames(state).includes('Doors of Night');
+  let reduction = 0;
+  let floor = 0;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'region-movement-limit') continue;
+        const amount = doorsOfNight && eff.reduceWithDoorsOfNight !== undefined
+          ? eff.reduceWithDoorsOfNight
+          : eff.reduce;
+        reduction += amount;
+        floor = Math.max(floor, eff.min);
+      }
+    }
+  }
+  return { reduction, floor };
+}
+
+/**
+ * Applies the {@link collectRegionMovementReduction} environment reduction to a
+ * candidate max region distance. The reduction is floored at the environment's
+ * `min` (never lowered below it); when no reduction is in play the input value
+ * is returned unchanged.
+ */
+export function applyRegionMovementReduction(state: GameState, maxRegions: number): number {
+  const { reduction, floor } = collectRegionMovementReduction(state);
+  if (reduction <= 0) return maxRegions;
+  return Math.max(floor, maxRegions - reduction);
+}
+
+/**
  * Builds the list of card names in play that belong to a specific
  * player. Used to populate the `controller.inPlay` resolver context so
  * DSL conditions can reference factions controlled by the influencing
