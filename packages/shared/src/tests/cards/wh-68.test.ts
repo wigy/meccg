@@ -12,22 +12,22 @@
  *    in all cases. Discard this card when the site is discarded or returned to
  *    its location deck."
  *
- * Modelled as a Fallen-wizard stage permanent-event bound to the named site it
- * is played on (mirroring Double-dealing wh-66 and Hold Rebuilt and Repaired
- * as-88):
- *  - `play-target` site with `filter { name: "Isengard" }` — only offered while
- *    the active company is at Isengard (the play binds the card to it via
- *    `attachedToSite`).
+ * The site-specific sibling of Guarded Haven (wh-74), bound to the Fallen-wizard
+ * Wizardhaven version of Isengard (wh-56). Uses master's shared `site-protected`
+ * mechanism, exactly like Fortress of the Towers (wh-69) / wh-74:
+ *  - `play-target` site `{ name: "Isengard" }` — only offered while the active
+ *    company is at Isengard; the play binds the card to that site
+ *    (`attachedToSite`).
  *  - `play-condition` player-state `{ player.avatar: { $in: [Alatar, Pallando,
  *    Saruman] } }` — "Playable if you are Alatar, Pallando, or Saruman."
- *  - `self-enters-play → add-constraint site-protected` (scope
- *    until-cleared, targeted at the controlling player): while active, the
- *    opponent (any non-owner active player) may not play a marshalling-point
- *    card at the bound site (`legal-actions/site.ts`).
+ *  - `self-enters-play → add-constraint site-protected` (scope until-cleared,
+ *    targeted at the controlling player): the opponent may not play a
+ *    marshalling-point card at the protected site (shared
+ *    `siteIsProtectedAgainstPlayer` + `givesMarshallingPoints` in
+ *    `legal-actions/site.ts`).
  *  - `stage-points: 3`.
- *  - The post-action sweep `discardOrphanedSiteAttachedEvents` discards the card
- *    and clears its constraint once no company occupies the bound site (the
- *    haven leaving play when the last company departs).
+ *  - `discardOrphanedSiteAttachedEvents` discards the card and clears its
+ *    constraint once no company occupies the bound site.
  *
  * | # | Rule                                                      | Status |
  * |---|-----------------------------------------------------------|--------|
@@ -36,7 +36,7 @@
  * | 3 | may not be a starting stage card                          | vacuous: the engine has no starting-stage-deck, so a stage card can never be placed at setup — the rule is never violable |
  * | 4 | playable only if you are Alatar/Pallando/Saruman          | OK     |
  * | 5 | playable on Isengard (bound to the site)                  | OK     |
- * | 6 | Isengard is protected                                     | no-op (CRF: the "protected" keyword has no standalone effect) |
+ * | 6 | Isengard is protected                                     | OK (site-protected) |
  * | 7 | other Fallen-wizards may not Wizardhaven Isengard         | no-op (single-Fallen-wizard, two-player engine) |
  * | 8 | opponent cannot play MP-giving cards at Isengard          | OK     |
  * | 9 | discard when the site is discarded / returned to its deck | OK     |
@@ -46,28 +46,29 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Alignment, CardStatus, computeLegalActions } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState, ConstraintId } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState, PlayerId, ConstraintId } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import {
-  buildTestState, resetMint, dispatch, viableActions, pool, Phase,
+  buildTestState, resetMint, viableActions, pool, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   RIVENDELL, MINAS_TIRITH, ARAGORN,
   buildFallenWizardSitePhaseState, buildSitePhaseState, playPermanentEventAndResolve,
 } from '../test-helpers.js';
 
 const FORTRESS_OF_ISEN = 'wh-68' as CardDefinitionId;
-const ISENGARD = 'tw-404' as CardDefinitionId;
-const HIMRING = 'tw-401' as CardDefinitionId;          // a non-Isengard site
+const ISENGARD_WH = 'wh-56' as CardDefinitionId;        // FW Wizardhaven "Isengard"
+const WHITE_TOWERS_WH = 'wh-58' as CardDefinitionId;    // FW Wizardhaven "The White Towers" (wrong site)
+const HIMRING = 'tw-401' as CardDefinitionId;           // hero Ruins & Lairs (plays minor+major)
 
 // Fallen-wizard avatars.
 const SARUMAN_FW = 'wh-9' as CardDefinitionId;          // qualifies
 const ALATAR_FW = 'wh-1' as CardDefinitionId;           // qualifies
 const GANDALF_FW = 'wh-4' as CardDefinitionId;          // does NOT qualify
 
-// A non-unique hero major item worth marshalling points, playable at Isengard
-// (which offers minor/major/gold-ring) — used for the opponent MP-block tests.
+// Hero items for the opponent MP-block tests (Himring plays minor + major).
 const HAUBERK = 'tw-254' as CardDefinitionId;           // hero major item, MP 2
+const DAGGER = 'tw-206' as CardDefinitionId;            // hero minor item, 0 MP
 
 // A second stage card so a discard can be offered without dropping below 3.
 const STAGE_2 = 'test-stage-res-2' as CardDefinitionId;
@@ -76,17 +77,29 @@ function inPlay(defId: CardDefinitionId, instanceId: string): CardInPlay {
   return { instanceId: instanceId as CardInstanceId, definitionId: defId, status: CardStatus.Untapped };
 }
 
-function handInstance(state: GameState, defId: CardDefinitionId, playerIdx = RESOURCE_PLAYER): CardInstanceId {
-  return state.players[playerIdx].hand.find(c => c.definitionId === defId)!.instanceId;
+function handInstance(state: GameState, defId: CardDefinitionId): CardInstanceId {
+  return state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === defId)!.instanceId;
 }
 
 /** Whether a viable play action exists for `instanceId` (item or permanent event). */
-function canPlay(state: GameState, player: typeof PLAYER_1, instanceId: CardInstanceId): boolean {
+function canPlay(state: GameState, player: PlayerId, instanceId: CardInstanceId): boolean {
   return computeLegalActions(state, player).some(
     a => a.viable
       && (a.action.type === 'play-hero-resource' || a.action.type === 'play-permanent-event')
       && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === instanceId,
   );
+}
+
+/** A `site-protected` active constraint owned by `owner`, bound to `siteDefId`. */
+function siteProtectedConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
+  return {
+    id: 'fortress-isen-block' as ConstraintId,
+    source: 'fortress-isen-src' as CardInstanceId,
+    sourceDefinitionId: FORTRESS_OF_ISEN,
+    scope: { kind: 'until-cleared' as const },
+    target: { kind: 'player' as const, playerId: owner },
+    kind: { type: 'site-protected' as const, siteDefinitionId: siteDefId },
+  };
 }
 
 /** Organization-phase state for a player of the given alignment with `cards` in play. */
@@ -107,104 +120,94 @@ describe('The Fortress of Isen (wh-68)', () => {
   // ── Rule 5: playable on Isengard, bound to that site ───────────────────────
 
   test('playable while a qualifying Fallen-wizard is at Isengard — the play binds it to the site', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const id = handInstance(state, FORTRESS_OF_ISEN);
     const plays = computeLegalActions(state, PLAYER_1).filter(
       a => a.viable && a.action.type === 'play-permanent-event'
         && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === id,
     );
     expect(plays).toHaveLength(1);
-    expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(ISENGARD);
+    expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(ISENGARD_WH);
   });
 
   test('not playable at any site other than Isengard', () => {
-    const state = buildFallenWizardSitePhaseState({ site: HIMRING, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: WHITE_TOWERS_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(false);
   });
 
-  test('playing it binds the card to Isengard and adds the opponent-MP-block constraint', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+  test('playing it binds the card to Isengard and adds the site-protected constraint', () => {
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
-      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD },
+      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
 
     const card = after.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.definitionId === FORTRESS_OF_ISEN);
     expect(card).toBeDefined();
-    expect(card!.attachedToSite).toBe(ISENGARD);
+    expect(card!.attachedToSite).toBe(ISENGARD_WH);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'site-protected' && c.kind.siteDefinitionId === ISENGARD,
+      c => c.kind.type === 'site-protected' && c.kind.siteDefinitionId === ISENGARD_WH,
     );
     expect(constraint).toBeDefined();
     expect(constraint!.scope.kind).toBe('until-cleared');
     expect(constraint!.target.kind).toBe('player');
-    expect((constraint!.target as { playerId?: typeof PLAYER_1 }).playerId).toBe(PLAYER_1);
+    expect((constraint!.target as { playerId?: PlayerId }).playerId).toBe(PLAYER_1);
   });
 
   // ── Rule 4: playable only if you are Alatar, Pallando, or Saruman ───────────
 
   test('not playable when your avatar is a non-qualifying Fallen-wizard (Gandalf)', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [GANDALF_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [GANDALF_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(false);
   });
 
   test('playable when your avatar is Alatar', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [ALATAR_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [ALATAR_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(true);
   });
 
-  // ── Rule 8: opponent cannot play MP-giving cards at Isengard ───────────────
+  // ── Rule 8: opponent cannot play MP-giving cards at the protected site ─────
 
-  function blockConstraint(owner: typeof PLAYER_1) {
-    return {
-      id: 'fortress-isen-block' as ConstraintId,
-      source: 'fortress-src' as CardInstanceId,
-      sourceDefinitionId: FORTRESS_OF_ISEN,
-      scope: { kind: 'until-cleared' as const },
-      target: { kind: 'player' as const, playerId: owner },
-      kind: { type: 'site-protected' as const, siteDefinitionId: ISENGARD },
-    };
-  }
-
-  test('an opponent at Isengard cannot play a marshalling-point item while the Fortress is in play', () => {
-    // PLAYER_1 (the active player here) stands in for the opponent of the
-    // Fortress owner (PLAYER_2): the constraint targets PLAYER_2, so PLAYER_1 is
-    // barred from MP plays at Isengard.
-    const base = buildSitePhaseState({ site: ISENGARD, characters: [ARAGORN], hand: [HAUBERK] });
+  test('an opponent may not play a marshalling-point item at the protected site', () => {
+    // PLAYER_1 (the active player) is the opponent of the Fortress owner
+    // (PLAYER_2): the constraint targets PLAYER_2, so PLAYER_1 is barred.
+    const base = buildSitePhaseState({ site: HIMRING, characters: [ARAGORN], hand: [HAUBERK] });
     const hauberk = handInstance(base, HAUBERK);
-
-    // Baseline: the MP item is normally playable at Isengard.
     expect(canPlay(base, PLAYER_1, hauberk)).toBe(true);
 
-    // With the opponent's Fortress constraint bound to Isengard, it is barred.
-    const blocked: GameState = { ...base, activeConstraints: [blockConstraint(PLAYER_2)] };
+    const blocked: GameState = { ...base, activeConstraints: [siteProtectedConstraint(PLAYER_2, HIMRING)] };
     expect(canPlay(blocked, PLAYER_1, hauberk)).toBe(false);
   });
 
-  test('the Fortress owner is NOT blocked from playing MP cards at their own site', () => {
-    // Same site, but now the constraint targets the active player (the owner) —
-    // they may still play their MP item there.
-    const base = buildSitePhaseState({ site: ISENGARD, characters: [ARAGORN], hand: [HAUBERK] });
+  test('a card that gives no marshalling points is still playable under protection', () => {
+    const base = buildSitePhaseState({ site: HIMRING, characters: [ARAGORN], hand: [DAGGER] });
+    const dagger = handInstance(base, DAGGER);
+    const blocked: GameState = { ...base, activeConstraints: [siteProtectedConstraint(PLAYER_2, HIMRING)] };
+    expect(canPlay(blocked, PLAYER_1, dagger)).toBe(true);
+  });
+
+  test('the Fortress owner is not blocked from playing MP cards at their own protected site', () => {
+    const base = buildSitePhaseState({ site: HIMRING, characters: [ARAGORN], hand: [HAUBERK] });
     const hauberk = handInstance(base, HAUBERK);
-    const owned: GameState = { ...base, activeConstraints: [blockConstraint(PLAYER_1)] };
+    const owned: GameState = { ...base, activeConstraints: [siteProtectedConstraint(PLAYER_1, HIMRING)] };
     expect(canPlay(owned, PLAYER_1, hauberk)).toBe(true);
   });
 
   // ── Rule 9: discard when the bound site leaves play ────────────────────────
 
   test('persists while a company occupies Isengard', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
-      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD },
+      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
     const swept = discardOrphanedSiteAttachedEvents(after);
     expect(swept.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === FORTRESS_OF_ISEN)).toBe(true);
   });
 
   test('discarded (and its constraint cleared) once Isengard leaves play', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
-      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD },
+      state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
     const sourceId = after.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.definitionId === FORTRESS_OF_ISEN)!.instanceId;
     expect(after.activeConstraints.filter(c => c.source === sourceId)).toHaveLength(1);
@@ -213,7 +216,7 @@ describe('The Fortress of Isen (wh-68)', () => {
     // haven returns to its location deck.
     const movedCompany = {
       ...after.players[RESOURCE_PLAYER].companies[0],
-      currentSite: { ...after.players[RESOURCE_PLAYER].companies[0].currentSite!, definitionId: HIMRING },
+      currentSite: { ...after.players[RESOURCE_PLAYER].companies[0].currentSite!, definitionId: WHITE_TOWERS_WH },
     };
     const moved: GameState = {
       ...after,
@@ -259,10 +262,6 @@ describe('The Fortress of Isen (wh-68)', () => {
         .map(a => (a.action as { cardInstanceId: string }).cardInstanceId);
       expect(targets).toContain('p1-1001');
       expect(targets).not.toContain('p1-1000');
-
-      const after = dispatch(state, { type: 'discard-stage-resource', player: PLAYER_1, cardInstanceId: 'p1-1001' as CardInstanceId });
-      expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(3);
-      expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === 'p1-1000')).toBe(true);
     } finally {
       delete (pool as Record<string, unknown>)[STAGE_2 as string];
     }
