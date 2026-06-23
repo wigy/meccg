@@ -1389,6 +1389,13 @@ export function buildPlayOptionContext(
     if (ps.phase === 'movement-hazard' && ps.siteRevealed && charCompany) {
       const activeCompany = player.companies[ps.activeCompanyIndex];
       companyMoving = activeCompany?.id === charCompany.id;
+    } else if (state.phaseState.phase === 'organization' && charCompany) {
+      // During the organization phase a company counts as "moving" once it has
+      // a planned destination (plan-movement sets destinationSite; the player
+      // may still cancel it before the phase ends). Hide in Dark Places
+      // (le-192) gates on `company.moving` being false so it can only be played
+      // on a company that has not declared movement.
+      companyMoving = charCompany.destinationSite != null;
     }
   }
 
@@ -1708,10 +1715,17 @@ export function playResourceShortEventActions(
       // company identified by targetCompanyId. Otherwise emit a single
       // action with no target.
       const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.cost?.tap === 'character') {
-        // Tap-cost: one action per untapped character (tapper choice).
+      if (eoTarget && eligibility.eligibleTargets.length > 0
+        && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'character')) {
+        // Per-character actions carrying the chosen character as
+        // targetScoutInstanceId. This covers two cases:
+        //  - a tap-character cost (e.g. Stealth, Great Ship): the targeted
+        //    character is the tapper, applied at reduce time via the cost;
+        //  - a character target with no cost (e.g. Hide in Dark Places,
+        //    le-192): the target simply lets the self-enters-play constraint
+        //    resolve the scout's company.
         for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, tap ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
             action: {
               type: 'play-short-event',

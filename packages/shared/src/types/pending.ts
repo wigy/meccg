@@ -572,6 +572,18 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Hide in Dark Places (le-192): the company may not declare movement
+         * (plan a new destination) for the rest of this turn. The card is
+         * "playable on a scout whose company is not moving", and locks that
+         * company stationary so its hazard-creature immunity cannot be carried
+         * onto a moving company. Enforced directly by the org-phase
+         * `plan-movement` emitter (`planMovementActions`) and reducer
+         * (`handlePlanMovement`).
+         */
+        readonly type: 'company-cannot-move';
+      }
+    | {
+        /**
          * Generic one-shot check modifier attached to a character. Parallels
          * the DSL `check-modifier` effect but lives on the constraint side
          * because it is targeted, temporary, and consumed the first time
