@@ -16,7 +16,7 @@ import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseS
 import { CardStatus, formatSignedNumber } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
-import { grantedActionActivations } from './organization.js';
+import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
 import { characterIds, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -41,9 +41,13 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
   const player = playerById(state, playerId);
   if (!player) return grantActions;
 
-  // If a corruption check is pending (awaiting support), offer support actions
+  // If a corruption check is pending (awaiting support), offer support actions.
+  // Permanent events that modify a corruption check by a company character
+  // (When I Know Anything td-166) are activatable in this same window: the
+  // bearer taps to add +3 to the pending check, then makes a check himself.
   if (fcState.pendingCheck) {
-    return [...viable(supportActions(state, playerId, fcState)), ...grantActions];
+    const modifierGrants = modifyCorruptionCheckGrantActions(state, playerId, fcState.pendingCheck.characterId);
+    return [...viable(supportActions(state, playerId, fcState)), ...modifierGrants, ...grantActions];
   }
 
   const checked = new Set(fcState.checkedCharacters);
