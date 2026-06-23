@@ -801,6 +801,36 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: { ...stateWithDiscard, combat } };
   }
 
+  // draw-cards (Dark Tryst as-80): draw `count` cards from the top of the
+  // player's play deck into their hand. When `removeFromGame` is set, the
+  // spent event card goes to the out-of-play pile instead of the discard
+  // pile so it can never be recurred. Drawing stops early if the deck runs
+  // out (no card disappears: the deck is simply exhausted).
+  const drawEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
+  );
+  if (drawEffect) {
+    const deck = newState.players[playerIndex].playDeck;
+    const drawCount = Math.min(drawEffect.count, deck.length);
+    const drawnCards = deck.slice(0, drawCount);
+    logDetail(`${def.name}: drawing ${drawCount}/${drawEffect.count} card(s) from play deck (deck size ${deck.length})`);
+    if (drawCount < drawEffect.count) {
+      logDetail(`${def.name}: play deck exhausted — drew only ${drawCount} of ${drawEffect.count}`);
+    }
+    const disposalLog = drawEffect.removeFromGame ? 'out-of-play (removed from game)' : 'discard';
+    logDetail(`${def.name}: event card → ${disposalLog}`);
+    return {
+      state: updatePlayer(newState, playerIndex, p => ({
+        ...p,
+        hand: [...p.hand, ...drawnCards],
+        playDeck: p.playDeck.slice(drawCount),
+        ...(drawEffect.removeFromGame
+          ? { outOfPlayPile: [...p.outOfPlayPile, handCard] }
+          : { discardPile: [...p.discardPile, handCard] }),
+      })),
+    };
+  }
+
   // Discard the card and return. If glamour-hazard-roll resolutions were
   // enqueued, the legal-action system will automatically surface only roll
   // actions until all resolutions are cleared.
