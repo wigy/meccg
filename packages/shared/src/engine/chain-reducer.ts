@@ -887,6 +887,14 @@ function buildConstraintKind(
       if (!siteDefId) return null;
       return { type: 'cross-alignment-resources-unlocked', siteDefinitionId: siteDefId };
     }
+    case 'opponent-mp-play-blocked-at-site': {
+      // The Fortress of Isen / Fortress of the Towers (wh-68/wh-69): bind to the
+      // Wizardhaven the card is played on so the opponent may not play
+      // marshalling-point cards there.
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'opponent-mp-play-blocked-at-site', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }

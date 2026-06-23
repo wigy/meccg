@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -61,6 +61,16 @@ function siteTapCrossAlignmentBlocked(
   if (resAlign === 'wizard' && siteAlign === 'ringwraith') return true;
   if (resAlign === 'ringwraith' && siteAlign === 'wizard') return true;
   return false;
+}
+
+/**
+ * Whether a card awards marshalling points when it comes into play (a positive
+ * printed `marshallingPoints`). Used by the wh-68/wh-69 "opponent cannot play
+ * MP cards at this site" block.
+ */
+function cardGivesMarshallingPoints(def: CardDefinition): boolean {
+  const mp = (def as { marshallingPoints?: number }).marshallingPoints;
+  return typeof mp === 'number' && mp > 0;
 }
 
 function siteMatchesEntry(
@@ -729,6 +739,22 @@ function playResourcesActions(
       logDetail(`Site ${siteName}: ${def.name} cross-alignment play allowed by Double-dealing`);
     }
 
+    // The Fortress of Isen / Fortress of the Towers (wh-68/wh-69): "Cards that
+    // give marshalling points cannot be played at [the site] by your opponent in
+    // all cases." When an `opponent-mp-play-blocked-at-site` constraint is bound
+    // to this site and the active player is NOT its owner (i.e. the opponent of
+    // the Fortress controller), bar any marshalling-point-bearing card here.
+    const opponentMpBlockedHere = !!siteDefId && state.activeConstraints.some(
+      c => c.kind.type === 'opponent-mp-play-blocked-at-site'
+        && c.kind.siteDefinitionId === siteDefId
+        && c.target.kind === 'player'
+        && c.target.playerId !== playerId,
+    );
+    if (opponentMpBlockedHere && cardGivesMarshallingPoints(def)) {
+      logDetail(`Site ${siteName}: ${def.name} barred — opponent may not play marshalling-point cards at this site (The Fortress)`);
+      continue;
+    }
+
     // Permanent resource events — playable like in organization phase
     // Handles both hero (wizard) and minion (ringwraith) permanent events.
     if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
@@ -837,6 +863,21 @@ function playResourcesActions(
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: site duplication limit reached at ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated at ${siteName}`));
+            continue;
+          }
+        }
+
+        // play-condition: player-state — avatar/alignment/stage-point gate.
+        // wh-68/wh-69: "Playable if you are Alatar, Pallando, or Saruman."
+        const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
+        if (playerStateCond?.condition) {
+          const avatar = findPlayerAvatar(state, player);
+          const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
+          const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
+          const ctx = { player: { alignment: player.alignment, avatar: avatarName, stagePoints: player.stagePoints } };
+          if (!matchesCondition(playerStateCond.condition, ctx)) {
+            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied (avatar=${avatarName ?? 'none'})`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
             continue;
           }
         }

@@ -1027,6 +1027,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * The Fortress of Isen (wh-68) / Fortress of the Towers (wh-69): a
+         * Fallen-wizard stage permanent-event bound to a Wizardhaven. "Cards
+         * that give marshalling points cannot be played at [the site] by your
+         * opponent in all cases." While this constraint is active, the engine
+         * bars the player who is NOT the constraint `target` (the opponent of
+         * the Fortress owner) from playing any marshalling-point-bearing card
+         * (item/ally/faction/resource, `marshallingPoints > 0`) at the bound
+         * site during their site phase. Matched by `siteDefinitionId` against
+         * the active company's current site; scoped `until-cleared` and cleared
+         * when the card is discarded (the bound haven leaving play).
+         */
+        readonly type: 'opponent-mp-play-blocked-at-site';
+        /** The definition ID of the site at which opponent MP plays are barred. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
          * Great-road (tw-249): the hazard player may draw up to twice the
          * normal number of cards during this company's M/H phase. The
          * multiplier is applied in `transitionToDrawCards` after the base
