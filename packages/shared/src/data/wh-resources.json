@@ -698,9 +698,23 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cross-alignment-resources-unlocked",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck."
+    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -765,9 +779,28 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.stagePoints": { "$gt": 3 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          { "when": { "faction.unique": true }, "value": 2 },
+          { "when": { "faction.unique": true, "faction.race": "dragon", "player.avatar": "Alatar" }, "value": 4 },
+          { "when": { "faction.unique": true, "faction.normalMp": { "$gte": 3 }, "player.avatar": "Pallando" }, "value": 3 }
+        ]
       }
     ],
-    "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -797,10 +830,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-22",
     "effects": [
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-character-ally-mp",
+        "threshold": 2,
+        "value": 2
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
     "text": "Your characters and allies that normally give 2 or more marshalling points are each worth 2 marshalling points. Cannot be duplicated by a given player."
@@ -837,9 +881,34 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "effectiveSiteType": "haven" },
+            { "$not": { "name": { "$in": ["Isengard", "The White Towers", "Rhosgobel"] } } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-protected",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site."
+    "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -981,9 +1050,30 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$ne": "fallen-wizard" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 3,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
-    "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player."
+    "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -1585,9 +1675,64 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            {
+              "$or": [
+                {
+                  "$and": [
+                    { "target.skills": { "$includes": "sage" } },
+                    { "$not": { "target.race": "hobbit" } }
+                  ]
+                },
+                { "target.race": "man" }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
+      },
+      {
+        "type": "grant-action",
+        "action": "forge-place-item",
+        "cost": { "tap": "bearer" },
+        "when": { "site.type": "haven" },
+        "apply": {
+          "type": "place-item-on-character",
+          "fetchFrom": ["discard-pile", "sideboard", "hand"],
+          "filter": {
+            "$and": [
+              { "unique": false },
+              { "subtype": "minor" },
+              {
+                "$or": [
+                  { "keywords": { "$includes": "weapon" } },
+                  { "keywords": { "$includes": "armor" } },
+                  { "keywords": { "$includes": "shield" } },
+                  { "keywords": { "$includes": "helmet" } }
+                ]
+              }
+            ]
+          }
+        }
       }
     ],
-    "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand."
+    "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -1623,8 +1768,14 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "permanent-event-mp",
+        "value": 2,
+        "requiresResource": "information"
       }
     ],
+    "certified": "2026-06-22",
     "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
   },
   {

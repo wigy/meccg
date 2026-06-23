@@ -332,6 +332,21 @@ export interface TapCharacterByEffectAction {
 }
 
 /**
+ * Untap or heal one character as the optional benefit of a Haven effect
+ * immediately following a company's movement/hazard phase (Hall of Fire,
+ * dm-134). The improvement is determined by the character's current status:
+ * a tapped character untaps, a wounded (inverted) character heals to tapped.
+ * Resolves the `haven-restore-character` pending resolution.
+ */
+export interface RestoreCharacterByEffectAction {
+  readonly type: 'restore-character-by-effect';
+  /** The player performing the restore (the company's controller). */
+  readonly player: PlayerId;
+  /** The instance ID of the character being untapped or healed. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Pay the maintenance cost for a hazard permanent event that requires upkeep
  * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
  *

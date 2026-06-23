@@ -20,6 +20,7 @@ import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
+import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../index.js';
@@ -801,6 +802,78 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: { ...stateWithDiscard, combat } };
   }
 
+  // draw-cards (Dark Tryst as-80): draw `count` cards from the top of the
+  // player's play deck into their hand. When `removeFromGame` is set, the
+  // spent event card goes to the out-of-play pile instead of the discard
+  // pile so it can never be recurred. Drawing stops early if the deck runs
+  // out (no card disappears: the deck is simply exhausted).
+  const drawEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
+  );
+  if (drawEffect) {
+    const deck = newState.players[playerIndex].playDeck;
+    const drawCount = Math.min(drawEffect.count, deck.length);
+    const drawnCards = deck.slice(0, drawCount);
+    logDetail(`${def.name}: drawing ${drawCount}/${drawEffect.count} card(s) from play deck (deck size ${deck.length})`);
+    if (drawCount < drawEffect.count) {
+      logDetail(`${def.name}: play deck exhausted — drew only ${drawCount} of ${drawEffect.count}`);
+    }
+    const disposalLog = drawEffect.removeFromGame ? 'out-of-play (removed from game)' : 'discard';
+    logDetail(`${def.name}: event card → ${disposalLog}`);
+    return {
+      state: updatePlayer(newState, playerIndex, p => ({
+        ...p,
+        hand: [...p.hand, ...drawnCards],
+        playDeck: p.playDeck.slice(drawCount),
+        ...(drawEffect.removeFromGame
+          ? { outOfPlayPile: [...p.outOfPlayPile, handCard] }
+          : { discardPile: [...p.discardPile, handCard] }),
+      })),
+    };
+  }
+
+  // reshuffle-from-discard (Horns, Horns, Horns dm-140): each affected
+  // player pulls every card matching the filter (here: factions) out of
+  // their discard pile and shuffles them into their play deck. Resolved
+  // here before the spent event card lands in the discard pile, so the
+  // event itself can never be swept up (it is a short-event, not a match).
+  const reshuffleEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').ReshuffleFromDiscardEffect =>
+      e.type === 'reshuffle-from-discard',
+  );
+  if (reshuffleEffect) {
+    const scope = reshuffleEffect.scope ?? 'all-players';
+    let working = newState;
+    working.players.forEach((p, idx) => {
+      if (scope === 'self' && idx !== playerIndex) return;
+      const matching = p.discardPile.filter(c =>
+        matchesDefinition(defById(working, c.definitionId)!, reshuffleEffect.filter),
+      );
+      if (matching.length === 0) {
+        logDetail(`${def.name}: player ${p.id as string} has no matching cards in discard pile`);
+        return;
+      }
+      const matchingIds = new Set(matching.map(c => c.instanceId));
+      const remainingDiscard = p.discardPile.filter(c => !matchingIds.has(c.instanceId));
+      const [shuffledDeck, nextRng] = shuffle([...p.playDeck, ...matching], working.rng);
+      logDetail(`${def.name}: player ${p.id as string} reshuffles ${matching.length} card(s) from discard into play deck (deck ${p.playDeck.length} → ${shuffledDeck.length})`);
+      working = {
+        ...updatePlayer(working, idx, pl => ({
+          ...pl,
+          discardPile: remainingDiscard,
+          playDeck: shuffledDeck,
+        })),
+        rng: nextRng,
+      };
+    });
+    return {
+      state: updatePlayer(working, playerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, handCard],
+      })),
+    };
+  }
+
   // Discard the card and return. If glamour-hazard-roll resolutions were
   // enqueued, the legal-action system will automatically surface only roll
   // actions until all resolutions are cleared.
@@ -1183,6 +1256,9 @@ function applyShortEventOnEntersPlay(
       switch (constraintKind) {
         case 'no-creature-hazards-on-company':
           kind = { type: 'no-creature-hazards-on-company' };
+          break;
+        case 'company-cannot-move':
+          kind = { type: 'company-cannot-move' };
           break;
         case 'site-phase-do-nothing':
           kind = { type: 'site-phase-do-nothing' };

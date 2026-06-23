@@ -483,6 +483,21 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Hall of Fire (dm-134): immediately after a company finishes its
+         * movement/hazard phase at a Haven where a Hall of Fire is in play,
+         * the controlling player may choose one of that company's characters
+         * to untap (tapped → untapped) or heal (wounded → tapped), or pass.
+         * The improvement applied to the chosen character is determined by
+         * its current status, so the resolution only needs the target.
+         */
+        readonly type: 'haven-restore-character';
+        /** The company whose characters are eligible to restore. */
+        readonly companyId: CompanyId;
+        /** Definition ID of the source permanent event (Hall of Fire). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
          * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
          * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =
@@ -569,6 +584,18 @@ export interface ActiveConstraint {
          * for the rest of this turn.
          */
         readonly type: 'no-creature-hazards-on-company';
+      }
+    | {
+        /**
+         * Hide in Dark Places (le-192): the company may not declare movement
+         * (plan a new destination) for the rest of this turn. The card is
+         * "playable on a scout whose company is not moving", and locks that
+         * company stationary so its hazard-creature immunity cannot be carried
+         * onto a moving company. Enforced directly by the org-phase
+         * `plan-movement` emitter (`planMovementActions`) and reducer
+         * (`handlePlanMovement`).
+         */
+        readonly type: 'company-cannot-move';
       }
     | {
         /**
@@ -994,6 +1021,45 @@ export interface ActiveConstraint {
         readonly siteType: string;
         /** Resource category unlocked (e.g. `"information"`). */
         readonly subtype: string;
+      }
+    | {
+        /**
+         * Double-dealing (wh-66): a stage permanent-event played on a site that
+         * relaxes the MEWH §10 cross-alignment site-tap restriction at that one
+         * site. "If the site is a minion site, you may play appropriate hero
+         * resources there. If the site is a hero site, you may play appropriate
+         * minion resources there." While this constraint is active for the
+         * controlling player, a hero resource that taps a minion site (or a
+         * minion resource that taps a hero site) at the bound site is no longer
+         * barred by `siteTapCrossAlignmentBlocked` in `legal-actions/site.ts`.
+         * Matched by `siteDefinitionId` against the playing company's current
+         * site and by the controlling `player` target; scoped `until-cleared`
+         * and cleared when the card is discarded (the bound site leaving play).
+         */
+        readonly type: 'cross-alignment-resources-unlocked';
+        /** The definition ID of the site on which cross-alignment play is allowed. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
+         * Guarded Haven (wh-74) and the MEWH "protected Wizardhaven" family
+         * (The Fortress of Isen wh-68, Fortress of the Towers wh-69, …): a stage
+         * permanent-event played on one of the controller's Wizardhavens makes
+         * that site **protected**. "Cards that give marshalling points may not be
+         * played at any version of the site by your opponent in all cases." While
+         * this constraint is active, any opponent (a player other than the
+         * constraint's `player` target) is barred — in `legal-actions/site.ts`
+         * `siteIsProtectedAgainstPlayer` — from playing a marshalling-point card
+         * (item/ally/faction worth ≥1 MP) at a site whose definition id matches
+         * {@link siteDefinitionId}. "Any version of the site" is matched by
+         * definition id, so the opponent's own copy of the same site in their
+         * location deck is covered too. Scoped `until-cleared` and cleared when
+         * the card is discarded (the bound site leaving play, via
+         * `discardOrphanedSiteAttachedEvents`).
+         */
+        readonly type: 'site-protected';
+        /** The definition ID of the protected site (all versions). */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       }
     | {
         /**

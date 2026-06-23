@@ -3081,8 +3081,52 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Playable during the organization phase on a scout whose company is not moving. All hazard creature attacks against the scout’s company this turn are canceled."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "scout"
+              }
+            },
+            {
+              "company.moving": false
+            }
+          ]
+        },
+        "requiredSkill": "scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-cannot-move",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "text": "Scout only. Playable during the organization phase on a scout whose company is not moving. All hazard creature attacks against the scout’s company this turn are canceled.",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-resource-event",
@@ -3826,6 +3870,7 @@
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-272",
+    "certified": "2026-06-23",
     "name": "Misty Mountain Wargs",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MistyMountainWargs.jpg",
     "unique": true,
@@ -3835,11 +3880,40 @@
     "race": "wolf",
     "playableAt": [
       {
-        "site": "Ettenmoorsif"
+        "site": "Ettenmoors"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Ettenmoorsif the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Goblins of Goblin-gate (+2), Wargs of Forochel (+2)."
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Goblins of Goblin-gate"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Wargs of the Forochel"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Goblins of Goblin-gate (+2), Wargs of Forochel (+2)."
   },
   {
     "cardType": "minion-resource-faction",
@@ -3927,14 +4001,37 @@
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
     "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
     "playableAt": [
       {
         "site": "Ettenmoors"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Black Trolls (+2)."
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Black Trolls"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Black Trolls (+2).",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-faction",

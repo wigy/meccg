@@ -24,6 +24,7 @@ import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenFor
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
+import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 
 /**
  * Group a player's companies by the instance ID of the site they currently
@@ -203,6 +204,17 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     if (company.destinationSite !== null) continue;
+    // Hide in Dark Places (le-192) locks its scout's company stationary for the
+    // turn via a `company-cannot-move` constraint — such a company may not
+    // declare movement.
+    if (state.activeConstraints.some(
+      c => c.kind.type === 'company-cannot-move'
+        && c.target.kind === 'company'
+        && c.target.companyId === company.id,
+    )) {
+      logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
 
     const currentSiteDef = resolveDef(state, company.currentSite.instanceId);
     if (!currentSiteDef || !isSiteCard(currentSiteDef)) continue;
@@ -459,20 +471,29 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         // Block DI assignment when an attached hazard forbids it (e.g. Rebel-talk)
         if (hasNoDirectInfluenceRestriction(char.hazards, state.cardPool)) {
           logDetail(`  → blocked: ${charDef.name} has no-direct-influence restriction`);
-        } else
+        } else {
         // Rule 227: Move non-avatar character without followers to DI of a
         // non-follower character in the same company
+        // A `control-restriction` may override the influence-to-control cost
+        // and limit which controllers may hold this character under DI.
+        const controlCost = controlCostOf(state, char, charDef.mind) ?? charDef.mind;
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
           const ctrl = player.characters[ctrlInstId as string];
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
+          // Enforce control-source restriction (e.g. "only by general influence
+          // or a Fallen-wizard"): skip controllers the restriction disallows.
+          const ctrlDef = resolveDef(state, ctrl.instanceId);
+          const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
+          if (!directInfluenceControlAllowed(state, char, ctrl, player.alignment)) {
+            logDetail(`  → blocked: ${charDef.name} may not be controlled by ${ctrlName} (control-source restriction)`);
+            continue;
+          }
           const avail = availableDI(state, ctrl.instanceId, player, charDef);
-          if (avail >= charDef.mind) {
-            const ctrlDef = resolveDef(state, ctrl.instanceId);
-            const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
-            logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) under DI of ${ctrlName} (avail DI ${avail})`);
+          if (avail >= controlCost) {
+            logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) under DI of ${ctrlName} (avail DI ${avail})`);
             const candidate: GameAction = {
               type: 'move-to-influence',
               player: playerId,
@@ -486,11 +507,14 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
             });
           }
         }
+        }
       } else if (char.controlledBy !== 'general') {
-        // Rule 228: Move a follower to general influence if GI allows
+        // Rule 228: Move a follower to general influence if GI allows. A
+        // `control-restriction` may override the influence-to-control cost.
         const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
-        if (charDef.mind !== null && charDef.mind <= remainingGI) {
-          logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) to GI (remaining GI ${remainingGI})`);
+        const controlCost = controlCostOf(state, char, charDef.mind);
+        if (controlCost !== null && controlCost <= remainingGI) {
+          logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) to GI (remaining GI ${remainingGI})`);
           const candidate: GameAction = {
             type: 'move-to-influence',
             player: playerId,

@@ -24,13 +24,14 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
+import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -121,8 +122,9 @@ export function availableDI(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1)
-      usedDI += followerChar.effectiveStats.mind ?? followerDef.mind;
+      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1),
+      // and honor a `control-restriction` cost override (e.g. Wizard's Myrmidon).
+      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
     }
   }
 
@@ -772,6 +774,63 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
 
+        // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
+        // place a qualifying minor item — fetched from the player's discard pile,
+        // sideboard, or hand — onto any of the player's characters at the bearer's
+        // site (the recipient is not tapped). Emit one activation per (item,
+        // recipient) pair so the player picks both via the chosen action.
+        if (effect.apply?.type === 'place-item-on-character') {
+          if (!company?.currentSite) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not at a site`);
+            continue;
+          }
+          const siteDefId = company.currentSite.definitionId as string;
+          const zones = effect.apply.fetchFrom ?? ['discard-pile', 'sideboard', 'hand'];
+          const itemFilter = effect.apply.filter;
+          const zoneItemIds: CardInstanceId[] = [];
+          for (const zone of zones) {
+            const pile = zone === 'discard-pile' ? player.discardPile
+              : zone === 'sideboard' ? player.sideboard
+                : zone === 'hand' ? player.hand
+                  : [];
+            for (const c of pile) {
+              const cdef = defById(state, c.definitionId);
+              if (!cdef || !isItemCard(cdef)) continue;
+              if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
+              zoneItemIds.push(c.instanceId);
+            }
+          }
+          if (zoneItemIds.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no qualifying item in discard/sideboard/hand`);
+            continue;
+          }
+          const recipients: CardInstanceId[] = [];
+          for (const co of player.companies) {
+            if (!co.currentSite || (co.currentSite.definitionId as string) !== siteDefId) continue;
+            for (const memberId of co.characters) recipients.push(memberId);
+          }
+          for (const itemInstId of zoneItemIds) {
+            for (const recipientId of recipients) {
+              actions.push({
+                action: {
+                  type: 'activate-granted-action',
+                  player: playerId,
+                  characterId: charId,
+                  sourceCardId: item.instanceId,
+                  sourceCardDefinitionId: item.definitionId,
+                  actionId: effect.action,
+                  rollThreshold: rollThresholdFor(effect),
+                  targetCardId: itemInstId,
+                  recipientCharacterId: recipientId,
+                },
+                viable: true,
+              });
+            }
+          }
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) at site`);
+          continue;
+        }
+
         // `heal-company-character` targets a wounded character in the bearer's
         // company — emit one action per wounded (inverted) candidate, carrying
         // the chosen target on `targetCardId`. If no one is wounded, the
@@ -1389,6 +1448,13 @@ export function buildPlayOptionContext(
     if (ps.phase === 'movement-hazard' && ps.siteRevealed && charCompany) {
       const activeCompany = player.companies[ps.activeCompanyIndex];
       companyMoving = activeCompany?.id === charCompany.id;
+    } else if (state.phaseState.phase === 'organization' && charCompany) {
+      // During the organization phase a company counts as "moving" once it has
+      // a planned destination (plan-movement sets destinationSite; the player
+      // may still cancel it before the phase ends). Hide in Dark Places
+      // (le-192) gates on `company.moving` being false so it can only be played
+      // on a company that has not declared movement.
+      companyMoving = charCompany.destinationSite != null;
     }
   }
 
@@ -1496,7 +1562,7 @@ function buildPlayerStateContext(
     }
   }
   return {
-    player: { alignment: player.alignment, hasRingwraithInPlay },
+    player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints },
     opponent: { alignment: opponent?.alignment },
   };
 }
@@ -1708,10 +1774,17 @@ export function playResourceShortEventActions(
       // company identified by targetCompanyId. Otherwise emit a single
       // action with no target.
       const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.cost?.tap === 'character') {
-        // Tap-cost: one action per untapped character (tapper choice).
+      if (eoTarget && eligibility.eligibleTargets.length > 0
+        && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'character')) {
+        // Per-character actions carrying the chosen character as
+        // targetScoutInstanceId. This covers two cases:
+        //  - a tap-character cost (e.g. Stealth, Great Ship): the targeted
+        //    character is the tapper, applied at reduce time via the cost;
+        //  - a character target with no cost (e.g. Hide in Dark Places,
+        //    le-192): the target simply lets the self-enters-play constraint
+        //    resolve the scout's company.
         for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, tap ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
             action: {
               type: 'play-short-event',

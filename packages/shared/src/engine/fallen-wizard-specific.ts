@@ -38,6 +38,29 @@ function isFallenWizardSpecific(def: ReturnType<typeof defById>): boolean {
     .some(k => WIZARD_SPECIFIC_KEYWORDS.has(k));
 }
 
+/** Maps each `<wizard>-specific` keyword to the wizard's avatar name. */
+const WIZARD_SPECIFIC_NAME: Readonly<Record<string, string>> = {
+  'alatar-specific': 'Alatar',
+  'gandalf-specific': 'Gandalf',
+  'pallando-specific': 'Pallando',
+  'radagast-specific': 'Radagast',
+  'saruman-specific': 'Saruman',
+};
+
+/**
+ * The name of the single Fallen-wizard a card is specific to (e.g. "Saruman"
+ * for a card carrying `saruman-specific`), or `null` if the card is not
+ * wizard-specific. Used to gate playability: a `<wizard>-specific` card is
+ * playable only by the player whose revealed avatar is that wizard.
+ */
+export function wizardSpecificName(def: ReturnType<typeof defById>): string | null {
+  if (!def || !('keywords' in def)) return null;
+  for (const k of (def as { keywords?: readonly string[] }).keywords ?? []) {
+    if (k in WIZARD_SPECIFIC_NAME) return WIZARD_SPECIFIC_NAME[k];
+  }
+  return null;
+}
+
 /**
  * Discards a Fallen-wizard player's in-play `fallen-wizard-specific` stage
  * permanent-events once their avatar is no longer in play (MEWH §12).

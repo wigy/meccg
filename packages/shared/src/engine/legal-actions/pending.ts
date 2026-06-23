@@ -92,6 +92,8 @@ export function resolutionLegalActions(
       return cvccAllyDiscardRollActions(state, actor, top);
     case 'tap-one-character':
       return tapOneCharacterActions(state, actor, top);
+    case 'haven-restore-character':
+      return havenRestoreCharacterActions(state, actor, top);
     case 'stay-her-appetite-roll':
       return stayHerAppetiteRollActions(state, actor, top);
   }
@@ -1094,6 +1096,11 @@ function applyOneConstraint(
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'company-cannot-move':
+      // Enforced directly by the org-phase `plan-movement` emitter
+      // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
+      // legal-action filtering needed here. Used by Hide in Dark Places (le-192).
+      return base;
     case 'check-modifier':
       return base;
     case 'deny-scout-resources':
@@ -1182,6 +1189,17 @@ function applyOneConstraint(
       // Consulted directly by `playResourceShortEventActions` in
       // `legal-actions/organization.ts` (Records Unread: Information at any
       // Shadow-hold) — no broad legal-action filtering needed here.
+      return base;
+    case 'cross-alignment-resources-unlocked':
+      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
+      // (Double-dealing wh-66: lifts the MEWH §10 cross-alignment site-tap block
+      // at the bound site) — no broad legal-action filtering needed here.
+      return base;
+    case 'site-protected':
+      // Consulted directly by `siteIsProtectedAgainstPlayer` in
+      // `legal-actions/site.ts` (Guarded Haven wh-74: bars the opponent from
+      // playing marshalling-point cards at the bound site) — no broad
+      // legal-action filtering needed here.
       return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
@@ -1820,6 +1838,52 @@ function tapOneCharacterActions(
   }
 
   // pass is always available (required when no untapped characters exist)
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Legal actions while a `haven-restore-character` resolution is pending
+ * (Hall of Fire, dm-134).
+ *
+ * The controlling player may untap or heal one character in the company:
+ * one `restore-character-by-effect` action is emitted per tapped (untap) or
+ * wounded/inverted (heal to tapped) character. The benefit is optional, so
+ * `pass` is always available.
+ */
+function havenRestoreCharacterActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'haven-restore-character') return [];
+  const { companyId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  if (!ownerPlayer) return [];
+  const company = companyById(ownerPlayer.companies, companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const ch = ownerPlayer.characters[charId as string];
+    if (!ch) continue;
+    if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
+    const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);
+    const verb = ch.status === CardStatus.Tapped ? 'untap' : 'heal';
+    logDetail(`haven-restore-character: offering to ${verb} ${charName}`);
+    actions.push({
+      action: {
+        type: 'restore-character-by-effect' as const,
+        player: actor,
+        characterInstanceId: ch.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  // "may choose" — pass is always available.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
 
   return actions;
