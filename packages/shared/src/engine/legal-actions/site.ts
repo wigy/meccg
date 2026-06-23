@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -901,6 +901,22 @@ function playResourcesActions(
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: site duplication limit reached at ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated at ${siteName}`));
+            continue;
+          }
+        }
+
+        // play-condition: player-state — avatar/alignment/stage-point gate.
+        // The Fortress of Isen/Towers (wh-68/wh-69): "Playable if you are Alatar,
+        // Pallando, or Saruman."
+        const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
+        if (playerStateCond?.condition) {
+          const avatar = findPlayerAvatar(state, player);
+          const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
+          const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
+          const ctx = { player: { alignment: player.alignment, avatar: avatarName, stagePoints: player.stagePoints } };
+          if (!matchesCondition(playerStateCond.condition, ctx)) {
+            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied (avatar=${avatarName ?? 'none'})`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
             continue;
           }
         }
