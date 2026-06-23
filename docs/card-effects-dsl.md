@@ -709,6 +709,44 @@ Example (Gandalf's gold-ring test):
   } }
 ```
 
+**`place-item-on-character` apply.** Fetches one item matching `filter` from the
+player's `discard-pile` / `sideboard` / `hand` (named in `fetchFrom`) and places
+it, untapped, on a chosen character at the bearer's site. The legal-action
+generator enumerates one `activate-granted-action` per (qualifying item ×
+recipient) pair — the item rides on `targetCardId`, the recipient on
+`recipientCharacterId` — so the player picks both by choosing the action. The
+bearer pays the grant-action `cost` (typically `{ "tap": "bearer" }`); the
+recipient is **not** tapped. Implemented in `legal-actions/organization.ts`
+(emission) and `reducer-organization.ts` (`placeFetchedItemOnCharacter`).
+
+```json
+{ "type": "grant-action", "action": "forge-place-item",
+  "cost": { "tap": "bearer" },
+  "when": { "site.type": "haven" },
+  "apply": {
+    "type": "place-item-on-character",
+    "fetchFrom": ["discard-pile", "sideboard", "hand"],
+    "filter": { "$and": [
+      { "unique": false },
+      { "subtype": "minor" },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } },
+        { "keywords": { "$includes": "helmet" } }
+      ] }
+    ] }
+  } }
+```
+
+Used by The Forge-master (wh-117): "tap this character to place a non-unique
+weapon/armor/shield/helmet minor item with any character at The Forge-master's
+site … taken from your discard pile, sideboard, or hand." Wizard-specific
+playability (the card's "Saruman specific" line) is enforced generically by the
+permanent-event legal-action generator via `wizardSpecificName`: a
+`<wizard>-specific` card is playable only while that player's revealed avatar is
+the named wizard.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.

@@ -1675,9 +1675,64 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            {
+              "$or": [
+                {
+                  "$and": [
+                    { "target.skills": { "$includes": "sage" } },
+                    { "$not": { "target.race": "hobbit" } }
+                  ]
+                },
+                { "target.race": "man" }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
+      },
+      {
+        "type": "grant-action",
+        "action": "forge-place-item",
+        "cost": { "tap": "bearer" },
+        "when": { "site.type": "haven" },
+        "apply": {
+          "type": "place-item-on-character",
+          "fetchFrom": ["discard-pile", "sideboard", "hand"],
+          "filter": {
+            "$and": [
+              { "unique": false },
+              { "subtype": "minor" },
+              {
+                "$or": [
+                  { "keywords": { "$includes": "weapon" } },
+                  { "keywords": { "$includes": "armor" } },
+                  { "keywords": { "$includes": "shield" } },
+                  { "keywords": { "$includes": "helmet" } }
+                ]
+              }
+            ]
+          }
+        }
       }
     ],
-    "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand."
+    "text": "Unique. Saruman specific. Playable on a non-Hobbit sage character or a Man. +1 to his direct influence. The character requires 2 points of influence to control and may only be controlled by general influence or Saruman. If at a Wizardhaven [{H}] during your organization phase, you may tap this character to place a non-unique weapon/armor/shield/helmet minor item with any character at The Forge-master’s site. The recipient need not tap to receive this item, and the item may be taken from your discard pile, sideboard, or hand.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",

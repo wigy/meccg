@@ -24,7 +24,7 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -773,6 +773,63 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
+
+        // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
+        // place a qualifying minor item — fetched from the player's discard pile,
+        // sideboard, or hand — onto any of the player's characters at the bearer's
+        // site (the recipient is not tapped). Emit one activation per (item,
+        // recipient) pair so the player picks both via the chosen action.
+        if (effect.apply?.type === 'place-item-on-character') {
+          if (!company?.currentSite) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not at a site`);
+            continue;
+          }
+          const siteDefId = company.currentSite.definitionId as string;
+          const zones = effect.apply.fetchFrom ?? ['discard-pile', 'sideboard', 'hand'];
+          const itemFilter = effect.apply.filter;
+          const zoneItemIds: CardInstanceId[] = [];
+          for (const zone of zones) {
+            const pile = zone === 'discard-pile' ? player.discardPile
+              : zone === 'sideboard' ? player.sideboard
+                : zone === 'hand' ? player.hand
+                  : [];
+            for (const c of pile) {
+              const cdef = defById(state, c.definitionId);
+              if (!cdef || !isItemCard(cdef)) continue;
+              if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
+              zoneItemIds.push(c.instanceId);
+            }
+          }
+          if (zoneItemIds.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no qualifying item in discard/sideboard/hand`);
+            continue;
+          }
+          const recipients: CardInstanceId[] = [];
+          for (const co of player.companies) {
+            if (!co.currentSite || (co.currentSite.definitionId as string) !== siteDefId) continue;
+            for (const memberId of co.characters) recipients.push(memberId);
+          }
+          for (const itemInstId of zoneItemIds) {
+            for (const recipientId of recipients) {
+              actions.push({
+                action: {
+                  type: 'activate-granted-action',
+                  player: playerId,
+                  characterId: charId,
+                  sourceCardId: item.instanceId,
+                  sourceCardDefinitionId: item.definitionId,
+                  actionId: effect.action,
+                  rollThreshold: rollThresholdFor(effect),
+                  targetCardId: itemInstId,
+                  recipientCharacterId: recipientId,
+                },
+                viable: true,
+              });
+            }
+          }
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) at site`);
+          continue;
+        }
 
         // `heal-company-character` targets a wounded character in the bearer's
         // company — emit one action per wounded (inverted) candidate, carrying

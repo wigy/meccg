@@ -990,9 +990,10 @@ export interface TriggeredAction {
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
    * For `enqueue-pending-fetch` type: which pile to fetch from.
-   * Matches the `source` field on `FetchToDeckEffect`.
+   * Matches the `source` field on `FetchToDeckEffect`. The
+   * `place-item-on-character` apply additionally accepts `'sideboard'`.
    */
-  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand')[];
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[];
   /** For `enqueue-pending-fetch` type: how many cards to fetch. Defaults to 1. */
   readonly fetchCount?: number;
   /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
