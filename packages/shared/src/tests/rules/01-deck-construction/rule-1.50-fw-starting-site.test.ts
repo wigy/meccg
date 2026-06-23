@@ -25,6 +25,9 @@ import type { GameConfig, CardDefinitionId } from '../../../index.js';
 const THE_WHITE_TOWERS_FW = 'wh-58' as CardDefinitionId;
 const THE_WHITE_TOWERS_HERO = 'tw-430' as CardDefinitionId;
 const ETTENMOORS_MINION = 'le-373' as CardDefinitionId;
+// A low-mind (5), non-agent character a Fallen-wizard may freely draft without
+// an enabling Stage resource (rules 1.42/1.44).
+const BALIN = 'tw-123' as CardDefinitionId;
 
 describe('Rule 1.50 — Fallen-Wizard Starting Site', () => {
   test('[FALLEN-WIZARD] Starting company can only begin at White Towers or designated Ruins & Lairs in Arthedain/Rhudaur', () => {
@@ -34,7 +37,9 @@ describe('Rule 1.50 — Fallen-Wizard Starting Site', () => {
           id: PLAYER_1,
           name: 'Alice',
           alignment: Alignment.FallenWizard,
-          draftPool: [ARAGORN],
+          // A Fallen-wizard may only draft a mind ≤ 5, non-agent character
+          // without an enabling Stage resource (rules 1.42/1.44).
+          draftPool: [BALIN],
           playDeck: makePlayDeck(),
           siteDeck: [THE_WHITE_TOWERS_FW, THE_WHITE_TOWERS_HERO, ETTENMOORS_MINION, RIVENDELL],
           sideboard: [],
@@ -55,10 +60,10 @@ describe('Rule 1.50 — Fallen-Wizard Starting Site', () => {
     let state = createGame(config, pool);
 
     // Character draft: each player picks their one character.
-    const p1AragornInst = draftInstId(state, 0, ARAGORN);
+    const p1BalinInst = draftInstId(state, 0, BALIN);
     const p2AragornInst = draftInstId(state, 1, ARAGORN);
     state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: p1AragornInst },
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: p1BalinInst },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: p2AragornInst },
     ]);
 
