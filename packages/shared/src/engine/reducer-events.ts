@@ -281,6 +281,31 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
 
+  // Dark Tryst (as-80) and any other draw-cards short event: per CoE 9.4/9.5
+  // a short event is an action that must be declared on the chain of effects
+  // so the opponent has a chance to respond before it resolves. Place the
+  // card on the chain (it leaves the hand and rides on the chain entry until
+  // the chain resolves, where the draw + removal is applied — see
+  // `resolveEntry` in chain-reducer). This mirrors the resource permanent-event
+  // and hazard short-event flows, which also route through the chain rather
+  // than resolving inline.
+  const drawCardsEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
+  );
+  if (drawCardsEffect) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (draw resolves on chain resolution)`);
+    const payload: ChainEntryPayload = { type: 'short-event' };
+    const chained = afterReveal.chain === null
+      ? initiateChain(afterReveal, action.player, handCard, payload)
+      : pushChainEntry(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent

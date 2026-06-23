@@ -1994,6 +1994,43 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = queueFetchToDecEffects(current, entry);
   }
 
+  // draw-cards (Dark Tryst as-80): a resource short event that draws cards
+  // routes through the chain (see handlePlayResourceShortEvent) and resolves
+  // here once both players pass priority. Draw `count` cards from the top of
+  // the declaring player's play deck into their hand, then dispose of the
+  // spent event card: out-of-play when `removeFromGame` is set (so it can
+  // never be recurred), otherwise the discard pile. The card rode on the chain
+  // entry (it left the hand at play time), so dispose it now. Drawing stops
+  // early if the deck runs out — no card instance disappears, the deck is
+  // simply exhausted.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const drawEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
+    );
+    if (drawEffect) {
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      const deck = current.players[declaringIndex].playDeck;
+      const drawCount = Math.min(drawEffect.count, deck.length);
+      const drawnCards = deck.slice(0, drawCount);
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawCount}/${drawEffect.count} card(s) from play deck (deck size ${deck.length})`);
+      if (drawCount < drawEffect.count) {
+        logDetail(`${cardName}: play deck exhausted — drew only ${drawCount} of ${drawEffect.count}`);
+      }
+      const spentCard = toCardInstance(entry.card);
+      logDetail(`${cardName}: spent event card → ${drawEffect.removeFromGame ? 'out-of-play (removed from game)' : 'discard'}`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        hand: [...p.hand, ...drawnCards],
+        playDeck: p.playDeck.slice(drawCount),
+        ...(drawEffect.removeFromGame
+          ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
+          : { discardPile: [...p.discardPile, spentCard] }),
+      }));
+    }
+  }
+
   // Flattery-cancel-attack (e.g. Flatter a Foe): when the chain entry resolves
   // un-negated, create a flattery-attempt pending resolution for the defending
   // player to roll 2d6. The roll determines whether the attack is cancelled and

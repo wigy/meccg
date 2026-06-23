@@ -15,9 +15,10 @@
  * | # | Rule                                                                | Status      |
  * |---|---------------------------------------------------------------------|-------------|
  * | 1 | Playable as a resource short-event in any of the player's phases    | IMPLEMENTED |
- * | 2 | Draws three cards from the top of the play deck into hand           | IMPLEMENTED |
- * | 3 | The spent card is removed from the game (out-of-play, not discard)  | IMPLEMENTED |
- * | 4 | Drawing stops at deck exhaustion (no card disappears)              | IMPLEMENTED |
+ * | 2 | Played as an action on the chain of effects (CoE 9.4/9.5)           | IMPLEMENTED |
+ * | 3 | Draws three cards from the top of the play deck into hand           | IMPLEMENTED |
+ * | 4 | The spent card is removed from the game (out-of-play, not discard)  | IMPLEMENTED |
+ * | 5 | Drawing stops at deck exhaustion (no card disappears)              | IMPLEMENTED |
  *
  * Playable: YES
  *
@@ -31,7 +32,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  viableActions, findHandCardId, dispatch,
+  viableActions, findHandCardId, dispatch, resolveChain,
 } from '../test-helpers.js';
 import { Phase, Alignment } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -80,14 +81,47 @@ describe('Dark Tryst (as-80)', () => {
     expect(playActions[0].action.type).toBe('play-short-event');
   });
 
-  test('draws the top three cards into hand and removes itself from the game', () => {
+  test('is declared on the chain of effects rather than resolving immediately (CoE 9.4/9.5)', () => {
+    // Regression for the "Dark Tryst" bug report (game mqqntwsp-3f418h, seq 68):
+    // as a short event, Dark Tryst must go through the chain of effects so the
+    // opponent has a chance to respond before the draw resolves — it must NOT
+    // resolve inline at play time.
+    const state = buildDarkTrystState([LUITPRAND, OSTISEN, VARIAGS, JOIN_WITH_THAT_POWER]);
+    const darkTrystId = findHandCardId(state, RESOURCE_PLAYER, DARK_TRYST);
+
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+
+    // A chain is now active and the card rides on it (left the hand) — the draw
+    // has NOT happened yet.
+    expect(onChain.chain).not.toBeNull();
+    expect(onChain.chain!.entries).toHaveLength(1);
+    expect(onChain.chain!.entries[0].card?.instanceId).toBe(darkTrystId);
+    // Priority sits with the opponent so they may respond before resolution.
+    expect(onChain.chain!.priority).toBe(PLAYER_2);
+
+    const p1 = onChain.players[RESOURCE_PLAYER];
+    expect(p1.hand.map(c => c.instanceId)).not.toContain(darkTrystId);
+    expect(p1.hand).toHaveLength(0); // no cards drawn yet
+    expect(p1.playDeck).toHaveLength(4); // deck untouched until resolution
+    expect(p1.outOfPlayPile).toHaveLength(0);
+
+    // The opponent has chain priority and may pass it.
+    const oppActions = viableActions(onChain, PLAYER_2, 'pass-chain-priority');
+    expect(oppActions).toHaveLength(1);
+  });
+
+  test('draws the top three cards into hand and removes itself from the game once the chain resolves', () => {
     const state = buildDarkTrystState([LUITPRAND, OSTISEN, VARIAGS, JOIN_WITH_THAT_POWER]);
     const darkTrystId = findHandCardId(state, RESOURCE_PLAYER, DARK_TRYST);
     const deckBefore = state.players[RESOURCE_PLAYER].playDeck;
     const topThreeIds = deckBefore.slice(0, 3).map(c => c.instanceId);
     const fourthId = deckBefore[3].instanceId;
 
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+    const next = resolveChain(onChain);
+
+    // Chain fully resolved and cleared.
+    expect(next.chain).toBeNull();
 
     const p = next.players[RESOURCE_PLAYER];
 
@@ -108,7 +142,8 @@ describe('Dark Tryst (as-80)', () => {
     const darkTrystId = findHandCardId(state, RESOURCE_PLAYER, DARK_TRYST);
     const deckIds = state.players[RESOURCE_PLAYER].playDeck.map(c => c.instanceId);
 
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: darkTrystId });
+    const next = resolveChain(onChain);
 
     const p = next.players[RESOURCE_PLAYER];
     // Both available cards drawn, deck now empty, no extra card conjured.
