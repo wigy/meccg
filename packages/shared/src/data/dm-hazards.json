@@ -789,8 +789,59 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RedoubledForce.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "All Orc and Troll automatic-attacks receive +3 strikes and +2 prowess. Discard this card when such an automatic-attack is defeated. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll"
+            ]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 3,
+        "target": "all-automatic-attacks",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": {
+          "type": "discard-self"
+        },
+        "when": {
+          "attack.isAutomaticAttack": true,
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll"
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "All Orc and Troll automatic-attacks receive +3 strikes and +2 prowess. Discard this card when such an automatic-attack is defeated. Cannot be duplicated.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "hazard-event",

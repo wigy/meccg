@@ -2416,7 +2416,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         { companyId: combat.companyId },
       );
       const effectiveStrikes = resolveAttackStrikes(
-        stateWithCancelledPlayers, next.strikes, inPlayNames, creatureRace, { companyId: combat.companyId },
+        stateWithCancelledPlayers, next.strikes, inPlayNames, creatureRace, true, { companyId: combat.companyId },
       );
       logDetail(
         `Card-auto-attack cancelled: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
@@ -3718,9 +3718,11 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // permanent events whose on-event condition matches the attack's race
   // (e.g. The Moon Is Dead: discard when an Undead attack is defeated).
   if (allDefeated && combat.creatureRace) {
+    const isAutomaticAttack = combat.attackSource.type === 'automatic-attack'
+      || combat.attackSource.type === 'played-auto-attack';
     const attackCtx = {
       enemy: { race: combat.creatureRace },
-      attack: { isolated: combat.isolated ?? false },
+      attack: { isolated: combat.isolated ?? false, isAutomaticAttack },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
     const allDiscardedIds = new Set<string>();
@@ -3868,7 +3870,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         { companyId: combat.companyId },
       );
       const effectiveStrikes = resolveAttackStrikes(
-        stateAfterCombat, next.strikes, inPlayNames, creatureRace, { companyId: combat.companyId },
+        stateAfterCombat, next.strikes, inPlayNames, creatureRace, true, { companyId: combat.companyId },
       );
       logDetail(
         `Card-auto-attack: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
@@ -4025,7 +4027,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       })();
       const tidingsBoostCtx = { companyId: combat.companyId };
       const prowess2 = resolveAttackProwess(stateAfterCombat, aa.prowess, inPlayNames2, race, true, undefined, tidingsBoostCtx);
-      const strikes2 = resolveAttackStrikes(stateAfterCombat, aa.strikes, inPlayNames2, race, tidingsBoostCtx);
+      const strikes2 = resolveAttackStrikes(stateAfterCombat, aa.strikes, inPlayNames2, race, true, tidingsBoostCtx);
       const body2 = resolveAttackBody(stateAfterCombat, aa.body ?? null, inPlayNames2, race, tidingsBoostCtx);
       const aaAttackerChooses2 = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
       logDetail(`Tidings of Bold Spies: initiating attack ${attackIndex + 1}/${attacks.length}: ${aa.creatureType} (${strikes2} strikes, ${prowess2} prowess)`);

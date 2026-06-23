@@ -1354,7 +1354,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           { companyId },
         );
         const effectiveStrikes = resolveAttackStrikes(
-          newState, firstAttack.strikes, inPlayNames, creatureRace, { companyId },
+          newState, firstAttack.strikes, inPlayNames, creatureRace, true, { companyId },
         );
         logDetail(
           `"${def?.name ?? '?'}" entered play — triggering ${firstAttack.creatureType} auto-attack ` +
@@ -1828,7 +1828,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
   const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
   // Total strikes resolution. Precedence:
@@ -2285,7 +2285,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const race0 = normalizeCreatureRace(aa0.creatureType);
           const tidings0BoostCtx = { companyId: company.id };
           const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, tidings0BoostCtx);
-          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, tidings0BoostCtx);
+          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, true, tidings0BoostCtx);
           const body0 = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
           const aaAttackerChooses0 = aa0.combatRules?.includes('attacker-chooses-defenders') ?? false;
           logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
