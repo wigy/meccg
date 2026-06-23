@@ -31,6 +31,7 @@ import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
+import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -121,8 +122,9 @@ export function availableDI(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1)
-      usedDI += followerChar.effectiveStats.mind ?? followerDef.mind;
+      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1),
+      // and honor a `control-restriction` cost override (e.g. Wizard's Myrmidon).
+      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
     }
   }
 

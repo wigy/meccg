@@ -23,6 +23,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { controlCostOf } from './control-cost.js';
 import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
@@ -915,7 +916,8 @@ function handleAgentInfluenceAttempt(
     if (!targetChar) return { state, error: 'Target character not found' };
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
-    targetMind = targetDef.mind ?? 0;
+    // A `control-restriction` overrides the influence-to-control threshold.
+    targetMind = controlCostOf(state, targetChar, targetDef.mind ?? null) ?? 0;
 
     // Rule 10.14: shared home site → mind = 0, +2 roll
     const targetHomesites = parseHomesiteNames((targetDef as { homesite?: string }).homesite ?? '');

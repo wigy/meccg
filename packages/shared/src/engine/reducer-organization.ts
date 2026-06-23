@@ -17,6 +17,7 @@ import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShort
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef, getItemGrantedSkills } from './effects/index.js';
+import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
 import { applyCost } from './cost-evaluator.js';
 
@@ -395,6 +396,12 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     const controllerId = action.controlledBy;
     const controller = newCharacters[controllerId as string];
     if (!controller) return { state, error: 'Controlling character not found' };
+
+    // Enforce any control-source restriction on the moved character (e.g.
+    // Wizard's Myrmidon: "only by general influence or a Fallen-wizard").
+    if (!directInfluenceControlAllowed(state, char, controller, player.alignment)) {
+      return { state, error: 'Control-source restriction forbids this controller' };
+    }
 
     // If already a follower of someone else, remove from old controller first
     if (char.controlledBy !== 'general') {

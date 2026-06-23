@@ -462,6 +462,26 @@ of the discard pile, so it can never be recurred. Resolved directly in
 Used by Dark Tryst (as-80): "Draw three cards and remove this card from
 the game."
 
+### 6d. `reshuffle-from-discard`
+
+Carried by a resource short-event. On play, walks each affected player's
+discard pile, removes every card whose definition matches `filter`, and
+shuffles those cards into that player's play deck. `scope` selects whose
+piles are processed: `"all-players"` (default) affects every player,
+`"self"` only the playing player. The `filter` is a DSL `Condition`
+matched against each candidate card's definition. No card instance is
+lost — matched cards move from discard to deck, the rest stay in discard,
+and the spent event card lands in the playing player's discard pile.
+Resolved directly in `handlePlayResourceShortEvent` (`reducer-events.ts`).
+
+```json
+{ "type": "reshuffle-from-discard", "scope": "all-players",
+  "filter": { "cardType": { "$in": ["hero-resource-faction", "minion-resource-faction"] } } }
+```
+
+Used by Horns, Horns, Horns (dm-140): "Each player removes all factions
+from his discard pile and shuffles them into his play deck."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,
@@ -3117,20 +3137,38 @@ to the next automatic-attack at a Ruins & Lairs site.
 
 ### 28. `control-restriction`
 
-Restricts how the bearer character can be controlled.
+Overrides who, and at what cost, may control the bearing character (CoE
+"influence to control"). Carried by a resource permanent-event played on one of
+your own characters (Wizard's Myrmidon wh-84, The Forge-master wh-117) or by an
+item. Two independent, optional fields:
 
-Rules:
-
-- `no-direct-influence` — the character cannot be controlled by direct
-  influence. On attachment, any existing DI control is reverted to general
-  influence. During organization, the character cannot be moved to DI.
-  Used by Rebel-talk (le-132). Implemented in `chain-reducer.ts`
-  (attachment revert) and `organization-companies.ts` (block
-  move-to-influence).
+- `cost` — replaces the bearer's printed `mind` as the influence-to-control
+  value in *every* control context: the general-influence cost to keep the
+  character, the direct-influence a controller spends to hold it as a follower,
+  the move-to-influence reassignment checks, and the threshold an opponent must
+  beat to influence it away. It deliberately does **not** touch the character's
+  `mind` for combat/setup purposes (defender-prowess-from-mind, tap-low-mind,
+  the Fallen-wizard mind≤5 setup gate).
+- `sources` — restricts which control sources may hold the character under
+  direct influence. General influence is always permitted; a non-general
+  (direct-influence) controller is allowed only when `"fallen-wizard"` is listed
+  and that controller is the player's Fallen-wizard avatar. With no `sources`,
+  any normal direct-influence controller is allowed.
 
 ```json
-{ "type": "control-restriction", "rule": "no-direct-influence" }
+{ "type": "control-restriction", "cost": 3, "sources": ["general", "fallen-wizard"] }
 ```
+
+Every influence-to-control read routes through `engine/control-cost.ts`
+(`controlCostOf`, `directInfluenceControlAllowed`), consumed in
+`recompute-derived.ts` (GI accounting), `legal-actions/organization.ts`
+(follower DI), `legal-actions/organization-companies.ts` (move-to-influence),
+`reducer-organization.ts` (move-to-influence reducer guard), `reducer-site.ts`
+and `reducer-movement-hazard.ts` (opponent/agent influence-away threshold).
+
+> Note: the separate "this character cannot be controlled by direct influence at
+> all" rule (Rebel-talk le-132) is the `no-direct-influence` **play-flag**, not
+> this effect — see the play-flag list.
 
 ### 30. `dragon-at-home`
 

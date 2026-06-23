@@ -20,6 +20,7 @@ import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
+import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../index.js';
@@ -827,6 +828,48 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         ...(drawEffect.removeFromGame
           ? { outOfPlayPile: [...p.outOfPlayPile, handCard] }
           : { discardPile: [...p.discardPile, handCard] }),
+      })),
+    };
+  }
+
+  // reshuffle-from-discard (Horns, Horns, Horns dm-140): each affected
+  // player pulls every card matching the filter (here: factions) out of
+  // their discard pile and shuffles them into their play deck. Resolved
+  // here before the spent event card lands in the discard pile, so the
+  // event itself can never be swept up (it is a short-event, not a match).
+  const reshuffleEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').ReshuffleFromDiscardEffect =>
+      e.type === 'reshuffle-from-discard',
+  );
+  if (reshuffleEffect) {
+    const scope = reshuffleEffect.scope ?? 'all-players';
+    let working = newState;
+    working.players.forEach((p, idx) => {
+      if (scope === 'self' && idx !== playerIndex) return;
+      const matching = p.discardPile.filter(c =>
+        matchesDefinition(defById(working, c.definitionId)!, reshuffleEffect.filter),
+      );
+      if (matching.length === 0) {
+        logDetail(`${def.name}: player ${p.id as string} has no matching cards in discard pile`);
+        return;
+      }
+      const matchingIds = new Set(matching.map(c => c.instanceId));
+      const remainingDiscard = p.discardPile.filter(c => !matchingIds.has(c.instanceId));
+      const [shuffledDeck, nextRng] = shuffle([...p.playDeck, ...matching], working.rng);
+      logDetail(`${def.name}: player ${p.id as string} reshuffles ${matching.length} card(s) from discard into play deck (deck ${p.playDeck.length} → ${shuffledDeck.length})`);
+      working = {
+        ...updatePlayer(working, idx, pl => ({
+          ...pl,
+          discardPile: remainingDiscard,
+          playDeck: shuffledDeck,
+        })),
+        rng: nextRng,
+      };
+    });
+    return {
+      state: updatePlayer(working, playerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, handCard],
       })),
     };
   }
