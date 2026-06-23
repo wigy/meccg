@@ -306,6 +306,35 @@ export interface StagePointsEffect extends EffectBase {
 }
 
 /**
+ * Overrides who, and at what cost, may control the bearing character (CoE
+ * "influence to control"). Carried by a resource permanent-event played on one
+ * of your own characters (e.g. Wizard's Myrmidon wh-84, The Forge-master
+ * wh-117) or by an item.
+ *
+ * - {@link cost} replaces the printed `mind` as the influence-to-control value
+ *   in every control context: the general-influence cost to keep the character,
+ *   the direct-influence a controller spends to hold it as a follower, the
+ *   move-to-influence reassignment checks, and the threshold an opponent must
+ *   beat to influence it away.
+ * - {@link sources} restricts *which* control sources may hold the character
+ *   under direct influence. General influence is always permitted; a non-general
+ *   (direct-influence) controller is allowed only when `'fallen-wizard'` is
+ *   listed and that controller is the player's Fallen-wizard avatar. With no
+ *   `sources`, any normal direct-influence controller is allowed.
+ *
+ * Both fields are read through `engine/control-cost.ts`; neither touches the
+ * character's `mind` for combat/setup purposes (defender-prowess-from-mind,
+ * tap-low-mind, the Fallen-wizard mind≤5 setup gate).
+ */
+export interface ControlRestrictionEffect extends EffectBase {
+  readonly type: 'control-restriction';
+  /** Influence-to-control cost override (replaces the bearer's printed mind). */
+  readonly cost?: number;
+  /** Allowed control sources; `'general'` is always permitted regardless. */
+  readonly sources?: readonly ('general' | 'fallen-wizard')[];
+}
+
+/**
  * Overrides the marshalling-point value of the controlling player's factions
  * (MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event;
  * while it is in play, each faction the player controls is re-valued according
@@ -3182,6 +3211,7 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | ControlRestrictionEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | RecruitmentVehicleEffect

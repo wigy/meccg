@@ -17,6 +17,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { controlCostOf } from './control-cost.js';
 import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
@@ -1932,7 +1933,9 @@ function handleOpponentInfluenceAttempt(
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
     if (targetDef.mind === null) return { state, error: 'Cannot influence an avatar' };
-    targetMind = targetDef.mind;
+    // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the
+    // influence-to-control threshold the opponent must beat.
+    targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
