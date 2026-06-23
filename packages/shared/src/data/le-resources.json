@@ -3826,6 +3826,7 @@
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-272",
+    "certified": "2026-06-23",
     "name": "Misty Mountain Wargs",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MistyMountainWargs.jpg",
     "unique": true,
@@ -3835,11 +3836,40 @@
     "race": "wolf",
     "playableAt": [
       {
-        "site": "Ettenmoorsif"
+        "site": "Ettenmoors"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Ettenmoorsif the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Goblins of Goblin-gate (+2), Wargs of Forochel (+2)."
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "Leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Goblins of Goblin-gate"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Wargs of the Forochel"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Ettenmoors if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Goblins of Goblin-gate (+2), Wargs of Forochel (+2)."
   },
   {
     "cardType": "minion-resource-faction",
