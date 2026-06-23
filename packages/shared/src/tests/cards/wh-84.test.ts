@@ -16,31 +16,25 @@
  * | 1 | Playable on one of your non-Fallen-wizard characters  | IMPLEMENTED   |
  * | 2 | +1 to his direct influence                            | IMPLEMENTED   |
  * | 3 | Cannot be duplicated by a given player                | IMPLEMENTED   |
- * | 4 | Requires 3 points of influence to control             | NOT IMPL.     |
- * | 5 | May only be controlled by general influence / a FW    | NOT IMPL.     |
- * | 6 | Stage point (1) while in play                          | NOT IMPL.*    |
+ * | 4 | Requires 3 points of influence to control             | IMPLEMENTED   |
+ * | 5 | May only be controlled by general influence / a FW    | IMPLEMENTED   |
+ * | 6 | Stage point (1) while in play                          | IMPLEMENTED   |
  *
- * THIS CARD IS NOT CERTIFIED.
- *
- * Three distinct mechanics span engine subsystems the engine does not yet model
- * for this card's actual play mode (attached to a character):
- *  - Rule 4 ("requires 3 points of influence to control"): the influence-to-
- *    control cost is resolved from the printed `mind` in `move-to-influence`
- *    (organization-companies.ts) and in opponent-influence resolution
- *    (reducer-site.ts); neither consults an effective/overridable mind, so an
- *    attached card cannot change the cost to control the character.
+ * Rules 4–6 are now modeled:
+ *  - Rule 4 ("requires 3 points of influence to control"): the card carries a
+ *    `control-restriction` with `cost: 3`. Every influence-to-control read in
+ *    the engine (general-influence accounting, follower direct-influence,
+ *    move-to-influence reassignment, opponent/agent influence-away threshold)
+ *    routes through `engine/control-cost.ts`, so the cost to keep or steal the
+ *    bearer is 3 rather than its printed mind of 2.
  *  - Rule 5 ("may only be controlled by general influence or a Fallen-wizard"):
- *    there is no DSL concept for restricting direct-influence control to a
- *    Fallen-wizard avatar. The existing `no-direct-influence` play-flag forbids
- *    ALL direct influence with no avatar exception, so it cannot model this.
- *  - Rule 6 (*): the card carries `stage-points: 1`, but because a character-
- *    targeted resource permanent event is stored in the bearer's `items`
- *    (chain-reducer.ts) while `recompute-derived.ts` sums `stage-points` only
- *    over `cardsInPlay`, the stage point is not counted while the card is played
- *    per its text. Hence no assertion on `stagePoints` here.
- *
- * The tests below exercise the three implemented rules with real assertions, and
- * mark the unimplemented rules with `test.todo()`.
+ *    the same effect carries `sources: ["general", "fallen-wizard"]`.
+ *    `directInfluenceControlAllowed` lets the bearer be put under direct
+ *    influence only of the player's Fallen-wizard avatar; general influence is
+ *    always permitted. A normal (non-avatar) character may not control it.
+ *  - Rule 6: `recompute-derived.ts` now sums `stage-points` from characters'
+ *    `items` as well as `cardsInPlay`, so the bearer's attached stage point is
+ *    counted toward the controller's running total.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -64,12 +58,17 @@ const WIZARDS_MYRMIDON = 'wh-84' as CardDefinitionId;
 const SARUMAN = 'wh-9' as CardDefinitionId;
 /** Sly Southerner — a non-Fallen-wizard character (race orc, mind 2) */
 const SLY_SOUTHERNER = 'wh-10' as CardDefinitionId;
+/** The Mouth — a non-Fallen-wizard, non-avatar character with DI 4 (le-24).
+ *  Used as the negative control for the control-source restriction: a normal
+ *  character that WOULD be a valid direct-influence controller but for the
+ *  "only general influence or a Fallen-wizard" restriction. */
+const THE_MOUTH = 'le-24' as CardDefinitionId;
 /** Isengard — a Fallen-wizard haven */
 const ISENGARD_SITE = 'wh-56' as CardDefinitionId;
 
 // ── Builder ──────────────────────────────────────────────────────────────────
 
-function fwOrgState(opts?: { hand?: CardDefinitionId[] }) {
+function fwOrgState(opts?: { hand?: CardDefinitionId[]; characters?: CardDefinitionId[] }) {
   return buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.Organization,
@@ -78,7 +77,7 @@ function fwOrgState(opts?: { hand?: CardDefinitionId[] }) {
       {
         id: PLAYER_1,
         alignment: Alignment.FallenWizard,
-        companies: [{ site: ISENGARD_SITE, characters: [SARUMAN, SLY_SOUTHERNER] }],
+        companies: [{ site: ISENGARD_SITE, characters: opts?.characters ?? [SARUMAN, SLY_SOUTHERNER] }],
         hand: opts?.hand ?? [WIZARDS_MYRMIDON],
         siteDeck: [ISENGARD_SITE],
         playDeck: makePlayDeck(),
@@ -144,9 +143,69 @@ describe('Wizard\'s Myrmidon (wh-84)', () => {
     expect(actions.length).toBe(0);
   });
 
-  // ── Rules 4–6: unimplemented engine mechanics (card NOT certified) ──────────
+  // ── Rule 4: requires 3 points of influence to control ──────────────────────
 
-  test.todo('requires 3 points of influence to control (effective influence-to-control override)');
-  test.todo('may only be controlled by general influence or a Fallen-wizard (control restriction)');
-  test.todo('contributes 1 stage point while attached to a character (stage-points summed from items)');
+  test('raises the influence-to-control cost from the printed mind (2) to 3', () => {
+    const base = fwOrgState();
+    const orcId = findCharInstanceId(base, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const cardId = findHandCardId(base, RESOURCE_PLAYER, WIZARDS_MYRMIDON);
+
+    // The orc is held under general influence; the GI it consumes equals its
+    // influence-to-control cost.
+    const before = base.players[0].generalInfluenceUsed;
+    const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, orcId);
+
+    // Printed mind 2 → control cost 3: GI used rises by exactly 1.
+    expect(after.players[0].generalInfluenceUsed).toBe(before + 1);
+  });
+
+  // ── Rule 5: only general influence or a Fallen-wizard may control ──────────
+
+  test('may be moved under the Fallen-wizard avatar, but not under a normal character', () => {
+    // Company: Saruman (FW avatar, DI 12), The Mouth (normal char, DI 4),
+    // and Sly Southerner (the prospective follower).
+    const withCard = fwOrgState({ characters: [SARUMAN, THE_MOUTH, SLY_SOUTHERNER] });
+    const orcId = findCharInstanceId(withCard, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const avatarId = findCharInstanceId(withCard, RESOURCE_PLAYER, SARUMAN);
+    const mouthId = findCharInstanceId(withCard, RESOURCE_PLAYER, THE_MOUTH);
+    const cardId = findHandCardId(withCard, RESOURCE_PLAYER, WIZARDS_MYRMIDON);
+
+    const attached = playPermanentEventAndResolve(withCard, PLAYER_1, cardId, orcId);
+    const moves = viableActions(attached, PLAYER_1, 'move-to-influence')
+      .map(ea => ea.action as { characterInstanceId?: unknown; controlledBy?: unknown })
+      .filter(a => a.characterInstanceId === orcId);
+    const controllers = moves.map(a => a.controlledBy);
+
+    // The Fallen-wizard avatar may control it (DI 12 ≥ cost 3); the normal
+    // character may not, even though its DI 4 ≥ cost 3.
+    expect(controllers).toContain(avatarId);
+    expect(controllers).not.toContain(mouthId);
+  });
+
+  test('without the card, the same normal character IS a valid controller (isolates the restriction)', () => {
+    // Identical company but the card is not played: The Mouth (DI 4) can hold
+    // the orc (mind 2), proving its exclusion above is the control-source rule.
+    const base = fwOrgState({ characters: [SARUMAN, THE_MOUTH, SLY_SOUTHERNER], hand: [] });
+    const orcId = findCharInstanceId(base, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const mouthId = findCharInstanceId(base, RESOURCE_PLAYER, THE_MOUTH);
+
+    const controllers = viableActions(base, PLAYER_1, 'move-to-influence')
+      .map(ea => ea.action as { characterInstanceId?: unknown; controlledBy?: unknown })
+      .filter(a => a.characterInstanceId === orcId)
+      .map(a => a.controlledBy);
+
+    expect(controllers).toContain(mouthId);
+  });
+
+  // ── Rule 6: contributes 1 stage point while attached to a character ─────────
+
+  test('the attached stage point is counted toward the controller stage-point total', () => {
+    const base = fwOrgState();
+    const orcId = findCharInstanceId(base, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const cardId = findHandCardId(base, RESOURCE_PLAYER, WIZARDS_MYRMIDON);
+
+    expect(base.players[0].stagePoints).toBe(0);
+    const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, orcId);
+    expect(after.players[0].stagePoints).toBe(1);
+  });
 });

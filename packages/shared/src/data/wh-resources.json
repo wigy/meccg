@@ -996,9 +996,15 @@
         "type": "duplication-limit",
         "scope": "player",
         "max": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 3,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
-    "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player."
+    "text": "Playable on one of your non-Fallen-wizard characters. +1 to his direct influence. The character requires 3 points of influence to control and may only be controlled by general influence or a Fallen-wizard. Cannot be duplicated by a given player.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
