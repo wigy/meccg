@@ -407,6 +407,15 @@ export interface DraftPlayerState {
   readonly pool: readonly CardInstance[];
   /** Cards successfully drafted so far. */
   readonly drafted: readonly CardInstance[];
+  /**
+   * Fallen-wizard "Stage" resources (e.g. Thrall of the Voice wh-82, Hidden
+   * Haven wh-75) drafted from the pool during the character draft. These are
+   * tracked separately from {@link drafted} because they are not characters:
+   * they do not consume the starting-company size budget, and drafting one
+   * (Thrall) lifts the FW restriction on drafting mind > 5 / agent characters
+   * (rules 1.42, 1.44). Resolved at draft finalize (see `applyDraftResults`).
+   */
+  readonly draftedStageResources: readonly CardInstance[];
   /** The face-down pick for the current draft round, or null if not yet picked. */
   readonly currentPick: CardInstance | null;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */
