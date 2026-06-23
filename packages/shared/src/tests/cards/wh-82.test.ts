@@ -25,9 +25,11 @@
  *    with the recruit (attaches it, removing it from hand) and consumes the
  *    one-character-per-turn slot. `recomputeDerived` then reduces the recruit's
  *    mind by one (floor 1).
- *  - Setup (rule 4): Thrall is a `starting-company-placement`; placing it on a
- *    starting character attaches it and reduces that character's mind, so such
- *    a character may be in the starting company.
+ *  - Setup (rule 4): Thrall is a Stage resource drafted during the character
+ *    draft (rules 1.42/1.44). Drafting it lifts the Fallen-wizard restriction on
+ *    drafting mind > 5 / agent characters; at draft finalize it is attached to a
+ *    qualifying drafted character, reducing that character's mind, so such a
+ *    character may be in the starting company.
  *
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
@@ -37,10 +39,10 @@
  * | 3 | -1 to the borne character's mind, to a minimum of 1           | OK     |
  * | 4 | Such a character may also be in your starting company         | OK     |
  *
- * Note: the engine's draft does not itself impose the Fallen-wizard
- * starting-company mind/agent restriction that rule 4 lifts, so rule 4 is
- * exercised as its positive outcome — a mind-6 character may sit in the FW
- * starting company with Thrall placed on it, reducing its mind.
+ * Note: drafting Thrall lifts the Fallen-wizard mind > 5 / agent draft gate
+ * (rules 1.42/1.44, covered by their own rule tests); rule 4 here is exercised
+ * as its positive outcome — a mind-6 character drafted after Thrall sits in the
+ * FW starting company with Thrall attached to it, reducing its mind.
  *
  * Playable: YES
  */
@@ -49,11 +51,11 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, LORIEN, MORIA,
   resetMint, buildTestState, attachItemToChar, getCharacter,
-  recomputeDerived, dispatch,
-  Phase, Alignment, RESOURCE_PLAYER, HAZARD_PLAYER,
+  recomputeDerived, dispatch, createGame, draftInstId, runActions, makePlayDeck, pool,
+  Phase, Alignment, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, SetupStep } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, GameState, SetupStepState } from '../../index.js';
+import { computeLegalActions } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, GameConfig } from '../../index.js';
 
 const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
 const IVIC = 'dm-17' as CardDefinitionId;          // minion agent, mind 6 (→ 5)
@@ -204,50 +206,35 @@ describe('Thrall of the Voice (wh-82)', () => {
 
   // ── Rule 4: such a character may also be in your starting company ───────────
 
-  test('placed in a starting company, Thrall attaches to the character and reduces its mind', () => {
-    const base = buildTestState({
-      phase: Phase.Organization,
-      activePlayer: PLAYER_1,
-      recompute: true,
+  test('drafted during the character draft, Thrall attaches to a mind-6 starting character and reduces its mind', () => {
+    const config: GameConfig = {
       players: [
-        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: WIZARDHAVEN, characters: [GIMLI] }], hand: [], siteDeck: [RIVENDELL] },
-        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [OPPONENT_CHAR] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, GIMLI], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
       ],
-    });
-
-    const gimliId = getCharacter(base, RESOURCE_PLAYER, GIMLI).instanceId;
-    const thrallInst = { instanceId: 'wh82-thrall-pd' as CardInstanceId, definitionId: THRALL_OF_THE_VOICE };
-
-    const itemDraftStep: SetupStepState = {
-      step: SetupStep.ItemDraft,
-      itemDraftState: [
-        { unassignedItems: [], done: false, startingEventsPlaced: 0 },
-        { unassignedItems: [], done: false, startingEventsPlaced: 0 },
-      ],
-      remainingPool: [[], []],
+      seed: 42,
     };
-    const state: GameState = {
-      ...base,
-      players: [
-        { ...base.players[RESOURCE_PLAYER], playDeck: [thrallInst] },
-        base.players[HAZARD_PLAYER],
-      ] as GameState['players'],
-      phaseState: { phase: Phase.Setup, setupStep: itemDraftStep },
-    };
+    let state = createGame(config, pool);
 
-    // The item-draft legal actions offer placing Thrall on the starting character.
-    const placement = computeLegalActions(state, PLAYER_1).find(
-      a => a.viable && a.action.type === 'place-starting-company-event'
-        && (a.action as { cardDefId?: CardDefinitionId }).cardDefId === THRALL_OF_THE_VOICE
-        && (a.action as { targetCharacterInstanceId?: CardInstanceId }).targetCharacterInstanceId === gimliId,
-    );
-    expect(placement).toBeDefined();
+    // Draft Thrall (a Stage resource — resolves immediately, lifting the mind > 5
+    // gate), then the mind-6 character it enables.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+    ]);
+    // Both pools now hold one character each; picking them empties the pools and
+    // auto-finalises the draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
+    ]);
 
-    const after = recomputeDerived(dispatch(state, placement!.action));
-    const gimli = getCharacter(after, RESOURCE_PLAYER, GIMLI);
-    // Such a character (mind 6) is in the starting company, with Thrall placed on it…
+    // Draft finalised: Thrall is attached to Gimli, in the FW starting company.
+    state = recomputeDerived(state);
+    const gimli = getCharacter(state, RESOURCE_PLAYER, GIMLI);
     expect(gimli.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
-    // …and its mind is reduced to 5.
+    // …and its mind (6) is reduced to 5.
     expect(gimli.effectiveStats.mind).toBe(5);
   });
 });

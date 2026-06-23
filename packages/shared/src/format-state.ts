@@ -109,6 +109,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
       for (const ds of step.draftState) {
         addCards(ds.pool);
         addCards(ds.drafted);
+        addCards(ds.draftedStageResources);
         if (ds.currentPick) addCards([ds.currentPick]);
       }
       for (const arr of step.setAside) addCards(arr);
