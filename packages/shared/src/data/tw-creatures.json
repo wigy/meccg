@@ -1236,12 +1236,37 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
+        ]
+      },
+      {
+        "regionNames": [
+          "Fangorn",
+          "Heart of Mirkwood",
+          "Southern Mirkwood",
+          "Western Mirkwood"
+        ]
+      },
+      {
+        "siteNames": [
+          "Old Forest",
+          "Drúadan Forest"
         ]
       }
     ],
-    "effects": [],
-    "text": "Awakened Plant. One strike. 15 prowess against Hobbits. May also be played keyed to Fangorn, Heart of Mirkwood, Southern Mirkwood, and Western Mirkwood; and may also be played at Ruins & Lairs [{R}], Shadow-holds [{S}], and Dark-holds [{D}] in these regions. Also playable at Old Forest and Drúadan Forest."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "defender.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Awakened Plant. One strike. 15 prowess against Hobbits. May also be played keyed to Fangorn, Heart of Mirkwood, Southern Mirkwood, and Western Mirkwood; and may also be played at Ruins & Lairs [{R}], Shadow-holds [{S}], and Dark-holds [{D}] in these regions. Also playable at Old Forest and Drúadan Forest.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "hazard-creature",
