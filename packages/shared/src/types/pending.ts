@@ -483,6 +483,21 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Hall of Fire (dm-134): immediately after a company finishes its
+         * movement/hazard phase at a Haven where a Hall of Fire is in play,
+         * the controlling player may choose one of that company's characters
+         * to untap (tapped → untapped) or heal (wounded → tapped), or pass.
+         * The improvement applied to the chosen character is determined by
+         * its current status, so the resolution only needs the target.
+         */
+        readonly type: 'haven-restore-character';
+        /** The company whose characters are eligible to restore. */
+        readonly companyId: CompanyId;
+        /** Definition ID of the source permanent event (Hall of Fire). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
          * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
          * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =
@@ -1027,19 +1042,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * The Fortress of Isen (wh-68) / Fortress of the Towers (wh-69): a
-         * Fallen-wizard stage permanent-event bound to a Wizardhaven. "Cards
-         * that give marshalling points cannot be played at [the site] by your
-         * opponent in all cases." While this constraint is active, the engine
-         * bars the player who is NOT the constraint `target` (the opponent of
-         * the Fortress owner) from playing any marshalling-point-bearing card
-         * (item/ally/faction/resource, `marshallingPoints > 0`) at the bound
-         * site during their site phase. Matched by `siteDefinitionId` against
-         * the active company's current site; scoped `until-cleared` and cleared
-         * when the card is discarded (the bound haven leaving play).
+         * Guarded Haven (wh-74) and the MEWH "protected Wizardhaven" family
+         * (The Fortress of Isen wh-68, Fortress of the Towers wh-69, …): a stage
+         * permanent-event played on one of the controller's Wizardhavens makes
+         * that site **protected**. "Cards that give marshalling points may not be
+         * played at any version of the site by your opponent in all cases." While
+         * this constraint is active, any opponent (a player other than the
+         * constraint's `player` target) is barred — in `legal-actions/site.ts`
+         * `siteIsProtectedAgainstPlayer` — from playing a marshalling-point card
+         * (item/ally/faction worth ≥1 MP) at a site whose definition id matches
+         * {@link siteDefinitionId}. "Any version of the site" is matched by
+         * definition id, so the opponent's own copy of the same site in their
+         * location deck is covered too. Scoped `until-cleared` and cleared when
+         * the card is discarded (the bound site leaving play, via
+         * `discardOrphanedSiteAttachedEvents`).
          */
-        readonly type: 'opponent-mp-play-blocked-at-site';
-        /** The definition ID of the site at which opponent MP plays are barred. */
+        readonly type: 'site-protected';
+        /** The definition ID of the protected site (all versions). */
         readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       }
     | {

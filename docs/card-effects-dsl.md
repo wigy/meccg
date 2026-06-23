@@ -709,6 +709,44 @@ Example (Gandalf's gold-ring test):
   } }
 ```
 
+**`place-item-on-character` apply.** Fetches one item matching `filter` from the
+player's `discard-pile` / `sideboard` / `hand` (named in `fetchFrom`) and places
+it, untapped, on a chosen character at the bearer's site. The legal-action
+generator enumerates one `activate-granted-action` per (qualifying item ×
+recipient) pair — the item rides on `targetCardId`, the recipient on
+`recipientCharacterId` — so the player picks both by choosing the action. The
+bearer pays the grant-action `cost` (typically `{ "tap": "bearer" }`); the
+recipient is **not** tapped. Implemented in `legal-actions/organization.ts`
+(emission) and `reducer-organization.ts` (`placeFetchedItemOnCharacter`).
+
+```json
+{ "type": "grant-action", "action": "forge-place-item",
+  "cost": { "tap": "bearer" },
+  "when": { "site.type": "haven" },
+  "apply": {
+    "type": "place-item-on-character",
+    "fetchFrom": ["discard-pile", "sideboard", "hand"],
+    "filter": { "$and": [
+      { "unique": false },
+      { "subtype": "minor" },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } },
+        { "keywords": { "$includes": "helmet" } }
+      ] }
+    ] }
+  } }
+```
+
+Used by The Forge-master (wh-117): "tap this character to place a non-unique
+weapon/armor/shield/helmet minor item with any character at The Forge-master's
+site … taken from your discard pile, sideboard, or hand." Wizard-specific
+playability (the card's "Saruman specific" line) is enforced generically by the
+permanent-event legal-action generator via `wizardSpecificName`: a
+`<wizard>-specific` card is playable only while that player's revealed avatar is
+the named wizard.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.
@@ -738,6 +776,7 @@ Events:
 - `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`). Supports `apply: { "type": "discard-self" }` to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated.
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. An optional `regionTypeFilter: [...]` array restricts the iteration to regions whose type appears in the list — e.g. *Lure of Nature* uses `regionTypeFilter: ["wilderness"]` to enqueue a check only for each wilderness in the path. Used by *Alone and Unadvised* and *Lure of Nature*. Implemented in `reducer-movement-hazard.ts`.
+- `company-mh-end-at-site` -- fires when a company finishes its movement/hazard phase (`endCompanyMH`, after movement is committed) while at the Haven a permanent event is bound to (`attachedToSite` = the company's final `currentSite` definition id). Scanned over the active player's `cardsInPlay` in `reducer-movement-hazard.ts` (`fireHavenRestoreTriggers`). Supports `apply: { type: "offer-restore-character" }`: when the company has at least one tapped or wounded character, a `haven-restore-character` pending resolution is enqueued for the controlling player, scoped to the upcoming Site phase (the M/H sub-phase boundary would otherwise sweep it before the player acts; pending resolutions short-circuit every phase action, so it is resolved at the very next decision point — immediately following the company's M/H phase). The player may choose one character to untap (tapped → untapped) or heal one step (wounded/inverted → tapped) via a `restore-character-by-effect` action, or pass — the improvement is determined by the chosen character's current status. Used by *Hall of Fire* (dm-134).
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached items for this event and applies the `discard-self` action, moving the card to the owner's discard pile. Used by *Align Palantír*. Implemented in `reducer-movement-hazard.ts`.
 - `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. The attack was not canceled by the time this event fires (canceling an attack prevents `initiateCreatureCombat` from running entirely). Handled in `chain-reducer.ts` `initiateCreatureCombat()`. Supported apply types:
@@ -1622,6 +1661,56 @@ the bound site.
 Used by Double-dealing (wh-66): "If the site is a minion site, you may play
 appropriate hero resources there. If the site is a hero site, you may play
 appropriate minion resources there."
+
+### 13c. `site-protected` active constraint
+
+Produced by an `on-event: self-enters-play → add-constraint` apply on a stage
+permanent-event played on a Wizardhaven (`play-target` target `site`). The
+constraint kind resolves the bound site from the active company's current site
+during the site phase and is filtered by that `siteDefinitionId`, targeted at
+the controlling `player`, scoped `until-cleared`. While active, any player other
+than the protector ("your opponent") is barred — in `legal-actions/site.ts`
+(`siteIsProtectedAgainstPlayer` + `givesMarshallingPoints`) — from playing a
+marshalling-point card (an item/ally/faction worth ≥1 MP) at any version of the
+site. "Any version of the site" is matched by definition id, so the opponent's
+own copy of the same site in their location deck is covered too. The constraint
+(and the card) are cleared by `discardOrphanedSiteAttachedEvents` once no company
+occupies the bound site.
+
+```json
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "site-protected",
+    "scope": "until-cleared"
+  }
+}
+```
+
+Used by Guarded Haven (wh-74): "The site is protected. Cards that give
+marshalling points may not be played at any version of the site by your opponent
+in all cases." The companion `play-target` filter requires `effectiveSiteType`
+`haven` (after any wizardhaven-conversion) and excludes the three named sites:
+
+```json
+{
+  "type": "play-target",
+  "target": "site",
+  "filter": {
+    "$and": [
+      { "effectiveSiteType": "haven" },
+      { "$not": { "name": { "$in": ["Isengard", "The White Towers", "Rhosgobel"] } } }
+    ]
+  }
+}
+```
+
+The "May not be used as a starting stage card" clause needs no effect: the card
+simply omits the `starting-item` keyword that marks a Fallen-wizard Stage
+resource as draftable at setup (Thrall of the Voice wh-82, Hidden Haven wh-75
+carry it), so the draft layer never offers it as a starting stage card.
 
 ### 14. `duplication-limit`
 
@@ -3136,20 +3225,38 @@ to the next automatic-attack at a Ruins & Lairs site.
 
 ### 28. `control-restriction`
 
-Restricts how the bearer character can be controlled.
+Overrides who, and at what cost, may control the bearing character (CoE
+"influence to control"). Carried by a resource permanent-event played on one of
+your own characters (Wizard's Myrmidon wh-84, The Forge-master wh-117) or by an
+item. Two independent, optional fields:
 
-Rules:
-
-- `no-direct-influence` — the character cannot be controlled by direct
-  influence. On attachment, any existing DI control is reverted to general
-  influence. During organization, the character cannot be moved to DI.
-  Used by Rebel-talk (le-132). Implemented in `chain-reducer.ts`
-  (attachment revert) and `organization-companies.ts` (block
-  move-to-influence).
+- `cost` — replaces the bearer's printed `mind` as the influence-to-control
+  value in *every* control context: the general-influence cost to keep the
+  character, the direct-influence a controller spends to hold it as a follower,
+  the move-to-influence reassignment checks, and the threshold an opponent must
+  beat to influence it away. It deliberately does **not** touch the character's
+  `mind` for combat/setup purposes (defender-prowess-from-mind, tap-low-mind,
+  the Fallen-wizard mind≤5 setup gate).
+- `sources` — restricts which control sources may hold the character under
+  direct influence. General influence is always permitted; a non-general
+  (direct-influence) controller is allowed only when `"fallen-wizard"` is listed
+  and that controller is the player's Fallen-wizard avatar. With no `sources`,
+  any normal direct-influence controller is allowed.
 
 ```json
-{ "type": "control-restriction", "rule": "no-direct-influence" }
+{ "type": "control-restriction", "cost": 3, "sources": ["general", "fallen-wizard"] }
 ```
+
+Every influence-to-control read routes through `engine/control-cost.ts`
+(`controlCostOf`, `directInfluenceControlAllowed`), consumed in
+`recompute-derived.ts` (GI accounting), `legal-actions/organization.ts`
+(follower DI), `legal-actions/organization-companies.ts` (move-to-influence),
+`reducer-organization.ts` (move-to-influence reducer guard), `reducer-site.ts`
+and `reducer-movement-hazard.ts` (opponent/agent influence-away threshold).
+
+> Note: the separate "this character cannot be controlled by direct influence at
+> all" rule (Rebel-talk le-132) is the `no-direct-influence` **play-flag**, not
+> this effect — see the play-flag list.
 
 ### 30. `dragon-at-home`
 

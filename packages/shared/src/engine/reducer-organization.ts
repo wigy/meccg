@@ -6,7 +6,7 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect, PlayerState } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
@@ -17,6 +17,7 @@ import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShort
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef, getItemGrantedSkills } from './effects/index.js';
+import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
 import { applyCost } from './cost-evaluator.js';
 
@@ -395,6 +396,12 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     const controllerId = action.controlledBy;
     const controller = newCharacters[controllerId as string];
     if (!controller) return { state, error: 'Controlling character not found' };
+
+    // Enforce any control-source restriction on the moved character (e.g.
+    // Wizard's Myrmidon: "only by general influence or a Fallen-wizard").
+    if (!directInfluenceControlAllowed(state, char, controller, player.alignment)) {
+      return { state, error: 'Control-source restriction forbids this controller' };
+    }
 
     // If already a follower of someone else, remove from old controller first
     if (char.controlledBy !== 'general') {
@@ -867,6 +874,42 @@ type ApplyOk = {
 };
 
 /**
+ * Move a fetched item instance from the player's discard pile, sideboard, or
+ * hand onto a recipient character's `items`, untapped (The Forge-master wh-117
+ * `place-item-on-character` apply). The item is searched across all three zones
+ * by instance ID; the recipient is one of the activating player's characters.
+ * No card instance is lost — the item simply changes zones.
+ */
+function placeFetchedItemOnCharacter(
+  state: GameState,
+  playerIndex: number,
+  itemId: CardInstanceId,
+  recipientId: CardInstanceId,
+): GameState {
+  const player = state.players[playerIndex];
+  const zones: readonly (keyof Pick<PlayerState, 'hand' | 'discardPile' | 'sideboard'>)[] = ['hand', 'discardPile', 'sideboard'];
+  let sourceZone: typeof zones[number] | null = null;
+  let card: { instanceId: CardInstanceId; definitionId: import('../types/common.js').CardDefinitionId } | null = null;
+  for (const zone of zones) {
+    const hit = player[zone].find(c => c.instanceId === itemId);
+    if (hit) { sourceZone = zone; card = { instanceId: hit.instanceId, definitionId: hit.definitionId }; break; }
+  }
+  if (!sourceZone || !card) {
+    logDetail(`place-item-on-character: item ${itemId as string} not found in hand/discard/sideboard`);
+    return state;
+  }
+  const recipientDef = resolveDef(state, recipientId);
+  logDetail(`place-item-on-character: placing ${defById(state, card.definitionId)?.name ?? card.definitionId as string} from ${sourceZone} onto ${recipientDef && 'name' in recipientDef ? (recipientDef as { name: string }).name : recipientId as string} (untapped)`);
+  const itemInPlay = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
+  const sZone = sourceZone;
+  return updatePlayer(state, playerIndex, p => {
+    const pile = (p[sZone] as readonly { instanceId: CardInstanceId }[]).filter(c => c.instanceId !== itemId);
+    const withZoneRemoved: PlayerState = { ...p, [sZone]: pile };
+    return updateCharacter(withZoneRemoved, recipientId, c => ({ ...c, items: [...c.items, itemInPlay] }));
+  });
+}
+
+/**
  * Apply a single TriggeredAction in a grant-action context. Mutates
  * `newPlayers` in place (via assignment to indices) and returns the
  * updated character + any engine effects produced (e.g. dice rolls) +
@@ -1316,6 +1359,24 @@ function runGrantApply(
           ],
         }),
       ],
+    };
+  }
+
+  if (apply.type === 'place-item-on-character') {
+    // The Forge-master wh-117: the chosen item (ctx.action.targetCardId) is
+    // moved from the player's discard pile / sideboard / hand onto the chosen
+    // recipient (ctx.action.recipientCharacterId) at the bearer's site,
+    // untapped. The bearer-tap cost was already paid; the recipient is not
+    // tapped. Deferred to a stateOp so it runs on the post-cost state.
+    const itemId = ctx.action.targetCardId;
+    const recipientId = ctx.action.recipientCharacterId;
+    if (!itemId || !recipientId) {
+      return { error: `place-item-on-character: missing item or recipient on ${ctx.sourceName}` };
+    }
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [s => placeFetchedItemOnCharacter(s, ctx.playerIndex, itemId, recipientId)],
     };
   }
 

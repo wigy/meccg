@@ -20,7 +20,7 @@
  *    `attachedToSite`).
  *  - `play-condition` player-state `{ player.avatar: { $in: [Alatar, Pallando,
  *    Saruman] } }` — "Playable if you are Alatar, Pallando, or Saruman."
- *  - `self-enters-play → add-constraint opponent-mp-play-blocked-at-site` (scope
+ *  - `self-enters-play → add-constraint site-protected` (scope
  *    until-cleared, targeted at the controlling player): while active, the
  *    opponent (any non-owner active player) may not play a marshalling-point
  *    card at the bound site (`legal-actions/site.ts`).
@@ -133,7 +133,7 @@ describe('The Fortress of Isen (wh-68)', () => {
     expect(card!.attachedToSite).toBe(ISENGARD);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'opponent-mp-play-blocked-at-site' && c.kind.siteDefinitionId === ISENGARD,
+      c => c.kind.type === 'site-protected' && c.kind.siteDefinitionId === ISENGARD,
     );
     expect(constraint).toBeDefined();
     expect(constraint!.scope.kind).toBe('until-cleared');
@@ -162,7 +162,7 @@ describe('The Fortress of Isen (wh-68)', () => {
       sourceDefinitionId: FORTRESS_OF_ISEN,
       scope: { kind: 'until-cleared' as const },
       target: { kind: 'player' as const, playerId: owner },
-      kind: { type: 'opponent-mp-play-blocked-at-site' as const, siteDefinitionId: ISENGARD },
+      kind: { type: 'site-protected' as const, siteDefinitionId: ISENGARD },
     };
   }
 

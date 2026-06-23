@@ -20,7 +20,8 @@ import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar } from '../reducer-utils.js';
+import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 
 /**
@@ -61,6 +62,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       if (alreadyInPlay) {
         logDetail(`Permanent event ${def.name}: unique and already in play`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is unique and already in play`));
+        continue;
+      }
+    }
+
+    // Wizard-specific cards (e.g. The Forge-master wh-117 "Saruman specific")
+    // are playable only by the player whose revealed avatar is that wizard.
+    const requiredWizard = wizardSpecificName(def);
+    if (requiredWizard) {
+      const avatar = findPlayerAvatar(state, player);
+      const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
+      const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
+      if (avatarName !== requiredWizard) {
+        logDetail(`Permanent event ${def.name}: ${requiredWizard}-specific, but player's avatar is ${avatarName ?? 'none'}`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is ${requiredWizard}-specific`));
         continue;
       }
     }

@@ -42,6 +42,7 @@ import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
+import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
 
@@ -675,7 +676,9 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // its mind is not subtracted from general influence until the player's next
     // organization phase clears the flag.
     if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null) {
-      const mindCost = newStats.mind ?? charDef.mind;
+      // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the GI cost
+      // to keep the character; otherwise the effective/printed mind is used.
+      const mindCost = controlCostOf(state, char, newStats.mind ?? charDef.mind) ?? 0;
       generalInfluenceUsed += mindCost;
     }
 
@@ -925,6 +928,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   if (player.alignment === 'fallen-wizard') {
     for (const def of playerCardsInPlayDefs(state, player)) {
       stagePoints += stagePointsOfCard(def);
+    }
+    // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
+    // The Forge-master wh-117) is attached to the bearer's `items`, not to
+    // `cardsInPlay`, so its stage points must be summed from there too.
+    // `stagePointsOfCard` returns 0 for ordinary items, so iterating all items
+    // is safe.
+    for (const char of Object.values(player.characters)) {
+      for (const item of char.items) {
+        stagePoints += stagePointsOfCard(resolveDef(state, item.instanceId));
+      }
     }
   }
 

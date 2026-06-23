@@ -556,8 +556,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Haven [{H}]. Any company at this Haven [{H}] immediately following its movement/hazard phase may choose for one of its characters to untap or heal (from wounded to tapped). Discard Hall of Fire when the site card is returned to the location deck."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "haven"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-mh-end-at-site",
+        "apply": {
+          "type": "offer-restore-character"
+        }
+      }
+    ],
+    "text": "Playable on a Haven [{H}]. Any company at this Haven [{H}] immediately following its movement/hazard phase may choose for one of its characters to untap or heal (from wounded to tapped). Discard Hall of Fire when the site card is returned to the location deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "hero-resource-event",

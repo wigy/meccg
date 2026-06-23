@@ -360,6 +360,13 @@ export interface ActivateGrantedAction {
    */
   readonly secondTargetCardId?: CardInstanceId;
   /**
+   * Recipient character for a `place-item-on-character` apply (The
+   * Forge-master wh-117): the character at the bearer's site that receives
+   * the fetched item, while `targetCardId` carries the fetched item's
+   * instance ID. The recipient is not tapped to receive the item.
+   */
+  readonly recipientCharacterId?: CardInstanceId;
+  /**
    * METD §7 / rule 10.08 — for `remove-self-on-roll` from a corruption
    * card: when true, the character does NOT tap, the roll suffers -3,
    * and a per-character per-card lock blocks any further removal
