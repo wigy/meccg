@@ -523,6 +523,34 @@ export interface DrawCardsEffect extends EffectBase {
 }
 
 /**
+ * Moves every card matching `filter` from a discard pile back into the
+ * owner's play deck, then shuffles that deck.
+ *
+ * Carried by a resource short-event and resolved when the event is played.
+ * The `scope` selects whose piles are affected: `'all-players'` (the
+ * default) walks every player's discard pile — used by *Horns, Horns,
+ * Horns* (dm-140): "Each player removes all factions from his discard pile
+ * and shuffles them into his play deck." — while `'self'` touches only the
+ * playing player's piles. The `filter` is a DSL {@link Condition} matched
+ * against each candidate card's definition (e.g. the faction card types),
+ * so no card-specific category code is needed.
+ */
+export interface ReshuffleFromDiscardEffect extends EffectBase {
+  readonly type: 'reshuffle-from-discard';
+  /**
+   * DSL filter matched against each candidate card's definition. Cards in a
+   * discard pile that match are pulled out and shuffled into that owner's
+   * play deck.
+   */
+  readonly filter: Condition;
+  /**
+   * Whose discard piles are processed. `'all-players'` (default) affects
+   * every player; `'self'` affects only the playing player.
+   */
+  readonly scope?: 'self' | 'all-players';
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -3073,6 +3101,7 @@ export type CardEffect =
   | HandSizeModifierEffect
   | DrawModifierEffect
   | DrawCardsEffect
+  | ReshuffleFromDiscardEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
