@@ -1833,9 +1833,44 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Isengard", "The White Towers"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Saruman"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "technology-item-unlocked",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
+    "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",

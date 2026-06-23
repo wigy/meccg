@@ -895,6 +895,15 @@ function buildConstraintKind(
       if (!siteDefId) return null;
       return { type: 'site-protected', siteDefinitionId: siteDefId };
     }
+    case 'technology-item-unlocked': {
+      // Saruman's Machinery (wh-120): bind to the protected Isengard / The
+      // White Towers the card is played on (the active company's current site
+      // during the site phase) so one Technology item may be played there
+      // whether the site is tapped or untapped.
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'technology-item-unlocked', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }

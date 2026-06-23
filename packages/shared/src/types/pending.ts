@@ -1063,6 +1063,25 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Saruman's Machinery (wh-120): a stage permanent-event played on the
+         * controller's protected Isengard / The White Towers makes "One
+         * Technology item … playable at the site during your site phase whether
+         * the site is tapped or untapped." While this constraint is active for
+         * the controlling `player` target, one item bearing the `Technology`
+         * keyword may be played at the bound site (matched by
+         * {@link siteDefinitionId}) during the site phase, bypassing both the
+         * site-tap precondition and the item's own `item-play-site` restriction
+         * (which would otherwise reject a Wizardhaven). The one-per-site-phase
+         * limit is tracked by `SitePhaseState.technologyItemPlayed`. Scoped
+         * `until-cleared` and cleared when the card is discarded (the bound site
+         * leaving play, via `discardOrphanedSiteAttachedEvents`).
+         */
+        readonly type: 'technology-item-unlocked';
+        /** The definition ID of the site at which a Technology item may be played. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
          * Great-road (tw-249): the hazard player may draw up to twice the
          * normal number of cards during this company's M/H phase. The
          * multiplier is applied in `transitionToDrawCards` after the base
