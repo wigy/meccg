@@ -462,6 +462,26 @@ of the discard pile, so it can never be recurred. Resolved directly in
 Used by Dark Tryst (as-80): "Draw three cards and remove this card from
 the game."
 
+### 6d. `reshuffle-from-discard`
+
+Carried by a resource short-event. On play, walks each affected player's
+discard pile, removes every card whose definition matches `filter`, and
+shuffles those cards into that player's play deck. `scope` selects whose
+piles are processed: `"all-players"` (default) affects every player,
+`"self"` only the playing player. The `filter` is a DSL `Condition`
+matched against each candidate card's definition. No card instance is
+lost — matched cards move from discard to deck, the rest stay in discard,
+and the spent event card lands in the playing player's discard pile.
+Resolved directly in `handlePlayResourceShortEvent` (`reducer-events.ts`).
+
+```json
+{ "type": "reshuffle-from-discard", "scope": "all-players",
+  "filter": { "cardType": { "$in": ["hero-resource-faction", "minion-resource-faction"] } } }
+```
+
+Used by Horns, Horns, Horns (dm-140): "Each player removes all factions
+from his discard pile and shuffles them into his play deck."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,
