@@ -22,6 +22,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
+import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { isRegressive } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
@@ -322,9 +323,15 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // hard-capped at 6 no matter how much extra distance is granted.
     const MAX_EXTENDED_REGION_DISTANCE = BASE_MAX_REGION_DISTANCE + 2;
     const requestedMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0) + collectPassiveMovementBonus(state, company.characters, player);
-    const effectiveMaxRegions = Math.min(requestedMaxRegions, MAX_EXTENDED_REGION_DISTANCE);
-    if (effectiveMaxRegions < requestedMaxRegions) {
+    const cappedMaxRegions = Math.min(requestedMaxRegions, MAX_EXTENDED_REGION_DISTANCE);
+    if (cappedMaxRegions < requestedMaxRegions) {
       logDetail(`Company ${company.id as string}: region distance capped at ${MAX_EXTENDED_REGION_DISTANCE} (requested ${requestedMaxRegions})`);
+    }
+    // Environment hazards (e.g. No Way Forward) reduce the max region distance
+    // game-wide, never below the environment's floor.
+    const effectiveMaxRegions = applyRegionMovementReduction(state, cappedMaxRegions);
+    if (effectiveMaxRegions < cappedMaxRegions) {
+      logDetail(`Company ${company.id as string}: region distance reduced to ${effectiveMaxRegions} by an in-play environment (was ${cappedMaxRegions})`);
     }
     const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
