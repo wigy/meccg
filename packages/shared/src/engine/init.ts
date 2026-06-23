@@ -52,7 +52,7 @@ import {
   isSiteCard,
 } from '../index.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { defById } from './reducer-utils.js';
+import { defById, isStageResourceCard, hasRecruitmentVehicleEffect, isAgentCharacter } from './reducer-utils.js';
 
 // ---- Config types ----
 
@@ -150,8 +150,8 @@ export function createGame(
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: config.players[0].draftPool.map(defId => mint(minter0, defId)), drafted: [], currentPick: null, stopped: false },
-    { pool: config.players[1].draftPool.map(defId => mint(minter1, defId)), drafted: [], currentPick: null, stopped: false },
+    { pool: config.players[0].draftPool.map(defId => mint(minter0, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false },
+    { pool: config.players[1].draftPool.map(defId => mint(minter1, defId)), drafted: [], draftedStageResources: [], currentPick: null, stopped: false },
   ];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -260,6 +260,32 @@ function initPlayerPreDraft(
 }
 
 /**
+ * Choose which drafted character a recruitment-vehicle Stage resource (Thrall
+ * of the Voice) is placed with. The vehicle lifts the Fallen-wizard draft gate
+ * for mind > 5 and agent characters, so prefer attaching it where that gate
+ * mattered: an as-yet-unthralled agent first, then the highest-mind character.
+ * Returns `undefined` if every drafted character already carries a vehicle (or
+ * there are none).
+ */
+function pickThrallTarget(
+  state: GameState,
+  characterInstanceIds: readonly CardInstanceId[],
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  used: ReadonlySet<string>,
+): CardInstanceId | undefined {
+  const candidates = characterInstanceIds.filter(id => !used.has(id as string));
+  if (candidates.length === 0) return undefined;
+  const mindOf = (id: CardInstanceId): number => {
+    const def = defById(state, characters[id as string].definitionId);
+    return isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+  };
+  const isAgent = (id: CardInstanceId): boolean => isAgentCharacter(defById(state, characters[id as string].definitionId));
+  const agents = candidates.filter(isAgent);
+  const pickFrom = agents.length > 0 ? agents : candidates;
+  return [...pickFrom].sort((a, b) => mindOf(b) - mindOf(a))[0];
+}
+
+/**
  * Finalises the character draft by placing each player's drafted characters
  * into a single starting company at their haven, equipping starting minor
  * items on the first character, dealing initial hands from the play deck,
@@ -284,9 +310,16 @@ export function applyDraftResults(
     // Keep the original instance IDs — every card minted into the game must keep
     // its instance ID for the lifetime of the game.
     const minorItems: CardInstance[] = [];
+    // Undrafted Fallen-wizard Stage resources still in the pool must not be lost
+    // when the character-deck-draft pass clears the remaining pool — sink them to
+    // the sideboard (the no-card-disappears invariant).
+    const strandedStageResources: CardInstance[] = [];
     for (const card of pool) {
-      if (isItemCard(defById(state, card.definitionId))) {
+      const def = defById(state, card.definitionId);
+      if (isItemCard(def)) {
         minorItems.push(card);
+      } else if (isStageResourceCard(def)) {
+        strandedStageResources.push(card);
       }
     }
 
@@ -311,6 +344,36 @@ export function applyDraftResults(
       };
     }
 
+    // Resolve drafted Stage resources (rules 1.42/1.44/1.50):
+    //  - Thrall of the Voice (recruitment-vehicle) is "placed with a character":
+    //    attach it to a drafted character that needed it — prefer an agent, then
+    //    the highest-mind character, so its "-1 to his mind" lands where the
+    //    draft gate was lifted. Its mind reduction applies via recomputeDerived.
+    //  - Hidden Haven (and any other Stage resource) goes to the player's hand so
+    //    it can be played on the starting site during setup.
+    const handAdditions: CardInstance[] = [];
+    const thralledTargets = new Set<string>();
+    for (const card of draftState[index].draftedStageResources) {
+      const def = defById(state, card.definitionId);
+      if (hasRecruitmentVehicleEffect(def)) {
+        const targetId = pickThrallTarget(state, characterInstanceIds, characters, thralledTargets);
+        if (targetId) {
+          thralledTargets.add(targetId as string);
+          const target = characters[targetId as string];
+          characters[targetId as string] = {
+            ...target,
+            items: [...target.items, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
+          };
+        } else {
+          // No drafted character to place it with — keep it in hand so it is
+          // never lost and can be played as a recruitment vehicle later.
+          handAdditions.push(card);
+        }
+      } else {
+        handAdditions.push(card);
+      }
+    }
+
     // Company created with null site — site is assigned during starting site selection
     const company: Company = {
       id: `company-${player.id}-0` as CompanyId,
@@ -331,6 +394,8 @@ export function applyDraftResults(
         ...player,
         companies: [company],
         characters,
+        hand: [...player.hand, ...handAdditions],
+        sideboard: [...player.sideboard, ...strandedStageResources],
       } satisfies PlayerState,
       unassignedItems: minorItems,
     };
@@ -340,9 +405,16 @@ export function applyDraftResults(
   // Remaining pool for character deck draft: undrafted characters + this player's set-aside characters
   // (items are excluded — already extracted above). Each player keeps the collided instances that
   // originated from their own pick, so every instance remains in exactly one location.
+  // Items go to item draft; undrafted Stage resources were sunk to the sideboard
+  // above; only undrafted characters (plus this player's collided set-aside)
+  // carry into the character-deck-draft pool.
+  const carriesToDeckDraft = (card: CardInstance): boolean => {
+    const def = defById(state, card.definitionId);
+    return !isItemCard(def) && !isStageResourceCard(def);
+  };
   const remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]] = [
-    [...draftState[0].pool.filter(card => !isItemCard(defById(state, card.definitionId))), ...setAside[0]],
-    [...draftState[1].pool.filter(card => !isItemCard(defById(state, card.definitionId))), ...setAside[1]],
+    [...draftState[0].pool.filter(carriesToDeckDraft), ...setAside[0]],
+    [...draftState[1].pool.filter(carriesToDeckDraft), ...setAside[1]],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },

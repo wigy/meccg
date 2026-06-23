@@ -572,6 +572,18 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Hide in Dark Places (le-192): the company may not declare movement
+         * (plan a new destination) for the rest of this turn. The card is
+         * "playable on a scout whose company is not moving", and locks that
+         * company stationary so its hazard-creature immunity cannot be carried
+         * onto a moving company. Enforced directly by the org-phase
+         * `plan-movement` emitter (`planMovementActions`) and reducer
+         * (`handlePlanMovement`).
+         */
+        readonly type: 'company-cannot-move';
+      }
+    | {
+        /**
          * Generic one-shot check modifier attached to a character. Parallels
          * the DSL `check-modifier` effect but lives on the constraint side
          * because it is targeted, temporary, and consumed the first time
@@ -994,6 +1006,24 @@ export interface ActiveConstraint {
         readonly siteType: string;
         /** Resource category unlocked (e.g. `"information"`). */
         readonly subtype: string;
+      }
+    | {
+        /**
+         * Double-dealing (wh-66): a stage permanent-event played on a site that
+         * relaxes the MEWH §10 cross-alignment site-tap restriction at that one
+         * site. "If the site is a minion site, you may play appropriate hero
+         * resources there. If the site is a hero site, you may play appropriate
+         * minion resources there." While this constraint is active for the
+         * controlling player, a hero resource that taps a minion site (or a
+         * minion resource that taps a hero site) at the bound site is no longer
+         * barred by `siteTapCrossAlignmentBlocked` in `legal-actions/site.ts`.
+         * Matched by `siteDefinitionId` against the playing company's current
+         * site and by the controlling `player` target; scoped `until-cleared`
+         * and cleared when the card is discarded (the bound site leaving play).
+         */
+        readonly type: 'cross-alignment-resources-unlocked';
+        /** The definition ID of the site on which cross-alignment play is allowed. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       }
     | {
         /**

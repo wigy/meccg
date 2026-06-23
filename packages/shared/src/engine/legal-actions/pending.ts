@@ -1094,6 +1094,11 @@ function applyOneConstraint(
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'company-cannot-move':
+      // Enforced directly by the org-phase `plan-movement` emitter
+      // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
+      // legal-action filtering needed here. Used by Hide in Dark Places (le-192).
+      return base;
     case 'check-modifier':
       return base;
     case 'deny-scout-resources':
@@ -1182,6 +1187,11 @@ function applyOneConstraint(
       // Consulted directly by `playResourceShortEventActions` in
       // `legal-actions/organization.ts` (Records Unread: Information at any
       // Shadow-hold) — no broad legal-action filtering needed here.
+      return base;
+    case 'cross-alignment-resources-unlocked':
+      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
+      // (Double-dealing wh-66: lifts the MEWH §10 cross-alignment site-tap block
+      // at the bound site) — no broad legal-action filtering needed here.
       return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —

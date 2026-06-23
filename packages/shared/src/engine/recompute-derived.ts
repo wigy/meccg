@@ -27,6 +27,7 @@ import type {
   Alignment,
   CompanyId,
   RingwraithModeEffect,
+  FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
 import {
@@ -38,7 +39,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { manifestIdOf } from './manifestations.js';
@@ -90,17 +91,59 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
 /**
  * Adds a card's marshalling points to the running totals by its category,
  * applying the Fallen-wizard 1-MP-per-card rule (MEWH §4) via {@link fwClampMp}.
+ *
+ * `fwCharAllyCaps` carries any in-play `fw-character-ally-mp` overrides (Great
+ * Patron wh-72). Passed only when scoring **characters and allies**: a
+ * Fallen-wizard card whose printed MP meets a cap's threshold is worth the cap's
+ * `value` instead of the flat §4 1-MP clamp. Stage cards and non-Fallen-wizard
+ * players are never affected.
  */
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
   playerAlignment: Alignment,
+  fwCharAllyCaps: readonly FallenWizardCharacterAllyMpEffect[] = [],
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
-  const mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
+  let mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
+  // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally give
+  // at least `threshold` MP are each worth `value` instead of the §4 1-MP clamp.
+  if (
+    playerAlignment === 'fallen-wizard'
+    && fwCharAllyCaps.length > 0
+    && def.marshallingPoints > 0
+    && !('alignment' in def && (def as { alignment?: string }).alignment === 'stage')
+  ) {
+    for (const cap of fwCharAllyCaps) {
+      if (def.marshallingPoints >= cap.threshold) {
+        mp = cap.value;
+        break;
+      }
+    }
+  }
   if (mp === 0) return totals;
   const cat = def.marshallingCategory;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/**
+ * Collects the active `fw-character-ally-mp` overrides (Great Patron wh-72) a
+ * Fallen-wizard player has in play. Empty for non-Fallen-wizard players, who
+ * never field stage resources. The overrides apply to the player's characters
+ * and allies when their printed MP meets the threshold.
+ */
+function fwCharacterAllyMpCaps(
+  state: GameState,
+  player: PlayerState,
+): FallenWizardCharacterAllyMpEffect[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const caps: FallenWizardCharacterAllyMpEffect[] = [];
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-character-ally-mp') caps.push(effect);
+    }
+  }
+  return caps;
 }
 
 /**
@@ -132,6 +175,52 @@ function addItemMP(
   }
   if (mp === 0) return totals;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/** One faction-MP-override rule: a condition and the MP it grants when matched. */
+type FactionMpOverrideRule = { readonly when: Condition; readonly value: number };
+
+/**
+ * Collects the faction-MP-override rule sets a player has in play (e.g. Gatherer
+ * of Loyalties wh-70). Each in-play card carrying a `faction-mp-override` effect
+ * contributes its ordered rule list; the lists are concatenated in card order so
+ * the shared "last matching rule wins" precedence still holds. Returns an empty
+ * array when no such card is in play.
+ */
+function factionMpOverrideRules(
+  state: GameState,
+  player: PlayerState,
+): FactionMpOverrideRule[] {
+  const rules: FactionMpOverrideRule[] = [];
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'faction-mp-override') rules.push(...effect.rules);
+    }
+  }
+  return rules;
+}
+
+/**
+ * Resolves the overridden marshalling-point value for a faction the player
+ * controls, or `undefined` if no rule matches (so the faction scores normally).
+ * Each rule is evaluated against the per-faction context
+ * `{ faction: { unique, race, normalMp, name }, player: { avatar } }`; the last
+ * matching rule wins, letting avatar-specific rules override the base rule.
+ */
+function resolveFactionMpOverride(
+  def: FactionCard,
+  rules: readonly FactionMpOverrideRule[],
+  avatarName: string | undefined,
+): number | undefined {
+  const ctx = {
+    faction: { unique: def.unique, race: def.race, normalMp: def.marshallingPoints, name: def.name },
+    player: { avatar: avatarName },
+  };
+  let value: number | undefined;
+  for (const rule of rules) {
+    if (matchesContext(rule.when, ctx)) value = rule.value;
+  }
+  return value;
 }
 
 /**
@@ -459,11 +548,57 @@ function itemExemptFromFwClamp(itemDef: CardDefinition, filters: (Condition | nu
   return filters.some(f => f === null || matchesDefinition(itemDef, f));
 }
 
+/**
+ * Collects the `permanent-event-mp` overrides a player currently has in play
+ * (e.g. Man of Skill wh-119). Scans the player's in-play cards and returns each
+ * effect's `{ value, requiresResource }`. A permanent-event is matched by such
+ * an override when it carries a `play-condition` requiring that resource
+ * subtype's site (see {@link permanentEventMpOverride}).
+ */
+function permanentEventMpOverrides(
+  state: GameState,
+  player: PlayerState,
+): { value: number; requiresResource: string }[] {
+  const overrides: { value: number; requiresResource: string }[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'permanent-event-mp') {
+        overrides.push({ value: effect.value, requiresResource: effect.requiresResource });
+      }
+    }
+  }
+  return overrides;
+}
+
+/**
+ * If an in-play permanent-event is subject to a `permanent-event-mp` override,
+ * returns the overridden marshalling-point value; otherwise `undefined`. A
+ * permanent-event matches an override iff it carries a `play-condition` with
+ * `requires: 'site-has-resource'` and a `subtype` equal to the override's
+ * `requiresResource` (the "requires a site where X is playable" prerequisite).
+ */
+function permanentEventMpOverride(
+  def: CardDefinition,
+  overrides: { value: number; requiresResource: string }[],
+): number | undefined {
+  if (overrides.length === 0) return undefined;
+  const siteHasResource = findPlayConditionEffect(def, 'site-has-resource');
+  if (!siteHasResource?.subtype) return undefined;
+  const match = overrides.find(o => o.requiresResource === siteHasResource.subtype);
+  return match?.value;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
   // filter (e.g. Saruman's non-combat items) score full printed MP instead of
   // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
   const fwItemExemptions = fwItemMpExemptFilters(state, player);
+  // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
+  // characters/allies that normally give >= threshold MP score `value` instead
+  // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
+  const fwCharAllyCaps = fwCharacterAllyMpCaps(state, player);
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
@@ -559,8 +694,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
     } else {
-      mp = addMP(mp, charDef, player.alignment);
-      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment);
+      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)
@@ -595,8 +730,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
-        mp = addMP(mp, allyDef, player.alignment);
-        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment);
+        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps);
       }
     }
   }
@@ -621,10 +756,35 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // are skipped here — they are physically kept in their host player's
   // cardsInPlay, but their marshalling points are credited to their owner in
   // the dedicated pass below.
+  // A Fallen-wizard stage card (e.g. Gatherer of Loyalties wh-70) can re-value
+  // the player's factions, replacing both their printed MP and the §4 flat-1
+  // clamp. Collect the active override rules once and the player's revealed
+  // avatar name (Alatar/Pallando/Saruman) so avatar-specific rules can match.
+  const factionOverrides = factionMpOverrideRules(state, player);
+  const avatarChar = factionOverrides.length > 0 ? findPlayerAvatar(state, player) : undefined;
+  const avatarName = avatarChar ? (resolveDef(state, avatarChar.instanceId) as { name?: string } | undefined)?.name : undefined;
+  // Man of Skill (wh-119) and similar: in-play `permanent-event-mp` effects
+  // override the MP of the player's permanent-events that require a given
+  // resource site. Computed once per player; empty when no such effect is in play.
+  const peMpOverrides = permanentEventMpOverrides(state, player);
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
-    if (def) mp = addMP(mp, def, player.alignment);
+    if (!def) continue;
+    if (factionOverrides.length > 0 && isFactionCard(def)) {
+      const overrideMp = resolveFactionMpOverride(def, factionOverrides, avatarName);
+      if (overrideMp !== undefined) {
+        mp = { ...mp, faction: mp.faction + overrideMp };
+        continue;
+      }
+    }
+    const override = permanentEventMpOverride(def, peMpOverrides);
+    if (override !== undefined) {
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      if (override !== 0) mp = { ...mp, [cat]: mp[cat] + override };
+    } else {
+      mp = addMP(mp, def, player.alignment);
+    }
   }
 
   // MEAS §1: cards placed "off to the side" award their marshalling points to
