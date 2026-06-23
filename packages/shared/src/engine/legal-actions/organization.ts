@@ -1503,7 +1503,7 @@ function buildPlayerStateContext(
     }
   }
   return {
-    player: { alignment: player.alignment, hasRingwraithInPlay },
+    player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints },
     opponent: { alignment: opponent?.alignment },
   };
 }

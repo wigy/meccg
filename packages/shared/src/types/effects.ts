@@ -306,6 +306,36 @@ export interface StagePointsEffect extends EffectBase {
 }
 
 /**
+ * Overrides the marshalling-point value of the controlling player's factions
+ * (MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event;
+ * while it is in play, each faction the player controls is re-valued according
+ * to the matching {@link rules} entry, replacing both the faction's printed MP
+ * and the Fallen-wizard §4 flat-1 clamp.
+ *
+ * Rules are evaluated in array order against a per-faction context
+ * `{ faction: { unique, race, normalMp, name }, player: { avatar } }`, where
+ * `faction.normalMp` is the faction's printed MP and `player.avatar` is the
+ * name of the controller's revealed avatar (e.g. `"Alatar"`). The **last**
+ * matching rule wins, so order entries from least to most specific (base rule
+ * first, avatar-specific overrides after). A faction matching no rule keeps its
+ * normal scoring. Collected and consumed in `recompute-derived.ts`.
+ *
+ * Used by Gatherer of Loyalties (wh-70): unique factions worth 2 MP each, with
+ * Alatar's unique Dragon factions worth 4 and Pallando's unique factions
+ * normally worth 3+ worth 3.
+ */
+export interface FactionMpOverrideEffect extends EffectBase {
+  readonly type: 'faction-mp-override';
+  /** Ordered override rules; the last matching rule sets the faction's MP. */
+  readonly rules: readonly {
+    /** Condition matched against the per-faction override context. */
+    readonly when: Condition;
+    /** Marshalling points the faction is worth when this rule matches. */
+    readonly value: number;
+  }[];
+}
+
+/**
  * Overrides the marshalling-point value of the controller's in-play
  * permanent-events that "require a site where [a resource category] is
  * playable".
@@ -3123,6 +3153,7 @@ export type CardEffect =
   | PlayCreatureFromDiscardEffect
   | LeaderControlEffect
   | StagePointsEffect
+  | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
