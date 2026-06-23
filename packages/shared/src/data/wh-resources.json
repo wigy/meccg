@@ -1637,8 +1637,14 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "permanent-event-mp",
+        "value": 2,
+        "requiresResource": "information"
       }
     ],
+    "certified": "2026-06-22",
     "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
   },
   {

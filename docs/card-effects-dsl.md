@@ -277,6 +277,26 @@ non-Fallen-wizard players (who never hold stage cards).
 { "type": "stage-points", "value": 3 }
 ```
 
+### 3c. `permanent-event-mp`
+
+Overrides the marshalling-point value of the controller's in-play
+**permanent-events that require a site where a resource category is playable**.
+A permanent-event "requires a site where X is playable" iff it carries a
+`play-condition` with `requires: 'site-has-resource'` and `subtype: X` (the same
+prerequisite the legal-action layer reports as "requires a site where X is
+playable"). While the card carrying this effect is in play, every such
+permanent-event the player controls scores exactly `value` marshalling points in
+its own category, overriding its printed value and — for a Fallen-wizard — the
+MEWH §4 flat-1-MP clamp. Collected once per player from `cardsInPlay` and
+consumed in `recompute-derived.ts` (`permanentEventMpOverride`).
+
+Used by Man of Skill (wh-119): "Your permanent-events that require a site where
+Information is playable are each worth 2 marshalling points."
+
+```json
+{ "type": "permanent-event-mp", "value": 2, "requiresResource": "information" }
+```
+
 ### 4. `company-modifier`
 
 Applies a stat or check modifier to every character in the company the
