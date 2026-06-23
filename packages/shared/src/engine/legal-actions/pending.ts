@@ -1183,6 +1183,11 @@ function applyOneConstraint(
       // `legal-actions/organization.ts` (Records Unread: Information at any
       // Shadow-hold) — no broad legal-action filtering needed here.
       return base;
+    case 'cross-alignment-resources-unlocked':
+      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
+      // (Double-dealing wh-66: lifts the MEWH §10 cross-alignment site-tap block
+      // at the bound site) — no broad legal-action filtering needed here.
+      return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
       // no broad legal-action filtering needed here.

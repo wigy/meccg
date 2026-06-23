@@ -997,6 +997,24 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Double-dealing (wh-66): a stage permanent-event played on a site that
+         * relaxes the MEWH §10 cross-alignment site-tap restriction at that one
+         * site. "If the site is a minion site, you may play appropriate hero
+         * resources there. If the site is a hero site, you may play appropriate
+         * minion resources there." While this constraint is active for the
+         * controlling player, a hero resource that taps a minion site (or a
+         * minion resource that taps a hero site) at the bound site is no longer
+         * barred by `siteTapCrossAlignmentBlocked` in `legal-actions/site.ts`.
+         * Matched by `siteDefinitionId` against the playing company's current
+         * site and by the controlling `player` target; scoped `until-cleared`
+         * and cleared when the card is discarded (the bound site leaving play).
+         */
+        readonly type: 'cross-alignment-resources-unlocked';
+        /** The definition ID of the site on which cross-alignment play is allowed. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
          * Great-road (tw-249): the hazard player may draw up to twice the
          * normal number of cards during this company's M/H phase. The
          * multiplier is applied in `transitionToDrawCards` after the base
