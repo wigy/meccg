@@ -2460,10 +2460,27 @@ check) and `reducer-events.ts` (discard execution).
   card **is** in play (as a character or in any player's cardsInPlay). The
   `cardName` field names the required card. Enforced for hazard
   long-events in `legal-actions/movement-hazard.ts`. Used by Snowstorm
-  (tw-91): "Playable if Doors of Night is in play."
+  (tw-91): "Playable if Doors of Night is in play." On a **faction** the gate
+  is evaluated against the controller's OWN in-play names (so an opponent's
+  copy of the named card does not satisfy "if **you** have … in play") —
+  used by Half-orcs (wh-87) / Greater Half-orcs (wh-86) ("if you have A
+  Strident Spawn in play").
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
+```
+
+- `site-protected` — (takes no extra fields) on a **faction** the influence
+  attempt is only offered when the company's current site is **protected by
+  the controller**: an active `site-protected` constraint (added by a stage
+  permanent-event such as Guarded Haven wh-74) bound to the site's definition
+  id and owned by the player attempting the play. Protection by the opponent,
+  or no protection, does not qualify. Checked in `legal-actions/site.ts`
+  (`siteIsProtectedByPlayer`). Used by Half-orcs (wh-87) / Greater Half-orcs
+  (wh-86): "Playable at one of your protected Wizardhavens [{H}]".
+
+```json
+{ "type": "play-condition", "requires": "site-protected" }
 ```
 
 - `same-site-has-character-race` — for character-targeting permanent events
