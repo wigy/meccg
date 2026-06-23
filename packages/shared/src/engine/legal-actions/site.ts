@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition, CardDefinitionId } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -61,6 +61,42 @@ function siteTapCrossAlignmentBlocked(
   if (resAlign === 'wizard' && siteAlign === 'ringwraith') return true;
   if (resAlign === 'ringwraith' && siteAlign === 'wizard') return true;
   return false;
+}
+
+/**
+ * Guarded Haven (wh-74) / "protected Wizardhaven" family: a `site-protected`
+ * constraint (added by a stage permanent-event played on a Wizardhaven) bars
+ * the **opponent** of the protecting player from playing marshalling-point
+ * cards at that site. "Any version of the site" is matched by definition id, so
+ * the opponent's own copy of the same site in their location deck is covered.
+ *
+ * Returns true when an active `site-protected` constraint binds `siteDefId` and
+ * is owned by a player **other than** `playerId` (i.e. `playerId` is "your
+ * opponent" from the protector's point of view).
+ */
+function siteIsProtectedAgainstPlayer(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  return state.activeConstraints.some(
+    c => c.kind.type === 'site-protected'
+      && c.kind.siteDefinitionId === siteDefId
+      && c.target.kind === 'player'
+      && c.target.playerId !== playerId,
+  );
+}
+
+/**
+ * "Cards that give marshalling points": items, allies, and factions whose
+ * printed marshalling-point value is at least 1. These are the cards the
+ * protected-Wizardhaven restriction bars the opponent from playing at the site.
+ */
+function givesMarshallingPoints(def: CardDefinition): boolean {
+  if (!isItemCard(def) && !isAllyCard(def) && !isFactionCard(def)) return false;
+  const mp = (def as { marshallingPoints?: number }).marshallingPoints;
+  return typeof mp === 'number' && mp > 0;
 }
 
 function siteMatchesEntry(
@@ -729,6 +765,15 @@ function playResourcesActions(
       logDetail(`Site ${siteName}: ${def.name} cross-alignment play allowed by Double-dealing`);
     }
 
+    // Guarded Haven (wh-74) / protected Wizardhaven: the opponent of the
+    // protecting player may not play marshalling-point cards at any version of
+    // the protected site "in all cases".
+    if (givesMarshallingPoints(def) && siteIsProtectedAgainstPlayer(state, siteDefId, playerId)) {
+      logDetail(`Site ${siteName}: ${def.name} barred — site is a protected Wizardhaven (no opponent MP cards)`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: ${siteName} is protected — your opponent may not play marshalling-point cards here`));
+      continue;
+    }
+
     // Permanent resource events — playable like in organization phase
     // Handles both hero (wizard) and minion (ringwraith) permanent events.
     if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
@@ -806,7 +851,15 @@ function playResourcesActions(
           // Border-land, or Shadow-land"). The region type lives on a separate
           // region card, so it is not a field on the site definition itself.
           const regionType = siteRegionTypeOf(state, siteDef);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType };
+          // Expose the site's *effective* type (after any wizardhaven-conversion
+          // / site-type-override) as `effectiveSiteType` so a filter can gate on
+          // "your Wizardhaven [{H}]" and still match a haven the player converted
+          // dynamically (Guarded Haven wh-74 on a Hidden Haven site). The raw
+          // `siteType` field remains the printed type for filters that need it.
+          const effectiveSiteType = siteDefId && isSiteCard(siteDef)
+            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
+            : undefined;
+          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
@@ -818,6 +871,8 @@ function playResourcesActions(
         const siteDupLimit = findDuplicationLimitEffect(eventDef, 'site');
         if (siteDupLimit && siteDefId) {
           const copiesAtSite = state.players.reduce((count, p) => {
+            // Copies borne as items by characters whose company is at the site
+            // (e.g. War-forges-style permanent events attached to a character).
             for (const co of p.companies) {
               const coSiteDefId = co.currentSite
                 ? resolveInstanceId(state, co.currentSite.instanceId)
@@ -832,6 +887,15 @@ function playResourcesActions(
                 }).length;
               }
             }
+            // Copies bound to the site itself (site-attached permanent events
+            // that live in cardsInPlay with attachedToSite, e.g. Guarded Haven
+            // wh-74). These are not on a character, so they would otherwise be
+            // missed by the per-company item scan above.
+            count += p.cardsInPlay.filter(c => {
+              if (c.attachedToSite !== siteDefId) return false;
+              const cDef = defById(state, c.definitionId);
+              return cDef && cDef.name === eventDef.name;
+            }).length;
             return count;
           }, 0);
           if (copiesAtSite >= siteDupLimit.max) {

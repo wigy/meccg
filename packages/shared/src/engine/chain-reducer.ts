@@ -887,6 +887,14 @@ function buildConstraintKind(
       if (!siteDefId) return null;
       return { type: 'cross-alignment-resources-unlocked', siteDefinitionId: siteDefId };
     }
+    case 'site-protected': {
+      // Guarded Haven (wh-74): bind to the Wizardhaven the card is played on
+      // (the active company's current site during the site phase) so the
+      // opponent may not play marshalling-point cards at any version of it.
+      const siteDefId = activeCompanySiteDefId(state);
+      if (!siteDefId) return null;
+      return { type: 'site-protected', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }
