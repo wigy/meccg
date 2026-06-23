@@ -1624,6 +1624,56 @@ Used by Double-dealing (wh-66): "If the site is a minion site, you may play
 appropriate hero resources there. If the site is a hero site, you may play
 appropriate minion resources there."
 
+### 13c. `site-protected` active constraint
+
+Produced by an `on-event: self-enters-play → add-constraint` apply on a stage
+permanent-event played on a Wizardhaven (`play-target` target `site`). The
+constraint kind resolves the bound site from the active company's current site
+during the site phase and is filtered by that `siteDefinitionId`, targeted at
+the controlling `player`, scoped `until-cleared`. While active, any player other
+than the protector ("your opponent") is barred — in `legal-actions/site.ts`
+(`siteIsProtectedAgainstPlayer` + `givesMarshallingPoints`) — from playing a
+marshalling-point card (an item/ally/faction worth ≥1 MP) at any version of the
+site. "Any version of the site" is matched by definition id, so the opponent's
+own copy of the same site in their location deck is covered too. The constraint
+(and the card) are cleared by `discardOrphanedSiteAttachedEvents` once no company
+occupies the bound site.
+
+```json
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "site-protected",
+    "scope": "until-cleared"
+  }
+}
+```
+
+Used by Guarded Haven (wh-74): "The site is protected. Cards that give
+marshalling points may not be played at any version of the site by your opponent
+in all cases." The companion `play-target` filter requires `effectiveSiteType`
+`haven` (after any wizardhaven-conversion) and excludes the three named sites:
+
+```json
+{
+  "type": "play-target",
+  "target": "site",
+  "filter": {
+    "$and": [
+      { "effectiveSiteType": "haven" },
+      { "$not": { "name": { "$in": ["Isengard", "The White Towers", "Rhosgobel"] } } }
+    ]
+  }
+}
+```
+
+The "May not be used as a starting stage card" clause needs no effect: the card
+simply omits the `starting-item` keyword that marks a Fallen-wizard Stage
+resource as draftable at setup (Thrall of the Voice wh-82, Hidden Haven wh-75
+carry it), so the draft layer never offers it as a starting stage card.
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.

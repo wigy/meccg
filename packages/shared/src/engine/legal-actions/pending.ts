@@ -1195,6 +1195,12 @@ function applyOneConstraint(
       // (Double-dealing wh-66: lifts the MEWH §10 cross-alignment site-tap block
       // at the bound site) — no broad legal-action filtering needed here.
       return base;
+    case 'site-protected':
+      // Consulted directly by `siteIsProtectedAgainstPlayer` in
+      // `legal-actions/site.ts` (Guarded Haven wh-74: bars the opponent from
+      // playing marshalling-point cards at the bound site) — no broad
+      // legal-action filtering needed here.
+      return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
       // no broad legal-action filtering needed here.

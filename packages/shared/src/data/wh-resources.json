@@ -881,9 +881,34 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "effectiveSiteType": "haven" },
+            { "$not": { "name": { "$in": ["Isengard", "The White Towers", "Rhosgobel"] } } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-protected",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site."
+    "text": "May not be used as a starting stage card. Playable on one of your Wizardhavens [{H}] other than Isengard, The White Towers, or Rhosgobel. The site is protected. Cards that give marshalling points may not be played at any version of the site by your opponent in all cases. Cannot be duplicated on a given site.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",

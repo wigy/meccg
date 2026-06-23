@@ -1042,6 +1042,27 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Guarded Haven (wh-74) and the MEWH "protected Wizardhaven" family
+         * (The Fortress of Isen wh-68, Fortress of the Towers wh-69, …): a stage
+         * permanent-event played on one of the controller's Wizardhavens makes
+         * that site **protected**. "Cards that give marshalling points may not be
+         * played at any version of the site by your opponent in all cases." While
+         * this constraint is active, any opponent (a player other than the
+         * constraint's `player` target) is barred — in `legal-actions/site.ts`
+         * `siteIsProtectedAgainstPlayer` — from playing a marshalling-point card
+         * (item/ally/faction worth ≥1 MP) at a site whose definition id matches
+         * {@link siteDefinitionId}. "Any version of the site" is matched by
+         * definition id, so the opponent's own copy of the same site in their
+         * location deck is covered too. Scoped `until-cleared` and cleared when
+         * the card is discarded (the bound site leaving play, via
+         * `discardOrphanedSiteAttachedEvents`).
+         */
+        readonly type: 'site-protected';
+        /** The definition ID of the protected site (all versions). */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
          * Great-road (tw-249): the hazard player may draw up to twice the
          * normal number of cards during this company's M/H phase. The
          * multiplier is applied in `transitionToDrawCards` after the base
