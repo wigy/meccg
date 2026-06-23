@@ -483,6 +483,21 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Hall of Fire (dm-134): immediately after a company finishes its
+         * movement/hazard phase at a Haven where a Hall of Fire is in play,
+         * the controlling player may choose one of that company's characters
+         * to untap (tapped → untapped) or heal (wounded → tapped), or pass.
+         * The improvement applied to the chosen character is determined by
+         * its current status, so the resolution only needs the target.
+         */
+        readonly type: 'haven-restore-character';
+        /** The company whose characters are eligible to restore. */
+        readonly companyId: CompanyId;
+        /** Definition ID of the source permanent event (Hall of Fire). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
          * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
          * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =
