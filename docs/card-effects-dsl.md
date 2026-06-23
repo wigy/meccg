@@ -709,6 +709,44 @@ Example (Gandalf's gold-ring test):
   } }
 ```
 
+**`place-item-on-character` apply.** Fetches one item matching `filter` from the
+player's `discard-pile` / `sideboard` / `hand` (named in `fetchFrom`) and places
+it, untapped, on a chosen character at the bearer's site. The legal-action
+generator enumerates one `activate-granted-action` per (qualifying item ×
+recipient) pair — the item rides on `targetCardId`, the recipient on
+`recipientCharacterId` — so the player picks both by choosing the action. The
+bearer pays the grant-action `cost` (typically `{ "tap": "bearer" }`); the
+recipient is **not** tapped. Implemented in `legal-actions/organization.ts`
+(emission) and `reducer-organization.ts` (`placeFetchedItemOnCharacter`).
+
+```json
+{ "type": "grant-action", "action": "forge-place-item",
+  "cost": { "tap": "bearer" },
+  "when": { "site.type": "haven" },
+  "apply": {
+    "type": "place-item-on-character",
+    "fetchFrom": ["discard-pile", "sideboard", "hand"],
+    "filter": { "$and": [
+      { "unique": false },
+      { "subtype": "minor" },
+      { "$or": [
+        { "keywords": { "$includes": "weapon" } },
+        { "keywords": { "$includes": "armor" } },
+        { "keywords": { "$includes": "shield" } },
+        { "keywords": { "$includes": "helmet" } }
+      ] }
+    ] }
+  } }
+```
+
+Used by The Forge-master (wh-117): "tap this character to place a non-unique
+weapon/armor/shield/helmet minor item with any character at The Forge-master's
+site … taken from your discard pile, sideboard, or hand." Wizard-specific
+playability (the card's "Saruman specific" line) is enforced generically by the
+permanent-event legal-action generator via `wizardSpecificName`: a
+`<wizard>-specific` card is playable only while that player's revealed avatar is
+the named wizard.
+
 ### 8. `on-event`
 
 Triggered effect that fires when a game event occurs.
@@ -3136,20 +3174,38 @@ to the next automatic-attack at a Ruins & Lairs site.
 
 ### 28. `control-restriction`
 
-Restricts how the bearer character can be controlled.
+Overrides who, and at what cost, may control the bearing character (CoE
+"influence to control"). Carried by a resource permanent-event played on one of
+your own characters (Wizard's Myrmidon wh-84, The Forge-master wh-117) or by an
+item. Two independent, optional fields:
 
-Rules:
-
-- `no-direct-influence` — the character cannot be controlled by direct
-  influence. On attachment, any existing DI control is reverted to general
-  influence. During organization, the character cannot be moved to DI.
-  Used by Rebel-talk (le-132). Implemented in `chain-reducer.ts`
-  (attachment revert) and `organization-companies.ts` (block
-  move-to-influence).
+- `cost` — replaces the bearer's printed `mind` as the influence-to-control
+  value in *every* control context: the general-influence cost to keep the
+  character, the direct-influence a controller spends to hold it as a follower,
+  the move-to-influence reassignment checks, and the threshold an opponent must
+  beat to influence it away. It deliberately does **not** touch the character's
+  `mind` for combat/setup purposes (defender-prowess-from-mind, tap-low-mind,
+  the Fallen-wizard mind≤5 setup gate).
+- `sources` — restricts which control sources may hold the character under
+  direct influence. General influence is always permitted; a non-general
+  (direct-influence) controller is allowed only when `"fallen-wizard"` is listed
+  and that controller is the player's Fallen-wizard avatar. With no `sources`,
+  any normal direct-influence controller is allowed.
 
 ```json
-{ "type": "control-restriction", "rule": "no-direct-influence" }
+{ "type": "control-restriction", "cost": 3, "sources": ["general", "fallen-wizard"] }
 ```
+
+Every influence-to-control read routes through `engine/control-cost.ts`
+(`controlCostOf`, `directInfluenceControlAllowed`), consumed in
+`recompute-derived.ts` (GI accounting), `legal-actions/organization.ts`
+(follower DI), `legal-actions/organization-companies.ts` (move-to-influence),
+`reducer-organization.ts` (move-to-influence reducer guard), `reducer-site.ts`
+and `reducer-movement-hazard.ts` (opponent/agent influence-away threshold).
+
+> Note: the separate "this character cannot be controlled by direct influence at
+> all" rule (Rebel-talk le-132) is the `no-direct-influence` **play-flag**, not
+> this effect — see the play-flag list.
 
 ### 30. `dragon-at-home`
 
