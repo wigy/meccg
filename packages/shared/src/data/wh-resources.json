@@ -698,9 +698,23 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cross-alignment-resources-unlocked",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck."
+    "text": "Playable on a site. If the site is a minion site, you may play appropriate hero resources there. If the site is a hero site, you may play appropriate minion resources there. Discard when this site is discarded or returned to your location deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -765,9 +779,28 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.stagePoints": { "$gt": 3 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          { "when": { "faction.unique": true }, "value": 2 },
+          { "when": { "faction.unique": true, "faction.race": "dragon", "player.avatar": "Alatar" }, "value": 4 },
+          { "when": { "faction.unique": true, "faction.normalMp": { "$gte": 3 }, "player.avatar": "Pallando" }, "value": 3 }
+        ]
       }
     ],
-    "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 3 stage points. Your unique factions are each worth 2 marshalling points. If you are Alatar, your unique Dragon factions are each worth 4 marshalling points. If you are Pallando, your unique factions normally worth 3 or more marshalling points are each worth 3 marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -797,10 +830,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-06-22",
     "effects": [
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-character-ally-mp",
+        "threshold": 2,
+        "value": 2
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
     "text": "Your characters and allies that normally give 2 or more marshalling points are each worth 2 marshalling points. Cannot be duplicated by a given player."
@@ -1644,8 +1688,14 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "permanent-event-mp",
+        "value": 2,
+        "requiresResource": "information"
       }
     ],
+    "certified": "2026-06-22",
     "text": "Unique. Saruman specific. Your permanent-events that require a site where Information is playable are each worth 2 marshalling points."
   },
   {

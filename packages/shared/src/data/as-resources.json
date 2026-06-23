@@ -22,8 +22,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Draw three cards and remove this card from the game."
+    "effects": [
+      { "type": "draw-cards", "count": 3, "removeFromGame": true }
+    ],
+    "text": "Draw three cards and remove this card from the game.",
+    "certified": "2026-06-22"
   },
   {
     "cardType": "minion-resource-event",

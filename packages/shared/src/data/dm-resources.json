@@ -634,8 +634,17 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Each player removes all factions from his discard pile and shuffles them into his play deck."
+    "effects": [
+      {
+        "type": "reshuffle-from-discard",
+        "scope": "all-players",
+        "filter": {
+          "cardType": { "$in": ["hero-resource-faction", "minion-resource-faction"] }
+        }
+      }
+    ],
+    "text": "Each player removes all factions from his discard pile and shuffles them into his play deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "hero-resource-event",

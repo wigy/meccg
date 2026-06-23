@@ -204,6 +204,17 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     if (company.destinationSite !== null) continue;
+    // Hide in Dark Places (le-192) locks its scout's company stationary for the
+    // turn via a `company-cannot-move` constraint — such a company may not
+    // declare movement.
+    if (state.activeConstraints.some(
+      c => c.kind.type === 'company-cannot-move'
+        && c.target.kind === 'company'
+        && c.target.companyId === company.id,
+    )) {
+      logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
 
     const currentSiteDef = resolveDef(state, company.currentSite.instanceId);
     if (!currentSiteDef || !isSiteCard(currentSiteDef)) continue;
