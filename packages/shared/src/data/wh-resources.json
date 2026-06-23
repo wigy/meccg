@@ -781,9 +781,29 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": "The White Towers" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.avatar": { "$in": ["Alatar", "Pallando", "Saruman"] } }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-protected",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on The White Towers. The White Towers is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for The White Towers. Cards that give marshalling points cannot be played at The White Towers by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck."
+    "text": "Unique. May not be a starting stage card. Playable if you are Alatar, Pallando, or Saruman. Playable on The White Towers. The White Towers is protected. Other Fallen-wizards may not use the Wizardhaven [{H}] card for The White Towers. Cards that give marshalling points cannot be played at The White Towers by your opponent in all cases. Discard this card when the site is discarded or returned to its location deck.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
