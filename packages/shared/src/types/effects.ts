@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, Keyword, RegionType, SiteType } from './common.js';
 
 // ---- Value Expressions ----
 
@@ -3285,6 +3285,7 @@ export type CardEffect =
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
+  | ItemSlotModifierEffect
   | CompanyOvertEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
@@ -3570,6 +3571,49 @@ export interface GrantSkillEffect extends EffectBase {
   readonly type: 'grant-skill';
   /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
   readonly skill: string;
+}
+
+/**
+ * Adjusts how many items of a given slot the bearing character may have
+ * **in use** at once (rule 9.15). By default every slot (weapon, armor,
+ * shield, helmet) allows exactly one in-use item; this effect changes the
+ * capacity for the slot it names on the character that bears the item
+ * carrying it.
+ *
+ * Carried by an item/enchantment borne on the character. Evaluated in
+ * `item-slots.ts` when picking which borne items are "in use".
+ *
+ * Used by Swordmaster (tw-498): "If the sage is already a warrior, he can use
+ * two weapons (both modifiers count). If he uses two weapons, he can't use a
+ * shield." That is `{ slot: "weapon", delta: 1, requiresNaturalSkill:
+ * "warrior", excludesSlotWhenExtraUsed: "shield" }`.
+ */
+export interface ItemSlotModifierEffect extends EffectBase {
+  readonly type: 'item-slot-modifier';
+  /** Item-slot keyword whose in-use capacity this modifies (e.g. `"weapon"`). */
+  readonly slot: Keyword;
+  /**
+   * Capacity delta. `+1` lets a second item of {@link slot} be in use
+   * simultaneously (both their effects/modifiers count).
+   */
+  readonly delta: number;
+  /**
+   * If set, the modifier applies only when the bearing character has this
+   * skill **naturally** (listed on its card definition), independent of skills
+   * granted by items. Mirrors the "already a <skill>" convention used by
+   * Magic Ring of Stealth — Swordmaster's two-weapon privilege requires the
+   * sage to already be a warrior, not merely warrior-by-this-card.
+   */
+  readonly requiresNaturalSkill?: string;
+  /**
+   * If set, whenever the extra capacity is actually consumed (i.e. more than
+   * one item of {@link slot} ends up in use), the named slot's capacity drops
+   * to 0 and its items are no longer in use. Models "if he uses two weapons he
+   * can't use a shield". Note: the active player's right to instead forgo the
+   * extra item to keep the excluded slot (rule 9.16 election) is not modeled;
+   * the engine prefers consuming the extra capacity.
+   */
+  readonly excludesSlotWhenExtraUsed?: Keyword;
 }
 
 /**
