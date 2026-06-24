@@ -639,6 +639,15 @@ export interface SitePhaseState {
    */
   readonly thoroughSearchAvailable: boolean;
   /**
+   * Whether the current company has already played its one allowed Technology
+   * item at the site this site phase via a `technology-item-unlocked` constraint
+   * (Saruman's Machinery, wh-120 — "One Technology item is playable at the site
+   * during your site phase whether the site is tapped or untapped"). Absent
+   * (undefined) until the company plays such an item; reset to absent when a new
+   * company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly technologyItemPlayed?: boolean;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

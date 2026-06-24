@@ -18,7 +18,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -1527,6 +1527,20 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} does not tap the site (special play rule) — leaving site untapped`);
   }
 
+  // Saruman's Machinery (wh-120): a Technology-keyword item played at a site
+  // bearing this player's `technology-item-unlocked` constraint is the one
+  // allowed Technology item "whether the site is tapped or untapped". It is a
+  // bonus allowance that neither taps the site nor counts as the company's
+  // tapping resource; mark it consumed so no further Technology item is offered.
+  const isTechnologyItem = isItem
+    && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('Technology');
+  const usingTechnologyBonus = isTechnologyItem
+    && siteState.technologyItemPlayed !== true
+    && siteHasTechnologyItemUnlock(state, siteInPlay.definitionId, player.id);
+  if (usingTechnologyBonus) {
+    logDetail(`Site: ${def.name} played via Saruman's Machinery (Technology unlock) — site not tapped, allowance consumed`);
+  }
+
   // Rule 2.V.5: when a resource that taps the site is successfully played,
   // the resource player may attempt one additional minor item as the next
   // action. A `never-taps` site never triggers the bonus. The bonus is
@@ -1553,29 +1567,32 @@ function handleSitePlayHeroResource(
     && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major' || itemSubtypeForBounty === 'gold-ring');
   const nextThoroughSearchAvailable = usingThoroughSearch ? false : siteState.thoroughSearchAvailable;
 
-  // Thorough Search prevents site tap and does not count as the "first resource played"
-  // (so the opening minor-item bonus does not fire for it).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite;
+  // Thorough Search (and the Saruman's Machinery Technology bonus) prevent site
+  // tap and do not count as the "first resource played" (so the opening
+  // minor-item bonus does not fire for them).
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
       ? false
       : siteState.minorItemAvailable;
 
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: (neverTaps || usingThoroughSearch || itemDoesNotTapSite) ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
+    currentSite: leavesSiteUntapped ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   let afterAttach: GameState = {
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: usingThoroughSearch ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
+      ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
     },
   };
 

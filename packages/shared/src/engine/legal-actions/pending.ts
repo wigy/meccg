@@ -1206,6 +1206,12 @@ function applyOneConstraint(
       // playing marshalling-point cards at the bound site) — no broad
       // legal-action filtering needed here.
       return base;
+    case 'technology-item-unlocked':
+      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
+      // (Saruman's Machinery wh-120: lets one Technology item be played at the
+      // bound site whether tapped or untapped) — no broad legal-action
+      // filtering needed here.
+      return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
       // no broad legal-action filtering needed here.

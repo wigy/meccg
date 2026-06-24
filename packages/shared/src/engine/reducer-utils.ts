@@ -1540,6 +1540,30 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
 }
 
 /**
+ * Saruman's Machinery (wh-120): returns true when an active
+ * `technology-item-unlocked` constraint binds `siteDefId` and is owned by
+ * `playerId`. While such a constraint is active, the owning player may play one
+ * Technology-keyword item at that site during the site phase whether the site is
+ * tapped or untapped (the per-phase limit is tracked separately by
+ * `SitePhaseState.technologyItemPlayed`). Shared by the legal-action layer
+ * (`legal-actions/site.ts`, which offers the play) and the reducer
+ * (`reducer-site.ts`, which records the play and leaves the site untapped).
+ */
+export function siteHasTechnologyItemUnlock(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  return state.activeConstraints.some(
+    c => c.kind.type === 'technology-item-unlocked'
+      && c.kind.siteDefinitionId === siteDefId
+      && c.target.kind === 'player'
+      && c.target.playerId === playerId,
+  );
+}
+
+/**
  * Discard "placed with the creature" events whose converted-creature ally has
  * left play. A `convert-creature-to-ally` event (Ready to His Will le-220) is
  * kept in cards-in-play with `attachedTo` set to the ally created from the

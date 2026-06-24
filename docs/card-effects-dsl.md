@@ -1744,6 +1744,41 @@ simply omits the `starting-item` keyword that marks a Fallen-wizard Stage
 resource as draftable at setup (Thrall of the Voice wh-82, Hidden Haven wh-75
 carry it), so the draft layer never offers it as a starting stage card.
 
+### 13d. `technology-item-unlocked` active constraint
+
+Produced by an `on-event: self-enters-play → add-constraint` apply on a stage
+permanent-event played on a site (`play-target` target `site`). The constraint
+kind resolves the bound site from the active company's current site during the
+site phase and is filtered by that `siteDefinitionId`, targeted at the
+controlling `player`, scoped `until-cleared`. While active, the owning player may
+play **one** item bearing the `Technology` keyword at that site during the site
+phase, whether the site is tapped or untapped — the play bypasses both the
+site-tap precondition and the item's own `item-play-site` restriction (which
+targets Shadow/Dark-holds and so would never match a Wizardhaven). The
+one-per-site-phase limit is tracked by `SitePhaseState.technologyItemPlayed`; the
+played item does not tap the site and does not count as the company's tapping
+resource (`legal-actions/site.ts` offers the play, `reducer-site.ts` records it).
+The constraint (and the card) are cleared by `discardOrphanedSiteAttachedEvents`
+once no company occupies the bound site.
+
+```json
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "technology-item-unlocked",
+    "scope": "until-cleared"
+  }
+}
+```
+
+Used by Saruman's Machinery (wh-120): "One Technology item is playable at the
+site during your site phase whether the site is tapped or untapped." Its
+companion `play-target` restricts the site to Isengard / The White Towers and a
+`play-condition` `requires: 'site-protected'` requires that site to already be
+protected for the player (see §below).
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
@@ -2590,6 +2625,19 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "region-through-or-leave",
   "regionNames": ["High Pass", "Redhorn Gate", "Angmar", "Gundabad",
                   "Grey Mountain Narrows", "Imlad Morgul"] }
+```
+
+- `site-protected` — for site-attached permanent-events (`play-target` target
+  `site`): the site the card is being played on (the active company's current
+  site) must already be **protected** for the playing player, i.e. carry an
+  active `site-protected` constraint owned by that player (added by The Fortress
+  of Isen wh-68 / Fortress of the Towers wh-69 / Guarded Haven wh-74). No extra
+  payload. Implemented in `legal-actions/site.ts` alongside the other
+  permanent-event play-conditions. Used by *Saruman's Machinery* (wh-120):
+  "Playable … on your protected Isengard or your protected The White Towers."
+
+```json
+{ "type": "play-condition", "requires": "site-protected" }
 ```
 
 ### 24. `creature-race-choice`
