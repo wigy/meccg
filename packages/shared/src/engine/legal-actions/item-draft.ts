@@ -10,7 +10,7 @@ import type { CardEffect } from '../../types/effects.js';
 import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById } from '../reducer-utils.js';
+import { defById, countStartingMinorItems } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -25,11 +25,11 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
 
   const player = state.players[playerIndex];
   const allCharIds = player.companies.flatMap(c => c.characters);
-  const startingEventsPlaced = itemDraft.startingEventsPlaced ?? 0;
-  const assignedCount = Object.values(player.characters).reduce(
-    (sum, char) => sum + char.items.length, 0,
-  ) + startingEventsPlaced;
-  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned (including ${startingEventsPlaced} starting event(s)), ${allCharIds.length} character(s) available`);
+  // Only true minor items count toward the two-item budget; Stage resources
+  // placed with a character (e.g. Thrall of the Voice) do not (CoE 1.7.F1 /
+  // 1.9.F4 — see countStartingMinorItems).
+  const assignedCount = countStartingMinorItems(state, player);
+  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} minor item(s) assigned, ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
   if (allCharIds.length === 0) return evaluated;

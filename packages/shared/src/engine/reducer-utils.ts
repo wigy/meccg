@@ -10,7 +10,7 @@ import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, Ca
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag, isResourceEventCard } from '../index.js';
+import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag, isResourceEventCard, isItemCard } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
@@ -61,6 +61,27 @@ export function isStageResourceCard(def: CardDefinition | undefined): boolean {
 export function hasRecruitmentVehicleEffect(def: CardDefinition | undefined): boolean {
   const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
   return effects.some(e => e.type === 'recruitment-vehicle');
+}
+
+/**
+ * Count the minor items a player has placed on their starting characters.
+ *
+ * Only true minor items (item cards) count toward the starting-item budget of
+ * two (CoE 1.9: "play up to two minor items from their pool"). Fallen-wizard
+ * Stage resources such as Thrall of the Voice (wh-82) are *placed with* a
+ * character — they ride in {@link CharacterInPlay.items} so their effects (e.g.
+ * the −1 mind reduction) apply — but they are resource-events, not minor items,
+ * and are governed by the separate "exactly three stage points" pool rule
+ * (CoE 1.7.F1 / 1.9.F4). They must therefore never consume the two-item budget.
+ */
+export function countStartingMinorItems(state: GameState, player: PlayerState): number {
+  let count = 0;
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) {
+      if (isItemCard(defById(state, item.definitionId))) count++;
+    }
+  }
+  return count;
 }
 
 /**
