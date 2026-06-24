@@ -2524,10 +2524,27 @@ check) and `reducer-events.ts` (discard execution).
   card **is** in play (as a character or in any player's cardsInPlay). The
   `cardName` field names the required card. Enforced for hazard
   long-events in `legal-actions/movement-hazard.ts`. Used by Snowstorm
-  (tw-91): "Playable if Doors of Night is in play."
+  (tw-91): "Playable if Doors of Night is in play." On a **faction** the gate
+  is evaluated against the controller's OWN in-play names (so an opponent's
+  copy of the named card does not satisfy "if **you** have … in play") —
+  used by Half-orcs (wh-87) / Greater Half-orcs (wh-86) ("if you have A
+  Strident Spawn in play").
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
+```
+
+- `site-protected` — (takes no extra fields) on a **faction** the influence
+  attempt is only offered when the company's current site is **protected by
+  the controller**: an active `site-protected` constraint (added by a stage
+  permanent-event such as Guarded Haven wh-74) bound to the site's definition
+  id and owned by the player attempting the play. Protection by the opponent,
+  or no protection, does not qualify. Checked in `legal-actions/site.ts`
+  (`siteIsProtectedByPlayer`). Used by Half-orcs (wh-87) / Greater Half-orcs
+  (wh-86): "Playable at one of your protected Wizardhavens [{H}]".
+
+```json
+{ "type": "play-condition", "requires": "site-protected" }
 ```
 
 - `same-site-has-character-race` — for character-targeting permanent events
@@ -2566,17 +2583,23 @@ check) and `reducer-events.ts` (discard execution).
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
   avatar/alignment context
-  `{ player: { alignment, hasRingwraithInPlay, stagePoints }, opponent: { alignment } }`.
+  `{ player: { alignment, hasRingwraithInPlay, stagePoints, factionCount }, opponent: { alignment }, inPlay: [<names>] }`.
   `alignment` is the card-text alignment string (`"wizard"`,
   `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
   is `true` when the active player has a Ringwraith-race avatar character in
-  play; `player.stagePoints` is the Fallen-wizard's current stage-point total.
-  Lets a card gate on the opposing player's alignment, the controller's
-  revealed avatar, or stage points without a per-card keyword. Used by *Above
-  the Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
-  play"; and by *Gatherer of Loyalties* (wh-70): "Playable if you have more
-  than 3 stage points". Implemented in `legal-actions/organization.ts`
-  (`buildPlayerStateContext`, short-events) and
+  play; `player.stagePoints` is the Fallen-wizard's current stage-point total;
+  `player.factionCount` is the number of faction cards the active player
+  controls in play (factions held under a leader's control included); `inPlay`
+  is the list of card names the active player has in play, so a condition can
+  require a named prerequisite via `{ "inPlay": "<name>" }`. Lets a card gate
+  on the opposing player's alignment, the controller's revealed avatar, stage
+  points, faction count, or named in-play prerequisites without a per-card
+  keyword. Used by *Above the Abyss* (as-77): "if your opponent is a Wizard and
+  your Ringwraith is in play"; *Gatherer of Loyalties* (wh-70): "Playable if
+  you have more than 3 stage points"; and *The White Hand* (wh-122): "Playable
+  on Saruman if he has the following in play: at least 12 stage points, at
+  least 3 factions, A Strident Spawn, and Saruman's Machinery." Implemented in
+  `legal-actions/organization.ts` (`buildPlayerStateContext`, short-events) and
   `legal-actions/organization-events.ts` (permanent-events).
 
 ```json
