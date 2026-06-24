@@ -1721,6 +1721,17 @@ function buildPayloadConstraintKind(
     if (typeof apply.siteType !== 'string' || typeof apply.subtype !== 'string') return null;
     return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
   }
+  if (name === 'check-modifier') {
+    // A one-shot roll modifier the engine collects when the targeted
+    // character makes a matching check. Consumed the first time the targeted
+    // character makes a check of the matching kind — e.g. When You Know More
+    // (dm-163) taps a sage to add +2 to one influence attempt by a company-
+    // mate, and When I Know Anything (td-166) adds +3 to one corruption check
+    // by a character in the sage's company.
+    if (typeof apply.check !== 'string') return null;
+    if (typeof apply.value !== 'number') return null;
+    return { type: 'check-modifier', check: apply.check, value: apply.value };
+  }
   return null;
 }
 
@@ -1766,6 +1777,16 @@ function resolveConstraintTarget(
       const companyId = action?.targetCompanyId;
       if (!companyId) return null;
       return { kind: 'company', companyId };
+    }
+    case 'action-target-character': {
+      // The character carried on the action's `targetCardId` — used when a
+      // grant-action modifies a specific other character's pending check
+      // (When You Know More dm-163 boosts a company-mate's influence attempt;
+      // When I Know Anything td-166 targets the character whose corruption
+      // check is being resolved).
+      const targetCharId = action?.targetCardId;
+      if (!targetCharId) return null;
+      return { kind: 'character', characterId: targetCharId };
     }
     default:
       return null;

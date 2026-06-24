@@ -56,8 +56,11 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
     logDetail(`Already at max starting sites (${maxStartingSites})`);
   }
 
-  // Can pass if at least one site is selected
-  if (siteSelection.selectedSites.length > 0) {
+  // Can pass if at least one site is selected, or if a company already has a
+  // starting site pre-placed by a Hidden Haven (wh-75) draft pairing — such a
+  // player needs no manual selection to finish.
+  const hasPrePlacedSite = player.companies.some(c => c.currentSite != null);
+  if (siteSelection.selectedSites.length > 0 || hasPrePlacedSite) {
     evaluated.push({ action: { type: 'pass', player: playerId }, viable: true });
   } else {
     logDetail(`Cannot pass: no sites selected yet`);

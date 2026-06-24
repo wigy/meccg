@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -85,6 +85,28 @@ function siteIsProtectedAgainstPlayer(
       && c.kind.siteDefinitionId === siteDefId
       && c.target.kind === 'player'
       && c.target.playerId !== playerId,
+  );
+}
+
+/**
+ * Half-orcs (wh-87) / Greater Half-orcs (wh-86) "playable at one of your
+ * protected Wizardhavens" family: returns true when an active `site-protected`
+ * constraint binds `siteDefId` and is owned by `playerId` itself (i.e. the
+ * player has protected this version of the site, e.g. via Guarded Haven). This
+ * is the mirror of {@link siteIsProtectedAgainstPlayer}, which tests protection
+ * by the *opponent*.
+ */
+function siteIsProtectedByPlayer(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  return state.activeConstraints.some(
+    c => c.kind.type === 'site-protected'
+      && c.kind.siteDefinitionId === siteDefId
+      && c.target.kind === 'player'
+      && c.target.playerId === playerId,
   );
 }
 
@@ -918,6 +940,26 @@ function playResourcesActions(
           }
         }
 
+        // play-condition: site-protected — the site must already be protected
+        // for this player (carry an active `site-protected` constraint owned by
+        // them, added by The Fortress of Isen/Towers wh-68/wh-69 or Guarded
+        // Haven wh-74). Saruman's Machinery (wh-120): "Playable … on your
+        // protected Isengard or your protected The White Towers."
+        const siteProtectedCond = findPlayConditionEffect(eventDef, 'site-protected');
+        if (siteProtectedCond) {
+          const protectedForPlayer = siteDefId !== undefined && state.activeConstraints.some(
+            c => c.kind.type === 'site-protected'
+              && c.kind.siteDefinitionId === siteDefId
+              && c.target.kind === 'player'
+              && c.target.playerId === playerId,
+          );
+          if (!protectedForPlayer) {
+            logDetail(`Permanent event ${eventDef.name}: site ${siteName} is not a protected site for ${playerId as string}`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: ${siteName} is not protected`));
+            continue;
+          }
+        }
+
         // play-condition: card-not-in-play — card is not playable if the named
         // card is currently in play as a character or in any player's cardsInPlay.
         const cardNotInPlayCondition = findPlayConditionEffect(eventDef, 'card-not-in-play');
@@ -1123,13 +1165,28 @@ function playResourcesActions(
       );
       const itemAllowsTapped = itemSiteRestriction?.allowTapped === true;
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped) {
+      // Saruman's Machinery (wh-120): while a `technology-item-unlocked`
+      // constraint binds the active site for this player, one Technology-keyword
+      // item may be played at the site this site phase "whether the site is
+      // tapped or untapped". The unlock bypasses both the site-tap precondition
+      // (below) and the item's own `item-play-site` restriction (which targets
+      // Shadow/Dark-holds and so would never match a Wizardhaven). The
+      // one-per-site-phase limit is tracked by `SitePhaseState.technologyItemPlayed`.
+      const isTechnologyItem = (itemDef.keywords as readonly string[] | undefined)?.includes('Technology') === true;
+      const technologyUnlockActive = isTechnologyItem
+        && siteState.technologyItemPlayed !== true
+        && siteHasTechnologyItemUnlock(state, siteDefId, playerId);
+      if (technologyUnlockActive) {
+        logDetail(`Item ${itemDef.name}: Technology item unlocked at ${siteName} (Saruman's Machinery) — tap state and site restriction bypassed`);
+      }
+
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
       }
 
-      const siteRestriction = itemSiteRestriction;
+      const siteRestriction = technologyUnlockActive ? undefined : itemSiteRestriction;
       if (siteRestriction) {
         const matchesSiteList = siteRestriction.sites
           ? siteRestriction.sites.includes(siteName)
@@ -1157,7 +1214,7 @@ function playResourcesActions(
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
         }
-      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus) {
+      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive) {
         // major-item-unlocked allows major items (subtype "major") at the site
         if (majorItemUnlocked && itemDef.subtype === 'major') {
           logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);
@@ -1399,6 +1456,31 @@ function playResourcesActions(
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
+        continue;
+      }
+
+      // play-condition: card-in-play — the faction is only playable while a
+      // named card is in YOUR play area. Half-orcs (wh-87) / Greater Half-orcs
+      // (wh-86) require "A Strident Spawn" (and Half-orcs) in play. Checked
+      // against the controller's own in-play names so an opponent's copy of the
+      // named card does not satisfy the gate.
+      const factionCardInPlay = findPlayConditionEffect(factionDef, 'card-in-play');
+      if (factionCardInPlay?.cardName) {
+        const controllerInPlay = buildControllerInPlayNames(state, playerId);
+        if (!controllerInPlay.includes(factionCardInPlay.cardName)) {
+          logDetail(`Faction ${factionDef.name}: requires "${factionCardInPlay.cardName}" in your play area — not playable`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: requires ${factionCardInPlay.cardName} in play`));
+          continue;
+        }
+      }
+
+      // play-condition: site-protected — the faction is only playable at a
+      // Wizardhaven the controller has protected (Half-orcs wh-87 / Greater
+      // Half-orcs wh-86: "Playable at one of your protected Wizardhavens").
+      const factionSiteProtected = findPlayConditionEffect(factionDef, 'site-protected');
+      if (factionSiteProtected && !siteIsProtectedByPlayer(state, siteDefId, playerId)) {
+        logDetail(`Faction ${factionDef.name}: ${siteName} is not a protected Wizardhaven you control — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: ${siteName} is not one of your protected Wizardhavens`));
         continue;
       }
 

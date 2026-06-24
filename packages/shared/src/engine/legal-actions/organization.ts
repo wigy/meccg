@@ -24,13 +24,13 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
-import { buildInPlayNames } from '../recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
@@ -977,6 +977,49 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `boost-company-influence` (When You Know More dm-163): tap the bearer
+        // (a sage carrying the enchantment) to grant +2 to one influence attempt
+        // by another untapped character in his company; the bearer then makes a
+        // corruption check. Emit one activation per eligible company-mate, carried
+        // on `targetCardId`. The bearer is excluded — paying the tap cost leaves
+        // it unable to make the boosted attempt — and tapped company-mates cannot
+        // make an influence attempt, so they are skipped too.
+        if (effect.action === 'boost-company-influence') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const boostTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const compCharId of company.characters) {
+            if (compCharId === charId) continue;
+            const compChar = player.characters[compCharId as string];
+            if (!compChar || compChar.status !== CardStatus.Untapped) continue;
+            const compCharDef = defById(state, compChar.definitionId);
+            boostTargets.push({ instanceId: compCharId, name: compCharDef?.name ?? (compCharId as string) });
+          }
+          if (boostTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no other untapped character in ${charDef?.name ?? '?'}'s company to boost`);
+            continue;
+          }
+          for (const { instanceId: targetId, name: targetName } of boostTargets) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap ${def?.name ?? '?'} to give ${targetName} +2 to an influence attempt`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: targetId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({
@@ -1201,8 +1244,70 @@ function enumerateGrantActionTargets(
  */
 function extractGrantActions(state: GameState, definitionId: import('../../index.js').CardDefinitionId) {
   return getCardEffects(defById(state, definitionId)).filter(
-    (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
+    (e): e is import('../../types/effects.js').GrantActionEffect =>
+      // Corruption-check-window abilities (When I Know Anything td-166) are
+      // emitted only by `modifyCorruptionCheckGrantActions` while a check is
+      // awaiting its roll — never by the generic per-phase scanner.
+      e.type === 'grant-action' && e.corruptionCheckWindow !== true,
   );
+}
+
+/**
+ * Emit `activate-granted-action` activations for `corruptionCheckWindow`
+ * grant-actions while a corruption check by `resolvingCharacterId` is
+ * awaiting its roll. Shared by both corruption-check windows — the unified
+ * pending resolution (`legal-actions/pending.ts`) and the Free Council
+ * support window (`legal-actions/free-council.ts`).
+ *
+ * The bearer must be an untapped character in the **same company** as the
+ * character making the check (the cost taps the bearer). One activation is
+ * emitted per eligible bearer × matching grant-action; the resolving
+ * character rides on `targetCardId` so the apply's `add-constraint` /
+ * `enqueue-corruption-check` steps know which check to boost.
+ *
+ * Used by *When I Know Anything* (td-166): a sage taps to add +3 to one
+ * corruption check by a character in his company, then makes a check himself.
+ */
+export function modifyCorruptionCheckGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  resolvingCharacterId: CardInstanceId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  const company = findCharacterCompany(player.companies, resolvingCharacterId);
+  if (!company) return actions;
+
+  for (const charId of company.characters) {
+    const bearer = player.characters[charId as string];
+    if (!bearer) continue;
+    // Cost taps the bearer — only untapped bearers may activate.
+    if (bearer.status !== CardStatus.Untapped) continue;
+    for (const item of bearer.items) {
+      const def = defById(state, item.definitionId);
+      const grant = getCardEffects(def).find(
+        (e): e is import('../../types/effects.js').GrantActionEffect =>
+          e.type === 'grant-action' && e.corruptionCheckWindow === true && !!e.apply,
+      );
+      if (!grant) continue;
+      logDetail(`Corruption-check modifier available: ${def && 'name' in def ? (def as { name: string }).name : '?'} (bearer ${charId as string}) → boost check by ${resolvingCharacterId as string}`);
+      actions.push({
+        action: {
+          type: 'activate-granted-action',
+          player: playerId,
+          characterId: charId,
+          sourceCardId: item.instanceId,
+          sourceCardDefinitionId: item.definitionId,
+          actionId: grant.action,
+          rollThreshold: 0,
+          targetCardId: resolvingCharacterId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
 }
 
 /**
@@ -1591,8 +1696,8 @@ function buildActiveCompanyContext(
  * context across all three evaluation sites (organization, organization-events,
  * site phases). Exposes:
  *
- * - `player.alignment` — card-text alignment string (`"wizard"`,
- *   `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
+ * - `player.alignment` / `opponent.alignment` — card-text alignment string
+ *   (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
  * - `player.avatar` — the name of the player's revealed avatar (e.g.
  *   `"Pallando"`, `"Saruman"`), or `undefined` if none is in play. Used by The
  *   Fortress of Isen/Towers (wh-68/69) and A Strident Spawn (wh-61).
@@ -1600,9 +1705,12 @@ function buildActiveCompanyContext(
  *   avatar character in play. Used by Above the Abyss (as-77).
  * - `player.stagePoints` — the Fallen-wizard stage-point total. Used by
  *   Gatherer of Loyalties (wh-70) and A Strident Spawn (wh-61).
+ * - `player.factionCount` — the number of factions the player controls in play.
+ *   Used by The White Hand (wh-122).
  * - `player.hasProtectedWizardhaven` — `true` when the player controls a
  *   protected Wizardhaven. Used by A Strident Spawn (wh-61).
- * - `opponent.alignment` — the opposing player's alignment string.
+ * - `inPlay` — the names of cards the player has in play, for
+ *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -1618,6 +1726,10 @@ export function buildPlayerStateContext(
       break;
     }
   }
+  const factionCount = player.cardsInPlay.filter(c => {
+    const def = defById(state, c.definitionId);
+    return def && isFactionCard(def);
+  }).length;
   const avatar = findPlayerAvatar(state, player);
   const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
   const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
@@ -1627,9 +1739,11 @@ export function buildPlayerStateContext(
       avatar: avatarName,
       hasRingwraithInPlay,
       stagePoints: player.stagePoints,
+      factionCount,
       hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
     },
     opponent: { alignment: opponent?.alignment },
+    inPlay: buildControllerInPlayNames(state, playerId),
   };
 }
 

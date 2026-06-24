@@ -1208,16 +1208,30 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "one"
+        "siteType": "haven"
       }
     ],
     "effects": [
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "A Strident Spawn"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
       }
     ],
-    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9."
+    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -1871,9 +1885,44 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Isengard", "The White Towers"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Saruman"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "technology-item-unlocked",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
+    "text": "Saruman specific. Playable, if you are Saruman, on your protected Isengard or your protected The White Towers. One Technology item is playable at the site during your site phase whether the site is tapped or untapped. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
@@ -1903,14 +1952,47 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteHand.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 6,
     "marshallingCategory": "misc",
     "effects": [
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Saruman" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.factionCount": { "$gte": 3 } },
+            { "inPlay": "A Strident Spawn" },
+            { "inPlay": "Saruman’s Machinery" }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
+    "certified": "2026-06-23",
     "text": "Saruman specific. Playable on Saruman if he has the following in play: at least 12 stage points, at least 3 factions, A Strident Spawn, and Saruman’s Machinery. Cannot be duplicated."
   }
 ]

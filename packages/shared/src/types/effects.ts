@@ -691,6 +691,19 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly activeSitePhase?: boolean;
   /**
+   * When true, the ability is activatable **only** while a corruption
+   * check by a character in the bearer's company is awaiting its roll —
+   * i.e. during a unified `corruption-check` pending resolution or the
+   * Free Council support window. It is emitted by the dedicated
+   * corruption-check-window emitters (`modifyCorruptionCheckGrantActions`),
+   * never by the generic per-phase grant-action scanner, so the generic
+   * scanner skips it (see `extractGrantActions`). The activation carries
+   * the resolving character's instance id on `targetCardId`. Used by
+   * *When I Know Anything* (td-166): "Tap sage to modify one corruption
+   * check by a character in his company by +3."
+   */
+  readonly corruptionCheckWindow?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and
@@ -2634,7 +2647,16 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  /**
+   * `requires: 'site-protected'` takes no extra fields. On a faction it gates
+   * the influence attempt on the company's current site being **protected by
+   * the controller** — an active `site-protected` constraint (added by a stage
+   * permanent-event such as Guarded Haven wh-74) bound to the site's definition
+   * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
+   * and Greater Half-orcs (wh-86): "Playable at one of your protected
+   * Wizardhavens [{H}]".
+   */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
    * the target company must either *leave* (the origin region of region
@@ -2667,6 +2689,15 @@ export interface PlayConditionEffect extends EffectBase {
    * e.g. Above the Abyss (as-77): "if your opponent is a Wizard and your
    * Ringwraith is in play". Evaluated for resource short-events in
    * `legal-actions/organization.ts`.
+   *
+   * For `requires: 'site-protected'`: no extra payload — the site the
+   * permanent-event is being played on (the active company's current site)
+   * must already be **protected** for the playing player, i.e. carry an active
+   * `site-protected` constraint owned by that player (added by The Fortress of
+   * Isen wh-68 / Fortress of the Towers wh-69 / Guarded Haven wh-74). Used by
+   * Saruman's Machinery (wh-120): "Playable … on your protected Isengard or
+   * your protected The White Towers." Evaluated for site-attached permanent
+   * events in `legal-actions/site.ts`.
    */
   readonly condition?: Condition;
   /**

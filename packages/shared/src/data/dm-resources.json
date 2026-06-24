@@ -917,10 +917,49 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WhenYouKnowMore.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Light enchantment. Playable on a sage during the site phase at a site where Information is playable. Tap sage and site.Tap sage to modify one influence attempt by a character in his company by +2. Sage makes a corruption check."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "playableResources": { "$includes": "information" } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "sage" } },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      { "type": "play-flag", "flag": "tap-character-on-play" },
+      {
+        "type": "grant-action",
+        "action": "boost-company-influence",
+        "activeSitePhase": true,
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "check-modifier",
+              "check": "influence",
+              "value": 2,
+              "scope": "turn",
+              "target": "action-target-character"
+            },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      }
+    ],
+    "text": "Light enchantment. Playable on a sage during the site phase at a site where Information is playable. Tap sage and site.Tap sage to modify one influence attempt by a character in his company by +2. Sage makes a corruption check.",
+    "certified": "2026-06-24"
   },
   {
     "cardType": "hero-resource-event",

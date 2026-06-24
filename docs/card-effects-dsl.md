@@ -632,6 +632,61 @@ Actions:
         "uncancelable": true, "eachCharacter": true } } }
   ```
 
+- `boost-company-influence` — tap the bearer (a sage carrying a
+  permanent enchantment) during the active player's site phase to add
+  `+value` to one influence attempt by **another** untapped character in
+  his company, after which the bearer makes a corruption check. The
+  legal-action generator (`legal-actions/organization.ts`, items loop)
+  emits one activation per eligible company-mate, carrying the chosen
+  character on `targetCardId`; the bearer is excluded (paying the tap
+  cost would leave it unable to make the boosted attempt) and tapped
+  mates are skipped. The `apply` is a generic `sequence` of an
+  `add-constraint` (`constraint: "check-modifier"`, `check: "influence"`,
+  `target: "action-target-character"`, `scope: "turn"`) and an
+  `enqueue-corruption-check` (on the bearer). The one-shot influence
+  constraint is consumed by the targeted character's next influence
+  attempt (`reducer-site.ts` / `legal-actions/site.ts` /
+  `legal-actions/pending.ts`). Used by *When You Know More* (dm-163).
+
+  ```json
+  { "type": "grant-action", "action": "boost-company-influence",
+    "activeSitePhase": true, "cost": { "tap": "bearer" },
+    "apply": { "type": "sequence", "apps": [
+      { "type": "add-constraint", "constraint": "check-modifier",
+        "check": "influence", "value": 2, "scope": "turn",
+        "target": "action-target-character" },
+      { "type": "enqueue-corruption-check" } ] } }
+  ```
+
+- `modify-corruption-check` (with `corruptionCheckWindow: true`) — a tap
+  ability activatable **only** while a corruption check by a character in
+  the bearer's company is awaiting its roll, in either corruption-check
+  window: the unified pending resolution (lure / transfer / wound checks)
+  or the Free Council end-of-turn support window. The legal-action layer
+  emits it via `modifyCorruptionCheckGrantActions`
+  (`legal-actions/organization.ts`) — one activation per untapped bearer in
+  the resolving character's company — never via the generic per-phase
+  grant-action scanner (which skips `corruptionCheckWindow` effects, see
+  `extractGrantActions`). The activation carries the resolving character on
+  `targetCardId`. The `apply` is a `sequence`: an `add-constraint` of a
+  one-shot `check-modifier` (`target: "action-target-character"` resolves to
+  that `targetCardId`) plus an `enqueue-corruption-check` on the bearer. The
+  unified window reads the constraint in `corruptionCheckActions`; the Free
+  Council window reads and consumes it in `resolveCorruptionCheck`. Used by
+  *When I Know Anything* (td-166): "Tap sage to modify one corruption check
+  by a character in his company by +3. Sage makes a corruption check."
+
+  ```json
+  { "type": "grant-action", "action": "modify-corruption-check",
+    "cost": { "tap": "bearer" }, "corruptionCheckWindow": true,
+    "apply": { "type": "sequence", "apps": [
+      { "type": "add-constraint", "constraint": "check-modifier",
+        "check": "corruption", "value": 3, "scope": "until-cleared",
+        "target": "action-target-character" },
+      { "type": "enqueue-corruption-check" }
+    ] } }
+  ```
+
 Action-less activations may also be declared directly on a character
 card via `"apply"` on the grant-action effect, reusing the shared
 TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`
@@ -846,7 +901,7 @@ Apply types:
 - `discard-character` -- discard the affected character to the defending player's discard pile (not the out-of-play pile). The character is removed from their company; all their items and allies are also discarded immediately. No item-salvage phase is offered. Condition context exposes `{ target: { race } }` (evaluated per character). Supported under two events:
   - `on-event: character-body-check-equals-body` — fires when the body check result **exactly equals** the character's body. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
   - `on-event: character-wounded-by-self` — fires after combat finalization for each wounded character. The condition is evaluated per wounded character; any that pass are discarded. Implemented in `reducer-combat.ts` `discardWoundedCharacters()`. Used by *Abductor* (tw-1).
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The `check-modifier` constraint kind may also be added via a grant-action `add-constraint` apply (carrying `check` and a numeric `value`): a one-shot bonus/penalty consumed the first time the targeted character makes a matching check — e.g. *When You Know More* (dm-163) adds a `+2` `influence` modifier. Such a grant-action targets the chosen character with `target: "action-target-character"`, which resolves to `{ kind: "character", characterId: <action.targetCardId> }` (the candidate the legal-action generator put on the activation). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised), and with `untap-phase-end` + `when: { "bearer.atHaven": true }` to discard at the Untap→Organization transition when at a haven (e.g. Well-preserved). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`, `reducer-utils.ts` `sweepAutoDiscardHazards()`, and `reducer-untap.ts` `advanceToOrganization()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by
@@ -1724,6 +1779,41 @@ simply omits the `starting-item` keyword that marks a Fallen-wizard Stage
 resource as draftable at setup (Thrall of the Voice wh-82, Hidden Haven wh-75
 carry it), so the draft layer never offers it as a starting stage card.
 
+### 13d. `technology-item-unlocked` active constraint
+
+Produced by an `on-event: self-enters-play → add-constraint` apply on a stage
+permanent-event played on a site (`play-target` target `site`). The constraint
+kind resolves the bound site from the active company's current site during the
+site phase and is filtered by that `siteDefinitionId`, targeted at the
+controlling `player`, scoped `until-cleared`. While active, the owning player may
+play **one** item bearing the `Technology` keyword at that site during the site
+phase, whether the site is tapped or untapped — the play bypasses both the
+site-tap precondition and the item's own `item-play-site` restriction (which
+targets Shadow/Dark-holds and so would never match a Wizardhaven). The
+one-per-site-phase limit is tracked by `SitePhaseState.technologyItemPlayed`; the
+played item does not tap the site and does not count as the company's tapping
+resource (`legal-actions/site.ts` offers the play, `reducer-site.ts` records it).
+The constraint (and the card) are cleared by `discardOrphanedSiteAttachedEvents`
+once no company occupies the bound site.
+
+```json
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "technology-item-unlocked",
+    "scope": "until-cleared"
+  }
+}
+```
+
+Used by Saruman's Machinery (wh-120): "One Technology item is playable at the
+site during your site phase whether the site is tapped or untapped." Its
+companion `play-target` restricts the site to Isengard / The White Towers and a
+`play-condition` `requires: 'site-protected'` requires that site to already be
+protected for the player (see §below).
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
@@ -2469,10 +2559,27 @@ check) and `reducer-events.ts` (discard execution).
   card **is** in play (as a character or in any player's cardsInPlay). The
   `cardName` field names the required card. Enforced for hazard
   long-events in `legal-actions/movement-hazard.ts`. Used by Snowstorm
-  (tw-91): "Playable if Doors of Night is in play."
+  (tw-91): "Playable if Doors of Night is in play." On a **faction** the gate
+  is evaluated against the controller's OWN in-play names (so an opponent's
+  copy of the named card does not satisfy "if **you** have … in play") —
+  used by Half-orcs (wh-87) / Greater Half-orcs (wh-86) ("if you have A
+  Strident Spawn in play").
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
+```
+
+- `site-protected` — (takes no extra fields) on a **faction** the influence
+  attempt is only offered when the company's current site is **protected by
+  the controller**: an active `site-protected` constraint (added by a stage
+  permanent-event such as Guarded Haven wh-74) bound to the site's definition
+  id and owned by the player attempting the play. Protection by the opponent,
+  or no protection, does not qualify. Checked in `legal-actions/site.ts`
+  (`siteIsProtectedByPlayer`). Used by Half-orcs (wh-87) / Greater Half-orcs
+  (wh-86): "Playable at one of your protected Wizardhavens [{H}]".
+
+```json
+{ "type": "play-condition", "requires": "site-protected" }
 ```
 
 - `same-site-has-character-race` — for character-targeting permanent events
@@ -2513,7 +2620,7 @@ check) and `reducer-events.ts` (discard execution).
   avatar/alignment context, built once by `buildPlayerStateContext`
   (`legal-actions/organization.ts`) and shared across all three evaluation
   sites (organization short-events, organization permanent-events, site phase):
-  `{ player: { alignment, avatar, hasRingwraithInPlay, stagePoints, hasProtectedWizardhaven }, opponent: { alignment } }`.
+  `{ player: { alignment, avatar, hasRingwraithInPlay, stagePoints, factionCount, hasProtectedWizardhaven }, opponent: { alignment }, inPlay: [<names>] }`.
   - `player.alignment` / `opponent.alignment` — card-text alignment string
     (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
   - `player.avatar` — the **name** of the player's revealed avatar (e.g.
@@ -2521,17 +2628,25 @@ check) and `reducer-events.ts` (discard execution).
   - `player.hasRingwraithInPlay` — `true` when the player has a Ringwraith-race
     avatar character in play.
   - `player.stagePoints` — the Fallen-wizard's current stage-point total.
+  - `player.factionCount` — the number of faction cards the active player
+    controls in play (factions held under a leader's control included).
   - `player.hasProtectedWizardhaven` — `true` when the player controls a
     protected Wizardhaven (a Fallen-wizard haven / converted Wizardhaven carrying
     a `site-protected` constraint for that player).
+  - `inPlay` — the list of card names the active player has in play, so a
+    condition can require a named prerequisite via `{ "inPlay": "<name>" }`.
 
   Lets a card gate on the opposing player's alignment, the controller's revealed
-  avatar, stage points, or a protected Wizardhaven without a per-card keyword.
-  Used by *Above the Abyss* (as-77): "if your opponent is a Wizard and your
-  Ringwraith is in play"; *Gatherer of Loyalties* (wh-70): "Playable if you have
-  more than 3 stage points"; and *A Strident Spawn* (wh-61): "Playable if you are
-  Pallando or Saruman and have 6 or more stage points and a protected
-  Wizardhaven".
+  avatar, stage points, faction count, a protected Wizardhaven, or named in-play
+  prerequisites without a per-card keyword. Used by *Above the Abyss* (as-77):
+  "if your opponent is a Wizard and your Ringwraith is in play"; *Gatherer of
+  Loyalties* (wh-70): "Playable if you have more than 3 stage points"; *A
+  Strident Spawn* (wh-61): "Playable if you are Pallando or Saruman and have 6 or
+  more stage points and a protected Wizardhaven"; and *The White Hand* (wh-122):
+  "Playable on Saruman if he has … at least 12 stage points, at least 3 factions,
+  A Strident Spawn, and Saruman's Machinery." Implemented in
+  `legal-actions/organization.ts` (`buildPlayerStateContext`) and consumed by the
+  short-event, permanent-event, and site-phase play paths.
 
 ```json
 { "type": "play-condition", "requires": "player-state",
@@ -2565,6 +2680,19 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "region-through-or-leave",
   "regionNames": ["High Pass", "Redhorn Gate", "Angmar", "Gundabad",
                   "Grey Mountain Narrows", "Imlad Morgul"] }
+```
+
+- `site-protected` — for site-attached permanent-events (`play-target` target
+  `site`): the site the card is being played on (the active company's current
+  site) must already be **protected** for the playing player, i.e. carry an
+  active `site-protected` constraint owned by that player (added by The Fortress
+  of Isen wh-68 / Fortress of the Towers wh-69 / Guarded Haven wh-74). No extra
+  payload. Implemented in `legal-actions/site.ts` alongside the other
+  permanent-event play-conditions. Used by *Saruman's Machinery* (wh-120):
+  "Playable … on your protected Isengard or your protected The White Towers."
+
+```json
+{ "type": "play-condition", "requires": "site-protected" }
 ```
 
 ### 24. `creature-race-choice`
@@ -4889,9 +5017,10 @@ effect's `filter` matches that character's card definition.
   Wizardhavens, even if your Fallen-wizard is not there or Bad Company is not in
   play" (only Half-orcs, with the `atOwnWizardhavens` location relaxation).
 
-Implemented in `legal-actions/organization-characters.ts` (`orcTrollPlayPermission`
-+ the Orc/Troll gate in `playCharacterActions`, and the `isOwnWizardhaven`
-relaxation of the GI-allowed-at-site check).
+Implemented in `legal-actions/organization-characters.ts`: the
+`orcTrollPlayPermission` helper plus the Orc/Troll gate in
+`playCharacterActions`, and the `isOwnWizardhaven` relaxation of the
+GI-allowed-at-site check.
 
 ### 51b. `org-phase-fetch`
 

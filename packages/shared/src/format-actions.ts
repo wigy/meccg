@@ -215,6 +215,8 @@ export function describeAction(
       return 'Shuffle play deck';
     case 'select-starting-site':
       return `Select ${instName(action.siteInstanceId)} as starting site`;
+    case 'select-stage-resource-site':
+      return `Pair ${instName(action.stageResourceInstanceId)} with site ${instName(action.siteInstanceId)}`;
     case 'place-character': {
       const companyNum = action.companyId.endsWith('-0') ? 'first' : 'second';
       return `Move ${instName(action.characterInstanceId)} to ${companyNum} company`;

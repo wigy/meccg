@@ -14,6 +14,7 @@ import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from './reducer-utils.js';
+import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -68,6 +69,48 @@ function handleCharacterDraft(
   const playerDraft = draft.draftState[playerIndex];
 
   switch (action.type) {
+    case 'select-stage-resource-site': {
+      // Pair a drafted site-targeting Stage resource (Hidden Haven, wh-75) with
+      // a Ruins & Lairs site from the player's own site deck. The site stays in
+      // the deck for now; the pairing is resolved at draft finalize.
+      const player = state.players[playerIndex];
+      const stageResource = findById(playerDraft.draftedStageResources, action.stageResourceInstanceId);
+      if (!stageResource) {
+        return { state, error: 'Stage resource not drafted' };
+      }
+      const stageResourceDef = defById(state, stageResource.definitionId);
+      if (!stageResourceNeedsSite(stageResourceDef)) {
+        return { state, error: 'This Stage resource does not take a site' };
+      }
+      const siteCard = findById(player.siteDeck, action.siteInstanceId);
+      if (!siteCard) {
+        return { state, error: 'Site is not in your site deck' };
+      }
+      if (!siteMatchesStageResourceTarget(state, stageResourceDef, siteCard)) {
+        return { state, error: 'Site is not a valid Ruins & Lairs for Hidden Haven' };
+      }
+      const existingPairings = playerDraft.stageResourceSites ?? [];
+      if (existingPairings.some(p => p.stageResourceInstanceId === action.stageResourceInstanceId
+        || p.siteInstanceId === action.siteInstanceId)) {
+        return { state, error: 'Already paired' };
+      }
+      logDetail(`${stageResourceDef?.name ?? (stageResource.definitionId as string)} paired with site ${defById(state, siteCard.definitionId)?.name ?? (siteCard.definitionId as string)}`);
+      const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
+      newDraftState[playerIndex] = {
+        ...playerDraft,
+        stageResourceSites: [
+          ...existingPairings,
+          { stageResourceInstanceId: action.stageResourceInstanceId, siteInstanceId: action.siteInstanceId },
+        ],
+      };
+      return {
+        state: {
+          ...state,
+          phaseState: setupPhase({ ...draft, draftState: newDraftState }),
+        },
+      };
+    }
+
     case 'draft-pick': {
       if (playerDraft.stopped) {
         return { state, error: 'You have already stopped drafting' };
@@ -166,6 +209,12 @@ function handleCharacterDraft(
       if (playerDraft.stopped) {
         return { state, error: 'You have already stopped drafting' };
       }
+      // CRF 22: a revealed Hidden Haven (wh-75) must have its site brought out —
+      // the player cannot stop drafting while one that can still be paired (the
+      // site deck holds an eligible Ruins & Lairs) is unpaired.
+      if (blockingSiteStageResources(state, playerDraft, state.players[playerIndex].siteDeck).length > 0) {
+        return { state, error: 'You must choose a site for your Hidden Haven before stopping' };
+      }
 
       const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
       newDraftState[playerIndex] = { ...playerDraft, stopped: true };
@@ -247,9 +296,16 @@ function resolveDraftRound(
     }
   }
 
-  // Auto-stop players who hit limits
+  // Auto-stop players who hit limits — but never while a site-targeting Stage
+  // resource (Hidden Haven, wh-75) still needs its site paired (CRF 22: the site
+  // must be brought out when the card is revealed). Such a player keeps the
+  // draft open so they are still offered (and required to take) the pairing.
   for (let i = 0; i < 2; i++) {
     if (!newDraft[i].stopped) {
+      if (blockingSiteStageResources(state, newDraft[i], state.players[i].siteDeck).length > 0) {
+        logDetail(`Player ${i} not auto-stopped: a Stage resource still needs a paired site`);
+        continue;
+      }
       const mind = newDraft[i].drafted.reduce((sum, card) => {
         const def = defById(state, card.definitionId);
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
@@ -609,9 +665,11 @@ function handleStartingSiteSelection(
     return { state, error: 'You have already finished site selection' };
   }
 
-  // Pass: done selecting (must have at least one site)
+  // Pass: done selecting (must have at least one site, unless a company already
+  // has a starting site pre-placed by a Hidden Haven (wh-75) draft pairing).
   if (action.type === 'pass') {
-    if (siteSelection.selectedSites.length === 0) {
+    const hasPrePlacedSite = state.players[playerIndex].companies.some(c => c.currentSite != null);
+    if (siteSelection.selectedSites.length === 0 && !hasPrePlacedSite) {
       return { state, error: 'You must select at least one starting site' };
     }
 
@@ -690,17 +748,25 @@ function finalizeSiteSelection(
     const selectedSites = siteSelectionState[i].selectedSites;
     const companies = [...player.companies];
 
-    // Assign first site to existing company
-    if (selectedSites.length > 0 && companies.length > 0) {
+    // A Hidden Haven (wh-75) pairing may have pre-placed a starting site on the
+    // base company during draft finalize. In that case every selected site
+    // creates a new company — the pre-placed company must not be overwritten.
+    // Otherwise (no pre-placed site) the first selected site fills the base
+    // company and any further selections create new companies.
+    const basePrePlaced = companies.length > 0 && companies[0].currentSite != null;
+    const startIdx = (!basePrePlaced && selectedSites.length > 0 && companies.length > 0) ? 1 : 0;
+
+    if (startIdx === 1) {
+      // No pre-placed site: first selected site fills the existing base company.
       companies[0] = { ...companies[0], currentSite: { ...selectedSites[0], status: CardStatus.Untapped } };
     }
 
-    // Second site creates an additional empty company
-    if (selectedSites.length > 1) {
+    // Each remaining selected site creates an additional empty company.
+    for (let s = startIdx; s < selectedSites.length; s++) {
       companies.push({
-        id: nextCompanyId(player),
+        id: nextCompanyId({ ...player, companies }),
         characters: [],
-        currentSite: { ...selectedSites[1], status: CardStatus.Untapped },
+        currentSite: { ...selectedSites[s], status: CardStatus.Untapped },
         siteCardOwned: true,
         destinationSite: null,
         movementPath: [],
