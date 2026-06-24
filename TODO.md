@@ -16,6 +16,8 @@ FIXES
 FEATS
 -----
 
+Announce players' alignments in the text log when the game begins.
+
 EPICS
 -----
 
