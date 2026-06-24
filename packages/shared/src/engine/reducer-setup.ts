@@ -13,7 +13,7 @@ import { Phase, SetupStep, Alignment, getAlignmentRules, shuffle, CardStatus, is
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 
 
@@ -419,11 +419,11 @@ function handleItemDraft(
     };
   }
 
-  // Compute assigned count including starting events placed
+  // Only true minor items count toward the two-item budget; Stage resources
+  // placed with a character (e.g. Thrall of the Voice) do not (CoE 1.7.F1 /
+  // 1.9.F4 — see countStartingMinorItems).
   const player = state.players[playerIndex];
-  const assignedCount = Object.values(player.characters).reduce(
-    (sum, char) => sum + char.items.length, 0,
-  ) + (itemDraft.startingEventsPlaced ?? 0);
+  const assignedCount = countStartingMinorItems(state, player);
 
   // Handle place-starting-company-event
   if (action.type === 'place-starting-company-event') {
