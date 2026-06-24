@@ -14,6 +14,7 @@ export type { AlignmentRules } from './alignment-rules.js';
 export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
+export { effectiveGeneralInfluence } from './engine/reducer-utils.js';
 export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions } from './engine/legal-actions/index.js';

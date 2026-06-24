@@ -10,7 +10,7 @@ import { createGame } from '../engine/init.js';
 import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
-import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies } from '../engine/reducer-utils.js';
+import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies, effectiveGeneralInfluence } from '../engine/reducer-utils.js';
 import {
   loadCardPool,
   Phase,
@@ -3543,6 +3543,7 @@ export {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR, DUNNISH_CLAN_HOLD, HENNETH_ANNUN, LOND_GALEN, TOLFALAS, EDHELLOND, WELLINGHALL, ISENGARD,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_ANORIEN, MEN_OF_ANFALAS, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RANGERS_OF_ITHILIEN, RIDERS_OF_ROHAN, DUNLENDINGS,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
+  effectiveGeneralInfluence,
 };
 export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState, CreatureKeyingMatch, EvaluatedAction };
 
