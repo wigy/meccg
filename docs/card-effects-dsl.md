@@ -649,6 +649,35 @@ Actions:
       { "type": "enqueue-corruption-check" } ] } }
   ```
 
+- `modify-corruption-check` (with `corruptionCheckWindow: true`) — a tap
+  ability activatable **only** while a corruption check by a character in
+  the bearer's company is awaiting its roll, in either corruption-check
+  window: the unified pending resolution (lure / transfer / wound checks)
+  or the Free Council end-of-turn support window. The legal-action layer
+  emits it via `modifyCorruptionCheckGrantActions`
+  (`legal-actions/organization.ts`) — one activation per untapped bearer in
+  the resolving character's company — never via the generic per-phase
+  grant-action scanner (which skips `corruptionCheckWindow` effects, see
+  `extractGrantActions`). The activation carries the resolving character on
+  `targetCardId`. The `apply` is a `sequence`: an `add-constraint` of a
+  one-shot `check-modifier` (`target: "action-target-character"` resolves to
+  that `targetCardId`) plus an `enqueue-corruption-check` on the bearer. The
+  unified window reads the constraint in `corruptionCheckActions`; the Free
+  Council window reads and consumes it in `resolveCorruptionCheck`. Used by
+  *When I Know Anything* (td-166): "Tap sage to modify one corruption check
+  by a character in his company by +3. Sage makes a corruption check."
+
+  ```json
+  { "type": "grant-action", "action": "modify-corruption-check",
+    "cost": { "tap": "bearer" }, "corruptionCheckWindow": true,
+    "apply": { "type": "sequence", "apps": [
+      { "type": "add-constraint", "constraint": "check-modifier",
+        "check": "corruption", "value": 3, "scope": "until-cleared",
+        "target": "action-target-character" },
+      { "type": "enqueue-corruption-check" }
+    ] } }
+  ```
+
 Action-less activations may also be declared directly on a character
 card via `"apply"` on the grant-action effect, reusing the shared
 TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`

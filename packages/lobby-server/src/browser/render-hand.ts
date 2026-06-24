@@ -1139,6 +1139,35 @@ export function renderHand(
     }
     el.appendChild(img);
   }
+
+  // The fan's natural width grows linearly with the card count (fixed per-card
+  // advance), so a large hand overflows the centered arc and the leftmost /
+  // rightmost cards run off the screen edges. Measure the laid-out width and,
+  // only when it would overflow, scale the whole arc down to fit — preserving
+  // card size, margins, and fan shape for normal hands.
+  fitHandArc(el, total, margin);
+}
+
+/**
+ * Shrink the hand arc to fit the viewport width when it would otherwise
+ * overflow. Uses each card's untransformed layout width (offsetWidth ignores
+ * the rotate/translate) so the estimate is independent of the fan rotation,
+ * then applies a uniform scale anchored at the bottom centre.
+ */
+function fitHandArc(el: HTMLElement, total: number, marginVh: number): void {
+  el.style.transformOrigin = 'bottom center';
+  const firstCard = el.firstElementChild as HTMLElement | null;
+  const cardWidthPx = firstCard?.offsetWidth ?? 0;
+  if (total === 0 || cardWidthPx === 0) {
+    el.style.transform = '';
+    return;
+  }
+  const marginPx = (marginVh / 100) * window.innerHeight;
+  const contentPx = total * cardWidthPx + total * 2 * marginPx;
+  // Leave a little breathing room and headroom for the rotation-induced spread.
+  const availablePx = window.innerWidth * 0.9;
+  const scale = Math.min(1, availablePx / contentPx);
+  el.style.transform = scale < 1 ? `scale(${scale})` : '';
 }
 
 // ---- Opponent hand ----

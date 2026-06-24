@@ -1198,8 +1198,70 @@ function enumerateGrantActionTargets(
  */
 function extractGrantActions(state: GameState, definitionId: import('../../index.js').CardDefinitionId) {
   return getCardEffects(defById(state, definitionId)).filter(
-    (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
+    (e): e is import('../../types/effects.js').GrantActionEffect =>
+      // Corruption-check-window abilities (When I Know Anything td-166) are
+      // emitted only by `modifyCorruptionCheckGrantActions` while a check is
+      // awaiting its roll — never by the generic per-phase scanner.
+      e.type === 'grant-action' && e.corruptionCheckWindow !== true,
   );
+}
+
+/**
+ * Emit `activate-granted-action` activations for `corruptionCheckWindow`
+ * grant-actions while a corruption check by `resolvingCharacterId` is
+ * awaiting its roll. Shared by both corruption-check windows — the unified
+ * pending resolution (`legal-actions/pending.ts`) and the Free Council
+ * support window (`legal-actions/free-council.ts`).
+ *
+ * The bearer must be an untapped character in the **same company** as the
+ * character making the check (the cost taps the bearer). One activation is
+ * emitted per eligible bearer × matching grant-action; the resolving
+ * character rides on `targetCardId` so the apply's `add-constraint` /
+ * `enqueue-corruption-check` steps know which check to boost.
+ *
+ * Used by *When I Know Anything* (td-166): a sage taps to add +3 to one
+ * corruption check by a character in his company, then makes a check himself.
+ */
+export function modifyCorruptionCheckGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  resolvingCharacterId: CardInstanceId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  const company = findCharacterCompany(player.companies, resolvingCharacterId);
+  if (!company) return actions;
+
+  for (const charId of company.characters) {
+    const bearer = player.characters[charId as string];
+    if (!bearer) continue;
+    // Cost taps the bearer — only untapped bearers may activate.
+    if (bearer.status !== CardStatus.Untapped) continue;
+    for (const item of bearer.items) {
+      const def = defById(state, item.definitionId);
+      const grant = getCardEffects(def).find(
+        (e): e is import('../../types/effects.js').GrantActionEffect =>
+          e.type === 'grant-action' && e.corruptionCheckWindow === true && !!e.apply,
+      );
+      if (!grant) continue;
+      logDetail(`Corruption-check modifier available: ${def && 'name' in def ? (def as { name: string }).name : '?'} (bearer ${charId as string}) → boost check by ${resolvingCharacterId as string}`);
+      actions.push({
+        action: {
+          type: 'activate-granted-action',
+          player: playerId,
+          characterId: charId,
+          sourceCardId: item.instanceId,
+          sourceCardDefinitionId: item.definitionId,
+          actionId: grant.action,
+          rollThreshold: 0,
+          targetCardId: resolvingCharacterId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
 }
 
 /**
