@@ -57,9 +57,10 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
   dispatch, phaseStateAs, createGame, draftInstId, siteDeckInstId, runActions, makePlayDeck, pool, RIVENDELL,
+  makeWildernessMHState, viableActions, nonViableOfType, ORC_PATROL,
 } from '../test-helpers.js';
 import { computeLegalActions, SiteType, Alignment, reduce } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState, PlayHazardAction } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../../engine/effective.js';
 import { isHavenForPlayer, isWizardhavenConversionFor, discardOrphanedSiteAttachedEvents, defById } from '../../engine/reducer-utils.js';
 
@@ -271,6 +272,59 @@ describe('Hidden Haven (wh-75)', () => {
     expect(resolved.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === STOUT_MEN)).toBe(true);
     // …and the step advanced to play-resources.
     expect(phaseStateAs<SitePhaseState>(resolved).step).toBe('play-resources');
+  });
+
+  // ── Rule 6 (movement-hazard): a creature played during the OPPONENT's
+  //    movement/hazard phase is canceled too, not just on-guard/automatic
+  //    attacks at the site phase. Regression for game mqs95ujy-nh2ea3: a Dragon
+  //    was keyed by site-type and struck a (non-moving) company sitting on a
+  //    Hidden Haven that should have canceled all attacks against it. The
+  //    site-type override makes the printed site read as a haven, but the
+  //    cancellation rides the `cancel-attacks-at-site` constraint, which the
+  //    movement-hazard creature path was not consulting. ───────────────────────
+
+  test('a hazard creature cannot be played against a company at this site during movement/hazard', () => {
+    const after = convert(
+      buildFallenWizardSitePhaseState({ site: WORTHY_HILLS, characters: [ARAGORN], hand: [HIDDEN_HAVEN] }),
+      WORTHY_HILLS,
+    );
+    expect(siteAttacksCanceled(after, WORTHY_HILLS)).toBe(true);
+
+    // The hazard player holds an Orc-patrol keyable to the Ruins & Lairs the
+    // (non-moving) company is sitting on; advance to the play-hazards step.
+    const orcId = 'wh75-mh-orc-1' as CardInstanceId;
+    const mh: GameState = {
+      ...after,
+      players: [
+        after.players[RESOURCE_PLAYER],
+        { ...after.players[HAZARD_PLAYER], hand: [{ instanceId: orcId, definitionId: ORC_PATROL }] },
+      ] as GameState['players'],
+      phaseState: makeWildernessMHState(),
+    };
+
+    // No viable creature play, and the Orc-patrol is explicitly surfaced as a
+    // non-viable play-hazard (the attack is canceled, not merely unkeyable).
+    expect(viableActions(mh, PLAYER_2, 'play-hazard')).toHaveLength(0);
+    const nonViable = nonViableOfType(computeLegalActions(mh, PLAYER_2), 'play-hazard');
+    expect(nonViable.some(ea => (ea.action as PlayHazardAction).cardInstanceId === orcId)).toBe(true);
+  });
+
+  test('control: the same creature IS playable when no Hidden Haven cancels attacks', () => {
+    const base = buildFallenWizardSitePhaseState({ site: WORTHY_HILLS, characters: [ARAGORN] });
+    expect(siteAttacksCanceled(base, WORTHY_HILLS)).toBe(false);
+
+    const orcId = 'wh75-mh-orc-2' as CardInstanceId;
+    const mh: GameState = {
+      ...base,
+      players: [
+        base.players[RESOURCE_PLAYER],
+        { ...base.players[HAZARD_PLAYER], hand: [{ instanceId: orcId, definitionId: ORC_PATROL }] },
+      ] as GameState['players'],
+      phaseState: makeWildernessMHState(),
+    };
+
+    const plays = viableActions(mh, PLAYER_2, 'play-hazard');
+    expect(plays.some(ea => (ea.action as PlayHazardAction).cardInstanceId === orcId)).toBe(true);
   });
 
   // ── Rule 7: discarded when the site leaves play ─────────────────────────────

@@ -15,6 +15,7 @@ import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
+import { siteAttacksCanceled } from '../effective.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
@@ -2648,9 +2649,17 @@ function buildTargetCompanyConditionContext(
 
 /**
  * If the target company's effective site (destination if moving, else
- * current) carries a `cancel-attacks` site-rule, return the site's name
- * so callers can mark creature plays non-viable and surface a reason.
- * Returns null when no such rule applies.
+ * current) forbids attacks against the company, return the site's name so
+ * callers can mark creature plays non-viable and surface a reason. Two
+ * mechanisms qualify:
+ *
+ * - a `cancel-attacks` site-rule baked into the site definition (e.g. Dol
+ *   Guldur, Moria); and
+ * - an active `cancel-attacks-at-site` constraint placed on the site (e.g.
+ *   Hidden Haven, wh-75, which turns a Ruins & Lairs into a Wizardhaven and
+ *   decrees "all attacks against [a company at this site] are canceled").
+ *
+ * Returns null when neither applies.
  */
 function cancelAttacksSiteName(
   state: GameState,
@@ -2666,7 +2675,9 @@ function cancelAttacksSiteName(
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return null;
   const siteDef = defById(state, siteDefId);
-  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
+  if (!siteDef || !isSiteCard(siteDef)) return null;
+  if (siteAttacksCanceled(state, siteDefId)) return siteDef.name;
+  if (!siteDef.effects) return null;
   const cancels = siteDef.effects.some(e => e.type === 'site-rule' && e.rule === 'cancel-attacks');
   return cancels ? siteDef.name : null;
 }
