@@ -138,6 +138,12 @@ export interface OpponentView {
   readonly marshallingPoints: MarshallingPointTotals;
   /** How much of the opponent's general influence is committed (public information). */
   readonly generalInfluenceUsed: number;
+  /**
+   * The opponent's effective general-influence pool: 20 for most players, or
+   * the white-hand value of a revealed Fallen-wizard avatar (CoE 3.09), plus
+   * any in-play bonus (e.g. Bade to Rule). Public information.
+   */
+  readonly generalInfluence: number;
   /** How many times the opponent has exhausted their play deck (relevant for Free Council trigger). */
   readonly deckExhaustionCount: number;
   /** The opponent's most recent dice roll (public information), or null before first roll. */
@@ -190,6 +196,12 @@ export interface SelfView {
   readonly marshallingPoints: MarshallingPointTotals;
   /** How much general influence is currently committed to controlling characters. */
   readonly generalInfluenceUsed: number;
+  /**
+   * The player's effective general-influence pool: 20 for most players, or the
+   * white-hand value of a revealed Fallen-wizard avatar (CoE 3.09), plus any
+   * in-play bonus (e.g. Bade to Rule).
+   */
+  readonly generalInfluence: number;
   /** How many times this player's play deck has been exhausted. */
   readonly deckExhaustionCount: number;
   /** This player's most recent dice roll, or null before the first roll. */

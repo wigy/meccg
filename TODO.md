@@ -13,8 +13,6 @@ Look for functions and features that are better implemented in DSL. Implement th
 FIXES
 -----
 
-Implement FW free GI correctly.
-
 FEATS
 -----
 

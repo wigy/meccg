@@ -892,10 +892,27 @@ export function filterSideboardByDef(
  */
 /**
  * Returns the effective general-influence pool for the player.
- * Base pool is 20; permanent events (e.g. Bade to Rule) can add a bonus.
+ *
+ * The base pool is 20 (CoE 1.54). A Fallen-wizard is the exception (CoE 3.09 /
+ * CRF-22 "MEWH"): the white-hand number printed on the left side of his avatar
+ * card *is* his general influence once that avatar is in play, replacing the
+ * base 20 for as long as it stays in play. Before the avatar is revealed (and
+ * for every other alignment) the pool is the base 20. On top of either base,
+ * permanent events (e.g. Bade to Rule: +5) contribute `generalInfluenceBonus`.
  */
 export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId): number {
-  return GENERAL_INFLUENCE + (playerById(state, playerId)?.generalInfluenceBonus ?? 0);
+  const player = playerById(state, playerId);
+  if (!player) return GENERAL_INFLUENCE;
+  const bonus = player.generalInfluenceBonus ?? 0;
+  const avatar = findPlayerAvatar(state, player);
+  if (avatar) {
+    const def = resolveDef(state, avatar.instanceId);
+    if (isCharacterCard(def) && def.alignment === 'fallen-wizard'
+      && 'generalInfluence' in def && typeof def.generalInfluence === 'number') {
+      return def.generalInfluence + bonus;
+    }
+  }
+  return GENERAL_INFLUENCE + bonus;
 }
 
 export function countCopiesInPlay(state: GameState, name: string): number {

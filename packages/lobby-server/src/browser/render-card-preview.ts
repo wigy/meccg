@@ -100,6 +100,11 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       if (def.skills.length > 0) addAttr(el, 'Skills', def.skills.map(formatLabel).join(', '));
       addAttr(el, 'Prowess / Body', `${def.prowess} / ${def.body}`);
       if (def.mind !== null) addAttr(el, 'Mind', def.mind);
+      // Fallen-wizard avatars carry a printed general influence (white-hand
+      // value) that becomes the player's GI pool while in play (CoE 3.09).
+      if ('generalInfluence' in def && typeof def.generalInfluence === 'number') {
+        addAttr(el, 'General Influence', def.generalInfluence);
+      }
       addAttr(el, 'Direct Influence', def.directInfluence);
       addAttr(el, 'MP', def.marshallingPoints);
       const corruptionMod = def.effects?.find(e => e.type === 'check-modifier' && (e as { check?: string }).check === 'corruption') as { value?: number } | undefined;

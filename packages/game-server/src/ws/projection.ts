@@ -32,7 +32,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
+import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
@@ -56,7 +56,7 @@ function hiddenSitePile(pile: readonly CardInstance[]): readonly ViewCard[] {
  * sideboard, companies, and characters — but only the *size* of their play
  * deck (not its order).
  */
-function buildSelfView(_state: GameState, player: PlayerState): SelfView {
+function buildSelfView(state: GameState, player: PlayerState): SelfView {
   // Redact on-guard card identities — the resource player must not see
   // what the hazard player placed face-down at their companies.
   // Revealed cards keep their identity; unrevealed cards are hidden.
@@ -84,6 +84,7 @@ function buildSelfView(_state: GameState, player: PlayerState): SelfView {
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
+    generalInfluence: effectiveGeneralInfluence(state, player.id),
     deckExhaustionCount: player.deckExhaustionCount,
     lastDiceRoll: player.lastDiceRoll,
   };
@@ -97,7 +98,7 @@ function buildSelfView(_state: GameState, player: PlayerState): SelfView {
  * Public information — characters in play, company locations, discard piles —
  * is passed through.
  */
-function buildOpponentView(_state: GameState, player: PlayerState): OpponentView {
+function buildOpponentView(state: GameState, player: PlayerState): OpponentView {
   const companies: OpponentCompanyView[] = player.companies.map(c => ({
     id: c.id,
     characters: c.characters,
@@ -143,6 +144,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
+    generalInfluence: effectiveGeneralInfluence(state, player.id),
     deckExhaustionCount: player.deckExhaustionCount,
     lastDiceRoll: player.lastDiceRoll,
   };
@@ -191,6 +193,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       cardsInPlay: p1.cardsInPlay,
       marshallingPoints: p1.marshallingPoints,
       generalInfluenceUsed: p1.generalInfluenceUsed,
+      generalInfluence: effectiveGeneralInfluence(state, p1.id),
       deckExhaustionCount: p1.deckExhaustionCount,
       lastDiceRoll: p1.lastDiceRoll,
     },
