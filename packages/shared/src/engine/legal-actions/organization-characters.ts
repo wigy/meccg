@@ -20,7 +20,8 @@ import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleE
 import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer } from '../reducer-utils.js';
+import type { PlayerState } from '../../index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -56,6 +57,38 @@ function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard):
  */
 function isAgentCharacter(charDef: CharacterCard): boolean {
   return (charDef.keywords ?? []).includes('agent');
+}
+
+/**
+ * Evaluates the Fallen-wizard Orc/Troll play permission (CoE 2.II.2.2.F2) for a
+ * candidate character. A Fallen-wizard player may only play an Orc or Troll
+ * character (Half-orcs count as Orcs) when a Stage resource in play
+ * "specifically allows" it — modelled as an `allow-character-play` effect on a
+ * card the player controls whose `filter` matches the character's definition.
+ *
+ * Returns `permitted` (whether any in-play permission matches) and
+ * `atOwnWizardhavens` (whether a matching permission also lets the character be
+ * played at the controller's Wizardhavens even when the avatar is not there —
+ * A Strident Spawn wh-61).
+ */
+function orcTrollPlayPermission(
+  state: GameState,
+  player: PlayerState,
+  charDef: CharacterCard,
+): { permitted: boolean; atOwnWizardhavens: boolean } {
+  let permitted = false;
+  let atOwnWizardhavens = false;
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'allow-character-play') continue;
+      if (!matchesDefinition(charDef, eff.filter)) continue;
+      permitted = true;
+      if (eff.atOwnWizardhavens) atOwnWizardhavens = true;
+    }
+  }
+  return { permitted, atOwnWizardhavens };
 }
 
 /**
@@ -455,6 +488,29 @@ export function playCharacterActions(
       continue;
     }
 
+    // CoE 2.II.2.2.F2: a Fallen-wizard player cannot play Orc or Troll
+    // characters (Half-orcs are race Orc) unless a Stage resource in play
+    // specifically allows it (Bad Company wh-63 for any Orc/Troll; A Strident
+    // Spawn wh-61 for Half-orcs). A Strident Spawn additionally lets Half-orcs
+    // be played at the player's Wizardhavens even when the avatar is elsewhere.
+    let orcTrollAtWizardhavens = false;
+    if (player.alignment === Alignment.FallenWizard
+        && (cardDef.race === Race.Orc || cardDef.race === Race.Troll)) {
+      const perm = orcTrollPlayPermission(state, player, cardDef);
+      if (!perm.permitted) {
+        const reason = `${charName}: a Fallen-wizard cannot play Orc or Troll characters without a Stage resource in play that allows it (e.g. Bad Company)`;
+        logDetail(`  → blocked: ${reason}`);
+        results.push({
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason,
+        });
+        continue;
+      }
+      orcTrollAtWizardhavens = perm.atOwnWizardhavens;
+      logDetail(`  → Orc/Troll play permitted${orcTrollAtWizardhavens ? ' (and at own Wizardhavens regardless of avatar location)' : ''}`);
+    }
+
     // Find valid sites (homesite or haven — from companies or site deck)
     // Note: findPlayableSites already handles home-site-only and avatar restrictions
     const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar);
@@ -556,8 +612,12 @@ export function playCharacterActions(
 
       // Generate viable actions for each (site, controlledBy) combination
       for (const site of playableSites) {
-        // Rule 2.II.2.2: with avatar in play, GI play only at avatar's site
-        const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId;
+        // Rule 2.II.2.2: with avatar in play, GI play only at avatar's site.
+        // A Strident Spawn (wh-61) relaxes this for Half-orcs at the player's
+        // own Wizardhavens ("even if your Fallen-wizard is not there").
+        const isOwnWizardhaven = orcTrollAtWizardhavens
+          && isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId });
+        const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId || isOwnWizardhaven;
         if (canPlayUnderGI && giAllowedAtSite) {
           logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costMind}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}`);
           results.push({

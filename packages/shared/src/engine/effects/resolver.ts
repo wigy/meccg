@@ -30,6 +30,7 @@ import type {
   CardInstanceId,
   SiteCard,
   CompanyId,
+  PlayerId,
 } from '../../index.js';
 import { matchesCondition, matchesContext, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -62,6 +63,14 @@ export interface ResolverContext {
      */
     readonly baseMind?: number;
     readonly name: string;
+    /**
+     * The character's keyword tags (e.g. `"Half-orc"`, `"Leader"`). Exposed so
+     * conditions can gate on keywords that are not captured by `race`, e.g.
+     * A Strident Spawn (wh-61) targets Half-orcs via
+     * `{ "target.keywords": { "$includes": "Half-orc" } }` (Half-orcs have
+     * race `"orc"`).
+     */
+    readonly keywords?: readonly string[];
     /**
      * Definition IDs of other characters in the same company.
      * Used by conditions like `{ "bearer.companionDefinitionIds": { "$includes": "as-1" } }`
@@ -148,6 +157,7 @@ export function buildBearerContext(charDef: CharacterCard): NonNullable<Resolver
     // reference it are never evaluated against a non-numeric value.
     ...(charDef.mind !== null ? { baseMind: charDef.mind } : {}),
     name: charDef.name,
+    keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
   };
 }
 
@@ -237,12 +247,17 @@ export function collectGlobalEffects(
   targetScope: string,
   context: ResolverContext,
   defenderCompanyId?: CompanyId,
+  ownerPlayerId?: PlayerId,
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
   const baseRecordContext = context as unknown as Record<string, unknown>;
 
   // Both players' cards in play (events, factions, permanent resources, etc.)
   for (const player of state.players) {
+    // `own-characters`-scoped effects only apply to characters controlled by
+    // the player who controls the source card (e.g. A Strident Spawn wh-61
+    // reduces only *your* Half-orcs' control cost). Skip other players' cards.
+    if (targetScope === 'own-characters' && ownerPlayerId !== undefined && player.id !== ownerPlayerId) continue;
     for (const card of player.cardsInPlay) {
       // Company-bound cards: only include when the defending company matches.
       // Without a defender context, skip company-bound cards entirely to
@@ -288,6 +303,7 @@ export function collectGlobalEffects(
   // (e.g. The Arkenstone: +1 mind to all Dwarves while held by anyone). These
   // items live in character.items, not in cardsInPlay, so we scan them separately.
   for (const player of state.players) {
+    if (targetScope === 'own-characters' && ownerPlayerId !== undefined && player.id !== ownerPlayerId) continue;
     for (const char of Object.values(player.characters)) {
       for (const item of char.items) {
         const def = resolveDef(state, item.instanceId);

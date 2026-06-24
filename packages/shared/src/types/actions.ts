@@ -155,7 +155,7 @@ export type {
 
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, PlaceStartingCompanyEventAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
-import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, TestRingAtSiteAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction, DiscardStageResourceAction } from './actions-organization.js';
+import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlayRingAfterTestAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, PairResourceWithCofAction, ActivateGrantedAction, TestRingAtSiteAction, PlayWizardFromSearchAction, SkipWizardSearchAction, SelectCardBearerAction, DiscardStageResourceAction, ActivateOrgFetchAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction, GlamourHazardRollAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, ModifyAttackAction, TapItemForStrikeAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, MusterRollAction, CallOfHomeRollAction, BodyCheckCompanyRollAction, SeizedByTerrorRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, UnderDeepsRollAction, FlateryAttemptRollAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TakeTrophyAction, CvccAllyDiscardRollAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, StayHerAppetiteRollAction } from './actions-movement-hazard.js';
@@ -202,6 +202,7 @@ export type GameAction =
   | SkipWizardSearchAction
   | SelectCardBearerAction
   | DiscardStageResourceAction
+  | ActivateOrgFetchAction
   | PlayShortEventAction
   | FetchFromPileAction
   | ReshuffleCardFromHandAction

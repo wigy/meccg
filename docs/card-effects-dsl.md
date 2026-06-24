@@ -107,6 +107,15 @@ when Doors of Night is in play:
 Optional `target` scopes:
 
 - `"all-characters"` — applies to every character in play
+- `"own-characters"` — applies to every character controlled by the **player
+  who controls the card carrying this effect** (collected per-player in
+  `recompute-derived.ts` and filtered in `collectGlobalEffects` by the target
+  character's controller). Unlike `"all-characters"`, the opponent's matching
+  characters are unaffected. The per-character `when` context exposes
+  `target.keywords` (e.g. `"Half-orc"`), since Half-orcs have race `"orc"`.
+  Used by *A Strident Spawn* (wh-61): "Each of your Half-orcs requires one less
+  point of influence to control" —
+  `{ "stat": "mind", "value": -1, "target": "own-characters", "when": { "target.keywords": { "$includes": "Half-orc" } } }`.
 - `"all-attacks"` — applies to every automatic-attack and hazard creature
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 - *(no target)* on a hazard-creature card — self-modifier applied to the
@@ -2501,25 +2510,43 @@ check) and `reducer-events.ts` (discard execution).
 
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
-  avatar/alignment context
-  `{ player: { alignment, hasRingwraithInPlay, stagePoints }, opponent: { alignment } }`.
-  `alignment` is the card-text alignment string (`"wizard"`,
-  `"ringwraith"`, `"fallen-wizard"`, `"balrog"`); `player.hasRingwraithInPlay`
-  is `true` when the active player has a Ringwraith-race avatar character in
-  play; `player.stagePoints` is the Fallen-wizard's current stage-point total.
-  Lets a card gate on the opposing player's alignment, the controller's
-  revealed avatar, or stage points without a per-card keyword. Used by *Above
-  the Abyss* (as-77): "if your opponent is a Wizard and your Ringwraith is in
-  play"; and by *Gatherer of Loyalties* (wh-70): "Playable if you have more
-  than 3 stage points". Implemented in `legal-actions/organization.ts`
-  (`buildPlayerStateContext`, short-events) and
-  `legal-actions/organization-events.ts` (permanent-events).
+  avatar/alignment context, built once by `buildPlayerStateContext`
+  (`legal-actions/organization.ts`) and shared across all three evaluation
+  sites (organization short-events, organization permanent-events, site phase):
+  `{ player: { alignment, avatar, hasRingwraithInPlay, stagePoints, hasProtectedWizardhaven }, opponent: { alignment } }`.
+  - `player.alignment` / `opponent.alignment` — card-text alignment string
+    (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
+  - `player.avatar` — the **name** of the player's revealed avatar (e.g.
+    `"Pallando"`, `"Saruman"`), or absent if none is in play.
+  - `player.hasRingwraithInPlay` — `true` when the player has a Ringwraith-race
+    avatar character in play.
+  - `player.stagePoints` — the Fallen-wizard's current stage-point total.
+  - `player.hasProtectedWizardhaven` — `true` when the player controls a
+    protected Wizardhaven (a Fallen-wizard haven / converted Wizardhaven carrying
+    a `site-protected` constraint for that player).
+
+  Lets a card gate on the opposing player's alignment, the controller's revealed
+  avatar, stage points, or a protected Wizardhaven without a per-card keyword.
+  Used by *Above the Abyss* (as-77): "if your opponent is a Wizard and your
+  Ringwraith is in play"; *Gatherer of Loyalties* (wh-70): "Playable if you have
+  more than 3 stage points"; and *A Strident Spawn* (wh-61): "Playable if you are
+  Pallando or Saruman and have 6 or more stage points and a protected
+  Wizardhaven".
 
 ```json
 { "type": "play-condition", "requires": "player-state",
   "condition": { "$and": [
     { "opponent.alignment": "wizard" },
     { "player.hasRingwraithInPlay": true }
+  ] } }
+```
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "$and": [
+    { "player.avatar": { "$in": ["Pallando", "Saruman"] } },
+    { "player.stagePoints": { "$gte": 6 } },
+    { "player.hasProtectedWizardhaven": true }
   ] } }
 ```
 
@@ -4830,6 +4857,69 @@ Behaviour:
   event to the discard pile, and — when `bypassOneCharacterLimit` is set — skips
   the one-character-per-turn bookkeeping (and the organization-phase state is only
   touched when actually in the organization phase).
+
+### 51a. `allow-character-play`
+
+Lifts the Fallen-wizard Orc/Troll character-play restriction (CoE 2.II.2.2.F2:
+"A Fallen-wizard player cannot play Orc or Troll characters unless they have a
+Stage resource in play that specifically allows them to play Orc or Troll
+characters"). Carried by a **stage permanent-event** the Fallen-wizard controls.
+The legal-action layer bars a Fallen-wizard from playing any Orc or Troll
+character (Half-orcs are race `"orc"`) unless some in-play `allow-character-play`
+effect's `filter` matches that character's card definition.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | yes | DSL `Condition` matched against the candidate character's card definition. |
+| `atOwnWizardhavens` | no | When `true`, matching characters may also be played at the controller's **Wizardhavens** even when the Fallen-wizard avatar is not at that site (relaxing CoE 2.II.2.2's avatar-site restriction for those characters). |
+
+```json
+{ "type": "allow-character-play", "filter": { "race": { "$in": ["orc", "troll"] } } }
+```
+
+```json
+{ "type": "allow-character-play",
+  "filter": { "keywords": { "$includes": "Half-orc" } },
+  "atOwnWizardhavens": true }
+```
+
+- Used by *Bad Company* (wh-63): "You may play Orc and Troll characters …" (any
+  Orc/Troll, played under the normal avatar-site rules).
+- Used by *A Strident Spawn* (wh-61): "You may play Half-orc characters at your
+  Wizardhavens, even if your Fallen-wizard is not there or Bad Company is not in
+  play" (only Half-orcs, with the `atOwnWizardhavens` location relaxation).
+
+Implemented in `legal-actions/organization-characters.ts` (`orcTrollPlayPermission`
++ the Orc/Troll gate in `playCharacterActions`, and the `isOwnWizardhaven`
+relaxation of the GI-allowed-at-site check).
+
+### 51b. `org-phase-fetch`
+
+Grants the controlling player an optional **once-per-organization-phase** action
+to take one card matching `filter` from a pile into their hand. Carried by a
+permanent-event the player controls.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `from` | yes | Piles to fetch from: any of `"discard-pile"`, `"sideboard"`, `"deck"`. |
+| `filter` | yes | DSL `Condition` matched against each candidate card's definition. |
+
+```json
+{ "type": "org-phase-fetch", "from": ["discard-pile"],
+  "filter": { "keywords": { "$includes": "Half-orc" } } }
+```
+
+Used by *A Strident Spawn* (wh-61): "During your organization phase, you may take
+one Half-orc character from your discard pile to your hand."
+
+Behaviour: `organizationActions` (`orgPhaseFetchActivations` in
+`legal-actions/organization.ts`) emits one `activate-org-fetch` action per source
+card that still has its activation available this turn and has at least one
+matching candidate. Activating (`handleActivateOrgFetch` in
+`reducer-organization.ts`) enqueues the shared `fetch-to-deck` pending effect
+(`to: "hand"`), which drives the existing pick-one-or-pass sub-flow, and records
+the source in `OrganizationPhaseState.discardFetchUsedThisTurn` so it cannot be
+re-activated until the next turn.
 
 ### 52. `region-movement-limit`
 

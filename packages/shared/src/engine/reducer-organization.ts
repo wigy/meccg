@@ -53,6 +53,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
   'discard-stage-resource': handleDiscardStageResource,
+  'activate-org-fetch': handleActivateOrgFetch,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -140,6 +141,54 @@ function handleDiscardStageResource(state: GameState, action: GameAction): Reduc
     discardPile: [...p.discardPile, toCardInstance(card)],
   }));
   return { state: recomputeDerived(next) };
+}
+
+/**
+ * Activates the optional once-per-organization-phase fetch granted by an in-play
+ * permanent-event carrying an `org-phase-fetch` effect (A Strident Spawn wh-61).
+ * Enqueues the shared `fetch-to-deck` pending effect (`to: 'hand'`, which then
+ * drives the pick-one-or-pass sub-flow) and records the source as spent for this
+ * turn so it cannot be re-activated.
+ */
+function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-org-fetch') return wrongActionType(state, action, 'activate-org-fetch');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Org-phase-fetch source not found in play' };
+  const def = defById(state, card.definitionId);
+  const fetchEffect = def ? getCardEffects(def).find(e => e.type === 'org-phase-fetch') : undefined;
+  if (!fetchEffect || fetchEffect.type !== 'org-phase-fetch') {
+    return { state, error: 'Target does not grant an organization-phase fetch' };
+  }
+  const orgState = state.phaseState as OrganizationPhaseState;
+  const used = orgState.discardFetchUsedThisTurn ?? [];
+  if (used.includes(action.cardInstanceId)) {
+    return { state, error: 'This fetch has already been used this turn' };
+  }
+
+  logDetail(`Organization: ${player.name} activates ${def?.name ?? '?'} org-phase fetch (take one matching card from [${fetchEffect.from.join(', ')}] to hand)`);
+  const next: GameState = {
+    ...state,
+    phaseState: { ...orgState, discardFetchUsedThisTurn: [...used, action.cardInstanceId] },
+    pendingEffects: [
+      ...state.pendingEffects,
+      {
+        type: 'card-effect' as const,
+        cardInstanceId: action.cardInstanceId,
+        effect: {
+          type: 'fetch-to-deck' as const,
+          source: [...fetchEffect.from],
+          filter: fetchEffect.filter,
+          count: 1,
+          shuffle: false,
+          to: 'hand' as const,
+        },
+        skipDiscard: true,
+      },
+    ],
+  };
+  return { state: next };
 }
 
 /**

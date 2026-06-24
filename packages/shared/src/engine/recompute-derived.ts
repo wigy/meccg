@@ -26,6 +26,7 @@ import type {
   FactionCard,
   Alignment,
   CompanyId,
+  PlayerId,
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
@@ -435,10 +436,16 @@ function computeEffectiveStats(
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
+  controllingPlayerId?: PlayerId,
 ): EffectiveStats {
   const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
+  // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to
+  // characters controlled by the player who controls the source card.
+  const ownEffects = controllingPlayerId !== undefined
+    ? collectGlobalEffects(state, 'own-characters', context, undefined, controllingPlayerId)
+    : [];
 
   // MEWH §9: an Orc or Troll may bear a hero item, but all of its bonuses and
   // special abilities are ignored (movement/playability restrictions and the
@@ -449,7 +456,7 @@ function computeEffectiveStats(
   if (bearerIsOrcOrTroll) {
     charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
   }
-  const collected = [...charEffects, ...globalEffects];
+  const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
   const hasAnyEffects = collected.length > 0;
@@ -706,7 +713,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       })
       .filter((id): id is string => id !== null);
     const ringwraithMode = resolveCompanyRingwraithMode(state, player, charCompany?.id);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {

@@ -215,6 +215,15 @@ export interface OrganizationPhaseState {
    */
   readonly sideboardFetchedThisTurn: number;
   /**
+   * Instance IDs of in-play permanent-events whose optional
+   * `org-phase-fetch` activation (e.g. A Strident Spawn wh-61's "take one
+   * Half-orc from your discard pile to your hand") has already been used this
+   * organization phase. Each source may be activated at most once per turn.
+   * Optional — absent on states created before this field was added (treated
+   * as empty).
+   */
+  readonly discardFetchUsedThisTurn?: readonly CardInstanceId[];
+  /**
    * Which destination was chosen for sideboard access this turn.
    * Once a destination is chosen, the player must continue with the
    * same destination (cannot mix discard and deck in one tap).

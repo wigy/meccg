@@ -618,8 +618,37 @@
         "type": "duplication-limit",
         "scope": "player",
         "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": { "$in": ["Pallando", "Saruman"] } },
+            { "player.stagePoints": { "$gte": 6 } },
+            { "player.hasProtectedWizardhaven": true }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": -1,
+        "target": "own-characters",
+        "when": { "target.keywords": { "$includes": "Half-orc" } }
+      },
+      {
+        "type": "org-phase-fetch",
+        "from": ["discard-pile"],
+        "filter": { "keywords": { "$includes": "Half-orc" } }
+      },
+      {
+        "type": "allow-character-play",
+        "filter": { "keywords": { "$includes": "Half-orc" } },
+        "atOwnWizardhavens": true
       }
     ],
+    "certified": true,
     "text": "Unique. Playable if you are Pallando or Saruman and have 6 or more stage points and a protected Wizardhaven [{H}]. Each of your Half-orcs requires one less point of influence to control. During your organization phase, you may take one Half-orc character from your discard pile to your hand. You may play Half-orc characters at your Wizardhavens [{H}], even if your Fallen-wizard is not there or Bad Company is not in play. Cannot be duplicated by a given player."
   },
   {
@@ -654,6 +683,10 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "allow-character-play",
+        "filter": { "race": { "$in": ["orc", "troll"] } }
       }
     ],
     "text": "You may play Orc and Troll characters and include them in your starting company. You cannot start with a character that says he cannot be in the starting company. Cannot be duplicated by a given player."

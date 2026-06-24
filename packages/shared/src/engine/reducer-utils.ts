@@ -521,6 +521,28 @@ export function isWizardhavenConversionFor(
 }
 
 /**
+ * True when the given player controls a **protected Wizardhaven** — a site that
+ * is both (a) one of their Wizardhavens (a Fallen-wizard haven, or a site
+ * converted into one via `wizardhaven-conversion`) and (b) protected for them
+ * by a `site-protected` constraint (e.g. The Fortress of Isen wh-68, Fortress
+ * of the Towers wh-69, Guarded Haven wh-74). Used by play-conditions such as A
+ * Strident Spawn (wh-61) / An Untimely Brood (wh-62), which require "a protected
+ * Wizardhaven".
+ */
+export function playerHasProtectedWizardhaven(state: GameState, playerId: PlayerId): boolean {
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'site-protected') continue;
+    if (c.target.kind !== 'player' || c.target.playerId !== playerId) continue;
+    const siteDefId = c.kind.siteDefinitionId;
+    const siteDef = state.cardPool[siteDefId as string];
+    if (!isSiteCard(siteDef)) continue;
+    const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
+    if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) return true;
+  }
+  return false;
+}
+
+/**
  * Whether `siteDef` functions as a *haven* for a player of the given alignment
  * (MEWH §3, "Wizardhavens").
  *
