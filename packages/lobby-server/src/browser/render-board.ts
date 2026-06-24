@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard } from '@meccg/shared';
-import { cardImageProxyPath, viableActions } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings } from '@meccg/shared';
 import { createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { getCachedInstanceLookup } from './render-text-format.js';
 import { getSelectedItemDefId, setSelectedItemDefId, setTargetingInstruction } from './render-selection-state.js';
@@ -35,6 +35,10 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
  * item renders beside its character. `siteDeck` is the viewing player's own site
  * deck (used to resolve the paired site); pass `undefined` for the opponent,
  * whose site deck is hidden.
+ *
+ * `skipInstanceIds` lists Stage resources already rendered beside their drafted
+ * character (a Thrall of the Voice placed with a character) — they are omitted
+ * here so a card is never shown twice.
  */
 function renderDraftedStageResources(
   el: HTMLElement,
@@ -44,9 +48,11 @@ function renderDraftedStageResources(
   },
   siteDeck: readonly { readonly definitionId: CardDefinitionId; readonly instanceId: CardInstanceId }[] | undefined,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  skipInstanceIds: ReadonlySet<string>,
 ): void {
   const pairings = dps.stageResourceSites ?? [];
   for (const sr of dps.draftedStageResources) {
+    if (skipInstanceIds.has(sr.instanceId as string)) continue;
     const srDef = cardPool[sr.definitionId as string];
     if (!srDef) continue;
     const srImgPath = cardImageProxyPath(srDef);
@@ -70,6 +76,64 @@ function renderDraftedStageResources(
       el.appendChild(createCardImage(sr.definitionId as string, srDef, srImgPath, 'drafted-card', sr.instanceId as string));
     }
   }
+}
+
+/**
+ * Render the drafted characters in a flat row, hanging each character-bound
+ * Stage resource (Thrall of the Voice) beside the character it will be placed
+ * with — mirroring how a starting item renders beside its character, rather than
+ * floating in the Stage-resource row. The pairing is resolved by the shared
+ * {@link resolveThrallCharacterPairings} so the display matches the placement the
+ * engine applies when the draft is finalised.
+ *
+ * @returns the instance ids of the Stage resources rendered beside a character,
+ *   so the caller can omit them from the separate Stage-resource row.
+ */
+function renderDraftedCharactersWithThralls(
+  el: HTMLElement,
+  drafted: readonly { readonly definitionId: CardDefinitionId; readonly instanceId: CardInstanceId }[],
+  draftedStageResources: readonly { readonly definitionId: CardDefinitionId; readonly instanceId: CardInstanceId }[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): ReadonlySet<string> {
+  const charRefs = drafted.filter(c => isCharacterCard(cardPool[c.definitionId as string]));
+  const pairings = resolveThrallCharacterPairings(charRefs, draftedStageResources, defId => cardPool[defId as string]);
+  const thrallsByChar = new Map<string, { definitionId: CardDefinitionId; instanceId: CardInstanceId }[]>();
+  const pairedResourceIds = new Set<string>();
+  for (const pairing of pairings) {
+    const sr = draftedStageResources.find(s => s.instanceId === pairing.stageResourceInstanceId);
+    if (!sr) continue;
+    pairedResourceIds.add(sr.instanceId as string);
+    const list = thrallsByChar.get(pairing.characterInstanceId as string) ?? [];
+    list.push(sr);
+    thrallsByChar.set(pairing.characterInstanceId as string, list);
+  }
+
+  for (const card of drafted) {
+    const def = cardPool[card.definitionId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+    const img = createCardImage(card.definitionId as string, def, imgPath, 'drafted-card', card.instanceId as string);
+
+    const thralls = thrallsByChar.get(card.instanceId as string) ?? [];
+    if (thralls.length === 0) {
+      el.appendChild(img);
+      continue;
+    }
+
+    const group = document.createElement('div');
+    group.className = 'drafted-card-group';
+    group.appendChild(img);
+    for (const thrall of thralls) {
+      const tDef = cardPool[thrall.definitionId as string];
+      if (!tDef) continue;
+      const tImgPath = cardImageProxyPath(tDef);
+      if (!tImgPath) continue;
+      group.appendChild(createCardImage(thrall.definitionId as string, tDef, tImgPath, 'drafted-card drafted-item', thrall.instanceId as string));
+    }
+    el.appendChild(group);
+  }
+  return pairedResourceIds;
 }
 
 /** Render company characters with their items displayed to the right of each character. */
@@ -303,21 +367,26 @@ export function renderDrafted(
     const draftDefIds = (cards: readonly { readonly definitionId: CardDefinitionId }[]): CardDefinitionId[] =>
       cards.map(c => c.definitionId);
 
-    renderCardRow(selfEl, draftDefIds(draft.draftState[selfIdx].drafted), cardPool);
-    // Drafted Stage resources (Thrall, Hidden Haven) sit alongside the drafted
-    // characters: full-size until associated, then as a minor item beside the
-    // paired site.
-    renderDraftedStageResources(selfEl, draft.draftState[selfIdx], view.self.siteDeck, cardPool);
+    // Drafted characters, each with its paired Thrall of the Voice hanging beside
+    // it like a starting item. Returns the Thralls so rendered so they are not
+    // also shown in the separate Stage-resource row below.
+    const selfPairedThralls = renderDraftedCharactersWithThralls(
+      selfEl, draft.draftState[selfIdx].drafted, draft.draftState[selfIdx].draftedStageResources, cardPool);
+    // Remaining drafted Stage resources (Hidden Haven, or an unplaced Thrall) sit
+    // alongside the drafted characters: full-size until associated, then as a
+    // minor item beside the paired site.
+    renderDraftedStageResources(selfEl, draft.draftState[selfIdx], view.self.siteDeck, cardPool, selfPairedThralls);
 
     // Show face-down pick if player has picked this round
     if (draft.draftState[selfIdx].currentPick !== null) {
       selfEl.appendChild(createFaceDownCard('Your pick (face down)'));
     }
 
-    renderCardRow(oppEl, draftDefIds(draft.draftState[oppIdx].drafted), cardPool);
+    const oppPairedThralls = renderDraftedCharactersWithThralls(
+      oppEl, draft.draftState[oppIdx].drafted, draft.draftState[oppIdx].draftedStageResources, cardPool);
     // Opponent's drafted Stage resources are public, but their site deck is
     // hidden, so paired sites are not resolvable — show them full-size.
-    renderDraftedStageResources(oppEl, draft.draftState[oppIdx], undefined, cardPool);
+    renderDraftedStageResources(oppEl, draft.draftState[oppIdx], undefined, cardPool, oppPairedThralls);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
