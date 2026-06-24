@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, setTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -504,14 +504,21 @@ export function connect(name: string): void {
         }
         appState.lastPhase = msg.view.phaseState.phase;
         // Prepare/clear site selection or fetch-from-pile based on legal actions
+        const HIDDEN_HAVEN_PAIR_HINT = 'Click a Ruins & Lairs in your site deck to pair with Hidden Haven';
+        const hiddenHavenPairing = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'select-stage-resource-site');
+        // The Hidden Haven pairing hint must not outlive the pairing state (e.g.
+        // once paired or after the draft ends) — clear it when no longer offered.
+        if (!hiddenHavenPairing && getTargetingInstruction() === HIDDEN_HAVEN_PAIR_HINT) {
+          setTargetingInstruction(null);
+        }
         if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
           prepareSiteSelection(msg.view, cardPool, sendAction);
-        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'select-stage-resource-site')) {
+        } else if (hiddenHavenPairing) {
           // Character-draft: a Fallen-wizard who drafted Hidden Haven (wh-75)
           // must pair it with a Ruins & Lairs site from their own site deck.
           // Reuses the same site-deck picker as starting-site-selection.
           prepareSiteSelection(msg.view, cardPool, sendAction);
-          setTargetingInstruction('Click a Ruins & Lairs in your site deck to pair with Hidden Haven');
+          setTargetingInstruction(HIDDEN_HAVEN_PAIR_HINT);
         } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
           prepareFetchFromPile(msg.view, cardPool, sendAction);
         } else {
