@@ -102,7 +102,7 @@ Follow these steps:
    - **PARTIALLY** — some effects work, some don't, OR the card text describes rules not represented in the `effects` array / not covered by engine support. The card cannot be certified.
    - **NO** — core effects (like play-restriction) are missing, card cannot work correctly. The card cannot be certified.
 
-   For partially/no cases, explain specifically what won't work and what would need to be implemented. **Only YES is eligible for certification in step 13.** If you are about to classify something as YES but also write "the X rule is deferred" or "engine doesn't support Y yet" anywhere in your report/commit — the correct classification is PARTIALLY, not YES.
+   For partially/no cases, explain specifically what won't work and what would need to be implemented. **Only YES is eligible for certification in step 15.** If you are about to classify something as YES but also write "the X rule is deferred" or "engine doesn't support Y yet" anywhere in your report/commit — the correct classification is PARTIALLY, not YES.
 
 8. **If the card is a site** (hero-site, minion-site, fallen-wizard-site, balrog-site), check site-specific properties:
 
@@ -133,21 +133,32 @@ Follow these steps:
 
     **NEVER write tautological tests.** Do NOT add test blocks that load a card definition via `pool[ID]` and then `expect` its fields (`cardType`, `id`, `name`, `strikes`, `prowess`, `body`, `unique`, `race`, `effects[i].type`, `keyedTo`, `extended`, etc.) to match values that are literally in the card JSON. Those assertions verify JSON data against itself and prove nothing. Every test must build a game state, drive the reducer or legal-action computation, and assert on resulting state/actions. Document card shape in the module-level JSDoc comment, not in tests.
 
-12. **Verify tests pass (blocking, in-turn):** Run these checks **sequentially as foreground Bash calls**, waiting for each to finish before the next:
+**⚠️ Ordering principle for steps 12–15 — COMMIT EARLY, CERTIFY LAST.** A dirty working tree at the end of your turn is the single worst outcome: the mail handler treats it as a failure and the run-ai loop refuses to handle *any* further mail until a human cleans it up — one aborted turn blocks the whole inbox. An unverified PR, by contrast, is always recoverable with a follow-up commit. So you get your work onto a branch and pushed as soon as it type-checks, **before** the slow verification suite — never after. The slow checks (rules suite, nightly) and the `certified` field come *after* the branch exists, as follow-up commits. Do these steps strictly in order.
 
-    1. `npm run build` — type-check.
-    2. `npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts` — the card's own test file.
-    3. `npm test` — full rules test suite.
-    4. `npm run lint` — ESLint. If it fails, first try `npm run lint:fix`, re-run `npm run lint`, and only hand-fix what remains. The branch CI runs this exact command and will go red if you skip it.
-    5. `npm run test:nightly` — card tests. Must not introduce new failures compared to master. The branch CI runs this too.
+12. **Quick build gate (in-turn):** Run `npm run build` as a foreground Bash call and wait for it to finish. This is the only check that must pass *before* you commit, because broken TypeScript should never reach a branch. If it fails, fix it and re-run until green. (It is fast — do not skip ahead.)
+
+13. **Branch, commit, push, open PR — IMMEDIATELY, before the slow checks:** ⚠️ **MANDATORY — do NOT commit to master.** As soon as step 12 is green, get everything onto a branch and pushed:
+    - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`).
+    - **Do NOT add the `certified` field yet** — that happens in step 15, only after full verification. Commit the card data, engine changes, and the test in the **NOT CERTIFIED (verification pending)** state.
+    - Commit **all** changes (`git add -A`), push the branch to origin, and open a draft PR with `gh pr create` titled so it is clearly pending (e.g. `certify <cardId>: <name> — NOT CERTIFIED (verifying)`).
+    - Report the PR URL and the commit hash.
+
+    After this step the working tree is clean and the work is safe on a branch. If your turn ends for any reason (deadline, timeout, lost context) after this point, the loop is **not** blocked and a human can finish the PR. This is the whole reason the commit comes before the slow checks — never reorder it.
+
+14. **Run the full verification suite (in-turn), pushing follow-up commits:** Now run the remaining checks **sequentially as foreground Bash calls**, waiting for each to finish before the next:
+
+    1. `npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts` — the card's own test file.
+    2. `npm test` — full rules test suite.
+    3. `npm run lint` — ESLint. If it fails, first try `npm run lint:fix`, re-run `npm run lint`, and only hand-fix what remains. The branch CI runs this exact command and will go red if you skip it.
+    4. `npm run test:nightly` — card tests. Must not introduce new failures compared to master. The branch CI runs this too.
 
     ⚠️ **Do NOT use `run_in_background=true` for any of these.** Each one must complete within the tool call that started it. The nightly suite is the slowest — budget for it, don't skip it.
 
-    ⚠️ **Do NOT end your turn while any of these is still running or unstarted.** If you post an interim message like "waiting for tests…" and stop calling tools, the hosting session ends and steps 13–14 never execute, leaving your work orphaned in the working tree.
+    Fix any failure, then **commit the fix to the branch and push it** before moving on — keep the tree clean after every change so a turn-end never strands work. Re-run until all four pass. Because the PR already exists (step 13), a follow-up commit is cheap; never let fixes pile up uncommitted while a long check runs.
 
-    Fix any failures and re-run until all five pass. Do not open the PR until every one is green — a red CI on a freshly-opened certify PR blocks the whole inbox and wastes a human round-trip.
+    ⚠️ **Do NOT end your turn while any of these is still running.** If you must stop, ensure any edits you made are committed and pushed first (step 13's branch already exists, so this is just `git add -A && git commit && git push`).
 
-13. **Certify on success — strict gate:** Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present):
+15. **Certify on success — strict gate (final commit):** Only now, after step 14 is fully green, decide whether to certify. Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present), leave the PR titled **NOT CERTIFIED** naming the missing mechanic, and stop:
 
     - Step 7 classification is **YES** (not PARTIALLY, not NO).
     - Every rule in the card's `text` is represented either by an implemented effect in `effects[]` or by structural engine support (for sites: siteType, playableResources, haven paths, basic auto-attack list, etc.).
@@ -155,25 +166,14 @@ Follow these steps:
     - The card test covers every rule in the text with real assertions. No `test.todo()`, no skipped rule, no "future work" comment substituting for coverage.
     - Your commit message does not contain words like "deferred", "stubbed", "not yet supported", "engine-wide work needed", or similar about any card rule. If it does, you are certifying something you shouldn't.
 
-    If all five hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`). If the card was already certified, update the date. Otherwise remove any existing `certified` field and make sure the PR title/body says the card is **NOT CERTIFIED** and names the missing mechanic.
-
-    After writing the field, **run this shell command and confirm it returns a line** before proceeding:
+    If all five hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`), then **run this shell command and confirm it returns a line**:
 
     ```sh
     grep '"certified"' packages/shared/src/data/<set-file>.json
     ```
 
-    If the grep returns nothing, you did not write the field — go back and write it now. Do not open the PR until this check passes.
+    If the grep returns nothing, you did not write the field — write it now. Then **commit this final change to the branch, push it, and update the PR title/body** to drop the "NOT CERTIFIED" marker. Report the final commit hash.
 
-14. **Create branch and open PR:** ⚠️ **MANDATORY — do NOT commit to master.** All certification changes include test files, and CLAUDE.md requires all test changes to go through a PR. You MUST:
-    - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`)
-    - Commit all changes to that branch
-    - Push the branch to origin
-    - Open a pull request using `gh pr create`
-    - Report the PR URL and the git hash of the commit
-
-    ⚠️ **The working tree MUST be clean before your turn ends.** The mail handler checks `git status --porcelain` after your session and treats any uncommitted change as a certification failure — the user will be told you abandoned the work mid-step. Nothing is stashed: the leftover files stay in place and the run-ai loop refuses to handle any further mail until a human either opens a PR for them or reverts. One aborted turn blocks every subsequent AI request, not just yours.
-
-    If, despite the guidance above, you find yourself about to end the turn with uncommitted changes, commit them to the certify branch first (even if tests/lint haven't finished — a PR with follow-up commits is always recoverable; an orphaned diff on master is not). If you genuinely cannot land the work (engine support missing, rules unclear, etc.), revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result.
+    ⚠️ **The working tree MUST be clean before your turn ends.** The mail handler checks `git status --porcelain` after your session; any uncommitted change is treated as a certification failure and blocks the loop. If you genuinely cannot land the work (engine support missing, rules unclear), and you have *not* already committed in step 13, revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result. If you already branched and committed in step 13, just leave the PR as NOT CERTIFIED — never leave files uncommitted.
 
     Never merge directly to master. This is a hard requirement.

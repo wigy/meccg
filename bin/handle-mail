@@ -231,6 +231,70 @@ read_skill_stats() {
   fi
 }
 
+# Deterministic safety net for a skill that ends its turn with a dirty
+# working tree. Without this, the next iteration of run-ai (and the guard at
+# the top of this script) sees uncommitted changes and refuses ALL further
+# mail until a human cleans up — one aborted turn blocks the whole inbox.
+#
+# Rather than strand the work, we salvage it onto a branch and push it as a
+# recovery PR — exactly what an operator would do by hand (see step 14/15 of
+# handle-certify-card.md). This is deliberately NOT `git stash`: stashing
+# hides half-finished work across runs; a pushed branch + PR surfaces it.
+# The caller still reports the request as failed/needs-review — recovery only
+# unblocks the loop, it does not turn a failure into a success.
+#
+#   $1 = branch base (a unique suffix is appended), e.g. "certify-tw-156"
+#   $2 = human label for the commit/PR body, e.g. "tw-156"
+# Prints the recovery PR URL on stdout (may be empty if `gh` is unavailable).
+# Returns 0 only if the working tree is CLEAN afterwards; non-zero means
+# recovery failed and the caller must fall back to leaving the tree dirty.
+recover_dirty_tree() {
+  local base="$1" label="$2"
+  cd "$PROJECT_DIR" || return 1
+  [ -z "$(git status --porcelain)" ] && return 0
+
+  local cur rec_branch ok=1
+  cur=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo master)
+  if [ "$cur" = "master" ] || [ -z "$cur" ] || [ "$cur" = "HEAD" ]; then
+    # Skill never branched (worst case — test files would land on master).
+    # `checkout -B` carries the uncommitted changes onto the new branch.
+    rec_branch="${base}-recovery"
+    git checkout -B "$rec_branch" >&2 2>&1 || ok=0
+  else
+    # Skill already created its branch (possibly with partial commits) —
+    # keep using it so the salvage commit lands alongside its work.
+    rec_branch="$cur"
+  fi
+
+  [ "$ok" = 1 ] && { git add -A >&2 2>&1 || ok=0; }
+  [ "$ok" = 1 ] && { git commit -m "Recover uncommitted ${label} work (handler ended mid-step)
+
+The handler turn ended before committing. handle-mail salvaged these
+changes onto a branch so the run-ai loop is not blocked. This work is
+NOT verified and NOT certified — review and finish, or close, this PR." >&2 2>&1 || ok=0; }
+  [ "$ok" = 1 ] && { git push -u origin "$rec_branch" >&2 2>&1 || ok=0; }
+
+  local pr_url=""
+  if [ "$ok" = 1 ]; then
+    pr_url=$(gh pr list --state open --head "$rec_branch" --json url -q '.[0].url // empty' 2>/dev/null || true)
+    if [ -z "$pr_url" ]; then
+      gh pr create --head "$rec_branch" --base master \
+        --title "RECOVERED (needs review): ${label}" \
+        --body "Auto-recovered uncommitted work left by a handler that ended its turn early. NOT verified, NOT certified — review and finish, or close, this PR." >&2 2>&1 || true
+      pr_url=$(gh pr list --state open --head "$rec_branch" --json url -q '.[0].url // empty' 2>/dev/null || true)
+    fi
+  fi
+
+  # Always return to master so run-ai's next iteration starts from a known,
+  # clean state — even if push/PR failed (the work is at least committed
+  # locally on $rec_branch and nothing blocks the loop).
+  git checkout master >&2 2>&1 || true
+
+  echo "$pr_url"
+  # Success only if every git op succeeded AND the tree is now clean.
+  [ "$ok" = 1 ] && [ -z "$(git status --porcelain)" ]
+}
+
 # Read a skill file, substitute $ARGUMENTS, and return the content.
 load_skill() {
   local content
@@ -644,16 +708,24 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Safety net: the certify skill is required to leave the working
       # tree clean (either no changes, or all changes committed on its
-      # certify-<cardId>-* branch). If it didn't, we do NOT stash —
-      # stashing hid half-finished work across runs. Leave the dirty
-      # files in place so run-ai refuses to continue until the operator
-      # opens a PR for them or reverts.
+      # certify-<cardId>-* branch). If it didn't, salvage the leftovers
+      # onto a branch + recovery PR (recover_dirty_tree) instead of leaving
+      # them in place — a stranded diff halts the entire run-ai loop, while
+      # a recovery PR is reviewable and keeps the inbox moving. This is NOT
+      # stashing: the work becomes a visible PR, not a hidden stash. If
+      # recovery fails, fall back to leaving the tree dirty (loop halts).
       cd "$PROJECT_DIR"
       DIRTY_FILES=""
+      REC_PR_URL=""
       if [ -n "$(git status --porcelain)" ]; then
         DIRTY_FILES=$(git status --porcelain)
-        log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s)."
+        log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s). Attempting recovery."
         echo "$DIRTY_FILES" | sed 's/^/[handle-mail]   /'
+        if REC_PR_URL=$(recover_dirty_tree "certify-${CARD_ID}" "$CARD_ID"); then
+          log "Recovered uncommitted work onto a branch (PR: ${REC_PR_URL:-none}); run-ai not blocked."
+        else
+          log "ERROR: recovery failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
+        fi
       fi
 
       # Look up the PR by its head branch. The skill creates the branch
@@ -672,10 +744,17 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       # the skill abandoned its turn mid-step and the reply must say so.
       CERT_FAIL_REASON=""
       if [ -n "$DIRTY_FILES" ]; then
-        CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching step 14 (branch/commit/push/PR). The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
+        if [ -z "$(git status --porcelain)" ]; then
+          CERT_FAIL_REASON="Skill ended its turn with uncommitted changes — it did not reach the certify step, so the card is NOT certified. The leftover work was auto-recovered onto a branch${REC_PR_URL:+ (PR: $REC_PR_URL)} so the mail loop is not blocked; review and finish, or close, that PR.
 
 Uncommitted files:
 $DIRTY_FILES"
+        else
+          CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching the certify step, and automatic recovery onto a branch failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
+
+Uncommitted files:
+$DIRTY_FILES"
+        fi
       elif [ "${SKILL_STATUS:-}" != "success" ]; then
         CERT_FAIL_REASON="Skill did not reach a successful terminal result (status=${SKILL_STATUS:-unknown})."
       elif [ -z "$PR_URL" ]; then
@@ -740,15 +819,25 @@ $(echo "$SKILL_OUTPUT" | tail -40)"
     # push + open a PR and leave the working tree clean, or (b) revert
     # any edits they made and emit success:false. If the tree is dirty,
     # the skill failed either way — override whatever it printed and
-    # report the real state. We do NOT stash: the leftover files must
-    # stay in place so run-ai refuses to continue until the operator
-    # turns them into a PR or reverts.
+    # report the real state. We salvage the leftovers onto a recovery
+    # branch + PR (recover_dirty_tree) rather than leaving them in place:
+    # a stranded diff halts the whole run-ai loop, a recovery PR does not.
+    # Not stashing — the work becomes a visible PR. If recovery fails, fall
+    # back to leaving the tree dirty so the loop halts for manual cleanup.
     cd "$PROJECT_DIR"
     SKILL_DIRTY_FILES=""
+    SKILL_REC_PR_URL=""
+    SKILL_REC_OK=false
     if [ -n "$(git status --porcelain)" ]; then
       SKILL_DIRTY_FILES=$(git status --porcelain)
-      log "WARNING: $SKILL_FILE left $(echo "$SKILL_DIRTY_FILES" | wc -l) uncommitted file(s)."
+      log "WARNING: $SKILL_FILE left $(echo "$SKILL_DIRTY_FILES" | wc -l) uncommitted file(s). Attempting recovery."
       echo "$SKILL_DIRTY_FILES" | sed 's/^/[handle-mail]   /'
+      if SKILL_REC_PR_URL=$(recover_dirty_tree "recover-${TOPIC}-${MSG_ID}" "$TOPIC ($MSG_ID)"); then
+        SKILL_REC_OK=true
+        log "Recovered uncommitted work onto a branch (PR: ${SKILL_REC_PR_URL:-none}); run-ai not blocked."
+      else
+        log "ERROR: recovery failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
+      fi
     fi
 
     REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
@@ -765,11 +854,19 @@ $(echo "$SKILL_OUTPUT" | tail -40)"
       # Dirty tree overrides whatever the skill said — it didn't finish.
       log "ERROR: Skill left the working tree dirty — reporting as failure."
       REPLY_SUBJECT="Failed: $SUBJECT"
-      REPLY_BODY="The handler for this request did not commit or push its work. It left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted in the working tree:
+      if $SKILL_REC_OK; then
+        REPLY_BODY="The handler for this request did not commit or push its work; it left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted:
 
 $SKILL_DIRTY_FILES
 
-No PR was opened. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted manually."
+The leftover work was auto-recovered onto a branch${SKILL_REC_PR_URL:+ (PR: $SKILL_REC_PR_URL)} so the mail loop is not blocked. This work is unverified — review and finish, or close, that PR."
+      else
+        REPLY_BODY="The handler for this request did not commit or push its work. It left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted in the working tree:
+
+$SKILL_DIRTY_FILES
+
+No PR was opened and automatic recovery failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted manually."
+      fi
     elif ! $HAS_VALID_RESULT; then
       log "ERROR: Skill did not produce a valid HANDLE_MAIL_RESULT block."
       REPLY_SUBJECT="Failed: $SUBJECT"
