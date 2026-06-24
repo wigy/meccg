@@ -420,6 +420,20 @@ export interface DraftPlayerState {
   readonly currentPick: CardInstance | null;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */
   readonly stopped: boolean;
+  /** Pairings of a drafted site-targeting Stage resource (Hidden Haven, wh-75) to the Ruins & Lairs site chosen from the player's site deck. Resolved at draft finalize: non-colliding pairs convert the site to a starting Wizardhaven; colliding pairs (both players chose the same site definition) are set aside per CRF 22. */
+  readonly stageResourceSites?: readonly StageResourceSitePairing[];
+}
+
+/**
+ * A pairing of a drafted site-targeting Stage resource (Hidden Haven, wh-75)
+ * with a Ruins & Lairs site chosen from the player's own site deck. Collected
+ * during the character draft and resolved at draft finalize.
+ */
+export interface StageResourceSitePairing {
+  /** The drafted Stage resource instance (e.g. Hidden Haven). */
+  readonly stageResourceInstanceId: CardInstanceId;
+  /** The site instance from the player's site deck paired with it. */
+  readonly siteInstanceId: CardInstanceId;
 }
 
 /**

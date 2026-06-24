@@ -12,7 +12,7 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
 import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
@@ -30,7 +30,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -728,6 +728,7 @@ function buildConstraintKind(
   state: GameState,
   onEvent: import('../types/effects.js').OnEventEffect,
   constraintKind: string,
+  explicitSiteDefId?: import('../types/common.js').CardDefinitionId,
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
   switch (constraintKind) {
     case 'site-phase-do-nothing':
@@ -752,8 +753,8 @@ function buildConstraintKind(
       const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').SiteType }).overrideType;
       if (!overrideType) return null;
       const ps = state.phaseState;
-      let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
-      if (ps.phase === Phase.MovementHazard) {
+      let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = explicitSiteDefId ?? null;
+      if (siteDefinitionId === null && ps.phase === Phase.MovementHazard) {
         // M/H phase: resolve from active company's destination site
         const activePlayer = activePlayerState(state);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
@@ -853,8 +854,8 @@ function buildConstraintKind(
     }
     case 'skip-automatic-attacks': {
       const ps = state.phaseState;
-      let siteDefId: import('../types/common.js').CardDefinitionId | null = null;
-      if (ps.phase === Phase.Site) {
+      let siteDefId: import('../types/common.js').CardDefinitionId | null = explicitSiteDefId ?? null;
+      if (siteDefId === null && ps.phase === Phase.Site) {
         const activePlayer = activePlayerState(state);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
         if (company?.currentSite) {
@@ -865,17 +866,17 @@ function buildConstraintKind(
       return { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
     }
     case 'wizardhaven-conversion': {
-      const siteDefId = activeCompanySiteDefId(state);
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'wizardhaven-conversion', siteDefinitionId: siteDefId };
     }
     case 'site-nothing-playable': {
-      const siteDefId = activeCompanySiteDefId(state);
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'site-nothing-playable-as-written', siteDefinitionId: siteDefId };
     }
     case 'cancel-attacks-at-site': {
-      const siteDefId = activeCompanySiteDefId(state);
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'cancel-attacks-at-site', siteDefinitionId: siteDefId };
     }
@@ -1478,6 +1479,49 @@ function applyAddConstraintFromOnEvent(
     target,
     kind,
   });
+}
+
+/**
+ * Apply a site-targeting Stage resource's `self-enters-play` add-constraint
+ * effects (Hidden Haven, wh-75) to a site chosen at draft time, before the
+ * game proper begins.
+ *
+ * Hidden Haven normally enters play during the site phase, binding its
+ * Wizardhaven conversion (and any companion constraints) to "the site the card
+ * is played at" — resolved from the active company's current site. At the
+ * Fallen-wizard starting-stage reveal there is no active company/phase, so the
+ * site is supplied explicitly (`siteDefId`) from the player's draft pairing.
+ * This mirrors {@link applyAddConstraintFromOnEvent} but targets the owning
+ * player directly and overrides the site resolution with `siteDefId`, so it has
+ * no active-company or phase dependency.
+ */
+export function applyStageResourceSiteConstraints(
+  state: GameState,
+  playerId: PlayerId,
+  hhCard: CardInstance,
+  siteDefId: CardDefinitionId,
+): GameState {
+  const def = defById(state, hhCard.definitionId) as { readonly effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  let next = state;
+  for (const onEvent of getOnEventEffects(def, 'self-enters-play')) {
+    if (onEvent.apply.type !== 'add-constraint') continue;
+    const constraintKind = onEvent.apply.constraint;
+    if (!constraintKind) continue;
+    const kind = buildConstraintKind(next, onEvent, constraintKind, siteDefId);
+    if (!kind) {
+      logDetail(`Hidden Haven draft conversion: unsupported constraint "${constraintKind}" — skip`);
+      continue;
+    }
+    logDetail(`Hidden Haven draft conversion: adding constraint ${constraintKind} for player ${playerId as string} at site ${siteDefId as string}`);
+    next = addConstraint(next, {
+      source: hhCard.instanceId,
+      sourceDefinitionId: hhCard.definitionId,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'player', playerId },
+      kind,
+    });
+  }
+  return next;
 }
 
 /**
