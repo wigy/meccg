@@ -4305,6 +4305,39 @@ Used by Magic Ring of Stealth (tw-274).
 
 ---
 
+### 54a. `item-slot-modifier`
+
+Adjusts how many items of a given slot the bearing character may have **in use**
+at once (rule 9.15). By default each item slot — `weapon`, `armor`, `shield`,
+`helmet` — admits exactly one in-use item per character (the first borne item of
+that slot, in carrying order); items beyond capacity are silenced (their
+prowess/body modifiers and effects do not apply). This effect changes the
+capacity for the slot it names on the character bearing the carrying item.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `slot` | yes | The item-slot keyword whose in-use capacity is modified (e.g. `"weapon"`). |
+| `delta` | yes | Capacity change; `+1` lets a second item of `slot` be in use simultaneously. |
+| `requiresNaturalSkill` | no | If set, the modifier applies only when the bearer has this skill *naturally* (on its card definition), not merely granted by an item — mirrors the "already a *X*" convention. |
+| `excludesSlotWhenExtraUsed` | no | If set, whenever the extra capacity is actually consumed (more than one item of `slot` in use), the named slot drops to capacity 0 and its items are no longer in use. |
+
+```json
+{
+  "type": "item-slot-modifier",
+  "slot": "weapon",
+  "delta": 1,
+  "requiresNaturalSkill": "warrior",
+  "excludesSlotWhenExtraUsed": "shield"
+}
+```
+
+Used by Swordmaster (tw-498): an already-warrior sage may use two weapons (both
+modifiers count), but using two weapons means he can't use a shield. The active
+player's rule-9.16 election (forgoing the second weapon to keep a shield) is not
+modeled — the engine prefers consuming the extra weapon slot.
+
+---
+
 ### 55. `ringwraith-mode`
 
 Marks a permanent-event resource card as a Ringwraith mode card (Black Rider,

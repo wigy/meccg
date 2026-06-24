@@ -12,14 +12,16 @@
  *    weapons (both modifiers count). If he uses two weapons, he can't use a
  *    shield. Cannot be duplicated on a given character."
  *
- * Effects (implementable subset):
+ * Effects:
  *   1. play-target — site, filter playableResources includes "information"
  *   2. play-target — character, filter sage skill AND untapped
  *   3. play-flag — untapped-site-required
  *   4. play-flag — tap-site-on-play
  *   5. play-flag — tap-character-on-play
  *   6. grant-skill — warrior
- *   7. duplication-limit — scope character, max 1
+ *   7. item-slot-modifier — weapon +1, requiresNaturalSkill warrior,
+ *      excludesSlotWhenExtraUsed shield
+ *   8. duplication-limit — scope character, max 1
  *
  * | # | Rule                                                          | Status          |
  * |---|---------------------------------------------------------------|-----------------|
@@ -29,22 +31,25 @@
  * | 4 | Tap the site on play                                           | OK              |
  * | 5 | Tap the sage on play                                           | OK              |
  * | 6 | Gives the sage warrior skill                                   | OK (grant-skill)|
- * | 7 | If already a warrior, he can use two weapons (both mods count) | NOT IMPLEMENTED |
- * | 8 | If he uses two weapons, he can't use a shield                  | NOT IMPLEMENTED |
+ * | 7 | If already a warrior, he can use two weapons (both mods count) | OK (item-slot)  |
+ * | 8 | If he uses two weapons, he can't use a shield                  | OK (item-slot)  |
  * | 9 | Cannot be duplicated on a given character                     | OK              |
  *
- * Rules 7 & 8 require engine-wide weapon/shield item-slot enforcement
- * (`item-slots.ts` currently enforces only the helmet slot) plus rule 9.16
- * (the active player's election of which item is "in use"). Until that exists,
- * the "two weapons / no shield" privilege has no baseline to modify — every
- * weapon's modifiers already count for every character — so those clauses
- * cannot be exercised with real assertions. Therefore this card is
- * **NOT CERTIFIED** (PARTIALLY playable).
+ * Rules 7 & 8 are enforced via the engine-wide weapon/armor/shield item-slot
+ * rule (9.15) in `item-slots.ts`: by default a character uses only one weapon
+ * and one shield. Swordmaster's `item-slot-modifier` raises a natural-warrior
+ * sage's weapon capacity to two ("both modifiers count") and, when two weapons
+ * are actually in use, drops the shield slot ("can't use a shield"). The active
+ * player's rule-9.16 election (forgoing the second weapon to keep a shield) is
+ * not modeled — the engine prefers consuming the extra weapon slot.
  *
  * Character selection:
- * - GALADRIEL (tw-153): scout+sage, NOT a warrior — the granted warrior skill
- *   is observable on her (warrior-only cards become legal); also used as the
- *   sage gate.
+ * - GALADRIEL (tw-153): scout+sage, NOT a natural warrior — the granted warrior
+ *   skill is observable on her (warrior-only cards become legal); also used as
+ *   the sage gate and the negative case for the two-weapon privilege (which
+ *   requires a *natural* warrior).
+ * - BALIN (tw-123): natural warrior+sage, prowess 4, body 7 — the positive case
+ *   for the two-weapon / no-shield privilege.
  * - ARAGORN (tw-120): warrior+scout+ranger, NOT a sage — the sage-gate negative.
  */
 
@@ -58,7 +63,7 @@ import {
   findCharInstanceId, findHandCardId,
   firstFactionInfluenceAttempt,
   viableActions, dispatch, resolveChain,
-  GALADRIEL, ARAGORN,
+  GALADRIEL, ARAGORN, BALIN, DAGGER_OF_WESTERNESSE,
   PELARGIR, MEN_OF_LEBENNIN,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -69,6 +74,11 @@ const SWORDMASTER = 'tw-498' as CardDefinitionId;
 const MUSTER = 'tw-288' as CardDefinitionId;       // warrior-only short event (probe)
 const AMON_HEN = 'tw-371' as CardDefinitionId;     // ruins-and-lairs, Information playable
 const TOLFALAS = 'tw-433' as CardDefinitionId;     // ruins-and-lairs, NO Information
+
+// Item fixtures for the two-weapon / no-shield rules (7 & 8). Each is only
+// referenced here, so declared locally per the card-ids.ts constants policy.
+const NARSIL = 'tw-289' as CardDefinitionId;                 // weapon, +1 prowess (unconditional)
+const SHIELD_OF_IRON_BOUND_ASH = 'tw-327' as CardDefinitionId; // shield, +1 body (unconditional)
 
 describe('Swordmaster (tw-498)', () => {
   beforeEach(() => resetMint());
@@ -224,5 +234,71 @@ describe('Swordmaster (tw-498)', () => {
       .map(ea => ea.action as PlayPermanentEventAction)
       .filter(a => a.targetCharacterId === galadrielId);
     expect(targeted.length).toBeGreaterThan(0);
+  });
+
+  // ── Rule 7: a natural-warrior sage may use two weapons (both count) ───────
+  //
+  // Baseline rule 9.15: a character uses only one weapon at a time. Balin
+  // (warrior+sage, prowess 4) bears Dagger of Westernesse (+1 prowess) and
+  // Narsil (+1 prowess), both unconditional. Without Swordmaster only the
+  // first weapon is in use; with Swordmaster both are.
+
+  test('rule 9.15 baseline: without Swordmaster only one of two weapons counts', () => {
+    const state = buildSitePhaseState({
+      characters: [{ defId: BALIN, items: [DAGGER_OF_WESTERNESSE, NARSIL] }],
+      site: AMON_HEN,
+    });
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
+    // Base prowess 4 + only the first weapon (+1) = 5.
+    expect(state.players[RESOURCE_PLAYER].characters[balinId as string].effectiveStats.prowess).toBe(5);
+  });
+
+  test('with Swordmaster a natural-warrior sage uses both weapons (both modifiers count)', () => {
+    const state = buildSitePhaseState({
+      characters: [{ defId: BALIN, items: [SWORDMASTER, DAGGER_OF_WESTERNESSE, NARSIL] }],
+      site: AMON_HEN,
+    });
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
+    // Base prowess 4 + both weapons (+1 +1) = 6.
+    expect(state.players[RESOURCE_PLAYER].characters[balinId as string].effectiveStats.prowess).toBe(6);
+  });
+
+  test('the two-weapon privilege needs a NATURAL warrior — a granted-warrior sage gets only one weapon', () => {
+    // Galadriel (scout+sage) becomes a warrior via Swordmaster's grant-skill,
+    // but is not a *natural* warrior, so the second weapon slot is not opened.
+    const state = buildSitePhaseState({
+      characters: [{ defId: GALADRIEL, items: [SWORDMASTER, DAGGER_OF_WESTERNESSE, NARSIL] }],
+      site: AMON_HEN,
+    });
+    const galadrielId = findCharInstanceId(state, RESOURCE_PLAYER, GALADRIEL);
+    // Base prowess 3 + only the first weapon (+1) = 4.
+    expect(state.players[RESOURCE_PLAYER].characters[galadrielId as string].effectiveStats.prowess).toBe(4);
+  });
+
+  // ── Rule 8: if he uses two weapons, he can't use a shield ────────────────
+
+  test('using two weapons disables the shield (its body bonus does not count)', () => {
+    const state = buildSitePhaseState({
+      characters: [{ defId: BALIN, items: [SWORDMASTER, DAGGER_OF_WESTERNESSE, NARSIL, SHIELD_OF_IRON_BOUND_ASH] }],
+      site: AMON_HEN,
+    });
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
+    const balin = state.players[RESOURCE_PLAYER].characters[balinId as string];
+    // Two weapons in use → both prowess bonuses count (4 + 1 + 1 = 6)…
+    expect(balin.effectiveStats.prowess).toBe(6);
+    // …and the shield is excluded → body stays at the base 7 (no +1).
+    expect(balin.effectiveStats.body).toBe(7);
+  });
+
+  test('control: with only one weapon the shield is still usable (body bonus counts)', () => {
+    const state = buildSitePhaseState({
+      characters: [{ defId: BALIN, items: [SWORDMASTER, DAGGER_OF_WESTERNESSE, SHIELD_OF_IRON_BOUND_ASH] }],
+      site: AMON_HEN,
+    });
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
+    const balin = state.players[RESOURCE_PLAYER].characters[balinId as string];
+    // One weapon (+1 prowess) → 5; the shield is not excluded → body 7 + 1 = 8.
+    expect(balin.effectiveStats.prowess).toBe(5);
+    expect(balin.effectiveStats.body).toBe(8);
   });
 });

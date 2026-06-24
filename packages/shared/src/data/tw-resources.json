@@ -3303,11 +3303,19 @@
         "skill": "warrior"
       },
       {
+        "type": "item-slot-modifier",
+        "slot": "weapon",
+        "delta": 1,
+        "requiresNaturalSkill": "warrior",
+        "excludesSlotWhenExtraUsed": "shield"
+      },
+      {
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
       }
     ],
+    "certified": "2026-06-24",
     "text": "Sage only. Playable on an untapped sage at an untapped site where Information is playable during site phase. Tap the site and the sage. Gives the sage warrior skill. If the sage is already a warrior, he can use two weapons (both modifiers count). If he uses two weapons, he can't use a shield. Cannot be duplicated on a given character."
   },
   {
