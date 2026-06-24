@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.43.0 — 2026-06-24
+
+The White Hand Rules
+
+### Game Engine
+
+- Implement The White Hand (MEWH) Fallen-wizard rules: stage points and Wizardhavens (§1, §3), Fallen-wizard marshalling points (§4), corruption-class resolution (§6), forced region movement (§7), attack permissions (§8), site-tap alignment matching (§10), Fallen-wizard mind-5 character limit (§11), and Fallen-wizard-leaves-play discard (§12)
+- Implement MEWH Orc/Troll company composition and the no-hero-permanent-event / hero-item-on-Orc-Troll-bearer restrictions (§9)
+- Implement the MEWH stage-resource discard action (§2), confirm the One Ring victory gate (§5), and apply the gold-ring −1 corruption modifier (§10)
+- Add the White Hand (MEWH) rules implementation spec; mark §13 optional rules out of scope
+- Add the anti-Fallen-wizard sideboard (MEWH, 10 cards) with combined deck limits
+- Implement Fallen-wizard free general influence (CoE 3.09)
+- Draft Stage resources during the character draft and enforce the agent-draft restrictions (rules 1.41, 1.42, 1.44, 1.45)
+- Reveal drafted Stage resources simultaneously with the opponent's pick; keep them draftable while a character pick is pending
+- Hidden Haven: pair a Ruins & Lairs site at draft time (CRF 22) and allow pairing while a character pick is pending
+- Route fetch-to-deck and draw-cards short events (e.g. Dark Tryst) through the chain of effects
+- Make site movement alignment-aware for multi-printing locations
+- Announce both players' alignments in the text log when the game begins
+
+### Card Certifications
+
+- Certify the core White Hand cards: Saruman (wh-9), Isengard (wh-56), The White Towers (wh-58), A Strident Spawn (wh-61), Double-dealing (wh-66), The Fortress of Isen (wh-68), Fortress of the Towers (wh-69), Gatherer of Loyalties (wh-70), Great Patron (wh-72), Guarded Haven (wh-74), Hidden Haven (wh-75), Thrall of the Voice (wh-82), Wizard's Myrmidon (wh-84), Half-orcs (wh-87), The Forge-master (wh-117), Man of Skill (wh-119), Saruman's Machinery (wh-120), and The White Hand (wh-122)
+- Certify additional hero, minion, and dragon cards across TW, LE, DM, TD, and AS sets (Swordmaster, Ambusher, Old Man Willow, Slayer, Vôteli, Wacho, A Chance Meeting, Dark Tryst, Misty Mountain Wargs, Stone Trolls, Hall of Fire, Redoubled Force, and more)
+- Build the recruitment-vehicle and Wizardhaven-conversion mechanics behind Thrall of the Voice and Hidden Haven
+
+### Card Data
+
+- Port the full Against the Shadow (AS) card set into the engine data
+- Define the remaining White Hand (WH) cards
+
+### Web Client
+
+- Scale the hand arc to fit so large hands stay on-screen
+- Give UI card copies a distinct id so FLIP animations don't slide them from the original
+- Show general influence and stage points for Fallen-wizard avatars in the card-zoom info; use a dash for missing values
+- Show drafted Stage resources during the draft and clear the stale Hidden Haven hint
+- Add a deck-editor error for uncertified cards; rename the editor section to "FW Sideboard" and support stage-card browsing
+- Resolve card names in the reserve-creature action description
+
+### Infrastructure
+
+- Make card certification robust against a dirty working tree blocking the loop
+
 ## 0.42.0 — 2026-06-21
 
 Against the Shadow

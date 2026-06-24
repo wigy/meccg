@@ -6,24 +6,25 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 314 | 195 | 119 | 62.1% |
+| 327 | 214 | 113 | 65.4% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 37 | 62.7% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 41 | 69.5% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 11 | 84.6% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 26 | 54.2% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 27 | 56.3% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 22 | 41.5% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
+| — | The White Hand (MEWH) | 13 | 13 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -72,11 +73,11 @@
 | 1.38 | Deck Construction & Setup | [Character Draft](01-deck-construction/rule-1.38-character-draft.test.ts) | ☑ |
 | 1.39 | Deck Construction & Setup | [Draft Site Requirement](01-deck-construction/rule-1.39-draft-site-requirement.test.ts) | ☐ |
 | 1.40 | Deck Construction & Setup | [Minion Draft Six](01-deck-construction/rule-1.40-minion-draft-six.test.ts) | ☑ |
-| 1.41 | Deck Construction & Setup | [Minion Draft Agent Restriction](01-deck-construction/rule-1.41-minion-draft-agent-restriction.test.ts) | ☐ |
-| 1.42 | Deck Construction & Setup | [Fw Draft Agent Restriction](01-deck-construction/rule-1.42-fw-draft-agent-restriction.test.ts) | ☐ |
+| 1.41 | Deck Construction & Setup | [Minion Draft Agent Restriction](01-deck-construction/rule-1.41-minion-draft-agent-restriction.test.ts) | ☑ |
+| 1.42 | Deck Construction & Setup | [Fw Draft Agent Restriction](01-deck-construction/rule-1.42-fw-draft-agent-restriction.test.ts) | ☑ |
 | 1.43 | Deck Construction & Setup | [Fw Draft Orc Troll](01-deck-construction/rule-1.43-fw-draft-orc-troll.test.ts) | ☐ |
-| 1.44 | Deck Construction & Setup | [Fw Draft Mind Restriction](01-deck-construction/rule-1.44-fw-draft-mind-restriction.test.ts) | ☐ |
-| 1.45 | Deck Construction & Setup | [Fw Draft Stage Resources](01-deck-construction/rule-1.45-fw-draft-stage-resources.test.ts) | ☐ |
+| 1.44 | Deck Construction & Setup | [Fw Draft Mind Restriction](01-deck-construction/rule-1.44-fw-draft-mind-restriction.test.ts) | ☑ |
+| 1.45 | Deck Construction & Setup | [Fw Draft Stage Resources](01-deck-construction/rule-1.45-fw-draft-stage-resources.test.ts) | ☑ |
 | 1.46 | Deck Construction & Setup | [Balrog Draft Six](01-deck-construction/rule-1.46-balrog-draft-six.test.ts) | ☑ |
 | 1.47 | Deck Construction & Setup | [Starting Sites](01-deck-construction/rule-1.47-starting-sites.test.ts) | ☑ |
 | 1.48 | Deck Construction & Setup | [Hero Starting Site](01-deck-construction/rule-1.48-hero-starting-site.test.ts) | ☑ |
@@ -112,14 +113,14 @@
 | 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
 | 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☐ |
 | 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ☐ |
-| 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ☐ |
+| 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ◐ |
 | 3.10 | Organization Phase | [Balrog Avatar Play](03-organization-phase/rule-3.10-balrog-avatar-play.test.ts) | ☐ |
 | 3.11 | Organization Phase | [Non Avatar Character Play](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☑ |
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☑ |
 | 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☐ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
 | 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☑ |
-| 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☐ |
+| 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☑ |
 | 3.17 | Organization Phase | [Fw Orc Troll Restriction](03-organization-phase/rule-3.17-fw-orc-troll-restriction.test.ts) | ☐ |
 | 3.18 | Organization Phase | [Balrog Dark Hold Home](03-organization-phase/rule-3.18-balrog-dark-hold-home.test.ts) | ☐ |
 | 3.19 | Organization Phase | [Balrog Extra Character](03-organization-phase/rule-3.19-balrog-extra-character.test.ts) | ☐ |
@@ -254,10 +255,10 @@
 | 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☑ |
 | 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☑ |
 | 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☑ |
-| — | Agents, Events, Items & Rings | [9.02b Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
 | 9.00 | Agents, Events, Items & Rings | [Agent State Model](09-agents-events-items/rule-9.00-agent-state-model.test.ts) | ☑ |
 | 9.01 | Agents, Events, Items & Rings | [Agent Actions](09-agents-events-items/rule-9.01-agent-actions.test.ts) | ☑ |
 | 9.02 | Agents, Events, Items & Rings | [Agent Action Options](09-agents-events-items/rule-9.02-agent-action-options.test.ts) | ☑ |
+| — | Agents, Events, Items & Rings | [9.02b Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
 | 9.03 | Agents, Events, Items & Rings | [Agent Reveal](09-agents-events-items/rule-9.03-agent-reveal.test.ts) | ☑ |
 | 9.04 | Agents, Events, Items & Rings | [Agent Reveal Home](09-agents-events-items/rule-9.04-agent-reveal-home.test.ts) | ☑ |
 | 9.05 | Agents, Events, Items & Rings | [Agent Uniqueness](09-agents-events-items/rule-9.05-agent-uniqueness.test.ts) | ☑ |
@@ -290,7 +291,7 @@
 | 10.03 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Zero](10-corruption-influence-endgame/rule-10.03-corruption-check-zero.test.ts) | ☑ |
 | 10.04 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Prevent Discard](10-corruption-influence-endgame/rule-10.04-corruption-check-prevent-discard.test.ts) | ☐ |
 | 10.05 | Corruption, Influence, Actions/Timing & Ending the Game | [Ringwraith Corruption Bonus](10-corruption-influence-endgame/rule-10.05-ringwraith-corruption-bonus.test.ts) | ☐ |
-| 10.06 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Orc Troll Corruption](10-corruption-influence-endgame/rule-10.06-fw-orc-troll-corruption.test.ts) | ☐ |
+| 10.06 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Orc Troll Corruption](10-corruption-influence-endgame/rule-10.06-fw-orc-troll-corruption.test.ts) | ☑ |
 | 10.07 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Cards](10-corruption-influence-endgame/rule-10.07-corruption-cards.test.ts) | ☑ |
 | 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☑ |
 | 10.09 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Immunity](10-corruption-influence-endgame/rule-10.09-corruption-immunity.test.ts) | ☑ |
@@ -343,6 +344,19 @@
 | MEAS | Against the Shadow (MEAS) | [Off To The Side](rule-meas-off-to-the-side.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Region Movement Limit](rule-meas-region-movement-limit.test.ts) | ☑ |
 | MEAS | Against the Shadow (MEAS) | [Under Deeps Site](rule-meas-under-deeps-site.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Anti Fw Sideboard](rule-mewh-anti-fw-sideboard.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Corruption](rule-mewh-corruption.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Fallen Wizard Mp](rule-mewh-fallen-wizard-mp.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Gold Ring](rule-mewh-gold-ring.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Hero Event Orc Troll](rule-mewh-hero-event-orc-troll.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [New Ringlord Win](rule-mewh-new-ringlord-win.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Orc Troll Company](rule-mewh-orc-troll-company.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Orc Troll Hero Item](rule-mewh-orc-troll-hero-item.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Site Tap Alignment](rule-mewh-site-tap-alignment.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Stage Points](rule-mewh-stage-points.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Stage Resources](rule-mewh-stage-resources.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Wizard Leaves Play](rule-mewh-wizard-leaves-play.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Wizardhavens](rule-mewh-wizardhavens.test.ts) | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = implemented, ◐ = partial*

@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 554 | 544 | 10 | 98.2% |
+| 595 | 585 | 10 | 98.3% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 45 | 45 | 100.0% |
+| AS | 46 | 46 | 100.0% |
 | BA | 3 | 1 | 33.3% |
-| DM | 41 | 41 | 100.0% |
-| LE | 172 | 169 | 98.3% |
-| TD | 52 | 52 | 100.0% |
-| TW | 231 | 226 | 97.8% |
-| WH | 10 | 10 | 100.0% |
+| DM | 47 | 47 | 100.0% |
+| LE | 180 | 177 | 98.3% |
+| TD | 53 | 53 | 100.0% |
+| TW | 238 | 233 | 97.9% |
+| WH | 28 | 28 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -30,10 +30,10 @@
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
-| as-24 | Alone and Unadvised | — | 14 | ☑ |
+| as-24 | Alone and Unadvised | — | 13 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
-| as-39 | Summons from Long Sleep | — | 8 | ☑ |
+| as-39 | Summons from Long Sleep | — | 9 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-54 | Safe from the Shadow | — | 8 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
@@ -44,6 +44,7 @@
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
+| as-80 | Dark Tryst | — | 4 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
@@ -97,7 +98,9 @@
 | dm-58 | Flies and Spiders | — | 3 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-71 | The Moon Is Dead | — | 8 | ☑ |
+| dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-80 | Rank upon Rank | — | 10 | ☑ |
+| dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-88 | Seized by Terror | — | 8 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
@@ -108,14 +111,19 @@
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 7 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 12 | ☑ |
+| dm-134 | Hall of Fire | — | 11 | ☑ |
+| dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 10 | ☑ |
 | dm-155 | Rebuild the Town | — | 5 | ☑ |
-| dm-159 | Smoke Rings | — | 10 | ☑ |
+| dm-159 | Smoke Rings | — | 11 | ☑ |
+| dm-163 | When You Know More | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 19 | ☑ |
 | dm-179 | Noble Hound | — | 7 | ☑ |
+| dm-181 | Baugúr | — | 11 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
+| le-8 | Dorelas | — | 3 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
 | le-12 | Grishnákh | — | 4 | ☑ |
@@ -138,6 +146,7 @@
 | le-36 | Ostisen | — | 3 | ☑ |
 | le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
+| le-45 | Troll-chief | — | 10 | ☑ |
 | le-46 | Tros Hesnef | — | 3 | ☑ |
 | le-48 | Ufthak | — | 2 | ☑ |
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
@@ -198,6 +207,7 @@
 | le-183 | Fell Rider | — | 12 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
+| le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
 | le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
@@ -222,6 +232,7 @@
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
+| le-272 | Misty Mountain Wargs | — | 15 | ☑ |
 | le-273 | Nûrniags | — | 9 | ☑ |
 | le-275 | Orcs of Gorgoroth | — | 7 | ☑ |
 | le-276 | Orcs of Gundabad | — | 9 | ☑ |
@@ -232,15 +243,16 @@
 | le-282 | Orcs of Udûn | — | 14 | ☑ |
 | le-286 | Snaga-hai | — | 7 | ☑ |
 | le-287 | Southrons | — | 9 | ☑ |
+| le-288 | Stone Trolls | — | 7 | ☑ |
 | le-291 | Uruk-hai | — | 8 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |
-| le-311 | Gleaming Gold Ring | — | 24 | ☑ |
+| le-311 | Gleaming Gold Ring | — | 22 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
-| le-324 | Minor Ring | — | 9 | ☑ |
+| le-324 | Minor Ring | — | 8 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-334 | Palantír of Orthanc | — | 10 | ☑ |
@@ -271,11 +283,13 @@
 | le-390 | Minas Morgul | — | 14 | ☑ |
 | le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
-| le-393 | Mount Doom | — | 13 | ☑ |
+| le-393 | Mount Doom | — | 11 | ☑ |
 | le-394 | Mount Gram | — | 9 | ☑ |
 | le-395 | Mount Gundabad | — | 10 | ☑ |
 | le-396 | Nûrniag Camp | — | 9 | ☑ |
+| le-397 | Ost-in-Edhil | — | 12 | ☑ |
 | le-399 | Raider-hold | — | 12 | ☑ |
+| le-400 | Ruined Signal Tower | — | 11 | ☑ |
 | le-401 | Sarn Goriwing | — | 6 | ☑ |
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
 | le-404 | Southron Oasis | — | 7 | ☑ |
@@ -283,6 +297,7 @@
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-413 | The Wind Throne | — | 12 | ☑ |
 | le-415 | The Worthy Hills | — | 12 | ☑ |
+| le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
 | le-pending-effects-parity | — | — | 1 | ☐ |
 | td-3 | Bairanax | — | 7 | ☑ |
@@ -325,6 +340,7 @@
 | td-143 | Not at Home | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 4 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
+| td-166 | When I Know Anything | — | 13 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
 | td-172 | Wormsbane | — | 7 | ☑ |
@@ -338,6 +354,7 @@
 | td-180 | Tharbad | — | 7 | ☑ |
 | td-181 | Zarak Dûm | — | 10 | ☑ |
 | tw-1 | Abductor | — | 7 | ☑ |
+| tw-5 | Ambusher | — | 3 | ☑ |
 | tw-008 | — | — | 10 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
@@ -360,6 +377,7 @@
 | tw-60 | Lure of the Senses | — | 1 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-067 | — | — | 6 | ☑ |
+| tw-70 | Old Man Willow | — | 9 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
 | tw-073 | Orc-lieutenant | — | 4 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
@@ -367,6 +385,7 @@
 | tw-078 | Orc-watch | — | 3 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-084 | — | — | 10 | ☑ |
+| tw-89 | Slayer | — | 7 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
 | tw-91 | Snowstorm | — | 5 | ☑ |
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
@@ -424,6 +443,9 @@
 | tw-182 | Théoden | — | 3 | ☑ |
 | tw-183 | Thorin II | — | 7 | ☑ |
 | tw-184 | Thranduil | — | 2 | ☑ |
+| tw-185 | Vôteli | — | 9 | ☑ |
+| tw-187 | Wacho | — | 4 | ☑ |
+| tw-188 | A Chance Meeting | — | 9 | ☑ |
 | tw-189 | A Friend or Three | — | 11 | ☑ |
 | tw-190 | Align Palantír | — | 9 | ☑ |
 | tw-196 | Beautiful Gold Ring | — | 3 | ☑ |
@@ -568,8 +590,10 @@
 | tw-493 | Neeker-breekers | — | 14 | ☑ |
 | tw-494 | Black Arrow | — | 8 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
+| tw-498 | Swordmaster | — | 16 | ☑ |
 | wh-5 | Ill-favoured Fellow | — | 6 | ☑ |
 | wh-6 | Lugdush | — | 2 | ☑ |
+| wh-9 | Saruman | — | 10 | ☑ |
 | wh-10 | Sly Southerner | — | 6 | ☑ |
 | wh-33 | Noble Steed | — | 10 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
@@ -577,7 +601,24 @@
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
 | wh-51 | Blasting Fire | — | 9 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
+| wh-56 | Isengard | — | 3 | ☑ |
+| wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
+| wh-61 | A Strident Spawn | — | 10 | ☑ |
+| wh-66 | Double-dealing | — | 10 | ☑ |
+| wh-68 | The Fortress of Isen | — | 14 | ☑ |
+| wh-69 | Fortress of the Towers | — | 14 | ☑ |
+| wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
+| wh-72 | Great Patron | — | 9 | ☑ |
+| wh-74 | Guarded Haven | — | 12 | ☑ |
+| wh-75 | Hidden Haven | — | 20 | ☑ |
+| wh-82 | Thrall of the Voice | — | 11 | ☑ |
+| wh-84 | Wizard’s Myrmidon | — | 7 | ☑ |
+| wh-87 | Half-orcs | — | 10 | ☑ |
+| wh-117 | The Forge-master | — | 9 | ☑ |
+| wh-119 | Man of Skill | — | 7 | ☑ |
+| wh-120 | Saruman’s Machinery | — | 20 | ☑ |
+| wh-122 | The White Hand | — | 10 | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = certified, ◐ = partial*

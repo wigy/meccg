@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 195 | 314 | 62.1% |
-| Card tests | 544 | 554 | 98.2% |
-| Cards created | 1382 | 1683 | 82.1% |
-| Cards certified | 600 | 1382 | 43.4% |
-| **Total** | **2721** | **3933** | **69.2%** |
+| Rule tests | 214 | 327 | 65.4% |
+| Card tests | 585 | 595 | 98.3% |
+| Cards created | 1602 | 1683 | 95.2% |
+| Cards certified | 641 | 1602 | 40.0% |
+| **Total** | **3042** | **4207** | **72.3%** |
 
 ### Deck Catalog
 
@@ -41,10 +41,15 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 108 (98.2%) |
+| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 79 (71.8%) |
+| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 80 (72.7%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 75 (68.2%) |
+| (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 76 (69.1%) |
 | Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
 | The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
 | Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 30 (93.8%) |
+| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 32 (100.0%) |
 | Hero (Development only) | hero | 57 | 57 (100.0%) | 57 (100.0%) |
 | Minion (Development only) | minion | 45 | 45 (100.0%) | 45 (100.0%) |
 | All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 97 (100.0%) |
