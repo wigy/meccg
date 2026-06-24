@@ -142,6 +142,12 @@ function applyCorruptionCheckResolution(
   // resolution stays in queue; the next legal-action cycle re-emits the
   // roll action with any freshly-added constraints factored in.
   if (action.type === 'play-short-event') return null;
+  // A corruption-check-window grant-action (When I Know Anything td-166: tap
+  // sage to add +3 to this check) is also legal here — fall through to the
+  // per-phase reducer's `activate-granted-action` handler. The pending
+  // resolution stays queued; the next legal-action cycle re-emits the roll
+  // action with the freshly-added check-modifier constraint factored in.
+  if (action.type === 'activate-granted-action') return null;
   if (top.kind.type !== 'corruption-check') return null;
 
   const { characterId, transferredItemId, reason } = top.kind;
