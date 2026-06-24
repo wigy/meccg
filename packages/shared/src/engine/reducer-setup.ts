@@ -115,6 +115,15 @@ function handleCharacterDraft(
       if (playerDraft.stopped) {
         return { state, error: 'You have already stopped drafting' };
       }
+      // One pick per round. A Fallen-wizard Stage resource (Thrall of the Voice,
+      // Hidden Haven) is picked face-down exactly like a character and is
+      // revealed simultaneously with the opponent's pick when the round resolves
+      // — so, like a character pick, only one is allowed until the round
+      // resolves. (Stage resources still do not count toward the 5-character
+      // limit or the mind budget; that is handled at reveal in resolveDraftRound.)
+      if (playerDraft.currentPick !== null) {
+        return { state, error: 'Waiting for opponent to pick' };
+      }
       const poolCard = findById(playerDraft.pool, action.characterInstanceId);
       if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };
@@ -123,79 +132,58 @@ function handleCharacterDraft(
       const charDefId = poolCard.definitionId;
       const charDef = charDefId ? defById(state, charDefId) : undefined;
 
-      // Fallen-wizard Stage resources (Thrall of the Voice, Hidden Haven) are
-      // drafted from the same pool but are not characters: they resolve
-      // immediately into draftedStageResources without consuming a round, a
-      // character slot, or the mind budget (rules 1.42/1.44/1.50). Because they
-      // do not consume the round's pick, they may be drafted even while the
-      // player's character pick is pending (currentPick set, waiting for the
-      // opponent) — so this is handled before the currentPick guard below.
+      const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
+
       if (isStageResourceCard(charDef)) {
-        if (state.players[playerIndex].alignment !== Alignment.FallenWizard) {
+        // Stage resources are Fallen-wizard-only. They are picked face-down here
+        // and routed to draftedStageResources at reveal; the character-only gates
+        // (mind > 5, agent, mind limit, 5-character cap) do not apply.
+        if (!isFallenWizard) {
           return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
         }
-        logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource`);
-        const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
-        newDraftState[playerIndex] = {
-          ...playerDraft,
-          draftedStageResources: [...playerDraft.draftedStageResources, poolCard],
-          pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
-        };
-        return {
-          state: {
-            ...state,
-            phaseState: setupPhase({ ...draft, draftState: newDraftState }),
-          },
-        };
-      }
-
-      // A character pick consumes the round, so only one is allowed until the
-      // opponent has also picked and the round resolves.
-      if (playerDraft.currentPick !== null) {
-        return { state, error: 'Waiting for opponent to pick' };
-      }
-
-      if (!isCharacterCard(charDef)) {
-        return { state, error: 'Invalid character' };
-      }
-
-      // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage
-      // resource (Thrall), a Fallen-wizard cannot draft a mind > 5 or agent
-      // character.
-      const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
-      const enablerDrafted = playerDraft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
-      if (isFallenWizard && !enablerDrafted) {
-        if (charDef.mind !== null && charDef.mind > 5) {
-          logDetail(`${charDef.name} (mind ${charDef.mind}) blocked: Fallen-wizard mind > 5 requires an enabling Stage resource`);
-          return { state, error: 'A Fallen-wizard cannot draft a character with mind > 5 without an enabling Stage resource' };
+        logDetail(`${charDef?.name ?? (charDefId as string)} picked face-down as a Stage resource`);
+      } else {
+        if (!isCharacterCard(charDef)) {
+          return { state, error: 'Invalid character' };
         }
-        if (isAgentCharacter(charDef)) {
-          logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource`);
-          return { state, error: 'A Fallen-wizard cannot draft an agent character without an enabling Stage resource' };
+
+        // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage
+        // resource (Thrall), a Fallen-wizard cannot draft a mind > 5 or agent
+        // character. The enabler must already be revealed (in draftedStageResources).
+        const enablerDrafted = playerDraft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
+        if (isFallenWizard && !enablerDrafted) {
+          if (charDef.mind !== null && charDef.mind > 5) {
+            logDetail(`${charDef.name} (mind ${charDef.mind}) blocked: Fallen-wizard mind > 5 requires an enabling Stage resource`);
+            return { state, error: 'A Fallen-wizard cannot draft a character with mind > 5 without an enabling Stage resource' };
+          }
+          if (isAgentCharacter(charDef)) {
+            logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource`);
+            return { state, error: 'A Fallen-wizard cannot draft an agent character without an enabling Stage resource' };
+          }
+        }
+
+        // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
+        // agent characters. A Ringwraith never drafts resources during the
+        // character draft, so there is no enabler that can lift this gate.
+        if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef)) {
+          logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
+          return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };
+        }
+
+        const currentMind = playerDraft.drafted.reduce((sum, card) => {
+          const def = defById(state, card.definitionId);
+          return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+        }, 0);
+        if (charDef.mind !== null && currentMind + charDef.mind > 20) {
+          return { state, error: 'Would exceed mind limit of 20' };
+        }
+        const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
+        if (playerDraft.drafted.length >= maxStartingCompanySize) {
+          return { state, error: `Already have ${maxStartingCompanySize} starting characters` };
         }
       }
 
-      // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
-      // agent characters. A Ringwraith never drafts resources during the
-      // character draft, so there is no enabler that can lift this gate.
-      if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef)) {
-        logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
-        return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };
-      }
-
-      const currentMind = playerDraft.drafted.reduce((sum, card) => {
-        const def = defById(state, card.definitionId);
-        return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-      }, 0);
-      if (charDef.mind !== null && currentMind + charDef.mind > 20) {
-        return { state, error: 'Would exceed mind limit of 20' };
-      }
-      const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
-      if (playerDraft.drafted.length >= maxStartingCompanySize) {
-        return { state, error: `Already have ${maxStartingCompanySize} starting characters` };
-      }
-
-      // Set the pick
+      // Set the (face-down) pick
       const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
       newDraftState[playerIndex] = {
         ...playerDraft,
@@ -291,10 +279,24 @@ function resolveDraftRound(
     { ...draftState[1], currentPick: null },
   ];
 
-  // Collision detection: compare by definition ID (both players may pick the same character)
+  // A revealed pick is either a character (→ drafted) or a Fallen-wizard Stage
+  // resource (→ draftedStageResources, not counted as a character).
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
-  if (pick0 !== null && pick1 !== null && def0 === def1) {
+  const sr0 = pick0 !== null && isStageResourceCard(defById(state, pick0.definitionId));
+  const sr1 = pick1 !== null && isStageResourceCard(defById(state, pick1.definitionId));
+
+  // Place a single player's revealed pick into the correct collection.
+  const place = (i: 0 | 1, pick: CardInstance, isStageResource: boolean): void => {
+    newDraft[i] = isStageResource
+      ? { ...newDraft[i], draftedStageResources: [...newDraft[i].draftedStageResources, pick] }
+      : { ...newDraft[i], drafted: [...newDraft[i].drafted, pick] };
+  };
+
+  // Collision applies only when both players reveal the SAME character — Stage
+  // resources are Fallen-wizard-only and resolve independently, so they never
+  // collide with the opponent's pick.
+  if (pick0 !== null && pick1 !== null && !sr0 && !sr1 && def0 === def1) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
     // Remove the collided definition from both pools.
     newSetAside[0].push(pick0);
@@ -302,12 +304,8 @@ function resolveDraftRound(
     newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
     newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
   } else {
-    if (pick0 !== null) {
-      newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
-    }
-    if (pick1 !== null) {
-      newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };
-    }
+    if (pick0 !== null) place(0, pick0, sr0);
+    if (pick1 !== null) place(1, pick1, sr1);
   }
 
   // Auto-stop players who hit limits — but never while a site-targeting Stage
