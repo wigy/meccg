@@ -126,11 +126,10 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }
 
   // Site-targeting Stage resource pairing offers + the (possibly gated) stop.
-  // Suppressed while a character pick is pending: the player cannot stop or
-  // pair sites until the round resolves.
-  if (!pickPending) {
-    evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
-  }
+  // Pairing must stay available even while a character pick is pending, so a
+  // Hidden Haven drafted during the wait can still have its site chosen;
+  // stopping, however, is not allowed until the round resolves.
+  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft, !pickPending));
 
   return evaluated;
 }
@@ -142,12 +141,18 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
  * own site deck. While any remain unpaired, `draft-stop` is non-viable — CRF 22
  * requires the site to be chosen when Hidden Haven is revealed. Shared between
  * the normal end of the draft round and the at-max-company-size branch.
+ *
+ * `includeStop` is false while the player's character pick is pending (waiting
+ * for the opponent): pairing offers are still emitted so a Hidden Haven drafted
+ * during the wait can be paired, but the player may not stop until the round
+ * resolves.
  */
 function stageResourcePairingTail(
   state: GameState,
   playerId: PlayerId,
   playerIndex: number,
   draft: DraftPlayerState,
+  includeStop: boolean,
 ): EvaluatedAction[] {
   const evaluated: EvaluatedAction[] = [];
   const siteDeck = state.players[playerIndex].siteDeck;
@@ -170,6 +175,12 @@ function stageResourcePairingTail(
         viable: true,
       });
     }
+  }
+
+  // Stopping is unavailable while a character pick is pending (the round must
+  // resolve first).
+  if (!includeStop) {
+    return evaluated;
   }
 
   // Can stop — but not while a Hidden Haven that CAN be paired (the site deck

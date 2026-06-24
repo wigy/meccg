@@ -392,6 +392,37 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     expect(reduce(state, { type: 'draft-stop', player: PLAYER_1 }).error).toBeTruthy();
   });
 
+  test('a Hidden Haven drafted while a character pick is pending can still be paired (no deadlock)', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN, ARAGORN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [BALIN, ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    // P1 commits a character first, so its pick is pending (P2 has not picked,
+    // the round has not resolved).
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) }]);
+    // P1 then drafts Hidden Haven while still pending — it resolves immediately.
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+
+    // The pairing offer must still be available while pending (otherwise the
+    // player would be deadlocked: unable to pair, pick, or stop). Stopping is
+    // not offered until the round resolves.
+    const actions = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
+    const pairOffers = actions.filter(a => a.action.type === 'select-stage-resource-site');
+    expect(pairOffers).toHaveLength(1);
+    expect(actions.some(a => a.action.type === 'draft-stop')).toBe(false);
+
+    // And the reducer accepts the pairing while the character pick is pending.
+    const pairAction = pairOffers[0].action;
+    expect(reduce(state, pairAction).error).toBeFalsy();
+  });
+
   test('pairing then finishing the draft converts the site to a starting Wizardhaven', () => {
     const config: GameConfig = {
       players: [
