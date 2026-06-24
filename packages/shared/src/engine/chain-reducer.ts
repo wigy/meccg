@@ -15,7 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, GENERAL_INFLUENCE, isAllyCard } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, isAllyCard } from '../index.js';
 import type { TapSitesInPlayEffect } from '../types/effects.js';
 import { isMinionOrBalrog } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -30,7 +30,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
-import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -2281,7 +2281,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             : 0;
           const targetCompany = resourcePlayer.companies[activeCompanyIdx];
           const controllerUnusedDI = availableDI(current, hostCharId, resourcePlayer);
-          const opponentUnusedGI = GENERAL_INFLUENCE + hazardPlayerState.generalInfluenceBonus - hazardPlayerState.generalInfluenceUsed;
+          const opponentUnusedGI = effectiveGeneralInfluence(current, hazardPlayerState.id) - hazardPlayerState.generalInfluenceUsed;
 
           logDetail(`Stay Her Appetite: targeting ally "${allyDisplayName}" (mind ${allyMindVal}, prowess ${allyProwessVal}) on character ${hostCharId as string}; opp.GI=${opponentUnusedGI}, controller.DI=${controllerUnusedDI}`);
 

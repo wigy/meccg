@@ -15,6 +15,7 @@ import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 import { GENERAL_INFLUENCE } from './constants.js';
+import { effectiveGeneralInfluence } from './engine/reducer-utils.js';
 import { stripCardMarkers } from './format-helpers.js';
 import type { CardLookup, InstanceLookup } from './format-helpers.js';
 import {
@@ -341,6 +342,8 @@ interface RenderPlayerInput {
   readonly marshallingPoints: MarshallingPointTotals;
   /** How much of the player's 20-point GI pool is currently used. */
   readonly generalInfluenceUsed?: number;
+  /** The player's effective GI pool (20, or a Fallen-wizard avatar's white-hand value, plus bonuses). */
+  readonly generalInfluence?: number;
   readonly companies: readonly Company[];
   readonly opponentCompanies?: readonly OpponentCompanyView[];
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
@@ -471,7 +474,7 @@ function renderState(input: RenderInput): string {
     const totalMP = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
     if (player.isActive) lines.push('«ACTIVE-START»');
     const giLabel = player.generalInfluenceUsed !== undefined
-      ? ` | Free GI: ${GENERAL_INFLUENCE - player.generalInfluenceUsed}`
+      ? ` | Free GI: ${(player.generalInfluence ?? GENERAL_INFLUENCE) - player.generalInfluenceUsed}`
       : '';
     // Embed MP breakdown as a «MP:JSON» marker for web client tooltip injection.
     // The marker is invisible in the text client (stripped by stripCardMarkers).
@@ -559,6 +562,7 @@ export function formatGameState(state: GameState): string {
       sideboardCards: p.sideboard.map(c => c.instanceId),
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
+      generalInfluence: effectiveGeneralInfluence(state, p.id),
       lastDiceRoll: p.lastDiceRoll,
       companies: p.companies,
       characters: p.characters,
@@ -625,6 +629,7 @@ export function formatPlayerView(
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
         generalInfluenceUsed: view.self.generalInfluenceUsed,
+        generalInfluence: view.self.generalInfluence,
         companies: view.self.companies,
         characters: view.self.characters,
         cardsInPlay: view.self.cardsInPlay,
@@ -645,6 +650,7 @@ export function formatPlayerView(
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         generalInfluenceUsed: view.opponent.generalInfluenceUsed,
+        generalInfluence: view.opponent.generalInfluence,
         lastDiceRoll: view.opponent.lastDiceRoll,
         companies: [],
         opponentCompanies: view.opponent.companies,

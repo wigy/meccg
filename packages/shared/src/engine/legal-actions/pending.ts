@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, Phase, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, Skill, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, Phase, CardStatus, matchesCondition, matchesContext, Skill, formatSignedNumber } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
@@ -37,7 +37,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -481,7 +481,7 @@ function musterRollActions(
   const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
 
-  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+  const unusedGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
   const threshold = 11;
   const need = threshold - unusedGI;
 
@@ -572,7 +572,7 @@ function callOfHomeRollActions(
   const hazardDef = defById(state, hazardDefinitionId);
   const hazardName = hazardDef?.name ?? '?';
 
-  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+  const unusedGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
   const need = threshold - unusedGI;
   logDetail(`Pending call-of-home-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
 

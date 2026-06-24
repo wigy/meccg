@@ -15,12 +15,12 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
+import { SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
 import type { PlayerState } from '../../index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
@@ -584,7 +584,7 @@ export function playCharacterActions(
         continue;
       }
 
-      const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+      const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
       const canPlayUnderGI = costMind <= remainingGI;
 
       // Find characters with enough DI to control this character as a follower.

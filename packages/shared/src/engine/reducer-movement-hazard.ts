@@ -11,7 +11,7 @@ import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfl
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, Alignment, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites, GENERAL_INFLUENCE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, Alignment, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites } from '../index.js';
 import type { SiteCard } from '../index.js';
 import { isMinionOrBalrog } from '../state-utils.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
@@ -29,7 +29,7 @@ import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-ev
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply, handlePlayCharacter } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { roll2d6, diceRollEffect } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, effectiveGeneralInfluence } from './reducer-utils.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI } from './legal-actions/organization.js';
 import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
@@ -976,7 +976,7 @@ function handleAgentInfluenceAttempt(
     }
   }
 
-  const opponentGI = GENERAL_INFLUENCE - resourcePlayer.generalInfluenceUsed;
+  const opponentGI = effectiveGeneralInfluence(state, resourcePlayer.id) - resourcePlayer.generalInfluenceUsed;
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(hazardPlayer.alignment, resourcePlayer.alignment);
 
   // Reveal and tap the agent (not actedThisTurn — this is NOT an agent action)
