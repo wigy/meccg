@@ -124,6 +124,14 @@ function handleCharacterDraft(
       if (playerDraft.currentPick !== null) {
         return { state, error: 'Waiting for opponent to pick' };
       }
+      // CRF 22: a revealed Hidden Haven (wh-75) must have its site brought out
+      // when it is revealed — the draft cannot move forward with another pick
+      // while one that can still be paired (the site deck holds an eligible
+      // Ruins & Lairs) is unpaired. (Mirrors the legal-action gate in
+      // `legal-actions/draft.ts`; the reducer is the authority.)
+      if (blockingSiteStageResources(state, playerDraft, state.players[playerIndex].siteDeck).length > 0) {
+        return { state, error: 'You must choose a site for your Hidden Haven before drafting further' };
+      }
       const poolCard = findById(playerDraft.pool, action.characterInstanceId);
       if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };

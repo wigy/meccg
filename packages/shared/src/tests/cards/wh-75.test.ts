@@ -426,11 +426,20 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
     ]);
 
-    // After the reveal the FW must pair the Hidden Haven; the pairing offer is
-    // available and stopping is gated until it is paired.
+    // After the reveal the FW must pair the Hidden Haven before the draft can
+    // move forward: the pairing offer is the only viable thing — picking another
+    // character and stopping are both suppressed until the site is chosen
+    // (CRF 22: "you must bring out your starting site when you reveal Hidden
+    // Haven").
     const before = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
     expect(before.some(a => a.action.type === 'select-stage-resource-site')).toBe(true);
+    expect(before.some(a => a.action.type === 'draft-pick')).toBe(false);
     expect(before.find(a => a.action.type === 'draft-stop')?.viable ?? false).toBe(false);
+    // The reducer also rejects a forced character pick while the pairing is
+    // outstanding — the engine, not just the UI, enforces the requirement.
+    expect(
+      reduce(state, { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) }).error,
+    ).toBeTruthy();
 
     // Pairing resolves the requirement; the FW may then continue drafting.
     state = runActions(state, [{
