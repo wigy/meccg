@@ -964,11 +964,35 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 
   if (fetchEffects.length === 0) return state;
 
+  // Hazard short events are discarded at play time and never enter cardsInPlay,
+  // so the card is already in the declaring player's discard pile here. Resource
+  // short events instead ride on the chain entry (they leave the hand at play
+  // time but are not pre-discarded — see `handlePlayResourceShortEvent`). For
+  // those, place the card into the declaring player's cardsInPlay now so it is
+  // visible on the table while the fetch sub-flow runs and is disposed to the
+  // discard pile by `discardEventCard` once the last pick resolves.
+  let next = state;
+  const declaringIndex = getPlayerIndex(state, entry.declaredBy);
+  const declaringPlayer = state.players[declaringIndex];
+  const alreadyPlaced = declaringPlayer.discardPile.some(c => c.instanceId === card.instanceId)
+    || declaringPlayer.cardsInPlay.some(c => c.instanceId === card.instanceId);
+  if (!alreadyPlaced) {
+    logDetail(`${def.name}: resource short event → cardsInPlay while fetch resolves`);
+    next = updatePlayer(next, declaringIndex, p => ({
+      ...p,
+      cardsInPlay: [...p.cardsInPlay, {
+        instanceId: card.instanceId,
+        definitionId: card.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    }));
+  }
+
   logDetail(`${def.name}: queuing ${fetchEffects.length} fetch-to-deck effect(s)`);
 
   return {
-    ...state,
-    pendingEffects: [...state.pendingEffects, ...fetchEffects],
+    ...next,
+    pendingEffects: [...next.pendingEffects, ...fetchEffects],
   };
 }
 

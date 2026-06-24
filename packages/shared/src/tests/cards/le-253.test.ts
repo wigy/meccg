@@ -24,7 +24,7 @@ import {
   Phase, Alignment,
   ORC_PATROL,
   buildTestState, resetMint,
-  viableActions, dispatch,
+  viableActions, dispatch, resolveChain,
   handCardId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, FetchFromPileAction } from '../../index.js';
@@ -101,7 +101,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.pendingEffects).toHaveLength(1);
@@ -133,7 +133,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
@@ -167,7 +167,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
@@ -198,7 +198,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
@@ -233,7 +233,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     const blackMaceId = state.players[0].sideboard[0].instanceId;
     const deckBefore = state.players[0].playDeck.length;
 
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
     const afterFetch = dispatch(afterPlay, {
       type: 'fetch-from-pile',
       player: PLAYER_1,
@@ -274,7 +274,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     const blackMaceId = state.players[0].discardPile[0].instanceId;
     const deckBefore = state.players[0].playDeck.length;
 
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
     const afterFetch = dispatch(afterPlay, {
       type: 'fetch-from-pile',
       player: PLAYER_1,
@@ -312,7 +312,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(0);
@@ -346,7 +346,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
 
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
     const afterPass = dispatch(afterPlay, { type: 'pass', player: PLAYER_1 });
 
     expect(afterPass.pendingEffects).toHaveLength(0);
@@ -379,7 +379,7 @@ describe('Weigh All Things to a Nicety (le-253)', () => {
     });
 
     const cardId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: cardId }));
 
     const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);

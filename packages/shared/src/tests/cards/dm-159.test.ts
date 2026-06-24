@@ -17,7 +17,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   viableActions, actionAs,
-  handCardId, dispatch, RESOURCE_PLAYER,
+  handCardId, dispatch, resolveChain, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { FetchFromPileAction } from '../../index.js';
@@ -42,7 +42,12 @@ describe('Smoke Rings (dm-159)', () => {
     expect(playActions[0].action.type).toBe('play-short-event');
   });
 
-  test('playing Smoke Rings keeps it in play and enters fetch sub-flow', () => {
+  // Regression (game mqs3008i-sexowp, seq 94, bug-report 9474aaebe1f02b18):
+  // Smoke Rings was resolving immediately on play, skipping the chain of
+  // effects — the opponent never got a window to respond. Per CRF 22 (which
+  // errata the word "immediately" out of the card) and CoE 9.4/9.5, the play
+  // must be declared on the chain like any other short event.
+  test('playing Smoke Rings initiates a chain so the opponent can respond', () => {
     const state = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
@@ -53,9 +58,34 @@ describe('Smoke Rings (dm-159)', () => {
     });
 
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
 
-    // Smoke Rings removed from hand, in cardsInPlay while effect resolves
+    // A chain is now active, carrying Smoke Rings — it has NOT resolved yet.
+    expect(afterPlay.chain).not.toBeNull();
+    expect(afterPlay.players[0].hand).toHaveLength(0);
+    expect(afterPlay.pendingEffects).toHaveLength(0);
+
+    // The opponent holds priority and may respond before the fetch resolves.
+    const opponentActions = computeLegalActions(afterPlay, PLAYER_2);
+    expect(opponentActions.some(ea => ea.action.type === 'pass-chain-priority')).toBe(true);
+  });
+
+  test('after both players pass priority, Smoke Rings enters the fetch sub-flow', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SMOKE_RINGS], siteDeck: [MORIA], sideboard: [GLAMDRING] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
+    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    const next = resolveChain(afterPlay);
+
+    // Chain resolved; Smoke Rings is in cardsInPlay while the effect resolves
+    expect(next.chain).toBeNull();
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.players[0].cardsInPlay.map(c => c.instanceId)).toContain(smokeRingsId);
     expect(next.players[0].discardPile.map(c => c.instanceId)).not.toContain(smokeRingsId);
@@ -77,9 +107,9 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    // Play Smoke Rings
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // Fetch actions: 2 sideboard cards (Smoke Rings is in cardsInPlay, not in any player pile)
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
@@ -100,9 +130,9 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    // Play Smoke Rings
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // Fetch actions: Glamdring from discard pile (Smoke Rings is in cardsInPlay)
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
@@ -124,8 +154,8 @@ describe('Smoke Rings (dm-159)', () => {
     const glamdringId = state.players[0].sideboard[0].instanceId;
     const originalDeckSize = state.players[0].playDeck.length;
 
-    // Play Smoke Rings
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // Fetch Glamdring from sideboard
     const afterFetch = dispatch(afterPlay, {
@@ -164,8 +194,8 @@ describe('Smoke Rings (dm-159)', () => {
     const glamdringId = state.players[0].discardPile[0].instanceId;
     const originalDeckSize = state.players[0].playDeck.length;
 
-    // Play Smoke Rings
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // Fetch Glamdring from discard pile
     const afterFetch = dispatch(afterPlay, {
@@ -201,8 +231,8 @@ describe('Smoke Rings (dm-159)', () => {
 
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
 
-    // Play Smoke Rings
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // Pass to skip fetch
     const afterPass = dispatch(afterPlay, { type: 'pass', player: PLAYER_1 });
@@ -231,8 +261,8 @@ describe('Smoke Rings (dm-159)', () => {
 
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
 
-    // Play Smoke Rings
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
     // No eligible cards: MORIA (site) doesn't match filter, Smoke Rings is in cardsInPlay
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
@@ -254,8 +284,10 @@ describe('Smoke Rings (dm-159)', () => {
     });
 
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
-    const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
 
+    // Once the chain has resolved and the fetch sub-flow is the active player's,
+    // the opponent has no actions (the response window was during the chain).
     const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);
   });
@@ -273,8 +305,8 @@ describe('Smoke Rings (dm-159)', () => {
     const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const glamdringId = state.players[0].sideboard[0].instanceId;
 
-    // Play Smoke Rings and fetch
-    const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
+    // Play Smoke Rings, resolve the chain, then fetch
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
     const afterFetch = dispatch(afterPlay, {
       type: 'fetch-from-pile',
       player: PLAYER_1,

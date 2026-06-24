@@ -306,6 +306,39 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: chained };
   }
 
+  // Pure fetch-to-deck short event (e.g. Smoke Rings dm-159, Weigh All Things
+  // to a Nicety le-253): a resource short event whose only effect is bringing a
+  // card from the sideboard/discard into the play deck. Like draw-cards above,
+  // CRF 22 errata the "immediately" wording out of Smoke Rings precisely because
+  // the play must be declared on the chain of effects so the opponent has a
+  // chance to respond before the retrieval resolves. The card leaves the hand
+  // and rides on the chain entry; on resolution `queueFetchToDecEffects`
+  // (chain-reducer) places it into cardsInPlay and queues the interactive fetch
+  // sub-flow. We only take this path for self-contained fetches — cards that
+  // also tap a character, choose a play-option, or discard a target in play
+  // (Vilya, etc.) keep their inline play-time handling below.
+  const allEffectsAreFetch = (def.effects ?? []).length > 0
+    && (def.effects ?? []).every(e => e.type === 'move' && !!moveToFetchToDeckPayload(e));
+  const hasActionTarget = !!(
+    action.targetCharacterId
+    || action.targetScoutInstanceId
+    || action.optionId
+    || action.discardTargetInstanceId
+  );
+  if (allEffectsAreFetch && !hasActionTarget) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (fetch resolves on chain resolution)`);
+    const payload: ChainEntryPayload = { type: 'short-event' };
+    const chained = afterReveal.chain === null
+      ? initiateChain(afterReveal, action.player, handCard, payload)
+      : pushChainEntry(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
