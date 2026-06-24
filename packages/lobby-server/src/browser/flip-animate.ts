@@ -154,8 +154,12 @@ export function animateFromSnapshot(): void {
       if (entry) oldInstances.delete(instId); // consume
     }
 
-    // Fall back to definition ID (consume one from the list)
-    if (!entry && oldDefIds) {
+    // Fall back to definition ID (consume one from the list). Only for cards
+    // with NO instance id — i.e. draft cards before instance assignment. A card
+    // that has an instance id but didn't match above is genuinely new (or a
+    // modal-scoped UI copy with a synthetic `browser:` id) and should fade in,
+    // not slide in from a same-definition card's old position.
+    if (!entry && !instId && oldDefIds) {
       const defId = htmlEl.dataset.cardId;
       if (defId) {
         const list = oldDefIds.get(defId);

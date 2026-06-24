@@ -261,7 +261,7 @@ function populateBrowserGrid(): void {
     return aHighlighted - bHighlighted;
   });
 
-  for (const card of sortedCards) {
+  for (const [idx, card] of sortedCards.entries()) {
     const defId = !isCardHidden(card.definitionId) ? card.definitionId as string : undefined;
     const def = defId ? cachedCardPool[defId] : undefined;
     const imgPath = def ? cardImageProxyPath(def) : undefined;
@@ -270,6 +270,13 @@ function populateBrowserGrid(): void {
     img.src = !isCardHidden(card.definitionId) ? (imgPath ?? cachedBrowserBackImage) : cachedBrowserBackImage;
     img.alt = def?.name ?? 'Unknown card';
     if (defId) img.dataset.cardId = defId;
+    // Cards shown in this modal are *copies* — the same card (e.g. a site already
+    // in play at another company) may also be on the board. Give each copy a
+    // distinct, modal-scoped instance id so the FLIP animation system treats it
+    // as its own element and never slides it in from the original card's previous
+    // board position. The id is stable across re-renders (keyed by the real
+    // instance id when available) so the copy stays put while the modal is open.
+    img.dataset.instanceId = `browser:${(card.instanceId as string) ?? `${defId ?? 'x'}:${idx}`}`;
 
     if (isSelecting) {
       const ea = siteSelectionMatcher?.(card);
