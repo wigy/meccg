@@ -2592,7 +2592,16 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  /**
+   * `requires: 'site-protected'` takes no extra fields. On a faction it gates
+   * the influence attempt on the company's current site being **protected by
+   * the controller** — an active `site-protected` constraint (added by a stage
+   * permanent-event such as Guarded Haven wh-74) bound to the site's definition
+   * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
+   * and Greater Half-orcs (wh-86): "Playable at one of your protected
+   * Wizardhavens [{H}]".
+   */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
    * the target company must either *leave* (the origin region of region

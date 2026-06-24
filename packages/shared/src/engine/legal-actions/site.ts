@@ -89,6 +89,28 @@ function siteIsProtectedAgainstPlayer(
 }
 
 /**
+ * Half-orcs (wh-87) / Greater Half-orcs (wh-86) "playable at one of your
+ * protected Wizardhavens" family: returns true when an active `site-protected`
+ * constraint binds `siteDefId` and is owned by `playerId` itself (i.e. the
+ * player has protected this version of the site, e.g. via Guarded Haven). This
+ * is the mirror of {@link siteIsProtectedAgainstPlayer}, which tests protection
+ * by the *opponent*.
+ */
+function siteIsProtectedByPlayer(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  return state.activeConstraints.some(
+    c => c.kind.type === 'site-protected'
+      && c.kind.siteDefinitionId === siteDefId
+      && c.target.kind === 'player'
+      && c.target.playerId === playerId,
+  );
+}
+
+/**
  * "Cards that give marshalling points": items, allies, and factions whose
  * printed marshalling-point value is at least 1. These are the cards the
  * protected-Wizardhaven restriction bars the opponent from playing at the site.
@@ -1402,6 +1424,31 @@ function playResourcesActions(
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
+        continue;
+      }
+
+      // play-condition: card-in-play — the faction is only playable while a
+      // named card is in YOUR play area. Half-orcs (wh-87) / Greater Half-orcs
+      // (wh-86) require "A Strident Spawn" (and Half-orcs) in play. Checked
+      // against the controller's own in-play names so an opponent's copy of the
+      // named card does not satisfy the gate.
+      const factionCardInPlay = findPlayConditionEffect(factionDef, 'card-in-play');
+      if (factionCardInPlay?.cardName) {
+        const controllerInPlay = buildControllerInPlayNames(state, playerId);
+        if (!controllerInPlay.includes(factionCardInPlay.cardName)) {
+          logDetail(`Faction ${factionDef.name}: requires "${factionCardInPlay.cardName}" in your play area — not playable`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: requires ${factionCardInPlay.cardName} in play`));
+          continue;
+        }
+      }
+
+      // play-condition: site-protected — the faction is only playable at a
+      // Wizardhaven the controller has protected (Half-orcs wh-87 / Greater
+      // Half-orcs wh-86: "Playable at one of your protected Wizardhavens").
+      const factionSiteProtected = findPlayConditionEffect(factionDef, 'site-protected');
+      if (factionSiteProtected && !siteIsProtectedByPlayer(state, siteDefId, playerId)) {
+        logDetail(`Faction ${factionDef.name}: ${siteName} is not a protected Wizardhaven you control — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: ${siteName} is not one of your protected Wizardhavens`));
         continue;
       }
 

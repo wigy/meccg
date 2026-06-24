@@ -491,8 +491,16 @@ function installPileBrowserClickHandlers(): void {
 
 /**
  * Prepare site selection state and highlight the site deck pile.
- * Called during the starting-site-selection setup step. Does not auto-open
- * the modal -- the player clicks the highlighted pile to open it.
+ *
+ * Handles two site-deck picking flows that share identical UI:
+ *  - `select-starting-site` during the starting-site-selection step, and
+ *  - `select-stage-resource-site` during character-draft when a Fallen-wizard
+ *    drafted Hidden Haven (wh-75) and must pair it with a Ruins & Lairs site
+ *    from their own site deck.
+ *
+ * Both actions identify the candidate site by `siteInstanceId`, so the matcher
+ * keys on `card.instanceId`. Does not auto-open the modal -- the player clicks
+ * the highlighted pile to open it.
  */
 export function prepareSiteSelection(
   view: PlayerView,
@@ -502,10 +510,11 @@ export function prepareSiteSelection(
   cachedSiteDeck = view.self.siteDeck;
   cachedCardPool = cardPool;
   siteSelectionActions = view.legalActions.filter(
-    ea => ea.action.type === 'select-starting-site',
+    ea => ea.action.type === 'select-starting-site'
+      || ea.action.type === 'select-stage-resource-site',
   );
   siteSelectionMatcher = (card) => siteSelectionActions.find(
-    a => a.action.type === 'select-starting-site'
+    a => (a.action.type === 'select-starting-site' || a.action.type === 'select-stage-resource-site')
       && a.action.siteInstanceId === card.instanceId,
   );
   siteSelectionCallback = onAction;

@@ -14,6 +14,8 @@ import { GENERAL_INFLUENCE, Alignment, getAlignmentRules, isCharacterCard, evalu
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from '../reducer-utils.js';
+import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
+import type { DraftPlayerState } from '../../index.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.CharacterDraft);
@@ -34,7 +36,9 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
   if (draft.drafted.length >= maxStartingCompanySize) {
     logDetail(`Already at max starting company size (${maxStartingCompanySize})`);
-    return [];
+    // No more character picks, but a site-targeting Stage resource (Hidden
+    // Haven) may still need its site paired before the draft can end.
+    return stageResourcePairingTail(state, playerId, playerIndex, draft);
   }
 
   logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
@@ -109,8 +113,64 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     evaluated.push(result);
   }
 
-  // Can always stop — always viable
-  evaluated.push({ action: { type: 'draft-stop', player: playerId }, viable: true });
+  // Site-targeting Stage resource pairing offers + the (possibly gated) stop.
+  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
+
+  return evaluated;
+}
+
+/**
+ * Pairing offers for any unpaired site-targeting Stage resource (Hidden Haven,
+ * wh-75) plus the draft-stop action. Each unpaired resource gets one
+ * `select-stage-resource-site` offer per eligible Ruins & Lairs in the player's
+ * own site deck. While any remain unpaired, `draft-stop` is non-viable — CRF 22
+ * requires the site to be chosen when Hidden Haven is revealed. Shared between
+ * the normal end of the draft round and the at-max-company-size branch.
+ */
+function stageResourcePairingTail(
+  state: GameState,
+  playerId: PlayerId,
+  playerIndex: number,
+  draft: DraftPlayerState,
+): EvaluatedAction[] {
+  const evaluated: EvaluatedAction[] = [];
+  const siteDeck = state.players[playerIndex].siteDeck;
+  const unpaired = unpairedSiteStageResources(state, draft);
+  for (const stageResource of unpaired) {
+    const stageResourceDef = defById(state, stageResource.definitionId);
+    const resName = stageResourceDef?.name ?? (stageResource.instanceId as string);
+    logDetail(`${resName} needs a paired Ruins & Lairs site from the site deck`);
+    for (const siteCard of siteDeck) {
+      if (!siteMatchesStageResourceTarget(state, stageResourceDef, siteCard)) continue;
+      const siteName = defById(state, siteCard.definitionId)?.name ?? (siteCard.instanceId as string);
+      logDetail(`  ${resName} can pair with site ${siteName}`);
+      evaluated.push({
+        action: {
+          type: 'select-stage-resource-site',
+          player: playerId,
+          stageResourceInstanceId: stageResource.instanceId,
+          siteInstanceId: siteCard.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Can stop — but not while a Hidden Haven that CAN be paired (the site deck
+  // holds an eligible Ruins & Lairs) is still unpaired. If no eligible site
+  // exists, the requirement cannot be met, so stopping is allowed (the card
+  // falls to hand at finalize).
+  const blocking = blockingSiteStageResources(state, draft, siteDeck);
+  if (blocking.length > 0) {
+    logDetail(`Cannot stop: ${blocking.length} Stage resource(s) still need a paired site`);
+    evaluated.push({
+      action: { type: 'draft-stop', player: playerId },
+      viable: false,
+      reason: 'You must choose a site for your Hidden Haven before stopping',
+    });
+  } else {
+    evaluated.push({ action: { type: 'draft-stop', player: playerId }, viable: true });
+  }
 
   return evaluated;
 }

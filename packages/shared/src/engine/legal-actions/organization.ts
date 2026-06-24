@@ -24,13 +24,13 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
-import { buildInPlayNames } from '../recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
@@ -1647,10 +1647,14 @@ function buildActiveCompanyContext(
 /**
  * Builds the condition context for a `play-condition` `requires:
  * "player-state"` check. Exposes the active player's alignment, whether
- * the active player has a Ringwraith-race avatar character in play, and the
- * opposing player's alignment — all as card-text alignment strings
- * (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`). Used by
- * Above the Abyss (as-77).
+ * the active player has a Ringwraith-race avatar character in play, the
+ * active player's stage-point total, the number of factions the active
+ * player controls in play (`player.factionCount`), the opposing player's
+ * alignment — all as card-text alignment strings (`"wizard"`,
+ * `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) — and the names of cards
+ * the active player has in play (`inPlay`, for `{ "inPlay": "<name>" }`
+ * prerequisites). Used by Above the Abyss (as-77) and The White Hand
+ * (wh-122).
  */
 function buildPlayerStateContext(
   state: GameState,
@@ -1666,9 +1670,14 @@ function buildPlayerStateContext(
       break;
     }
   }
+  const factionCount = player.cardsInPlay.filter(c => {
+    const def = defById(state, c.definitionId);
+    return def && isFactionCard(def);
+  }).length;
   return {
-    player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints },
+    player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints, factionCount },
     opponent: { alignment: opponent?.alignment },
+    inPlay: buildControllerInPlayNames(state, playerId),
   };
 }
 

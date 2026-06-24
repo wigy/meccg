@@ -27,6 +27,7 @@ import type {
   PlayerState,
   Company,
   CharacterInPlay,
+  CardInPlay,
   CardInstance,
   DraftPlayerState,
   ItemDraftPlayerState,
@@ -52,7 +53,10 @@ import {
   isSiteCard,
 } from '../index.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { defById, isStageResourceCard, hasRecruitmentVehicleEffect, isAgentCharacter } from './reducer-utils.js';
+import { logDetail } from './legal-actions/log.js';
+import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect, isAgentCharacter } from './reducer-utils.js';
+import { stageResourceNeedsSite } from './stage-resource-sites.js';
+import { applyStageResourceSiteConstraints } from './chain-reducer.js';
 
 // ---- Config types ----
 
@@ -302,6 +306,34 @@ export function applyDraftResults(
   draftState: readonly [DraftPlayerState, DraftPlayerState],
   setAside: readonly [readonly CardInstance[], readonly CardInstance[]] = [[], []],
 ): GameState {
+  // Resolve each player's site-targeting Stage-resource pairings (Hidden Haven,
+  // wh-75) to the chosen site's definition id, so we can detect cross-player
+  // collisions (both players paired the *same site definition*). CRF 22: a
+  // colliding Hidden Haven is set aside (to hand) rather than converting.
+  const pairingsByPlayer: { stageResourceInstanceId: CardInstanceId; siteInstanceId: CardInstanceId; siteDefId: CardDefinitionId }[][] = [[], []];
+  for (let i = 0; i < 2; i++) {
+    for (const pairing of draftState[i].stageResourceSites ?? []) {
+      const siteCard = findById(state.players[i].siteDeck, pairing.siteInstanceId);
+      if (!siteCard) continue;
+      pairingsByPlayer[i].push({
+        stageResourceInstanceId: pairing.stageResourceInstanceId,
+        siteInstanceId: pairing.siteInstanceId,
+        siteDefId: siteCard.definitionId,
+      });
+    }
+  }
+  const sitesChosenBy = (i: number): Set<string> => new Set(pairingsByPlayer[i].map(p => p.siteDefId as string));
+  const sites0 = sitesChosenBy(0);
+  const sites1 = sitesChosenBy(1);
+  const collisionSiteDefIds = new Set<string>([...sites0].filter(d => sites1.has(d)));
+  if (collisionSiteDefIds.size > 0) {
+    logDetail(`Hidden Haven site collision(s): ${[...collisionSiteDefIds].join(', ')} — those Hidden Havens are set aside (CRF 22)`);
+  }
+
+  // Non-colliding Hidden Haven conversions to apply after the player map is
+  // assembled (each needs the cross-player collision verdict above).
+  const conversionsToApply: { playerId: PlayerId; hhCard: CardInstance; siteDefId: CardDefinitionId }[] = [];
+
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const pool = draftState[index].pool;
@@ -349,10 +381,17 @@ export function applyDraftResults(
     //    attach it to a drafted character that needed it — prefer an agent, then
     //    the highest-mind character, so its "-1 to his mind" lands where the
     //    draft gate was lifted. Its mind reduction applies via recomputeDerived.
-    //  - Hidden Haven (and any other Stage resource) goes to the player's hand so
-    //    it can be played on the starting site during setup.
+    //  - Hidden Haven (site-targeting Stage resource) paired with a non-colliding
+    //    site enters play bound to that site (which becomes a starting
+    //    Wizardhaven); a colliding pairing (both players chose the same site
+    //    definition) is set aside to the hand instead (CRF 22).
+    //  - Any other Stage resource (or an unpaired Hidden Haven) goes to the hand.
     const handAdditions: CardInstance[] = [];
+    const cardsInPlayAdditions: CardInPlay[] = [];
     const thralledTargets = new Set<string>();
+    // Non-colliding Hidden Haven sites for this player → become starting sites.
+    const convertedSites: { siteInstanceId: CardInstanceId; siteDefId: CardDefinitionId }[] = [];
+    const myPairings = pairingsByPlayer[index];
     for (const card of draftState[index].draftedStageResources) {
       const def = defById(state, card.definitionId);
       if (hasRecruitmentVehicleEffect(def)) {
@@ -369,16 +408,51 @@ export function applyDraftResults(
           // never lost and can be played as a recruitment vehicle later.
           handAdditions.push(card);
         }
+      } else if (stageResourceNeedsSite(def)) {
+        const pairing = myPairings.find(p => p.stageResourceInstanceId === card.instanceId);
+        if (!pairing) {
+          // Defensive: a site-targeting Stage resource with no pairing — keep it
+          // in hand so it is never lost and can be played later.
+          logDetail(`${def?.name ?? (card.definitionId as string)} has no paired site — keeping in hand`);
+          handAdditions.push(card);
+        } else if (collisionSiteDefIds.has(pairing.siteDefId as string)) {
+          // CRF 22: both players paired the same site definition — set aside to
+          // hand; the site stays in the deck and the conversion does not apply.
+          logDetail(`${def?.name ?? (card.definitionId as string)} set aside (site collision) — to hand`);
+          handAdditions.push(card);
+        } else {
+          // Non-colliding pairing: the site becomes a starting Wizardhaven and
+          // Hidden Haven enters play bound to it.
+          logDetail(`${def?.name ?? (card.definitionId as string)} converts paired site to a starting Wizardhaven`);
+          convertedSites.push({ siteInstanceId: pairing.siteInstanceId, siteDefId: pairing.siteDefId });
+          cardsInPlayAdditions.push({
+            instanceId: card.instanceId,
+            definitionId: card.definitionId,
+            status: CardStatus.Untapped,
+            attachedToSite: pairing.siteDefId,
+          });
+          conversionsToApply.push({ playerId: player.id, hhCard: card, siteDefId: pairing.siteDefId });
+        }
       } else {
         handAdditions.push(card);
       }
     }
 
-    // Company created with null site — site is assigned during starting site selection
-    const company: Company = {
+    // Remove any converted site instances from the site deck — they are now
+    // starting sites in play (the no-card-disappears invariant: they move to a
+    // company's currentSite below).
+    const convertedSiteInstanceIds = new Set(convertedSites.map(s => s.siteInstanceId as string));
+    const remainingSiteDeck = player.siteDeck.filter(s => !convertedSiteInstanceIds.has(s.instanceId as string));
+
+    // Base company holds all drafted characters; the first non-colliding paired
+    // Hidden Haven site (if any) fills its currentSite. Each additional
+    // converted site gets its own empty starting company.
+    const baseCompany: Company = {
       id: `company-${player.id}-0` as CompanyId,
       characters: characterInstanceIds,
-      currentSite: null,
+      currentSite: convertedSites.length > 0
+        ? { instanceId: convertedSites[0].siteInstanceId, definitionId: convertedSites[0].siteDefId, status: CardStatus.Untapped }
+        : null,
       siteCardOwned: true,
       destinationSite: null,
       movementPath: [],
@@ -387,13 +461,30 @@ export function applyDraftResults(
       onGuardCards: [],
       hazards: [],
     };
+    const companies: Company[] = [baseCompany];
+    for (let s = 1; s < convertedSites.length; s++) {
+      companies.push({
+        id: `company-${player.id}-${s}` as CompanyId,
+        characters: [],
+        currentSite: { instanceId: convertedSites[s].siteInstanceId, definitionId: convertedSites[s].siteDefId, status: CardStatus.Untapped },
+        siteCardOwned: true,
+        destinationSite: null,
+        movementPath: [],
+        moved: false,
+        siteOfOrigin: null,
+        onGuardCards: [],
+        hazards: [],
+      });
+    }
 
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
     return {
       player: {
         ...player,
-        companies: [company],
+        companies,
         characters,
+        siteDeck: remainingSiteDeck,
+        cardsInPlay: [...player.cardsInPlay, ...cardsInPlayAdditions],
         hand: [...player.hand, ...handAdditions],
         sideboard: [...player.sideboard, ...strandedStageResources],
       } satisfies PlayerState,
@@ -402,6 +493,17 @@ export function applyDraftResults(
   });
 
   const newPlayers: readonly [PlayerState, PlayerState] = [results[0].player, results[1].player];
+
+  // Apply Hidden Haven Wizardhaven conversion constraints for every
+  // non-colliding pairing. These bind to the chosen site definition and the
+  // owning player, so they must be applied once the player roster (and thus the
+  // sites in play) is assembled. Thread the resulting state through the rest of
+  // the transition so the constraints survive.
+  let workState: GameState = { ...state, players: newPlayers };
+  for (const conv of conversionsToApply) {
+    workState = applyStageResourceSiteConstraints(workState, conv.playerId, conv.hhCard, conv.siteDefId);
+  }
+
   // Remaining pool for character deck draft: undrafted characters + this player's set-aside characters
   // (items are excluded — already extracted above). Each player keeps the collided instances that
   // originated from their own pick, so every instance remains in exactly one location.
@@ -423,12 +525,11 @@ export function applyDraftResults(
 
   // If neither player has items to assign, skip to character deck draft (or Untap)
   if (itemDraftState[0].done && itemDraftState[1].done) {
-    return transitionAfterItemDraft({ ...state, players: newPlayers }, remainingPool);
+    return transitionAfterItemDraft(workState, remainingPool);
   }
 
   return {
-    ...state,
-    players: newPlayers,
+    ...workState,
     activePlayer: null,
     phaseState: { phase: Phase.Setup, setupStep: { step: SetupStep.ItemDraft, itemDraftState, remainingPool } },
     turnNumber: 0,
