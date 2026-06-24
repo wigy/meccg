@@ -514,6 +514,8 @@ export function describeAction(
       return `${action.player as string} plays ${action.cardInstanceId as string} to convert the attacking creature into an ally controlled by ${action.controllingCharacterId as string}`;
     case 'discard-stage-resource':
       return `${action.player as string} discards stage resource ${action.cardInstanceId as string}`;
+    case 'activate-org-fetch':
+      return `${action.player as string} activates org-phase fetch from ${instName(action.cardInstanceId)} (take one matching card to hand)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

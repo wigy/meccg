@@ -13,8 +13,12 @@ Look for functions and features that are better implemented in DSL. Implement th
 FIXES
 -----
 
+Implement FW free GI correctly.
+
 FEATS
 -----
+
+Announce players' alignments in the text log when the game begins.
 
 EPICS
 -----

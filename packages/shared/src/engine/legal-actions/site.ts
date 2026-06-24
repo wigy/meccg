@@ -13,12 +13,12 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, GENERAL_INFLUENCE, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteHasTechnologyItemUnlock } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
+import { availableDI, grantedActionActivations, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
@@ -932,12 +932,9 @@ function playResourcesActions(
         // Pallando, or Saruman."
         const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
         if (playerStateCond?.condition) {
-          const avatar = findPlayerAvatar(state, player);
-          const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
-          const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
-          const ctx = { player: { alignment: player.alignment, avatar: avatarName, stagePoints: player.stagePoints } };
+          const ctx = buildPlayerStateContext(state, player, playerId);
           if (!matchesCondition(playerStateCond.condition, ctx)) {
-            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied (avatar=${avatarName ?? 'none'})`);
+            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
             continue;
           }

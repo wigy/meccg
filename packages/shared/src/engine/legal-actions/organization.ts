@@ -32,7 +32,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -193,6 +193,49 @@ export function discardStageResourceActions(state: GameState, playerId: PlayerId
   return actions;
 }
 
+/**
+ * Org-phase-fetch activations (A Strident Spawn wh-61: "During your
+ * organization phase, you may take one Half-orc character from your discard
+ * pile to your hand"). For each in-play permanent-event the player controls that
+ * carries an `org-phase-fetch` effect, offer one `activate-org-fetch` action —
+ * provided the source has not already been used this turn and at least one
+ * matching candidate exists in the named source piles.
+ */
+export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const orgState = state.phaseState as OrganizationPhaseState;
+  const used = orgState.discardFetchUsedThisTurn ?? [];
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    if (used.includes(card.instanceId)) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'org-phase-fetch') continue;
+      const hasCandidate = eff.from.some(src => {
+        const pile = src === 'sideboard' ? player.sideboard
+          : src === 'deck' ? player.playDeck
+          : player.discardPile;
+        return pile.some(c => {
+          const cDef = defById(state, c.definitionId);
+          return cDef !== undefined && matchesDefinition(cDef, eff.filter);
+        });
+      });
+      if (!hasCandidate) {
+        logDetail(`${def.name}: org-phase-fetch offered no candidates (none matching filter in [${eff.from.join(', ')}])`);
+        continue;
+      }
+      logDetail(`${def.name}: org-phase-fetch available (take one matching card to hand)`);
+      actions.push({
+        action: { type: 'activate-org-fetch', player: playerId, cardInstanceId: card.instanceId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -267,6 +310,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // MEWH: a Fallen-wizard may discard an in-play stage resource (keeping ≥3 stage points)
   actions.push(...discardStageResourceActions(state, playerId));
+
+  // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
+  actions.push(...orgPhaseFetchActivations(state, playerId));
 
   // Play short-event cards as resource (e.g. Twilight cancels an environment)
   const shortEventActions = playShortEventActions(state, playerId);
@@ -1646,17 +1692,27 @@ function buildActiveCompanyContext(
 
 /**
  * Builds the condition context for a `play-condition` `requires:
- * "player-state"` check. Exposes the active player's alignment, whether
- * the active player has a Ringwraith-race avatar character in play, the
- * active player's stage-point total, the number of factions the active
- * player controls in play (`player.factionCount`), the opposing player's
- * alignment — all as card-text alignment strings (`"wizard"`,
- * `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) — and the names of cards
- * the active player has in play (`inPlay`, for `{ "inPlay": "<name>" }`
- * prerequisites). Used by Above the Abyss (as-77) and The White Hand
- * (wh-122).
+ * "player-state"` check. The single source of truth for the player-state
+ * context across all three evaluation sites (organization, organization-events,
+ * site phases). Exposes:
+ *
+ * - `player.alignment` / `opponent.alignment` — card-text alignment string
+ *   (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`).
+ * - `player.avatar` — the name of the player's revealed avatar (e.g.
+ *   `"Pallando"`, `"Saruman"`), or `undefined` if none is in play. Used by The
+ *   Fortress of Isen/Towers (wh-68/69) and A Strident Spawn (wh-61).
+ * - `player.hasRingwraithInPlay` — `true` when the player has a Ringwraith-race
+ *   avatar character in play. Used by Above the Abyss (as-77).
+ * - `player.stagePoints` — the Fallen-wizard stage-point total. Used by
+ *   Gatherer of Loyalties (wh-70) and A Strident Spawn (wh-61).
+ * - `player.factionCount` — the number of factions the player controls in play.
+ *   Used by The White Hand (wh-122).
+ * - `player.hasProtectedWizardhaven` — `true` when the player controls a
+ *   protected Wizardhaven. Used by A Strident Spawn (wh-61).
+ * - `inPlay` — the names of cards the player has in play, for
+ *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
  */
-function buildPlayerStateContext(
+export function buildPlayerStateContext(
   state: GameState,
   player: PlayerState,
   playerId: PlayerId,
@@ -1674,8 +1730,18 @@ function buildPlayerStateContext(
     const def = defById(state, c.definitionId);
     return def && isFactionCard(def);
   }).length;
+  const avatar = findPlayerAvatar(state, player);
+  const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
+  const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
   return {
-    player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints, factionCount },
+    player: {
+      alignment: player.alignment,
+      avatar: avatarName,
+      hasRingwraithInPlay,
+      stagePoints: player.stagePoints,
+      factionCount,
+      hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
+    },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
   };

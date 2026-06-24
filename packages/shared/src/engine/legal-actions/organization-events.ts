@@ -16,13 +16,13 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, isFactionCard, Race } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
-import { buildControllerInPlayNames } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
+import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 
 /**
@@ -114,35 +114,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
     // play-condition: player-state — a generic DSL condition on the active
     // player's avatar/alignment/stage-point context. Used by Gatherer of
-    // Loyalties (wh-70): "Playable if you have more than 3 stage points."
+    // Loyalties (wh-70): "Playable if you have more than 3 stage points." and A
+    // Strident Spawn (wh-61): "Playable if you are Pallando or Saruman and have
+    // 6 or more stage points and a protected Wizardhaven."
     const playerStateCondition = findPlayConditionEffect(def, 'player-state');
     if (playerStateCondition?.condition) {
-      const opponent = state.players.find(p => p.id !== playerId);
-      let hasRingwraithInPlay = false;
-      for (const ch of Object.values(player.characters)) {
-        const chDef = defById(state, ch.definitionId);
-        if (isAvatarCharacter(chDef) && (chDef as { race?: string }).race === 'ringwraith') {
-          hasRingwraithInPlay = true;
-          break;
-        }
-      }
-      // Count factions the player controls in play (e.g. The White Hand wh-122
-      // requires "at least 3 factions" in play). Faction cards live in
-      // `cardsInPlay`, including those held under a leader's control.
-      const factionCount = player.cardsInPlay.filter(c => {
-        const cDef = defById(state, c.definitionId);
-        return cDef && isFactionCard(cDef);
-      }).length;
-      const ctx = {
-        player: { alignment: player.alignment, hasRingwraithInPlay, stagePoints: player.stagePoints, factionCount },
-        opponent: { alignment: opponent?.alignment },
-        // Names of all cards the player has in play, so a player-state condition
-        // can also require named prerequisites via `{ "inPlay": "<name>" }`
-        // (e.g. The White Hand wh-122 needs A Strident Spawn + Saruman's Machinery).
-        inPlay: buildControllerInPlayNames(state, playerId),
-      };
+      const ctx = buildPlayerStateContext(state, player, playerId);
       if (!matchesCondition(playerStateCondition.condition, ctx)) {
-        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints}, factionCount=${factionCount})`);
+        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
         continue;
       }

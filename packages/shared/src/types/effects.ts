@@ -159,11 +159,16 @@ export interface StatModifierEffect extends EffectBase {
   /**
    * Scope of this modifier. If absent, affects only the card's bearer.
    * - `"all-characters"` — applies to every character in play (e.g. Sun).
+   * - `"own-characters"` — applies to every character controlled by the
+   *   player who controls the card carrying this effect (e.g. A Strident
+   *   Spawn wh-61: "Each of your Half-orcs requires one less point of
+   *   influence to control"). Unlike `"all-characters"`, the opponent's
+   *   matching characters are unaffected.
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    */
-  readonly target?: 'all-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company';
 }
 
 /**
@@ -459,6 +464,56 @@ export interface RecruitCharacterEffect extends EffectBase {
   readonly filter?: Condition;
   /** When true, the play does not count against the one-character-per-turn limit. */
   readonly bypassOneCharacterLimit?: boolean;
+}
+
+/**
+ * Lifts the Fallen-wizard Orc/Troll character-play restriction (CoE
+ * 2.II.2.2.F2: "A Fallen-wizard player cannot play Orc or Troll characters
+ * unless they have a Stage resource in play that specifically allows them to
+ * play Orc or Troll characters"). Carried by a stage permanent-event the
+ * Fallen-wizard controls; while in play, any character the player would
+ * otherwise be barred from playing (because it is an Orc or Troll) becomes
+ * playable iff its card definition matches {@link filter}.
+ *
+ * - Bad Company (wh-63): `filter: { "race": { "$in": ["orc", "troll"] } }` —
+ *   permits all Orc and Troll characters.
+ * - A Strident Spawn (wh-61): `filter: { "keywords": { "$includes": "Half-orc" } }`,
+ *   `atOwnWizardhavens: true` — permits only Half-orcs, and additionally lets
+ *   them be played at the controller's Wizardhavens even when the
+ *   Fallen-wizard avatar is not at that site (relaxing CoE 2.II.2.2's
+ *   avatar-site restriction for those characters).
+ *
+ * Consumed by `playCharacterActions` (legal-action emission).
+ */
+export interface AllowCharacterPlayEffect extends EffectBase {
+  readonly type: 'allow-character-play';
+  /** DSL condition matched against the candidate character's card definition. */
+  readonly filter: Condition;
+  /**
+   * When true, matching characters may also be played at the controller's
+   * Wizardhavens even if the Fallen-wizard avatar is not at that site.
+   */
+  readonly atOwnWizardhavens?: boolean;
+}
+
+/**
+ * Grants the controlling player an optional once-per-organization-phase action
+ * to take one card matching {@link filter} from a pile into their hand.
+ * Carried by a permanent-event the player controls (e.g. A Strident Spawn
+ * wh-61: "During your organization phase, you may take one Half-orc character
+ * from your discard pile to your hand").
+ *
+ * Emitted by `organizationActions` (one `activate-org-fetch` per source card
+ * that still has its activation available this turn and has at least one
+ * matching candidate). Activating enqueues the shared `fetch-to-deck` pending
+ * effect (`to: 'hand'`), which drives the existing pick-one-or-pass sub-flow.
+ */
+export interface OrgPhaseFetchEffect extends EffectBase {
+  readonly type: 'org-phase-fetch';
+  /** Which piles to fetch from (e.g. ["discard-pile"]). */
+  readonly from: readonly ('discard-pile' | 'sideboard' | 'deck')[];
+  /** DSL condition matched against each candidate card's definition. */
+  readonly filter: Condition;
 }
 
 /**
@@ -3249,6 +3304,8 @@ export type CardEffect =
   | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
+  | AllowCharacterPlayEffect
+  | OrgPhaseFetchEffect
   | StayHerAppetiteEffect;
 
 /**

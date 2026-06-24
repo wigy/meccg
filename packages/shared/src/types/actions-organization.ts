@@ -448,3 +448,18 @@ export interface DiscardStageResourceAction {
   /** The in-play stage permanent-event card instance to discard. */
   readonly cardInstanceId: CardInstanceId;
 }
+
+/**
+ * Activates the optional once-per-organization-phase fetch granted by an in-play
+ * permanent-event carrying an `org-phase-fetch` effect (A Strident Spawn wh-61:
+ * "During your organization phase, you may take one Half-orc character from your
+ * discard pile to your hand"). Activating enqueues the shared `fetch-to-deck`
+ * pending effect (`to: 'hand'`), which drives the existing pick-one-or-pass
+ * sub-flow, and marks the source card's activation as spent for this turn.
+ */
+export interface ActivateOrgFetchAction {
+  readonly type: 'activate-org-fetch';
+  readonly player: PlayerId;
+  /** The in-play permanent-event card instance granting the fetch. */
+  readonly cardInstanceId: CardInstanceId;
+}
