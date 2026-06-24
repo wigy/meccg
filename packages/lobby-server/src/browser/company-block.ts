@@ -34,7 +34,7 @@ import type {
   SelectCardBearerAction,
   DeclareAgentAttackAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
+import { cardImageProxyPath, isAttachedToPresentSite, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection } from './render.js';
@@ -207,6 +207,7 @@ export function renderCompanyBlock(
     onAction: options?.onAction,
     grantedActions: options?.grantedActions,
     agentAttackActions,
+    cardsInPlay: owner === 'self' ? view.self.cardsInPlay : view.opponent.cardsInPlay,
   }));
 
   // Characters — title character always rendered first (leftmost after site).
@@ -894,8 +895,23 @@ export function renderCardsInPlayRow(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction?: (action: GameAction) => void,
 ): void {
-  const selfCards = view.self.cardsInPlay;
-  const oppCards = view.opponent.cardsInPlay;
+  // Cards bound to a site occupied by one of a player's companies are rendered
+  // beneath that site (see renderSiteArea), so drop them from the flat row to
+  // avoid showing them twice. Site-bound cards with no present site stay here.
+  const cachedInstanceLookup = getCachedInstanceLookup();
+  const presentSiteDefIds = (companies: readonly (Company | OpponentCompanyView)[]): Set<string> => {
+    const ids = new Set<string>();
+    for (const c of companies) {
+      if (!c.currentSite) continue;
+      const defId = cachedInstanceLookup(c.currentSite.instanceId);
+      if (defId) ids.add(defId as string);
+    }
+    return ids;
+  };
+  const selfPresent = presentSiteDefIds(view.self.companies);
+  const oppPresent = presentSiteDefIds(view.opponent.companies);
+  const selfCards = view.self.cardsInPlay.filter(c => !isAttachedToPresentSite(c, selfPresent));
+  const oppCards = view.opponent.cardsInPlay.filter(c => !isAttachedToPresentSite(c, oppPresent));
   if (selfCards.length === 0 && oppCards.length === 0) return;
 
   const row = document.createElement('div');

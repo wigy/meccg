@@ -11,6 +11,8 @@ import type {
   PlayerView,
   GameAction,
   CardDefinition,
+  CardDefinitionId,
+  CardInPlay,
   CardInstanceId,
   Company,
   OpponentCompanyView,
@@ -19,7 +21,7 @@ import type {
   ActivateGrantedAction,
   DeclareAgentAttackAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
+import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
@@ -149,6 +151,13 @@ export function renderSiteArea(
      * selectable (golden) glow. Clicking opens a tooltip with the attack options.
      */
     agentAttackActions?: DeclareAgentAttackAction[];
+    /**
+     * The owning player's `cardsInPlay`. Cards bound to this company's current
+     * site (via `attachedToSite`, e.g. Hidden Haven) are rendered beneath the
+     * site card as a small attachments strip — mirroring how items hang under
+     * a character.
+     */
+    cardsInPlay?: readonly CardInPlay[];
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -179,7 +188,32 @@ export function renderSiteArea(
           } else {
             applyHazardOnGuardClick(img, options?.onAction);
           }
-          area.appendChild(img);
+
+          // Cards bound to this site location (e.g. Hidden Haven) render beneath
+          // the site card as an attachments strip, like items under a character.
+          const attached = options?.cardsInPlay
+            ? cardsAttachedToSite(options.cardsInPlay, siteDefId as CardDefinitionId)
+            : [];
+          if (attached.length > 0) {
+            const column = document.createElement('div');
+            column.className = 'company-site-column';
+            column.appendChild(img);
+            const strip = document.createElement('div');
+            strip.className = 'site-attachments';
+            for (const ac of attached) {
+              const acDef = cardPool[ac.definitionId as string];
+              if (!acDef) continue;
+              const acImgPath = cardImageProxyPath(acDef);
+              if (!acImgPath) continue;
+              const acEl = createCardImage(ac.definitionId as string, acDef, acImgPath, 'company-card company-card--item company-card--site-attachment', ac.instanceId as string);
+              if (ac.status === CardStatus.Tapped) acEl.classList.add('company-card--tapped');
+              strip.appendChild(acEl);
+            }
+            if (strip.childElementCount > 0) column.appendChild(strip);
+            area.appendChild(column);
+          } else {
+            area.appendChild(img);
+          }
         }
       }
     }

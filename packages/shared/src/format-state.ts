@@ -13,6 +13,7 @@ import { Phase, SetupStep } from './types/state.js';
 import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
+import { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 import { GENERAL_INFLUENCE } from './constants.js';
 import { effectiveGeneralInfluence } from './engine/reducer-utils.js';
@@ -184,6 +185,35 @@ function appendCompanyCharacters(
   }
 }
 
+/** A card in play as seen by the renderer (only fields the text view needs). */
+type RenderCardInPlay = {
+  readonly instanceId: CardInstanceId;
+  readonly definitionId: CardDefinitionId;
+  readonly attachedToSite?: CardDefinitionId;
+};
+
+/**
+ * Append lines for cards bound to a company's current site location (e.g.
+ * Hidden Haven), nested under the site — mirroring items nested under a
+ * character. A card with no current site is left for the flat cards-in-play
+ * list instead.
+ */
+function appendSiteAttachments(
+  currentSite: { readonly instanceId: CardInstanceId } | null | undefined,
+  cardsInPlay: readonly RenderCardInPlay[],
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+  lines: string[],
+  indent: string,
+): void {
+  if (!currentSite) return;
+  const siteDefId = instOf(currentSite.instanceId);
+  if (!siteDefId) return;
+  for (const c of cardsAttachedToSite(cardsInPlay, siteDefId)) {
+    lines.push(`${indent}  ⤷ ${formatInstanceName(c.instanceId, defOf, instOf)} (bound to site)`);
+  }
+}
+
 /** Format a player's own company (full visibility) as indented text lines. */
 function formatCompany(
   company: Company,
@@ -192,6 +222,7 @@ function formatCompany(
   defOf: CardLookup,
   instOf: InstanceLookup,
   indent: string,
+  cardsInPlay: readonly RenderCardInPlay[],
   isActive = false,
 ): string[] {
   const lines: string[] = [];
@@ -206,6 +237,9 @@ function formatCompany(
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
+
+  // Cards bound to this company's site location (e.g. Hidden Haven)
+  appendSiteAttachments(company.currentSite, cardsInPlay, defOf, instOf, lines, indent);
 
   // On-guard cards
   if (company.onGuardCards.length > 0) {
@@ -226,6 +260,7 @@ function formatOpponentCompany(
   defOf: CardLookup,
   instOf: InstanceLookup,
   indent: string,
+  cardsInPlay: readonly RenderCardInPlay[],
   isActive = false,
 ): string[] {
   const lines: string[] = [];
@@ -239,6 +274,9 @@ function formatOpponentCompany(
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
+
+  // Cards bound to this company's site location (e.g. Hidden Haven)
+  appendSiteAttachments(company.currentSite, cardsInPlay, defOf, instOf, lines, indent);
 
   // On-guard cards
   if (company.onGuardCards.length > 0) {
@@ -348,7 +386,12 @@ interface RenderPlayerInput {
   readonly opponentCompanies?: readonly OpponentCompanyView[];
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
   /** General cards this player has in play (permanent resources, factions, etc.). */
-  readonly cardsInPlay?: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[];
+  readonly cardsInPlay?: readonly {
+    readonly instanceId: CardInstanceId;
+    readonly definitionId: CardDefinitionId;
+    /** Site location this card is bound to, if any (e.g. Hidden Haven). */
+    readonly attachedToSite?: CardDefinitionId;
+  }[];
   /** Most recent dice roll for this player. */
   readonly lastDiceRoll?: { readonly die1: number; readonly die2: number } | null;
 }
@@ -506,24 +549,35 @@ function renderState(input: RenderInput): string {
       lines.push(`  Pool: ${player.poolSize}`);
     }
 
+    const cardsInPlay = player.cardsInPlay ?? [];
+
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
       const isActiveCompany = activeCompanyId !== null && (player.companies[i].id as string) === activeCompanyId;
-      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  ', isActiveCompany));
+      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveCompany));
     }
 
     // Opponent companies (redacted destination)
     if (player.opponentCompanies) {
       for (let i = 0; i < player.opponentCompanies.length; i++) {
         const isActiveOppCompany = activeCompanyId !== null && (player.opponentCompanies[i].id as string) === activeCompanyId;
-        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  ', isActiveOppCompany));
+        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveOppCompany));
       }
     }
 
-    // Cards in play (permanent resources, factions, etc.)
-    if (player.cardsInPlay && player.cardsInPlay.length > 0) {
+    // Cards in play (permanent resources, factions, etc.). Cards bound to a site
+    // occupied by one of this player's companies are shown under that site, so
+    // omit them here to avoid duplication.
+    const presentSiteDefIds = new Set<string>();
+    for (const company of [...player.companies, ...(player.opponentCompanies ?? [])]) {
+      if (!company.currentSite) continue;
+      const defId = instOf(company.currentSite.instanceId);
+      if (defId) presentSiteDefIds.add(defId as string);
+    }
+    const flatCardsInPlay = cardsInPlay.filter(c => !isAttachedToPresentSite(c, presentSiteDefIds));
+    if (flatCardsInPlay.length > 0) {
       lines.push('  Cards in play:');
-      for (const card of player.cardsInPlay) {
+      for (const card of flatCardsInPlay) {
         lines.push(`    · ${formatInstanceName(card.instanceId, defOf, instOf)}`);
       }
     }

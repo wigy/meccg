@@ -4663,6 +4663,29 @@ body.all-companies-mode:has(#debug-view.hidden) {
   gap: 0.15rem;
 }
 
+/* Site with cards bound to it (e.g. Hidden Haven): site card on top, bound
+   cards in a strip beneath — mirroring a character and its items. */
+.company-site-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.site-attachments {
+  position: relative;
+  z-index: var(--z-attachment);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.company-card--site-attachment {
+  height: calc(var(--card-table-height) * var(--company-scale, 1) * 0.7);
+  border-radius: 4px;
+}
+
 /* Stats badge — prowess/body (bottom-right) */
 .char-stats-badge {
   position: absolute;
