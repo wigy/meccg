@@ -36,6 +36,16 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return [];
   }
 
+  // CRF 22 ("Stage Resources"): "you must bring out your starting site when you
+  // reveal Hidden Haven." While a revealed site-targeting Stage resource can
+  // still be paired with an eligible Ruins & Lairs from the player's own site
+  // deck, pairing it is the ONLY thing the draft offers — the draft cannot move
+  // forward (no further character picks, no stop) until the site is chosen.
+  if (blockingSiteStageResources(state, draft, state.players[playerIndex].siteDeck).length > 0) {
+    logDetail(`Revealed Hidden Haven must be paired with its site before the draft can continue`);
+    return stageResourcePairingTail(state, playerId, playerIndex, draft);
+  }
+
   const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
   if (draft.drafted.length >= maxStartingCompanySize) {
     logDetail(`Already at max starting company size (${maxStartingCompanySize})`);

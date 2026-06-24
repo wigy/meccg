@@ -11,7 +11,6 @@ import type {
   PlayerView,
   GameAction,
   CardDefinition,
-  CardDefinitionId,
   CardInPlay,
   CardInstanceId,
   Company,
@@ -192,7 +191,7 @@ export function renderSiteArea(
           // Cards bound to this site location (e.g. Hidden Haven) render beneath
           // the site card as an attachments strip, like items under a character.
           const attached = options?.cardsInPlay
-            ? cardsAttachedToSite(options.cardsInPlay, siteDefId as CardDefinitionId)
+            ? cardsAttachedToSite(options.cardsInPlay, siteDefId)
             : [];
           if (attached.length > 0) {
             const column = document.createElement('div');
