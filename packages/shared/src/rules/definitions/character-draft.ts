@@ -13,7 +13,6 @@
  * - `card.cannotBeStartingCharacter` — true if the character declares the
  *   `not-starting-character` play-flag (e.g. Fram Framson)
  * - `card.isAgent` — whether the character carries the `agent` keyword
- * - `ctx.opponentHasCard` — true if opponent already drafted this character
  * - `ctx.projectedMind` — currentMind + card.mind (pre-computed)
  * - `ctx.currentMind` — total mind of already-drafted characters
  * - `ctx.mindLimit` — general influence limit (20)
@@ -50,16 +49,14 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
       condition: { 'card.cannotBeStartingCharacter': false },
       failMessage: '{{card.name}} may not be one of the starting characters',
     },
-    {
-      id: 'unique-available',
-      condition: {
-        $or: [
-          { 'card.unique': false },
-          { 'ctx.opponentHasCard': false },
-        ],
-      },
-      failMessage: '{{card.name}} is unique and already drafted by opponent',
-    },
+    // Note: the draft is simultaneous (CoE 1.9, CRF 22 "The Character Draft").
+    // A player may reveal a unique character even if the opponent already
+    // drafted the same-named card in a previous round; the only uniqueness
+    // interaction is the *same-round* collision in which both players reveal the
+    // identical character — both copies are then set aside and neither company
+    // receives it. That collision is resolved at reveal time in
+    // `resolveDraftRound`, not by gating which characters are draftable here, so
+    // there is intentionally no "opponent already has this unique" rule.
     {
       id: 'mind-limit',
       condition: {

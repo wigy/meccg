@@ -19,11 +19,14 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runActions, makePlayDeck, pool, draftInstId,
-  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FARAMIR, GIMLI, RIVENDELL, Alignment,
+  runActions, makePlayDeck, pool, draftInstId, viableActions,
+  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FARAMIR, GIMLI, CELEBORN, RIVENDELL, Alignment,
   createGame,
 } from '../../test-helpers.js';
-import type { GameConfig } from '../../test-helpers.js';
+import type { GameConfig, CardDefinitionId } from '../../test-helpers.js';
+
+/** Thrall of the Voice — Fallen-wizard Stage resource that lifts the mind > 5 draft gate. */
+const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
 
 describe('Rule 1.38 — Character Draft', () => {
   test('Players draft characters from pool simultaneously; set aside duplicates; stop at 5 characters or 20 mind', () => {
@@ -147,5 +150,71 @@ describe('Rule 1.38 — Character Draft', () => {
     // P1's starting company should have exactly 3 characters (Aragorn, Legolas, Faramir)
     const mindP1Company = mindState.players[0].companies[0];
     expect(mindP1Company.characters).toHaveLength(3);
+  });
+
+  test('A unique already drafted by the opponent in a PRIOR round stays draftable (collision is same-round only)', () => {
+    // Regression: the draft is simultaneous (CoE 1.9, CRF 22 "The Character
+    // Draft"). The only uniqueness interaction is the same-round collision —
+    // both players revealing the identical character set it aside for both.
+    // A unique the opponent revealed in an EARLIER round must remain draftable.
+    //
+    // Bug repro: a Fallen-wizard could not draft Celeborn (mind 6) in round 1
+    // because of the mind > 5 gate; the Wizard opponent drafted Celeborn that
+    // round. After the Fallen-wizard drafted Thrall of the Voice (lifting the
+    // gate), Celeborn was still wrongly reported as "unique and already drafted
+    // by opponent" and could not be selected.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, CELEBORN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [CELEBORN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+
+    // Round 1: the Fallen-wizard cannot reveal Celeborn yet (mind 6 > 5, no
+    // enabling Stage resource), so they draft Thrall of the Voice. The Wizard
+    // opponent drafts their Celeborn the same round (no collision — different
+    // cards revealed), exhausting their pool and auto-stopping.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, CELEBORN) },
+    ]);
+
+    // The Fallen-wizard now holds Thrall of the Voice, so the mind > 5 gate is
+    // lifted. Celeborn must be a viable draft pick even though the opponent
+    // already drafted their own copy in the previous round.
+    const celebornInst = draftInstId(state, 0, CELEBORN);
+    const viablePicks = viableActions(state, PLAYER_1, 'draft-pick');
+    expect(
+      viablePicks.some(ea => 'characterInstanceId' in ea.action && ea.action.characterInstanceId === celebornInst),
+    ).toBe(true);
+
+    // And the pick succeeds: drafting it places Celeborn in the Fallen-wizard's
+    // starting company. (P2 is already stopped, so this completes the draft.)
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: celebornInst },
+    ]);
+
+    const p1Company = state.players[0].companies[0];
+    const p1CharDefs = p1Company.characters.map(id => state.players[0].characters[id as string]?.definitionId);
+    expect(p1CharDefs).toContain(CELEBORN);
   });
 });

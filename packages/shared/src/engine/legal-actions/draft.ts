@@ -47,10 +47,6 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
 
   // Pre-compute context values shared across all candidates
-  const opponentIndex = 1 - playerIndex;
-  const opponentDrafted = new Set(
-    setupStep.draftState[opponentIndex].drafted.map(card => card.definitionId as string),
-  );
   const currentMind = draft.drafted.reduce((sum, card) => {
     const def = defById(state, card.definitionId);
     return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
@@ -104,7 +100,6 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         isAgent: isAgentCharacter(charDef),
       },
       ctx: {
-        opponentHasCard: opponentDrafted.has(charCard.definitionId as string),
         currentMind,
         mindLimit: GENERAL_INFLUENCE,
         projectedMind: currentMind + (mind !== null ? mind : 0),
