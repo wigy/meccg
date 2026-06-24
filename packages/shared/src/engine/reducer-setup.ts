@@ -1060,10 +1060,37 @@ function handleInitiativeRoll(
   const winner = total0 > total1 ? stateWithRoll.players[0] : stateWithRoll.players[1];
   logDetail(`${winner.name} wins initiative (${total0} vs ${total1}) — goes first`);
   const firstPlayer = winner.id;
+
+  // The game now begins — announce each player's alignment in the text log.
+  const alignmentEffects = stateWithRoll.players.map(p => {
+    logDetail(`${p.name} is playing as ${alignmentLabel(p.alignment)}`);
+    return {
+      effect: 'text-notification' as const,
+      message: `${p.name} is playing as ${alignmentLabel(p.alignment)}`,
+    };
+  });
+
   return {
     state: startFirstTurn({ ...stateWithRoll, activePlayer: firstPlayer, startingPlayer: firstPlayer }),
-    effects: [rollEffect],
+    effects: [rollEffect, ...alignmentEffects],
   };
+}
+
+/**
+ * Renders an {@link Alignment} as a human-readable label for the text log
+ * (e.g. `fallen-wizard` → "Fallen-wizard").
+ */
+function alignmentLabel(alignment: Alignment): string {
+  switch (alignment) {
+    case Alignment.Wizard:
+      return 'Wizard';
+    case Alignment.Ringwraith:
+      return 'Ringwraith';
+    case Alignment.FallenWizard:
+      return 'Fallen-wizard';
+    case Alignment.Balrog:
+      return 'Balrog';
+  }
 }
 
 // ---- Phase handler stubs ----
