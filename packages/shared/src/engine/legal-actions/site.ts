@@ -993,6 +993,11 @@ function playResourcesActions(
           (e) => e.type === 'play-condition' && (e).requires === 'discard-named-card',
         ) ?? false;
         if (charPlayTarget) {
+          // duplication-limit: scope "character" — the card may not be attached
+          // to a character that already bears a copy (e.g. Swordmaster tw-498's
+          // "Cannot be duplicated on a given character"). Enforced here for the
+          // site-phase play path, mirroring organization-events.ts.
+          const charDupLimit = findDuplicationLimitEffect(eventDef, 'character');
           const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
           for (const charId of company.characters) {
             const ch = player.characters[charId as string];
@@ -1011,9 +1016,18 @@ function playResourcesActions(
               },
               company: { covert: isCovertCompany(company, player, state) },
             };
-            if (!charPlayTarget.filter || matchesCondition(charPlayTarget.filter, ctx)) {
-              eligibleCharIds.push(charId);
+            if (charPlayTarget.filter && !matchesCondition(charPlayTarget.filter, ctx)) continue;
+            if (charDupLimit) {
+              const copiesOnChar = ch.items.filter(item => {
+                const iDef = defById(state, item.definitionId);
+                return iDef && iDef.name === eventDef.name;
+              }).length;
+              if (copiesOnChar >= charDupLimit.max) {
+                logDetail(`Permanent event ${eventDef.name}: character duplication limit reached on ${charDef.name}`);
+                continue;
+              }
             }
+            eligibleCharIds.push(charId);
           }
           if (eligibleCharIds.length === 0) {
             logDetail(`Permanent event ${eventDef.name}: no eligible character in company`);

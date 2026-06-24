@@ -12,6 +12,14 @@
  * the dispatch table is generic so adding them is just appending to
  * {@link SLOT_KEYWORDS}.
  *
+ * NOTE: Cards whose text modifies the weapon/shield slots — e.g. Swordmaster
+ * (tw-498): "a warrior may use two weapons (both modifiers count); if he uses
+ * two weapons he can't use a shield" — cannot be fully certified until the
+ * weapon and shield slots are enforced here AND rule 9.16 (the active player's
+ * election of which item is "in use") is modeled. Without the one-weapon
+ * baseline, "two weapons" is a no-op (every weapon already applies) and the
+ * shield exclusion has nothing to hang on.
+ *
  * "In use" selection: the first item carrying the slot keyword (in the
  * character's `items` array order) wins. The active player's right to
  * switch which item is in use (rule 9.16) is not yet modeled — when it is,
