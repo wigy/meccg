@@ -931,6 +931,49 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `boost-company-influence` (When You Know More dm-163): tap the bearer
+        // (a sage carrying the enchantment) to grant +2 to one influence attempt
+        // by another untapped character in his company; the bearer then makes a
+        // corruption check. Emit one activation per eligible company-mate, carried
+        // on `targetCardId`. The bearer is excluded — paying the tap cost leaves
+        // it unable to make the boosted attempt — and tapped company-mates cannot
+        // make an influence attempt, so they are skipped too.
+        if (effect.action === 'boost-company-influence') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const boostTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const compCharId of company.characters) {
+            if (compCharId === charId) continue;
+            const compChar = player.characters[compCharId as string];
+            if (!compChar || compChar.status !== CardStatus.Untapped) continue;
+            const compCharDef = defById(state, compChar.definitionId);
+            boostTargets.push({ instanceId: compCharId, name: compCharDef?.name ?? (compCharId as string) });
+          }
+          if (boostTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no other untapped character in ${charDef?.name ?? '?'}'s company to boost`);
+            continue;
+          }
+          for (const { instanceId: targetId, name: targetName } of boostTargets) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap ${def?.name ?? '?'} to give ${targetName} +2 to an influence attempt`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: targetId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({
