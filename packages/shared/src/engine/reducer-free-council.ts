@@ -18,6 +18,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
+import { handleGrantActionApply } from './reducer-organization.js';
+import { removeConstraint } from './pending.js';
 
 
 /**
@@ -38,6 +40,16 @@ export function handleFreeCouncil(state: GameState, action: GameAction): Reducer
   // Handle support tapping for a pending corruption check (CoE 7.1.1)
   if (action.type === 'support-corruption-check') {
     return handleSupportCorruptionCheck(state, action, fcState);
+  }
+
+  // A corruption-check-window grant-action (When I Know Anything td-166: tap
+  // sage to add +3 to the pending check, then make a check) is activatable
+  // during the support window. It rides the shared grant-action reducer,
+  // which adds the +3 check-modifier constraint and enqueues the sage's own
+  // corruption check; the pending Free Council check stays open and reads the
+  // constraint when it resolves.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
   }
 
   // Handle corruption check declaration — enters support window
@@ -186,12 +198,30 @@ function resolveCorruptionCheck(
 ): ReducerResult {
   const pending = fcState.pendingCheck!;
   const playerIndex = getPlayerIndex(state, fcState.currentPlayer);
+
+  // Fold in (and consume) any one-shot corruption check-modifier constraints
+  // targeting the checked character — e.g. the +3 a sage added via When I Know
+  // Anything (td-166). These are added during the support window after the
+  // check was declared, so they are read at resolution time rather than from
+  // the frozen `pending.corruptionModifier`.
+  let effectModifier = 0;
+  for (const constraint of [...state.activeConstraints]) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'corruption'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === pending.characterId) {
+      effectModifier += constraint.kind.value;
+      logDetail(`Free Council: consuming one-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
+      state = removeConstraint(state, constraint.id);
+    }
+  }
+
   const player = state.players[playerIndex];
   const char = player.characters[pending.characterId as string];
   const charDef = resolveDef(state, pending.characterId);
   const charName = charDef?.name ?? '?';
   const cp = pending.corruptionPoints;
-  const modifier = pending.corruptionModifier + pending.supportCount;
+  const modifier = pending.corruptionModifier + pending.supportCount + effectModifier;
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + modifier;

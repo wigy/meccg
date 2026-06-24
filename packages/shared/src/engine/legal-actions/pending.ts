@@ -33,7 +33,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext, availableDI } from './organization.js';
+import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -977,8 +977,13 @@ function corruptionCheckActions(
   // next legal-action cycle, so the reactive play → roll sequence is a
   // normal two-action flow.
   const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, char);
-  if (reactivePlays.length > 0) {
-    return [rollAction, ...reactivePlays];
+  // In-play permanent events that modify a corruption check by a character
+  // in the bearer's company (When I Know Anything td-166) are activatable
+  // here, before the roll, just like reactive short-event plays.
+  const modifierGrants = modifyCorruptionCheckGrantActions(state, playerId, characterId);
+  const extras = [...reactivePlays, ...modifierGrants];
+  if (extras.length > 0) {
+    return [rollAction, ...extras];
   }
   return [rollAction];
 }

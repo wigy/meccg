@@ -1008,9 +1008,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WhenIKnowAnything.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "keywords": ["light-enchantment"],
+    "corruptionPoints": 1,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "playableResources": { "$includes": "information" } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "untapped" },
+            { "target.skills": { "$includes": "sage" } }
+          ]
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "grant-action",
+        "action": "modify-corruption-check",
+        "cost": { "tap": "bearer" },
+        "corruptionCheckWindow": true,
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "check-modifier",
+              "check": "corruption",
+              "value": 3,
+              "scope": "until-cleared",
+              "target": "action-target-character"
+            },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-06-24",
     "text": "Light enchantment. Playable on a sage during the site phase at a site where Information is playable. Tap sage and site.Tap sage to modify one corruption check by a character in his company by +3. Sage makes a corruption check."
   },
   {

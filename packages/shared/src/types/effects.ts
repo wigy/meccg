@@ -636,6 +636,19 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly activeSitePhase?: boolean;
   /**
+   * When true, the ability is activatable **only** while a corruption
+   * check by a character in the bearer's company is awaiting its roll —
+   * i.e. during a unified `corruption-check` pending resolution or the
+   * Free Council support window. It is emitted by the dedicated
+   * corruption-check-window emitters (`modifyCorruptionCheckGrantActions`),
+   * never by the generic per-phase grant-action scanner, so the generic
+   * scanner skips it (see `extractGrantActions`). The activation carries
+   * the resolving character's instance id on `targetCardId`. Used by
+   * *When I Know Anything* (td-166): "Tap sage to modify one corruption
+   * check by a character in his company by +3."
+   */
+  readonly corruptionCheckWindow?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and
