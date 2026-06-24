@@ -22,6 +22,11 @@
  *   while active, characters with mind > 5 cannot be drafted (rule 1.44)
  * - `ctx.fwAgentGateActive` — true under the same Fallen-wizard condition;
  *   while active, agent characters cannot be drafted (rule 1.42)
+ * - `ctx.ringwraithAgentGateActive` — true when the drafting player is a
+ *   Ringwraith; while active, agent characters cannot be drafted (rule 1.41).
+ *   A Ringwraith never drafts resources during the character draft, so unlike
+ *   the Fallen-wizard agent gate there is no enabling card that can lift it —
+ *   the gate is active for the entire draft (CoE 1.9.R2).
  */
 
 import type { RuleSet } from '../types.js';
@@ -91,6 +96,21 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
         ],
       },
       failMessage: '{{card.name}}: a Fallen-wizard cannot draft an agent character without an enabling Stage resource (Thrall of the Voice)',
+    },
+    {
+      // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot reveal an agent character
+      // during the draft unless an enabling resource (e.g. Open to the Summons)
+      // has already been drafted. A Ringwraith does not draft resources during
+      // the character draft, so the gate cannot be lifted and agents are never
+      // draftable for a Ringwraith.
+      id: 'rw-draft-agent',
+      condition: {
+        $or: [
+          { 'ctx.ringwraithAgentGateActive': false },
+          { 'card.isAgent': false },
+        ],
+      },
+      failMessage: '{{card.name}}: a Ringwraith cannot draft an agent character during the character draft',
     },
   ],
 };

@@ -59,8 +59,12 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
   const enablerDrafted = draft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
   const fwGateActive = isFallenWizard && !enablerDrafted;
+  // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot draft agent characters. Unlike
+  // the Fallen-wizard gate there is no draftable enabler, so the gate is active
+  // for the whole draft whenever the player is a Ringwraith.
+  const isRingwraith = state.players[playerIndex].alignment === Alignment.Ringwraith;
 
-  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'}`);
+  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'}, RW agent gate ${isRingwraith ? 'active' : 'inactive'}`);
 
   const evaluated: EvaluatedAction[] = [];
 
@@ -103,6 +107,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         projectedMind: currentMind + (mind !== null ? mind : 0),
         fwMindGateActive: fwGateActive,
         fwAgentGateActive: fwGateActive,
+        ringwraithAgentGateActive: isRingwraith,
       },
     };
 

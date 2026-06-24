@@ -169,6 +169,14 @@ function handleCharacterDraft(
         }
       }
 
+      // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
+      // agent characters. A Ringwraith never drafts resources during the
+      // character draft, so there is no enabler that can lift this gate.
+      if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef)) {
+        logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
+        return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };
+      }
+
       const currentMind = playerDraft.drafted.reduce((sum, card) => {
         const def = defById(state, card.definitionId);
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
