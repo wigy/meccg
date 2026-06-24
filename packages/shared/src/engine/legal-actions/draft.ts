@@ -28,17 +28,20 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     logDetail(`Player already stopped drafting`);
     return [];
   }
-  if (draft.currentPick !== null) {
-    logDetail(`Player already picked this round, waiting for opponent`);
-    return [];
+
+  // A character pick consumes the round, so once one is pending the player must
+  // wait for the opponent before picking another character or stopping. Stage
+  // resources resolve immediately and do NOT consume the round, so they remain
+  // draftable while waiting — only character picks / stop are suppressed.
+  const pickPending = draft.currentPick !== null;
+  if (pickPending) {
+    logDetail(`Player already picked a character this round, waiting for opponent — only Stage resource picks remain available`);
   }
 
   const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
-  if (draft.drafted.length >= maxStartingCompanySize) {
-    logDetail(`Already at max starting company size (${maxStartingCompanySize})`);
-    // No more character picks, but a site-targeting Stage resource (Hidden
-    // Haven) may still need its site paired before the draft can end.
-    return stageResourcePairingTail(state, playerId, playerIndex, draft);
+  const atMaxCompanySize = draft.drafted.length >= maxStartingCompanySize;
+  if (atMaxCompanySize) {
+    logDetail(`At max starting company size (${maxStartingCompanySize}) — no more character picks`);
   }
 
   logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
@@ -88,6 +91,10 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
       continue;
     }
 
+    // Character picks are unavailable while a pick is pending (waiting for the
+    // opponent) or once the starting company is full.
+    if (pickPending || atMaxCompanySize) continue;
+
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
 
@@ -119,7 +126,11 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }
 
   // Site-targeting Stage resource pairing offers + the (possibly gated) stop.
-  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
+  // Suppressed while a character pick is pending: the player cannot stop or
+  // pair sites until the round resolves.
+  if (!pickPending) {
+    evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
+  }
 
   return evaluated;
 }

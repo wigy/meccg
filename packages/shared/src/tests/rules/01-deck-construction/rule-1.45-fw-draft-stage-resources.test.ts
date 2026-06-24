@@ -119,4 +119,32 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // a legal next pick.
     expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(true);
   });
+
+  test('[FALLEN-WIZARD] a Stage resource stays draftable while a character pick is pending (waiting for opponent)', () => {
+    let state = createGame(makeConfig(Alignment.FallenWizard), pool);
+    // Pick a character first: this sets currentPick and the player now waits for
+    // the opponent to pick before the round resolves.
+    const balinInst = draftInstId(state, 0, BALIN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: balinInst }]);
+
+    // The Stage resource still resolves immediately and does not consume the
+    // round, so it remains draftable; further character picks are suppressed.
+    expect(draftOffered(state, PLAYER_1, 0, THRALL_OF_THE_VOICE)).toBe(true);
+    expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(false);
+    expect(draftableInstances(state, PLAYER_1)).toEqual([draftInstId(state, 0, THRALL_OF_THE_VOICE)]);
+  });
+
+  test('[FALLEN-WIZARD] the reducer accepts drafting a Stage resource while a character pick is pending', () => {
+    let state = createGame(makeConfig(Alignment.FallenWizard), pool);
+    const balinInst = draftInstId(state, 0, BALIN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: balinInst }]);
+    // Drafting Thrall while the character pick is pending must succeed (it does
+    // not throw) and resolves into draftedStageResources without clearing the
+    // pending pick.
+    const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
+    const step = draftStep(state) as DraftStep & { draftState: readonly { currentPick: unknown }[] };
+    expect(step.draftState[0].draftedStageResources).toHaveLength(1);
+    expect(step.draftState[0].currentPick).not.toBeNull();
+  });
 });
