@@ -1170,16 +1170,30 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "one"
+        "siteType": "haven"
       }
     ],
     "effects": [
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "A Strident Spawn"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
       }
     ],
-    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9."
+    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn in play and if the influence check is greater than 9.",
+    "certified": "2026-06-23"
   },
   {
     "cardType": "minion-resource-event",
