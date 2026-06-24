@@ -27,7 +27,7 @@ import { describe, test, expect } from 'vitest';
 import {
   makePlayDeck, pool, draftInstId, runActions,
   PLAYER_1, PLAYER_2, RIVENDELL, Alignment,
-  createGame,
+  createGame, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
@@ -130,5 +130,83 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     // Only once Thrall has been revealed (in draftedStageResources) does the
     // mind-6 character become a legal pick.
     expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] a Stage resource placed with a character does not consume the two minor-item budget', () => {
+    // Regression: a recruitment-vehicle Stage resource (Thrall of the Voice) is
+    // attached to a drafted character — it rides in that character's `items` so
+    // its mind reduction applies. Such a Stage card is NOT a minor item (CoE
+    // 1.7.F1 / 1.9.F4): the three stage points are an entirely separate budget
+    // from the up-to-two minor items (CoE 1.9). The engine used to count every
+    // entry in `character.items` toward the two-item limit, so a Thrall placed
+    // with a character wrongly consumed item budget and blocked real minor items
+    // (Dagger of Westernesse, Horn of Anor) from being assigned.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, BALIN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [BALIN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+
+    // Round 1: P1 drafts the Stage resource (Thrall); P2 drafts Balin and then,
+    // with an exhausted pool, auto-stops.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
+    ]);
+    // Round 2: P1 drafts Balin alone, then stops → the draft finalises and the
+    // leftover pool items (Dagger, Horn) flow into the item draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    const setup = (state.phaseState as { setupStep: { step: string } }).setupStep;
+    expect(setup.step).toBe('item-draft');
+
+    // Thrall is attached to the drafted character but must not occupy item budget:
+    // both pool minor items are offered as viable starting-item assignments.
+    const balin = state.players[0].companies[0].characters[0];
+    const assignableItems = (): CardDefinitionId[] => computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'assign-starting-item')
+      .map(ea => (ea.action as { itemDefId: CardDefinitionId }).itemDefId);
+
+    expect(assignableItems()).toContain(DAGGER_OF_WESTERNESSE);
+    expect(assignableItems()).toContain(HORN_OF_ANOR);
+
+    // Assign the first minor item. The second must STILL be offered: with the bug,
+    // Thrall (1) + Dagger (1) hit the 2/2 limit and Horn was rejected.
+    state = runActions(state, [
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: balin },
+    ]);
+    expect(assignableItems()).toContain(HORN_OF_ANOR);
+
+    // The second minor item assigns successfully, leaving Thrall + both items.
+    state = runActions(state, [
+      { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: balin },
+    ]);
+    const items = state.players[0].characters[balin as string].items.map(i => i.definitionId);
+    expect(items).toContain(THRALL_OF_THE_VOICE);
+    expect(items).toContain(DAGGER_OF_WESTERNESSE);
+    expect(items).toContain(HORN_OF_ANOR);
   });
 });

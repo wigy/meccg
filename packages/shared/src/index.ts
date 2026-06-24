@@ -13,6 +13,8 @@ export { getAlignmentRules, crossAlignmentInfluencePenalty } from './alignment-r
 export type { AlignmentRules } from './alignment-rules.js';
 export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 export { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
+export { resolveThrallCharacterPairings } from './stage-resource-characters.js';
+export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
 export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
 export { effectiveGeneralInfluence } from './engine/reducer-utils.js';
