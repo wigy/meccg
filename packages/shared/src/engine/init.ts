@@ -51,10 +51,11 @@ import {
   isCharacterCard,
   isItemCard,
   isSiteCard,
+  resolveThrallCharacterPairings,
 } from '../index.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect, isAgentCharacter } from './reducer-utils.js';
+import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect } from './reducer-utils.js';
 import { stageResourceNeedsSite } from './stage-resource-sites.js';
 import { applyStageResourceSiteConstraints } from './chain-reducer.js';
 
@@ -264,32 +265,6 @@ function initPlayerPreDraft(
 }
 
 /**
- * Choose which drafted character a recruitment-vehicle Stage resource (Thrall
- * of the Voice) is placed with. The vehicle lifts the Fallen-wizard draft gate
- * for mind > 5 and agent characters, so prefer attaching it where that gate
- * mattered: an as-yet-unthralled agent first, then the highest-mind character.
- * Returns `undefined` if every drafted character already carries a vehicle (or
- * there are none).
- */
-function pickThrallTarget(
-  state: GameState,
-  characterInstanceIds: readonly CardInstanceId[],
-  characters: Readonly<Record<string, CharacterInPlay>>,
-  used: ReadonlySet<string>,
-): CardInstanceId | undefined {
-  const candidates = characterInstanceIds.filter(id => !used.has(id as string));
-  if (candidates.length === 0) return undefined;
-  const mindOf = (id: CardInstanceId): number => {
-    const def = defById(state, characters[id as string].definitionId);
-    return isCharacterCard(def) && def.mind !== null ? def.mind : 0;
-  };
-  const isAgent = (id: CardInstanceId): boolean => isAgentCharacter(defById(state, characters[id as string].definitionId));
-  const agents = candidates.filter(isAgent);
-  const pickFrom = agents.length > 0 ? agents : candidates;
-  return [...pickFrom].sort((a, b) => mindOf(b) - mindOf(a))[0];
-}
-
-/**
  * Finalises the character draft by placing each player's drafted characters
  * into a single starting company at their haven, equipping starting minor
  * items on the first character, dealing initial hands from the play deck,
@@ -388,16 +363,24 @@ export function applyDraftResults(
     //  - Any other Stage resource (or an unpaired Hidden Haven) goes to the hand.
     const handAdditions: CardInstance[] = [];
     const cardsInPlayAdditions: CardInPlay[] = [];
-    const thralledTargets = new Set<string>();
+    // Character each Thrall of the Voice (recruitment-vehicle Stage resource) is
+    // placed with. Shared with the draft-board renderer so the displayed pairing
+    // always matches the one applied here.
+    const thrallTargetByResource = new Map(
+      resolveThrallCharacterPairings(
+        characterInstanceIds.map(id => ({ instanceId: id, definitionId: characters[id as string].definitionId })),
+        draftState[index].draftedStageResources,
+        defId => defById(state, defId),
+      ).map(p => [p.stageResourceInstanceId as string, p.characterInstanceId]),
+    );
     // Non-colliding Hidden Haven sites for this player → become starting sites.
     const convertedSites: { siteInstanceId: CardInstanceId; siteDefId: CardDefinitionId }[] = [];
     const myPairings = pairingsByPlayer[index];
     for (const card of draftState[index].draftedStageResources) {
       const def = defById(state, card.definitionId);
       if (hasRecruitmentVehicleEffect(def)) {
-        const targetId = pickThrallTarget(state, characterInstanceIds, characters, thralledTargets);
+        const targetId = thrallTargetByResource.get(card.instanceId as string);
         if (targetId) {
-          thralledTargets.add(targetId as string);
           const target = characters[targetId as string];
           characters[targetId as string] = {
             ...target,

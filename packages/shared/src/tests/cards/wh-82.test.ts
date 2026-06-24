@@ -240,4 +240,39 @@ describe('Thrall of the Voice (wh-82)', () => {
     // …and its mind (6) is reduced to 5.
     expect(gimli.effectiveStats.mind).toBe(5);
   });
+
+  test('with several drafted characters, Thrall is placed with the highest-mind one (the character the draft board hangs it beside)', () => {
+    // Regression: on the draft board the Thrall must render beside the very
+    // character it ends up placed with — not in a separate row. Engine placement
+    // and the renderer share `resolveThrallCharacterPairings`, so asserting the
+    // engine attaches Thrall to the right character among several guards the
+    // pairing the board displays.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, ARAGORN, GIMLI], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Thrall first (lifts the mind > 5 gate); the opponent's single pick empties
+    // their pool and auto-stops them.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
+    ]);
+    // The Fallen-wizard drafts two eligible characters of differing mind; the
+    // last pick empties the pool and auto-finalises the draft.
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ARAGORN) }]);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) }]);
+
+    state = recomputeDerived(state);
+    const aragorn = getCharacter(state, RESOURCE_PLAYER, ARAGORN); // mind 9
+    const gimli = getCharacter(state, RESOURCE_PLAYER, GIMLI);     // mind 6
+    expect(aragorn.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
+    expect(gimli.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(false);
+  });
 });
