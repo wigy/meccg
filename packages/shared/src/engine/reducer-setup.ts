@@ -115,9 +115,6 @@ function handleCharacterDraft(
       if (playerDraft.stopped) {
         return { state, error: 'You have already stopped drafting' };
       }
-      if (playerDraft.currentPick !== null) {
-        return { state, error: 'Waiting for opponent to pick' };
-      }
       const poolCard = findById(playerDraft.pool, action.characterInstanceId);
       if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };
@@ -129,7 +126,10 @@ function handleCharacterDraft(
       // Fallen-wizard Stage resources (Thrall of the Voice, Hidden Haven) are
       // drafted from the same pool but are not characters: they resolve
       // immediately into draftedStageResources without consuming a round, a
-      // character slot, or the mind budget (rules 1.42/1.44/1.50).
+      // character slot, or the mind budget (rules 1.42/1.44/1.50). Because they
+      // do not consume the round's pick, they may be drafted even while the
+      // player's character pick is pending (currentPick set, waiting for the
+      // opponent) — so this is handled before the currentPick guard below.
       if (isStageResourceCard(charDef)) {
         if (state.players[playerIndex].alignment !== Alignment.FallenWizard) {
           return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
@@ -147,6 +147,12 @@ function handleCharacterDraft(
             phaseState: setupPhase({ ...draft, draftState: newDraftState }),
           },
         };
+      }
+
+      // A character pick consumes the round, so only one is allowed until the
+      // opponent has also picked and the round resolves.
+      if (playerDraft.currentPick !== null) {
+        return { state, error: 'Waiting for opponent to pick' };
       }
 
       if (!isCharacterCard(charDef)) {
