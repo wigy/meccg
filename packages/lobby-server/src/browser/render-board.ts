@@ -25,6 +25,53 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
   }
 }
 
+/**
+ * Render a player's drafted Fallen-wizard Stage resources (Thrall of the Voice,
+ * Hidden Haven).
+ *
+ * An unassociated Stage resource shows full-size, exactly like a drafted
+ * character. Once a site-targeting Stage resource (Hidden Haven) is paired with
+ * a site, it shows as a minor item next to that site — mirroring how an attached
+ * item renders beside its character. `siteDeck` is the viewing player's own site
+ * deck (used to resolve the paired site); pass `undefined` for the opponent,
+ * whose site deck is hidden.
+ */
+function renderDraftedStageResources(
+  el: HTMLElement,
+  dps: {
+    readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId; readonly instanceId: CardInstanceId }[];
+    readonly stageResourceSites?: readonly { readonly stageResourceInstanceId: CardInstanceId; readonly siteInstanceId: CardInstanceId }[];
+  },
+  siteDeck: readonly { readonly definitionId: CardDefinitionId; readonly instanceId: CardInstanceId }[] | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const pairings = dps.stageResourceSites ?? [];
+  for (const sr of dps.draftedStageResources) {
+    const srDef = cardPool[sr.definitionId as string];
+    if (!srDef) continue;
+    const srImgPath = cardImageProxyPath(srDef);
+    if (!srImgPath) continue;
+
+    const pairing = pairings.find(p => p.stageResourceInstanceId === sr.instanceId);
+    const site = pairing && siteDeck ? siteDeck.find(c => c.instanceId === pairing.siteInstanceId) : undefined;
+    const siteDef = site ? cardPool[site.definitionId as string] : undefined;
+    const siteImgPath = siteDef ? cardImageProxyPath(siteDef) : undefined;
+
+    if (site && siteDef && siteImgPath) {
+      // Paired Hidden Haven: show the site full-size with the Stage resource as
+      // a minor item beside it (like an item attached to a character).
+      const group = document.createElement('div');
+      group.className = 'drafted-card-group';
+      group.appendChild(createCardImage(site.definitionId as string, siteDef, siteImgPath, 'drafted-card', site.instanceId as string));
+      group.appendChild(createCardImage(sr.definitionId as string, srDef, srImgPath, 'drafted-card drafted-item', sr.instanceId as string));
+      el.appendChild(group);
+    } else {
+      // Unassociated Stage resource: show full-size, exactly like a character.
+      el.appendChild(createCardImage(sr.definitionId as string, srDef, srImgPath, 'drafted-card', sr.instanceId as string));
+    }
+  }
+}
+
 /** Render company characters with their items displayed to the right of each character. */
 function renderCharactersWithItems(
   el: HTMLElement,
@@ -257,6 +304,10 @@ export function renderDrafted(
       cards.map(c => c.definitionId);
 
     renderCardRow(selfEl, draftDefIds(draft.draftState[selfIdx].drafted), cardPool);
+    // Drafted Stage resources (Thrall, Hidden Haven) sit alongside the drafted
+    // characters: full-size until associated, then as a minor item beside the
+    // paired site.
+    renderDraftedStageResources(selfEl, draft.draftState[selfIdx], view.self.siteDeck, cardPool);
 
     // Show face-down pick if player has picked this round
     if (draft.draftState[selfIdx].currentPick !== null) {
@@ -264,6 +315,9 @@ export function renderDrafted(
     }
 
     renderCardRow(oppEl, draftDefIds(draft.draftState[oppIdx].drafted), cardPool);
+    // Opponent's drafted Stage resources are public, but their site deck is
+    // hidden, so paired sites are not resolvable — show them full-size.
+    renderDraftedStageResources(oppEl, draft.draftState[oppIdx], undefined, cardPool);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {

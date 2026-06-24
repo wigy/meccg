@@ -10,6 +10,7 @@
 // Selection state (used by company-view.ts and hand rendering)
 export {
   setTargetingInstruction,
+  getTargetingInstruction,
   getSelectedCharacterForPlay,
   clearCharacterPlaySelection,
   getSelectedFactionForInfluence,
