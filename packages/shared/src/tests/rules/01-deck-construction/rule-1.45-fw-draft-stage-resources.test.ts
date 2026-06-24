@@ -11,17 +11,16 @@
  * RULING:
  *
  * [FALLEN-WIZARD] A Fallen-wizard player also drafts the Stage resource(s) in
- * their pool. Drafting happens one pick at a time (one-by-one) from the shared
- * pool — a Stage resource is its own draft pick, never bundled together with a
- * character pick. Drafting a Stage resource resolves immediately and does not
- * consume a character slot or a draft round, so a Stage resource that enables a
- * character (e.g. Thrall of the Voice) must be drafted *before* the character it
- * enables can be drafted. Duplicated unique Stage resources with the same name
- * are discarded; if not duplicated, the Stage resource is put into play. All
- * active conditions to play a drafted Stage resource must be met.
- *
- * (CoE 1.9.F4 phrases this as drafting Stage resources "simultaneously with
- * their characters"; in practice the draft is sequential — one pick at a time.)
+ * their pool. A Stage resource is its own draft pick (never bundled with a
+ * character pick) and is picked face-down, then revealed simultaneously with
+ * the opponent's pick when the round resolves — it is the player's single pick
+ * for that round. A Stage resource does not count toward the 5 starting
+ * characters or the mind budget. Because the enabling Stage resource is only in
+ * play once revealed, a character it enables (e.g. a mind > 5 character enabled
+ * by Thrall of the Voice) can only be drafted in a *later* round, after the
+ * Stage resource has been revealed. Duplicated unique Stage resources with the
+ * same name are discarded; if not duplicated, the Stage resource is put into
+ * play. All active conditions to play a drafted Stage resource must be met.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -78,7 +77,7 @@ function makeConfig(p1Alignment: Alignment): GameConfig {
 
 type DraftStep = {
   step: string;
-  draftState: readonly { drafted: readonly unknown[]; draftedStageResources: readonly unknown[] }[];
+  draftState: readonly { drafted: readonly unknown[]; draftedStageResources: readonly unknown[]; currentPick: unknown }[];
 };
 
 function draftStep(state: GameState): DraftStep {
@@ -95,56 +94,41 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(draftOffered(state, PLAYER_1, 0, BALIN)).toBe(true);
   });
 
-  test('[FALLEN-WIZARD] drafting a Stage resource is a standalone pick that drafts no character with it', () => {
+  test('[FALLEN-WIZARD] a Stage resource pick is face-down and revealed with the opponent\'s pick', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
     const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
+    // The Fallen-wizard picks Thrall, but the opponent has not picked yet — so it
+    // stays a face-down currentPick and is NOT yet resolved.
     state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
-    const step = draftStep(state);
-    // Exactly the Stage resource was taken; no character came along with it.
-    expect(step.step).toBe('character-draft');
+    let step = draftStep(state);
+    expect(step.draftState[0].currentPick).not.toBeNull();
+    expect(step.draftState[0].draftedStageResources).toHaveLength(0);
+    // While the pick is pending, no further pick is offered (one pick per round).
+    expect(draftableInstances(state, PLAYER_1)).toEqual([]);
+
+    // The opponent picks → the round reveals → Thrall resolves into the Stage
+    // resources, and does not occupy a starting-character slot.
+    const oppInst = draftInstId(state, 1, BALIN);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_2, characterInstanceId: oppInst }]);
+    step = draftStep(state);
+    expect(step.draftState[0].currentPick).toBeNull();
     expect(step.draftState[0].draftedStageResources).toHaveLength(1);
     expect(step.draftState[0].drafted).toHaveLength(0);
   });
 
-  test('[FALLEN-WIZARD] an enabling Stage resource must be drafted before the character it enables (sequential, not simultaneous)', () => {
+  test('[FALLEN-WIZARD] an enabling Stage resource must be revealed before the character it enables', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    // Before the Stage resource is drafted, the mind-6 character it enables is
-    // not offered — proving the two cannot be taken in one combined pick.
+    // Before Thrall is drafted, the mind-6 character it enables is not offered.
     expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(false);
 
-    const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
+    // Draft Thrall and reveal the round (opponent also picks).
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
+    ]);
 
-    // Only after the Stage resource is already drafted does the character become
-    // a legal next pick.
+    // Only once Thrall has been revealed (in draftedStageResources) does the
+    // mind-6 character become a legal pick.
     expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(true);
-  });
-
-  test('[FALLEN-WIZARD] a Stage resource stays draftable while a character pick is pending (waiting for opponent)', () => {
-    let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    // Pick a character first: this sets currentPick and the player now waits for
-    // the opponent to pick before the round resolves.
-    const balinInst = draftInstId(state, 0, BALIN);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: balinInst }]);
-
-    // The Stage resource still resolves immediately and does not consume the
-    // round, so it remains draftable; further character picks are suppressed.
-    expect(draftOffered(state, PLAYER_1, 0, THRALL_OF_THE_VOICE)).toBe(true);
-    expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(false);
-    expect(draftableInstances(state, PLAYER_1)).toEqual([draftInstId(state, 0, THRALL_OF_THE_VOICE)]);
-  });
-
-  test('[FALLEN-WIZARD] the reducer accepts drafting a Stage resource while a character pick is pending', () => {
-    let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    const balinInst = draftInstId(state, 0, BALIN);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: balinInst }]);
-    // Drafting Thrall while the character pick is pending must succeed (it does
-    // not throw) and resolves into draftedStageResources without clearing the
-    // pending pick.
-    const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
-    const step = draftStep(state) as DraftStep & { draftState: readonly { currentPick: unknown }[] };
-    expect(step.draftState[0].draftedStageResources).toHaveLength(1);
-    expect(step.draftState[0].currentPick).not.toBeNull();
   });
 });

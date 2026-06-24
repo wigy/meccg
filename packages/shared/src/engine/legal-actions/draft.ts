@@ -28,20 +28,20 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     logDetail(`Player already stopped drafting`);
     return [];
   }
-
-  // A character pick consumes the round, so once one is pending the player must
-  // wait for the opponent before picking another character or stopping. Stage
-  // resources resolve immediately and do NOT consume the round, so they remain
-  // draftable while waiting — only character picks / stop are suppressed.
-  const pickPending = draft.currentPick !== null;
-  if (pickPending) {
-    logDetail(`Player already picked a character this round, waiting for opponent — only Stage resource picks remain available`);
+  // One pick per round: once this player has picked (a character OR a Stage
+  // resource, both face-down), they wait for the opponent to pick and the round
+  // to reveal before doing anything else.
+  if (draft.currentPick !== null) {
+    logDetail(`Player already picked this round, waiting for opponent to reveal`);
+    return [];
   }
 
   const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
-  const atMaxCompanySize = draft.drafted.length >= maxStartingCompanySize;
-  if (atMaxCompanySize) {
-    logDetail(`At max starting company size (${maxStartingCompanySize}) — no more character picks`);
+  if (draft.drafted.length >= maxStartingCompanySize) {
+    logDetail(`Already at max starting company size (${maxStartingCompanySize})`);
+    // No more character picks, but a site-targeting Stage resource (Hidden
+    // Haven) may still need its site paired before the draft can end.
+    return stageResourcePairingTail(state, playerId, playerIndex, draft);
   }
 
   logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
@@ -91,10 +91,6 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
       continue;
     }
 
-    // Character picks are unavailable while a pick is pending (waiting for the
-    // opponent) or once the starting company is full.
-    if (pickPending || atMaxCompanySize) continue;
-
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
 
@@ -126,10 +122,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }
 
   // Site-targeting Stage resource pairing offers + the (possibly gated) stop.
-  // Pairing must stay available even while a character pick is pending, so a
-  // Hidden Haven drafted during the wait can still have its site chosen;
-  // stopping, however, is not allowed until the round resolves.
-  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft, !pickPending));
+  evaluated.push(...stageResourcePairingTail(state, playerId, playerIndex, draft));
 
   return evaluated;
 }
@@ -141,18 +134,12 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
  * own site deck. While any remain unpaired, `draft-stop` is non-viable — CRF 22
  * requires the site to be chosen when Hidden Haven is revealed. Shared between
  * the normal end of the draft round and the at-max-company-size branch.
- *
- * `includeStop` is false while the player's character pick is pending (waiting
- * for the opponent): pairing offers are still emitted so a Hidden Haven drafted
- * during the wait can be paired, but the player may not stop until the round
- * resolves.
  */
 function stageResourcePairingTail(
   state: GameState,
   playerId: PlayerId,
   playerIndex: number,
   draft: DraftPlayerState,
-  includeStop: boolean,
 ): EvaluatedAction[] {
   const evaluated: EvaluatedAction[] = [];
   const siteDeck = state.players[playerIndex].siteDeck;
@@ -175,12 +162,6 @@ function stageResourcePairingTail(
         viable: true,
       });
     }
-  }
-
-  // Stopping is unavailable while a character pick is pending (the round must
-  // resolve first).
-  if (!includeStop) {
-    return evaluated;
   }
 
   // Can stop — but not while a Hidden Haven that CAN be paired (the site deck

@@ -69,11 +69,14 @@ describe('Rule 1.44 — Fallen-Wizard Draft Mind Restriction', () => {
     expect(draftViable(state, PLAYER_1, 0, BALIN)).toBe(true);
   });
 
-  test('[FALLEN-WIZARD] may draft a mind-6 character once Thrall of the Voice has been drafted', () => {
+  test('[FALLEN-WIZARD] may draft a mind-6 character once Thrall of the Voice has been revealed', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
-    // Drafting the Stage resource resolves immediately (no round/slot consumed).
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
+    // Thrall is a face-down pick; the round must reveal (opponent also picks)
+    // before Thrall is in play and lifts the mind > 5 gate.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
+    ]);
     expect(draftViable(state, PLAYER_1, 0, GIMLI)).toBe(true);
   });
 
@@ -84,8 +87,12 @@ describe('Rule 1.44 — Fallen-Wizard Draft Mind Restriction', () => {
 
   test('drafting the Stage resource does not consume a starting-character slot', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
+    // Reveal the round so Thrall resolves; it lands in the Stage resources, not
+    // among the drafted starting characters.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
+    ]);
     const step = (state.phaseState as { setupStep: { step: string; draftState: readonly { drafted: readonly unknown[]; draftedStageResources: readonly unknown[] }[] } }).setupStep;
     expect(step.step).toBe('character-draft');
     expect(step.draftState[0].drafted).toHaveLength(0);

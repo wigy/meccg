@@ -218,16 +218,19 @@ describe('Thrall of the Voice (wh-82)', () => {
     };
     let state = createGame(config, pool);
 
-    // Draft Thrall (a Stage resource — resolves immediately, lifting the mind > 5
-    // gate), then the mind-6 character it enables.
+    // Round 1: the Fallen-wizard picks Thrall (a face-down Stage resource) and
+    // the opponent picks their character; the reveal puts Thrall into play,
+    // lifting the mind > 5 gate. The opponent's pool is now empty, auto-stopping
+    // them.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
     ]);
-    // Both pools now hold one character each; picking them empties the pools and
-    // auto-finalises the draft.
+    // Round 2: the Fallen-wizard drafts the mind-6 character Thrall enables. The
+    // opponent has stopped, so the pick resolves immediately; this empties the
+    // pool and auto-finalises the draft.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) },
-      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
     ]);
 
     // Draft finalised: Thrall is attached to Gimli, in the FW starting company.

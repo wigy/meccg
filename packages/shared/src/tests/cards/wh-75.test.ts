@@ -324,12 +324,17 @@ describe('Hidden Haven (wh-75)', () => {
     );
     expect(offered?.viable).toBe(true);
 
-    // Draft Hidden Haven (resolves immediately), then the character; the draft
-    // pools empty and the draft finalises.
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+    // Round 1: the FW picks Hidden Haven (face-down) and the opponent picks
+    // their character; the reveal resolves Hidden Haven into the Stage resources
+    // and empties (auto-stops) the opponent. Round 2: the FW drafts the
+    // character, which resolves immediately (opponent stopped) and finalises the
+    // draft.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
-      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
     ]);
 
     // After finalize, Hidden Haven is in the FW player's hand, ready to be played
@@ -361,7 +366,13 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
       seed: 42,
     };
     let state = createGame(config, pool);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) }]);
+    // Reveal the round so Hidden Haven resolves into the Stage resources and the
+    // pairing offers appear (opponent's pick empties their pool, auto-stopping
+    // them; the FW stays open because the Hidden Haven still needs a site).
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
 
     // Only the lone eligible Ruins & Lairs (Worthy Hills) is offered — not the
     // shadow-hold (Moria) nor the Dragon's lair (Gold Hill).
@@ -384,7 +395,12 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
       seed: 42,
     };
     let state = createGame(config, pool);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) }]);
+    // Reveal the round so the Hidden Haven is in play and (being pairable) keeps
+    // the draft open with the pairing requirement outstanding.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, HIDDEN_HAVEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
 
     const stop = computeLegalActions(state, PLAYER_1).find(a => a.action.type === 'draft-stop');
     expect(stop?.viable).toBe(false);
@@ -392,35 +408,37 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     expect(reduce(state, { type: 'draft-stop', player: PLAYER_1 }).error).toBeTruthy();
   });
 
-  test('a Hidden Haven drafted while a character pick is pending can still be paired (no deadlock)', () => {
+  test('a revealed Hidden Haven blocks the next pick until its site is paired', () => {
     const config: GameConfig = {
       players: [
         { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
-          draftPool: [HIDDEN_HAVEN, BALIN, ARAGORN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
         { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
-          draftPool: [BALIN, ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+          draftPool: [ARAGORN, BALIN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
       ],
       seed: 42,
     };
     let state = createGame(config, pool);
-    // P1 commits a character first, so its pick is pending (P2 has not picked,
-    // the round has not resolved).
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) }]);
-    // P1 then drafts Hidden Haven while still pending — it resolves immediately.
     const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+    // Round 1: reveal the FW's Hidden Haven alongside the opponent's pick.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
 
-    // The pairing offer must still be available while pending (otherwise the
-    // player would be deadlocked: unable to pair, pick, or stop). Stopping is
-    // not offered until the round resolves.
-    const actions = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
-    const pairOffers = actions.filter(a => a.action.type === 'select-stage-resource-site');
-    expect(pairOffers).toHaveLength(1);
-    expect(actions.some(a => a.action.type === 'draft-stop')).toBe(false);
+    // After the reveal the FW must pair the Hidden Haven; the pairing offer is
+    // available and stopping is gated until it is paired.
+    const before = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
+    expect(before.some(a => a.action.type === 'select-stage-resource-site')).toBe(true);
+    expect(before.find(a => a.action.type === 'draft-stop')?.viable ?? false).toBe(false);
 
-    // And the reducer accepts the pairing while the character pick is pending.
-    const pairAction = pairOffers[0].action;
-    expect(reduce(state, pairAction).error).toBeFalsy();
+    // Pairing resolves the requirement; the FW may then continue drafting.
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhInst, siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
+    }]);
+    const after = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
+    expect(after.some(a => a.action.type === 'draft-pick')).toBe(true);
   });
 
   test('pairing then finishing the draft converts the site to a starting Wizardhaven', () => {
@@ -437,16 +455,21 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     // The instance id is stable from the pool through draftedStageResources, so
     // capture it before drafting and reuse it for the pairing.
     const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst }]);
+    // Round 1: reveal Hidden Haven with the opponent's pick (which empties and
+    // auto-stops the opponent), then pair the site.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
     state = runActions(state, [{
       type: 'select-stage-resource-site', player: PLAYER_1,
       stageResourceInstanceId: hhInst,
       siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
     }]);
-    // Draft the remaining character on each side; pools empty → both finalise.
+    // Round 2: the FW drafts the remaining character; the opponent has stopped,
+    // so it resolves immediately, empties the pool, and finalises the draft.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
-      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
     ]);
 
     const p1 = state.players[RESOURCE_PLAYER];
