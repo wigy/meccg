@@ -41,6 +41,7 @@ import {
   getCachedInstanceLookup,
   setRerenderFn,
   resetState,
+  shouldOverrideToAllCompanies,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -231,15 +232,14 @@ export function renderCompanyViews(
   const activeId = view.activePlayer as string | null;
   const lastActivePlayer = getLastActivePlayer();
   if (activeId !== lastActivePlayer) {
-    // Auto-switch to all-companies view when opponent's turn starts;
-    // reset to single-company view when own turn starts.
-    if (activeId !== null && activeId !== (view.self.id as string)) {
-      setAllCompaniesOverride(true);
-      setFocusedCompanyId(null);
-    } else {
-      setAllCompaniesOverride(false);
-      setFocusedCompanyId(null);
-    }
+    // Auto-switch to all-companies view when the opponent's turn starts mid-game;
+    // reset to single-company view when our own turn starts. At game start, when
+    // the opponent has the first turn, we deliberately stay in single-company view
+    // so the auto-focus below lands on the opponent's starting company.
+    setAllCompaniesOverride(
+      shouldOverrideToAllCompanies(activeId, lastActivePlayer, view.self.id as string),
+    );
+    setFocusedCompanyId(null);
     setLastActivePlayer(activeId);
   }
 
