@@ -524,6 +524,19 @@ export interface CombatState {
    * "each character faces 1 strike with N prowess".
    */
   readonly eachCharacterFacesOneStrike?: boolean;
+  /**
+   * Set on a Troll-purse (dm-95) re-faced automatic-attack: a successful
+   * strike does not wound the character but takes them prisoner at the bound
+   * site instead. Carries the Troll-purse host card instance and the site
+   * instance the prisoner is held at (the rescue site).
+   *
+   * Used by Troll-purse (dm-95): "Any successful strike does not harm the
+   * character, but rather the character is taken prisoner at the site."
+   */
+  readonly trollPursePrisoner?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly siteInstanceId: CardInstanceId;
+  };
 }
 
 /**

@@ -5112,3 +5112,58 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 (dm-75): "The number of region cards that may be played by a moving company
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
+
+### 53. `site-item-trap`
+
+Carried by a hazard **permanent-event** attached to a site (via
+`play-target: { target: "site" }`). The card is playable only on a site that
+has an Orc or Troll automatic-attack. When the resource player plays **any item**
+at the bound site during the site phase, the company must face all of that
+site's automatic-attacks **again**, each with prowess raised by `prowessBonus`.
+A successful strike does not wound the character; instead the character is taken
+**prisoner at the site** (CoE rule 8.35), with the rescue-attack being the site's
+automatic-attacks at the time of rescue.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `prowessBonus` | yes | Prowess added to each re-faced automatic-attack. |
+
+```json
+{ "type": "site-item-trap", "prowessBonus": 3 }
+```
+
+Behaviour:
+
+- **Playability** (`legal-actions/movement-hazard.ts`): the site-targeting play
+  path additionally requires the candidate site to have at least one Orc/Troll
+  automatic-attack (`getActiveAutoAttacks` + `normalizeCreatureRace`).
+- **Trigger** (`reducer-site.ts` `maybeTriggerSiteItemTrap`): after an item is
+  attached during `play-resources`, the engine scans the opponent's `cardsInPlay`
+  for a card bound to the company's current site (`attachedToSite`) carrying this
+  effect. If found, it initiates the first re-faced automatic-attack (prowess
+  `+prowessBonus`) and enters the `troll-purse-attacks` site sub-step; the
+  remaining attacks are sequenced by `handleSiteTrollPurseAttacks`, and control
+  returns to `play-resources` once all are re-faced.
+- **Prisoner-on-success** (`reducer-combat.ts` `resolveStrike`): the re-faced
+  combat carries `CombatState.trollPursePrisoner`; a successful strike takes the
+  character prisoner at the bound site instead of wounding
+  (`applyTakePrisonerAtSite`), creating a `HazardHost` whose `rescueSiteCard` is
+  the bound site and a `character-is-prisoner` constraint. The host (the trap)
+  stays in play and is exempt from the orphan-discard sweep while it holds
+  prisoners.
+- **Rescue** (CoE rule 8.36): while a company is at the site holding its own
+  prisoners, the legal-action layer offers a `rescue-prisoner` action
+  (`rescuablePrisonersAtSite`). Declaring it makes the company face the
+  rescue-attack — the site's automatic-attacks at the time of rescue — sequenced
+  through the `rescue-attacks` site sub-step (`handleSiteRescueAttacks`) with
+  normal wound semantics and the held prisoners protected from strike
+  assignment. Once the rescue-attack is faced, the prisoners are freed
+  (`freePrisonersOfHost`: their `character-is-prisoner` constraints are removed
+  and the host record is dropped) and control returns to `play-resources`.
+
+Used by Troll-purse (dm-95): "Playable on a site with an Orc or Troll
+automatic-attack. When any item is played at this site, the company must face all
+automatic-attacks of the site again with the attack's prowess modified by +3. Any
+successful strike does not harm the character, but rather the character is taken
+prisoner at the site. The rescue-attack equals all automatic-attacks of the site
+at the time of rescue."

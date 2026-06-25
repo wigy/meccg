@@ -560,6 +560,25 @@ export type SiteStep =
    */
   | 'automatic-attacks'
   /**
+   * Troll-purse (dm-95) re-face window. When the resource player plays an
+   * item at a site bearing an opponent's Troll-purse, the company must face
+   * all of the site's automatic-attacks again (each with +3 prowess), with a
+   * successful strike taking the character prisoner instead of wounding. The
+   * re-faced attacks are sequenced one at a time (mirroring 'automatic-attacks')
+   * and on completion control returns to 'play-resources'.
+   */
+  | 'troll-purse-attacks'
+  /**
+   * Prisoner-rescue window (CoE rule 8.36). When the active company attempts
+   * to rescue prisoners held at its current site (e.g. by Troll-purse dm-95),
+   * it must face the host's rescue-attack — the site's automatic-attacks at
+   * the time of rescue — sequenced one at a time (mirroring 'automatic-attacks'
+   * but with normal wound semantics; held prisoners are protected from strike
+   * assignment). Once all rescue-attacks are faced, the prisoners are freed and
+   * control returns to 'play-resources'.
+   */
+  | 'rescue-attacks'
+  /**
    * Step 3 (CoE line 358): After automatic-attacks (or if none), the
    * hazard player may declare that an agent at the company's site will
    * attack. The agent must be revealed if not already revealed.
@@ -619,6 +638,31 @@ export interface SitePhaseState {
   readonly handledCompanyIds: readonly CompanyId[];
   /** Number of automatic attacks already resolved at the current site. */
   readonly automaticAttacksResolved: number;
+  /**
+   * Active Troll-purse (dm-95) re-face progress. Set when an item played at
+   * the site triggers a re-facing of all the site's automatic-attacks; holds
+   * the host card instance, the prowess bonus to apply to each re-faced
+   * attack, and how many of the site's auto-attacks have been re-faced so far.
+   * Undefined when no re-face is in progress. Cleared (and the step returns to
+   * 'play-resources') once all the site's auto-attacks have been re-faced.
+   */
+  readonly trollPurseReface?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly prowessBonus: number;
+    readonly resolved: number;
+  };
+  /**
+   * Active prisoner-rescue progress (CoE rule 8.36). Set when the active
+   * company attempts to rescue prisoners held at its site by `hostInstanceId`;
+   * holds how many of the site's automatic-attacks (the rescue-attack) have
+   * been faced so far. Undefined when no rescue is in progress. Cleared (and
+   * the prisoners freed, the step returned to 'play-resources') once all the
+   * site's automatic-attacks have been faced.
+   */
+  readonly rescueInProgress?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly resolved: number;
+  };
   /**
    * When *Forewarned Is Forearmed* is in play and the site has multiple
    * automatic attacks, this holds the zero-based index of the single

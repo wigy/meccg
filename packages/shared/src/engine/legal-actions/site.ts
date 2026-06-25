@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -211,7 +211,11 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return viable(playSiteAutoAttackActions(state, playerId, siteState));
   }
 
-  if (siteState.step === 'automatic-attacks') {
+  if (siteState.step === 'automatic-attacks'
+    || siteState.step === 'troll-purse-attacks'
+    || siteState.step === 'rescue-attacks') {
+    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue): the
+    // active player passes to initiate the next attack (or to finish).
     return viable(automaticAttacksActions(state, playerId));
   }
 
@@ -233,6 +237,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // their carried items during the play-resources step (e.g. Vile Fumes'
       // discard-to-transform feature).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+      // Prisoner rescue (CoE rule 8.36): if the active company is at a site
+      // holding its own prisoners (e.g. by Troll-purse), offer to face the
+      // host's rescue-attack to free them.
+      const rescuable = rescuablePrisonersAtSite(state, getPlayerIndex(state, playerId), siteState.activeCompanyIndex);
+      if (rescuable) {
+        base.push(...viable([{ type: 'rescue-prisoner', player: playerId, hostInstanceId: rescuable.hostInstanceId }]));
+      }
     }
     return base;
   }
