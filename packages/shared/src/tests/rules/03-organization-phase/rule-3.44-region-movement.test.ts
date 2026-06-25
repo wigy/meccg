@@ -22,9 +22,16 @@ import {
   buildTestState, resetMint, viableFor, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BREE,
 } from '../../test-helpers.js';
+import { Alignment } from '../../../index.js';
+import type { CardDefinitionId } from '../../../index.js';
 import type { PlanMovementAction } from '../../../types/actions-organization.js';
+
+// Ettenmoors — a Ringwraith (minion) Ruins & Lairs site in Rhudaur. A
+// Fallen-wizard's site deck legitimately mixes hero, minion, and FW sites
+// (MEWH §7), so a FW company can occupy this minion site.
+const ETTENMOORS = 'le-373' as CardDefinitionId;
 
 describe('Rule 3.44 — Region Movement', () => {
   beforeEach(() => resetMint());
@@ -71,5 +78,46 @@ describe('Rule 3.44 — Region Movement', () => {
     expect(movements.some(a => a.action.destinationSite === moriaSiteInstId)).toBe(true);
     // Minas Tirith (6-region path from Rivendell) exceeds the 4-region limit
     expect(movements.some(a => a.action.destinationSite === minasTirithSiteInstId)).toBe(false);
+  });
+
+  test('Fallen-wizard at a minion site can declare region movement (regression)', () => {
+    // MEWH §7: a Fallen-wizard's companies use region movement, and their site
+    // deck mixes hero, minion, and FW sites. A FW company standing at a minion
+    // site (Ettenmoors, region Rhudaur) must still be able to declare region
+    // movement to a reachable site in the deck (Bree, region Arthedain).
+    //
+    // Regression: the movement map was built filtered to the player's own
+    // alignment, so for a Fallen-wizard the `siteRegion` index held only FW
+    // sites. A FW company at a hero/minion site then resolved no origin region
+    // and was offered no movement at all ("cannot play new sites to either
+    // company"). The origin region must come from the concrete current-site card.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ETTENMOORS, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [BREE],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const breeSiteInstId = state.players[0].siteDeck.find(
+      s => s.definitionId === BREE,
+    )!.instanceId;
+
+    const movements = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'plan-movement') as { action: PlanMovementAction }[];
+
+    expect(movements.some(a => a.action.destinationSite === breeSiteInstId)).toBe(true);
   });
 });

@@ -269,7 +269,15 @@ export function getReachableSites(
 ): ReachableSite[] {
   const results: ReachableSite[] = [];
   const currentIsHaven = currentSite.siteType === 'haven';
-  const currentRegion = map.siteRegion.get(currentSite.name);
+  // The origin region comes from the concrete current-site card: the company
+  // occupies a specific site definition, so its own `region` is authoritative.
+  // The per-alignment `siteRegion` map omits sites of other alignments, which a
+  // Fallen-wizard legitimately occupies — their site deck mixes hero, minion,
+  // and Fallen-wizard sites (MEWH §7), so a FW company standing at a minion or
+  // hero site would otherwise resolve no origin region and be unable to declare
+  // any region movement. Falling back to the map preserves prior behavior for a
+  // site whose definition somehow lacks a region.
+  const currentRegion = currentSite.region ?? map.siteRegion.get(currentSite.name);
 
   for (const dest of candidateSites) {
     // Can't move to the same site you're at
