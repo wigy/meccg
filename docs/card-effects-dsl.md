@@ -5151,6 +5151,15 @@ Behaviour:
   the bound site and a `character-is-prisoner` constraint. The host (the trap)
   stays in play and is exempt from the orphan-discard sweep while it holds
   prisoners.
+- **Rescue** (CoE rule 8.36): while a company is at the site holding its own
+  prisoners, the legal-action layer offers a `rescue-prisoner` action
+  (`rescuablePrisonersAtSite`). Declaring it makes the company face the
+  rescue-attack — the site's automatic-attacks at the time of rescue — sequenced
+  through the `rescue-attacks` site sub-step (`handleSiteRescueAttacks`) with
+  normal wound semantics and the held prisoners protected from strike
+  assignment. Once the rescue-attack is faced, the prisoners are freed
+  (`freePrisonersOfHost`: their `character-is-prisoner` constraints are removed
+  and the host record is dropped) and control returns to `play-resources`.
 
 Used by Troll-purse (dm-95): "Playable on a site with an Orc or Troll
 automatic-attack. When any item is played at this site, the company must face all

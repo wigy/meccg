@@ -93,6 +93,23 @@ export interface PlaySiteAutoAttackAction {
 }
 
 /**
+ * Attempt to rescue prisoners held at the active company's current site
+ * (CoE rule 8.36). The rescuing company must face the host's rescue-attack —
+ * for Troll-purse (dm-95) this is the site's automatic-attacks at the time of
+ * rescue — and on surviving it, the held prisoners are freed back into the
+ * company. Held prisoners are protected from strike assignment during the
+ * rescue-attack (they are captive, not fighting).
+ */
+export interface RescuePrisonerAction {
+  /** Action discriminant. */
+  readonly type: 'rescue-prisoner';
+  /** The active (rescuing) player. */
+  readonly player: PlayerId;
+  /** The hazard host (e.g. Troll-purse) whose prisoners are being rescued. */
+  readonly hostInstanceId: CardInstanceId;
+}
+
+/**
  * Declare that an agent hazard at the company's site will attack.
  *
  * Step 3 of entering a site (CoE line 358). The agent must be revealed

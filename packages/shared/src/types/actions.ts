@@ -117,6 +117,7 @@ export type {
   PlaceOnGuardAction,
   RevealOnGuardAction,
   PlaySiteAutoAttackAction,
+  RescuePrisonerAction,
   DeclareAgentAttackAction,
   PlayHeroResourceAction,
   InfluenceAttemptAction,
@@ -160,7 +161,7 @@ import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompan
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction, GlamourHazardRollAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, ModifyAttackAction, TapItemForStrikeAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, MusterRollAction, CallOfHomeRollAction, BodyCheckCompanyRollAction, SeizedByTerrorRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, UnderDeepsRollAction, FlateryAttemptRollAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TakeTrophyAction, CvccAllyDiscardRollAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, StayHerAppetiteRollAction } from './actions-movement-hazard.js';
-import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, PlaySiteAutoAttackAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction } from './actions-site.js';
+import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, PlaySiteAutoAttackAction, RescuePrisonerAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction } from './actions-site.js';
 import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsAction, DiscardCardAction, PassAction, CallFreeCouncilAction, DeckExhaustAction, ExchangeSideboardAction, StartSideboardToDeckAction, StartSideboardToDiscardAction, FetchFromSideboardAction, StartHazardSideboardToDeckAction, StartHazardSideboardToDiscardAction, FetchHazardFromSideboardAction, NotPlayableAction, PassChainPriorityAction, OrderPassivesAction, FinishedAction, HavenReturnAction, PayHazardEventMaintenanceAction, TapCharacterByEffectAction, RestoreCharacterByEffectAction } from './actions-universal.js';
 
 // ---- Discriminated union ----
@@ -258,6 +259,7 @@ export type GameAction =
   | PlaceOnGuardAction
   | RevealOnGuardAction
   | PlaySiteAutoAttackAction
+  | RescuePrisonerAction
   | DeclareAgentAttackAction
   | PlayHeroResourceAction
   | InfluenceAttemptAction

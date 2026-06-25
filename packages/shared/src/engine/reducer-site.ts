@@ -18,7 +18,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -56,6 +56,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'troll-purse-attacks': handleSiteTrollPurseAttacks,
+  'rescue-attacks': handleSiteRescueAttacks,
   'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
@@ -805,22 +806,30 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
- * Build the combat state for re-facing one of the site's automatic-attacks as
- * part of a Troll-purse (dm-95) re-face. Mirrors the normal site auto-attack
- * combat construction (detainment keying, each-character, attacker-chooses,
- * cannot-be-canceled, wound-eliminates) but adds `prowessBonus` to the
- * attack's prowess and flags the combat with `trollPursePrisoner` so a
- * successful strike takes the character prisoner at the site instead of
- * wounding (handled in `reducer-combat.ts` `resolveStrike`).
+ * Build the combat state for re-facing one of the site's automatic-attacks,
+ * shared by the Troll-purse (dm-95) item-trap re-face and the prisoner-rescue
+ * (rule 8.36) rescue-attack. Mirrors the normal site auto-attack combat
+ * construction (detainment keying, each-character, attacker-chooses,
+ * cannot-be-canceled, wound-eliminates).
+ *
+ * `opts.prowessBonus` adds to the attack's prowess (Troll-purse: +3; rescue: 0).
+ * `opts.trollPursePrisoner`, when set, flags the combat so a successful strike
+ * takes the character prisoner at the site instead of wounding (handled in
+ * `reducer-combat.ts` `resolveStrike`). `opts.protectedFromStrikeAssignment`
+ * excludes those characters from being assigned strikes (held prisoners during
+ * a rescue-attack are captive, not fighting).
  */
-function buildSiteReFaceCombat(
+function buildSiteRepeatedAttackCombat(
   state: GameState,
   company: Company,
   siteDef: import('../types/cards.js').SiteCard,
   aa: AutomaticAttack,
   attackIndex: number,
-  prowessBonus: number,
-  hostInstanceId: CardInstanceId,
+  opts: {
+    prowessBonus: number;
+    trollPursePrisoner?: { hostInstanceId: CardInstanceId; siteInstanceId: CardInstanceId };
+    protectedFromStrikeAssignment?: readonly CardInstanceId[];
+  },
 ): CombatState {
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
@@ -831,15 +840,18 @@ function buildSiteReFaceCombat(
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const boostCtx = { companyId: company.id };
   const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
-  const effectiveProwess = baseProwess + prowessBonus;
+  const effectiveProwess = baseProwess + opts.prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
+  // For each-character, only non-protected characters face a strike.
+  const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
   const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+    ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
-  const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
+  const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
   const detainment = forcedDetainment || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
@@ -863,7 +875,8 @@ function buildSiteReFaceCombat(
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
     detainment,
-    trollPursePrisoner: { hostInstanceId, siteInstanceId: company.currentSite!.instanceId },
+    ...(opts.trollPursePrisoner ? { trollPursePrisoner: opts.trollPursePrisoner } : {}),
+    ...(protectedSet.size > 0 ? { protectedFromStrikeAssignment: [...protectedSet] as CardInstanceId[] } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
@@ -919,7 +932,10 @@ function maybeTriggerSiteItemTrap(
   if (!hostInstanceId) return null;
 
   logDetail(`Troll-purse: item played at ${siteDef.name} — company re-faces ${autoAttacks.length} automatic-attack(s) at +${prowessBonus} prowess`);
-  const combat = buildSiteReFaceCombat(state, company, siteDef, autoAttacks[0], 0, prowessBonus, hostInstanceId);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef, autoAttacks[0], 0, {
+    prowessBonus,
+    trollPursePrisoner: { hostInstanceId, siteInstanceId: company.currentSite.instanceId },
+  });
   const siteState = state.phaseState as SitePhaseState;
   return {
     ...state,
@@ -965,12 +981,88 @@ function handleSiteTrollPurseAttacks(
 
   const aa = autoAttacks[reface.resolved];
   logDetail(`Troll-purse: re-facing automatic-attack ${reface.resolved + 1}/${autoAttacks.length} (+${reface.prowessBonus} prowess)`);
-  const combat = buildSiteReFaceCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, reface.resolved, reface.prowessBonus, reface.hostInstanceId);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, reface.resolved, {
+    prowessBonus: reface.prowessBonus,
+    trollPursePrisoner: { hostInstanceId: reface.hostInstanceId, siteInstanceId: company.currentSite!.instanceId },
+  });
   return {
     state: {
       ...state,
       combat,
       phaseState: { ...siteState, trollPurseReface: { ...reface, resolved: reface.resolved + 1 } },
+    },
+  };
+}
+
+/**
+ * Free all prisoners held by `hostInstanceId`: remove their
+ * `character-is-prisoner` constraints and drop them from the host's prisoner
+ * list (removing the host record if it becomes empty). Used when a rescue-attack
+ * has been faced (CoE rule 8.36).
+ */
+function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): GameState {
+  const host = state.hazardHosts.find(h => h.hostCard.instanceId === hostInstanceId);
+  if (!host || host.prisoners.length === 0) return state;
+  const freed = new Set(host.prisoners.map(p => p as string));
+  logDetail(`Rescue: freeing ${host.prisoners.length} prisoner(s) held by ${hostInstanceId as string}`);
+  const activeConstraints = state.activeConstraints.filter(c =>
+    !(c.kind.type === 'character-is-prisoner'
+      && c.kind.hostInstanceId === hostInstanceId
+      && c.target.kind === 'character'
+      && freed.has(c.target.characterId as string)),
+  );
+  // Empty the host's prisoner list; drop the host record entirely if empty.
+  const hazardHosts = state.hazardHosts
+    .map(h => (h.hostCard.instanceId === hostInstanceId ? { ...h, prisoners: [] } : h))
+    .filter(h => h.prisoners.length > 0);
+  return { ...state, activeConstraints, hazardHosts };
+}
+
+/**
+ * Handle the 'rescue-attacks' step: sequence the rescue-attack (the site's
+ * automatic-attacks, CoE rule 8.36). Each `pass` initiates the next
+ * automatic-attack as a normal (wounding) attack with the held prisoners
+ * protected from strike assignment; once all are faced the prisoners are freed
+ * and control returns to 'play-resources'.
+ */
+function handleSiteRescueAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during rescue-attacks step` };
+  }
+  const rescue = siteState.rescueInProgress;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+
+  if (!rescue || rescue.resolved >= autoAttacks.length) {
+    const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
+    logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
+    return {
+      state: {
+        ...freedState,
+        phaseState: { ...siteState, step: 'play-resources' as const, rescueInProgress: undefined },
+      },
+    };
+  }
+
+  const host = state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId);
+  const protectedIds = host ? host.prisoners : [];
+  const aa = autoAttacks[rescue.resolved];
+  logDetail(`Rescue: facing rescue-attack ${rescue.resolved + 1}/${autoAttacks.length}`);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
+    prowessBonus: 0,
+    protectedFromStrikeAssignment: protectedIds,
+  });
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: { ...siteState, rescueInProgress: { ...rescue, resolved: rescue.resolved + 1 } },
     },
   };
 }
@@ -1580,6 +1672,42 @@ function handleSitePlayResources(
           deferredAction: action,
         },
       }),
+    };
+  }
+
+  // Rescue prisoners held at this site (CoE rule 8.36): face the host's
+  // rescue-attack (the site's automatic-attacks) — held prisoners are freed
+  // once it is faced. Initiate the first rescue-attack now.
+  if (action.type === 'rescue-prisoner') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const rescuable = rescuablePrisonersAtSite(state, playerIndex, siteState.activeCompanyIndex);
+    if (!rescuable || rescuable.hostInstanceId !== action.hostInstanceId) {
+      return { state, error: 'No rescuable prisoners at this site for that host' };
+    }
+    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+    const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+    if (autoAttacks.length === 0) {
+      // No rescue-attack to face — free immediately.
+      return {
+        state: {
+          ...freePrisonersOfHost(state, action.hostInstanceId),
+          phaseState: { ...siteState },
+        },
+      };
+    }
+    const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
+    const protectedIds = host ? host.prisoners : [];
+    logDetail(`Rescue: company ${company.id} attempts to rescue prisoners of ${action.hostInstanceId as string} — facing ${autoAttacks.length} rescue-attack(s)`);
+    const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, autoAttacks[0], 0, {
+      prowessBonus: 0,
+      protectedFromStrikeAssignment: protectedIds,
+    });
+    return {
+      state: {
+        ...state,
+        combat,
+        phaseState: { ...siteState, step: 'rescue-attacks' as const, rescueInProgress: { hostInstanceId: action.hostInstanceId, resolved: 1 } },
+      },
     };
   }
 

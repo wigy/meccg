@@ -34,7 +34,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS, DAGGER_OF_WESTERNESSE,
+  ARAGORN, LEGOLAS, GIMLI, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, buildSitePhaseState, resetMint, dispatch, viableActions,
   makeMHState, findCharInstanceId, companyIdAt,
@@ -44,8 +44,8 @@ import { CardStatus } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type {
-  CardInPlay, CardInstanceId, CardDefinitionId, CombatState,
-  PlayHazardAction, PlayHeroResourceAction, SitePhaseState, HazardHost,
+  CardInPlay, CardInstanceId, CardDefinitionId, CombatState, ConstraintId,
+  PlayHazardAction, PlayHeroResourceAction, RescuePrisonerAction, SitePhaseState, HazardHost, ActiveConstraint,
 } from '../../index.js';
 
 const TROLL_PURSE = 'dm-95' as CardDefinitionId;
@@ -238,5 +238,88 @@ describe('Troll-purse (dm-95)', () => {
     const withoutPrisoners = { ...withHost, hazardHosts: [{ ...hazardHost, prisoners: [] }] };
     const sweptEmpty = discardOrphanedSiteAttachedEvents(withoutPrisoners);
     expect(sweptEmpty.players[HAZARD_PLAYER].cardsInPlay.some(c => c.instanceId === host.instanceId)).toBe(false);
+  });
+
+  // ---- Rule 4: prisoner rescue (rescue-attack = the site's automatic-attacks) ----
+
+  /**
+   * A site-phase state at The Under-grottos with a 2-character company where
+   * Aragorn is held prisoner by a Troll-purse on the site and Gimli is free to
+   * rescue. Returns the state plus the relevant ids.
+   */
+  const prisonerHeldState = () => {
+    const base = buildSitePhaseState({ site: THE_UNDER_GROTTOS, characters: [ARAGORN, GIMLI] });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(base, RESOURCE_PLAYER, GIMLI);
+    const siteInstanceId = base.players[RESOURCE_PLAYER].companies[0].currentSite!.instanceId;
+    const host = trollPurseOnSite(THE_UNDER_GROTTOS);
+    const prisonerConstraint: ActiveConstraint = {
+      id: 'c-prisoner-1' as ConstraintId,
+      source: host.instanceId,
+      sourceDefinitionId: TROLL_PURSE,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'character-is-prisoner', hostInstanceId: host.instanceId },
+    };
+    const hazardHost: HazardHost = {
+      hostCard: { instanceId: host.instanceId, definitionId: TROLL_PURSE },
+      rescueSiteCard: { instanceId: siteInstanceId, definitionId: THE_UNDER_GROTTOS },
+      prisoners: [aragornId],
+      ownedBy: PLAYER_2,
+    };
+    const state = {
+      ...base,
+      activeConstraints: [...base.activeConstraints, prisonerConstraint],
+      hazardHosts: [hazardHost],
+      players: base.players.map((p, i) => (i === HAZARD_PLAYER ? { ...p, cardsInPlay: [host] } : p)) as unknown as typeof base.players,
+    };
+    return { state, aragornId, gimliId, host };
+  };
+
+  test('a company at the site holding its prisoner is offered a rescue-prisoner action', () => {
+    const { state, host } = prisonerHeldState();
+    const actions = viableActions(state, PLAYER_1, 'rescue-prisoner');
+    expect(actions).toHaveLength(1);
+    expect((actions[0].action as RescuePrisonerAction).hostInstanceId).toBe(host.instanceId);
+  });
+
+  test('declaring a rescue faces the site auto-attack with the prisoner protected from strikes', () => {
+    const { state, aragornId, host } = prisonerHeldState();
+    const after = dispatch(state, { type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: host.instanceId });
+
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('orc');
+    expect(after.combat!.strikeProwess).toBe(7); // rescue-attack = the site's auto-attack, no +3
+    expect(after.combat!.trollPursePrisoner).toBeUndefined(); // normal wound semantics
+    expect(after.combat!.protectedFromStrikeAssignment).toContain(aragornId);
+
+    const siteState = after.phaseState as SitePhaseState;
+    expect(siteState.step).toBe('rescue-attacks');
+    expect(siteState.rescueInProgress).toEqual({ hostInstanceId: host.instanceId, resolved: 1 });
+  });
+
+  test('once the rescue-attack is faced, the prisoner is freed and the host is removed', () => {
+    const { state, aragornId, host } = prisonerHeldState();
+    // dm-39 has a single printed auto-attack; simulate it already faced.
+    const ready = {
+      ...state,
+      combat: null,
+      phaseState: {
+        ...state.phaseState,
+        step: 'rescue-attacks',
+        rescueInProgress: { hostInstanceId: host.instanceId, resolved: 1 },
+      } as SitePhaseState,
+    };
+    const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+
+    // Prisoner constraint lifted.
+    const stillPrisoner = after.activeConstraints.some(
+      c => c.target.kind === 'character' && c.target.characterId === aragornId && c.kind.type === 'character-is-prisoner',
+    );
+    expect(stillPrisoner).toBe(false);
+    // Host record dropped (no remaining prisoners).
+    expect(after.hazardHosts).toHaveLength(0);
+    expect((after.phaseState as SitePhaseState).step).toBe('play-resources');
+    expect((after.phaseState as SitePhaseState).rescueInProgress).toBeUndefined();
   });
 });
