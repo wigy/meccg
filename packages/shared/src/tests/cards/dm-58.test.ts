@@ -21,10 +21,10 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, CardInstanceId } from '../../index.js';
-import type { PlayerState } from '../../index.js';
+import type { PlayerState, ConstraintId, ActiveConstraint, HazardHost, SitePhaseState, RescuePrisonerAction } from '../../index.js';
 import {
-  ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
-  buildTestState, findCharInstanceId, companyIdAt,
+  ARAGORN, LEGOLAS, GIMLI, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
+  buildTestState, buildSitePhaseState, findCharInstanceId, companyIdAt,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, dispatch, viableActions,
   makeShadowMHState,
@@ -180,5 +180,83 @@ describe('dm-58: Flies and Spiders', () => {
     expect(result.hazardHosts[0].rescueSiteCard.definitionId).toBe(BANDIT_LAIR);
     // Rescue site removed from hazard player's deck.
     expect(result.players[HAZARD_PLAYER].siteDeck.some(s => s.definitionId === BANDIT_LAIR)).toBe(false);
+  });
+
+  // ---- Manual rescue (CoE rule 8.36) via the generic rescue-attacks flow ----
+
+  /**
+   * A site-phase state at the rescue site (Bandit Lair) with a 2-character
+   * company where Aragorn is a prisoner of a Flies and Spiders host (which
+   * lives only in the HazardHost record, not in cardsInPlay) and Gimli is free
+   * to rescue. Mirrors the post-capture state once the company has reached the
+   * rescue site.
+   */
+  const prisonerAtRescueSite = () => {
+    const base = buildSitePhaseState({ site: BANDIT_LAIR, characters: [ARAGORN, GIMLI] });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const hostId = `${PLAYER_2 as string}-host1` as CardInstanceId;
+    const siteInstanceId = base.players[RESOURCE_PLAYER].companies[0].currentSite!.instanceId;
+    const prisonerConstraint: ActiveConstraint = {
+      id: 'c-prisoner-fs' as ConstraintId,
+      source: hostId,
+      sourceDefinitionId: FLIES_AND_SPIDERS,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'character-is-prisoner', hostInstanceId: hostId },
+    };
+    const hazardHost: HazardHost = {
+      hostCard: { instanceId: hostId, definitionId: FLIES_AND_SPIDERS },
+      rescueSiteCard: { instanceId: siteInstanceId, definitionId: BANDIT_LAIR },
+      prisoners: [aragornId],
+      ownedBy: PLAYER_2,
+    };
+    const state = {
+      ...base,
+      activeConstraints: [...base.activeConstraints, prisonerConstraint],
+      hazardHosts: [hazardHost],
+    };
+    return { state, aragornId, hostId };
+  };
+
+  test('rescue is offered at the rescue site and faces the fixed Spider rescue-attack', () => {
+    const { state, aragornId, hostId } = prisonerAtRescueSite();
+    const offers = viableActions(state, PLAYER_1, 'rescue-prisoner');
+    expect(offers).toHaveLength(1);
+    expect((offers[0].action as RescuePrisonerAction).hostInstanceId).toBe(hostId);
+
+    const after = dispatch(state, { type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: hostId });
+    // The rescue-attack is the host's fixed rescueAttacks (Spiders 3 strikes / 9
+    // prowess), NOT Bandit Lair's own automatic-attack.
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('spider');
+    expect(after.combat!.strikeProwess).toBe(9);
+    expect(after.combat!.strikesTotal).toBe(3);
+    expect(after.combat!.trollPursePrisoner).toBeUndefined();
+    expect(after.combat!.protectedFromStrikeAssignment).toContain(aragornId);
+    expect((after.phaseState as SitePhaseState).step).toBe('rescue-attacks');
+  });
+
+  test('once the rescue-attack is faced, the prisoner is freed and the host card is discarded', () => {
+    const { state, aragornId, hostId } = prisonerAtRescueSite();
+    // Flies and Spiders has a single rescue-attack; simulate it already faced.
+    const ready = {
+      ...state,
+      combat: null,
+      phaseState: {
+        ...state.phaseState,
+        step: 'rescue-attacks',
+        rescueInProgress: { hostInstanceId: hostId, resolved: 1 },
+      } as SitePhaseState,
+    };
+    const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+
+    const stillPrisoner = after.activeConstraints.some(
+      c => c.target.kind === 'character' && c.target.characterId === aragornId && c.kind.type === 'character-is-prisoner',
+    );
+    expect(stillPrisoner).toBe(false);
+    expect(after.hazardHosts).toHaveLength(0);
+    // The host card lived only in the record — it is discarded to its owner.
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === FLIES_AND_SPIDERS)).toBe(true);
+    expect((after.phaseState as SitePhaseState).step).toBe('play-resources');
   });
 });

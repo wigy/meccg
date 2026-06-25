@@ -995,10 +995,37 @@ function handleSiteTrollPurseAttacks(
 }
 
 /**
+ * The rescue-attack a company must face to rescue prisoners held by `host`
+ * (CoE rule 8.36), expressed as a list of automatic-attack shapes:
+ * - a `take-prisoner` host (e.g. Flies and Spiders dm-58) faces the effect's
+ *   fixed `rescueAttacks` (race / strikes / prowess), at the rescue site drawn
+ *   from the hazard player's location deck;
+ * - a `site-item-trap` host (Troll-purse dm-95) faces the bound site's current
+ *   automatic-attacks ("at the time of rescue"), i.e. the company's current
+ *   site (which equals the host's rescue site).
+ */
+function rescueAttacksForHost(
+  state: GameState,
+  host: GameState['hazardHosts'][number],
+  currentSiteDef: import('../types/cards.js').SiteCard | undefined,
+): readonly AutomaticAttack[] {
+  const hostDef = defById(state, host.hostCard.definitionId);
+  for (const eff of getCardEffects(hostDef)) {
+    if (eff.type === 'take-prisoner') {
+      return eff.rescueAttacks.map(ra => ({ creatureType: ra.race, strikes: ra.strikes, prowess: ra.prowess }));
+    }
+  }
+  return currentSiteDef && isSiteCard(currentSiteDef) ? getActiveAutoAttacks(state, currentSiteDef) : [];
+}
+
+/**
  * Free all prisoners held by `hostInstanceId`: remove their
  * `character-is-prisoner` constraints and drop them from the host's prisoner
  * list (removing the host record if it becomes empty). Used when a rescue-attack
- * has been faced (CoE rule 8.36).
+ * has been faced (CoE rule 8.36). If the host card lives only in the host record
+ * (i.e. it is not a permanent in `cardsInPlay`, e.g. Flies and Spiders dm-58),
+ * it is discarded to its owner's pile when the record is dropped, so no instance
+ * is lost. A site-bound trap (Troll-purse) stays in `cardsInPlay`.
  */
 function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): GameState {
   const host = state.hazardHosts.find(h => h.hostCard.instanceId === hostInstanceId);
@@ -1011,11 +1038,18 @@ function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): 
       && c.target.kind === 'character'
       && freed.has(c.target.characterId as string)),
   );
-  // Empty the host's prisoner list; drop the host record entirely if empty.
-  const hazardHosts = state.hazardHosts
-    .map(h => (h.hostCard.instanceId === hostInstanceId ? { ...h, prisoners: [] } : h))
-    .filter(h => h.prisoners.length > 0);
-  return { ...state, activeConstraints, hazardHosts };
+  // Drop the host record (no remaining prisoners).
+  const hazardHosts = state.hazardHosts.filter(h => h.hostCard.instanceId !== hostInstanceId);
+  let newState: GameState = { ...state, activeConstraints, hazardHosts };
+  // If the host card lives only in the record (not a `cardsInPlay` permanent),
+  // discard it to its owner so the instance is preserved.
+  const hostInPlay = state.players.some(p => p.cardsInPlay.some(c => c.instanceId === hostInstanceId));
+  if (!hostInPlay) {
+    const ownerIdx = getPlayerIndex(state, host.ownedBy);
+    logDetail(`Rescue: host ${hostInstanceId as string} discarded to ${state.players[ownerIdx].name}'s pile`);
+    newState = updatePlayer(newState, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, host.hostCard] }));
+  }
+  return newState;
 }
 
 /**
@@ -1037,9 +1071,11 @@ function handleSiteRescueAttacks(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+  const host = rescue ? state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId) : undefined;
+  const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+  const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
 
-  if (!rescue || rescue.resolved >= autoAttacks.length) {
+  if (!rescue || rescue.resolved >= rescueAttacks.length) {
     const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
     logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
     return {
@@ -1050,10 +1086,9 @@ function handleSiteRescueAttacks(
     };
   }
 
-  const host = state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId);
   const protectedIds = host ? host.prisoners : [];
-  const aa = autoAttacks[rescue.resolved];
-  logDetail(`Rescue: facing rescue-attack ${rescue.resolved + 1}/${autoAttacks.length}`);
+  const aa = rescueAttacks[rescue.resolved];
+  logDetail(`Rescue: facing rescue-attack ${rescue.resolved + 1}/${rescueAttacks.length}`);
   const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
     prowessBonus: 0,
     protectedFromStrikeAssignment: protectedIds,
@@ -1685,8 +1720,10 @@ function handleSitePlayResources(
       return { state, error: 'No rescuable prisoners at this site for that host' };
     }
     const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
-    if (autoAttacks.length === 0) {
+    const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+    const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
+    const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
+    if (rescueAttacks.length === 0) {
       // No rescue-attack to face — free immediately.
       return {
         state: {
@@ -1695,10 +1732,9 @@ function handleSitePlayResources(
         },
       };
     }
-    const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const protectedIds = host ? host.prisoners : [];
-    logDetail(`Rescue: company ${company.id} attempts to rescue prisoners of ${action.hostInstanceId as string} — facing ${autoAttacks.length} rescue-attack(s)`);
-    const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, autoAttacks[0], 0, {
+    logDetail(`Rescue: company ${company.id} attempts to rescue prisoners of ${action.hostInstanceId as string} — facing ${rescueAttacks.length} rescue-attack(s)`);
+    const combat = buildSiteRepeatedAttackCombat(state, company, siteCardDef as import('../types/cards.js').SiteCard, rescueAttacks[0], 0, {
       prowessBonus: 0,
       protectedFromStrikeAssignment: protectedIds,
     });
