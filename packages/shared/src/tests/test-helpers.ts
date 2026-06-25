@@ -1649,6 +1649,59 @@ export function buildMovingAllyMHState(opts: {
   };
 }
 
+/**
+ * Build a movement/hazard phase state (play-hazards step) where the active
+ * player is a Fallen-wizard resource player who holds a stage resource
+ * permanent-event in hand and has a non-Fallen-wizard character available as a
+ * target. The active company has declared movement so the resource player is
+ * free to take resource actions during the phase.
+ *
+ * Used to verify rule 5.F1 — stage resource permanent-events can only be played
+ * during the organization phase, so such a card must NOT be offered here.
+ */
+export function buildFwStagePermanentMHState(opts: {
+  stagePermanentDefId: CardDefinitionId;
+  avatarDefId: CardDefinitionId;
+  targetCharDefId: CardDefinitionId;
+  site: CardDefinitionId;
+  destinationSite: CardDefinitionId;
+}): GameState {
+  const built = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{ site: opts.site, characters: [opts.avatarDefId, opts.targetCharDefId] }],
+        hand: [opts.stagePermanentDefId],
+        siteDeck: [opts.destinationSite],
+        playDeck: makePlayDeck(),
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Wizard,
+        companies: [{ site: opts.site, characters: [] }],
+        hand: [],
+        siteDeck: [opts.destinationSite],
+        playDeck: makePlayDeck(),
+      },
+    ],
+  });
+
+  const company = built.players[0].companies[0];
+  const dest = { instanceId: mint(), definitionId: opts.destinationSite, status: CardStatus.Untapped };
+  return {
+    ...built,
+    phaseState: makeMHState({ activeCompanyIndex: 0, resolvedSitePath: [RegionType.Wilderness] }),
+    players: [
+      { ...built.players[0], companies: [{ ...company, siteCardOwned: true, destinationSite: dest }] },
+      built.players[1],
+    ] as unknown as typeof built.players,
+  };
+}
+
 /** Find the instance ID of an ally with `allyDefId` attached to the named character, or undefined. */
 export function findAllyInstanceId(
   state: GameState,
