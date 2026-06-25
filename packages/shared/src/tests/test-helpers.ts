@@ -1196,6 +1196,43 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
 }
 
 /**
+ * Drive the Movement/Hazard phase hazard-limit snapshot for a single P1
+ * company and return the resulting `hazardLimitAtReveal`.
+ *
+ * Builds a `set-hazard-limit` M/H state for a P1 company at Rivendell with the
+ * given characters (moving to Moria unless `moving: false`), optionally adds
+ * each `envInPlay` card to the hazard player's `cardsInPlay`, dispatches the
+ * pass that triggers the snapshot, and reads back the locked-in limit. Used to
+ * test environment cards that modify the hazard limit (Eyes of the Shadow
+ * dm-56).
+ */
+export function snapshotHazardLimitFor(
+  characters: CharacterEntry[],
+  opts?: { moving?: boolean; envInPlay?: CardDefinitionId[] },
+): number {
+  const moving = opts?.moving ?? true;
+  let state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters, ...(moving ? { destinationSite: MORIA } : {}) }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+    ],
+  });
+  for (const def of opts?.envInPlay ?? []) {
+    state = addCardInPlay(state, HAZARD_PLAYER, def);
+  }
+  const ready = { ...state, phaseState: makeMHState({ step: 'set-hazard-limit', activeCompanyIndex: 0 }) };
+  const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+  return (after.phaseState as MovementHazardPhaseState).hazardLimitAtReveal;
+}
+
+/**
  * Build a {@link CombatState} in the body-check phase for a single
  * wounded character, set up against a generic automatic-attack source.
  *

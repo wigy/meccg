@@ -3276,6 +3276,7 @@ export type CardEffect =
   | PermanentEventAutoAttackEffect
   | PassiveMovementBonusEffect
   | RegionMovementLimitEffect
+  | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
@@ -3359,6 +3360,33 @@ export interface RegionMovementLimitEffect extends EffectBase {
   readonly reduceWithDoorsOfNight?: number;
   /** Floor below which the reduced max region distance may never drop. */
   readonly min: number;
+}
+
+/**
+ * Environment effect that raises a moving company's hazard limit when the
+ * company matches a `when` condition. Carried by an in-play hazard
+ * environment permanent-event; it applies game-wide (to every player's
+ * companies), evaluated independently for each company at the moment its
+ * hazard limit is snapshotted (site revelation in the Movement/Hazard phase).
+ *
+ * The {@link value} is added to the company's hazard limit once per matching
+ * in-play card. The {@link when} condition is evaluated against a per-company
+ * context exposing `company.size` (effective size, CoE rule 3.24),
+ * `company.hasWizard` (a Wizard avatar is in the company) and
+ * `company.maxNonRangerMind` (the highest mind among the company's
+ * non-ranger characters, or 0 if none) — see `snapshotHazardLimit` in
+ * `reducer-movement-hazard.ts`.
+ *
+ * Used by Eyes of the Shadow (dm-56): "The hazard limit is increased by two
+ * for each moving company with a size of less than four that also contains a
+ * Wizard or a non-ranger character with a mind of 6 or more."
+ */
+export interface HazardLimitEnvironmentEffect extends EffectBase {
+  readonly type: 'hazard-limit-environment';
+  /** Amount added to a matching company's hazard limit. */
+  readonly value: number;
+  /** Condition (over the per-company context) gating whether {@link value} applies. */
+  readonly when: Condition;
 }
 
 // ---- Rescue attack shape (used by TakePrisonerEffect) ----

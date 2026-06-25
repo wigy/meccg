@@ -5167,3 +5167,49 @@ automatic-attacks of the site again with the attack's prowess modified by +3. An
 successful strike does not harm the character, but rather the character is taken
 prisoner at the site. The rescue-attack equals all automatic-attacks of the site
 at the time of rescue."
+
+### 54. `hazard-limit-environment`
+
+Carried by an in-play **environment** hazard permanent-event; raises a moving
+company's hazard limit by `value` when the company matches the `when` condition.
+It applies game-wide (to every player's companies) and is evaluated
+independently for each company at the moment its hazard limit is snapshotted
+(site revelation in the Movement/Hazard phase). Only **moving** companies count
+(the snapshot requires a `destinationSite`).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Amount added to a matching company's hazard limit (once per matching in-play card). |
+| `when` | yes | Condition over the per-company context gating whether `value` applies. |
+
+The `when` condition is evaluated against a per-company context exposing:
+
+- `company.size` — effective size (CoE rule 3.24: Hobbits and Orc scouts count ½).
+- `company.hasWizard` — `true` if a Wizard avatar is in the company.
+- `company.maxNonRangerMind` — the highest mind among the company's characters
+  that are **not** rangers (`0` if none; Wizards have no mind and never count here).
+
+```json
+{
+  "type": "hazard-limit-environment",
+  "value": 2,
+  "when": {
+    "$and": [
+      { "company.size": { "$lt": 4 } },
+      { "$or": [
+        { "company.hasWizard": true },
+        { "company.maxNonRangerMind": { "$gte": 6 } }
+      ] }
+    ]
+  }
+}
+```
+
+Behaviour (`reducer-movement-hazard.ts` `snapshotHazardLimit` /
+`buildCompanyHazardContext`): when a moving company's hazard limit is snapshotted,
+both players' `cardsInPlay` are scanned for this effect; each card whose `when`
+matches the company context adds `value` to the snapshot (folded in alongside the
+base size limit, sideboard halving, `hazard-limit-modifier` constraints and
+site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
+increased by two for each moving company with a size of less than four that also
+contains a Wizard or a non-ranger character with a mind of 6 or more."
