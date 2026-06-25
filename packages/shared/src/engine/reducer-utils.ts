@@ -1560,6 +1560,36 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  *
  * Runs as a post-action sweep alongside {@link discardOrphanedControlledFactions}.
  */
+/**
+ * The prisoners that the player at `playerIndex` may rescue at the company's
+ * current site (CoE rule 8.36): a hazard host whose `rescueSiteCard` matches
+ * the company's current site location and that holds at least one prisoner who
+ * is a member of the active company. Returns the host instance and the
+ * rescuable prisoner ids, or null if no rescue is available. Shared by the
+ * legal-action layer (which offers `rescue-prisoner`) and the reducer (which
+ * resolves it).
+ */
+export function rescuablePrisonersAtSite(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+): { hostInstanceId: CardInstanceId; prisonerIds: readonly CardInstanceId[] } | null {
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  if (!company?.currentSite) return null;
+  const siteDefId = company.currentSite.definitionId;
+  const companyChars = new Set(company.characters.map(c => c as string));
+  for (const host of state.hazardHosts) {
+    if (host.prisoners.length === 0) continue;
+    if (host.rescueSiteCard.definitionId !== siteDefId) continue;
+    const prisonerIds = host.prisoners.filter(p => companyChars.has(p as string));
+    if (prisonerIds.length > 0) {
+      return { hostInstanceId: host.hostCard.instanceId, prisonerIds };
+    }
+  }
+  return null;
+}
+
 export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   const occupied = new Set<string>();
   for (const p of state.players) {
@@ -1568,13 +1598,24 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     }
   }
 
+  // A site-attached event that is currently holding prisoners (e.g. Troll-purse
+  // dm-95) must persist while its prisoners are held — discarding it would
+  // orphan their `character-is-prisoner` constraints. Such hosts are exempt
+  // from the orphan sweep.
+  const activeHosts = new Set<string>();
+  for (const host of state.hazardHosts) {
+    if (host.prisoners.length > 0) activeHosts.add(host.hostCard.instanceId as string);
+  }
+
   let changed = false;
   const removedSources = new Set<string>();
   const newPlayers = clonePlayers(state);
   for (let pi = 0; pi < 2; pi++) {
     const player = newPlayers[pi];
     const orphaned = player.cardsInPlay.filter(
-      c => c.attachedToSite !== undefined && !occupied.has(c.attachedToSite as string),
+      c => c.attachedToSite !== undefined
+        && !occupied.has(c.attachedToSite as string)
+        && !activeHosts.has(c.instanceId as string),
     );
     if (orphaned.length === 0) continue;
     changed = true;

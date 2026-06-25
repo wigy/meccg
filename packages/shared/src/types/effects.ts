@@ -3282,6 +3282,7 @@ export type CardEffect =
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
+  | SiteItemTrapEffect
   | HazardLimitSwapEffect
   | RingTestTableEffect
   | RingTestSearchEffect
@@ -3518,6 +3519,25 @@ export interface HazardMaintenanceEffect extends EffectBase {
  */
 export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
   readonly type: 'duplicate-site-auto-attacks';
+}
+
+/**
+ * Troll-purse (dm-95): a hazard permanent-event attached to a site that has
+ * an Orc or Troll automatic-attack. When the resource player plays any item
+ * at the bound site during the site phase, the company must face all of the
+ * site's automatic-attacks again, each with prowess modified by
+ * {@link prowessBonus}. A successful strike does not wound the character;
+ * instead the character is taken prisoner at the site (the rescue-attack is
+ * the site's automatic-attacks at the time of rescue).
+ *
+ * The re-faced attacks are sequenced through the `troll-purse-attacks` site
+ * sub-step (mirroring the normal `automatic-attacks` step) and the
+ * prisoner-on-success is signalled to combat via `CombatState.trollPursePrisoner`.
+ */
+export interface SiteItemTrapEffect extends EffectBase {
+  readonly type: 'site-item-trap';
+  /** Prowess added to each re-faced automatic-attack (Troll-purse: +3). */
+  readonly prowessBonus: number;
 }
 
 /**

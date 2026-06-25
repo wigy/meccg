@@ -218,17 +218,17 @@ describe('Thrall of the Voice (wh-82)', () => {
     };
     let state = createGame(config, pool);
 
-    // Round 1: the Fallen-wizard picks Thrall (a face-down Stage resource) and
-    // the opponent picks their character; the reveal puts Thrall into play,
-    // lifting the mind > 5 gate. The opponent's pool is now empty, auto-stopping
-    // them.
+    // Round 1: the Fallen-wizard drafts Thrall — a Stage resource that resolves
+    // into play immediately (CoE 1.9.F4) without using a character pick — lifting
+    // the mind > 5 gate; the opponent picks their (only) character, emptying their
+    // pool. The Fallen-wizard then drafts the mind-6 character Thrall enables as
+    // the round's character pick, which reveals against the opponent's pick.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
     ]);
-    // Round 2: the Fallen-wizard drafts the mind-6 character Thrall enables. The
-    // opponent has stopped, so the pick resolves immediately; this empties the
-    // pool and auto-finalises the draft.
+    // The opponent has now exhausted and auto-stopped; the Fallen-wizard drafts
+    // the mind-6 character, which empties the pool and auto-finalises the draft.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) },
     ]);
@@ -258,8 +258,8 @@ describe('Thrall of the Voice (wh-82)', () => {
     };
     let state = createGame(config, pool);
 
-    // Thrall first (lifts the mind > 5 gate); the opponent's single pick empties
-    // their pool and auto-stops them.
+    // Thrall first — it resolves immediately and lifts the mind > 5 gate without
+    // using a character pick; the opponent's single pick empties their pool.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
