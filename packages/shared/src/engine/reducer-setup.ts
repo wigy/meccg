@@ -115,12 +115,11 @@ function handleCharacterDraft(
       if (playerDraft.stopped) {
         return { state, error: 'You have already stopped drafting' };
       }
-      // One pick per round. A Fallen-wizard Stage resource (Thrall of the Voice,
-      // Hidden Haven) is picked face-down exactly like a character and is
-      // revealed simultaneously with the opponent's pick when the round resolves
-      // — so, like a character pick, only one is allowed until the round
-      // resolves. (Stage resources still do not count toward the 5-character
-      // limit or the mind budget; that is handled at reveal in resolveDraftRound.)
+      // One character pick per round: a character is picked face-down and
+      // revealed simultaneously with the opponent's pick when the round resolves.
+      // (Fallen-wizard Stage resources are NOT face-down round picks — see the
+      // immediate-resolution branch below — so this guard only ever holds a
+      // pending character pick.)
       if (playerDraft.currentPick !== null) {
         return { state, error: 'Waiting for opponent to pick' };
       }
@@ -143,13 +142,32 @@ function handleCharacterDraft(
       const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
 
       if (isStageResourceCard(charDef)) {
-        // Stage resources are Fallen-wizard-only. They are picked face-down here
-        // and routed to draftedStageResources at reveal; the character-only gates
-        // (mind > 5, agent, mind limit, 5-character cap) do not apply.
+        // Stage resources are Fallen-wizard-only. Per CoE 1.9.F4 a Fallen-wizard
+        // drafts their Stage resource(s) *simultaneously with* — i.e. in addition
+        // to — their characters, so drafting one must NOT consume the round's
+        // single character pick. Resolve it immediately into draftedStageResources
+        // and leave the round open: the Fallen-wizard still owes a character pick
+        // (or a stop) this round, so they no longer fall a character behind for
+        // every Stage resource they take. The character-only gates (mind > 5,
+        // agent, mind limit, 5-character cap) do not apply, and an enabling Stage
+        // resource (Thrall) is active at once, so a character it enables can be
+        // drafted later this same round.
         if (!isFallenWizard) {
           return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
         }
-        logDetail(`${charDef?.name ?? (charDefId as string)} picked face-down as a Stage resource`);
+        logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource (does not use a character pick)`);
+        const newStageDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
+        newStageDraftState[playerIndex] = {
+          ...playerDraft,
+          draftedStageResources: [...playerDraft.draftedStageResources, poolCard],
+          pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
+        };
+        return {
+          state: {
+            ...state,
+            phaseState: setupPhase({ ...draft, draftState: newStageDraftState }),
+          },
+        };
       } else {
         if (!isCharacterCard(charDef)) {
           return { state, error: 'Invalid character' };
@@ -287,24 +305,14 @@ function resolveDraftRound(
     { ...draftState[1], currentPick: null },
   ];
 
-  // A revealed pick is either a character (→ drafted) or a Fallen-wizard Stage
-  // resource (→ draftedStageResources, not counted as a character).
+  // A face-down round pick is always a character: Fallen-wizard Stage resources
+  // resolve immediately when drafted (CoE 1.9.F4) and never occupy a currentPick
+  // slot. Identical character reveals collide and are set aside; otherwise each
+  // player adds their revealed character to their starting company.
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
-  const sr0 = pick0 !== null && isStageResourceCard(defById(state, pick0.definitionId));
-  const sr1 = pick1 !== null && isStageResourceCard(defById(state, pick1.definitionId));
 
-  // Place a single player's revealed pick into the correct collection.
-  const place = (i: 0 | 1, pick: CardInstance, isStageResource: boolean): void => {
-    newDraft[i] = isStageResource
-      ? { ...newDraft[i], draftedStageResources: [...newDraft[i].draftedStageResources, pick] }
-      : { ...newDraft[i], drafted: [...newDraft[i].drafted, pick] };
-  };
-
-  // Collision applies only when both players reveal the SAME character — Stage
-  // resources are Fallen-wizard-only and resolve independently, so they never
-  // collide with the opponent's pick.
-  if (pick0 !== null && pick1 !== null && !sr0 && !sr1 && def0 === def1) {
+  if (pick0 !== null && pick1 !== null && def0 === def1) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
     // Remove the collided definition from both pools.
     newSetAside[0].push(pick0);
@@ -312,8 +320,8 @@ function resolveDraftRound(
     newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
     newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
   } else {
-    if (pick0 !== null) place(0, pick0, sr0);
-    if (pick1 !== null) place(1, pick1, sr1);
+    if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
+    if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };
   }
 
   // Auto-stop players who hit limits — but never while a site-targeting Stage

@@ -28,9 +28,10 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     logDetail(`Player already stopped drafting`);
     return [];
   }
-  // One pick per round: once this player has picked (a character OR a Stage
-  // resource, both face-down), they wait for the opponent to pick and the round
-  // to reveal before doing anything else.
+  // One character pick per round: once this player has picked a (face-down)
+  // character, they wait for the opponent to pick and the round to reveal before
+  // doing anything else. (Stage resources are not face-down round picks — they
+  // resolve immediately, CoE 1.9.F4 — so they never set currentPick.)
   if (draft.currentPick !== null) {
     logDetail(`Player already picked this round, waiting for opponent to reveal`);
     return [];
@@ -46,15 +47,13 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return stageResourcePairingTail(state, playerId, playerIndex, draft);
   }
 
+  // A Stage resource never counts toward the starting company size (CoE 1.9.F4),
+  // so reaching the company cap only stops further *character* picks — any
+  // remaining Stage resource in the pool is still draftable below.
   const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
-  if (draft.drafted.length >= maxStartingCompanySize) {
-    logDetail(`Already at max starting company size (${maxStartingCompanySize})`);
-    // No more character picks, but a site-targeting Stage resource (Hidden
-    // Haven) may still need its site paired before the draft can end.
-    return stageResourcePairingTail(state, playerId, playerIndex, draft);
-  }
+  const atMaxCompany = draft.drafted.length >= maxStartingCompanySize;
 
-  logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
+  logDetail(`Draft round ${setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters${atMaxCompany ? ' (company full — only Stage resources remain draftable)' : ''}`);
 
   // Pre-compute context values shared across all candidates
   const opponentIndex = 1 - playerIndex;
@@ -100,6 +99,10 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
       evaluated.push(result);
       continue;
     }
+
+    // Company full → no further character picks (Stage resources, handled above,
+    // are exempt and remain offered).
+    if (atMaxCompany) continue;
 
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
