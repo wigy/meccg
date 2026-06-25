@@ -38,6 +38,7 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
 import { isDetainmentAttack } from './detainment.js';
+import { matchesContext } from '../effects/condition-matcher.js';
 
 
 /**
@@ -3251,6 +3252,40 @@ function handlePlayCreatureFromDiscard(
  * Returned alongside the IDs of the constraints that were folded in, so
  * the running limit can avoid double-counting them.
  */
+/**
+ * Build the per-company context consumed by `hazard-limit-environment`
+ * effects (Eyes of the Shadow dm-56). Exposes:
+ * - `company.size` — effective size (CoE rule 3.24, Hobbits/Orc scouts ½).
+ * - `company.hasWizard` — whether a Wizard avatar is in the company.
+ * - `company.maxNonRangerMind` — the highest mind among the company's
+ *   characters that are not rangers (0 if none).
+ *
+ * The company belongs to the active (moving) player, so its characters are
+ * resolved from `state.players[activeIndex].characters`.
+ */
+function buildCompanyHazardContext(
+  state: GameState,
+  company: Company,
+  activeIndex: number,
+): { company: { size: number; hasWizard: boolean; maxNonRangerMind: number } } {
+  const player = state.players[activeIndex];
+  const size = companyEffectiveSize(state, company);
+  let hasWizard = false;
+  let maxNonRangerMind = 0;
+  for (const charId of company.characters) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+    const def = defById(state, char.definitionId);
+    if (!def || !isCharacterCard(def)) continue;
+    if (def.race === Race.Wizard) hasWizard = true;
+    const isRanger = def.skills?.includes(Skill.Ranger) ?? false;
+    if (!isRanger && def.mind !== null && def.mind > maxNonRangerMind) {
+      maxNonRangerMind = def.mind;
+    }
+  }
+  return { company: { size, hasWizard, maxNonRangerMind } };
+}
+
 function snapshotHazardLimit(
   state: GameState,
   company: Company,
@@ -3292,6 +3327,29 @@ function snapshotHazardLimit(
           const prev = limit;
           limit += eff.value;
           logDetail(`Hazard limit modified by ${eff.value} (site-rule on ${destDef.name}): ${prev} → ${limit}`);
+        }
+      }
+    }
+  }
+
+  // Environment hazard-limit-environment effects (Eyes of the Shadow dm-56):
+  // each in-play card whose `when` matches this company adds its value to the
+  // company's hazard limit. The condition is evaluated against a per-company
+  // context (size, hasWizard, maxNonRangerMind). Only moving companies count
+  // ("for each moving company"), so a stationary company is never boosted.
+  if (company.destinationSite) {
+    const envContext = buildCompanyHazardContext(state, company, activeIndex);
+    for (const player of state.players) {
+      for (const card of player.cardsInPlay) {
+        const def = defById(state, card.definitionId);
+        if (!def) continue;
+        for (const eff of getCardEffects(def)) {
+          if (eff.type !== 'hazard-limit-environment') continue;
+          if (matchesContext(eff.when, envContext)) {
+            const prev = limit;
+            limit += eff.value;
+            logDetail(`Hazard limit modified by ${eff.value} (environment ${def.name}): ${prev} → ${limit}`);
+          }
         }
       }
     }

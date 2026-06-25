@@ -2051,6 +2051,18 @@ function playHazardsActions(
         }
       }
 
+      // play-condition: card-not-in-play — the event is only playable while a
+      // named card is NOT in play (e.g. Eyes of the Shadow dm-56 requires that
+      // Gates of Morning is not in play).
+      {
+        const cardNotInPlayCond = findPlayConditionEffect(def, 'card-not-in-play');
+        if (cardNotInPlayCond?.cardName && isCardNameInPlayOrCharacters(state, cardNotInPlayCond.cardName)) {
+          logDetail(`Hazard event "${def.name}": play-condition card-not-in-play requires "${cardNotInPlayCond.cardName}" not in play — not playable`);
+          actions.push({ action, viable: false, reason: `${def.name} cannot be played while ${cardNotInPlayCond.cardName} is in play` });
+          continue;
+        }
+      }
+
       // play-target DSL: permanent events / corruption cards targeting a character get one action per character
       const playTarget = def.effects?.find(
         (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
