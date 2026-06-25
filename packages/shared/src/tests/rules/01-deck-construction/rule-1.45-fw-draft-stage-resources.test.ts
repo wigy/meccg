@@ -11,16 +11,18 @@
  * RULING:
  *
  * [FALLEN-WIZARD] A Fallen-wizard player also drafts the Stage resource(s) in
- * their pool. A Stage resource is its own draft pick (never bundled with a
- * character pick) and is picked face-down, then revealed simultaneously with
- * the opponent's pick when the round resolves — it is the player's single pick
- * for that round. A Stage resource does not count toward the 5 starting
- * characters or the mind budget. Because the enabling Stage resource is only in
- * play once revealed, a character it enables (e.g. a mind > 5 character enabled
- * by Thrall of the Voice) can only be drafted in a *later* round, after the
- * Stage resource has been revealed. Duplicated unique Stage resources with the
- * same name are discarded; if not duplicated, the Stage resource is put into
- * play. All active conditions to play a drafted Stage resource must be met.
+ * their pool *simultaneously with* — i.e. in addition to — their characters. A
+ * Stage resource is its own pick from the shared pool, but it is NOT a face-down
+ * round pick: drafting one resolves immediately into the player's Stage
+ * resources and does NOT consume the round's single (character) pick, so the
+ * Fallen-wizard never falls a character behind the opponent for taking one. A
+ * Stage resource does not count toward the 5 starting characters or the mind
+ * budget. Because an enabling Stage resource (e.g. Thrall of the Voice) is in
+ * play the moment it is drafted, a character it enables (e.g. a mind > 5
+ * character) can be drafted immediately afterwards — in the same round.
+ * Duplicated unique Stage resources with the same name are discarded; if not
+ * duplicated, the Stage resource is put into play. All active conditions to play
+ * a drafted Stage resource must be met.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -28,6 +30,7 @@ import {
   makePlayDeck, pool, draftInstId, runActions,
   PLAYER_1, PLAYER_2, RIVENDELL, Alignment,
   createGame, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+  ADRAZAR, FRODO, FARAMIR, BILBO,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import type { GameConfig, CardDefinitionId, CardInstanceId, GameState, PlayerId } from '../../../index.js';
@@ -94,42 +97,81 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(draftOffered(state, PLAYER_1, 0, BALIN)).toBe(true);
   });
 
-  test('[FALLEN-WIZARD] a Stage resource pick is face-down and revealed with the opponent\'s pick', () => {
+  test('[FALLEN-WIZARD] a Stage resource resolves immediately and does not consume the round\'s character pick', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
     const thrallInst = draftInstId(state, 0, THRALL_OF_THE_VOICE);
-    // The Fallen-wizard picks Thrall, but the opponent has not picked yet — so it
-    // stays a face-down currentPick and is NOT yet resolved.
+    // Drafting the Stage resource resolves it at once — no opponent pick needed —
+    // straight into the drafted Stage resources, with currentPick left empty and
+    // no starting-character slot occupied.
     state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: thrallInst }]);
-    let step = draftStep(state);
-    expect(step.draftState[0].currentPick).not.toBeNull();
-    expect(step.draftState[0].draftedStageResources).toHaveLength(0);
-    // While the pick is pending, no further pick is offered (one pick per round).
-    expect(draftableInstances(state, PLAYER_1)).toEqual([]);
-
-    // The opponent picks → the round reveals → Thrall resolves into the Stage
-    // resources, and does not occupy a starting-character slot.
-    const oppInst = draftInstId(state, 1, BALIN);
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_2, characterInstanceId: oppInst }]);
-    step = draftStep(state);
+    const step = draftStep(state);
     expect(step.draftState[0].currentPick).toBeNull();
     expect(step.draftState[0].draftedStageResources).toHaveLength(1);
     expect(step.draftState[0].drafted).toHaveLength(0);
+    // The round is NOT consumed: the Fallen-wizard is still offered character
+    // picks (e.g. Balin) and still owes a character pick (or a stop) this round.
+    expect(draftOffered(state, PLAYER_1, 0, BALIN)).toBe(true);
   });
 
-  test('[FALLEN-WIZARD] an enabling Stage resource must be revealed before the character it enables', () => {
+  test('[FALLEN-WIZARD] an enabling Stage resource is active as soon as it is drafted', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
     // Before Thrall is drafted, the mind-6 character it enables is not offered.
     expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(false);
 
-    // Draft Thrall and reveal the round (opponent also picks).
+    // Draft Thrall — it resolves immediately, so the mind-6 character it enables
+    // becomes a legal pick in the SAME round, with no opponent pick required.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
-      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
+    ]);
+    expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] drafting Stage resources never leaves the Fallen-wizard behind on characters (regression for the Hidden Haven draft report)', () => {
+    // Bug report (game mqtbg9mu-u4g9gt, seq 8): a Fallen-wizard who drafted Stage
+    // resources fell one character behind the opponent for every Stage resource,
+    // because a Stage-resource pick was wrongly treated as the round's single
+    // face-down pick. Per CoE 1.9.F4 a Stage resource is drafted *in addition to*
+    // — never instead of — a character, so an equal number of rounds must leave
+    // both players with an equal number of drafted characters.
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.FallenWizard,
+          draftPool: [THRALL_OF_THE_VOICE, ADRAZAR, FRODO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Wizard,
+          draftPool: [FARAMIR, BILBO],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+
+    // Round 1: the Fallen-wizard drafts a Stage resource (free) AND a character;
+    // the opponent drafts a character. The round then reveals.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ADRAZAR) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FARAMIR) },
     ]);
 
-    // Only once Thrall has been revealed (in draftedStageResources) does the
-    // mind-6 character become a legal pick.
-    expect(draftOffered(state, PLAYER_1, 0, GIMLI)).toBe(true);
+    const step = draftStep(state);
+    // After one completed round both players have exactly one drafted character —
+    // the Stage resource did not cost the Fallen-wizard a character pick.
+    expect(step.draftState[0].drafted).toHaveLength(1);
+    expect(step.draftState[1].drafted).toHaveLength(1);
+    expect(step.draftState[0].draftedStageResources).toHaveLength(1);
   });
 
   test('[FALLEN-WIZARD] a Stage resource placed with a character does not consume the two minor-item budget', () => {
@@ -156,7 +198,7 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
           id: PLAYER_2,
           name: 'Bob',
           alignment: Alignment.Wizard,
-          draftPool: [BALIN],
+          draftPool: [FRODO],
           playDeck: makePlayDeck(),
           siteDeck: [RIVENDELL],
           sideboard: [],
@@ -167,16 +209,18 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
 
     let state = createGame(config, pool);
 
-    // Round 1: P1 drafts the Stage resource (Thrall); P2 drafts Balin and then,
-    // with an exhausted pool, auto-stops.
+    // Round 1: P1 drafts the Stage resource (Thrall) — it resolves immediately and
+    // does NOT use P1's character pick — then drafts Balin as the round's character
+    // pick; P2 drafts Frodo. The round reveals and P2, with an exhausted pool,
+    // auto-stops.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
-      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
-    ]);
-    // Round 2: P1 drafts Balin alone, then stops → the draft finalises and the
-    // leftover pool items (Dagger, Horn) flow into the item draft.
-    state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, FRODO) },
+    ]);
+    // P1 stops → the draft finalises and the leftover pool items (Dagger, Horn)
+    // flow into the item draft.
+    state = runActions(state, [
       { type: 'draft-stop', player: PLAYER_1 },
     ]);
 
