@@ -16,6 +16,7 @@ import type { TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
+import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
@@ -2189,6 +2190,26 @@ function playHazardsActions(
                   action: { ...action, targetSiteDefinitionId: destSiteDefId },
                   viable: false,
                   reason: `${siteDefName} does not match site filter`,
+                });
+                continue;
+              }
+            }
+            // site-item-trap (Troll-purse dm-95): "Playable on a site with an
+            // Orc or Troll automatic-attack." The candidate site must have at
+            // least one Orc/Troll automatic-attack.
+            const hasItemTrap = getCardEffects(def).some(e => e.type === 'site-item-trap');
+            if (hasItemTrap) {
+              const orcTrollAutoAttack = siteDef && isSiteCard(siteDef)
+                && getActiveAutoAttacks(state, siteDef).some(aa => {
+                  const race = normalizeCreatureRace(aa.creatureType);
+                  return race === 'orc' || race === 'troll';
+                });
+              if (!orcTrollAutoAttack) {
+                logDetail(`Hazard "${def.name}" requires a site with an Orc or Troll automatic-attack — ${siteDefName} has none`);
+                actions.push({
+                  action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                  viable: false,
+                  reason: `${siteDefName} has no Orc or Troll automatic-attack`,
                 });
                 continue;
               }

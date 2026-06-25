@@ -1568,13 +1568,24 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     }
   }
 
+  // A site-attached event that is currently holding prisoners (e.g. Troll-purse
+  // dm-95) must persist while its prisoners are held — discarding it would
+  // orphan their `character-is-prisoner` constraints. Such hosts are exempt
+  // from the orphan sweep.
+  const activeHosts = new Set<string>();
+  for (const host of state.hazardHosts) {
+    if (host.prisoners.length > 0) activeHosts.add(host.hostCard.instanceId as string);
+  }
+
   let changed = false;
   const removedSources = new Set<string>();
   const newPlayers = clonePlayers(state);
   for (let pi = 0; pi < 2; pi++) {
     const player = newPlayers[pi];
     const orphaned = player.cardsInPlay.filter(
-      c => c.attachedToSite !== undefined && !occupied.has(c.attachedToSite as string),
+      c => c.attachedToSite !== undefined
+        && !occupied.has(c.attachedToSite as string)
+        && !activeHosts.has(c.instanceId as string),
     );
     if (orphaned.length === 0) continue;
     changed = true;

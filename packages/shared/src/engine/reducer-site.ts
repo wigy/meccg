@@ -55,6 +55,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
+  'troll-purse-attacks': handleSiteTrollPurseAttacks,
   'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
@@ -799,6 +800,177 @@ function handleSiteAutomaticAttacks(
       ...boostedState,
       combat,
       phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
+    },
+  };
+}
+
+/**
+ * Build the combat state for re-facing one of the site's automatic-attacks as
+ * part of a Troll-purse (dm-95) re-face. Mirrors the normal site auto-attack
+ * combat construction (detainment keying, each-character, attacker-chooses,
+ * cannot-be-canceled, wound-eliminates) but adds `prowessBonus` to the
+ * attack's prowess and flags the combat with `trollPursePrisoner` so a
+ * successful strike takes the character prisoner at the site instead of
+ * wounding (handled in `reducer-combat.ts` `resolveStrike`).
+ */
+function buildSiteReFaceCombat(
+  state: GameState,
+  company: Company,
+  siteDef: import('../types/cards.js').SiteCard,
+  aa: AutomaticAttack,
+  attackIndex: number,
+  prowessBonus: number,
+  hostInstanceId: CardInstanceId,
+): CombatState {
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
+  const siteDefId = company.currentSite!.definitionId;
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
+  const inPlayNames = buildInPlayNames(state);
+  const creatureRace = normalizeCreatureRace(aa.creatureType);
+  const boostCtx = { companyId: company.id };
+  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
+  const effectiveProwess = baseProwess + prowessBonus;
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx);
+  const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
+  const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
+  const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
+    ? company.characters.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
+    : [];
+  const strikesTotalValue = isEachCharacter ? company.characters.length : effectiveStrikes;
+  const detainment = forcedDetainment || isDetainmentAttack({
+    attackEffects: siteDef.effects,
+    attackRace: creatureRace as Race | null,
+    attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
+    defendingAlignment: state.players[activePlayerIndex].alignment,
+    defendingCovert,
+    defendingSiteEffects: siteDef.effects,
+  });
+  const base: CombatState = {
+    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer(state).id,
+    strikesTotal: strikesTotalValue,
+    strikeProwess: effectiveProwess,
+    creatureBody: effectiveBody,
+    creatureRace,
+    strikeAssignments: preAssignedStrikes,
+    currentStrikeIndex: 0,
+    phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
+    assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
+    bodyCheckTarget: null,
+    detainment,
+    trollPursePrisoner: { hostInstanceId, siteInstanceId: company.currentSite!.instanceId },
+    ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+    ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
+  };
+  if (isEachCharacter && preAssignedStrikes.length > 1) {
+    return { ...base, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null };
+  }
+  if (isEachCharacter && preAssignedStrikes.length === 1) {
+    return { ...base, phase: 'resolve-strike', currentStrikeIndex: 0, attackerStep1Done: false, bodyCheckTarget: null };
+  }
+  return base;
+}
+
+/**
+ * Troll-purse (dm-95): when an item is played at a site bearing an opponent's
+ * Troll-purse, the company must face all the site's automatic-attacks again.
+ * If such a trap exists at the active company's site, initiate the first
+ * re-faced attack and enter the `troll-purse-attacks` site sub-step; the rest
+ * are sequenced by {@link handleSiteTrollPurseAttacks}. Returns null if no
+ * trap is bound to the company's current site.
+ */
+function maybeTriggerSiteItemTrap(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+): GameState | null {
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  if (!company?.currentSite) return null;
+  const siteDefId = company.currentSite.definitionId;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef)) return null;
+  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  if (autoAttacks.length === 0) return null;
+
+  // Find an opponent's Troll-purse attached to this site's location.
+  const opponent = state.players[1 - playerIndex];
+  let hostInstanceId: CardInstanceId | undefined;
+  let prowessBonus = 0;
+  for (const card of opponent.cardsInPlay) {
+    if (card.attachedToSite !== siteDefId) continue;
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').SiteItemTrapEffect => e.type === 'site-item-trap',
+    );
+    if (eff) {
+      hostInstanceId = card.instanceId;
+      prowessBonus = eff.prowessBonus;
+      break;
+    }
+  }
+  if (!hostInstanceId) return null;
+
+  logDetail(`Troll-purse: item played at ${siteDef.name} — company re-faces ${autoAttacks.length} automatic-attack(s) at +${prowessBonus} prowess`);
+  const combat = buildSiteReFaceCombat(state, company, siteDef, autoAttacks[0], 0, prowessBonus, hostInstanceId);
+  const siteState = state.phaseState as SitePhaseState;
+  return {
+    ...state,
+    combat,
+    phaseState: {
+      ...siteState,
+      step: 'troll-purse-attacks' as const,
+      trollPurseReface: { hostInstanceId, prowessBonus, resolved: 1 },
+    },
+  };
+}
+
+/**
+ * Handle the 'troll-purse-attacks' step: sequence the remaining re-faced
+ * automatic-attacks (Troll-purse dm-95). Each `pass` initiates the next
+ * re-faced attack; once all of the site's automatic-attacks have been
+ * re-faced, control returns to the 'play-resources' step so the resource
+ * player may continue playing resources.
+ */
+function handleSiteTrollPurseAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during troll-purse-attacks step` };
+  }
+  const reface = siteState.trollPurseReface;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+
+  if (!reface || reface.resolved >= autoAttacks.length) {
+    logDetail('Troll-purse: all re-faced automatic-attacks resolved → play-resources');
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'play-resources' as const, trollPurseReface: undefined },
+      },
+    };
+  }
+
+  const aa = autoAttacks[reface.resolved];
+  logDetail(`Troll-purse: re-facing automatic-attack ${reface.resolved + 1}/${autoAttacks.length} (+${reface.prowessBonus} prowess)`);
+  const combat = buildSiteReFaceCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, reface.resolved, reface.prowessBonus, reface.hostInstanceId);
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: { ...siteState, trollPurseReface: { ...reface, resolved: reface.resolved + 1 } },
     },
   };
 }
@@ -1639,6 +1811,15 @@ function handleSitePlayHeroResource(
   // When an ally joins, company membership changes — sweep any Fellowship-like events
   if (isAlly) {
     afterAttach = sweepCompanyMembershipChangedEvents(afterAttach, [company.id]);
+  }
+
+  // Troll-purse (dm-95): playing an item at a site bearing an opponent's
+  // Troll-purse forces the company to re-face all the site's automatic-attacks
+  // (+3 prowess, prisoner-on-success). If triggered, the first re-faced attack
+  // is initiated now and the site enters the 'troll-purse-attacks' sub-step.
+  if (isItem) {
+    const trapped = maybeTriggerSiteItemTrap(afterAttach, playerIndex, siteState.activeCompanyIndex);
+    if (trapped) return { state: trapped };
   }
 
   return { state: afterAttach };

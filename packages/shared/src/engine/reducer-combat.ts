@@ -711,12 +711,19 @@ function resolveStrikeCore(
     ? findTakePrisonerHazard(state, defPlayerIndex, charData.hazards)
     : null;
 
+  // Troll-purse (dm-95): a successful strike from a re-faced automatic-attack
+  // takes the character prisoner at the bound site instead of wounding. Carried
+  // on the combat as `trollPursePrisoner` (set by buildSiteReFaceCombat).
+  const trollPursePrisoner = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && charData
+    ? combat.trollPursePrisoner ?? null
+    : null;
+
   // absorb-wound (e.g. Sable Shield le-341): if a successful strike would wound
   // the bearer (not an ally, not detainment, not already handled), check if any
   // item on the character has an absorb-wound effect. If so, the wound is
   // prevented; the combat transitions to shield-discard-roll so the attacker
   // rolls to determine whether the shield is discarded.
-  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && charData
+  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && charData
     ? charData.items.find(item => {
         const def = state.cardPool[item.definitionId as string] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
         return (def?.effects ?? []).some(e => e.type === 'absorb-wound');
@@ -765,7 +772,7 @@ function resolveStrikeCore(
   // replace the wound entirely (absorb-wound and discard-item set result to
   // 'success'; take-prisoner is excluded explicitly) were handled above, so
   // only a genuine wound reaches here. Detainment strikes tap, never wound.
-  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !takePrisonerResult) {
+  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !takePrisonerResult && !trollPursePrisoner) {
     logDetail(`wound-eliminates: ${strike.characterId as string} wounded by ${combat.creatureRace ?? 'attack'} — immediately eliminated (no body check)`);
     return eliminateCombatantFromStrike(
       { ...state, rng, cheatRollTotal },
@@ -798,10 +805,11 @@ function resolveStrikeCore(
       newCharacters[allyMatch.hostCharId as string] = { ...hostChar, allies: newAllies };
     }
   } else {
-    if (takePrisonerResult) {
+    if (takePrisonerResult || trollPursePrisoner) {
       // take-prisoner: character is not wounded; instead they become a prisoner.
       // Status stays as-is (not tapped, not wounded). Rule 8.35.
-      logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${takePrisonerResult.hostCard.instanceId as string}`);
+      const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId;
+      logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${captor as string}`);
     } else {
       if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
         newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
@@ -846,6 +854,15 @@ function resolveStrikeCore(
       takePrisonerResult,
     );
     // Override result and bodyCheckTarget: prisoner-taking skips wound/body-check
+    bodyCheckTarget = null;
+  } else if (trollPursePrisoner && charData) {
+    postPrisonerState = applyTakePrisonerAtSite(
+      postPrisonerState,
+      defPlayerIndex,
+      strike.characterId,
+      trollPursePrisoner.hostInstanceId,
+      trollPursePrisoner.siteInstanceId,
+    );
     bodyCheckTarget = null;
   }
 
@@ -4653,5 +4670,103 @@ function applyTakePrisoner(
   newState = { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
 
   logDetail(`take-prisoner: ${charInstanceId as string} is now a prisoner of ${hostCard.instanceId as string} at rescue site ${rescueSiteCard.definitionId as string}`);
+  return newState;
+}
+
+/**
+ * Apply the prisoner-taking outcome for a Troll-purse (dm-95) re-faced strike.
+ *
+ * Unlike {@link applyTakePrisoner}, the rescue site is the bound site itself
+ * (the prisoner is "taken prisoner at the site") rather than a site drawn from
+ * the hazard player's location deck, and the host card (Troll-purse) stays in
+ * play attached to the site — it is a persistent trap that may take further
+ * prisoners. As with the general prisoner rule (CoE 8.35) the prisoner's
+ * non-ring items are discarded, followers revert to general influence, a
+ * `character-is-prisoner` constraint is added, and a HazardHost record is
+ * created so the prisoner is tracked (the rescue-attack equals the site's
+ * automatic-attacks at the time of rescue).
+ */
+function applyTakePrisonerAtSite(
+  state: GameState,
+  defPlayerIndex: number,
+  charInstanceId: CardInstanceId,
+  hostInstanceId: CardInstanceId,
+  siteInstanceId: CardInstanceId,
+): GameState {
+  const hazardPlayerIndex = 1 - defPlayerIndex;
+  const hazardPlayerState = state.players[hazardPlayerIndex];
+  const defPlayer = state.players[defPlayerIndex];
+  const charData = defPlayer.characters[charInstanceId as string];
+  if (!charData) return state;
+
+  // The host (Troll-purse) stays in the hazard player's cardsInPlay.
+  const hostInPlay = hazardPlayerState.cardsInPlay.find(c => c.instanceId === hostInstanceId);
+  if (!hostInPlay) {
+    logDetail(`take-prisoner (Troll-purse): host ${hostInstanceId as string} not found in play — skipping`);
+    return state;
+  }
+  const hostCard = toCardInstance(hostInPlay);
+
+  // The rescue site is the bound site itself.
+  const siteDefId = resolveInstanceId(state, siteInstanceId);
+  if (!siteDefId) {
+    logDetail(`take-prisoner (Troll-purse): site ${siteInstanceId as string} not resolvable — skipping`);
+    return state;
+  }
+  const rescueSiteCard = { instanceId: siteInstanceId, definitionId: siteDefId };
+
+  // Discard all non-ring items from the prisoner (rule 8.35).
+  const retainedItems = charData.items.filter(item => {
+    const itemDef = defById(state, item.definitionId);
+    return itemDef && 'cardType' in itemDef
+      && typeof (itemDef as { cardType: string }).cardType === 'string'
+      && (itemDef as { cardType: string }).cardType.includes('ring-item');
+  });
+  const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
+  if (discardedItems.length > 0) {
+    logDetail(`take-prisoner (Troll-purse): discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
+  }
+
+  const followerIds = charData.followers;
+  const newCharData = {
+    ...charData,
+    items: retainedItems,
+    controlledBy: 'general' as const,
+  };
+
+  let newState = updatePlayer(state, defPlayerIndex, p => {
+    const updatedChars = { ...p.characters, [charInstanceId as string]: newCharData };
+    for (const followerId of followerIds) {
+      const follower = updatedChars[followerId as string];
+      if (follower && follower.controlledBy === charInstanceId) {
+        updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+    return {
+      ...p,
+      characters: updatedChars,
+      discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))],
+    };
+  });
+
+  // Add character-is-prisoner active constraint pointing to the Troll-purse.
+  newState = addConstraint(newState, {
+    source: hostInstanceId,
+    sourceDefinitionId: hostInPlay.definitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: charInstanceId },
+    kind: { type: 'character-is-prisoner', hostInstanceId },
+  });
+
+  // Create the HazardHost record (rescue site = the bound site).
+  const newHost: HazardHost = {
+    hostCard,
+    rescueSiteCard,
+    prisoners: [charInstanceId],
+    ownedBy: hazardPlayerState.id,
+  };
+  newState = { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
+
+  logDetail(`take-prisoner (Troll-purse): ${charInstanceId as string} is now a prisoner at site ${siteDefId as string}`);
   return newState;
 }
