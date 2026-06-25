@@ -74,6 +74,32 @@ let mergeSourceCompanyId: CompanyId | null = null;
 
 // ---- Turn tracking ----
 
+/**
+ * Decide whether a turn change to `activeId` should switch the local player
+ * into the all-companies overview.
+ *
+ * During normal play we switch to the overview when it becomes the opponent's
+ * turn and return to single-company view on our own turn. The one exception is
+ * the very start of the game (`lastActivePlayer === null`): if the opponent has
+ * the first turn we keep the all-companies override off so the downstream
+ * auto-focus lands on the opponent's starting company in single-company view,
+ * rather than dropping the player into the overview before any play has begun.
+ *
+ * @param activeId - The active player ID after the turn change (null if none).
+ * @param lastActivePlayer - The previously tracked active player (null at game start).
+ * @param selfId - The local player's ID.
+ * @returns True if the all-companies overview should be forced on.
+ */
+export function shouldOverrideToAllCompanies(
+  activeId: string | null,
+  lastActivePlayer: string | null,
+  selfId: string,
+): boolean {
+  const isGameStart = lastActivePlayer === null;
+  const opponentTurn = activeId !== null && activeId !== selfId;
+  return opponentTurn && !isGameStart;
+}
+
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 
