@@ -16,7 +16,7 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Race } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Phase, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -56,6 +56,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     const cardInstanceId = handCard.instanceId;
     const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | MinionResourceEventCard | undefined;
     if (!def || (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') || def.eventType !== 'permanent') continue;
+
+    // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events can only be
+    // played during the organization phase. The exceptions are cards that
+    // declare their own timing in their text (e.g. "Playable during the site
+    // phase") — those target a site and are handled by the site-target branch
+    // below. Stage permanent-events that target a character or have no target
+    // (e.g. Wizard's Myrmidon wh-84) must not be offered during the
+    // movement/hazard phase, where this function is also consulted under the
+    // general "any phase" allowance of rule 2.1.1.
+    const isStageResource = (def as { alignment?: string }).alignment === 'stage';
+    if (isStageResource && state.phaseState.phase !== Phase.Organization) {
+      logDetail(`Stage permanent-event ${def.name}: only playable during the organization phase (current phase ${state.phaseState.phase})`);
+      continue;
+    }
 
     // Check uniqueness: unique permanent events can't be played if already in play
     if (def.unique) {
