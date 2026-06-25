@@ -114,6 +114,27 @@ function computeAllPairsDistance(
 }
 
 /**
+ * Whether a site whose card-alignment is `siteAlignment` belongs in the
+ * movement topology of a player whose deck-alignment is `playerAlignment`.
+ *
+ * Single-alignment players (Wizard, Ringwraith, Balrog) only ever stand on and
+ * move between sites of their own alignment, so the match is exact. A
+ * Fallen-wizard, however, builds a mixed location deck — one copy of each hero
+ * site and each minion site plus Fallen-wizard sites (CoE rule 1.28) — and
+ * occupies and moves between all three. Filtering a Fallen-wizard's map to only
+ * `fallen-wizard` sites drops the hero and minion sites entirely, leaving their
+ * companies with no region indexed and therefore no legal movement.
+ */
+function alignmentUsesSite(playerAlignment: Alignment, siteAlignment: Alignment | undefined): boolean {
+  if (playerAlignment === Alignment.FallenWizard) {
+    return siteAlignment === Alignment.Wizard
+      || siteAlignment === Alignment.Ringwraith
+      || siteAlignment === Alignment.FallenWizard;
+  }
+  return siteAlignment === playerAlignment;
+}
+
+/**
  * Build a precalculated movement map from the card pool.
  *
  * Scans all region cards for the adjacency graph, all site cards for
@@ -146,7 +167,10 @@ export function buildMovementMap(
     if (!isSiteCard(card)) continue;
     // Only index sites of the moving company's alignment so same-named sites
     // of other alignments do not pollute this side's haven/region topology.
-    if (alignment !== undefined && card.alignment !== alignment) continue;
+    // A Fallen-wizard is the exception: its location deck mixes hero, minion,
+    // and Fallen-wizard sites, so all three must be indexed (see
+    // {@link alignmentUsesSite}).
+    if (alignment !== undefined && !alignmentUsesSite(alignment, card.alignment)) continue;
 
     const site = card;
     if (site.region) {
