@@ -26,8 +26,9 @@
  *   - `skip-automatic-attacks` → the site's automatic-attacks are removed;
  *   - `site-nothing-playable-as-written` → the site's printed playable resources
  *     and the factions/allies playable there as written are suppressed;
- *   - `cancel-attacks-at-site` → on-guard creature attacks and declared agent
- *     attacks against a company at the site are canceled.
+ *   - `cancel-attacks-at-site` → attacks against a company staying at the site
+ *     are canceled: Site-phase on-guard creatures (reducer-site.ts) and
+ *     movement/hazard keyed creatures (chain-reducer `initiateCreatureCombat`).
  *
  * "Becomes a Wizardhaven" is modelled as the haven *benefits* (a safe site read
  * as a haven by the effective-type and `isHavenForPlayer` gates: healing,
@@ -57,8 +58,9 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
   dispatch, phaseStateAs, createGame, draftInstId, siteDeckInstId, runActions, makePlayDeck, pool, RIVENDELL,
+  makeMHState, playCreatureHazardAndResolve,
 } from '../test-helpers.js';
-import { computeLegalActions, SiteType, Alignment, reduce } from '../../index.js';
+import { computeLegalActions, SiteType, Alignment, RegionType, Phase, CardStatus, reduce } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, GameConfig, SitePhaseState } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../../engine/effective.js';
 import { isHavenForPlayer, isWizardhavenConversionFor, discardOrphanedSiteAttachedEvents, defById } from '../../engine/reducer-utils.js';
@@ -86,6 +88,10 @@ const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;
 
 // A hazard creature, used as a revealed on-guard attack for the cancellation test.
 const STOUT_MEN = 'as-21' as CardDefinitionId;
+
+// A creature keyed to Ruins & Lairs (site type), used for the movement/hazard
+// keyed-creature cancellation test.
+const CAVE_DRAKE = 'tw-020' as CardDefinitionId;
 
 function hiddenHavenInstanceId(state: GameState): CardInstanceId {
   return state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HIDDEN_HAVEN)!.instanceId;
@@ -271,6 +277,57 @@ describe('Hidden Haven (wh-75)', () => {
     expect(resolved.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === STOUT_MEN)).toBe(true);
     // …and the step advanced to play-resources.
     expect(phaseStateAs<SitePhaseState>(resolved).step).toBe('play-resources');
+  });
+
+  test('a creature keyed against the staying company in the M/H phase is canceled (discarded, no combat)', () => {
+    // Convert Bandit Lair into the FW's Wizardhaven, then switch the company's
+    // non-moving turn into its movement/hazard phase. (Regression: previously the
+    // `cancel-attacks-at-site` constraint was only honoured for Site-phase on-guard
+    // creatures, so a creature keyed against the staying company during M/H still
+    // resolved into combat — game mqtbg9mu-u4g9gt, Cave-drake at Ettenmoors.)
+    const after = convert(
+      buildFallenWizardSitePhaseState({ site: BANDIT_LAIR, characters: [ARAGORN], hand: [HIDDEN_HAVEN] }),
+      BANDIT_LAIR,
+    );
+    expect(siteAttacksCanceled(after, BANDIT_LAIR)).toBe(true);
+
+    const company = after.players[RESOURCE_PLAYER].companies[0];
+    // The staying company has no destination — it is at the Wizardhaven.
+    expect(company.destinationSite).toBeNull();
+
+    // Give the hazard player a Cave-drake (keyed to Ruins & Lairs) and put the
+    // active FW company into its play-hazards step against the Ruins & Lairs site.
+    const drakeId = 'wh75-mh-cave-drake' as CardInstanceId;
+    const mhReady: GameState = {
+      ...after,
+      activePlayer: PLAYER_1,
+      players: [
+        after.players[RESOURCE_PLAYER],
+        {
+          ...after.players[HAZARD_PLAYER],
+          hand: [...after.players[HAZARD_PLAYER].hand, { instanceId: drakeId, definitionId: CAVE_DRAKE, status: CardStatus.Untapped }],
+        },
+      ] as GameState['players'],
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resolvedSitePath: [RegionType.Shadow],
+        resolvedSitePathNames: ['Brown Lands'],
+        destinationSiteType: SiteType.RuinsAndLairs,
+      }),
+    };
+    expect(mhReady.phaseState.phase).toBe(Phase.MovementHazard);
+
+    const resolved = playCreatureHazardAndResolve(
+      mhReady, PLAYER_2, drakeId, company.id,
+      { method: 'site-type' as const, value: 'ruins-and-lairs' },
+    );
+
+    // No combat was initiated…
+    expect(resolved.combat).toBeNull();
+    // …and the Cave-drake was discarded to its owner (the hazard player).
+    expect(resolved.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === CAVE_DRAKE)).toBe(true);
+    // The creature did not vanish: exactly one copy is reachable in the discard.
+    expect(resolved.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === drakeId)).toHaveLength(1);
   });
 
   // ── Rule 7: discarded when the site leaves play ─────────────────────────────
