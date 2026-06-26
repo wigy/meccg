@@ -38,6 +38,7 @@
  * | 2 | Place this card with the recruited character                  | OK     |
  * | 3 | -1 to the borne character's mind, to a minimum of 1           | OK     |
  * | 4 | Such a character may also be in your starting company         | OK     |
+ * | 5 | Stage resource: contributes 1 stage point while in play       | OK     |
  *
  * Note: drafting Thrall lifts the Fallen-wizard mind > 5 / agent draft gate
  * (rules 1.42/1.44, covered by their own rule tests); rule 4 here is exercised
@@ -202,6 +203,27 @@ describe('Thrall of the Voice (wh-82)', () => {
       ],
     });
     expect(getCharacter(state, RESOURCE_PLAYER, IVIC).effectiveStats.mind).toBeUndefined();
+  });
+
+  // ── Stage points: Thrall is a Stage resource worth 1 stage point ────────────
+
+  test('a Thrall in play contributes 1 stage point to its Fallen-wizard', () => {
+    expect(thrallAttachedState(IVIC).players[RESOURCE_PLAYER].stagePoints).toBe(1);
+  });
+
+  test('two Thralls in play contribute 2 stage points', () => {
+    let state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: AMON_HEN, characters: [IVIC, BILL_FERNY] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [OPPONENT_CHAR] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, IVIC, THRALL_OF_THE_VOICE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, BILL_FERNY, THRALL_OF_THE_VOICE);
+    expect(recomputeDerived(state).players[RESOURCE_PLAYER].stagePoints).toBe(2);
   });
 
   // ── Rule 4: such a character may also be in your starting company ───────────

@@ -70,6 +70,10 @@
     "eventType": "permanent",
     "effects": [
       {
+        "type": "stage-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "site",
         "filter": {
@@ -161,6 +165,10 @@
     "eventType": "permanent",
     "text": "Instead of a normal character, during your organization phase you may bring into play one character (including a minion agent) with up to a 6 mind. Place this card with the character. -1 to his mind to a minimum of 1. Such a character may also be in your starting company.",
     "effects": [
+      {
+        "type": "stage-points",
+        "value": 1
+      },
       {
         "type": "recruitment-vehicle",
         "maxMind": 6
