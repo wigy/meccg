@@ -18,8 +18,10 @@
  * - `ctx.currentMind` — total mind of already-drafted characters
  * - `ctx.mindLimit` — general influence limit (20)
  * - `ctx.fwMindGateActive` — true when the drafting player is a Fallen-wizard
- *   who has not yet drafted an enabling Stage resource (Thrall of the Voice);
- *   while active, characters with mind > 5 cannot be drafted (rule 1.44)
+ *   who has no unconsumed enabling Stage resource (Thrall of the Voice) left;
+ *   each vehicle enables only one gated character, so the gate re-activates once
+ *   every drafted vehicle has been spent on a gated character. While active,
+ *   characters with mind > 5 cannot be drafted (rule 1.44)
  * - `ctx.fwAgentGateActive` — true under the same Fallen-wizard condition;
  *   while active, agent characters cannot be drafted (rule 1.42)
  * - `ctx.ringwraithAgentGateActive` — true when the drafting player is a
