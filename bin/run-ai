@@ -9,6 +9,12 @@ Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
 
+On startup it preflight-checks the headless claude OAuth token: it resolves
+the token (env or secrets.json) and validates it with a tiny test prompt. If
+the token is missing or expired it prints setup instructions and exits (code
+4) instead of failing inside the first request. The token itself cannot be
+created automatically — `claude setup-token` is interactive (browser login).
+
 Arguments:
   <n>             Optional maximum number of requests to handle, then exit.
 
@@ -66,6 +72,124 @@ next_request_id() {
     -H "Authorization: Bearer $(master_key)" 2>/dev/null \
     | jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' 2>/dev/null
 }
+
+# Resolve the long-lived headless-claude OAuth token the same way handle-mail
+# does: prefer an already-exported CLAUDE_CODE_OAUTH_TOKEN, else read
+# `claudeOauthToken` from ~/.meccg/secrets.json. Prints the token (empty if
+# none found).
+resolve_oauth_token() {
+  if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    echo "$CLAUDE_CODE_OAUTH_TOKEN"
+    return 0
+  fi
+  if [ -f "$SECRETS" ]; then
+    jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null
+    return 0
+  fi
+}
+
+# Print operator instructions for creating/refreshing the token. This is the
+# one thing the loop cannot do for itself: `claude setup-token` is interactive
+# (it opens a browser to log in with your Claude subscription), so an
+# unattended worker can never mint a token headlessly — a human must run it
+# once and stash the result where run-ai can find it.
+print_token_help() {
+  cat >&2 <<EOF
+[run-ai] The headless claude needs a long-lived OAuth token (CLAUDE_CODE_OAUTH_TOKEN).
+[run-ai] This cannot be created automatically — 'claude setup-token' opens a browser.
+[run-ai] To set it up once:
+[run-ai]   1. Run:  claude setup-token
+[run-ai]            (log in with your Claude subscription when the browser opens)
+[run-ai]   2. Copy the printed token (looks like 'sk-ant-oat...').
+[run-ai]   3. Make it available to run-ai, either:
+[run-ai]        - export CLAUDE_CODE_OAUTH_TOKEN=<token>            (current shell), or
+[run-ai]        - add it to $SECRETS  as:  {"claudeOauthToken": "<token>"}
+[run-ai]   4. Restart run-ai.
+EOF
+}
+
+# Preflight: confirm a token exists and actually authenticates before entering
+# the loop. Without this, a missing/expired token only surfaces as a 401 deep
+# inside the first handle-mail run — after marking mail 'processing' and wasting
+# a turn. We validate with one tiny headless prompt and read the stream-json
+# output to decide. Exports the resolved token on success so child handle-mail
+# processes inherit it. Returns non-zero (caller exits) if the token is missing
+# or rejected.
+preflight_token() {
+  local tok
+  tok=$(resolve_oauth_token)
+  if [ -z "$tok" ]; then
+    echo "[run-ai] ERROR: no CLAUDE_CODE_OAUTH_TOKEN set and no claudeOauthToken in $SECRETS." | tee -a "$LOG_FILE" >&2
+    print_token_help
+    return 1
+  fi
+
+  echo "[run-ai] Validating headless claude OAuth token..." | tee -a "$LOG_FILE"
+  local tmp
+  tmp=$(mktemp)
+  CLAUDE_CODE_OAUTH_TOKEN="$tok" claude --dangerously-skip-permissions \
+    --output-format stream-json --verbose -p "Reply with the single word OK." \
+    > "$tmp" 2>&1 &
+  local pid=$!
+
+  local deadline=$(( $(date +%s) + 120 ))
+  local verdict=""
+  while kill -0 "$pid" 2>/dev/null; do
+    if grep -qiE '401|authentication_error|invalid.*(authentication|token|api key)|oauth.*(expired|invalid)|please run.*login' "$tmp" 2>/dev/null; then
+      verdict="invalid"; break
+    fi
+    if grep -q '"type":"result"' "$tmp" 2>/dev/null; then
+      verdict="valid"; break
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      verdict="timeout"; break
+    fi
+    sleep 2
+  done
+
+  # claude is known to occasionally print its terminal result without exiting;
+  # we've already decided, so stop it.
+  kill -TERM "$pid" 2>/dev/null || true
+  sleep 1
+  kill -KILL "$pid" 2>/dev/null || true
+
+  if [ -z "$verdict" ]; then
+    if grep -qiE '401|authentication_error|invalid.*(authentication|token|api key)' "$tmp" 2>/dev/null; then
+      verdict="invalid"
+    elif grep -q '"type":"result","subtype":"success"' "$tmp" 2>/dev/null; then
+      verdict="valid"
+    else
+      verdict="unknown"
+    fi
+  fi
+
+  case "$verdict" in
+    valid)
+      echo "[run-ai] Token OK." | tee -a "$LOG_FILE"
+      export CLAUDE_CODE_OAUTH_TOKEN="$tok"
+      rm -f "$tmp"
+      return 0 ;;
+    invalid)
+      echo "[run-ai] ERROR: the OAuth token is invalid or expired (claude refused to authenticate)." | tee -a "$LOG_FILE" >&2
+      grep -iE '401|authentication|oauth|expired|login' "$tmp" 2>/dev/null | tail -3 | sed 's/^/[run-ai]   /' >&2 || true
+      print_token_help
+      rm -f "$tmp"
+      return 1 ;;
+    *)
+      # Couldn't get a clear answer (timeout/odd output). Don't block the
+      # operator over an inconclusive check — proceed with the token we have.
+      echo "[run-ai] WARNING: could not confirm token validity (verdict=$verdict). Proceeding with it anyway." | tee -a "$LOG_FILE" >&2
+      export CLAUDE_CODE_OAUTH_TOKEN="$tok"
+      rm -f "$tmp"
+      return 0 ;;
+  esac
+}
+
+# Validate the token up front; abort with guidance if it's missing/expired.
+if ! preflight_token; then
+  echo "=== FATAL: headless claude token unusable at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE" >&2
+  exit 4
+fi
 
 IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
 idle_index=0
