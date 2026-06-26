@@ -216,9 +216,16 @@ run_skill() {
 
   cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
 
+  # Distinguish an authentication failure (bad/expired CLAUDE_CODE_OAUTH_TOKEN)
+  # from an ordinary skill error. A 401 means the skill never actually ran, so
+  # the caller must NOT consume the message — see the auth guard after dispatch.
+  # The patterns require structured/quoted context so incidental hex (UUIDs
+  # containing "401") cannot trigger a false auth verdict.
   local status="error"
   if grep -qE '"type":"result","subtype":"success","is_error":false' "$raw_tmp"; then
     status="success"
+  elif grep -qiE 'API Error: 401|401 Invalid authentication|"status":[[:space:]]*401|authentication_error|Failed to authenticate' "$raw_tmp"; then
+    status="auth"
   elif [ "$term_reason" = "hard-deadline" ] && [ "$result_seen_at" -eq 0 ]; then
     status="timeout"
   fi
@@ -944,6 +951,29 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
     REPLY_BODY="Unknown or unsupported topic: $TOPIC. The message could not be processed."
     ;;
 esac
+
+# ---------------------------------------------------------------------------
+# Step 4b: Auth-failure guard — never burn a message on a bad token.
+# ---------------------------------------------------------------------------
+# If the headless claude returned a 401 (invalid/expired CLAUDE_CODE_OAUTH_TOKEN),
+# the skill never actually ran. Treating that like a normal failure would
+# CONSUME the message (mark it processed/false + send a failure reply), so a
+# worker with a dead token silently destroys the whole queue in seconds — which
+# is exactly what happened: three bug reports were burned with "401 Invalid
+# authentication credentials" in ~4s each. Instead, reset the message back to
+# 'new' (it was marked 'processing' in Step 3) so a healthy worker re-handles
+# it, send NO reply, charge NOTHING, and exit non-zero to halt run-ai. This
+# mirrors run-ai's startup preflight, but covers a token that dies mid-loop.
+# SKILL_STATUS is only set on paths that invoke the headless claude; mechanical
+# paths (card-request) never produce "auth".
+if [ "${SKILL_STATUS:-}" = "auth" ]; then
+  log "FATAL: headless claude failed to authenticate (401) — token invalid or expired."
+  log "Skill did not run; leaving $MSG_ID unhandled (reset to 'new') so it is not burned."
+  set_status "ai" "$MSG_ID" '{"status":"new"}' || true
+  log "Fix: run 'claude setup-token' and update CLAUDE_CODE_OAUTH_TOKEN (or claudeOauthToken"
+  log "     in $SECRETS), then restart the worker. Halting."
+  exit 4
+fi
 
 DISPATCH_END=$(date +%s)
 DISPATCH_DURATION_S=$(( DISPATCH_END - DISPATCH_START ))
