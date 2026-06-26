@@ -229,9 +229,20 @@ run_skill() {
   elif [ "$term_reason" = "hard-deadline" ] && [ "$result_seen_at" -eq 0 ]; then
     status="timeout"
   fi
+  # Capture cost/duration into variables and echo each explicitly. A bare
+  # `grep ... | tail -1` emits ZERO bytes (not a blank line) when there is no
+  # match — which is exactly what a 401 / early crash produces, since that
+  # output carries no total_cost_usd or duration_ms. Inlining the greps in the
+  # brace group therefore collapsed the three fields onto one line, pushing
+  # "$status" up into the cost slot and leaving SKILL_STATUS empty (so the auth
+  # guard never fired and the message was burned). Explicit echo guarantees the
+  # status is always on line 3.
+  local skill_cost skill_duration
+  skill_cost=$(grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true)
+  skill_duration=$(grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true)
   {
-    grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true
-    grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true
+    echo "$skill_cost"
+    echo "$skill_duration"
     echo "$status"
   } > "$LOG_DIR/.skill-stats"
 
