@@ -448,6 +448,48 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
       .toBe(siteDeckInstId(state, 0, WORTHY_HILLS));
   });
 
+  test('revealing Hidden Haven and pairing its site makes both public to the opponent (revealedInstances)', () => {
+    // Regression (game mquqgy3v-pina1b, seq 5): a Fallen-wizard drafted Hidden
+    // Haven and paired it with a Ruins & Lairs (Ettenmoors). CRF 22 requires the
+    // card to be revealed and its site "brought out" when revealed, so both
+    // identities are public — yet neither landed in `revealedInstances`, leaving
+    // the paired site looking like an unknown card to the opponent.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
+
+    // A revealed Stage resource is public the moment it is drafted, before any
+    // pairing is chosen.
+    expect(state.revealedInstances[hhInst as string]).toBe(HIDDEN_HAVEN);
+
+    const siteInst = siteDeckInstId(state, 0, WORTHY_HILLS);
+    // The paired site is still in the (private) site deck — its identity is only
+    // public if it has been accrued into revealedInstances.
+    expect(state.revealedInstances[siteInst as string]).toBeUndefined();
+
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhInst, siteInstanceId: siteInst,
+    }]);
+
+    // Pairing "brings out" the site (CRF 22): the opponent can now see which
+    // Ruins & Lairs the Hidden Haven names.
+    expect(state.revealedInstances[siteInst as string]).toBe(WORTHY_HILLS);
+    expect(state.revealedInstances[hhInst as string]).toBe(HIDDEN_HAVEN);
+  });
+
   test('cannot stop drafting while a pairable Hidden Haven is unpaired', () => {
     const config: GameConfig = {
       players: [
