@@ -882,27 +882,27 @@ function buildConstraintKind(
       return { type: 'cancel-attacks-at-site', siteDefinitionId: siteDefId };
     }
     case 'cross-alignment-resources-unlocked': {
-      // Double-dealing (wh-66): bind to the site the card is played on (the
-      // active company's current site during the site phase) so cross-alignment
-      // resources may be played there.
-      const siteDefId = activeCompanySiteDefId(state);
+      // Double-dealing (wh-66): bind to the site the card is played on. The play
+      // action carries the bound site (`explicitSiteDefId`); these site-targeting
+      // Stage resources are played during the organization phase (rule 5.F1),
+      // where there is no active site-phase company, so prefer the explicit site.
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'cross-alignment-resources-unlocked', siteDefinitionId: siteDefId };
     }
     case 'site-protected': {
-      // Guarded Haven (wh-74): bind to the Wizardhaven the card is played on
-      // (the active company's current site during the site phase) so the
+      // Guarded Haven (wh-74) / The Fortress of Isen (wh-68) / Fortress of the
+      // Towers (wh-69): bind to the Wizardhaven the card is played on so the
       // opponent may not play marshalling-point cards at any version of it.
-      const siteDefId = activeCompanySiteDefId(state);
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'site-protected', siteDefinitionId: siteDefId };
     }
     case 'technology-item-unlocked': {
       // Saruman's Machinery (wh-120): bind to the protected Isengard / The
-      // White Towers the card is played on (the active company's current site
-      // during the site phase) so one Technology item may be played there
-      // whether the site is tapped or untapped.
-      const siteDefId = activeCompanySiteDefId(state);
+      // White Towers the card is played on so one Technology item may be played
+      // there whether the site is tapped or untapped.
+      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
       if (!siteDefId) return null;
       return { type: 'technology-item-unlocked', siteDefinitionId: siteDefId };
     }
@@ -1487,7 +1487,15 @@ function applyAddConstraintFromOnEvent(
       return state;
   }
 
-  const kind = buildConstraintKind(state, effect, constraintKind);
+  // Site-targeting permanent events carry the site they were played on in the
+  // chain payload (set by the play action's `targetSiteDefinitionId`). Pass it
+  // through so site-bound constraints resolve correctly even outside the site
+  // phase — e.g. Stage resources played during the organization phase (rule
+  // 5.F1: The Fortress of Isen wh-68, Guarded Haven wh-74, …).
+  const boundSiteDefId = entry.payload?.type === 'permanent-event'
+    ? entry.payload.targetSiteDefinitionId
+    : undefined;
+  const kind = buildConstraintKind(state, effect, constraintKind, boundSiteDefId);
   if (!kind) {
     logDetail(`add-constraint: unsupported constraint kind "${constraintKind}" — fizzle`);
     return state;

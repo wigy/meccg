@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -812,6 +812,15 @@ function playResourcesActions(
     if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
       const eventDef: HeroResourceEventCard | MinionResourceEventCard = def;
       if (eventDef.eventType === 'permanent') {
+        // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events can only be
+        // played during the organization phase. Site-targeting Stage resources
+        // (The Fortress of Isen wh-68, Guarded Haven wh-74, …) are offered there
+        // (see legal-actions/organization-events.ts), not in the site phase — so
+        // leave them unevaluated here and they fall through to "not playable".
+        if ((eventDef as { alignment?: string }).alignment === 'stage') {
+          logDetail(`Permanent event ${eventDef.name}: Stage resource — only playable during the organization phase (rule 5.F1)`);
+          continue;
+        }
         evaluatedInstances.add(cardInstanceId as string);
 
         // Check uniqueness
@@ -903,34 +912,7 @@ function playResourcesActions(
         // duplication-limit: scope "site" — only one copy per site (across all companies at this site)
         const siteDupLimit = findDuplicationLimitEffect(eventDef, 'site');
         if (siteDupLimit && siteDefId) {
-          const copiesAtSite = state.players.reduce((count, p) => {
-            // Copies borne as items by characters whose company is at the site
-            // (e.g. War-forges-style permanent events attached to a character).
-            for (const co of p.companies) {
-              const coSiteDefId = co.currentSite
-                ? resolveInstanceId(state, co.currentSite.instanceId)
-                : undefined;
-              if (coSiteDefId !== siteDefId) continue;
-              for (const cId of co.characters) {
-                const ch = p.characters[cId as string];
-                if (!ch) continue;
-                count += ch.items.filter(item => {
-                  const iDef = defById(state, item.definitionId);
-                  return iDef && iDef.name === eventDef.name;
-                }).length;
-              }
-            }
-            // Copies bound to the site itself (site-attached permanent events
-            // that live in cardsInPlay with attachedToSite, e.g. Guarded Haven
-            // wh-74). These are not on a character, so they would otherwise be
-            // missed by the per-company item scan above.
-            count += p.cardsInPlay.filter(c => {
-              if (c.attachedToSite !== siteDefId) return false;
-              const cDef = defById(state, c.definitionId);
-              return cDef && cDef.name === eventDef.name;
-            }).length;
-            return count;
-          }, 0);
+          const copiesAtSite = countPermanentEventCopiesAtSite(state, eventDef.name, siteDefId);
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: site duplication limit reached at ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated at ${siteName}`));

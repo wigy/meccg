@@ -39,7 +39,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, RESOURCE_PLAYER,
-  resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
+  resetMint, buildFallenWizardSitePhaseState, buildFallenWizardOrgPhaseState, playPermanentEventAndResolve,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
@@ -77,7 +77,7 @@ describe('Double-dealing (wh-66)', () => {
   // ── Rule 1: playable on a site, binding to it ───────────────────────────────
 
   test('playable on a site — the play action binds the card to that site', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: CAVES_OF_ULUND_MINION, characters: [ARAGORN], hand: [DOUBLE_DEALING],
     });
     const id = instanceOf(state, DOUBLE_DEALING);
