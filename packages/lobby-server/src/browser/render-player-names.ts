@@ -136,6 +136,12 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   if (selfEl) { selfEl.textContent = view.self.name; selfEl.title = view.self.name; }
   if (oppEl) { oppEl.textContent = view.opponent.name; oppEl.title = view.opponent.name; }
 
+  // Highlight the name of the player whose turn it currently is.
+  const selfActive = !isGameOver && view.activePlayer === view.self.id;
+  const oppActive = !isGameOver && view.activePlayer === view.opponent.id;
+  selfEl?.classList.toggle('player-label--active', selfActive);
+  oppEl?.classList.toggle('player-label--active', oppActive);
+
   // During character draft, compute GI from drafted characters instead of in-play characters
   let selfGI: number;
   let oppGI: number;
