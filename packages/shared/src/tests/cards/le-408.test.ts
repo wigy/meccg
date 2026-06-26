@@ -21,7 +21,7 @@
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven in card pool                    |
  * | 4 | region            | OK     | "Woodland Realm" — valid region in card pool                      |
  * | 5 | playableResources | OK     | [information, minor, major, gold-ring] — matches card text        |
- * | 6 | automaticAttacks  | OK     | 2 Elves attacks (detainment-vs-covert + overt-only) — data only   |
+ * | 6 | automaticAttacks  | OK     | 2 Elves attacks (each-character detainment-vs-covert + overt-only) |
  * | 7 | resourceDraws     | OK     | 1                                                                 |
  * | 8 | hazardDraws       | OK     | 2                                                                 |
  *
@@ -32,27 +32,37 @@
  * | 2 | Haven path movement        | IMPLEMENTED     | movement-map.ts resolves nearestHaven ↔ Dol Guldur      |
  * | 3 | Region movement            | IMPLEMENTED     | regional distance from Southern Mirkwood                |
  * | 4 | Card draws                 | IMPLEMENTED     | resourceDraws / hazardDraws thread through M/H phase    |
- * | 5 | Automatic attacks at site  | NOT IMPLEMENTED | auto-attack trigger is stubbed; data-only for now       |
+ * | 5 | Automatic attacks at site  | IMPLEMENTED     | 1st: each-character, detainment gated on defender.covert |
+ * |   |                            |                 | 2nd: 3-strike attack restricted to overt (appliesTo)    |
  *
  * Playable: YES (no special effects; all data fields are routed through
- *   engine machinery that is already implemented. The two auto-attacks
- *   are carried as data for the future auto-attack wiring — no card
- *   text asks for anything beyond the standard auto-attack flow.)
+ *   engine machinery that is already implemented. The 1st auto-attack is
+ *   encoded as strikes: 1 + combatRules ["each-character"] with a
+ *   combat-detainment effect gated on defender.covert; the 2nd carries
+ *   appliesTo: "overt" so only an overt company faces it.)
  *
  * Certified: 2026-04-19
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { resetMint, pool, LORIEN } from '../test-helpers.js';
+import { resetMint, pool, LORIEN, PLAYER_1, setupRingwraithAutoAttack } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import {
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
 import type { SiteCard } from '../../index.js';
 
 const THRANDUILS_HALLS_LE = 'le-408' as CardDefinitionId;
 const THRANDUILS_HALLS_TW = 'tw-432' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+
+// Each-character auto-attack fixture: Men keep a Ringwraith company covert; an
+// Orc makes it overt (toggling the detainment-vs-covert effect and exposing the
+// company to the overt-only 2nd attack).
+const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
+const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
 describe("Thranduil’s Halls (le-408)", () => {
   beforeEach(() => resetMint());
@@ -137,5 +147,45 @@ describe("Thranduil’s Halls (le-408)", () => {
 
     expect(havenLinks).toBeDefined();
     expect(havenLinks!.has("Thranduil’s Halls")).toBe(false);
+  });
+
+  // ─── Automatic attacks: 1st Elves each-character, 2nd overt-only ────────────
+  // Engine-driven regression for the each-character encoding (strikes: 1 +
+  // combatRules ["each-character"]) on the 1st attack and appliesTo: "overt"
+  // on the 2nd. The first pass triggers the 1st (each-character) attack.
+
+  test('each-character: 1st Elves attack pre-assigns one strike per character (strikesTotal = company size)', () => {
+    const state = setupRingwraithAutoAttack(THRANDUILS_HALLS_LE, [THE_MOUTH, ASTERNAK, ORC_CAPTAIN]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('elf');
+    expect(after.combat!.strikeProwess).toBe(9);
+    expect(after.combat!.strikesTotal).toBe(3);
+    expect(after.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(after.combat!.phase).not.toBe('assign-strikes');
+    expect(after.combat!.assignmentPhase).toBe('done');
+  });
+
+  test('covert company: the 1st Elves each-character attack is detainment', () => {
+    const state = setupRingwraithAutoAttack(THRANDUILS_HALLS_LE, [THE_MOUTH, ASTERNAK]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(true);
+  });
+
+  test('overt company: the 1st Elves each-character attack is NOT detainment', () => {
+    const state = setupRingwraithAutoAttack(THRANDUILS_HALLS_LE, [ORC_CAPTAIN, THE_MOUTH]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(false);
   });
 });

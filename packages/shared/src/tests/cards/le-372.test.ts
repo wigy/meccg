@@ -24,7 +24,7 @@
  * | 3 | nearestHaven      | OK     | "Minas Morgul" — valid minion haven in card pool (le-390)              |
  * | 4 | region            | OK     | "Rohan" — reachable from Imlad Morgul within 4 regions                 |
  * | 5 | playableResources | OK     | [gold-ring] — matches card text                                        |
- * | 6 | automaticAttacks  | OK     | Men, prowess 10, each-character / detainment-vs-covert — data only     |
+ * | 6 | automaticAttacks  | OK     | Men, prowess 10, each-character / detainment-vs-covert                 |
  * | 7 | resourceDraws     | OK     | 2                                                                      |
  * | 8 | hazardDraws       | OK     | 3                                                                      |
  *
@@ -35,28 +35,36 @@
  * | 2 | Haven path movement        | IMPLEMENTED     | movement-map.ts resolves nearestHaven ↔ Minas Morgul   |
  * | 3 | Region movement            | IMPLEMENTED     | region distance via Ithilien → Anórien → Rohan         |
  * | 4 | Card draws                 | IMPLEMENTED     | resourceDraws / hazardDraws thread through M/H phase   |
- * | 5 | Automatic attacks at site  | NOT IMPLEMENTED | auto-attack trigger is stubbed; data-only for now      |
+ * | 5 | Automatic attacks at site  | IMPLEMENTED     | each-character: one strike per character; detainment   |
+ * |   |                            |                 | gated on defender.covert (combat-detainment effect)    |
  *
  * Playable: YES (no special effects; the card's data fields all route
- *   through engine machinery that is already implemented. The custom
- *   "each character faces 1 strike" auto-attack is carried as data for
- *   the future auto-attack wiring — no card text asks for anything
- *   beyond the standard auto-attack flow.)
+ *   through engine machinery that is already implemented. The
+ *   "each character faces 1 strike" auto-attack is encoded as
+ *   strikes: 1 + combatRules ["each-character"], with detainment-vs-covert
+ *   expressed by a combat-detainment effect gated on defender.covert.)
  *
  * Certified: 2026-04-19
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { resetMint, pool, LORIEN } from '../test-helpers.js';
+import { resetMint, pool, LORIEN, PLAYER_1, setupRingwraithAutoAttack } from '../test-helpers.js';
 import type { CardDefinitionId, SiteCard } from '../../index.js';
 import {
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
 
 const EDORAS_LE = 'le-372' as CardDefinitionId;
 const EDORAS_TW = 'tw-394' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+
+// Each-character auto-attack fixture: Men keep a Ringwraith company covert; an
+// Orc makes it overt (toggling the detainment-vs-covert effect).
+const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
+const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
 describe('Edoras (le-372)', () => {
   beforeEach(() => resetMint());
@@ -154,5 +162,44 @@ describe('Edoras (le-372)', () => {
 
     expect(havenLinks).toBeDefined();
     expect(havenLinks!.has('Edoras')).toBe(false);
+  });
+
+  // ─── Automatic attack: Men, each character faces 1 strike ───────────────────
+  // Engine-driven regression for the each-character encoding (strikes: 1 +
+  // combatRules ["each-character"]); detainment gated on defender.covert.
+
+  test('each-character: Men attack pre-assigns one strike per character (strikesTotal = company size)', () => {
+    const state = setupRingwraithAutoAttack(EDORAS_LE, [THE_MOUTH, ASTERNAK, ORC_CAPTAIN]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('man');
+    expect(after.combat!.strikeProwess).toBe(10);
+    expect(after.combat!.strikesTotal).toBe(3);
+    expect(after.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(after.combat!.phase).not.toBe('assign-strikes');
+    expect(after.combat!.assignmentPhase).toBe('done');
+  });
+
+  test('covert company: the Men each-character attack is detainment', () => {
+    const state = setupRingwraithAutoAttack(EDORAS_LE, [THE_MOUTH, ASTERNAK]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(true);
+  });
+
+  test('overt company: the Men each-character attack is NOT detainment', () => {
+    const state = setupRingwraithAutoAttack(EDORAS_LE, [ORC_CAPTAIN, THE_MOUTH]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(false);
   });
 });

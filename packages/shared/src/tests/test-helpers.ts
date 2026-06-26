@@ -2297,6 +2297,67 @@ export function setupAutoAttackStep<T extends GameState>(state: T): T {
 }
 
 /**
+ * Build a Ringwraith site-phase state stopped at the `automatic-attacks` step,
+ * with `characters` forming a single company at `site`. Used to drive a minion
+ * site's "each character faces 1 strike" automatic attack (e.g. Beorn's House,
+ * Edoras, Raider-hold, Thranduil's Halls, Variag Camp, The Worthy Hills). The
+ * opponent sits at Minas Morgul so the state is a valid two-player game.
+ *
+ * Pass an all-Men/Elves company for a covert company (detainment fires) or
+ * include an Orc (e.g. le-31) to make the company overt.
+ *
+ * @param site - Minion site definition ID hosting the each-character attack.
+ * @param characters - Character definition IDs forming the entering company.
+ */
+export function setupRingwraithAutoAttack(
+  site: CardDefinitionId,
+  characters: CardDefinitionId[],
+): GameState {
+  const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+  const DOL_GULDUR = 'le-367' as CardDefinitionId;
+  const LAGDUF = 'le-18' as CardDefinitionId;
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Site,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site, characters }],
+        hand: [],
+        siteDeck: [MINAS_MORGUL],
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }],
+        hand: [],
+        siteDeck: [DOL_GULDUR],
+      },
+    ],
+  });
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'automatic-attacks',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: false,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+  return { ...base, phaseState: sitePhaseState };
+}
+
+/**
  * Run through auto-attack combat at a site. Triggers the attack via a pass
  * action, assigns a single strike to the specified character, resolves it
  * with the given dice roll, and optionally handles the body check.

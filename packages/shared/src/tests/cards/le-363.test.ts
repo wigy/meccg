@@ -18,7 +18,7 @@
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven (le-367)                    |
  * | 4 | region            | OK     | "Northern Rhovanion" — valid region in card pool              |
  * | 5 | playableResources | OK     | [gold-ring] — matches text                                    |
- * | 6 | automaticAttacks  | OK     | Men, prowess 5, each character 1 strike, detainmentAgainstCovert |
+ * | 6 | automaticAttacks  | OK     | Men, prowess 5, each-character / detainment-vs-covert         |
  * | 7 | resourceDraws     | OK     | 2                                                             |
  * | 8 | hazardDraws       | OK     | 2                                                             |
  *
@@ -29,25 +29,33 @@
  * | 2 | Haven path movement     | IMPLEMENTED    | movement-map.ts resolves nearestHaven → Dol Guldur |
  * | 3 | Region movement         | IMPLEMENTED    | regional distance from Southern Mirkwood      |
  * | 4 | Card draws              | IMPLEMENTED    | resourceDraws/hazardDraws used                |
- * | 5 | Automatic attack combat | STUBBED        | pass-through (engine-wide limitation)         |
+ * | 5 | Automatic attack combat | IMPLEMENTED    | each-character: one strike per character; detainment   |
+ * |   |                         |                | gated on defender.covert (combat-detainment effect)    |
  *
  * Playable: YES
  * Certified: 2026-06-04
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { resetMint, pool } from '../test-helpers.js';
+import { resetMint, pool, PLAYER_1, setupRingwraithAutoAttack } from '../test-helpers.js';
 import {
   isSiteCard,
   buildMovementMap,
   getReachableSites,
 } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
 import type { CardDefinitionId, SiteCard } from '../../index.js';
 
 const DALE_MINION = 'le-363' as CardDefinitionId;
 const DALE_HERO = 'td-174' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+
+// Each-character auto-attack fixture: Men keep a Ringwraith company covert; an
+// Orc makes it overt (toggling the detainment-vs-covert effect).
+const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
+const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
 describe('Dale (le-363)', () => {
   beforeEach(() => resetMint());
@@ -125,5 +133,44 @@ describe('Dale (le-363)', () => {
 
     expect(havenLinks).toBeDefined();
     expect(havenLinks!.has('Dale')).toBe(false);
+  });
+
+  // ─── Automatic attack: Men, each character faces 1 strike ───────────────────
+  // Engine-driven regression for the each-character encoding (strikes: 1 +
+  // combatRules ["each-character"]); detainment gated on defender.covert.
+
+  test('each-character: Men attack pre-assigns one strike per character (strikesTotal = company size)', () => {
+    const state = setupRingwraithAutoAttack(DALE_MINION, [THE_MOUTH, ASTERNAK, ORC_CAPTAIN]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('man');
+    expect(after.combat!.strikeProwess).toBe(5);
+    expect(after.combat!.strikesTotal).toBe(3);
+    expect(after.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(after.combat!.phase).not.toBe('assign-strikes');
+    expect(after.combat!.assignmentPhase).toBe('done');
+  });
+
+  test('covert company: the Men each-character attack is detainment', () => {
+    const state = setupRingwraithAutoAttack(DALE_MINION, [THE_MOUTH, ASTERNAK]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(true);
+  });
+
+  test('overt company: the Men each-character attack is NOT detainment', () => {
+    const state = setupRingwraithAutoAttack(DALE_MINION, [ORC_CAPTAIN, THE_MOUTH]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(false);
   });
 });

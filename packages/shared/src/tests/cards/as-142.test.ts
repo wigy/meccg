@@ -16,10 +16,10 @@
  *   Special: During the site phase, you may tap two characters to untap this site—
  *            one a sage, one a scout.
  *
- * Note: The "each character faces 1 strike" mechanic (rule 8.07) is not yet fully
- * implemented in the engine (strikesTotal is stored as -1, the per-character
- * conversion is a future engine TODO). The detainment effect and the grant-action
- * are both fully implemented and tested here.
+ * Note: The "each character faces 1 strike" mechanic (rule 8.07) is encoded as
+ * strikes: 1 + combatRules ["each-character"]; the engine pre-assigns one strike
+ * per character so strikesTotal equals the company size. This site's detainment
+ * is unconditional (a plain combat-detainment effect, not gated on covert).
  *
  * Site Structural Checks:
  * | # | Property          | Status | Notes                                                          |
@@ -29,7 +29,7 @@
  * | 3 | nearestHaven      | OK     | "Rivendell" — valid hero haven (tw-392)                        |
  * | 4 | region            | OK     | "Cardolan"                                                     |
  * | 5 | playableResources | OK     | [information] — matches text; engine gates non-info items      |
- * | 6 | automaticAttacks  | OK     | Men, prowess 9, each-character (strikes=-1)                    |
+ * | 6 | automaticAttacks  | OK     | Men, prowess 9, each-character (strikes=1)                     |
  * | 7 | effects           | OK     | combat-detainment + grant-action untap-site                    |
  * | 8 | resourceDraws     | OK     | 1                                                              |
  * | 9 | hazardDraws       | OK     | 2                                                              |
@@ -40,7 +40,7 @@
  * | 1 | Site phase flow                           | IMPLEMENTED | select-company, enter-or-skip, play-resources  |
  * | 2 | Automatic attack trigger                  | IMPLEMENTED | combat initiated via automatic-attacks step    |
  * | 3 | Detainment (combat-detainment effect)     | IMPLEMENTED | isDetainmentAttack() reads siteDef.effects     |
- * | 4 | Each-char-faces-1-strike (rule 8.07 data) | DATA ONLY   | strikes=-1 encoding; full semantics are a TODO |
+ * | 4 | Each-char-faces-1-strike (rule 8.07)      | IMPLEMENTED | strikes=1 + combatRules ["each-character"]     |
  * | 5 | Information playability gate              | IMPLEMENTED | playableResources gates non-information items  |
  * | 6 | Grant-action: tap sage+scout to untap site| IMPLEMENTED | sitePhaseGrantActions + untap-site apply       |
  * | 7 | Haven path movement                       | IMPLEMENTED | movement-map.ts resolves Rivendell ↔ Cardolan  |
@@ -111,6 +111,24 @@ describe('The Worthy Hills (as-142)', () => {
     const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();
     expect(next.combat!.detainment).toBe(true);
+  });
+
+  test('each-character: one strike per character (strikesTotal = company size)', () => {
+    // Regression for the each-character encoding (strikes: 1 + combatRules
+    // ["each-character"]). The earlier authoring used the sentinel strikes: -1,
+    // which opened combat with strikesTotal: -1 and stalled assignment.
+    const state = buildSitePhaseState({
+      site: THE_WORTHY_HILLS,
+      characters: [ELROND_DEF, ARAGORN_DEF, BILBO_DEF],
+    });
+    const readyState = setupAutoAttackStep(state);
+
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(3);
+    expect(next.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(next.combat!.phase).not.toBe('assign-strikes');
+    expect(next.combat!.assignmentPhase).toBe('done');
   });
 
   // ─── Playable: Information — non-information items are not offered ────────────

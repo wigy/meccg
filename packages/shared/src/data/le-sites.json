@@ -385,10 +385,19 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 10,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 1,
@@ -507,10 +516,19 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 10,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
@@ -572,16 +590,25 @@
     "automaticAttacks": [
       {
         "creatureType": "Elves",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 9,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
       },
       {
         "creatureType": "Elves",
         "strikes": 3,
         "prowess": 10,
-        "special": "against overt company only"
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 1,
@@ -857,10 +884,19 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 5,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
@@ -1149,13 +1185,20 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 7,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
       }
     ],
     "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
       {
         "type": "site-rule",
         "rule": "deny-item",
@@ -1433,10 +1476,19 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 5,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,

@@ -18,7 +18,7 @@
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven in card pool (le-367)          |
  * | 4 | region            | OK     | "Horse Plains" — valid region in card pool                       |
  * | 5 | playableResources | OK     | [minor, major] — matches card text                               |
- * | 6 | automaticAttacks  | OK     | Men, prowess 7, each-char/detainment-vs-covert — data only       |
+ * | 6 | automaticAttacks  | OK     | Men, prowess 7, each-character / detainment-vs-covert           |
  * | 7 | resourceDraws     | OK     | 2                                                                |
  * | 8 | hazardDraws       | OK     | 2                                                                |
  *
@@ -32,7 +32,8 @@
  * | 5 | Minor items playable            | IMPLEMENTED | playableResources includes "minor"                    |
  * | 6 | Major item restriction          | IMPLEMENTED | site-rule deny-item blocks non-weapon/armor/shield/   |
  * |   |                                 |             | helmet major items                                    |
- * | 7 | Automatic attack combat         | STUBBED     | pass-through (engine-wide limitation)                 |
+ * | 7 | Automatic attack combat         | IMPLEMENTED | each-character: one strike per character; detainment  |
+ * |   |                                 |             | gated on defender.covert (combat-detainment effect)   |
  *
  * Keyword data fixes applied:
  *   tw-212 (Durin's Axe): added "weapon" keyword
@@ -49,7 +50,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   resetMint, pool,
-  buildTestState, viableActions,
+  buildTestState, viableActions, setupRingwraithAutoAttack,
   GLAMDRING, SAPLING_OF_THE_WHITE_TREE, HAUBERK_OF_BRIGHT_MAIL,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
@@ -57,6 +58,7 @@ import {
   Alignment, Phase,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
 import type { CardDefinitionId, SiteCard, SitePhaseState } from '../../index.js';
 
 const RAIDER_HOLD = 'le-399' as CardDefinitionId;
@@ -66,6 +68,12 @@ const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 // Minion characters for the Ringwraith-player fixture
 const GORBAG = 'le-11' as CardDefinitionId;
 const LAGDUF = 'le-18' as CardDefinitionId;
+
+// Each-character auto-attack fixture: Men keep a Ringwraith company covert; an
+// Orc makes it overt (toggling the detainment-vs-covert effect).
+const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
+const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
 // Minion items for restriction tests
 const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;   // minor, weapon
@@ -241,16 +249,48 @@ describe('Raider-hold (le-399)', () => {
     expect(denyRule).toBeDefined();
   });
 
-  // ─── Site data: automaticAttacks present ────────────────────────────────────
+  // ─── Automatic attack: Men, each character faces 1 strike ───────────────────
+  // Engine-driven regression for the each-character encoding (strikes: 1 +
+  // combatRules ["each-character"]). The earlier authoring used the unsupported
+  // sentinel strikes: -1 / detainmentAgainstCovert, which opened combat with
+  // strikesTotal: -1 and stalled per-character assignment.
 
-  test('Raider-hold has one automatic attack defined', () => {
-    const raiderHold = pool[RAIDER_HOLD as string] as SiteCard;
-    expect(raiderHold.automaticAttacks).toHaveLength(1);
-    const attack = raiderHold.automaticAttacks[0];
-    expect(attack.creatureType).toBe('Men');
-    expect(attack.prowess).toBe(7);
-    // strikes: -1 is the sentinel meaning "each character faces 1 strike"
-    expect(attack.strikes).toBe(-1);
-    expect((attack as { detainmentAgainstCovert?: boolean }).detainmentAgainstCovert).toBe(true);
+  test('each-character: Men attack pre-assigns one strike per character (strikesTotal = company size)', () => {
+    const state = setupRingwraithAutoAttack(RAIDER_HOLD, [THE_MOUTH, ASTERNAK, ORC_CAPTAIN]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.creatureRace).toBe('man');
+    expect(after.combat!.strikeProwess).toBe(7);
+    expect(after.combat!.strikesTotal).toBe(3);
+    expect(after.combat!.eachCharacterFacesOneStrike).toBe(true);
+    // Assignment is automatic — combat does not stall in `assign-strikes`.
+    expect(after.combat!.phase).not.toBe('assign-strikes');
+    expect(after.combat!.assignmentPhase).toBe('done');
+  });
+
+  test('covert company: the Men each-character attack is detainment', () => {
+    // An all-Men Ringwraith company is covert; the combat-detainment effect
+    // (gated on defender.covert) makes the attack detainment.
+    const state = setupRingwraithAutoAttack(RAIDER_HOLD, [THE_MOUTH, ASTERNAK]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(true);
+  });
+
+  test('overt company: the Men each-character attack is NOT detainment', () => {
+    // An Orc makes the company overt; the detainment guard no longer fires.
+    const state = setupRingwraithAutoAttack(RAIDER_HOLD, [ORC_CAPTAIN, THE_MOUTH]);
+
+    const { state: after, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.detainment).toBe(false);
   });
 });
