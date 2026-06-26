@@ -132,14 +132,23 @@ preflight_token() {
     > "$tmp" 2>&1 &
   local pid=$!
 
+  # Precise auth-failure markers. Deliberately NOT a bare "401": the
+  # stream-json output is full of UUIDs/request-ids whose hex happens to
+  # contain "401" (e.g. ...-ba7a-401e-...), which a loose pattern misreads as
+  # a 401 and intermittently fails a perfectly good token. Each alternative
+  # below requires structured context that only a real auth error produces.
+  local auth_re='"status":[[:space:]]*401|authentication_error|"type":[[:space:]]*"error".*"type":[[:space:]]*"authentication|invalid (bearer token|api key|x-api-key|authentication credentials)|oauth token (has )?expired|please run.*(/login|setup-token)'
+
   local deadline=$(( $(date +%s) + 120 ))
   local verdict=""
   while kill -0 "$pid" 2>/dev/null; do
-    if grep -qiE '401|authentication_error|invalid.*(authentication|token|api key)|oauth.*(expired|invalid)|please run.*login' "$tmp" 2>/dev/null; then
-      verdict="invalid"; break
-    fi
+    # Wait for the terminal result line, then classify it below — don't try to
+    # judge mid-stream (partial output is where the false positives live).
     if grep -q '"type":"result"' "$tmp" 2>/dev/null; then
-      verdict="valid"; break
+      break
+    fi
+    if grep -qiE "$auth_re" "$tmp" 2>/dev/null; then
+      verdict="invalid"; break
     fi
     if [ "$(date +%s)" -ge "$deadline" ]; then
       verdict="timeout"; break
@@ -154,10 +163,12 @@ preflight_token() {
   kill -KILL "$pid" 2>/dev/null || true
 
   if [ -z "$verdict" ]; then
-    if grep -qiE '401|authentication_error|invalid.*(authentication|token|api key)' "$tmp" 2>/dev/null; then
-      verdict="invalid"
-    elif grep -q '"type":"result","subtype":"success"' "$tmp" 2>/dev/null; then
+    # Trust the success marker first: a clean trivial reply means the token
+    # authenticated, regardless of any incidental hex in the stream.
+    if grep -q '"type":"result","subtype":"success","is_error":false' "$tmp" 2>/dev/null; then
       verdict="valid"
+    elif grep -qiE "$auth_re" "$tmp" 2>/dev/null; then
+      verdict="invalid"
     else
       verdict="unknown"
     fi
@@ -171,7 +182,7 @@ preflight_token() {
       return 0 ;;
     invalid)
       echo "[run-ai] ERROR: the OAuth token is invalid or expired (claude refused to authenticate)." | tee -a "$LOG_FILE" >&2
-      grep -iE '401|authentication|oauth|expired|login' "$tmp" 2>/dev/null | tail -3 | sed 's/^/[run-ai]   /' >&2 || true
+      grep -iE "$auth_re" "$tmp" 2>/dev/null | tail -3 | sed 's/^/[run-ai]   /' >&2 || true
       print_token_help
       rm -f "$tmp"
       return 1 ;;
