@@ -738,10 +738,14 @@ function playResourcesActions(
   const siteDefId = siteInstanceId ? resolveInstanceId(state, siteInstanceId) : undefined;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
   // Hidden Haven (wh-75): "Nothing is considered playable as written on the
-  // site card." When the company's site has been converted, the site's printed
-  // playable-resource categories (minor/major/greater items, gold-ring,
-  // information) are nullified, and factions/allies that would be playable at
-  // the site as written are blocked below.
+  // site card." This nullifies only the resource categories printed on the site
+  // card itself — its `playableResources` list (minor/major/greater items,
+  // gold-ring, information). Factions and allies are NOT written on the site
+  // card: their playability comes from the faction/ally card naming the site
+  // (CoE 2.V.3, 7.x), so they remain playable at the converted site. This is the
+  // canonical Hidden Haven combo — neutralise a Ruins & Lairs' automatic-attacks
+  // (e.g. Ettenmoors' Trolls/Wolves) and then safely influence the faction that
+  // names it (Misty Mountain Wargs, le-272).
   const nothingPlayableAsWritten = !!siteDefId && state.activeConstraints.some(
     c => c.kind.type === 'site-nothing-playable-as-written' && c.kind.siteDefinitionId === siteDefId,
   );
@@ -750,7 +754,7 @@ function playResourcesActions(
     : siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
   const siteName = siteDef?.name ?? 'unknown site';
   if (nothingPlayableAsWritten) {
-    logDetail(`Site ${siteName}: nothing playable as written (Hidden Haven) — printed resources, factions, and allies suppressed`);
+    logDetail(`Site ${siteName}: nothing playable as written (Hidden Haven) — printed resource categories suppressed (factions/allies that name the site remain playable)`);
   }
 
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
@@ -1387,7 +1391,10 @@ function playResourcesActions(
       const allyEffSiteType = siteDefForAlly && siteDefId
         ? getEffectiveSiteType(state, siteDefId, siteDefForAlly.siteType)
         : siteDefForAlly?.siteType;
-      const matchesPlayableAt = !nothingPlayableAsWritten && siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
+      // `nothingPlayableAsWritten` (Hidden Haven) does NOT gate allies: an ally's
+      // playability is written on the ally card naming the site, not on the site
+      // card's printed resource list — so it survives the conversion.
+      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
@@ -1472,12 +1479,15 @@ function playResourcesActions(
         continue;
       }
 
-      // Check faction is playable at this site
+      // Check faction is playable at this site. `nothingPlayableAsWritten`
+      // (Hidden Haven) does NOT gate factions: a faction's playability is written
+      // on the faction card naming the site (CoE 2.V.3), not on the site card's
+      // printed resource list — so it survives the conversion to a Wizardhaven.
       const siteDefForFaction = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       const factionEffSiteType = siteDefForFaction && siteDefId
         ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType)
         : siteDefForFaction?.siteType;
-      if (!siteDefForFaction || nothingPlayableAsWritten || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));

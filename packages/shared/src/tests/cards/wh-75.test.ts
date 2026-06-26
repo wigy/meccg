@@ -24,8 +24,13 @@
  *     the site as the converting Fallen-wizard's Wizardhaven even though its
  *     printed type is Ruins & Lairs and its alignment is not `fallen-wizard`;
  *   - `skip-automatic-attacks` → the site's automatic-attacks are removed;
- *   - `site-nothing-playable-as-written` → the site's printed playable resources
- *     and the factions/allies playable there as written are suppressed;
+ *   - `site-nothing-playable-as-written` → the site's printed playable resource
+ *     categories (its `playableResources`: items, gold-ring, information) are
+ *     suppressed. Factions and allies are NOT written on the site card — their
+ *     playability comes from the faction/ally card naming the site (CoE 2.V.3) —
+ *     so they remain playable at the converted site (the canonical combo: clear
+ *     a Ruins & Lairs' automatic-attacks, then safely influence the faction that
+ *     names it, e.g. Misty Mountain Wargs at Ettenmoors);
  *   - `cancel-attacks-at-site` → attacks against a company staying at the site
  *     are canceled: Site-phase on-guard creatures (reducer-site.ts) and
  *     movement/hazard keyed creatures (chain-reducer `initiateCreatureCombat`).
@@ -43,6 +48,7 @@
  * | 3 | the site becomes one of your Wizardhavens                     | OK     |
  * | 4 | loses all automatic-attacks                                   | OK     |
  * | 5 | nothing is considered playable as written on the site card    | OK     |
+ * | 5b| …but a faction that names the site stays playable (regression) | OK     |
  * | 6 | all attacks against a company at this site are canceled        | OK     |
  * | 7 | discarded when the site leaves play                            | OK     |
  * | 8 | drafted as a Stage resource during the character draft (1.50)  | OK     |
@@ -86,6 +92,16 @@ const HIMRING = 'as-150' as CardDefinitionId;         // Ruins & Lairs in Elven 
 // ringwraith-aligned site (no cross-alignment site-tap block), and with no
 // play-site restriction of its own.
 const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;
+
+// Ettenmoors (le-373): Ruins & Lairs in Rhudaur (wilderness) — Hidden-Haven
+// eligible. Its printed playable resources are minor items, and it carries
+// Troll/Wolf automatic-attacks. Misty Mountain Wargs (le-272) is the unique
+// faction that names Ettenmoors on its own card; Troll-chief (le-45) is a Troll
+// Leader who can attempt the influence (and take the faction under leader
+// control). Mirrors the reported game (mquxfmpa-ht4isa, seq 228).
+const ETTENMOORS = 'le-373' as CardDefinitionId;
+const MISTY_MOUNTAIN_WARGS = 'le-272' as CardDefinitionId;
+const TROLL_CHIEF = 'le-45' as CardDefinitionId;
 
 // A hazard creature, used as a revealed on-guard attack for the cancellation test.
 const STOUT_MEN = 'as-21' as CardDefinitionId;
@@ -250,6 +266,31 @@ describe('Hidden Haven (wh-75)', () => {
     expect(playableBefore(before)).toBe(true);
     const after = convert(before, BANDIT_LAIR);
     expect(playableBefore(after)).toBe(false);
+  });
+
+  // Regression (game mquxfmpa-ht4isa, seq 228): a Fallen-wizard had Hidden Haven
+  // on Ettenmoors (its starting Wizardhaven) with a Troll-chief company there and
+  // Misty Mountain Wargs in hand. The faction names Ettenmoors on its OWN card, so
+  // "nothing playable as written on the site card" must NOT suppress it — the
+  // wargs should still be playable. The engine wrongly blocked them.
+  test('a faction that names the converted site is STILL playable after conversion', () => {
+    const before = buildFallenWizardSitePhaseState({
+      site: ETTENMOORS, characters: [TROLL_CHIEF], hand: [HIDDEN_HAVEN, MISTY_MOUNTAIN_WARGS],
+    });
+    const wargsId = before.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === MISTY_MOUNTAIN_WARGS)!.instanceId;
+
+    const wargsInfluenceAttempt = (s: GameState) => computeLegalActions(s, PLAYER_1).some(
+      a => a.viable && a.action.type === 'influence-attempt'
+        && (a.action as { factionInstanceId?: CardInstanceId }).factionInstanceId === wargsId,
+    );
+
+    // Playable as a normal influence attempt before conversion …
+    expect(wargsInfluenceAttempt(before)).toBe(true);
+    // … and still playable after Hidden Haven converts Ettenmoors to a Wizardhaven
+    // (this is the whole point: clear the Troll/Wolf auto-attacks, then influence
+    // the wargs safely).
+    const after = convert(before, ETTENMOORS);
+    expect(wargsInfluenceAttempt(after)).toBe(true);
   });
 
   // ── Rule 5: all attacks against a company at this site are canceled ──────────
