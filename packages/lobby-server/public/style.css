@@ -4525,10 +4525,14 @@ body.all-companies-mode:has(#debug-view.hidden) {
 .company-card--site {
 }
 
-/* On-guard card wrapper: positioned container so on-guard cards stack over the site */
+/* On-guard card wrapper: positioned container so on-guard cards stack over the site.
+   Sits one layer above the site-attachments strip (--z-attachment) so on-guard cards,
+   which offset downward over that strip, render on top of cards bound to the site
+   (e.g. Hidden Haven) rather than underneath them. */
 .on-guard-wrapper {
   position: relative;
   display: inline-block;
+  z-index: calc(var(--z-attachment) + 1);
 }
 
 /* On-guard cards stacked vertically below the site, each offset further down */
