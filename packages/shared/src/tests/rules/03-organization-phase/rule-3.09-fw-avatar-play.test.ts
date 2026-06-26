@@ -19,12 +19,15 @@ import { describe, test, expect } from 'vitest';
 import {
   buildTestState,
   effectiveGeneralInfluence,
+  viablePlayCharacterActions,
   Phase,
   Alignment,
   PLAYER_1,
   PLAYER_2,
   ISENGARD,
   ARAGORN,
+  LEGOLAS,
+  LORIEN,
   RIVENDELL,
 } from '../../test-helpers.js';
 import type { CardDefinitionId } from '../../test-helpers.js';
@@ -89,6 +92,47 @@ describe('Rule 3.09 — Fallen-Wizard Avatar Play', () => {
     });
   });
 
-  test.todo('[FALLEN-WIZARD] Avatar can only be played at its home site');
+  test('[FALLEN-WIZARD] Avatar can only be played at its home site', () => {
+    // Saruman's home site is Isengard. The FW already has a company at Rivendell
+    // (a haven that is NOT his home) and Isengard waiting in the site deck.
+    // Rule 2.II.2.1.F1: unlike a normal character (playable at any haven), a
+    // Fallen-wizard avatar may enter play only at his home site — so Isengard,
+    // and never the non-home haven (Rivendell).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [SARUMAN_FW],
+          siteDeck: [ISENGARD],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const sarumanInst = state.players[0].hand.find(c => c.definitionId === SARUMAN_FW)!.instanceId;
+    const isengardInst = state.players[0].siteDeck.find(s => s.definitionId === ISENGARD)!.instanceId;
+    const rivendellInst = state.players[0].companies[0].currentSite!.instanceId;
+
+    const sarumanPlays = viablePlayCharacterActions(state, PLAYER_1)
+      .filter(a => a.characterInstanceId === sarumanInst);
+
+    // Offered at his home site (Isengard) …
+    expect(sarumanPlays.map(a => a.atSite)).toContain(isengardInst);
+    // … and nowhere else — not at the non-home haven where his company sits.
+    expect(sarumanPlays.map(a => a.atSite)).not.toContain(rivendellInst);
+    expect(sarumanPlays).toHaveLength(1);
+  });
+
   test.todo('[FALLEN-WIZARD] Playing the avatar discards opponent Stage resources specific to that avatar');
 });

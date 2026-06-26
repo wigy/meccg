@@ -15,7 +15,7 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { SiteType, Alignment, Race, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
+import { SiteType, Alignment, Race, isCharacterCard, isSiteCard, isAvatarCharacter, hasPlayFlag } from '../../index.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
@@ -113,14 +113,21 @@ function recruitmentVehicleInHand(
 /**
  * Returns true if the character declares the `home-site-only` play-flag, or
  * if the character has the `agent` keyword (rule 2.II.2.2.5: agents played as
- * characters can only be played at the character's home site, not at havens).
+ * characters can only be played at the character's home site, not at havens),
+ * or if it is a Fallen-wizard avatar (rule 2.II.2.1.F1: a Fallen-wizard avatar
+ * can only be played at the avatar's home site — unlike a Wizard avatar, which
+ * may also be played at Rivendell [W1], or a Ringwraith avatar, which may also
+ * be played at Minas Morgul or Dol Guldur [R1], a Fallen-wizard avatar gets no
+ * extra havens).
  *
  * During normal play from hand the context reason is always "play-character",
  * so the flag's optional `when` gate is ignored here — the flag is treated
  * as always active on this code path.
  */
 function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
-  return hasPlayFlag(charDef, 'home-site-only') || isAgentCharacter(charDef);
+  return hasPlayFlag(charDef, 'home-site-only')
+    || isAgentCharacter(charDef)
+    || (isAvatarCharacter(charDef) && charDef.alignment === Alignment.FallenWizard);
 }
 
 /**
