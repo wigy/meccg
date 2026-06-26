@@ -49,6 +49,7 @@
  * | 9 | at draft, pair it with an eligible R&L from the site deck      | OK     |
  * |10 | the paired site auto-becomes a starting Wizardhaven (CRF 22)   | OK     |
  * |11 | both players reveal it on the same site → set aside (CRF 22)   | OK     |
+ * |12 | Stage resource: contributes 1 stage point while in play       | OK     |
  *
  * Playable: YES
  */
@@ -170,6 +171,13 @@ describe('Hidden Haven (wh-75)', () => {
       c => c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
     );
     expect(siteTypeOverride?.kind.type === 'attribute-modifier' && siteTypeOverride.kind.value).toBe(SiteType.Haven);
+  });
+
+  test('playing it contributes 1 stage point (it is a Stage resource)', () => {
+    const before = buildFallenWizardSitePhaseState({ site: BANDIT_LAIR, characters: [ARAGORN], hand: [HIDDEN_HAVEN] });
+    const beforeSp = before.players[RESOURCE_PLAYER].stagePoints;
+    const after = convert(before, BANDIT_LAIR);
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(beforeSp + 1);
   });
 
   // ── Rule 2: the site becomes one of your Wizardhavens ───────────────────────
