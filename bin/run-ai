@@ -39,29 +39,6 @@ BASE_URL="${BASE_URL%/}"
 
 mkdir -p "$LOG_DIR"
 
-# Authenticate the spawned `claude` CLI for unattended runs. The interactive
-# OAuth credentials in ~/.claude/.credentials.json use a short-lived access
-# token with a rotating refresh token; in a headless loop that refresh
-# eventually fails and every subsequent `claude -p` dies in ~5s with
-# "API Error: 401 Invalid authentication credentials" (one run succeeds, the
-# rest fail). A long-lived token from `claude setup-token` (export as
-# CLAUDE_CODE_OAUTH_TOKEN, valid ~1 year) sidesteps that entirely. We prefer an
-# already-exported env var, then fall back to `claudeOauthToken` in secrets.json.
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -f "$SECRETS" ]; then
-  _oauth_token=$(jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null)
-  if [ -n "$_oauth_token" ]; then
-    export CLAUDE_CODE_OAUTH_TOKEN="$_oauth_token"
-    echo "[run-ai] Using CLAUDE_CODE_OAUTH_TOKEN from $SECRETS" | tee -a "$LOG_FILE"
-  fi
-  unset _oauth_token
-fi
-if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-  echo "[run-ai] WARNING: no CLAUDE_CODE_OAUTH_TOKEN (env or secrets.json 'claudeOauthToken')." | tee -a "$LOG_FILE"
-  echo "[run-ai]   Falling back to ~/.claude/.credentials.json — the loop may hit 401" | tee -a "$LOG_FILE"
-  echo "[run-ai]   after the access token expires. Run 'claude setup-token' and add the" | tee -a "$LOG_FILE"
-  echo "[run-ai]   result to secrets.json as 'claudeOauthToken' to fix this." | tee -a "$LOG_FILE"
-fi
-
 master_key() {
   if [ -n "${MECCG_MASTER_KEY:-}" ]; then
     echo "$MECCG_MASTER_KEY"
@@ -104,11 +81,7 @@ while true; do
   git checkout master 2>&1 | tee -a "$LOG_FILE"
   git pull 2>&1 | tee -a "$LOG_FILE"
 
-  MSG_ID=$(next_request_id) || {
-    echo "=== WARNING: next_request_id failed at $(date -Iseconds), will retry ===" | tee -a "$LOG_FILE"
-    sleep 60
-    continue
-  }
+  MSG_ID=$(next_request_id)
 
   if [ -z "$MSG_ID" ]; then
     delay="${IDLE_BACKOFF[$idle_index]}"
