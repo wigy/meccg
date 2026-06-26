@@ -166,18 +166,28 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
     oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
   }
 
-  const selfScoreEl = document.getElementById('self-score');
-  if (selfScoreEl) {
-    selfScoreEl.innerHTML = `<span class="score metric-box"><span class="metric-label">MP</span>${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`
-      + `<span class="score metric-box"><span class="metric-label">GI</span>${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span></span>`;
-  }
+  // Populate the individual metric cells (MP / GI / SP). The dice tray is a
+  // sibling cell in the same 2×2 grid (dice under MP, SP under GI) and is
+  // managed separately by the dice module, so we must not rewrite the whole
+  // container — only the inner content of each metric box.
+  const selfMpEl = document.getElementById('self-mp');
+  if (selfMpEl) selfMpEl.innerHTML = `<span class="metric-label">MP</span>${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span>`;
+  const selfGiEl = document.getElementById('self-gi');
+  if (selfGiEl) selfGiEl.innerHTML = `<span class="metric-label">GI</span>${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span>`;
+  const selfSpEl = document.getElementById('self-sp');
+  const selfSP = view.self.alignment === 'fallen-wizard' ? String(view.self.stagePoints) : '–';
+  if (selfSpEl) selfSpEl.innerHTML = `<span class="metric-label">SP</span>${selfSP}`;
+
   const oppScoreEl = document.getElementById('opponent-score');
   const oppHazardLimitEl = document.getElementById('opponent-hazard-limit');
   const hazardLimit = getHazardLimitLabel(view);
-  if (oppScoreEl) {
-    oppScoreEl.innerHTML = `<span class="score metric-box"><span class="metric-label">MP</span>${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`
-      + `<span class="score metric-box"><span class="metric-label">GI</span>${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span></span>`;
-  }
+  const oppMpEl = document.getElementById('opponent-mp');
+  if (oppMpEl) oppMpEl.innerHTML = `<span class="metric-label">MP</span>${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span>`;
+  const oppGiEl = document.getElementById('opponent-gi');
+  if (oppGiEl) oppGiEl.innerHTML = `<span class="metric-label">GI</span>${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span>`;
+  const oppSpEl = document.getElementById('opponent-sp');
+  const oppSP = view.opponent.alignment === 'fallen-wizard' ? String(view.opponent.stagePoints) : '–';
+  if (oppSpEl) oppSpEl.innerHTML = `<span class="metric-label">SP</span>${oppSP}`;
   if (oppHazardLimitEl) {
     if (hazardLimit) {
       oppHazardLimitEl.innerHTML = `<span class="metric-label">HL</span>${hazardLimit}`;

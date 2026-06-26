@@ -358,8 +358,12 @@
     <div id="visual-view" class="hidden">
       <div id="opponent-deck-box" class="deck-box deck-box--opponent deck-box--compact">
         <div id="opponent-name" class="player-label"></div>
-        <div id="opponent-dice-tray" class="dice-tray"></div>
-        <div id="opponent-score" class="deck-box-score"></div>
+        <div id="opponent-score" class="deck-box-score">
+          <span id="opponent-mp" class="score metric-box"></span>
+          <span id="opponent-gi" class="score metric-box"></span>
+          <div id="opponent-dice-tray" class="dice-tray"></div>
+          <span id="opponent-sp" class="score metric-box metric-box--sp"></span>
+        </div>
         <div class="player-piles">
           <div id="opponent-mp-pile" class="pile-cell pile-cell--clickable"></div>
           <div id="opponent-eliminated-pile" class="pile-cell pile-cell--clickable"></div>
@@ -394,8 +398,12 @@
           <div id="self-sideboard-pile" class="pile-cell pile-cell--clickable"></div>
           <div id="self-discard-pile" class="pile-cell pile-cell--clickable"></div>
         </div>
-        <div id="self-score" class="deck-box-score"></div>
-        <div id="self-dice-tray" class="dice-tray"></div>
+        <div id="self-score" class="deck-box-score">
+          <span id="self-mp" class="score metric-box"></span>
+          <span id="self-gi" class="score metric-box"></span>
+          <div id="self-dice-tray" class="dice-tray"></div>
+          <span id="self-sp" class="score metric-box metric-box--sp"></span>
+        </div>
         <div id="self-name" class="player-label"></div>
       </div>
     </div>

@@ -3122,7 +3122,22 @@ h2 {
   pointer-events: auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.3rem;
+  /* Row 1: MP | GI. Row 2: dice tray (under MP) | SP (under GI). The wider
+     row gap leaves room for the SP box's "SP" label, which hangs above it. */
+  column-gap: 0.3rem;
+  row-gap: 0.4rem;
+}
+
+/* Pin the second-row cells so SP stays under GI even when the dice tray is
+   empty (and thus removed from flow via .dice-tray:empty). MP and GI auto-flow
+   into the first row. */
+.deck-box-score .dice-tray {
+  grid-column: 1;
+  grid-row: 2;
+}
+.deck-box-score .metric-box--sp {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .hazard-limit-chip {
@@ -3163,6 +3178,43 @@ h2 {
 .dice-tray:empty {
   display: none;
 }
+
+/* Dice settle into the metrics grid under the MP box, sharing the row with
+   the SP box. Shrink the tray and its dice so two of them fit the half-width
+   cell. Scoped to .deck-box-score so the inline dice in the text log keep
+   their normal mini size. */
+.deck-box-score .dice-tray {
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  min-height: 0;
+  /* No tray chrome here — the dice float directly in the metrics grid so they
+     can use as much of the half-row cell as possible. */
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+.deck-box-score .dice-mini {
+  width: 26px;
+  height: 26px;
+}
+.deck-box-score .dice-mini .dice-face {
+  width: 26px;
+  height: 26px;
+}
+.deck-box-score .dice-mini .dice-pip {
+  width: 5px;
+  height: 5px;
+}
+.deck-box-score .dice-mini .dice-eye {
+  inset: 3px;
+}
+.deck-box-score .dice-mini .dice-front  { transform: translateZ(13px); }
+.deck-box-score .dice-mini .dice-back   { transform: rotateY(180deg) translateZ(13px); }
+.deck-box-score .dice-mini .dice-right  { transform: rotateY(90deg)  translateZ(13px); }
+.deck-box-score .dice-mini .dice-left   { transform: rotateY(-90deg) translateZ(13px); }
+.deck-box-score .dice-mini .dice-top    { transform: rotateX(90deg)  translateZ(13px); }
+.deck-box-score .dice-mini .dice-bottom { transform: rotateX(-90deg) translateZ(13px); }
 
 .pile-cell--wide {
   grid-column: span 2;
