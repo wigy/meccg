@@ -124,7 +124,21 @@ function collectPublicInstanceIds(state: GameState): Record<string, CardDefiniti
   if (state.phaseState.phase === Phase.Setup) {
     const step = state.phaseState.setupStep;
     if (step.step === 'character-draft') {
-      for (const ds of step.draftState) addAll(ds.drafted);
+      step.draftState.forEach((ds, i) => {
+        addAll(ds.drafted);
+        // Fallen-wizard Stage resources (e.g. Hidden Haven wh-75) are drafted
+        // face-up and revealed to the opponent as they are taken (CRF 22), so
+        // their identities are public.
+        addAll(ds.draftedStageResources);
+        // A Hidden Haven paired to a Ruins & Lairs "brings out" that site when
+        // revealed (CRF 22: "you must bring out your starting site when you
+        // reveal Hidden Haven"). The site card itself still lives in the
+        // player's otherwise-private site deck, so reveal its identity here —
+        // otherwise the opponent sees the pairing but not which site it names.
+        for (const pairing of ds.stageResourceSites ?? []) {
+          add(state.players[i]?.siteDeck.find(c => c.instanceId === pairing.siteInstanceId));
+        }
+      });
       for (const sa of step.setAside) addAll(sa);
     } else if (step.step === 'item-draft') {
       // Unassigned minor items are known throughout the draft and the
