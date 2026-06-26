@@ -68,15 +68,32 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Fallen-wizard draft gate (rules 1.42, 1.44): until an enabling Stage
   // resource (Thrall of the Voice) has been drafted, a Fallen-wizard may not
   // draft a character with mind > 5 or an agent character.
+  //
+  // Each recruitment-vehicle Stage resource enables exactly ONE such "gated"
+  // character — Thrall's text reads "you may bring into play ONE character
+  // (including a minion agent) with up to a 6 mind". So the gate is not a simple
+  // on/off boolean: it stays lifted only while an unconsumed vehicle remains.
+  // Count the vehicles drafted against the gated characters already drafted (a
+  // character is gated if its mind > 5 or it is an agent — one consuming the
+  // vehicle on either axis still counts once). The gate is active when no free
+  // vehicle is left, so a single Thrall can never enable two gated characters.
   const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
-  const enablerDrafted = draft.draftedStageResources.some(c => hasRecruitmentVehicleEffect(defById(state, c.definitionId)));
-  const fwGateActive = isFallenWizard && !enablerDrafted;
+  const vehiclesDrafted = draft.draftedStageResources.filter(c =>
+    hasRecruitmentVehicleEffect(defById(state, c.definitionId)),
+  ).length;
+  const gatedCharsDrafted = draft.drafted.filter(card => {
+    const def = defById(state, card.definitionId);
+    if (!isCharacterCard(def)) return false;
+    return (def.mind !== null && def.mind > 5) || isAgentCharacter(def);
+  }).length;
+  const hasFreeVehicle = vehiclesDrafted > gatedCharsDrafted;
+  const fwGateActive = isFallenWizard && !hasFreeVehicle;
   // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot draft agent characters. Unlike
   // the Fallen-wizard gate there is no draftable enabler, so the gate is active
   // for the whole draft whenever the player is a Ringwraith.
   const isRingwraith = state.players[playerIndex].alignment === Alignment.Ringwraith;
 
-  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'}, RW agent gate ${isRingwraith ? 'active' : 'inactive'}`);
+  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'} (vehicles ${vehiclesDrafted}, gated chars drafted ${gatedCharsDrafted}), RW agent gate ${isRingwraith ? 'active' : 'inactive'}`);
 
   const evaluated: EvaluatedAction[] = [];
 

@@ -63,6 +63,7 @@ const IVIC = 'dm-17' as CardDefinitionId;          // minion agent, mind 6 (→ 
 const BILL_FERNY = 'dm-3' as CardDefinitionId;      // minion agent, mind 3 (→ 2)
 const ORC_BRAWLER = 'le-30' as CardDefinitionId;    // orc, mind 1 (→ floor 1)
 const GIMLI = 'tw-159' as CardDefinitionId;         // hero character, mind 6, not an agent, not Orc/Troll
+const BALIN = 'tw-123' as CardDefinitionId;         // hero character, mind 5 — non-gated draft filler
 const GORBAG = 'le-11' as CardDefinitionId;         // orc, mind 6 — excluded by the CRF Orc/Troll clause
 const ARAGORN = 'tw-120' as CardDefinitionId;       // mind 9 — exceeds the vehicle's maxMind of 6
 const AMON_HEN = 'tw-371' as CardDefinitionId;      // a Ruins & Lairs (FW company's filler site)
@@ -263,16 +264,18 @@ describe('Thrall of the Voice (wh-82)', () => {
     expect(gimli.effectiveStats.mind).toBe(5);
   });
 
-  test('with several drafted characters, Thrall is placed with the highest-mind one (the character the draft board hangs it beside)', () => {
+  test('with several drafted characters, Thrall is placed with the gated (mind-6) one, not a mind-5 filler', () => {
     // Regression: on the draft board the Thrall must render beside the very
     // character it ends up placed with — not in a separate row. Engine placement
     // and the renderer share `resolveThrallCharacterPairings`, so asserting the
     // engine attaches Thrall to the right character among several guards the
-    // pairing the board displays.
+    // pairing the board displays. A single Thrall enables exactly one gated
+    // (mind > 5) character (rules 1.42/1.44), so the other drafted characters are
+    // ordinary mind ≤ 5 ones; Thrall must hang beside the mind-6 character.
     const config: GameConfig = {
       players: [
         { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
-          draftPool: [THRALL_OF_THE_VOICE, ARAGORN, GIMLI], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+          draftPool: [THRALL_OF_THE_VOICE, GIMLI, BALIN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
         { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
       ],
@@ -286,15 +289,15 @@ describe('Thrall of the Voice (wh-82)', () => {
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
     ]);
-    // The Fallen-wizard drafts two eligible characters of differing mind; the
-    // last pick empties the pool and auto-finalises the draft.
-    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ARAGORN) }]);
+    // The Fallen-wizard drafts the gated mind-6 character (consuming the vehicle)
+    // and a mind-5 filler; the last pick empties the pool and auto-finalises.
     state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, GIMLI) }]);
+    state = runActions(state, [{ type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) }]);
 
     state = recomputeDerived(state);
-    const aragorn = getCharacter(state, RESOURCE_PLAYER, ARAGORN); // mind 9
-    const gimli = getCharacter(state, RESOURCE_PLAYER, GIMLI);     // mind 6
-    expect(aragorn.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
-    expect(gimli.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(false);
+    const gimli = getCharacter(state, RESOURCE_PLAYER, GIMLI); // mind 6 (gated)
+    const balin = getCharacter(state, RESOURCE_PLAYER, BALIN); // mind 5 (filler)
+    expect(gimli.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(true);
+    expect(balin.items.some(i => i.definitionId === THRALL_OF_THE_VOICE)).toBe(false);
   });
 });
