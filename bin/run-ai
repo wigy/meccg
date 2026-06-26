@@ -16,6 +16,12 @@ Environment:
   MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
   MECCG_MASTER_KEY  Lobby master key. Falls back to
                     ~/.meccg/secrets.json when unset.
+  CLAUDE_CODE_OAUTH_TOKEN
+                    Long-lived OAuth token (from `claude setup-token`) for the
+                    headless claude. Falls back to `claudeOauthToken` in
+                    ~/.meccg/secrets.json. Required so killing claude between
+                    iterations does not invalidate the rotating subscription
+                    token (which caused a 401 on every run after the first).
 
 Options:
   -h, --help      Show this help message.

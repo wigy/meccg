@@ -32,6 +32,14 @@ Environment:
   MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
   MECCG_MASTER_KEY  Lobby master key. Falls back to
                     ~/.meccg/secrets.json when unset.
+  CLAUDE_CODE_OAUTH_TOKEN
+                    Long-lived OAuth token (from `claude setup-token`) used to
+                    authenticate the headless claude. Falls back to the
+                    `claudeOauthToken` field in ~/.meccg/secrets.json. REQUIRED
+                    for the unattended worker — without it claude uses the
+                    rotating subscription token in ~/.claude/.credentials.json,
+                    which gets invalidated when claude is killed (causing a 401
+                    on every run after the first).
 
 Options:
   -h, --help      Show this help message.
@@ -136,6 +144,30 @@ build_mail() {
 # the skill succeeded.
 run_skill() {
   cd "$PROJECT_DIR"
+
+  # Authenticate the headless claude with a long-lived, non-rotating OAuth
+  # token (generated once via `claude setup-token`). This is REQUIRED for an
+  # unattended worker: the interactive subscription login stores a *rotating*
+  # refreshToken in ~/.claude/.credentials.json, and because we SIGKILL claude
+  # after it prints its result (see below), a refresh that is in-flight or not
+  # yet persisted leaves that file holding a stale/invalidated token — so every
+  # run after the first failed with "401 Invalid authentication credentials".
+  # CLAUDE_CODE_OAUTH_TOKEN is read from the environment and never touches the
+  # credentials file, so the kill can't break it. Prefer an already-exported
+  # value; otherwise pull it from ~/.meccg/secrets.json (claudeOauthToken).
+  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -f "$SECRETS" ]; then
+    local _tok
+    _tok=$(jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null || true)
+    [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+  fi
+  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    echo "[handle-mail] WARNING: CLAUDE_CODE_OAUTH_TOKEN is not set and no claudeOauthToken in $SECRETS." >&2
+    echo "[handle-mail]          Falling back to ~/.claude/.credentials.json, whose rotating token gets" >&2
+    echo "[handle-mail]          invalidated when claude is killed — the next run will likely 401." >&2
+    echo "[handle-mail]          Fix: run 'claude setup-token' once and add the token to $SECRETS as" >&2
+    echo "[handle-mail]          {\"claudeOauthToken\": \"<token>\"} (or export CLAUDE_CODE_OAUTH_TOKEN)." >&2
+  fi
+
   local raw_tmp
   raw_tmp=$(mktemp)
 
@@ -168,8 +200,11 @@ run_skill() {
   if [ -n "$term_reason" ]; then
     echo "[handle-mail] run_skill: terminating claude (reason=$term_reason, pid=$claude_pid)" >&2
     kill -TERM "$claude_pid" 2>/dev/null || true
+    # Give claude a generous grace period to exit cleanly after SIGTERM so it
+    # can finish flushing any credential/session writes before we resort to
+    # SIGKILL (a hard kill mid-write is what historically corrupted auth state).
     local i=0
-    while kill -0 "$claude_pid" 2>/dev/null && [ "$i" -lt 5 ]; do
+    while kill -0 "$claude_pid" 2>/dev/null && [ "$i" -lt 15 ]; do
       sleep 1
       i=$(( i + 1 ))
     done
