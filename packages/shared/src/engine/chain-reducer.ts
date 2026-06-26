@@ -26,6 +26,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../index.js';
@@ -1833,6 +1834,28 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   }
 
   const hazardPlayerId = hazardPlayer(state).id;
+
+  // Hidden Haven (wh-75): "If one of your companies is at this site, all attacks
+  // against it are canceled." A creature keyed against a company occupying a site
+  // under a `cancel-attacks-at-site` constraint is canceled — the creature is
+  // discarded to its owner without combat. This only applies while the company is
+  // *at* the site (not moving away from it); a moving company has a non-null
+  // destinationSite. (The Site phase's on-guard creature path cancels separately
+  // in reducer-site.ts; this covers the movement/hazard keyed-creature path.)
+  const cancelSiteDefId = company.currentSite?.definitionId;
+  if (!company.destinationSite && cancelSiteDefId && siteAttacksCanceled(state, cancelSiteDefId)) {
+    const cancelSiteName = defById(state, cancelSiteDefId)?.name ?? (cancelSiteDefId as string);
+    logDetail(`Creature "${creatureDef.name}" attack canceled by Hidden Haven at ${cancelSiteName} — discarding without combat`);
+    const hazardIdx = getPlayerIndex(state, hazardPlayerId);
+    return updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      discardPile: [...p.discardPile, {
+        instanceId: entry.card!.instanceId,
+        definitionId: entry.card!.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    }));
+  }
 
   // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake)
   const attackerChooses = creatureDef.effects?.some(
