@@ -1954,6 +1954,22 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       );
       if (siblingStillAtOrigin) {
         logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
+        // The physical site card is drawn exactly once and held by a single
+        // company. If the company that owned it is the one moving away, the
+        // card stays in play (a sibling is still there) but its ownership must
+        // pass to a remaining sibling — otherwise that sibling would keep
+        // `siteCardOwned=false` (a "fake copy") indefinitely, even though it is
+        // now the sole occupant holding the only physical copy of the site.
+        if (company.siteCardOwned) {
+          const heirIndex = updatedCompanies.findIndex(
+            (c, idx) => idx !== mhState.activeCompanyIndex
+              && c.currentSite?.instanceId === originSite.instanceId,
+          );
+          if (heirIndex !== -1) {
+            updatedCompanies[heirIndex] = { ...updatedCompanies[heirIndex], siteCardOwned: true };
+            logDetail(`Step 8: transferred site-of-origin card ownership to sibling company ${updatedCompanies[heirIndex].id as string} (now siteCardOwned=true)`);
+          }
+        }
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';

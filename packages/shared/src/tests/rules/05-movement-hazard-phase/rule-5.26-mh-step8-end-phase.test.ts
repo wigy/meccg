@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, makeMHState, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GIMLI,
   LORIEN, HENNETH_ANNUN, MINAS_TIRITH,
   DAGGER_OF_WESTERNESSE, ORC_PATROL, CAVE_DRAKE,
 } from '../../test-helpers.js';
@@ -228,5 +228,73 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     const arrivedCompany = afterBothPass.players[0].companies[0];
     expect(arrivedCompany.currentSite?.definitionId).toBe(HENNETH_ANNUN);
     expect(arrivedCompany.siteCardOwned).toBe(true);
+  });
+
+  test('site-card ownership passes to a remaining sibling when the owning company moves away', () => {
+    // Two of P1's companies share one physical site card (the only copy): the
+    // first owns it (`siteCardOwned=true`), the second is a split-off "fake
+    // copy" (`siteCardOwned=false`). When the owner moves to a new site, the
+    // origin card stays in play (the sibling is still there) and ownership must
+    // pass to the remaining sibling — otherwise it would keep displaying a
+    // "fake copy" even though it is now the sole occupant. (Regression: game
+    // mquxfmpa-ht4isa, Troll-chief alone at Ettenmoors still flagged as a fake
+    // copy after Annalena/Celeborn moved off.)
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+            { site: MINAS_TIRITH, characters: [GIMLI] },
+          ],
+          hand: [],
+          siteDeck: [HENNETH_ANNUN],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const moverCompany = built.players[0].companies[0];
+    const sharedSite = moverCompany.currentSite!;
+    const hennethSite = built.players[0].siteDeck.find(c => c.definitionId === HENNETH_ANNUN)!;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [
+            {
+              ...moverCompany,
+              siteCardOwned: true,
+              destinationSite: { instanceId: hennethSite.instanceId, definitionId: hennethSite.definitionId, status: CardStatus.Untapped },
+              siteOfOrigin: sharedSite.instanceId,
+            },
+            // The split-off sibling shares the same physical card and stays put.
+            { ...built.players[0].companies[1], currentSite: sharedSite, siteCardOwned: false },
+          ],
+          siteDeck: built.players[0].siteDeck,
+        },
+        built.players[1],
+      ] as unknown as typeof built.players,
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const sibling = afterBothPass.players[0].companies.find(
+      c => c.currentSite?.instanceId === sharedSite.instanceId,
+    )!;
+    // The origin card is still in play, now owned by the remaining sibling.
+    expect(sibling).toBeDefined();
+    expect(sibling.currentSite?.definitionId).toBe(MINAS_TIRITH);
+    expect(sibling.siteCardOwned).toBe(true);
   });
 });
