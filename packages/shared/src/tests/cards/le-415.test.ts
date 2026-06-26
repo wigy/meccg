@@ -3,7 +3,7 @@
  *
  * Card test: The Worthy Hills (le-415)
  * Type: minion-site (ruins-and-lairs) in Cardolan
- * Effects: 1 (site-rule: never-taps)
+ * Effects: 2 (site-rule: never-taps; combat-detainment gated on defender.covert)
  *
  * Text:
  *   Playable: Information.
@@ -51,6 +51,7 @@ import {
   Alignment, Phase, CardStatus,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
+import { reduce } from '../../engine/reducer.js';
 import type {
   CardDefinitionId, SiteCard, SitePhaseState, GameState,
 } from '../../index.js';
@@ -67,6 +68,12 @@ const GORBAG = 'le-11' as CardDefinitionId;                 // prowess 6, warrio
 const LAGDUF = 'le-18' as CardDefinitionId;
 const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;     // minor minion item
 const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId;
+
+// Men minion characters for the each-character auto-attack fixture. Men keep a
+// Ringwraith company covert; an Orc would make it overt.
+const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
+const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
 const basePlayResourcesPhaseState = (): SitePhaseState => ({
   phase: Phase.Site,
@@ -85,6 +92,53 @@ const basePlayResourcesPhaseState = (): SitePhaseState => ({
   opponentInteractionThisTurn: null,
   pendingOpponentInfluence: null,
 });
+
+/**
+ * Build a Ringwraith site-phase state stopped at the `automatic-attacks` step,
+ * with `characters` standing in a single company at The Worthy Hills. Used to
+ * drive the site's Men "each character faces 1 strike" auto-attack.
+ */
+function setupAutoAttackAt(site: CardDefinitionId, characters: CardDefinitionId[]): GameState {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Site,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site, characters }],
+        hand: [],
+        siteDeck: [MINAS_MORGUL],
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }],
+        hand: [],
+        siteDeck: [DOL_GULDUR],
+      },
+    ],
+  });
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'automatic-attacks',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: false,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    hoardBountyAvailable: false,
+    thoroughSearchAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+  return { ...base, phaseState: sitePhaseState };
+}
 
 function setupPlayResourcesAt(site: CardDefinitionId): GameState {
   const base = buildTestState({
@@ -267,6 +321,58 @@ describe('The Worthy Hills (le-415)', () => {
     expect(
       afterSecond.players[RESOURCE_PLAYER].companies[0].currentSite!.status,
     ).toBe(CardStatus.Untapped);
+  });
+
+  // ─── Automatic-attack: "each character faces 1 strike" ─────────────────────
+  // Regression for the bug where The Worthy Hills' Men auto-attack was authored
+  // with the sentinel `strikes: -1` / `special: "each character faces 1 strike"`
+  // instead of `strikes: 1, combatRules: ["each-character"]`. The engine never
+  // recognized the each-character mode, so the combat opened with
+  // `strikesTotal: -1` and the (now automatic) per-character strike assignment
+  // got stuck in `assign-strikes` with nothing to assign.
+
+  test('each-character: Men attack pre-assigns one strike per character (strikesTotal = company size)', () => {
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH, ASTERNAK, ORC_CAPTAIN]);
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.creatureRace).toBe('man');
+    expect(afterAttack.combat!.strikeProwess).toBe(9);
+    // Bug guard: must equal company size (3), never the raw `-1` sentinel.
+    expect(afterAttack.combat!.strikesTotal).toBe(3);
+    expect(afterAttack.combat!.strikeAssignments).toHaveLength(3);
+    expect(afterAttack.combat!.eachCharacterFacesOneStrike).toBe(true);
+    // Assignment is automatic — the combat does not stall in `assign-strikes`.
+    expect(afterAttack.combat!.phase).not.toBe('assign-strikes');
+    expect(afterAttack.combat!.assignmentPhase).toBe('done');
+  });
+
+  test('covert company: the Men each-character attack is detainment', () => {
+    // An all-Men Ringwraith company is covert; the site's combat-detainment
+    // effect (gated on defender.covert) makes the attack detainment.
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH, ASTERNAK]);
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.strikesTotal).toBe(2);
+    expect(afterAttack.combat!.detainment).toBe(true);
+  });
+
+  test('overt company: the Men each-character attack is NOT detainment', () => {
+    // An Orc makes the Ringwraith company overt; the combat-detainment effect's
+    // `defender.covert` guard no longer fires → regular wounding attack.
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [ORC_CAPTAIN, THE_MOUTH]);
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat).not.toBeNull();
+    expect(afterAttack.combat!.strikesTotal).toBe(2);
+    expect(afterAttack.combat!.detainment).toBe(false);
   });
 
   // ─── Movement: starter from Carn Dûm ───────────────────────────────────────

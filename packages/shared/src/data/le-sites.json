@@ -610,10 +610,11 @@
     "automaticAttacks": [
       {
         "creatureType": "Men",
-        "strikes": -1,
+        "strikes": 1,
         "prowess": 9,
-        "special": "each character faces 1 strike",
-        "detainmentAgainstCovert": true
+        "combatRules": [
+          "each-character"
+        ]
       }
     ],
     "resourceDraws": 1,
@@ -622,6 +623,12 @@
       {
         "type": "site-rule",
         "rule": "never-taps"
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps.",
