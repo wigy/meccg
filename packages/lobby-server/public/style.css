@@ -3103,6 +3103,21 @@ h2 {
   min-width: 0;
 }
 
+/* Name of the player whose turn it currently is. */
+.player-label--active {
+  color: #fff4d6;
+  background: rgba(196, 163, 90, 0.28);
+  border-radius: 6px;
+  text-shadow: 0 0 8px rgba(255, 224, 130, 0.9), 0 1px 4px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 224, 130, 0.5), 0 0 12px rgba(255, 224, 130, 0.35);
+  animation: player-label-pulse 2s ease-in-out infinite;
+}
+
+@keyframes player-label-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 224, 130, 0.5), 0 0 8px rgba(255, 224, 130, 0.25); }
+  50% { box-shadow: 0 0 0 1px rgba(255, 224, 130, 0.7), 0 0 16px rgba(255, 224, 130, 0.5); }
+}
+
 .deck-box-score {
   pointer-events: auto;
   display: grid;
