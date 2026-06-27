@@ -1,0 +1,148 @@
+/**
+ * @module projection.test
+ *
+ * Regression tests for {@link projectPlayerView} — the redaction boundary that
+ * turns the omniscient server state into a per-player view.
+ */
+
+import { describe, test, expect } from 'vitest';
+import {
+  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE,
+} from '@meccg/shared';
+import type {
+  GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
+} from '@meccg/shared';
+import { projectPlayerView, projectSpectatorView } from './projection.js';
+
+const ALICE = 'p1' as PlayerId;
+const BOB = 'p2' as PlayerId;
+const HIDDEN_HAVEN = 'wh-75' as CardDefinitionId;
+const BALIN = 'tw-123' as CardDefinitionId;
+const ARAGORN = 'tw-120' as CardDefinitionId;
+const WORTHY_HILLS = 'as-142' as CardDefinitionId; // non-lair Ruins & Lairs in a wilderness region
+const RIVENDELL = 'tw-258' as CardDefinitionId;
+
+const pool = loadCardPool();
+
+/** Apply actions in sequence, throwing on the first rejected one. */
+function run(state: GameState, actions: readonly GameAction[]): GameState {
+  for (const action of actions) {
+    const result = reduce(state, action);
+    if (result.error) throw new Error(`Action ${action.type} failed: ${result.error}`);
+    state = result.state;
+  }
+  return state;
+}
+
+/** Instance id of a freshly-minted draft-pool card for player `idx`. */
+function draftInst(state: GameState, idx: number, defId: CardDefinitionId): CardInstanceId {
+  const step = state.phaseState;
+  if (step.phase !== 'setup' || step.setupStep.step !== 'character-draft') throw new Error('not in draft');
+  const card = step.setupStep.draftState[idx].pool.find(c => c.definitionId === defId);
+  if (!card) throw new Error(`draft card ${defId} not found for player ${idx}`);
+  return card.instanceId;
+}
+
+/** Instance id of a card in player `idx`'s site deck. */
+function siteInst(state: GameState, idx: number, defId: CardDefinitionId): CardInstanceId {
+  const card = state.players[idx].siteDeck.find(c => c.definitionId === defId);
+  if (!card) throw new Error(`site ${defId} not found for player ${idx}`);
+  return card.instanceId;
+}
+
+/** Build a game paused mid-character-draft with Alice's Hidden Haven paired to Worthy Hills. */
+function pairedHiddenHavenGame(): { state: GameState; hh: CardInstanceId; site: CardInstanceId } {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.FallenWizard,
+        draftPool: [HIDDEN_HAVEN, BALIN], playDeck: [], siteDeck: [WORTHY_HILLS], sideboard: [] },
+      // Bob keeps an extra pool card so his own draft pool stays non-empty after
+      // his pick — otherwise the client's findSelfIndex (real-cards heuristic)
+      // can't tell which side is his.
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  let state = createGame(config, pool);
+  const hh = draftInst(state, 0, HIDDEN_HAVEN);
+  state = run(state, [
+    { type: 'draft-pick', player: ALICE, characterInstanceId: hh },
+    { type: 'draft-pick', player: BOB, characterInstanceId: draftInst(state, 1, ARAGORN) },
+  ]);
+  const site = siteInst(state, 0, WORTHY_HILLS);
+  state = run(state, [{ type: 'select-stage-resource-site', player: ALICE, stageResourceInstanceId: hh, siteInstanceId: site }]);
+  return { state, hh, site };
+}
+
+/** Find a site card by instance id in a projected (possibly redacted) site deck. */
+function findSite(deck: readonly ViewCard[], id: CardInstanceId): ViewCard | undefined {
+  return deck.find(c => c.instanceId === id);
+}
+
+describe('Hidden Haven draft reveal (CRF 22: site is brought out when revealed)', () => {
+  test('the opponent sees the paired site identity in their view of the drafter site deck', () => {
+    const { state, site } = pairedHiddenHavenGame();
+    const bobView = projectPlayerView(state, BOB);
+    // Alice (the drafter) is Bob's opponent. Her paired site must be revealed.
+    const revealed = findSite(bobView.opponent.siteDeck, site);
+    expect(revealed?.definitionId).toBe(WORTHY_HILLS);
+  });
+
+  test('the rest of the drafter site deck stays hidden to the opponent', () => {
+    // Add an un-paired second site to Alice's deck; it must remain UNKNOWN_SITE.
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: [], siteDeck: [WORTHY_HILLS, RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    const hh = draftInst(state, 0, HIDDEN_HAVEN);
+    state = run(state, [
+      { type: 'draft-pick', player: ALICE, characterInstanceId: hh },
+      { type: 'draft-pick', player: BOB, characterInstanceId: draftInst(state, 1, ARAGORN) },
+    ]);
+    const paired = siteInst(state, 0, WORTHY_HILLS);
+    const other = siteInst(state, 0, RIVENDELL);
+    state = run(state, [{ type: 'select-stage-resource-site', player: ALICE, stageResourceInstanceId: hh, siteInstanceId: paired }]);
+
+    const bobView = projectPlayerView(state, BOB);
+    expect(findSite(bobView.opponent.siteDeck, paired)?.definitionId).toBe(WORTHY_HILLS);
+    expect(findSite(bobView.opponent.siteDeck, other)?.definitionId).toBe(UNKNOWN_SITE);
+  });
+
+  test('the drafter still sees their own paired site (unchanged)', () => {
+    const { state, site } = pairedHiddenHavenGame();
+    const aliceView = projectPlayerView(state, ALICE);
+    expect(findSite(aliceView.self.siteDeck, site)?.definitionId).toBe(WORTHY_HILLS);
+  });
+
+  test('spectators see the brought-out site for the drafter', () => {
+    const { state, site } = pairedHiddenHavenGame();
+    const spec = projectSpectatorView(state);
+    // Alice is players[0], projected as the spectator "self".
+    expect(findSite(spec.self.siteDeck, site)?.definitionId).toBe(WORTHY_HILLS);
+  });
+
+  test('before any pairing, no site is revealed to the opponent', () => {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: [], siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    const hh = draftInst(state, 0, HIDDEN_HAVEN);
+    state = run(state, [{ type: 'draft-pick', player: ALICE, characterInstanceId: hh }]);
+    const site = siteInst(state, 0, WORTHY_HILLS);
+    const bobView = projectPlayerView(state, BOB);
+    expect(findSite(bobView.opponent.siteDeck, site)?.definitionId).toBe(UNKNOWN_SITE);
+  });
+});
