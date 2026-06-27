@@ -32,9 +32,10 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
  * An unassociated Stage resource shows full-size, exactly like a drafted
  * character. Once a site-targeting Stage resource (Hidden Haven) is paired with
  * a site, it shows as a minor item next to that site — mirroring how an attached
- * item renders beside its character. `siteDeck` is the viewing player's own site
- * deck (used to resolve the paired site); pass `undefined` for the opponent,
- * whose site deck is hidden.
+ * item renders beside its character. `siteDeck` is the site deck used to resolve
+ * the paired site — the viewing player's own for their row, or the opponent's
+ * (where the projection un-redacts the brought-out Hidden Haven site, CRF 22)
+ * for theirs. Pass `undefined` only when no site deck is available.
  *
  * `skipInstanceIds` lists Stage resources already rendered beside their drafted
  * character (a Thrall of the Voice placed with a character) — they are omitted
@@ -384,9 +385,11 @@ export function renderDrafted(
 
     const oppPairedThralls = renderDraftedCharactersWithThralls(
       oppEl, draft.draftState[oppIdx].drafted, draft.draftState[oppIdx].draftedStageResources, cardPool);
-    // Opponent's drafted Stage resources are public, but their site deck is
-    // hidden, so paired sites are not resolvable — show them full-size.
-    renderDraftedStageResources(oppEl, draft.draftState[oppIdx], undefined, cardPool, oppPairedThralls);
+    // Opponent's drafted Stage resources are public. Their site deck is hidden,
+    // but a Hidden Haven's paired site is "brought out" and revealed (CRF 22),
+    // so the projection un-redacts that one site in the opponent's site deck —
+    // pass it through so the paired site resolves and renders beside the card.
+    renderDraftedStageResources(oppEl, draft.draftState[oppIdx], view.opponent.siteDeck, cardPool, oppPairedThralls);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
