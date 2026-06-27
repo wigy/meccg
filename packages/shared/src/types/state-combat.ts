@@ -15,7 +15,7 @@ import {
   SiteType,
 } from './common.js';
 import type { CardInstance, ItemInPlay } from './state-cards.js';
-import type { CardEffect } from './effects.js';
+import type { CardEffect, TriggerAttackEntry } from './effects.js';
 
 // ---- Combat sub-state ----
 
@@ -82,7 +82,7 @@ export type AttackSource =
        * (multi-attack form of `trigger-attack-on-play`). Empty / absent
        * means this is the last (or only) attack in the sequence.
        */
-      readonly remainingAttacks?: readonly { readonly creatureType: string; readonly strikes: number; readonly prowess: number }[];
+      readonly remainingAttacks?: readonly TriggerAttackEntry[];
     }
   /**
    * Triggered by Lucky Search (tw-269) via the `deck-search-attack` DSL effect.

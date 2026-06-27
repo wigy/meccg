@@ -987,16 +987,7 @@ export interface TriggeredAction {
    * (wh-54): "Gas—each character faces 1 strike with 7 prowess (cannot
    * be canceled)".
    */
-  readonly attack?: {
-    readonly creatureType: string;
-    readonly strikes: number;
-    readonly prowess: number;
-    readonly body?: number;
-    /** When true, the attack cannot be canceled (sets `combat.uncancelable`). */
-    readonly uncancelable?: boolean;
-    /** When true, every character in the company faces one strike. */
-    readonly eachCharacter?: boolean;
-  };
+  readonly attack?: import('./cards-sites.js').BespokeAutoAttack;
   /**
    * For `increment-company-extra-region-distance` type: how much to
    * add to the bearer's company `extraRegionDistance`. Movement code
