@@ -18,7 +18,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -346,13 +346,6 @@ function drawCardsActions(
   return actions;
 }
 
-/**
- * Parse a comma-separated homesite string into individual site name tokens.
- * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"]
- */
-export function parseHomesiteNames(homesite: string): string[] {
-  return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
-}
 
 /**
  * Generate `play-agent-hazard` actions for the hazard player.
@@ -874,9 +867,7 @@ function agentTapAttackActions(
       const siteDef = defById(state, topSite.definitionId);
       if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
     } else {
-      const homesiteNames = agentDef.homesite
-        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [];
+      const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
       agentSiteName = homesiteNames[0] ?? null;
     }
 
@@ -891,9 +882,7 @@ function agentTapAttackActions(
 
     if (!agent.revealed) {
       // Face-down: offer one action per home site in deck (reveal at attack)
-      const homesiteNames = agentDef.homesite
-        ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [];
+      const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
       const seenHome = new Set<string>();
       let offeredAny = false;
       for (const siteInst of hazardPlayer.siteDeck) {
@@ -1884,9 +1873,7 @@ function playHazardsActions(
             if (tapAgentEffect.skill && !agentDef.skills.includes(tapAgentEffect.skill as Skill)) continue;
 
             // Location check: agent must be at the destination site.
-            const homesiteNames = agentDef.homesite
-              ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-              : [];
+            const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
             const isAtDest = agent.revealed
               ? (agent.siteStack.length > 0 && agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId)
               : (agent.siteStack.length > 0

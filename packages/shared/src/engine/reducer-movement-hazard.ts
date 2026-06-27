@@ -29,10 +29,9 @@ import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-ev
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply, handlePlayCharacter } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { roll2d6, diceRollEffect, effectiveGeneralInfluence } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI } from './legal-actions/organization.js';
-import { parseHomesiteNames } from './legal-actions/movement-hazard.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1066,9 +1065,7 @@ function handleAgentTapAttack(
   // Compute prowess BEFORE reveal (rule 9.06)
   const isFaceDown = !agent.revealed;
   const isWounded = agent.character.status === CardStatus.Inverted;
-  const homesiteNames = agentDef.homesite
-    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-    : [];
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
   const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
 
   let prowess = agentDef.prowess;
@@ -1485,9 +1482,7 @@ function handleTapAgentAtSite(
   // --- Compute prowess NOW, before any reveal (rule 9.06) ---
   const isFaceDown = !agent.revealed;
   const isWounded = agent.character.status === CardStatus.Inverted;
-  const homesiteNames = agentDef.homesite
-    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-    : [];
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
   const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
 
   let prowess = agentDef.prowess;

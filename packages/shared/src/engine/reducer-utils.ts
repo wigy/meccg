@@ -1064,6 +1064,16 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
 }
 
 /**
+ * Parse a comma-separated homesite string into individual site name tokens.
+ * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"].
+ * An empty or whitespace-only string yields an empty array, so callers can pass
+ * `def.homesite ?? ''` without a separate truthiness guard.
+ */
+export function parseHomesiteNames(homesite: string): string[] {
+  return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
+}
+
+/**
  * True if a character named `charName` is already in play as a character on
  * either player. Backs the uniqueness check shared by the organization phase
  * and recruit-via-event: a `unique` character cannot be brought into play while
