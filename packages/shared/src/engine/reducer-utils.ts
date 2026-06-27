@@ -1050,6 +1050,16 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
 }
 
 /**
+ * Parse a comma-separated homesite string into individual site name tokens.
+ * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"].
+ * An empty or whitespace-only string yields an empty array, so callers can pass
+ * `def.homesite ?? ''` without a separate truthiness guard.
+ */
+export function parseHomesiteNames(homesite: string): string[] {
+  return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */

@@ -18,7 +18,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -1173,9 +1173,7 @@ function handleDeclareAgentAttack(
     const companySiteDef = defById(state, company.currentSite.definitionId);
     if (companySiteDef && isSiteCard(companySiteDef)) currentSiteName = companySiteDef.name;
   }
-  const homesiteNames = agentDef.homesite
-    ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
-    : [];
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
   const isAtHome = currentSiteName !== undefined && homesiteNames.includes(currentSiteName);
 
   if (isWounded) prowess -= 2;

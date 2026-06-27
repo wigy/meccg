@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -580,8 +580,8 @@ function declareAgentAttackActions(
     }
 
     const agentDef = defById(state, agent.character.definitionId);
-    const homesiteNames = agentDef && isCharacterCard(agentDef) && agentDef.homesite
-      ? agentDef.homesite.split(',').map((s: string) => s.trim()).filter(Boolean)
+    const homesiteNames = agentDef && isCharacterCard(agentDef)
+      ? parseHomesiteNames(agentDef.homesite)
       : [];
 
     if (agent.revealed) {
