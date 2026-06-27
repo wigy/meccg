@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -817,19 +817,7 @@ function playResourcesActions(
         // wh-72) and their characters' items.
         const playerDupLimit = findDuplicationLimitEffect(eventDef, 'player');
         if (playerDupLimit) {
-          const copiesInPlayForPlayer = player.cardsInPlay.filter(c => {
-            const cDef = defById(state, c.definitionId);
-            return cDef && cDef.name === eventDef.name;
-          }).length;
-          const copiesForPlayer = copiesInPlayForPlayer + Object.values(player.characters).reduce(
-            (count, ch) =>
-              count +
-              ch.items.filter(item => {
-                const iDef = defById(state, item.definitionId);
-                return iDef && iDef.name === eventDef.name;
-              }).length,
-            0,
-          );
+          const copiesForPlayer = countPlayerHeldCopies(state, player, eventDef.name);
           if (copiesForPlayer >= playerDupLimit.max) {
             logDetail(`Permanent event ${eventDef.name}: cannot be duplicated by this player (${copiesForPlayer}/${playerDupLimit.max} held)`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: already held by this player`));

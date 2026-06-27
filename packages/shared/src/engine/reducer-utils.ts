@@ -943,6 +943,20 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * Count cards named `name` that `player` holds: copies in their `cardsInPlay`
+ * (non-attached permanent events like Great Patron wh-72) plus copies among
+ * their characters' `items`. Backs `duplication-limit` checks with
+ * `scope: "player"` ("cannot be duplicated by a given player").
+ */
+export function countPlayerHeldCopies(state: GameState, player: PlayerState, name: string): number {
+  const inPlay = player.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length;
+  return Object.values(player.characters).reduce(
+    (count, ch) => count + ch.items.filter(item => defById(state, item.definitionId)?.name === name).length,
+    inPlay,
+  );
+}
+
+/**
  * Count cards named `name` attached to the company's characters (their
  * `items` or `allies`). Backs `duplication-limit` checks with
  * `scope: "company"` for attachable cards ("cannot be duplicated in a
