@@ -145,6 +145,37 @@ const MINION_RESOURCE_TYPES = new Set([
 ]);
 
 /**
+ * Banned-card check shared by the Fallen-wizard (rule 1.18) and Balrog
+ * (rule 1.23) restrictions: scan every deck section and flag any card whose id
+ * is in `bannedIds`. `label`/`rule` populate the message
+ * (`<label> deck: "<name>" is not allowed (rule <rule>)`).
+ */
+function checkBannedCards(
+  sections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][],
+  bannedIds: ReadonlySet<string>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  label: string,
+  rule: string,
+): DeckValidationError[] {
+  const errors: DeckValidationError[] = [];
+  for (const [section, sectionKey] of sections) {
+    for (const entry of section) {
+      if (entry.card === null) continue;
+      const cardId = entry.card as string;
+      if (!bannedIds.has(cardId)) continue;
+      const def = cardPool[cardId];
+      const name = def ? (def as { name: string }).name : cardId;
+      errors.push({
+        section: sectionKey,
+        message: `${label} deck: "${name}" is not allowed (rule ${rule})`,
+        card: entry.card,
+      });
+    }
+  }
+  return errors;
+}
+
+/**
  * Validate a deck against CoE deck-construction rules.
  *
  * @param deck  The deck to validate.
@@ -709,31 +740,20 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.18 / 1.23 — alignment-banned cards. Both alignments scan the same
+  // set of deck sections; only the banned-id set, label, and rule differ.
+  const bannedCheckSections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+    [characters, 'characters'],
+    [resources, 'resources'],
+    [hazards, 'hazards'],
+    [poolCards, 'pool'],
+    [sideboard, 'sideboard'],
+    [antiFwSideboard, 'anti-fw-sideboard'],
+  ];
+
   // Rule 1.18 — fallen-wizard banned cards
   if (deck.alignment === 'fallen-wizard') {
-    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-      [characters, 'characters'],
-      [resources, 'resources'],
-      [hazards, 'hazards'],
-      [poolCards, 'pool'],
-      [sideboard, 'sideboard'],
-      [antiFwSideboard, 'anti-fw-sideboard'],
-    ];
-    for (const [section, sectionKey] of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const cardId = entry.card as string;
-        if (FALLEN_WIZARD_BANNED_CARD_IDS.has(cardId)) {
-          const def = cardPool[cardId];
-          const name = def ? (def as { name: string }).name : cardId;
-          errors.push({
-            section: sectionKey,
-            message: `fallen-wizard deck: "${name}" is not allowed (rule 1.18)`,
-            card: entry.card,
-          });
-        }
-      }
-    }
+    errors.push(...checkBannedCards(bannedCheckSections, FALLEN_WIZARD_BANNED_CARD_IDS, cardPool, 'fallen-wizard', '1.18'));
   }
 
   // Rule 1.22 — balrog faction race restriction
@@ -754,29 +774,7 @@ export function validateDeck(
 
   // Rule 1.23 — balrog banned cards
   if (deck.alignment === 'balrog') {
-    const allSections: [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
-      [characters, 'characters'],
-      [resources, 'resources'],
-      [hazards, 'hazards'],
-      [poolCards, 'pool'],
-      [sideboard, 'sideboard'],
-      [antiFwSideboard, 'anti-fw-sideboard'],
-    ];
-    for (const [section, sectionKey] of allSections) {
-      for (const entry of section) {
-        if (entry.card === null) continue;
-        const cardId = entry.card as string;
-        if (BALROG_BANNED_CARD_IDS.has(cardId)) {
-          const def = cardPool[cardId];
-          const name = def ? (def as { name: string }).name : cardId;
-          errors.push({
-            section: sectionKey,
-            message: `balrog deck: "${name}" is not allowed (rule 1.23)`,
-            card: entry.card,
-          });
-        }
-      }
-    }
+    errors.push(...checkBannedCards(bannedCheckSections, BALROG_BANNED_CARD_IDS, cardPool, 'balrog', '1.23'));
   }
 
   // Rule 1.32 — pool limits
