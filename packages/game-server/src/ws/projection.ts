@@ -45,9 +45,29 @@ function hiddenCardPile(pile: readonly { readonly instanceId: CardInstanceId; re
   return pile.map(c => ({ instanceId: c.instanceId, definitionId: UNKNOWN_CARD }));
 }
 
-/** Redacts a pile of site instances: keeps real instance IDs, replaces definition with UNKNOWN_SITE. */
-function hiddenSitePile(pile: readonly CardInstance[]): readonly ViewCard[] {
-  return pile.map(c => ({ instanceId: c.instanceId, definitionId: UNKNOWN_SITE }));
+/**
+ * Site instance IDs in `playerIndex`'s site deck whose identity is currently
+ * public to everyone, even though the card still lives in that otherwise-hidden
+ * deck. During the character draft a Hidden Haven (wh-75) paired to a Ruins &
+ * Lairs "brings out" that site when revealed (CRF 22: "you must bring out your
+ * starting site when you reveal Hidden Haven"), so the opponent may see which
+ * site it names. Empty in every other phase, so site decks stay fully hidden.
+ */
+function publicSiteInstanceIds(state: GameState, playerIndex: number): ReadonlySet<string> {
+  const ids = new Set<string>();
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
+    for (const pairing of state.phaseState.setupStep.draftState[playerIndex].stageResourceSites ?? []) {
+      ids.add(pairing.siteInstanceId as string);
+    }
+  }
+  return ids;
+}
+
+/** Redacts a site pile to UNKNOWN_SITE but keeps the identity of sites listed in `publicIds`. */
+function redactSitePile(pile: readonly CardInstance[], publicIds: ReadonlySet<string>): readonly ViewCard[] {
+  return pile.map(c => publicIds.has(c.instanceId as string)
+    ? { instanceId: c.instanceId, definitionId: c.definitionId }
+    : { instanceId: c.instanceId, definitionId: UNKNOWN_SITE });
 }
 
 /**
@@ -133,7 +153,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     wizard: player.wizard,
     hand: hiddenCardPile(player.hand),
     playDeck: hiddenCardPile(player.playDeck),
-    siteDeck: hiddenSitePile(player.siteDeck),
+    siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: hiddenCardPile(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
@@ -184,7 +204,10 @@ export function projectSpectatorView(state: GameState): PlayerView {
       hand: [],
       playDeck: hiddenCardPile(p1.playDeck),
       discardPile: [],
-      siteDeck: [],
+      // Only sites whose identity is currently public (a brought-out Hidden
+      // Haven site during the draft); the rest of p1's site deck stays hidden.
+      siteDeck: redactSitePile(p1.siteDeck, publicSiteInstanceIds(state, 0))
+        .filter(c => c.definitionId !== UNKNOWN_SITE),
       siteDiscardPile: [],
       sideboard: [],
       killPile: [],
