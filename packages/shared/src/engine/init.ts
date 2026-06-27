@@ -206,6 +206,58 @@ export function createGame(
  * @param rng - Current RNG state (threaded for determinism).
  * @returns A tuple of `[playerState, nextRng]`.
  */
+/**
+ * Build a fresh {@link PlayerState} with every pile and counter at its
+ * game-start default. The four fields that differ between the two init paths —
+ * `hand`, `playDeck`, `companies`, `characters` — are supplied by the caller
+ * (the latter three default to empty); everything else (empty piles, zeroed
+ * MP/GI, cleared flags) is filled here. Centralizing the starting shape means a
+ * newly-added PlayerState field is set in one place instead of being silently
+ * missed by one of the two callers.
+ */
+function makeInitialPlayerState(opts: {
+  readonly id: PlayerState['id'];
+  readonly name: PlayerState['name'];
+  readonly alignment: PlayerState['alignment'];
+  readonly playDeck: PlayerState['playDeck'];
+  readonly siteDeck: PlayerState['siteDeck'];
+  readonly sideboard: PlayerState['sideboard'];
+  readonly hand?: PlayerState['hand'];
+  readonly companies?: PlayerState['companies'];
+  readonly characters?: PlayerState['characters'];
+}): PlayerState {
+  return {
+    id: opts.id,
+    name: opts.name,
+    alignment: opts.alignment,
+    wizard: null,
+    hand: opts.hand ?? [],
+    playDeck: opts.playDeck,
+    discardPile: [],
+    siteDeck: opts.siteDeck,
+    siteDiscardPile: [],
+    sideboard: opts.sideboard,
+    killPile: [],
+    outOfPlayPile: [],
+    companies: opts.companies ?? [],
+    agents: [],
+    characters: opts.characters ?? {},
+    cardsInPlay: [],
+    marshallingPoints: ZERO_MARSHALLING_POINTS,
+    callableMarshallingPoints: ZERO_MARSHALLING_POINTS,
+    stagePoints: 0,
+    generalInfluenceUsed: 0,
+    generalInfluenceBonus: 0,
+    deckExhaustionCount: 0,
+    freeCouncilCalled: false,
+    lastDiceRoll: null,
+    sideboardAccessedDuringUntap: false,
+    deckExhaustPending: false,
+    deckExhaustExchangeCount: 0,
+    reservedCreatures: [],
+  };
+}
+
 function initPlayerPreDraft(
   config: PlayerConfig,
   cardPool: Readonly<Record<string, CardDefinition>>,
@@ -230,36 +282,14 @@ function initPlayerPreDraft(
     }
   }
 
-  const playerState: PlayerState = {
+  const playerState = makeInitialPlayerState({
     id: config.id,
     name: config.name,
     alignment: config.alignment,
-    wizard: null,
-    hand: [],
     playDeck: shuffledDeck,
-    discardPile: [],
     siteDeck: siteDeckCards,
-    siteDiscardPile: [],
     sideboard: sideboardCards,
-    killPile: [],
-    outOfPlayPile: [],
-    companies: [],
-    agents: [],
-    characters: {},
-    cardsInPlay: [],
-    marshallingPoints: ZERO_MARSHALLING_POINTS,
-    callableMarshallingPoints: ZERO_MARSHALLING_POINTS,
-    stagePoints: 0,
-    generalInfluenceUsed: 0,
-    generalInfluenceBonus: 0,
-    deckExhaustionCount: 0,
-    freeCouncilCalled: false,
-    lastDiceRoll: null,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  };
+  });
 
   return [playerState, rng];
 }
@@ -715,36 +745,17 @@ function initPlayerWithCharacters(
   const sideboardCards = config.sideboard.map(defId => mint(minter, defId));
 
   // GI and MP are left at zero — recomputeDerived() is called on the final state
-  const playerState: PlayerState = {
+  const playerState = makeInitialPlayerState({
     id: config.id,
     name: config.name,
     alignment: config.alignment,
-    wizard: null,
     hand,
     playDeck: remainingDeck,
-    discardPile: [],
     siteDeck: siteDeckCards,
-    siteDiscardPile: [],
     sideboard: sideboardCards,
-    killPile: [],
-    outOfPlayPile: [],
     companies: [company],
-    agents: [],
     characters,
-    cardsInPlay: [],
-    marshallingPoints: ZERO_MARSHALLING_POINTS,
-    callableMarshallingPoints: ZERO_MARSHALLING_POINTS,
-    stagePoints: 0,
-    generalInfluenceUsed: 0,
-    generalInfluenceBonus: 0,
-    deckExhaustionCount: 0,
-    freeCouncilCalled: false,
-    lastDiceRoll: null,
-    sideboardAccessedDuringUntap: false,
-    deckExhaustPending: false,
-    deckExhaustExchangeCount: 0,
-    reservedCreatures: [],
-  };
+  });
 
   return [playerState, rng];
 }
