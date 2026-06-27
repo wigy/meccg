@@ -13,7 +13,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, 
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite } from '../reducer-utils.js';
+import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -166,7 +166,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   // before this function is reached.
 
   if (siteState.step === 'select-company') {
-    const base = viable(selectCompanyActions(state, playerId, siteState));
+    const base = viable(selectCompanyActions(state, playerId, siteState.handledCompanyIds));
     // Rule 2.1.1: resource player may play resource short-events during
     // any phase of their turn, including before selecting a company.
     if (isActive) {
@@ -260,42 +260,6 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   }
 
   return viable([{ type: 'pass', player: playerId }]);
-}
-
-/**
- * Generate select-company actions for the site phase.
- *
- * The resource player picks which unhandled company resolves its site
- * phase next. Companies returned to their site of origin during M/H
- * are automatically skipped (CoE line 336). If only one company
- * remains, it is still offered as a choice for explicitness.
- */
-function selectCompanyActions(
-  state: GameState,
-  playerId: PlayerId,
-  siteState: SitePhaseState,
-): GameAction[] {
-  const isActive = state.activePlayer === playerId;
-  if (!isActive) {
-    logDetail(`Not active player — no actions during select-company step`);
-    return [];
-  }
-
-  const player = playerById(state, playerId)!;
-  const handledSet = new Set(siteState.handledCompanyIds);
-
-  const actions: GameAction[] = [];
-  for (const company of player.companies) {
-    if (handledSet.has(company.id)) {
-      logDetail(`Company ${company.id} already handled — skipping`);
-      continue;
-    }
-    logDetail(`Company ${company.id} not yet handled — offering select-company`);
-    actions.push({ type: 'select-company', player: playerId, companyId: company.id });
-  }
-
-  logDetail(`${actions.length} unhandled company(ies) available for selection`);
-  return actions;
 }
 
 /**

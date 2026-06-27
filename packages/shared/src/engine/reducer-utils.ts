@@ -1712,6 +1712,43 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
 }
 
 /**
+ * The active player's companies that have not yet been handled this phase,
+ * offered as `select-company` actions. Shared by the site phase and the
+ * movement/hazard phase: the resource player picks which unhandled company
+ * resolves next. Only the active player may select; the opponent receives no
+ * actions during this step. `handledCompanyIds` is the phase state's running
+ * set of already-resolved companies (`SitePhaseState.handledCompanyIds` /
+ * `MovementHazardPhaseState.handledCompanyIds`).
+ */
+export function selectCompanyActions(
+  state: GameState,
+  playerId: PlayerId,
+  handledCompanyIds: readonly CompanyId[],
+): GameAction[] {
+  const isActive = state.activePlayer === playerId;
+  if (!isActive) {
+    logDetail(`Not active player — no actions during select-company step`);
+    return [];
+  }
+
+  const player = playerById(state, playerId)!;
+  const handledSet = new Set(handledCompanyIds);
+
+  const actions: GameAction[] = [];
+  for (const company of player.companies) {
+    if (handledSet.has(company.id)) {
+      logDetail(`Company ${company.id} already handled — skipping`);
+      continue;
+    }
+    logDetail(`Company ${company.id} not yet handled — offering select-company`);
+    actions.push({ type: 'select-company', player: playerId, companyId: company.id });
+  }
+
+  logDetail(`${actions.length} unhandled company(ies) available for selection`);
+  return actions;
+}
+
+/**
  * Generate a unique company ID for a player by finding the highest existing
  * index among their companies and incrementing it. This avoids ID collisions
  * that can occur when companies are merged (removing lower-indexed IDs) and

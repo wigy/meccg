@@ -18,7 +18,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
@@ -68,7 +68,7 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   // before this function is reached.
 
   if (mhState.step === 'select-company') {
-    return viable(selectCompanyActions(state, playerId, mhState));
+    return viable(selectCompanyActions(state, playerId, mhState.handledCompanyIds));
   }
 
   if (mhState.step === 'reveal-new-site') {
@@ -289,41 +289,6 @@ function isStarterMovementPossible(
     return origin.nearestHaven === dest.name;
   }
   return false;
-}
-
-/**
- * Generate select-company actions for the resource player.
- *
- * Lists all of the active player's companies that have not yet been
- * handled this turn. Only the active (resource) player may select;
- * the hazard player receives no actions during this step.
- */
-function selectCompanyActions(
-  state: GameState,
-  playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
-): GameAction[] {
-  const isActive = state.activePlayer === playerId;
-  if (!isActive) {
-    logDetail(`Not active player — no actions during select-company step`);
-    return [];
-  }
-
-  const player = playerById(state, playerId)!;
-  const handledSet = new Set(mhState.handledCompanyIds);
-
-  const actions: GameAction[] = [];
-  for (const company of player.companies) {
-    if (handledSet.has(company.id)) {
-      logDetail(`Company ${company.id} already handled — skipping`);
-      continue;
-    }
-    logDetail(`Company ${company.id} not yet handled — offering select-company`);
-    actions.push({ type: 'select-company', player: playerId, companyId: company.id });
-  }
-
-  logDetail(`${actions.length} unhandled company(ies) available for selection`);
-  return actions;
 }
 
 /**
