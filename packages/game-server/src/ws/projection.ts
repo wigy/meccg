@@ -71,6 +71,30 @@ function redactSitePile(pile: readonly CardInstance[], publicIds: ReadonlySet<st
 }
 
 /**
+ * The view fields that are identical across the self, opponent, and
+ * spectator-self projections: public per-player metadata plus the derived
+ * general influence (the single call site for `effectiveGeneralInfluence`).
+ * The fields that differ between views — the redacted piles, companies, and
+ * agents — stay in each builder's own literal.
+ */
+function commonViewFields(state: GameState, player: PlayerState) {
+  return {
+    id: player.id,
+    name: player.name,
+    alignment: player.alignment,
+    wizard: player.wizard,
+    characters: player.characters,
+    cardsInPlay: player.cardsInPlay,
+    marshallingPoints: player.marshallingPoints,
+    generalInfluenceUsed: player.generalInfluenceUsed,
+    generalInfluence: effectiveGeneralInfluence(state, player.id),
+    stagePoints: player.stagePoints,
+    deckExhaustionCount: player.deckExhaustionCount,
+    lastDiceRoll: player.lastDiceRoll,
+  };
+}
+
+/**
  * Builds the "self" portion of a player's view. The player can see their
  * own hand contents (resolved to definition IDs), discard pile, site deck,
  * sideboard, companies, and characters — but only the *size* of their play
@@ -86,10 +110,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
       : c,
   );
   return {
-    id: player.id,
-    name: player.name,
-    alignment: player.alignment,
-    wizard: player.wizard,
+    ...commonViewFields(state, player),
     hand: toViewCards(player.hand),
     playDeck: hiddenCardPile(player.playDeck),
     discardPile: toViewCards(player.discardPile),
@@ -100,14 +121,6 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     outOfPlayPile: toViewCards(player.outOfPlayPile),
     companies,
     agents: player.agents,
-    characters: player.characters,
-    cardsInPlay: player.cardsInPlay,
-    marshallingPoints: player.marshallingPoints,
-    generalInfluenceUsed: player.generalInfluenceUsed,
-    generalInfluence: effectiveGeneralInfluence(state, player.id),
-    stagePoints: player.stagePoints,
-    deckExhaustionCount: player.deckExhaustionCount,
-    lastDiceRoll: player.lastDiceRoll,
   };
 }
 
@@ -147,10 +160,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
   }));
 
   return {
-    id: player.id,
-    name: player.name,
-    alignment: player.alignment,
-    wizard: player.wizard,
+    ...commonViewFields(state, player),
     hand: hiddenCardPile(player.hand),
     playDeck: hiddenCardPile(player.playDeck),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
@@ -161,14 +171,6 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     sideboard: hiddenCardPile(player.sideboard),
     companies,
     agents,
-    characters: player.characters,
-    cardsInPlay: player.cardsInPlay,
-    marshallingPoints: player.marshallingPoints,
-    generalInfluenceUsed: player.generalInfluenceUsed,
-    generalInfluence: effectiveGeneralInfluence(state, player.id),
-    stagePoints: player.stagePoints,
-    deckExhaustionCount: player.deckExhaustionCount,
-    lastDiceRoll: player.lastDiceRoll,
   };
 }
 
@@ -197,10 +199,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
 
   return {
     self: {
-      id: p1.id,
-      name: p1.name,
-      alignment: p1.alignment,
-      wizard: p1.wizard,
+      ...commonViewFields(state, p1),
       hand: [],
       playDeck: hiddenCardPile(p1.playDeck),
       discardPile: [],
@@ -214,14 +213,6 @@ export function projectSpectatorView(state: GameState): PlayerView {
       outOfPlayPile: [],
       companies: p1.companies,
       agents: p1.agents,
-      characters: p1.characters,
-      cardsInPlay: p1.cardsInPlay,
-      marshallingPoints: p1.marshallingPoints,
-      generalInfluenceUsed: p1.generalInfluenceUsed,
-      generalInfluence: effectiveGeneralInfluence(state, p1.id),
-      stagePoints: p1.stagePoints,
-      deckExhaustionCount: p1.deckExhaustionCount,
-      lastDiceRoll: p1.lastDiceRoll,
     },
     opponent,
     activePlayer: state.activePlayer,
