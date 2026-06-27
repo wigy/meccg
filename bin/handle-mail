@@ -1004,11 +1004,14 @@ elif [ -n "${SKILL_COST:-}" ]; then
   CREDITS_CHARGED=$(awk -v c="$SKILL_COST" 'BEGIN { printf "%d", (c*100)+0.5 }')
 fi
 
-# Certification failures don't bill: the user paid for a PR + test, not for
-# an analysis of why we can't ship one. The Claude cost is sunk for us, but
-# charging on failure is the wrong incentive — and surprised users twice
-# (Stinker le-154, Warg-king le-158, etc.).
-if [ "$TOPIC" = "certification-request" ] && ! $SUCCESS; then
+# AI-skill failures don't bill: the user paid for a delivered result (a fix, a
+# plan, a certified PR), not for an analysis of why we couldn't produce one.
+# The Claude cost is sunk for us, but charging on failure is the wrong
+# incentive — and surprises users (e.g. cert failures Stinker le-154, Warg-king
+# le-158; and the failed/recovered bug-report Ettenmoors 05f2117b, which still
+# billed 408). This now covers every skill-backed topic, not just
+# certification. Card requests are mechanical (flat fee) and always bill.
+if [ "$TOPIC" != "card-request" ] && ! $SUCCESS; then
   CREDITS_CHARGED=0
 fi
 

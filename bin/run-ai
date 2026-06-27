@@ -246,6 +246,11 @@ while true; do
   echo
   echo
   if [ -n "$MAX_ITERATIONS" ] && [ "$iterations" -ge "$MAX_ITERATIONS" ]; then
+    # The per-iteration `git checkout master` runs at the top of the loop, so
+    # exiting here would strand the repo on the last skill's feature branch.
+    # Return to master so the tree is left in the same known state an idle
+    # loop would leave it (clean, on master).
+    git checkout master 2>&1 | tee -a "$LOG_FILE"
     echo "=== Reached max iterations ($MAX_ITERATIONS) at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
     exit 0
   fi
