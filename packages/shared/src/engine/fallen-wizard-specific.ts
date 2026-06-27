@@ -12,10 +12,10 @@
  * discarded. The sweep is idempotent: once they are discarded, later passes find
  * nothing to do.
  */
-import type { GameState, PlayerState } from '../index.js';
+import type { GameState } from '../index.js';
 import { Phase } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, findPlayerAvatar, toCardInstance } from './reducer-utils.js';
+import { defById, findPlayerAvatar, discardCardsInPlayWhere } from './reducer-utils.js';
 
 /**
  * The per-wizard "X-specific" keywords carried by wizard-specific stage cards.
@@ -71,29 +71,18 @@ export function wizardSpecificName(def: ReturnType<typeof defById>): string | nu
 export function sweepFallenWizardSpecific(state: GameState): GameState {
   if (state.phaseState.phase === Phase.Setup) return state;
 
-  let players: PlayerState[] | null = null;
-  state.players.forEach((player, idx) => {
-    if (player.alignment !== 'fallen-wizard') return;
-    // Avatar still in play → nothing to do.
-    if (findPlayerAvatar(state, player)) return;
-
-    const specific = player.cardsInPlay.filter(card => isFallenWizardSpecific(defById(state, card.definitionId)));
-    if (specific.length === 0) return;
-
-    const specificIds = new Set(specific.map(c => c.instanceId as string));
-    for (const card of specific) {
+  // A wizard-specific stage card is swept only for a Fallen-wizard player whose
+  // avatar is no longer in play. The per-player gate runs inside the predicate
+  // (cheap: non-Fallen-wizard players short-circuit before the avatar lookup).
+  return discardCardsInPlayWhere(
+    state,
+    (card, player) =>
+      player.alignment === 'fallen-wizard'
+      && !findPlayerAvatar(state, player)
+      && isFallenWizardSpecific(defById(state, card.definitionId)),
+    card => {
       const def = defById(state, card.definitionId);
       logDetail(`MEWH §12: Fallen-wizard avatar has left play — discarding wizard-specific stage card ${def && 'name' in def ? (def as { name: string }).name : (card.definitionId as string)}`);
-    }
-
-    if (!players) players = [...state.players];
-    players[idx] = {
-      ...player,
-      cardsInPlay: player.cardsInPlay.filter(c => !specificIds.has(c.instanceId as string)),
-      discardPile: [...player.discardPile, ...specific.map(toCardInstance)],
-    };
-  });
-
-  if (!players) return state;
-  return { ...state, players: players as unknown as readonly [PlayerState, PlayerState] };
+    },
+  ).state;
 }

@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
@@ -1442,6 +1442,57 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
 }
 
 /**
+ * Post-action housekeeping primitive: discard every in-play card matching
+ * `predicate` from each player's `cardsInPlay` into that **same** player's
+ * `discardPile`. Returns the (possibly unchanged) state together with the
+ * instance ids that were discarded, so callers that must also prune dependent
+ * state (e.g. {@link discardOrphanedSiteAttachedEvents}, which clears the
+ * discarded cards' `activeConstraints`) can do so.
+ *
+ * When nothing matches, the returned `state` is the **same reference** as the
+ * input (no allocation), preserving reducer identity for no-op sweeps.
+ * `onDiscard` is invoked once per matched card, in `cardsInPlay` order, before
+ * the card is moved — use it for per-card logging.
+ *
+ * Centralizes the "partition `cardsInPlay` by a predicate, route matches to
+ * discard" skeleton shared by the company/leader/orphan-event sweeps. The
+ * no-card-may-disappear invariant is upheld: every card removed from
+ * `cardsInPlay` is appended to `discardPile`.
+ */
+export function discardCardsInPlayWhere(
+  state: GameState,
+  predicate: (card: CardInPlay, player: PlayerState) => boolean,
+  onDiscard?: (card: CardInPlay, player: PlayerState) => void,
+): { readonly state: GameState; readonly removedInstanceIds: readonly CardInstanceId[] } {
+  let changed = false;
+  const removedInstanceIds: CardInstanceId[] = [];
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    const matched = player.cardsInPlay.filter(c => predicate(c, player));
+    if (matched.length === 0) continue;
+    changed = true;
+    const matchedSet = new Set(matched.map(c => c.instanceId as string));
+    for (const card of matched) {
+      removedInstanceIds.push(card.instanceId);
+      onDiscard?.(card, player);
+    }
+    newPlayers[pi] = {
+      ...player,
+      cardsInPlay: player.cardsInPlay.filter(c => !matchedSet.has(c.instanceId as string)),
+      discardPile: [...player.discardPile, ...matched.map(toCardInstance)],
+    };
+  }
+
+  if (!changed) return { state, removedInstanceIds };
+  return {
+    state: { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players },
+    removedInstanceIds,
+  };
+}
+
+/**
  * Fires the `company-membership-changes` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
  * `on-event: company-membership-changes` + `discard-self` effect. Used by
@@ -1457,36 +1508,20 @@ export function sweepCompanyMembershipChangedEvents(
 ): GameState {
   if (affectedCompanyIds.length === 0) return state;
   const affected = new Set(affectedCompanyIds.map(id => id as string));
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    const toDiscard: CardInstanceId[] = [];
-    for (const card of player.cardsInPlay) {
-      if (!affected.has(card.companyId as string)) continue;
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      if (!affected.has(card.companyId as string)) return false;
       const def = state.cardPool[card.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
-      const trigger = getOnEventEffects(def, 'company-membership-changes').find(
+      return getOnEventEffects(def, 'company-membership-changes').some(
         e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
       );
-      if (trigger) {
-        logDetail(`company-membership-changes: discarding "${def?.name}" (company ${card.companyId as string})`);
-        toDiscard.push(card.instanceId);
-      }
-    }
-    if (toDiscard.length > 0) {
-      changed = true;
-      const discardSet = new Set(toDiscard as string[]);
-      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
-      newPlayers[pi] = {
-        ...newPlayers[pi],
-        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
-        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
-      };
-    }
-  }
-
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+    },
+    card => {
+      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      logDetail(`company-membership-changes: discarding "${def?.name}" (company ${card.companyId as string})`);
+    },
+  ).state;
 }
 
 /**
@@ -1505,36 +1540,20 @@ export function sweepLeaderLeavesCompanyEvents(
 ): GameState {
   if (affectedCompanyIds.length === 0) return state;
   const affected = new Set(affectedCompanyIds.map(id => id as string));
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    const toDiscard: CardInstanceId[] = [];
-    for (const card of player.cardsInPlay) {
-      if (!affected.has(card.companyId as string)) continue;
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      if (!affected.has(card.companyId as string)) return false;
       const def = state.cardPool[card.definitionId as string] as { name?: string; effects?: readonly CardEffect[] } | undefined;
-      const trigger = getOnEventEffects(def, 'leader-leaves-company').find(
+      return getOnEventEffects(def, 'leader-leaves-company').some(
         e => e.apply?.type === 'discard-self',
       );
-      if (trigger) {
-        logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
-        toDiscard.push(card.instanceId);
-      }
-    }
-    if (toDiscard.length > 0) {
-      changed = true;
-      const discardSet = new Set(toDiscard as string[]);
-      const discarded = player.cardsInPlay.filter(c => discardSet.has(c.instanceId as string));
-      newPlayers[pi] = {
-        ...newPlayers[pi],
-        cardsInPlay: player.cardsInPlay.filter(c => !discardSet.has(c.instanceId as string)),
-        discardPile: [...player.discardPile, ...discarded.map(toCardInstance)],
-      };
-    }
-  }
-
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+    },
+    card => {
+      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
+    },
+  ).state;
 }
 
 /**
@@ -1546,29 +1565,14 @@ export function sweepLeaderLeavesCompanyEvents(
  * single chokepoint; the "leader moves" half is handled at M/H step 8.
  */
 export function discardOrphanedControlledFactions(state: GameState): GameState {
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    const orphaned = player.cardsInPlay.filter(
-      c => c.controlledBy !== undefined && !player.characters[c.controlledBy as string],
-    );
-    if (orphaned.length === 0) continue;
-    changed = true;
-    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
-    for (const card of orphaned) {
+  return discardCardsInPlayWhere(
+    state,
+    (card, player) => card.controlledBy !== undefined && !player.characters[card.controlledBy as string],
+    card => {
       const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
       logDetail(`leader-control: discarding "${def?.name ?? card.definitionId}" — controlling leader left play`);
-    }
-    newPlayers[pi] = {
-      ...player,
-      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
-      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
-    };
-  }
-
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
+    },
+  ).state;
 }
 
 /**
@@ -1631,36 +1635,22 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     if (host.prisoners.length > 0) activeHosts.add(host.hostCard.instanceId as string);
   }
 
-  let changed = false;
-  const removedSources = new Set<string>();
-  const newPlayers = clonePlayers(state);
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    const orphaned = player.cardsInPlay.filter(
-      c => c.attachedToSite !== undefined
-        && !occupied.has(c.attachedToSite as string)
-        && !activeHosts.has(c.instanceId as string),
-    );
-    if (orphaned.length === 0) continue;
-    changed = true;
-    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
-    for (const card of orphaned) {
-      removedSources.add(card.instanceId as string);
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    card => card.attachedToSite !== undefined
+      && !occupied.has(card.attachedToSite as string)
+      && !activeHosts.has(card.instanceId as string),
+    card => {
       const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
-    }
-    newPlayers[pi] = {
-      ...player,
-      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
-      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
-    };
-  }
+    },
+  );
 
-  if (!changed) return state;
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
   return {
-    ...state,
-    players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players,
-    activeConstraints: state.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
   };
 }
 
@@ -1706,35 +1696,19 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
     }
   }
 
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-  for (let pi = 0; pi < 2; pi++) {
-    const player = newPlayers[pi];
-    const orphaned = player.cardsInPlay.filter(c => {
-      if (c.attachedTo === undefined || allyIds.has(c.attachedTo as string)) return false;
-      const def = resolveDef(state, c.instanceId);
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      if (card.attachedTo === undefined || allyIds.has(card.attachedTo as string)) return false;
+      const def = resolveDef(state, card.instanceId);
       const effects = def ? getCardEffects(def) : [];
       return effects.some(e => e.type === 'convert-creature-to-ally');
-    });
-    if (orphaned.length === 0) continue;
-    changed = true;
-    const orphanedSet = new Set(orphaned.map(c => c.instanceId as string));
-    for (const card of orphaned) {
+    },
+    card => {
       const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
       logDetail(`converted-ally event: discarding "${def?.name ?? card.definitionId}" — its converted-creature ally left play`);
-    }
-    newPlayers[pi] = {
-      ...player,
-      cardsInPlay: player.cardsInPlay.filter(c => !orphanedSet.has(c.instanceId as string)),
-      discardPile: [...player.discardPile, ...orphaned.map(toCardInstance)],
-    };
-  }
-
-  if (!changed) return state;
-  return {
-    ...state,
-    players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players,
-  };
+    },
+  ).state;
 }
 
 /**
