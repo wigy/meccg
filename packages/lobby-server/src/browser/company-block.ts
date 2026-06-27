@@ -36,7 +36,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -925,11 +925,8 @@ export function renderCardsInPlayRow(
     const group = document.createElement('div');
     group.className = className;
     for (const card of cards) {
-      const def = cardPool[card.definitionId as string];
-      if (!def) continue;
-      const imgPath = cardImageProxyPath(def);
-      if (!imgPath) continue;
-      const img = createCardImage(card.definitionId as string, def, imgPath, 'company-card', card.instanceId as string);
+      const img = createCardImageFromDefId(card.definitionId, cardPool, 'company-card', card.instanceId as string);
+      if (!img) continue;
       if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
       // Highlight as discard target when a short event with discardTargetInstanceId is selected
       if (selectedSE && onAction) {

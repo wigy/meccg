@@ -9,7 +9,7 @@
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CharacterInPlay, SiteInPlay, ViewCard } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, isCharacterCard, resolveThrallCharacterPairings } from '@meccg/shared';
-import { createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { getCachedInstanceLookup } from './render-text-format.js';
 import { getSelectedItemDefId, setSelectedItemDefId, setTargetingInstruction } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
@@ -17,11 +17,8 @@ import { findSelfIndex } from './render-debug-panels.js';
 /** Render a row of card images from definition IDs. */
 function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], cardPool: Readonly<Record<string, CardDefinition>>): void {
   for (const defId of defIds) {
-    const def = cardPool[defId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
-    el.appendChild(createCardImage(defId as string, def, imgPath));
+    const img = createCardImageFromDefId(defId, cardPool);
+    if (img) el.appendChild(img);
   }
 }
 
@@ -110,11 +107,8 @@ function renderDraftedCharactersWithThralls(
   }
 
   for (const card of drafted) {
-    const def = cardPool[card.definitionId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
-    const img = createCardImage(card.definitionId as string, def, imgPath, 'drafted-card', card.instanceId as string);
+    const img = createCardImageFromDefId(card.definitionId, cardPool, 'drafted-card', card.instanceId as string);
+    if (!img) continue;
 
     const thralls = thrallsByChar.get(card.instanceId as string) ?? [];
     if (thralls.length === 0) {
@@ -126,11 +120,8 @@ function renderDraftedCharactersWithThralls(
     group.className = 'drafted-card-group';
     group.appendChild(img);
     for (const thrall of thralls) {
-      const tDef = cardPool[thrall.definitionId as string];
-      if (!tDef) continue;
-      const tImgPath = cardImageProxyPath(tDef);
-      if (!tImgPath) continue;
-      group.appendChild(createCardImage(thrall.definitionId as string, tDef, tImgPath, 'drafted-card drafted-item', thrall.instanceId as string));
+      const tImg = createCardImageFromDefId(thrall.definitionId, cardPool, 'drafted-card drafted-item', thrall.instanceId as string);
+      if (tImg) group.appendChild(tImg);
     }
     el.appendChild(group);
   }
@@ -149,15 +140,12 @@ function renderCharactersWithItems(
   for (const charInstId of charInstIds) {
     const defId = cachedInstanceLookup(charInstId as CardInstanceId);
     if (!defId) continue;
-    const def = cardPool[defId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
+    const img = createCardImageFromDefId(defId, cardPool, 'drafted-card', charInstId as string);
+    if (!img) continue;
 
     const char = characters[charInstId as string];
     const hasItems = char && char.items.length > 0;
 
-    const img = createCardImage(defId as string, def, imgPath, 'drafted-card', charInstId as string);
     if (!hasItems) {
       el.appendChild(img);
       continue;
@@ -221,22 +209,19 @@ function renderPlacementCompanies(
     for (const charInstId of company.characters) {
       const defId = cachedInstanceLookup(charInstId);
       if (!defId) continue;
-      const def = cardPool[defId as string];
-      if (!def) continue;
-      const imgPath = cardImageProxyPath(def);
-      if (!imgPath) continue;
 
       const placeAction = viableActions(view.legalActions).find(
         a => a.type === 'place-character' && a.characterInstanceId === charInstId,
       ) ?? null;
+      const img = createCardImageFromDefId(defId, cardPool,
+        placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card', charInstId as string);
+      if (!img) continue;
+
       const char = view.self.characters[charInstId as string];
       const hasItems = char && char.items.length > 0;
 
       const group = hasItems ? document.createElement('div') : null;
       if (group) group.className = 'drafted-card-group';
-
-      const img = createCardImage(defId as string, def, imgPath,
-        placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card', charInstId as string);
 
       if (group && char) {
         group.appendChild(img);
@@ -265,11 +250,8 @@ function renderSitesAndCharacters(
   separateSites = false,
 ): void {
   for (const site of sites) {
-    const def = cardPool[site.definitionId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
-    el.appendChild(createCardImage(site.definitionId as string, def, imgPath, 'drafted-card', site.instanceId as string));
+    const img = createCardImageFromDefId(site.definitionId, cardPool, 'drafted-card', site.instanceId as string);
+    if (img) el.appendChild(img);
   }
 
   if (separateSites && sites.length > 0 && charInstIds.length > 0) {
@@ -296,10 +278,6 @@ function renderItemDraftTargets(
   for (const charInstId of charInstanceIds) {
     const defId = cachedInstanceLookup(charInstId as CardInstanceId);
     if (!defId) continue;
-    const def = cardPool[defId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
 
     // Find the matching action for this character + selected item
     const charIdStr = charInstId as string;
@@ -311,14 +289,15 @@ function renderItemDraftTargets(
       ) ?? null
       : null;
 
+    const img = createCardImageFromDefId(defId, cardPool,
+      targetAction ? 'drafted-card drafted-card-target' : 'drafted-card', charInstId as string);
+    if (!img) continue;
+
     const char = view.self.characters[charIdStr];
     const hasItems = char && char.items.length > 0;
 
     const group = hasItems ? document.createElement('div') : null;
     if (group) group.className = 'drafted-card-group';
-
-    const img = createCardImage(defId as string, def, imgPath,
-      targetAction ? 'drafted-card drafted-card-target' : 'drafted-card', charInstId as string);
 
     if (targetAction && onAction) {
       img.style.cursor = 'pointer';
@@ -406,11 +385,8 @@ export function renderDrafted(
       const resolvedSetAside = draftDefIds(selfSetAside);
       for (let j = 0; j < resolvedSetAside.length; j++) {
         const defId = resolvedSetAside[j];
-        const def = cardPool[defId as string];
-        if (!def) continue;
-        const imgPath = cardImageProxyPath(def);
-        if (!imgPath) continue;
-        const img = createCardImage(defId as string, def, imgPath, 'set-aside-card');
+        const img = createCardImageFromDefId(defId, cardPool, 'set-aside-card');
+        if (!img) continue;
         const baseZ = j + 1;
         img.style.zIndex = String(baseZ);
         img.addEventListener('mouseenter', () => { img.style.zIndex = '200'; });
