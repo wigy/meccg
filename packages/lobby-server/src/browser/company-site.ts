@@ -21,7 +21,7 @@ import type {
   DeclareAgentAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
-import { createCardImage, createRegionTypeIcon } from './render-utils.js';
+import { createCardImage, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
@@ -370,19 +370,10 @@ export function renderSiteArea(
 
       for (const og of ogCards) {
         const ogDefId = cachedInstanceLookup(og.instanceId);
-        const ogDef = ogDefId ? cardPool[ogDefId as string] : undefined;
-        const ogImgPath = ogDef ? cardImageProxyPath(ogDef) : undefined;
         const revealAction = revealActions.find(a => a.cardInstanceId === og.instanceId);
         const revealCls = revealAction ? ' on-guard-card--revealable' : '';
 
-        let ogImg: HTMLImageElement;
-        if (ogDef && ogImgPath) {
-          ogImg = createCardImage(ogDefId as string, ogDef, ogImgPath, `company-card company-card--site on-guard-card${revealCls}`, og.instanceId as string);
-        } else {
-          ogImg = document.createElement('img');
-          ogImg.alt = 'On-guard card';
-          ogImg.className = `company-card company-card--site on-guard-card${revealCls}`;
-        }
+        const ogImg = createCardImageOrBack(og.instanceId, ogDefId, cardPool, `company-card company-card--site on-guard-card${revealCls}`, 'On-guard card');
         // Show card-back unless revealed (face-up); hover preview shows real card either way
         if (!('revealed' in og) || !og.revealed) {
           ogImg.src = '/images/card-back.jpg';
@@ -427,19 +418,13 @@ export function renderSiteArea(
       strip.className = 'constraint-strip';
       const onAction = options?.onAction;
       for (const constraint of uniqueConstraintsBySource.values()) {
-        const cDefId = constraint.sourceDefinitionId ?? cachedInstanceLookup(constraint.source);
-        const cDef = cDefId ? cardPool[cDefId as string] : undefined;
-        const cImgPath = cDef ? cardImageProxyPath(cDef) : undefined;
-
-        let cImg: HTMLImageElement;
-        if (cDef && cImgPath) {
-          cImg = createCardImage(cDefId as string, cDef, cImgPath, 'constraint-card', constraint.source as string);
-        } else {
-          cImg = document.createElement('img');
-          cImg.src = '/images/card-back.jpg';
-          cImg.alt = 'Active constraint';
-          cImg.className = 'constraint-card';
-        }
+        const cImg = createCardImageOrBack(
+          constraint.source,
+          constraint.sourceDefinitionId ?? cachedInstanceLookup(constraint.source),
+          cardPool,
+          'constraint-card',
+          'Active constraint',
+        );
 
         // If the constraint source has activatable granted actions (e.g.
         // ranger tap to cancel River), make the card clickable.
@@ -499,19 +484,13 @@ export function renderSiteArea(
 
       let thumbIndex = 0;
       for (const [agentInstId, actions] of byAgent) {
-        const agentDefId = cachedInstanceLookup(agentInstId as CardInstanceId);
-        const agentDef = agentDefId ? cardPool[agentDefId as string] : undefined;
-        const agentImgPath = agentDef ? cardImageProxyPath(agentDef) : undefined;
-
-        let thumb: HTMLImageElement;
-        if (agentDef && agentImgPath && agentDefId) {
-          thumb = createCardImage(agentDefId as string, agentDef, agentImgPath, 'agent-attack-thumb', agentInstId);
-        } else {
-          thumb = document.createElement('img');
-          thumb.src = '/images/card-back.jpg';
-          thumb.alt = 'Agent';
-          thumb.className = 'agent-attack-thumb';
-        }
+        const thumb = createCardImageOrBack(
+          agentInstId as CardInstanceId,
+          cachedInstanceLookup(agentInstId as CardInstanceId),
+          cardPool,
+          'agent-attack-thumb',
+          'Agent',
+        );
         thumb.style.setProperty('--agent-thumb-index', String(thumbIndex++));
         thumb.style.cursor = 'pointer';
         thumb.addEventListener('click', (e) => {

@@ -6,7 +6,7 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CharacterInPlay, RegionType } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, RegionType } from '@meccg/shared';
 import { cardImageProxyPath } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
@@ -27,6 +27,33 @@ export function createCardImage(defId: string, def: CardDefinition, imgPath: str
   img.alt = def.name;
   img.dataset.cardId = defId;
   if (instanceId) img.dataset.instanceId = instanceId;
+  img.className = className;
+  return img;
+}
+
+/**
+ * Create the card image for `defId`/`instanceId`, falling back to a face-down
+ * card-back image (with `fallbackAlt` as the alt text) when the definition is
+ * unknown or has no proxy image path. The returned element always carries
+ * `className`. Shared by the company-site renderers (on-guard cards,
+ * active-constraint cards, agent-attack thumbnails), which each build this same
+ * "real image, otherwise card-back" element.
+ */
+export function createCardImageOrBack(
+  instanceId: CardInstanceId,
+  defId: CardDefinitionId | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  className: string,
+  fallbackAlt: string,
+): HTMLImageElement {
+  const def = defId ? cardPool[defId as string] : undefined;
+  const imgPath = def ? cardImageProxyPath(def) : undefined;
+  if (def && imgPath) {
+    return createCardImage(defId as string, def, imgPath, className, instanceId as string);
+  }
+  const img = document.createElement('img');
+  img.src = '/images/card-back.jpg';
+  img.alt = fallbackAlt;
   img.className = className;
   return img;
 }
