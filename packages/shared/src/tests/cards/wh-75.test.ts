@@ -679,6 +679,55 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     expect(isWizardhavenConversionFor(state, WORTHY_HILLS, PLAYER_2)).toBe(false);
   });
 
+  test('a Hidden Haven pairing auto-skips the starting-site-selection step for that player', () => {
+    // The paired Hidden Haven site IS the Fallen-wizard's starting site
+    // (rule 1.10.F1 / CRF 22), so they must not be prompted to choose one again —
+    // the starting-site-selection step is skipped for them, while the opponent
+    // (whose site is not pre-placed) still selects normally.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+    ]);
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhInst, siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
+    }]);
+    // The FW takes its remaining character; the draft finalises and (no items, no
+    // deck-draft) the game lands in the starting-site-selection step.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, BALIN) },
+    ]);
+
+    const ps = state.phaseState as { setupStep: { step: string; siteSelectionState: readonly { done: boolean }[] } };
+    expect(ps.setupStep.step).toBe('starting-site-selection');
+    // The Fallen-wizard is auto-done (skipped); the opponent is not.
+    expect(ps.setupStep.siteSelectionState[0].done).toBe(true);
+    expect(ps.setupStep.siteSelectionState[1].done).toBe(false);
+    // The FW is offered nothing in this step; the opponent is offered site picks.
+    expect(computeLegalActions(state, PLAYER_1).filter(a => a.viable)).toHaveLength(0);
+    expect(computeLegalActions(state, PLAYER_2).some(a => a.viable && a.action.type === 'select-starting-site')).toBe(true);
+    // The FW's company already sits at the brought-out Hidden Haven site.
+    expect(state.players[RESOURCE_PLAYER].companies[0].currentSite?.definitionId).toBe(WORTHY_HILLS);
+
+    // The opponent selecting their site completes the step with no soft-lock.
+    state = runActions(state, [
+      { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: siteDeckInstId(state, 1, RIVENDELL) },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+    expect((state.phaseState as { setupStep: { step: string } }).setupStep.step).not.toBe('starting-site-selection');
+  });
+
   test('collision: both players pairing the same site set both Hidden Havens aside', () => {
     const config: GameConfig = {
       players: [

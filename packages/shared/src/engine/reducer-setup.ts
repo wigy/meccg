@@ -21,26 +21,34 @@ export function handleSetup(state: GameState, action: GameAction): ReducerResult
   if (state.phaseState.phase !== Phase.Setup) {
     return { state, error: 'Not in setup phase' };
   }
+  let result: ReducerResult;
   switch (state.phaseState.setupStep.step) {
     case SetupStep.CharacterDraft:
-      return handleCharacterDraft(state, action, state.phaseState.setupStep);
+      result = handleCharacterDraft(state, action, state.phaseState.setupStep); break;
     case SetupStep.ItemDraft:
-      return handleItemDraft(state, action, state.phaseState.setupStep);
+      result = handleItemDraft(state, action, state.phaseState.setupStep); break;
     case SetupStep.CharacterDeckDraft:
-      return handleCharacterDeckDraft(state, action, state.phaseState.setupStep);
+      result = handleCharacterDeckDraft(state, action, state.phaseState.setupStep); break;
     case SetupStep.StartingSiteSelection:
-      return handleStartingSiteSelection(state, action, state.phaseState.setupStep);
+      result = handleStartingSiteSelection(state, action, state.phaseState.setupStep); break;
     case SetupStep.CharacterPlacement:
-      return handleCharacterPlacement(state, action, state.phaseState.setupStep);
+      result = handleCharacterPlacement(state, action, state.phaseState.setupStep); break;
     case SetupStep.DeckShuffle:
-      return handleDeckShuffle(state, action, state.phaseState.setupStep);
+      result = handleDeckShuffle(state, action, state.phaseState.setupStep); break;
     case SetupStep.InitialDraw:
-      return handleInitialDraw(state, action, state.phaseState.setupStep);
+      result = handleInitialDraw(state, action, state.phaseState.setupStep); break;
     case SetupStep.InitiativeRoll:
-      return handleInitiativeRoll(state, action, state.phaseState.setupStep);
+      result = handleInitiativeRoll(state, action, state.phaseState.setupStep); break;
     default:
       return { state, error: 'Unknown setup step' };
   }
+  // Whenever a setup action lands in the starting-site-selection step, auto-skip
+  // it for any player whose starting site was fixed by a Hidden Haven (wh-75)
+  // draft pairing. Applied here (once, centrally) so every path that reaches the
+  // step is covered — including the draft-finalize-with-no-items shortcut in
+  // applyDraftResults. Idempotent and a no-op outside the step.
+  if (result.error) return result;
+  return { ...result, state: applySiteSelectionAutoSkip(result.state) };
 }
 
 /** Helper to wrap a setup step state into a full phase state. */
@@ -874,6 +882,38 @@ function finalizeSiteSelection(
     phaseState: nextStep,
     turnNumber: 0,
   };
+}
+
+/**
+ * Auto-completes the starting-site-selection step for any player whose starting
+ * site is already determined by a Hidden Haven (wh-75) draft pairing: that
+ * player's company already sits at the brought-out site (CRF 22, rule 1.10.F1),
+ * so there is nothing for them to select and the step is skipped for them. If
+ * BOTH players are so determined, the step is skipped entirely (finalised at
+ * once). A no-op unless `state` is in the starting-site-selection step — so it is
+ * safe to wrap around any transition that may or may not land there.
+ */
+function applySiteSelectionAutoSkip(state: GameState): GameState {
+  if (state.phaseState.phase !== Phase.Setup
+    || state.phaseState.setupStep.step !== SetupStep.StartingSiteSelection) {
+    return state;
+  }
+  const step = state.phaseState.setupStep;
+  const newSel = [...step.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
+  let changed = false;
+  for (let i = 0; i < 2; i++) {
+    const hasPrePlacedSite = state.players[i].companies.some(c => c.currentSite != null);
+    if (hasPrePlacedSite && !newSel[i].done) {
+      newSel[i] = { ...newSel[i], done: true };
+      changed = true;
+      logDetail(`Player ${i}'s starting site is set by a Hidden Haven pairing — skipping site selection`);
+    }
+  }
+  if (!changed) return state;
+  if (newSel[0].done && newSel[1].done) {
+    return finalizeSiteSelection(state, newSel);
+  }
+  return { ...state, phaseState: setupPhase({ ...step, siteSelectionState: newSel }) };
 }
 
 /**
