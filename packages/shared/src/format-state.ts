@@ -214,9 +214,24 @@ function appendSiteAttachments(
   }
 }
 
-/** Format a player's own company (full visibility) as indented text lines. */
-function formatCompany(
-  company: Company,
+/**
+ * Format a company as indented text lines. Shared by the player's own
+ * companies (full visibility) and the redacted opponent view.
+ *
+ * The caller supplies `destinationLabel`: the own view passes the destination
+ * site name when the company has a pending movement; the opponent view passes
+ * the literal `(planned)` (the destination itself is hidden). Passing `null`
+ * (no pending movement) selects the `@ current-site` header instead of the
+ * `→ destination` header.
+ */
+function formatCompanyLines(
+  company: {
+    readonly currentSite: Company['currentSite'];
+    readonly siteCardOwned: Company['siteCardOwned'];
+    readonly onGuardCards: readonly { readonly instanceId: CardInstanceId }[];
+    readonly characters: Company['characters'];
+  },
+  destinationLabel: string | null,
   index: number,
   characters: Readonly<Record<string, CharacterInPlay>>,
   defOf: CardLookup,
@@ -231,46 +246,8 @@ function formatCompany(
   const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : ('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
-  if (company.destinationSite) {
-    const destName = formatSiteName(company.destinationSite.instanceId, defOf, instOf);
-    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${destName} (from ${siteStatus}${siteName})${noSiteTag}:`);
-  } else {
-    lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
-  }
-
-  // Cards bound to this company's site location (e.g. Hidden Haven)
-  appendSiteAttachments(company.currentSite, cardsInPlay, defOf, instOf, lines, indent);
-
-  // On-guard cards
-  if (company.onGuardCards.length > 0) {
-    const ogNames = company.onGuardCards.map(c => formatInstanceName(c.instanceId, defOf, instOf));
-    lines.push(`${indent}  Onguard: ${ogNames.join(', ')}`);
-  }
-
-  appendCompanyCharacters(company.characters, characters, defOf, instOf, lines, indent);
-
-  return lines;
-}
-
-/** Format an opponent's company (redacted destination) as indented text lines. */
-function formatOpponentCompany(
-  company: OpponentCompanyView,
-  index: number,
-  characters: Readonly<Record<string, CharacterInPlay>>,
-  defOf: CardLookup,
-  instOf: InstanceLookup,
-  indent: string,
-  cardsInPlay: readonly RenderCardInPlay[],
-  isActive = false,
-): string[] {
-  const lines: string[] = [];
-
-  const activeMarker = isActive ? '▶ ' : '';
-  const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
-  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : ('(no site)');
-  const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
-  if (company.hasPlannedMovement) {
-    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
+  if (destinationLabel !== null) {
+    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${destinationLabel} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
@@ -553,15 +530,21 @@ function renderState(input: RenderInput): string {
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
-      const isActiveCompany = activeCompanyId !== null && (player.companies[i].id as string) === activeCompanyId;
-      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveCompany));
+      const company = player.companies[i];
+      const isActiveCompany = activeCompanyId !== null && (company.id as string) === activeCompanyId;
+      const destinationLabel = company.destinationSite
+        ? formatSiteName(company.destinationSite.instanceId, defOf, instOf)
+        : null;
+      lines.push(...formatCompanyLines(company, destinationLabel, i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveCompany));
     }
 
     // Opponent companies (redacted destination)
     if (player.opponentCompanies) {
       for (let i = 0; i < player.opponentCompanies.length; i++) {
-        const isActiveOppCompany = activeCompanyId !== null && (player.opponentCompanies[i].id as string) === activeCompanyId;
-        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveOppCompany));
+        const company = player.opponentCompanies[i];
+        const isActiveOppCompany = activeCompanyId !== null && (company.id as string) === activeCompanyId;
+        const destinationLabel = company.hasPlannedMovement ? '(planned)' : null;
+        lines.push(...formatCompanyLines(company, destinationLabel, i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveOppCompany));
       }
     }
 
