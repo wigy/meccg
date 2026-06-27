@@ -20,7 +20,7 @@ import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleE
 import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
 import type { PlayerState } from '../../index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
@@ -334,22 +334,6 @@ function ringwraithFollowerPlayAction(
     },
     viable: true,
   };
-}
-
-/**
- * Checks whether a unique character with the given name is already in play
- * across any player.
- */
-function isUniqueCharacterInPlay(state: GameState, charName: string): boolean {
-  for (const p of state.players) {
-    for (const char of Object.values(p.characters)) {
-      const def = resolveDef(state, char.instanceId);
-      if (isCharacterCard(def) && def.name === charName) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 /**

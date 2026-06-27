@@ -1064,6 +1064,23 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
 }
 
 /**
+ * True if a character named `charName` is already in play as a character on
+ * either player. Backs the uniqueness check shared by the organization phase
+ * and recruit-via-event: a `unique` character cannot be brought into play while
+ * a same-named character is already in play. (The `.unique` gate lives at the
+ * call site; this only tests name-in-play.)
+ */
+export function isUniqueCharacterInPlay(state: GameState, charName: string): boolean {
+  for (const p of state.players) {
+    for (const char of Object.values(p.characters)) {
+      const def = resolveDef(state, char.instanceId);
+      if (isCharacterCard(def) && def.name === charName) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */
