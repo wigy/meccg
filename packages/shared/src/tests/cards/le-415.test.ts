@@ -45,7 +45,7 @@ import {
   pool, LORIEN,
   RESOURCE_PLAYER,
   charIdAt, handCardId, companyIdAt,
-  dispatch, viableActions,
+  dispatch, viableActions, resolveChain,
 } from '../test-helpers.js';
 import {
   Alignment, Phase, CardStatus,
@@ -75,6 +75,10 @@ const THE_MOUTH = 'le-24' as CardDefinitionId;             // Man
 const ASTERNAK = 'le-1' as CardDefinitionId;               // Man
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;           // Orc → makes the company overt
 
+// Orc Quarrels (le-216): minion-resource-event that cancels an attack whose
+// creatures are orc/troll/men — applicable to The Worthy Hills' Men attack.
+const ORC_QUARRELS = 'le-216' as CardDefinitionId;
+
 const basePlayResourcesPhaseState = (): SitePhaseState => ({
   phase: Phase.Site,
   step: 'play-resources',
@@ -98,7 +102,11 @@ const basePlayResourcesPhaseState = (): SitePhaseState => ({
  * with `characters` standing in a single company at The Worthy Hills. Used to
  * drive the site's Men "each character faces 1 strike" auto-attack.
  */
-function setupAutoAttackAt(site: CardDefinitionId, characters: CardDefinitionId[]): GameState {
+function setupAutoAttackAt(
+  site: CardDefinitionId,
+  characters: CardDefinitionId[],
+  hand: CardDefinitionId[] = [],
+): GameState {
   const base = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.Site,
@@ -108,7 +116,7 @@ function setupAutoAttackAt(site: CardDefinitionId, characters: CardDefinitionId[
         id: PLAYER_1,
         alignment: Alignment.Ringwraith,
         companies: [{ site, characters }],
-        hand: [],
+        hand,
         siteDeck: [MINAS_MORGUL],
       },
       {
@@ -373,6 +381,78 @@ describe('The Worthy Hills (le-415)', () => {
     expect(afterAttack.combat).not.toBeNull();
     expect(afterAttack.combat!.strikesTotal).toBe(2);
     expect(afterAttack.combat!.detainment).toBe(false);
+  });
+
+  // ─── Cancel window for the each-character auto-attack ──────────────────────
+  // Regression for the bug report "Orc quarrels — Had no chance to cancel auto
+  // attack" (game mquxfmpa-ht4isa, seq 103). The Worthy Hills' Men attack is an
+  // "each character faces 1 strike" attack: strikes are pre-assigned and combat
+  // opened directly at choose-strike-order, skipping the assign-strikes cancel
+  // window. The defender, holding a valid cancel-attack card (Orc Quarrels /
+  // Dark Quarrels, which cancel orc/troll/men attacks), was never offered the
+  // cancel action. CoE 3.ii.1 + CRF 22 Annotation 13: the cancel window
+  // precedes strike assignment, so it must be available here.
+
+  test('cancel window: defender holding Orc Quarrels may cancel the each-character Men attack (multi-character)', () => {
+    // Two-character covert company → combat opens at choose-strike-order.
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH, ASTERNAK], [ORC_QUARRELS]);
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat!.phase).toBe('choose-strike-order');
+
+    const actions = viableActions(afterAttack, PLAYER_1, 'cancel-attack');
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('cancel window: defender holding Orc Quarrels may cancel the each-character Men attack (single-character)', () => {
+    // A single-character company → combat opens directly at resolve-strike.
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH], [ORC_QUARRELS]);
+
+    const { state: afterAttack, error } = reduce(state, { type: 'pass', player: PLAYER_1 });
+    expect(error).toBeUndefined();
+    expect(afterAttack.combat!.phase).toBe('resolve-strike');
+
+    const actions = viableActions(afterAttack, PLAYER_1, 'cancel-attack');
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('cancel window: playing Orc Quarrels actually ends the each-character Men attack', () => {
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH, ASTERNAK], [ORC_QUARRELS]);
+
+    const { state: afterAttack } = reduce(state, { type: 'pass', player: PLAYER_1 });
+    const cancelActions = viableActions(afterAttack, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBeGreaterThan(0);
+
+    const { state: declared, error } = reduce(afterAttack, cancelActions[0].action);
+    expect(error).toBeUndefined();
+    // Declaration initiates a chain — combat is still active until it resolves.
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
+    // Once the chain resolves (opponent has no response), the attack is canceled.
+    const afterCancel = resolveChain(declared);
+    expect(afterCancel.combat).toBeNull();
+  });
+
+  test('cancel window closes once a strike has resolved (no late cancel)', () => {
+    const state = setupAutoAttackAt(THE_WORTHY_HILLS, [THE_MOUTH, ASTERNAK], [ORC_QUARRELS]);
+
+    const { state: afterAttack } = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+    // Resolve the first strike: pick the order, then resolve it.
+    const orderActions = viableActions(afterAttack, PLAYER_1, 'choose-strike-order');
+    const { state: afterOrder } = reduce(afterAttack, orderActions[0].action);
+    const resolveActions = viableActions({ ...afterOrder, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    const tapToFight = resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)?.action
+      ?? resolveActions[0].action;
+    const { state: afterFirstStrike } = reduce({ ...afterOrder, cheatRollTotal: 12 }, tapToFight);
+
+    // One strike has already resolved (the last remaining strike now resolves
+    // directly), so the whole-attack cancel window is closed.
+    expect(afterFirstStrike.combat).not.toBeNull();
+    expect(afterFirstStrike.combat!.strikeAssignments.some(sa => sa.resolved)).toBe(true);
+    const lateCancel = viableActions(afterFirstStrike, PLAYER_1, 'cancel-attack');
+    expect(lateCancel.length).toBe(0);
   });
 
   // ─── Movement: starter from Carn Dûm ───────────────────────────────────────

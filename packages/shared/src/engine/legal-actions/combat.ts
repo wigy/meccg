@@ -179,7 +179,11 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       }
       return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
-      return chooseStrikeOrderActions(state, playerId, combat);
+      // Each-character auto-attacks pre-assign strikes and open here, skipping
+      // the `assign-strikes` cancel window. cancelActions is gated to the
+      // pre-resolution window (see inCancelWindow), so it is empty for normal
+      // multi-strike attacks that reach choose-strike-order after assignment.
+      return [...cancelActions, ...chooseStrikeOrderActions(state, playerId, combat)];
     case 'resolve-strike': {
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
@@ -224,6 +228,10 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         }
       }
       return [
+        // Single-character each-character auto-attacks open directly here with
+        // no prior cancel window; cancelActions is gated to the pre-resolution
+        // window so it stays empty for ordinary resolve-strike sequences.
+        ...cancelActions,
         ...resolveStrikeActions(state, playerId, combat),
         ...hazardPlays,
         ...allyCombatBoosts,
@@ -1605,15 +1613,45 @@ function convertCreatureToAllyActions(
   return actions;
 }
 
+/**
+ * Whether the defending player is currently in the pre-strike window during
+ * which the attack as a whole may be canceled.
+ *
+ * Per CoE rule 3.ii.1 (Combat Step 1) the cancel/modify window precedes strike
+ * assignment, and CRF 22 Annotation 13 confirms "an attack may not be canceled
+ * once its strikes have been assigned".
+ *
+ * - Normal attacks: the defender's pre-assignment window during `assign-strikes`,
+ *   before any strike has been assigned to a character.
+ * - "Each character faces a strike" attacks (e.g. The Worthy Hills le-415):
+ *   strikes are pre-assigned one per character and combat opens directly in
+ *   `choose-strike-order` (multi-character) or `resolve-strike`
+ *   (single-character) with no player-driven `assign-strikes` step. The rules
+ *   cancel window still precedes that automatic assignment, so the defender may
+ *   cancel until the first strike has resolved.
+ */
+function inCancelWindow(combat: CombatState): boolean {
+  if (combat.phase === 'assign-strikes') {
+    return combat.strikeAssignments.length === 0;
+  }
+  if (combat.eachCharacterFacesOneStrike
+    && (combat.phase === 'choose-strike-order' || combat.phase === 'resolve-strike')) {
+    return combat.strikeAssignments.every(sa => !sa.resolved);
+  }
+  return false;
+}
+
 function cancelAttackActions(
   state: GameState,
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
-  // Only the defending player can cancel, and only before any strikes are assigned
+  // Only the defending player can cancel, and only during the pre-strike
+  // cancel window (see inCancelWindow). Each-character auto-attacks open
+  // directly at choose-strike-order/resolve-strike, so the window is not
+  // limited to the `assign-strikes` phase.
   if (playerId !== combat.defendingPlayerId) return [];
-  if (combat.phase !== 'assign-strikes') return [];
-  if (combat.strikeAssignments.length > 0) return [];
+  if (!inCancelWindow(combat)) return [];
   // Forewarned Is Forearmed: isolated attacks cannot be canceled
   if (combat.uncancelable) {
     logDetail(`Cancel-attack suppressed: attack is uncancelable (Forewarned Is Forearmed)`);
