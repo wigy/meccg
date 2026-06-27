@@ -887,14 +887,7 @@ export interface ActiveConstraint {
         /** The definition ID of the site whose automatic attacks are replaced. */
         readonly siteDefinitionId: import('./common.js').CardDefinitionId;
         /** The replacement automatic-attack (e.g. Gas: 1 strike, 7 prowess). */
-        readonly attack: {
-          readonly creatureType: string;
-          readonly strikes: number;
-          readonly prowess: number;
-          readonly body?: number;
-          readonly uncancelable?: boolean;
-          readonly eachCharacter?: boolean;
-        };
+        readonly attack: import('./cards-sites.js').BespokeAutoAttack;
       }
     | {
         /**

@@ -79,6 +79,33 @@ export interface AutomaticAttack {
 }
 
 /**
+ * A bespoke automatic-attack that replaces a site's printed attacks at runtime.
+ * Produced by a `transform-site` effect's `apply.attack` (Vile Fumes wh-54's
+ * "Gas—each character faces 1 strike with 7 prowess, cannot be canceled") and
+ * carried verbatim by the resulting `replace-automatic-attacks` constraint;
+ * `manifestations.ts` returns `[attack]` in place of the printed list while the
+ * constraint is active. Distinct from {@link AutomaticAttack} (printed site
+ * guardians): it omits the printed-only `combatRules`/`appliesTo` fields and
+ * instead carries the runtime `uncancelable`/`eachCharacter` flags the
+ * transform sets. Naming the shape keeps the transform-site producer and the
+ * replace-automatic-attacks consumer in sync from one definition.
+ */
+export interface BespokeAutoAttack {
+  /** The creature type of the replacement attack. */
+  readonly creatureType: string;
+  /** Number of strikes in the replacement attack. */
+  readonly strikes: number;
+  /** Combat strength of each strike. */
+  readonly prowess: number;
+  /** Body value for body checks. Absent means no body check. */
+  readonly body?: number;
+  /** When true, the attack cannot be canceled (sets `combat.uncancelable`). */
+  readonly uncancelable?: boolean;
+  /** When true, every character in the company faces one strike. */
+  readonly eachCharacter?: boolean;
+}
+
+/**
  * A hero site card representing a location on the Middle-earth map.
  *
  * Sites are the destinations for company movement. Each site has a type
