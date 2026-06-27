@@ -7,14 +7,14 @@
  */
 
 import {
-  cardImageProxyPath, getCardCss, validateDeck, CHARACTER_CARD_TYPES,
+  getCardCss, validateDeck, CHARACTER_CARD_TYPES,
   type CardDefinition, type DeckList,
 } from '@meccg/shared';
 import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   sortDeckEntries, EDITING_DECK_KEY, type ScreenId,
 } from './app-state.js';
-import { buildCardAttributes } from './render.js';
+import { buildCardPreviewInfo } from './render.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { apiSend } from './api.js';
 
@@ -506,21 +506,7 @@ function openCardBrowser(
     previewPane.innerHTML = '';
     const def = cardPool[cardId];
     if (!def) return;
-    const info = document.createElement('div');
-    info.className = 'card-preview-info';
-    const name = document.createElement('div');
-    name.className = 'card-preview-name';
-    name.textContent = def.name;
-    info.appendChild(name);
-    const imgPath = cardImageProxyPath(def);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      info.appendChild(img);
-    }
-    buildCardAttributes(info, def);
-    previewPane.appendChild(info);
+    previewPane.appendChild(buildCardPreviewInfo(def));
   };
 
   const matchesSearch = (def: CardDefinition, filter: string): boolean => {
@@ -732,25 +718,7 @@ function showDeckEditorPreview(row: HTMLElement): void {
   }
 
   preview.innerHTML = '';
-  const info = document.createElement('div');
-  info.className = 'card-preview-info';
-
-  const name = document.createElement('div');
-  name.className = 'card-preview-name';
-  name.textContent = def.name;
-  info.appendChild(name);
-
-  // Card image
-  const imgPath = cardImageProxyPath(def);
-  if (imgPath) {
-    const img = document.createElement('img');
-    img.src = imgPath;
-    img.alt = def.name;
-    info.appendChild(img);
-  }
-
-  buildCardAttributes(info, def);
-  preview.appendChild(info);
+  preview.appendChild(buildCardPreviewInfo(def));
 }
 
 /**
@@ -803,24 +771,7 @@ export function setupDecksPreview(): void {
     }
 
     preview.innerHTML = '';
-    const info = document.createElement('div');
-    info.className = 'card-preview-info';
-
-    const name = document.createElement('div');
-    name.className = 'card-preview-name';
-    name.textContent = def.name;
-    info.appendChild(name);
-
-    const imgPath = cardImageProxyPath(def);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      info.appendChild(img);
-    }
-
-    buildCardAttributes(info, def);
-    preview.appendChild(info);
+    preview.appendChild(buildCardPreviewInfo(def));
   });
 
   screen.addEventListener('mouseout', (e) => {

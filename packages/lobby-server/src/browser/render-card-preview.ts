@@ -83,6 +83,36 @@ function siteIconsHtml(siteTypes: readonly string[]): string {
   }).join('');
 }
 
+/**
+ * Build the `.card-preview-info` panel for a card: a name header, the card
+ * image (when one is available), and the attribute rows. Shared by the
+ * deck-editor and deck-browser preview panes, which build this identical DOM.
+ *
+ * `fallbackImgSrc` is used when the definition has no proxy image path (e.g. to
+ * fall back to an already-displayed thumbnail); when neither is available, no
+ * image element is appended.
+ */
+export function buildCardPreviewInfo(def: CardDefinition, fallbackImgSrc?: string): HTMLElement {
+  const info = document.createElement('div');
+  info.className = 'card-preview-info';
+
+  const name = document.createElement('div');
+  name.className = 'card-preview-name';
+  name.textContent = def.name;
+  info.appendChild(name);
+
+  const imgSrc = cardImageProxyPath(def) ?? fallbackImgSrc;
+  if (imgSrc) {
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.alt = def.name;
+    info.appendChild(img);
+  }
+
+  buildCardAttributes(info, def);
+  return info;
+}
+
 /** Build attribute rows for a card definition based on its type. */
 export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
   addAttr(el, 'Type', formatCardType(def.cardType));

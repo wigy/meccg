@@ -53,7 +53,7 @@ export { renderPassButton } from './render-instructions.js';
 export { renderPhaseMeter } from './render-phase-meter.js';
 
 // Card preview and attributes
-export { setupCardPreview, buildCardAttributes } from './render-card-preview.js';
+export { setupCardPreview, buildCardAttributes, buildCardPreviewInfo } from './render-card-preview.js';
 
 // Board (drafted characters, companies during setup)
 export { renderDrafted } from './render-board.js';
