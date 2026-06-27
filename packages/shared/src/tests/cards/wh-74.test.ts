@@ -51,7 +51,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  resetMint, buildFallenWizardSitePhaseState, buildMinionSitePhaseState,
+  resetMint, buildFallenWizardOrgPhaseState, buildMinionSitePhaseState,
   playPermanentEventAndResolve, makePlayDeck, pool, draftInstId,
   createGame, reduce, LORIEN, Alignment,
 } from '../test-helpers.js';
@@ -158,7 +158,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 2: playable on a (non-excluded) Wizardhaven [{H}] ───────────────────
 
   test('playable on a Wizardhaven — the play action binds the card to that site', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     const id = handInstance(state, GUARDED_HAVEN);
@@ -178,7 +178,7 @@ describe('Guarded Haven (wh-74)', () => {
     ['The White Towers', WH_WHITE_TOWERS],
     ['Rhosgobel', WH_RHOSGOBEL],
   ])('NOT playable at the excluded Wizardhaven %s', (_name, siteDef) => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: siteDef, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     expect(canPlay(state, PLAYER_1, handInstance(state, GUARDED_HAVEN))).toBe(false);
@@ -187,7 +187,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 4: only a haven [{H}] qualifies ────────────────────────────────────
 
   test('NOT playable at a non-haven site (requires a Wizardhaven [{H}])', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: HIMRING_HERO, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     expect(canPlay(state, PLAYER_1, handInstance(state, GUARDED_HAVEN))).toBe(false);
@@ -196,7 +196,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 5: binding + site-protected constraint ─────────────────────────────
 
   test('playing it binds the card to the site and adds the site-protected constraint', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     const after = playPermanentEventAndResolve(
@@ -220,7 +220,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 6: contributes 1 stage point ───────────────────────────────────────
 
   test('contributes 1 stage point to the Fallen-wizard while in play', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     expect(state.players[RESOURCE_PLAYER].stagePoints).toBe(0);
@@ -285,7 +285,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 9: cannot be duplicated on a given site ────────────────────────────
 
   test('a second copy cannot be played at a site that already holds one', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN, GUARDED_HAVEN],
     });
     const first = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === GUARDED_HAVEN)!.instanceId;
@@ -300,7 +300,7 @@ describe('Guarded Haven (wh-74)', () => {
   // ── Rule 10: discarded when the site leaves play ────────────────────────────
 
   test('persists while a company occupies the bound site', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     const after = playPermanentEventAndResolve(
@@ -312,7 +312,7 @@ describe('Guarded Haven (wh-74)', () => {
   });
 
   test('the card and its constraint are discarded once the site leaves play', () => {
-    const state = buildFallenWizardSitePhaseState({
+    const state = buildFallenWizardOrgPhaseState({
       site: WIZARDHAVEN, characters: [REN_RW], hand: [GUARDED_HAVEN],
     });
     const after = playPermanentEventAndResolve(

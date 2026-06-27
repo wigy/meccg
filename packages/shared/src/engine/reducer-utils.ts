@@ -977,6 +977,30 @@ export function countCompanyBoundCopies(state: GameState, name: string, companyI
 }
 
 /**
+ * Count copies of the permanent event named `name` currently bound to the
+ * site identified by `siteDefId`. A copy counts when it is borne as an item by
+ * a character whose company occupies that site, or when it is a site-attached
+ * permanent event living in `cardsInPlay` with `attachedToSite === siteDefId`.
+ * Backs `duplication-limit` checks with `scope: "site"` (e.g. Guarded Haven
+ * wh-74 / Saruman's Machinery wh-120: "Cannot be duplicated on a given site").
+ */
+export function countPermanentEventCopiesAtSite(state: GameState, name: string, siteDefId: CardDefinitionId): number {
+  return state.players.reduce((count, p) => {
+    for (const co of p.companies) {
+      const coSiteDefId = co.currentSite ? resolveInstanceId(state, co.currentSite.instanceId) : undefined;
+      if (coSiteDefId !== (siteDefId as string)) continue;
+      for (const cId of co.characters) {
+        const ch = p.characters[cId as string];
+        if (!ch) continue;
+        count += ch.items.filter(item => defById(state, item.definitionId)?.name === name).length;
+      }
+    }
+    count += p.cardsInPlay.filter(c => c.attachedToSite === siteDefId && defById(state, c.definitionId)?.name === name).length;
+    return count;
+  }, 0);
+}
+
+/**
  * Resolve a list of card instances (items, allies, possessions, …) to their
  * definition names, dropping any that fail to resolve. Centralizes the
  * `instances.map(defById(...)?.name).filter(defined)` pattern used to build

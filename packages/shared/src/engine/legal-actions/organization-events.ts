@@ -16,11 +16,12 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, Phase, Race } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, isSiteCard, Phase, Race } from '../../index.js';
 import { getItemGrantedSkills } from '../effects/index.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
@@ -141,13 +142,80 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
     }
 
-    // play-target DSL: cards targeting a site can only be played during the site phase
+    // play-target DSL: cards targeting a site.
     const sitePlayTarget = def.effects?.find(
       (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
     );
     if (sitePlayTarget) {
-      logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
-      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
+      // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events are played
+      // during the organization phase only. A site-targeting Stage resource
+      // (The Fortress of Isen wh-68, Fortress of the Towers wh-69, Guarded
+      // Haven wh-74, Double-dealing wh-66, Saruman's Machinery wh-120) is
+      // offered here against any of the player's companies whose current site
+      // matches the play-target filter; playing it binds the card to that site.
+      // Non-Stage site-targeting permanent events (e.g. hero events erratated
+      // "Playable during the site phase") are handled by the site phase instead.
+      if (!isStageResource) {
+        logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
+        continue;
+      }
+
+      // play-condition: site-protected — the bound site must already carry a
+      // `site-protected` constraint owned by this player (Saruman's Machinery
+      // wh-120: "Playable on your protected Isengard or The White Towers").
+      const siteProtectedCond = findPlayConditionEffect(def, 'site-protected');
+      const siteDupLimit = findDuplicationLimitEffect(def, 'site');
+      let anySite = false;
+      for (const company of player.companies) {
+        if (!company.currentSite) continue;
+        const siteDefId = company.currentSite.definitionId;
+        const siteDef = defById(state, siteDefId);
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (sitePlayTarget.filter) {
+          // Mirror the site-phase matcher context: expose the site's region
+          // type (lives on a separate region card) and its *effective* type
+          // after any wizardhaven-conversion / site-type-override, so filters
+          // like Hidden Haven's region gate or Guarded Haven's "your
+          // Wizardhaven [{H}]" match dynamically converted sites.
+          const regionType = siteRegionTypeOf(state, siteDef);
+          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
+          if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+            logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+            continue;
+          }
+        }
+        if (siteProtectedCond) {
+          const protectedForPlayer = state.activeConstraints.some(
+            c => c.kind.type === 'site-protected'
+              && c.kind.siteDefinitionId === siteDefId
+              && c.target.kind === 'player'
+              && c.target.playerId === playerId,
+          );
+          if (!protectedForPlayer) {
+            logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not protected for ${playerId as string}`);
+            continue;
+          }
+        }
+        if (siteDupLimit) {
+          const copiesAtSite = countPermanentEventCopiesAtSite(state, def.name, siteDefId);
+          if (copiesAtSite >= siteDupLimit.max) {
+            logDetail(`Permanent event ${def.name}: site duplication limit reached at ${siteDef.name}`);
+            continue;
+          }
+        }
+        anySite = true;
+        logDetail(`Permanent event ${def.name}: playable on site ${siteDef.name}`);
+        actions.push({
+          action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetSiteDefinitionId: siteDefId },
+          viable: true,
+        });
+      }
+      if (!anySite) {
+        logDetail(`Permanent event ${def.name}: no company at a matching site`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid site target`));
+      }
       continue;
     }
 

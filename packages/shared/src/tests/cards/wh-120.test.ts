@@ -58,7 +58,7 @@ import type { CardDefinitionId, CardInstanceId, CardInPlay, ConstraintId, GameSt
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import {
-  buildTestState, buildFallenWizardSitePhaseState, resetMint, viableActions, pool, Phase,
+  buildTestState, buildFallenWizardSitePhaseState, buildFallenWizardOrgPhaseState, resetMint, viableActions, pool, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, RIVENDELL, MINAS_TIRITH, ARAGORN,
   playPermanentEventAndResolve,
 } from '../test-helpers.js';
@@ -148,6 +148,32 @@ function machineryState(opts: {
   return constraints.length > 0 ? { ...base, activeConstraints: constraints } : base;
 }
 
+/**
+ * FW *organization*-phase state at `site` with Saruman, plus the given hand and
+ * constraints. Saruman's Machinery is a Stage resource, so it is played during
+ * the organization phase (rule 5.F1); use this (not {@link machineryState}) for
+ * its play/availability checks.
+ */
+function machineryOrgState(opts: {
+  site?: CardDefinitionId;
+  avatar?: CardDefinitionId;
+  hand?: CardDefinitionId[];
+  siteStatus?: CardStatus;
+  protectedFor?: PlayerId;
+}): GameState {
+  const site = opts.site ?? ISENGARD_WH;
+  const base = buildFallenWizardOrgPhaseState({
+    site,
+    characters: [opts.avatar ?? SARUMAN_FW],
+    hand: opts.hand ?? [SARUMANS_MACHINERY],
+    siteStatus: opts.siteStatus,
+  });
+  const constraints = opts.protectedFor !== undefined
+    ? [siteProtectedConstraint(opts.protectedFor, site)]
+    : [];
+  return constraints.length > 0 ? { ...base, activeConstraints: constraints } : base;
+}
+
 /** Organization-phase state for a player of the given alignment with `cards` in play. */
 function orgState(alignment: Alignment, cards: CardInPlay[]): GameState {
   return recomputeDerived(buildTestState({
@@ -190,41 +216,41 @@ describe("Saruman's Machinery (wh-120)", () => {
   // ── Rules 2-4: play restrictions (Saruman, Isengard/White Towers, protected) ─
 
   test('playable at a protected Isengard while your avatar is Saruman', () => {
-    const state = machineryState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
     expect(canPlay(state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY))).toBe(true);
   });
 
   test('playable at a protected The White Towers', () => {
-    const state = machineryState({ site: WHITE_TOWERS_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: WHITE_TOWERS_WH, protectedFor: PLAYER_1 });
     expect(canPlay(state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY))).toBe(true);
   });
 
   test('NOT playable on Isengard if the site is not protected', () => {
-    const state = machineryState({ site: ISENGARD_WH }); // no site-protected constraint
+    const state = machineryOrgState({ site: ISENGARD_WH }); // no site-protected constraint
     expect(canPlay(state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY))).toBe(false);
   });
 
   test('NOT playable if the protection is owned by the opponent, not you', () => {
-    const state = machineryState({ site: ISENGARD_WH, protectedFor: PLAYER_2 });
+    const state = machineryOrgState({ site: ISENGARD_WH, protectedFor: PLAYER_2 });
     expect(canPlay(state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY))).toBe(false);
   });
 
   test('NOT playable at a protected Wizardhaven that is neither Isengard nor The White Towers', () => {
-    const state = machineryState({ site: RHOSGOBEL_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: RHOSGOBEL_WH, protectedFor: PLAYER_1 });
     expect(canPlay(state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY))).toBe(false);
   });
 
   test('NOT playable when your avatar is not Saruman (Alatar / Gandalf)', () => {
-    const alatar = machineryState({ site: ISENGARD_WH, avatar: ALATAR_FW, protectedFor: PLAYER_1 });
+    const alatar = machineryOrgState({ site: ISENGARD_WH, avatar: ALATAR_FW, protectedFor: PLAYER_1 });
     expect(canPlay(alatar, PLAYER_1, instanceOf(alatar, SARUMANS_MACHINERY))).toBe(false);
-    const gandalf = machineryState({ site: ISENGARD_WH, avatar: GANDALF_FW, protectedFor: PLAYER_1 });
+    const gandalf = machineryOrgState({ site: ISENGARD_WH, avatar: GANDALF_FW, protectedFor: PLAYER_1 });
     expect(canPlay(gandalf, PLAYER_1, instanceOf(gandalf, SARUMANS_MACHINERY))).toBe(false);
   });
 
   // ── Rule 5: the play binds to the site and adds the unlock constraint ───────
 
   test('playing it binds the card to the site and adds a technology-item-unlocked constraint', () => {
-    const state = machineryState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY), undefined,
       { targetSiteDefinitionId: ISENGARD_WH },
@@ -320,7 +346,7 @@ describe("Saruman's Machinery (wh-120)", () => {
 
   test('cannot be duplicated on a given site', () => {
     // With a copy already bound to Isengard, a second copy is not playable there.
-    const base = machineryState({ site: ISENGARD_WH, hand: [SARUMANS_MACHINERY], protectedFor: PLAYER_1 });
+    const base = machineryOrgState({ site: ISENGARD_WH, hand: [SARUMANS_MACHINERY], protectedFor: PLAYER_1 });
     expect(canPlay(base, PLAYER_1, instanceOf(base, SARUMANS_MACHINERY))).toBe(true);
 
     const withCopy: GameState = {
@@ -336,7 +362,7 @@ describe("Saruman's Machinery (wh-120)", () => {
   // ── Rule 12: discard when the bound site leaves play ───────────────────────
 
   test('persists while a company occupies the bound site', () => {
-    const state = machineryState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY), undefined,
       { targetSiteDefinitionId: ISENGARD_WH },
@@ -346,7 +372,7 @@ describe("Saruman's Machinery (wh-120)", () => {
   });
 
   test('discarded (and its unlock constraint cleared) once the bound site leaves play', () => {
-    const state = machineryState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
+    const state = machineryOrgState({ site: ISENGARD_WH, protectedFor: PLAYER_1 });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, instanceOf(state, SARUMANS_MACHINERY), undefined,
       { targetSiteDefinitionId: ISENGARD_WH },

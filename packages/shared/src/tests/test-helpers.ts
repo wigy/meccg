@@ -1057,6 +1057,36 @@ export function buildFallenWizardSitePhaseState(opts: {
 }
 
 /**
+ * Build a Fallen-wizard *organization*-phase state with one company at `site`.
+ * Mirrors {@link buildFallenWizardSitePhaseState} but in the organization phase,
+ * where Stage resource permanent-events are played (rule 5.F1) — e.g. the
+ * site-targeting Stage resources The Fortress of Isen (wh-68), Guarded Haven
+ * (wh-74), Double-dealing (wh-66). P1 is the active resource player; P2 is a
+ * placeholder Wizard company at a Haven.
+ */
+export function buildFallenWizardOrgPhaseState(opts: {
+  characters: CharacterEntry[];
+  site: CardDefinitionId;
+  hand?: CardDefinitionId[];
+  siteStatus?: CardStatus;
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], siteDeck: [ISENGARD] },
+      { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+    phase: Phase.Organization,
+  });
+
+  if (opts.siteStatus) {
+    (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+  return state;
+}
+
+/**
  * Build a minion (Ringwraith) site-phase state at the play-resources step
  * with one company at `site`. Mirrors {@link buildSitePhaseState} but for
  * minion card tests, where alignment-sensitive logic (detainment, item MP,

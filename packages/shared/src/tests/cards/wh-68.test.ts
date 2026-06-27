@@ -53,7 +53,7 @@ import {
   buildTestState, resetMint, viableActions, pool, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   RIVENDELL, MINAS_TIRITH, ARAGORN,
-  buildFallenWizardSitePhaseState, buildSitePhaseState, playPermanentEventAndResolve,
+  buildFallenWizardOrgPhaseState, buildFallenWizardSitePhaseState, buildSitePhaseState, playPermanentEventAndResolve,
 } from '../test-helpers.js';
 
 const FORTRESS_OF_ISEN = 'wh-68' as CardDefinitionId;
@@ -117,10 +117,25 @@ function orgState(alignment: Alignment, cards: CardInPlay[]): GameState {
 describe('The Fortress of Isen (wh-68)', () => {
   beforeEach(() => resetMint());
 
+  // ── Rule 5.F1: a Stage resource is played during the organization phase ─────
+
+  // Regression (bug report mquxfmpa-ht4isa, seq 67): Saruman's company is at
+  // Isengard during the organization phase with The Fortress of Isen in hand,
+  // but the engine did not offer it — site-targeting Stage resources were
+  // mistakenly gated to the site phase. Rule 5.F1 makes them organization-phase
+  // only, so the play must be offered here (and not during the site phase).
+  test('[rule 5.F1] playable during the organization phase, not the site phase', () => {
+    const org = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    expect(canPlay(org, PLAYER_1, handInstance(org, FORTRESS_OF_ISEN))).toBe(true);
+
+    const sitePhase = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    expect(canPlay(sitePhase, PLAYER_1, handInstance(sitePhase, FORTRESS_OF_ISEN))).toBe(false);
+  });
+
   // ── Rule 5: playable on Isengard, bound to that site ───────────────────────
 
   test('playable while a qualifying Fallen-wizard is at Isengard — the play binds it to the site', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const id = handInstance(state, FORTRESS_OF_ISEN);
     const plays = computeLegalActions(state, PLAYER_1).filter(
       a => a.viable && a.action.type === 'play-permanent-event'
@@ -131,12 +146,12 @@ describe('The Fortress of Isen (wh-68)', () => {
   });
 
   test('not playable at any site other than Isengard', () => {
-    const state = buildFallenWizardSitePhaseState({ site: WHITE_TOWERS_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: WHITE_TOWERS_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(false);
   });
 
   test('playing it binds the card to Isengard and adds the site-protected constraint', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
@@ -157,12 +172,12 @@ describe('The Fortress of Isen (wh-68)', () => {
   // ── Rule 4: playable only if you are Alatar, Pallando, or Saruman ───────────
 
   test('not playable when your avatar is a non-qualifying Fallen-wizard (Gandalf)', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [GANDALF_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [GANDALF_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(false);
   });
 
   test('playable when your avatar is Alatar', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [ALATAR_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [ALATAR_FW], hand: [FORTRESS_OF_ISEN] });
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(true);
   });
 
@@ -196,7 +211,7 @@ describe('The Fortress of Isen (wh-68)', () => {
   // ── Rule 9: discard when the bound site leaves play ────────────────────────
 
   test('persists while a company occupies Isengard', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
@@ -205,7 +220,7 @@ describe('The Fortress of Isen (wh-68)', () => {
   });
 
   test('discarded (and its constraint cleared) once Isengard leaves play', () => {
-    const state = buildFallenWizardSitePhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
+    const state = buildFallenWizardOrgPhaseState({ site: ISENGARD_WH, characters: [SARUMAN_FW], hand: [FORTRESS_OF_ISEN] });
     const after = playPermanentEventAndResolve(
       state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN), undefined, { targetSiteDefinitionId: ISENGARD_WH },
     );
