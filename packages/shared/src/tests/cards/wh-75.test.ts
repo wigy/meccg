@@ -597,6 +597,43 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
     expect(after.some(a => a.action.type === 'draft-pick')).toBe(true);
   });
 
+  test('drafting Hidden Haven and pairing its site resolves the round with no forced character pick (the game proceeds)', () => {
+    // Regression (game mqw50bgr-g0h33w): after drafting Hidden Haven and choosing
+    // its site, the draft would not advance until the Fallen-wizard ALSO drafted a
+    // character ("game does not go on until I draft something else"). Drafting a
+    // Stage resource is now the player's whole action for the round (wigy ruling):
+    // once the site is brought out and the opponent has picked, the round resolves
+    // at once — the FW adds no character and play continues.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.FallenWizard,
+          draftPool: [HIDDEN_HAVEN, BALIN], playDeck: makePlayDeck(), siteDeck: [WORTHY_HILLS], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN], playDeck: makePlayDeck(), siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    const hhInst = draftInstId(state, 0, HIDDEN_HAVEN);
+    // The opponent makes their (face-down) pick; the Fallen-wizard drafts Hidden
+    // Haven, which must still have its site brought out before the round resolves.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ARAGORN) },
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: hhInst },
+    ]);
+    // Pairing the site completes the FW's round action — the round resolves now,
+    // without the FW being forced to draft a character.
+    state = runActions(state, [{
+      type: 'select-stage-resource-site', player: PLAYER_1,
+      stageResourceInstanceId: hhInst, siteInstanceId: siteDeckInstId(state, 0, WORTHY_HILLS),
+    }]);
+    const step = (state.phaseState as { setupStep: { round: number; draftState: readonly { drafted: readonly unknown[]; currentPick: unknown }[] } }).setupStep;
+    expect(step.round).toBe(2);                          // the round resolved and advanced
+    expect(step.draftState[1].drafted).toHaveLength(1);  // the opponent's character was revealed/added
+    expect(step.draftState[0].drafted).toHaveLength(0);  // the FW added no character that round
+    expect(step.draftState[1].currentPick).toBeNull();   // the opponent's pick was consumed
+  });
+
   test('pairing then finishing the draft converts the site to a starting Wizardhaven', () => {
     const config: GameConfig = {
       players: [

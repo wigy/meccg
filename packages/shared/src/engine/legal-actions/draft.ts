@@ -47,6 +47,15 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return stageResourcePairingTail(state, playerId, playerIndex, draft);
   }
 
+  // A Stage resource drafted this round (and its site, if any, now paired) is
+  // this player's completed action for the round — they add no character. They
+  // wait for the opponent to act and the round to resolve; nothing else is
+  // offered. (Round resolution clears the marker, reopening the next round.)
+  if (draft.stageResourcePickedThisRound) {
+    logDetail(`Stage resource drafted this round — waiting for opponent to resolve the round`);
+    return [];
+  }
+
   // A Stage resource never counts toward the starting company size (CoE 1.9.F4),
   // so reaching the company cap only stops further *character* picks — any
   // remaining Stage resource in the pool is still draftable below.

@@ -50,6 +50,24 @@ function setupPhase(setupStep: SetupStepState): { readonly phase: Phase.Setup; r
   return { phase: Phase.Setup, setupStep };
 }
 
+/**
+ * Whether `draft` has completed its action for the current draft round. A round
+ * resolves once BOTH players have completed theirs. A player completes a round
+ * by: stopping, making a face-down character pick, or drafting a Stage resource
+ * this round (CoE 1.9.F4 — the user-chosen model where a Stage resource counts
+ * as that round's action, no character pick forced). A Stage resource that still
+ * needs its site brought out (Hidden Haven, wh-75) is NOT complete until the
+ * site is paired (CRF 22), so the round waits for the pairing.
+ */
+function completedRoundAction(state: GameState, draft: DraftPlayerState, playerIndex: number): boolean {
+  if (draft.stopped) return true;
+  if (draft.currentPick !== null) return true;
+  if (draft.stageResourcePickedThisRound) {
+    return blockingSiteStageResources(state, draft, state.players[playerIndex].siteDeck).length === 0;
+  }
+  return false;
+}
+
 // ---- Character draft handler ----
 
 /**
@@ -103,6 +121,15 @@ function handleCharacterDraft(
           { stageResourceInstanceId: action.stageResourceInstanceId, siteInstanceId: action.siteInstanceId },
         ],
       };
+      // Bringing out the site completes the Stage-resource player's round action
+      // (the card was their pick this round). If the opponent has also completed
+      // their action, resolve the round now — the game proceeds without forcing
+      // this player to also draft a character (CoE 1.9.F4, user-chosen model).
+      const otherIdx = 1 - playerIndex;
+      if (completedRoundAction(state, newDraftState[playerIndex], playerIndex)
+        && completedRoundAction(state, newDraftState[otherIdx], otherIdx)) {
+        return resolveDraftRound(state, newDraftState, draft.round, draft.setAside);
+      }
       return {
         state: {
           ...state,
@@ -131,6 +158,12 @@ function handleCharacterDraft(
       if (blockingSiteStageResources(state, playerDraft, state.players[playerIndex].siteDeck).length > 0) {
         return { state, error: 'You must choose a site for your Hidden Haven before drafting further' };
       }
+      // Drafting a Stage resource is this player's whole action for the round
+      // (user-chosen model): once taken (and its site paired), the round resolves
+      // and they add no character. So no further pick is allowed this round.
+      if (playerDraft.stageResourcePickedThisRound) {
+        return { state, error: 'You have already drafted a Stage resource this round' };
+      }
       const poolCard = findById(playerDraft.pool, action.characterInstanceId);
       if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };
@@ -142,26 +175,33 @@ function handleCharacterDraft(
       const isFallenWizard = state.players[playerIndex].alignment === Alignment.FallenWizard;
 
       if (isStageResourceCard(charDef)) {
-        // Stage resources are Fallen-wizard-only. Per CoE 1.9.F4 a Fallen-wizard
-        // drafts their Stage resource(s) *simultaneously with* — i.e. in addition
-        // to — their characters, so drafting one must NOT consume the round's
-        // single character pick. Resolve it immediately into draftedStageResources
-        // and leave the round open: the Fallen-wizard still owes a character pick
-        // (or a stop) this round, so they no longer fall a character behind for
-        // every Stage resource they take. The character-only gates (mind > 5,
-        // agent, mind limit, 5-character cap) do not apply, and an enabling Stage
-        // resource (Thrall) is active at once, so a character it enables can be
-        // drafted later this same round.
+        // Stage resources are Fallen-wizard-only (CoE 1.9.F4). Drafting one is
+        // this player's action for the round: it resolves the round without
+        // forcing a separate character pick (user-chosen model). The character-
+        // only gates (mind > 5, agent, mind limit, 5-character cap) do not apply,
+        // and an enabling Stage resource (Thrall) becomes active at once, so a
+        // character it enables can be drafted in a later round. A Stage resource
+        // needing a site (Hidden Haven) does not complete the round until its
+        // site is brought out — resolution is deferred to select-stage-resource-site.
         if (!isFallenWizard) {
           return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
         }
-        logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource (does not use a character pick)`);
+        logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource (completes this player's round action)`);
         const newStageDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
         newStageDraftState[playerIndex] = {
           ...playerDraft,
           draftedStageResources: [...playerDraft.draftedStageResources, poolCard],
           pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
+          stageResourcePickedThisRound: true,
         };
+        // Resolve the round now if this Stage resource needs no site pairing
+        // (Thrall) and the opponent has completed their action; otherwise wait
+        // (for the Hidden Haven site pairing, or for the opponent).
+        const otherIdx = 1 - playerIndex;
+        if (completedRoundAction(state, newStageDraftState[playerIndex], playerIndex)
+          && completedRoundAction(state, newStageDraftState[otherIdx], otherIdx)) {
+          return resolveDraftRound(state, newStageDraftState, draft.round, draft.setAside);
+        }
         return {
           state: {
             ...state,
@@ -217,10 +257,11 @@ function handleCharacterDraft(
         pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
       };
 
-      // Check if both players have submitted (or the other has stopped)
+      // Resolve the round once the opponent has also completed their action
+      // (a pick, a stop, or a fully-paired Stage resource this round).
       const otherIndex = 1 - playerIndex;
       const otherDraft = newDraftState[otherIndex];
-      if (otherDraft.currentPick !== null || otherDraft.stopped) {
+      if (completedRoundAction(state, otherDraft, otherIndex)) {
         return resolveDraftRound(state, newDraftState, draft.round, draft.setAside);
       }
 
@@ -253,8 +294,9 @@ function handleCharacterDraft(
         return finalizeDraft(state, newDraftState, draft.setAside);
       }
 
-      // If other player has a pending pick, resolve the round
-      if (newDraftState[otherIndex].currentPick !== null) {
+      // If the other player has already completed their action (a pending pick
+      // or a fully-paired Stage resource this round), resolve the round.
+      if (completedRoundAction(state, newDraftState[otherIndex], otherIndex)) {
         return resolveDraftRound(state, newDraftState, draft.round, draft.setAside);
       }
 
@@ -299,10 +341,12 @@ function resolveDraftRound(
   const pick1 = draftState[1].currentPick;
   const newSetAside: [CardInstance[], CardInstance[]] = [[...setAside[0]], [...setAside[1]]];
 
-  // Resolve each player's pick
+  // Resolve each player's pick. Clear the per-round Stage-resource marker too:
+  // a player whose action this round was a Stage resource has now had it counted
+  // (it lives in draftedStageResources) and adds no character below.
   const newDraft: [DraftPlayerState, DraftPlayerState] = [
-    { ...draftState[0], currentPick: null },
-    { ...draftState[1], currentPick: null },
+    { ...draftState[0], currentPick: null, stageResourcePickedThisRound: false },
+    { ...draftState[1], currentPick: null, stageResourcePickedThisRound: false },
   ];
 
   // A face-down round pick is always a character: Fallen-wizard Stage resources

@@ -72,10 +72,12 @@ describe('Rule 1.44 — Fallen-Wizard Draft Mind Restriction', () => {
 
   test('[FALLEN-WIZARD] may draft a mind-6 character once Thrall of the Voice has been drafted', () => {
     let state = createGame(makeConfig(Alignment.FallenWizard), pool);
-    // Drafting Thrall resolves it immediately (CoE 1.9.F4), so it is in play at
-    // once and lifts the mind > 5 gate this same round — no opponent pick needed.
+    // Drafting Thrall is the Fallen-wizard's action for the round (CoE 1.9.F4,
+    // resolve-immediately model); once the opponent acts and the round resolves,
+    // Thrall is in play and lifts the mind > 5 gate for the next round.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
     ]);
     expect(draftViable(state, PLAYER_1, 0, GIMLI)).toBe(true);
   });

@@ -418,6 +418,18 @@ export interface DraftPlayerState {
   readonly draftedStageResources: readonly CardInstance[];
   /** The face-down pick for the current draft round, or null if not yet picked. */
   readonly currentPick: CardInstance | null;
+  /**
+   * Whether this player's action for the current round was drafting a Stage
+   * resource (rather than a face-down character pick). A Fallen-wizard who
+   * drafts a Stage resource completes their round with it — the round resolves
+   * without forcing a character pick, and the player simply adds no character
+   * that round (CoE 1.9.F4; they finish drafting any remaining characters in
+   * later rounds, solo after the opponent stops). Set when the Stage resource
+   * is drafted, cleared when the round resolves. A Stage resource still awaiting
+   * its site pairing (Hidden Haven, wh-75) does not complete the round until the
+   * site is brought out (CRF 22) — see `completedRoundAction`.
+   */
+  readonly stageResourcePickedThisRound?: boolean;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */
   readonly stopped: boolean;
   /** Pairings of a drafted site-targeting Stage resource (Hidden Haven, wh-75) to the Ruins & Lairs site chosen from the player's site deck. Resolved at draft finalize: non-colliding pairs convert the site to a starting Wizardhaven; colliding pairs (both players chose the same site definition) are set aside per CRF 22. */
