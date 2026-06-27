@@ -21,7 +21,7 @@ import { getItemGrantedSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { playerById, defById, countCopiesInPlay, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
+import { playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
@@ -110,16 +110,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Check duplication-limit with scope "player": each player independently limited
     const playerDupLimit = findDuplicationLimitEffect(def, 'player');
     if (playerDupLimit) {
-      let copiesOwned = player.cardsInPlay.filter(c => {
-        const cDef = defById(state, c.definitionId);
-        return cDef && cDef.name === def.name;
-      }).length;
-      for (const ch of Object.values(player.characters)) {
-        copiesOwned += ch.items.filter(i => {
-          const iDef = defById(state, i.definitionId);
-          return iDef && iDef.name === def.name;
-        }).length;
-      }
+      const copiesOwned = countPlayerHeldCopies(state, player, def.name);
       if (copiesOwned >= playerDupLimit.max) {
         logDetail(`Permanent event ${def.name}: player duplication limit reached (${copiesOwned}/${playerDupLimit.max})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated by a given player`));
