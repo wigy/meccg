@@ -32,6 +32,27 @@ export function createCardImage(defId: string, def: CardDefinition, imgPath: str
 }
 
 /**
+ * Resolve `defId` to its definition and proxy image path and build a
+ * {@link createCardImage}, or return `null` when the definition is unknown or
+ * has no image path. Folds the ubiquitous "look up def, bail if missing,
+ * compute imgPath, bail if missing, then createCardImage" guard repeated across
+ * the board and company renderers. `className` defaults to createCardImage's
+ * own default so call sites that pass none are unchanged.
+ */
+export function createCardImageFromDefId(
+  defId: CardDefinitionId | string,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  className = 'drafted-card',
+  instanceId?: string,
+): HTMLImageElement | null {
+  const def = cardPool[defId as string];
+  if (!def) return null;
+  const imgPath = cardImageProxyPath(def);
+  if (!imgPath) return null;
+  return createCardImage(defId as string, def, imgPath, className, instanceId);
+}
+
+/**
  * Create the card image for `defId`/`instanceId`, falling back to a face-down
  * card-back image (with `fallbackAlt` as the alt text) when the definition is
  * unknown or has no proxy image path. The returned element always carries
