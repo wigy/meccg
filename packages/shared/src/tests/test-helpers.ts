@@ -3707,6 +3707,73 @@ export function buildMHOrderEffectsDrawState(opts: {
   return { ...state, players, phaseState: mhState } as GameState;
 }
 
+/**
+ * Invariant check for "no card instance may ever disappear": independently walk
+ * every gameplay zone that can hold a {@link CardInstance} and assert
+ * {@link resolveInstanceId} resolves each one back to its definition id. This is
+ * an independent oracle (a separate walk, not a call into the resolver's own
+ * enumeration), so it fails if the resolver stops covering a zone — the class of
+ * bug that left trophies unreachable. Call it on any post-action state in a test
+ * to assert the invariant holds there.
+ */
+export function assertEveryInstanceReachable(state: GameState): void {
+  const found: { id: CardInstanceId; defId: CardDefinitionId; where: string }[] = [];
+  const add = (c: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId } | null | undefined, where: string): void => {
+    if (c) found.push({ id: c.instanceId, defId: c.definitionId, where });
+  };
+  const addAll = (cards: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[], where: string): void => {
+    for (const c of cards) add(c, where);
+  };
+
+  for (const p of state.players) {
+    for (const ch of Object.values(p.characters)) {
+      add(ch, 'character');
+      addAll(ch.items, 'item');
+      addAll(ch.allies, 'ally');
+      addAll(ch.hazards, 'char-hazard');
+      addAll(ch.trophies ?? [], 'trophy');
+    }
+    addAll(p.cardsInPlay, 'cardsInPlay');
+    for (const co of p.companies) {
+      add(co.currentSite, 'currentSite');
+      add(co.destinationSite, 'destinationSite');
+      addAll(co.onGuardCards, 'onGuard');
+      addAll(co.hazards, 'company-hazard');
+    }
+    for (const a of p.agents) {
+      add(a.character, 'agent');
+      addAll(a.character.items, 'agent-item');
+      addAll(a.character.allies, 'agent-ally');
+      addAll(a.character.hazards, 'agent-hazard');
+      addAll(a.character.trophies ?? [], 'agent-trophy');
+      addAll(a.siteStack, 'agent-site');
+    }
+    addAll(p.hand, 'hand');
+    addAll(p.playDeck, 'playDeck');
+    addAll(p.discardPile, 'discardPile');
+    addAll(p.siteDeck, 'siteDeck');
+    addAll(p.siteDiscardPile, 'siteDiscardPile');
+    addAll(p.sideboard, 'sideboard');
+    addAll(p.killPile, 'killPile');
+    addAll(p.outOfPlayPile, 'outOfPlayPile');
+    for (const r of p.reservedCreatures) add(r.creature, 'reservedCreature');
+  }
+  if (state.chain) {
+    for (const e of state.chain.entries) add(e.card, 'chain');
+  }
+  for (const h of state.hazardHosts) {
+    add(h.hostCard, 'hazardHost.hostCard');
+    add(h.rescueSiteCard, 'hazardHost.rescueSiteCard');
+  }
+
+  for (const { id, defId, where } of found) {
+    expect(
+      resolveInstanceId(state, id),
+      `instance ${id as string} (held in ${where}) must be resolvable — no card instance may disappear`,
+    ).toBe(defId);
+  }
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,

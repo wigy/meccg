@@ -25,10 +25,11 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardDefinitionId, Alignment, CardStatus, Race } from '../../../index.js';
+import { Phase, CardDefinitionId, Alignment, CardStatus, Race, resolveInstanceId } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
   dispatch, viableActions, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER,
+  assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { CombatState } from '../../../index.js';
 
@@ -152,6 +153,11 @@ describe('Rule 8.37 — Trophies', () => {
     // Trophy is on the character
     const char = afterTrophy.players[0].characters[orcId as string];
     expect(char?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
+
+    // Regression (no-disappear invariant): a creature taken as a trophy lives
+    // only in `character.trophies`, so resolveInstanceId must still find it.
+    expect(resolveInstanceId(afterTrophy, creatureInstanceId)).toBe(ORC_GUARD);
+    assertEveryInstanceReachable(afterTrophy);
   });
 
   test('3.IV.2 — Detainment-creature trophy on Orc/Troll scores 0 kill-MP at Free Council; §3.IV.3 printed-MP attribute bonuses still apply', () => {
