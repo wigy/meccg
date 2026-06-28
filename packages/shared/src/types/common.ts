@@ -190,6 +190,36 @@ export enum CardStatus {
 }
 
 /**
+ * The lowercase string names of the {@link CardStatus} values. This is the
+ * representation used by the card DSL (e.g. `TriggeredAction.status`) and by
+ * the condition-matcher / projection contexts, which speak plain strings
+ * rather than the engine's nominal enum. Derived from {@link CardStatus} so
+ * the two can never drift.
+ */
+export type CardStatusName = `${CardStatus}`;
+
+/**
+ * Convert a DSL/projection {@link CardStatusName} to the engine's
+ * {@link CardStatus} enum. Centralises the `name === 'untapped' ? … : …`
+ * ternary that was inlined at every set-character-status site.
+ */
+export function cardStatusFromName(name: CardStatusName): CardStatus {
+  switch (name) {
+    case 'untapped': return CardStatus.Untapped;
+    case 'tapped': return CardStatus.Tapped;
+    case 'inverted': return CardStatus.Inverted;
+  }
+}
+
+/**
+ * Convert an engine {@link CardStatus} to its lowercase {@link CardStatusName},
+ * the representation expected by condition-matcher / projection contexts.
+ */
+export function cardStatusToName(status: CardStatus): CardStatusName {
+  return status;
+}
+
+/**
  * The kinds of 2d6 checks that can be modified by `check-modifier`
  * effects. METD §1.2 generalized the original `influence` check into a
  * family — the scoring/modifier pipeline is identical, but cards can

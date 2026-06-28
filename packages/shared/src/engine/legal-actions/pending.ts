@@ -30,7 +30,7 @@ import type {
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
-import { CardStatus, Skill } from '../../types/common.js';
+import { CardStatus, Skill, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -1314,9 +1314,7 @@ function applyGrantedActionConstraint(
 
     const def = resolveDef(state, char.instanceId);
     if (!isCharacterCard(def)) continue;
-    const statusStr = char.status === CardStatus.Untapped ? 'untapped'
-      : char.status === CardStatus.Tapped ? 'tapped'
-      : 'inverted';
+    const statusStr = cardStatusToName(char.status);
 
     const ctx = {
       actor: {

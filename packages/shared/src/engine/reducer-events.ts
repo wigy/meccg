@@ -10,7 +10,7 @@ import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, Pendin
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { CardStatus } from '../types/common.js';
+import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -393,9 +393,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     if (nextStatus === undefined) {
       return { state, error: `${def.name} option '${selectedOption.id}': set-character-status missing status` };
     }
-    const statusEnum = nextStatus === 'untapped' ? CardStatus.Untapped
-      : nextStatus === 'tapped' ? CardStatus.Tapped
-        : CardStatus.Inverted;
+    const statusEnum = cardStatusFromName(nextStatus);
     logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
     newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
 
@@ -1214,9 +1212,9 @@ function applyShortEventOnEntersPlay(
         continue;
       }
       const nextStatus = onEvent.apply.status;
-      const statusEnum = nextStatus === 'untapped' ? CardStatus.Untapped
-        : nextStatus === 'tapped' ? CardStatus.Tapped
-          : CardStatus.Inverted;
+      // Preserve the historical default: a set-character-status apply with no
+      // declared status inverts (wounds) the target here.
+      const statusEnum = nextStatus === undefined ? CardStatus.Inverted : cardStatusFromName(nextStatus);
       logDetail(`"${def.name}" played — set ${characterId as string} status → ${nextStatus ?? 'unknown'}`);
       state = updatePlayer(state, playerIndex, p => ({
         ...p,

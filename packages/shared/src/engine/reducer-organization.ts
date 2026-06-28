@@ -12,7 +12,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter } from '../types/cards.js';
-import { CardStatus, SiteType } from '../types/common.js';
+import { CardStatus, SiteType, cardStatusFromName } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -1004,9 +1004,7 @@ function runGrantApply(
     if (apply.status === undefined) {
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
     }
-    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
-      : apply.status === 'tapped' ? CardStatus.Tapped
-        : CardStatus.Inverted;
+    const statusEnum = cardStatusFromName(apply.status);
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} → status ${apply.status}`);
     return { updatedChar: { ...char, status: statusEnum }, effects: [], stateOps: [] };
   }
@@ -1031,9 +1029,7 @@ function runGrantApply(
     if (!targetChar) {
       return { error: `set-character-status target-character: target ${targetCardId as string} not found` };
     }
-    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
-      : apply.status === 'tapped' ? CardStatus.Tapped
-        : CardStatus.Inverted;
+    const statusEnum = cardStatusFromName(apply.status);
     const targetDef = defById(state, targetChar.definitionId);
     const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
@@ -1060,9 +1056,7 @@ function runGrantApply(
     if (!targetCardId) {
       return { error: `set-character-status target-instance: action has no targetCardId on ${ctx.sourceName}` };
     }
-    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
-      : apply.status === 'tapped' ? CardStatus.Tapped
-        : CardStatus.Inverted;
+    const statusEnum = cardStatusFromName(apply.status);
     // Find the target across all players
     for (let pi = 0; pi < newPlayers.length; pi++) {
       const p = newPlayers[pi];
