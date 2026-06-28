@@ -27,6 +27,7 @@ import type {
   MoveToInfluenceAction,
   TransferItemAction,
 } from '../types/actions.js';
+import type { EvaluatedAction } from '../index.js';
 
 /**
  * Check if a candidate legal action matches any stored reverse action,
@@ -34,6 +35,17 @@ import type {
  */
 export function isRegressive(candidate: GameAction, reverseActions: readonly GameAction[]): boolean {
   return reverseActions.some(r => matchesAction(candidate, r));
+}
+
+/**
+ * Wrap a candidate action as a viable {@link EvaluatedAction}, stamping the
+ * `regress` flag when the action would undo this phase's progress (per
+ * {@link isRegressive}). Folds the identical build-candidate → check-regress →
+ * push boilerplate repeated across the organization-phase emitters.
+ */
+export function viableWithRegress(candidate: GameAction, reverseActions: readonly GameAction[]): EvaluatedAction {
+  const regress = isRegressive(candidate, reverseActions);
+  return { action: { ...candidate, ...(regress ? { regress: true } : {}) }, viable: true };
 }
 
 /**

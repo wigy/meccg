@@ -23,7 +23,7 @@ import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
-import { isRegressive } from '../reverse-actions.js';
+import { viableWithRegress } from '../reverse-actions.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 
@@ -309,11 +309,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           companyId: company.id,
           destinationSite: destInstId,
         };
-        const regress = isRegressive(candidate, state.reverseActions);
-        actions.push({
-          action: { ...candidate, ...(regress ? { regress: true } : {}) },
-          viable: true,
-        });
+        actions.push(viableWithRegress(candidate, state.reverseActions));
       }
       continue;
     }
@@ -396,11 +392,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         companyId: company.id,
         destinationSite: destInstId,
       };
-      const regress = isRegressive(candidate, state.reverseActions);
-      actions.push({
-        action: { ...candidate, ...(regress ? { regress: true } : {}) },
-        viable: true,
-      });
+      actions.push(viableWithRegress(candidate, state.reverseActions));
     }
 
     // --- Under-deeps movement pass ---
@@ -422,11 +414,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         companyId: company.id,
         destinationSite: destInstId,
       };
-      const regress = isRegressive(candidate, state.reverseActions);
-      actions.push({
-        action: { ...candidate, ...(regress ? { regress: true } : {}) },
-        viable: true,
-      });
+      actions.push(viableWithRegress(candidate, state.reverseActions));
     }
   }
 
@@ -507,11 +495,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
               characterInstanceId: charInstId,
               controlledBy: ctrlInstId,
             };
-            const regress = isRegressive(candidate, state.reverseActions);
-            actions.push({
-              action: { ...candidate, ...(regress ? { regress: true } : {}) },
-              viable: true,
-            });
+            actions.push(viableWithRegress(candidate, state.reverseActions));
           }
         }
         }
@@ -528,11 +512,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
             characterInstanceId: charInstId,
             controlledBy: 'general',
           };
-          const regress = isRegressive(candidate, state.reverseActions);
-          actions.push({
-            action: { ...candidate, ...(regress ? { regress: true } : {}) } as GameAction,
-            viable: true,
-          });
+          actions.push(viableWithRegress(candidate, state.reverseActions));
         }
       }
     }
@@ -596,11 +576,7 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
             fromCharacterId: charInstId,
             toCharacterId: targetInstId,
           };
-          const regress = isRegressive(candidate, state.reverseActions);
-          actions.push({
-            action: { ...candidate, ...(regress ? { regress: true } : {}) },
-            viable: true,
-          });
+          actions.push(viableWithRegress(candidate, state.reverseActions));
         }
       }
     }
@@ -731,11 +707,7 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
         sourceCompanyId: company.id,
         characterId: charInstId,
       };
-      const regress = isRegressive(candidate, state.reverseActions);
-      actions.push({
-        action: { ...candidate, ...(regress ? { regress: true } : {}) },
-        viable: true,
-      });
+      actions.push(viableWithRegress(candidate, state.reverseActions));
     }
   }
 
@@ -809,11 +781,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
           sourceCompanyId: company.id,
           targetCompanyId: targetCompany.id,
         };
-        const regress = isRegressive(candidate, state.reverseActions);
-        actions.push({
-          action: { ...candidate, ...(regress ? { regress: true } : {}) },
-          viable: true,
-        });
+        actions.push(viableWithRegress(candidate, state.reverseActions));
       }
     }
   }
@@ -983,11 +951,7 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
         sourceCompanyId: company.id,
         targetCompanyId: targetCompany.id,
       };
-      const regress = isRegressive(candidate, state.reverseActions);
-      actions.push({
-        action: { ...candidate, ...(regress ? { regress: true } : {}) },
-        viable: true,
-      });
+      actions.push(viableWithRegress(candidate, state.reverseActions));
     }
   }
 

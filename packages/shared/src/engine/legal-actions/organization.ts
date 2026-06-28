@@ -37,7 +37,7 @@ import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { isRegressive } from '../reverse-actions.js';
+import { viableWithRegress } from '../reverse-actions.js';
 import { playCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
@@ -276,11 +276,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         player: playerId,
         companyId: company.id,
       };
-      const regress = isRegressive(candidate, state.reverseActions);
-      actions.push({
-        action: { ...candidate, ...(regress ? { regress: true } : {}) } as GameAction,
-        viable: true,
-      });
+      actions.push(viableWithRegress(candidate, state.reverseActions));
     }
   }
 
