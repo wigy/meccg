@@ -34,3 +34,24 @@ jobs:
 
       - name: Test
         run: npm test
+
+  card-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The card tests (one per certified card, exercising its DSL effects) are
+      # ~65% of the suite but are excluded from `npm test`. Gate them here so a
+      # DSL/resolver/card-data change can't silently break dozens of cards.
+      - name: Card tests
+        run: npm run test:nightly
