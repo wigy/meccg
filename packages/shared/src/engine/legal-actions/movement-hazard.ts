@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import type { TapDiscardAttachedHazardEffect } from '../../types/effects.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, buildMovementMap, findRegionPaths, getReachableSites, RegionType, Race, Skill, hasPlayFlag, matchesCondition, matchesContext, CardStatus, Alignment, GENERAL_INFLUENCE, AGENT_MAX_REGION_DISTANCE } from '../../index.js';
 import { canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
@@ -672,6 +672,37 @@ function agentTurnActions(
  * - Cannot reveal identical card → no item targets.
  * - Bonuses applied in the reducer: +2 DI if at home; shared-home mind=0 +2 roll.
  */
+/**
+ * The name of the site an agent is currently at: the top of its site-stack if
+ * it has moved out, otherwise its (first) home site for a face-down agent at
+ * home. Returns null when the site can't be resolved. Shared by the agent
+ * tap-influence and tap-attack legal-action computers.
+ */
+function agentCurrentSiteName(state: GameState, agent: AgentInPlay, agentDef: CharacterCard): string | null {
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = defById(state, topSite.definitionId);
+    return siteDef && isSiteCard(siteDef) ? siteDef.name : null;
+  }
+  return parseHomesiteNames(agentDef.homesite)[0] ?? null;
+}
+
+/**
+ * The name of the site a company is (or is moving) to: its pending destination
+ * this turn if it has one, otherwise its current site. Returns null when
+ * neither resolves. Shared by the agent tap-influence and tap-attack
+ * legal-action computers (an agent may act against a company at the site the
+ * company will occupy this turn).
+ */
+function companyTargetSiteName(state: GameState, company: Company, destSiteName: string | null): string | null {
+  let currentSiteName: string | null = null;
+  if (company.currentSite) {
+    const d = defById(state, company.currentSite.definitionId);
+    currentSiteName = d && isSiteCard(d) ? d.name : null;
+  }
+  return destSiteName ?? currentSiteName;
+}
+
 function agentInfluenceActions(
   state: GameState,
   playerId: PlayerId,
@@ -703,25 +734,9 @@ function agentInfluenceActions(
       | undefined;
     if (!tapInfluenceEff) continue;
 
-    // Determine the agent's current site name
-    let agentSiteName: string | null = null;
-    if (agent.siteStack.length > 0) {
-      const topSite = agent.siteStack[agent.siteStack.length - 1];
-      const siteDef = defById(state, topSite.definitionId);
-      if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
-    } else {
-      // Face-down at home — site name is one of the home sites
-      agentSiteName = parseHomesiteNames(agentDef.homesite)[0] ?? null;
-    }
-
-    // Determine the target company's site name
-    const destSiteName = mhState.destinationSiteName; // null if stationary
-    const currentSiteName: string | null = (() => {
-      if (!company.currentSite) return null;
-      const d = defById(state, company.currentSite.definitionId);
-      return d && isSiteCard(d) ? d.name : null;
-    })();
-    const companySiteName = destSiteName ?? currentSiteName;
+    // Determine the agent's current site name and the target company's site.
+    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+    const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
     const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
 
@@ -840,13 +855,7 @@ function agentTapAttackActions(
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
   if (!company) return [];
 
-  const destSiteName = mhState.destinationSiteName;
-  const currentSiteName: string | null = (() => {
-    if (!company.currentSite) return null;
-    const d = defById(state, company.currentSite.definitionId);
-    return d && isSiteCard(d) ? d.name : null;
-  })();
-  const companySiteName = destSiteName ?? currentSiteName;
+  const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
   for (const agent of hazardPlayer.agents) {
     if (!agent.inPlayAtTurnStart) continue;
@@ -860,16 +869,8 @@ function agentTapAttackActions(
     );
     if (!tapAttackEff) continue;
 
-    // Determine the agent's current site name
-    let agentSiteName: string | null = null;
-    if (agent.siteStack.length > 0) {
-      const topSite = agent.siteStack[agent.siteStack.length - 1];
-      const siteDef = defById(state, topSite.definitionId);
-      if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
-    } else {
-      const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-      agentSiteName = homesiteNames[0] ?? null;
-    }
+    // Determine the agent's current site name.
+    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
 
     const isAgentAtCompanySite =
       agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
