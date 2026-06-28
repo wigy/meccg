@@ -30,7 +30,7 @@ import type {
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard, Phase, SetupStep, getPlayerIndex } from '../index.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -40,7 +40,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -990,6 +990,22 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const char of Object.values(player.characters)) {
       for (const item of char.items) {
         stagePoints += stagePointsOfCard(resolveDef(state, item.instanceId));
+      }
+    }
+    // MEWH §1 / CoE 1.7.F1: during the character draft the Stage resources a
+    // Fallen-wizard has drafted are not yet in play (they only enter
+    // `cardsInPlay` at draft finalize, see `applyDraftResults`), but they
+    // already contribute to the running stage-point total the player is
+    // building toward the required three. Sum them from the draft state so the
+    // total is shown correctly mid-draft; they are not double-counted afterwards
+    // because the `character-draft` step (and its `draftState`) is gone by then.
+    if (
+      state.phaseState.phase === Phase.Setup
+      && state.phaseState.setupStep.step === SetupStep.CharacterDraft
+    ) {
+      const draft = state.phaseState.setupStep.draftState[getPlayerIndex(state, player.id)];
+      for (const card of draft.draftedStageResources) {
+        stagePoints += stagePointsOfCard(defById(state, card.definitionId));
       }
     }
   }
