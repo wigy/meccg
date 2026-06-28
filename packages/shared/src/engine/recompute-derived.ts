@@ -30,7 +30,9 @@ import type {
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard, isFactionCard } from '../index.js';
+import { isCharacterCard, isItemCard, isFactionCard } from '../types/cards.js';
+import { MarshallingCategory } from '../types/common.js';
+import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import {
   buildBearerContext,
   collectCharacterEffects,

@@ -11,14 +11,14 @@
  */
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
-import { getPlayerIndex, CardStatus } from '../../index.js';
+import { getPlayerIndex, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
+import { CardStatus } from '../../types/common.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
 import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany } from '../reducer-utils.js';
-import { isCharacterCard } from '../../index.js';
+import { isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { buildGrantActionContext } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
-import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
 import { heroResourceShortEventActions } from './long-event.js';

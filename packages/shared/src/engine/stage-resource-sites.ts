@@ -18,7 +18,8 @@
  */
 
 import type { GameState, CardDefinition, CardInstance, PlayTargetEffect, DraftPlayerState } from '../index.js';
-import { isSiteCard, matchesCondition } from '../index.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
+import { isSiteCard } from '../types/cards.js';
 import { getEffectiveSiteType } from './effective.js';
 import { defById, siteRegionTypeOf, isStageResourceCard } from './reducer-utils.js';
 

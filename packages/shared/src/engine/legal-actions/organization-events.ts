@@ -16,7 +16,11 @@ import type {
   HazardEventCard,
   PlayTargetEffect,
 } from '../../index.js';
-import { hasPlayFlag, matchesCondition, isCharacterCard, isAvatarCharacter, isSiteCard, Phase, Race } from '../../index.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { isCharacterCard, isAvatarCharacter, isSiteCard } from '../../types/cards.js';
+import { Race } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { getItemGrantedSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';

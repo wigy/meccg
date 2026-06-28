@@ -8,7 +8,13 @@
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect, FetchWizardOnStoreEffect, PlayerState } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
-import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, isCharacterCard, isAvatarCharacter, formatSignedNumber } from '../index.js';
+import { formatSignedNumber } from '../format-helpers.js';
+import { shuffle } from '../rng.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter } from '../types/cards.js';
+import { CardStatus, SiteType } from '../types/common.js';
+import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';

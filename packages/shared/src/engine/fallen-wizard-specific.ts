@@ -13,7 +13,7 @@
  * nothing to do.
  */
 import type { GameState } from '../index.js';
-import { Phase } from '../index.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { defById, findPlayerAvatar, discardCardsInPlayWhere } from './reducer-utils.js';
 

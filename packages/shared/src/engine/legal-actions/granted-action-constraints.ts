@@ -19,7 +19,7 @@ import type {
   ActiveConstraint,
   CardInstanceId,
 } from '../../index.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus } from '../../types/common.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';

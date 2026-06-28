@@ -38,21 +38,13 @@ import type {
   CompanyId,
   CardDefinitionId,
 } from '../index.js';
-import {
-  Phase,
-  SetupStep,
-  CardStatus,
-  Alignment,
-  HAND_SIZE,
-  ZERO_MARSHALLING_POINTS,
-  ZERO_EFFECTIVE_STATS,
-  createRng,
-  shuffle,
-  isCharacterCard,
-  isItemCard,
-  isSiteCard,
-  resolveThrallCharacterPairings,
-} from '../index.js';
+import { HAND_SIZE } from '../constants.js';
+import { createRng, shuffle } from '../rng.js';
+import { resolveThrallCharacterPairings } from '../stage-resource-characters.js';
+import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
+import { CardStatus, Alignment } from '../types/common.js';
+import { ZERO_MARSHALLING_POINTS, ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
+import { Phase, SetupStep } from '../types/state-phases.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { logDetail } from './legal-actions/log.js';
 import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect } from './reducer-utils.js';

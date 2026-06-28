@@ -6,22 +6,14 @@
  * uniqueness, site availability, and influence constraints (general and direct).
  */
 
-import type {
-  GameState,
-  PlayerId,
-  EvaluatedAction,
-  CardInstanceId,
-  CharacterCard,
-  OrganizationPhaseState,
-  SiteCard,
-} from '../../index.js';
-import { SiteType, Alignment, Race, isCharacterCard, isSiteCard, isAvatarCharacter, hasPlayFlag } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CardInstanceId, CharacterCard, OrganizationPhaseState, SiteCard, CharacterInPlay, Company, PlayerState } from '../../index.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
+import { SiteType, Alignment, Race } from '../../types/common.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
-import type { CharacterInPlay, Company } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
-import type { PlayerState } from '../../index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 

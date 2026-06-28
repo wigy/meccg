@@ -20,7 +20,7 @@
  */
 
 import type { GameState, PlayerId, CardInstanceId } from '../index.js';
-import { getPlayerIndex } from '../index.js';
+import { getPlayerIndex } from '../state-utils.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';

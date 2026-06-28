@@ -19,7 +19,8 @@
  */
 
 import type { GameState, CardDefinitionId, CardInstanceId } from '../index.js';
-import { Skill, SiteType, isCharacterCard, isSiteCard } from '../index.js';
+import { isCharacterCard, isSiteCard } from '../types/cards.js';
+import { Skill, SiteType } from '../types/common.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { TriggeredAction, OnEventEffect } from '../types/effects.js';
 import { THE_ONE_RING } from '../card-ids.js';

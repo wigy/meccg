@@ -6,7 +6,13 @@
  */
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesContext, hasPlayFlag, isAvatarCharacter, isCharacterCard } from '../index.js';
+import { matchesContext } from '../effects/condition-matcher.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { shuffle } from '../rng.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
+import { CardStatus, SiteType } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, isHavenForPlayer, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';

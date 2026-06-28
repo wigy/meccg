@@ -7,7 +7,11 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { CardStatus } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
@@ -23,7 +27,7 @@ import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
-import { isCharacterCard } from '../index.js';
+import { isCharacterCard } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames } from './recompute-derived.js';

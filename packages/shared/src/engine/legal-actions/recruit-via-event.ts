@@ -24,7 +24,7 @@ import type {
   EvaluatedAction,
   CardInstanceId,
 } from '../../index.js';
-import { isCharacterCard, isSiteCard } from '../../index.js';
+import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import type { CardEffect, RecruitCharacterEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';

@@ -25,7 +25,7 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, CardInPlay, PlayerState, CardDefinition, CardEffect } from '../index.js';
-import { CardStatus } from '../index.js';
+import { CardStatus } from '../types/common.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { toCardInstance } from './reducer-utils.js';

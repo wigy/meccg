@@ -8,7 +8,10 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
-import { Phase, CardStatus, isSiteCard, getPlayerIndex, Alignment } from '../index.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isSiteCard } from '../types/cards.js';
+import { CardStatus, Alignment } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { BARAD_DUR_HERO, BARAD_DUR_MINION, THE_ONE_RING } from '../card-ids.js';
 import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';

@@ -32,7 +32,9 @@ import type {
   CompanyId,
   PlayerId,
 } from '../../index.js';
-import { matchesCondition, matchesContext, HAND_SIZE, isCharacterCard } from '../../index.js';
+import { HAND_SIZE } from '../../constants.js';
+import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
+import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';

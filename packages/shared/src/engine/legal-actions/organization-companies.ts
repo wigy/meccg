@@ -17,7 +17,11 @@ import type {
   CardEffect,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isItemCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction, SiteType, Race, RegionType, isAvatarCharacter } from '../../index.js';
+import { hasNoDirectInfluenceRestriction } from '../../effects/play-flags.js';
+import { buildMovementMap, getReachableSites } from '../../movement-map.js';
+import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
+import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
+import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';

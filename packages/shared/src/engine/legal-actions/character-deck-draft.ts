@@ -9,7 +9,11 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { isCharacterCard, isAvatarCharacter, evaluateAction, CHARACTER_DECK_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
+import { CHARACTER_DECK_DRAFT_RULES } from '../../rules/definitions/character-deck-draft.js';
+import { evaluateAction } from '../../rules/evaluator.js';
+import { setupStepContext } from '../../state-utils.js';
+import { isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { defById } from '../reducer-utils.js';
 

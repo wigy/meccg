@@ -22,9 +22,8 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState } from '../index.js';
-import type { GameAction } from '../index.js';
-import { Phase } from '../index.js';
+import type { GameState, GameAction } from '../index.js';
+import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { applyManifestationCascade } from './manifestations.js';

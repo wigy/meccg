@@ -9,13 +9,19 @@
  * reasons explaining why they can't be selected.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { GENERAL_INFLUENCE, Alignment, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES, SetupStep, setupStepContext } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, DraftPlayerState } from '../../index.js';
+import { getAlignmentRules } from '../../alignment-rules.js';
+import { GENERAL_INFLUENCE } from '../../constants.js';
+import { CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES } from '../../rules/definitions/character-draft.js';
+import { evaluateAction } from '../../rules/evaluator.js';
+import { setupStepContext } from '../../state-utils.js';
+import { isCharacterCard } from '../../types/cards.js';
+import { Alignment } from '../../types/common.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from '../reducer-utils.js';
 import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
-import type { DraftPlayerState } from '../../index.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.CharacterDraft);

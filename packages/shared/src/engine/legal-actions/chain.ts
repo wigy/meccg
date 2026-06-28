@@ -14,7 +14,10 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
-import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { getPlayerIndex } from '../../state-utils.js';
+import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { playerById, getCardEffects, defById } from '../reducer-utils.js';

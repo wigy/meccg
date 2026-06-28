@@ -14,10 +14,12 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect } from '../types/effects.js';
-import { getPlayerIndex, CardStatus, matchesCondition, SiteType, isSiteCard, hasPlayFlag, isAvatarCharacter, Race, RegionType, isAllyCard } from '../index.js';
-import type { TapSitesInPlayEffect } from '../types/effects.js';
-import { isMinionOrBalrog } from '../state-utils.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect } from '../types/effects.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard } from '../types/cards.js';
+import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -29,7 +31,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
-import { Phase } from '../index.js';
+import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './reducer-movement-hazard.js';
 import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';

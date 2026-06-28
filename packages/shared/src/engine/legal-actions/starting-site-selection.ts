@@ -8,7 +8,11 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, SetupStep, setupStepContext } from '../../index.js';
+import { getAlignmentRules } from '../../alignment-rules.js';
+import { SITE_SELECTION_RULES } from '../../rules/definitions/starting-site-selection.js';
+import { evaluateAction } from '../../rules/evaluator.js';
+import { setupStepContext } from '../../state-utils.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 
 export function startingSiteSelectionActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

@@ -16,7 +16,11 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId,
 import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isSiteCard, matchesCondition, SiteType, Alignment, hasPlayFlag, isResourceEventCard, isAvatarCharacter, formatSignedNumber } from '../../index.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { formatSignedNumber } from '../../format-helpers.js';
+import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter } from '../../types/cards.js';
+import { CardStatus, SiteType, Alignment } from '../../types/common.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
 import { resolveDef } from '../effects/index.js';

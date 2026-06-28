@@ -12,7 +12,8 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState } from '../../index.js';
-import { Phase, CardStatus } from '../../index.js';
+import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
