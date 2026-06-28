@@ -56,7 +56,7 @@ import { handleMovementHazard, autoAdvanceMHOrderEffects } from './reducer-movem
 import { handleSite } from './reducer-site.js';
 import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
 import { handleFreeCouncil } from './reducer-free-council.js';
-import { handleCombatAction } from './reducer-combat.js';
+import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
 
 /**
  * Applies a single game action to the current state.
@@ -98,17 +98,18 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return chainResult;
   }
 
-  // Combat: dispatch combat-specific actions when combat is active
-  // play-short-event is included so resource short-events played between or
-  // during strike sequences (rule 3.iv / 3.iv.5) are routed to the combat
-  // handler rather than the site-phase reducer, which cannot accept them
-  // while the automatic-attacks step is active.
-  const combatActionTypes = ['assign-strike', 'allocate-cvcc-excess', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'shield-discard-roll', 'cancel-attack', 'convert-creature-to-ally', 'cancel-by-tap', 'cancel-strike', 'protect-from-assignment', 'play-strike-event', 'halve-strikes', 'tap-ally-combat-boost', 'modify-attack', 'tap-item-for-strike', 'salvage-item', 'discard-item-from-company', 'play-hazard', 'haven-join-attack', 'play-short-event', 'agent-strike-roll', 'take-trophy'];
+  // Combat: dispatch combat-specific actions when combat is active.
+  // The routable set (COMBAT_ACTION_TYPES) is derived from the combat handler
+  // map in reducer-combat.ts, so it can never drift from the handlers. It
+  // includes play-short-event so resource short-events played between or during
+  // strike sequences (rule 3.iv / 3.iv.5) are routed to the combat handler
+  // rather than the site-phase reducer, which cannot accept them while the
+  // automatic-attacks step is active.
   // When a chain is active, play-short-event may be a hazard chain response
   // (e.g. Searching Eye canceling Concealment). Route these through the phase
   // handler, which distinguishes resource vs hazard events correctly.
   const isChainShortEvent = state.chain != null && action.type === 'play-short-event';
-  if (state.combat != null && !isChainShortEvent && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
+  if (state.combat != null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {

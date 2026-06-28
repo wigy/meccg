@@ -52,67 +52,71 @@ function pruneLeaderFollowers(
  * Dispatch a combat action to the appropriate handler based on the
  * current combat sub-phase.
  */
+/**
+ * Signature shared by every combat-active action handler. Each handler takes
+ * the full {@link GameAction} union and re-narrows internally; `combat` is the
+ * guaranteed-present {@link CombatState}. Handlers that don't need the combat
+ * state (the resource short-event handler) simply ignore the argument.
+ */
+type CombatActionHandler = (state: GameState, action: GameAction, combat: CombatState) => ReducerResult;
+
+/**
+ * Single source of truth mapping each combat-active action type to its handler.
+ * Both the combat dispatcher ({@link handleCombatAction}) and the top-level
+ * reducer's routing predicate ({@link COMBAT_ACTION_TYPES}) derive from this
+ * map, so adding a combat action means adding exactly one entry here — the two
+ * can no longer drift. (Previously the reducer kept a hand-maintained parallel
+ * array of these type strings far from this dispatch switch, a misroute
+ * footgun.)
+ */
+const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> = {
+  'assign-strike': handleAssignStrike,
+  'allocate-cvcc-excess': handleAllocateCvccExcess,
+  'pass': handleCombatPass,
+  'choose-strike-order': handleChooseStrikeOrder,
+  'resolve-strike': handleResolveStrike,
+  'agent-strike-roll': handleAgentStrikeRoll,
+  'support-strike': handleSupportStrike,
+  'body-check-roll': handleBodyCheckRoll,
+  'shield-discard-roll': handleShieldDiscardRoll,
+  'cancel-attack': handleCancelAttack,
+  'convert-creature-to-ally': handleConvertCreatureToAlly,
+  'cancel-by-tap': handleCancelByTap,
+  'play-strike-event': handlePlayStrikeEvent,
+  'cancel-strike': handleCancelStrike,
+  'protect-from-assignment': handleProtectFromStrikeAssignment,
+  'halve-strikes': handleHalveStrikes,
+  'tap-item-for-strike': handleTapItemForStrike,
+  'tap-ally-combat-boost': handleTapAllyCombatBoost,
+  'modify-attack': handleModifyAttack,
+  'salvage-item': handleSalvageItem,
+  'discard-item-from-company': handleDiscardItemFromCompany,
+  'play-hazard': handleCombatPlayHazard,
+  'haven-join-attack': handleHavenJoinAttack,
+  // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
+  // sequences or during step 5 if they affect the current strike. The event
+  // handler applies its effects without touching the combat state.
+  'play-short-event': handlePlayResourceShortEvent,
+  'take-trophy': handleTakeTrophy,
+};
+
+/**
+ * The combat-active action types the top-level reducer routes to
+ * {@link handleCombatAction}, derived from {@link COMBAT_HANDLERS}. Excludes
+ * `pass`, which is only a combat action in specific combat phases and so is
+ * routed separately (and phase-gated) by the reducer.
+ */
+export const COMBAT_ACTION_TYPES: ReadonlySet<string> = new Set(
+  Object.keys(COMBAT_HANDLERS).filter((type) => type !== 'pass'),
+);
+
 export function handleCombatAction(state: GameState, action: GameAction): ReducerResult {
   const combat = state.combat;
   if (!combat) return { state, error: 'No combat active' };
 
-  switch (action.type) {
-    case 'assign-strike':
-      return handleAssignStrike(state, action, combat);
-    case 'allocate-cvcc-excess':
-      return handleAllocateCvccExcess(state, action, combat);
-    case 'pass':
-      return handleCombatPass(state, action, combat);
-    case 'choose-strike-order':
-      return handleChooseStrikeOrder(state, action, combat);
-    case 'resolve-strike':
-      return handleResolveStrike(state, action, combat);
-    case 'agent-strike-roll':
-      return handleAgentStrikeRoll(state, action, combat);
-    case 'support-strike':
-      return handleSupportStrike(state, action, combat);
-    case 'body-check-roll':
-      return handleBodyCheckRoll(state, action, combat);
-    case 'shield-discard-roll':
-      return handleShieldDiscardRoll(state, action, combat);
-    case 'cancel-attack':
-      return handleCancelAttack(state, action, combat);
-    case 'convert-creature-to-ally':
-      return handleConvertCreatureToAlly(state, action, combat);
-    case 'cancel-by-tap':
-      return handleCancelByTap(state, action, combat);
-    case 'play-strike-event':
-      return handlePlayStrikeEvent(state, action, combat);
-    case 'cancel-strike':
-      return handleCancelStrike(state, action, combat);
-    case 'protect-from-assignment':
-      return handleProtectFromStrikeAssignment(state, action, combat);
-    case 'halve-strikes':
-      return handleHalveStrikes(state, action, combat);
-    case 'tap-item-for-strike':
-      return handleTapItemForStrike(state, action, combat);
-    case 'tap-ally-combat-boost':
-      return handleTapAllyCombatBoost(state, action, combat);
-    case 'modify-attack':
-      return handleModifyAttack(state, action, combat);
-    case 'salvage-item':
-      return handleSalvageItem(state, action, combat);
-    case 'discard-item-from-company':
-      return handleDiscardItemFromCompany(state, action, combat);
-    case 'play-hazard':
-      return handleCombatPlayHazard(state, action, combat);
-    case 'haven-join-attack':
-      return handleHavenJoinAttack(state, action, combat);
-    // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
-    // sequences or during step 5 if they affect the current strike. The
-    // event handler applies its effects without touching the combat state.
-    case 'play-short-event':
-      return handlePlayResourceShortEvent(state, action);
-    case 'take-trophy':
-      return handleTakeTrophy(state, action, combat);
-    default:
-      return { state, error: `Unexpected action '${action.type}' during combat` };
-  }
+  const handler = COMBAT_HANDLERS[action.type];
+  if (!handler) return { state, error: `Unexpected action '${action.type}' during combat` };
+  return handler(state, action, combat);
 }
 
 /**
