@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack } from '../index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -70,7 +70,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
 };
 
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
   const handler = SITE_STEP_HANDLERS[siteState.step];
   if (handler) return handler(state, action, siteState);
 
@@ -941,7 +941,7 @@ function maybeTriggerSiteItemTrap(
     prowessBonus,
     trollPursePrisoner: { hostInstanceId, siteInstanceId: company.currentSite.instanceId },
   });
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
   return {
     ...state,
     combat,
@@ -1500,7 +1500,7 @@ export function applyOnGuardRevealAtResource(
     return { state, error: `Expected reveal-on-guard action, got '${action.type}'` };
   }
 
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const resourcePlayer = state.players[activeIndex];
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
@@ -1546,7 +1546,7 @@ export function executeDeferredSiteAction(
   if (deferredAction.type !== 'play-hero-resource') {
     return { state, error: `Unsupported deferred site action: ${deferredAction.type}` };
   }
-  return handleSitePlayHeroResource(state, deferredAction, state.phaseState as SitePhaseState);
+  return handleSitePlayHeroResource(state, deferredAction, requirePhaseState(state, Phase.Site));
 }
 
 /**
@@ -2102,7 +2102,7 @@ export function resolveInfluenceAttemptRoll(
   state: GameState,
   entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean } },
 ): { state: GameState; effects: GameEffect[] } {
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
   const player = state.players[playerIndex];
 

@@ -10,9 +10,10 @@
  *    Free Council to trigger the endgame.
  */
 
-import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
-import { getPlayerIndex, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction } from '../../index.js';
+import { getPlayerIndex, canCallEndgameNow, isMinionOrBalrog, requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
 import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany } from '../reducer-utils.js';
 import { isCharacterCard } from '../../types/cards.js';
@@ -40,7 +41,7 @@ import { asViable as viable } from './evaluated.js';
  * draw/discard step enforced sequentially by the reducer.
  */
 export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const eotState = state.phaseState as EndOfTurnPhaseState;
+  const eotState = requirePhaseState(state, Phase.EndOfTurn);
   const step = eotState.step;
   logHeading(`End-of-Turn legal actions: step '${step}' for player ${playerId as string}`);
 
@@ -71,7 +72,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
  * Both players pass to advance to reset-hand.
  */
 function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] {
-  const eotState = state.phaseState as EndOfTurnPhaseState;
+  const eotState = requirePhaseState(state, Phase.EndOfTurn);
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
 
@@ -119,7 +120,7 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
  * Players above hand size must discard; players below draw; at hand size, pass.
  */
 function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[] {
-  const eotState = state.phaseState as EndOfTurnPhaseState;
+  const eotState = requirePhaseState(state, Phase.EndOfTurn);
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   const handSize = resolveHandSize(state, playerIndex);

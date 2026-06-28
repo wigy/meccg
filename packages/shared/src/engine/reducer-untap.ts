@@ -9,7 +9,7 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { matchesContext } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -25,7 +25,7 @@ import type { OnEventEffect, CardEffect } from '../types/effects.js';
  * may access their sideboard. Both pass to advance to Organization.
  */
 export function handleUntap(state: GameState, action: GameAction): ReducerResult {
-  const untapState = state.phaseState as UntapPhaseState;
+  const untapState = requirePhaseState(state, Phase.Untap);
 
   if (action.type === 'start-hazard-sideboard-to-deck' || action.type === 'start-hazard-sideboard-to-discard') {
     const destination = action.type === 'start-hazard-sideboard-to-deck' ? 'deck' : 'discard';
@@ -82,7 +82,7 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
 function handleFetchHazardFromSideboard(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-hazard-from-sideboard') return wrongActionType(state, action, 'fetch-hazard-from-sideboard');
 
-  const untapState = state.phaseState as UntapPhaseState;
+  const untapState = requirePhaseState(state, Phase.Untap);
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 

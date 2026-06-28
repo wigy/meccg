@@ -10,7 +10,7 @@ import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, Organiza
 import type { PlayFlagEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -76,7 +76,7 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
  */
 function handleOrganizationPass(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
   if (orgState.sideboardFetchDestination === 'discard') {
     logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
     return {
@@ -167,7 +167,7 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
   if (!fetchEffect || fetchEffect.type !== 'org-phase-fetch') {
     return { state, error: 'Target does not grant an organization-phase fetch' };
   }
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
   const used = orgState.discardFetchUsedThisTurn ?? [];
   if (used.includes(action.cardInstanceId)) {
     return { state, error: 'This fetch has already been used this turn' };
@@ -241,6 +241,10 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   // slot, so the phase-state update is guarded on actually being in the
   // organization phase below.
   const isOrgPhase = state.phaseState.phase === Phase.Organization;
+  // handlePlayCharacter is shared: A Chance Meeting (tw-188) etc. recruit during
+  // the M/H and site phases too, so phaseState is genuinely not always the
+  // organization phase here — the org-only fields below are read under the
+  // `isOrgPhase` guard. Keep the cast (do not use requirePhaseState here).
   const phaseState = state.phaseState as OrganizationPhaseState;
 
   const charInstId = action.characterInstanceId;
@@ -725,7 +729,7 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
   }
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
   const destination = action.type === 'start-sideboard-to-deck' ? 'deck' : 'discard';
 
   // Tap the avatar
@@ -759,7 +763,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
 
   if (orgState.sideboardFetchDestination === null) {
     return { state, error: 'No sideboard access sub-flow active' };

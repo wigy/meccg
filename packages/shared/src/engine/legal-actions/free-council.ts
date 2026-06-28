@@ -14,7 +14,9 @@
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
 import { formatSignedNumber } from '../../format-helpers.js';
+import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
@@ -22,7 +24,7 @@ import { characterIds, findCharacterCompany, playerById, defById } from '../redu
 import { asViable as viable } from './evaluated.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const fcState = state.phaseState as FreeCouncilPhaseState;
+  const fcState = requirePhaseState(state, Phase.FreeCouncil);
 
   if (fcState.step === 'done') {
     return [];
