@@ -32,7 +32,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1724,9 +1724,11 @@ export function buildPlayerStateContext(
     const def = defById(state, c.definitionId);
     return def && isFactionCard(def);
   }).length;
-  const avatar = findPlayerAvatar(state, player);
-  const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
-  const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
+  // "Playable if you are X" Stage cards test the Fallen-wizard the player
+  // counts *as* (CoE 2.2.F2), which persists from declaration (CoE 1.8.F1)
+  // until the avatar is eliminated — the avatar need not be in play. Use the
+  // identity helper rather than the in-play-only avatar lookup.
+  const avatarName = findFallenWizardAvatarName(state, player);
   return {
     player: {
       alignment: player.alignment,

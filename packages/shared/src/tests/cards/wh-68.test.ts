@@ -181,6 +181,39 @@ describe('The Fortress of Isen (wh-68)', () => {
     expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(true);
   });
 
+  // Regression (bug report mqxur28y-to5dzj, seq 48): a Saruman Fallen-wizard
+  // whose avatar has *not yet been played* (it is still in the play deck) has a
+  // company at Isengard with The Fortress of Isen in hand. The engine refused
+  // the play because it inferred wizard identity solely from the avatar in
+  // play. Per CoE 1.8.F1 / 2.2.F2 a Fallen-wizard counts "as" their declared
+  // avatar from game start until the avatar is *eliminated* — the avatar need
+  // not be in play — so the card must be offered.
+  test('[CoE 2.2.F2] playable while your declared Saruman avatar is still in the deck (not yet in play)', () => {
+    const state = buildFallenWizardOrgPhaseState({
+      site: ISENGARD_WH, characters: [ARAGORN], hand: [FORTRESS_OF_ISEN], playDeck: [SARUMAN_FW],
+    });
+    expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(true);
+  });
+
+  // The flip side of CoE 2.2.F2: once the declared avatar has been *eliminated*
+  // (it sits in the removed-from-play pile), the player no longer counts as
+  // that Fallen-wizard and the card is no longer playable.
+  test('[CoE 2.2.F2] not playable once your Saruman avatar has been eliminated', () => {
+    const built = buildFallenWizardOrgPhaseState({
+      site: ISENGARD_WH, characters: [ARAGORN], hand: [FORTRESS_OF_ISEN], playDeck: [SARUMAN_FW],
+    });
+    const fw = built.players[RESOURCE_PLAYER];
+    const eliminated = fw.playDeck.find(c => c.definitionId === SARUMAN_FW)!;
+    const state: GameState = {
+      ...built,
+      players: [
+        { ...fw, playDeck: fw.playDeck.filter(c => c !== eliminated), outOfPlayPile: [...fw.outOfPlayPile, eliminated] },
+        built.players[1],
+      ] as GameState['players'],
+    };
+    expect(canPlay(state, PLAYER_1, handInstance(state, FORTRESS_OF_ISEN))).toBe(false);
+  });
+
   // ── Rule 8: opponent cannot play MP-giving cards at the protected site ─────
 
   test('an opponent may not play a marshalling-point item at the protected site', () => {
