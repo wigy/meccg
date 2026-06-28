@@ -29,7 +29,7 @@ import type {
 } from '../../index.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard } from '../../types/cards.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
 import { CardStatus, Skill } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
@@ -1581,6 +1581,14 @@ function discardOneCompanyItemActions(
     for (const item of ch.items) {
       const itemDef = defById(state, item.definitionId);
       const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      // A character's `items` list may hold non-item cards placed "with" the
+      // character (e.g. the permanent event Thrall of the Voice). Brigands' text
+      // forces the company to discard one *item*, so only genuine item cards are
+      // valid discard targets — skip anything that is not an item.
+      if (!isItemCard(itemDef)) {
+        logDetail(`discard-one-company-item: skipping ${itemName} (not an item)`);
+        continue;
+      }
       logDetail(`discard-one-company-item: offering ${itemName}`);
       actions.push({
         action: {

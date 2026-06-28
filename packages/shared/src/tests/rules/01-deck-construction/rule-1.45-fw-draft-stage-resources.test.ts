@@ -210,6 +210,29 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     expect(companyChars(1)).toBe(2);
   });
 
+  test('[FALLEN-WIZARD] drafted Stage resources count toward the stage-point total during the draft (regression for game mqxur28y-to5dzj seq 13)', () => {
+    // Report (game mqxur28y-to5dzj, seq 13): a Fallen-wizard who had drafted
+    // Stage resources during the character draft still saw a stage-point total of
+    // 0. The derived total only summed Stage cards already in `cardsInPlay`, but
+    // drafted Stage resources do not enter play until draft finalize
+    // (`applyDraftResults`) — so mid-draft they were uncounted. They must
+    // contribute their stage points (CoE 1.7.F1: a FW builds toward exactly 3)
+    // from the moment they are drafted.
+    let state = createGame(makeConfig(Alignment.FallenWizard), pool);
+    expect(state.players[0].stagePoints).toBe(0);
+
+    // The Fallen-wizard drafts the Stage resource (Thrall of the Voice, worth 1
+    // stage point). It is now in the player's drafted Stage resources, so the
+    // running total must read 1 immediately — not 0.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, THRALL_OF_THE_VOICE) },
+    ]);
+    expect(draftStep(state).draftState[0].draftedStageResources).toHaveLength(1);
+    expect(state.players[0].stagePoints).toBe(1);
+    // The Wizard opponent accrues no stage points (a Fallen-wizard-only concept).
+    expect(state.players[1].stagePoints).toBe(0);
+  });
+
   test('[FALLEN-WIZARD] a Stage resource placed with a character does not consume the two minor-item budget', () => {
     // Regression: a recruitment-vehicle Stage resource (Thrall of the Voice) is
     // attached to a drafted character — it rides in that character's `items` so

@@ -46,12 +46,17 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const BRIGANDS = 'tw-17' as CardDefinitionId;
 const BORDER_KEYING = { method: 'region-type' as const, value: 'border' };
+// Fallen-wizard permanent resource-event (Thrall of the Voice). It is *placed
+// with* a character so it rides in `CharacterInPlay.items`, but it is a
+// resource-event, not an item, and must never be a Brigands discard target.
+const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -174,6 +179,49 @@ describe('Brigands (tw-17)', () => {
 
     // Pending resolution cleared
     expect(afterDiscard.pendingResolutions.filter(r => r.actor === PLAYER_1)).toHaveLength(0);
+  });
+
+  test('non-item cards placed with a character (Thrall of the Voice) are not offered as discard targets', () => {
+    // Regression: a wounded character carried both a genuine item (Glamdring)
+    // and Thrall of the Voice — a permanent resource-event placed *with* the
+    // character. Brigands forces the company to discard one *item*, so only
+    // Glamdring may be offered; Thrall of the Voice must be excluded.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [GLAMDRING, THRALL_OF_THE_VOICE] }, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BRIGANDS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeBorderMHState() };
+
+    const brigandId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    let s = playCreatureHazardAndResolve(ready, PLAYER_2, brigandId, companyId, BORDER_KEYING);
+
+    // Assign, choose order, resolve: ARAGORN wounded, BILBO wins
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'choose-strike-order');
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);  // ARAGORN wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 2); // survives (2 < body 9)
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // BILBO wins
+
+    expect(s.combat).toBeNull();
+    expect(s.pendingResolutions.filter(r => r.actor === PLAYER_1)).toHaveLength(1);
+
+    // Only the genuine item (Glamdring) is offered — Thrall of the Voice excluded.
+    const discardActions = viableActions(s, PLAYER_1, 'discard-item-from-company');
+    expect(discardActions).toHaveLength(1);
+    const offeredId = (discardActions[0].action as { itemInstanceId: CardInstanceId }).itemInstanceId;
+    expect(resolveInstanceId(s, offeredId)).toBe(GLAMDRING);
   });
 
   test('no pending resolution when no character is wounded', () => {
