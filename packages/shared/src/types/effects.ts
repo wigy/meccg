@@ -818,10 +818,57 @@ export interface OnEventEffect extends EffectBase {
   readonly regionTypeFilter?: readonly RegionType[];
 }
 
+/**
+ * The closed set of triggered-action verbs. Replaces the former open
+ * `type: string` discriminant on {@link TriggeredAction}, so the compiler
+ * catches typo'd or unhandled action verbs at every construction and
+ * dispatch site and the recognised set is documented in one place. Each
+ * verb's relevant fields are documented on {@link TriggeredAction}; full
+ * per-verb field discrimination is deferred to the apply-dispatcher
+ * unification (see `specs/2026-04-23-chain-effect-dispatch-plan.md`).
+ */
+export type TriggeredActionType =
+  | 'sequence'
+  | 'force-check'
+  | 'force-check-all-company'
+  | 'offer-char-join-attack'
+  | 'offer-resource-play'
+  | 'offer-restore-character'
+  | 'tap-one-character'
+  | 'roll-discard-opponent-non-unique-ally'
+  | 'set-site-phase-flag'
+  | 'set-character-status'
+  | 'set-company-special-movement'
+  | 'shuffle-deck-top'
+  | 'add-constraint'
+  | 'remove-constraint'
+  | 'cancel-chain-entry'
+  | 'discard-character'
+  | 'discard-self'
+  | 'discard-target-character'
+  | 'discard-cards-in-play'
+  | 'discard-named-card-from-company'
+  | 'force-discard-one-company-item'
+  | 'enqueue-corruption-check'
+  | 'enqueue-pending-fetch'
+  | 'enqueue-ring-play-offer'
+  | 'heal-target-character'
+  | 'increment-company-extra-region-distance'
+  | 'modify-current-strike-prowess'
+  | 'move'
+  | 'place-item-on-character'
+  | 'roll-check'
+  | 'roll-then-apply'
+  | 'transform-site'
+  | 'untap-site'
+  | 'win-condition-roll'
+  | 'win-game';
+
 /** An action performed by a triggered effect. */
 export interface TriggeredAction {
   /**
-   * The type of triggered action.
+   * The verb selecting which triggered action runs; see
+   * {@link TriggeredActionType} for the closed set.
    *
    * Supported types include:
    * - `force-check` — enqueue a single corruption check on the `target` character.
@@ -842,7 +889,7 @@ export interface TriggeredAction {
    *   Implemented in `reducer-organization.ts` `runGrantApply()`.
    * (Other types documented inline on their respective fields.)
    */
-  readonly type: string;
+  readonly type: TriggeredActionType;
   /**
    * For `set-site-phase-flag` type: the `SitePhaseState` boolean key to set to `true`.
    * Supported values: `"hoardBountyAvailable"`, `"thoroughSearchAvailable"`.
