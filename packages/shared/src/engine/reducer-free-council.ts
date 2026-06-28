@@ -12,7 +12,7 @@
 
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { getPlayerIndex, computeTournamentScore } from '../state-utils.js';
+import { getPlayerIndex, computeTournamentScore, requirePhaseState } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Race, CardStatus, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -38,7 +38,7 @@ import { removeConstraint } from './pending.js';
  * 3. Player passes to resolve the check with accumulated support
  */
 export function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult {
-  const fcState = state.phaseState as FreeCouncilPhaseState;
+  const fcState = requirePhaseState(state, Phase.FreeCouncil);
 
   // Handle support tapping for a pending corruption check (CoE 7.1.1)
   if (action.type === 'support-corruption-check') {

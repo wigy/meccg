@@ -19,7 +19,6 @@ import type {
   CardInstanceId,
   CharacterCard,
   ResourceEventCard,
-  OrganizationPhaseState,
   MovementHazardPhaseState,
   GameAction,
   PlayerState,
@@ -27,7 +26,9 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
+import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -205,7 +206,7 @@ export function discardStageResourceActions(state: GameState, playerId: PlayerId
 export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
   const used = orgState.discardFetchUsedThisTurn ?? [];
   const actions: EvaluatedAction[] = [];
   for (const card of player.cardsInPlay) {
@@ -246,7 +247,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     return [];
   }
 
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
 
   // Pending corruption checks (transfer / wound / Lure) are now produced
   // and consumed via the unified pending-resolution system. The

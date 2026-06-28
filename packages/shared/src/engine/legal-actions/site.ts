@@ -14,9 +14,10 @@ import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { getPlayerIndex } from '../../state-utils.js';
+import { getPlayerIndex, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
@@ -161,7 +162,7 @@ function siteMatchesEntry(
  */
 export function siteActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const isActive = state.activePlayer === playerId;
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
 
   logHeading(`Site phase (step: ${siteState.step}): player is ${isActive ? 'active (resource)' : 'non-active (hazard)'}`);
 
@@ -554,7 +555,7 @@ function declareAgentAttackActions(
     return [];
   }
 
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = requirePhaseState(state, Phase.Site);
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const currentSiteDef = company?.currentSite

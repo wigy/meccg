@@ -8,7 +8,7 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -49,7 +49,7 @@ function discardOrBecomePlayDeck(player: PlayerState, card: CardInstance): Pick<
  * 3. signal-end — resource player ends the turn
  */
 export function handleEndOfTurn(state: GameState, action: GameAction): ReducerResult {
-  const eotState = state.phaseState as EndOfTurnPhaseState;
+  const eotState = requirePhaseState(state, Phase.EndOfTurn);
 
   switch (eotState.step) {
     case 'discard':

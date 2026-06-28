@@ -6,10 +6,12 @@
  * uniqueness, site availability, and influence constraints (general and direct).
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CardInstanceId, CharacterCard, OrganizationPhaseState, SiteCard, CharacterInPlay, Company, PlayerState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CardInstanceId, CharacterCard, SiteCard, CharacterInPlay, Company, PlayerState } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
+import { requirePhaseState } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
 import { SiteType, Alignment, Race } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
@@ -345,7 +347,7 @@ export function playCharacterActions(
   state: GameState,
   playerId: PlayerId,
 ): EvaluatedAction[] {
-  const phaseState = state.phaseState as OrganizationPhaseState;
+  const phaseState = requirePhaseState(state, Phase.Organization);
   const player = playerById(state, playerId)!;
   const results: EvaluatedAction[] = [];
 

@@ -13,9 +13,10 @@ import { matchesCondition, matchesContext } from '../../effects/condition-matche
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
-import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog } from '../../state-utils.js';
+import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
@@ -62,7 +63,7 @@ function countUnresolvedChainHazards(state: GameState): number {
  */
 export function movementHazardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const isActive = state.activePlayer === playerId;
-  const mhState = state.phaseState as MovementHazardPhaseState;
+  const mhState = requirePhaseState(state, Phase.MovementHazard);
 
   logHeading(`Movement/hazard phase (step: ${mhState.step}): player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
 

@@ -14,7 +14,7 @@ import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
-import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
+import { getPlayerIndex, isMinionOrBalrog, requirePhaseState } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
 import { CardStatus, RegionType, Race, Skill, Alignment } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
@@ -67,7 +67,7 @@ const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHand
 };
 
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
-  const mhState = state.phaseState as MovementHazardPhaseState;
+  const mhState = requirePhaseState(state, Phase.MovementHazard);
   const handler = MH_STEP_HANDLERS[mhState.step];
   if (!handler) return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
   return handler(state, action, mhState);

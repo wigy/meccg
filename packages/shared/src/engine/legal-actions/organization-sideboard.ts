@@ -11,9 +11,10 @@ import type {
   PlayerId,
   EvaluatedAction,
   PlayerState,
-  OrganizationPhaseState,
 } from '../../index.js';
+import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById } from '../reducer-utils.js';
 
@@ -46,7 +47,7 @@ function getEligibleSideboardCards(state: GameState, player: PlayerState) {
  * When an intent is active, generates only fetch actions (and pass for discard with >=1 fetched).
  */
 export function fetchFromSideboardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const orgState = state.phaseState as OrganizationPhaseState;
+  const orgState = requirePhaseState(state, Phase.Organization);
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 

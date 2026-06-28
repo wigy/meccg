@@ -6,7 +6,7 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState } from './types/index.js';
+import type { GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
 import { Alignment, Phase } from './types/index.js';
 import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
 
@@ -44,6 +44,28 @@ export function setupStepContext<S extends SetupStep>(
     step: state.phaseState.setupStep as Extract<SetupStepState, { step: S }>,
     playerIndex: getPlayerIndex(state, playerId),
   };
+}
+
+/**
+ * Guard + narrowing for the current top-level phase.
+ *
+ * Phase reducers and their legal-action computers are dispatched by phase, so
+ * each opens by reading its own phase-specific state. This replaces the blind
+ * `state.phaseState as XPhaseState` cast with a checked narrowing: it returns
+ * the {@link PhaseState} member for `phase`, or throws if the game is somehow
+ * not in that phase (a routing bug) rather than silently handing back a
+ * wrong-typed object whose fields are all `undefined`.
+ */
+export function requirePhaseState<P extends Phase>(
+  state: GameState,
+  phase: P,
+): Extract<PhaseState, { phase: P }> {
+  if (state.phaseState.phase !== phase) {
+    throw new Error(
+      `requirePhaseState: expected phase '${phase}', but the game is in '${state.phaseState.phase}'`,
+    );
+  }
+  return state.phaseState as Extract<PhaseState, { phase: P }>;
 }
 
 /**
