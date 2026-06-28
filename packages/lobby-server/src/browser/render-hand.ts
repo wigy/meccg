@@ -34,6 +34,7 @@ import {
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
+import { getFocusedCompanyId } from './company-view-state.js';
 
 // ---- Card action finders ----
 
@@ -41,12 +42,41 @@ import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
  * Find the legal action associated with a card in the hand arc, if any.
  * Actions that need no extra parameters beyond identifying the card are
  * returned directly -- clicking the card sends them immediately.
+ *
+ * Site-targeting permanent events are the one parametrised case handled here:
+ * they offer one action per company at a matching site, and the returned action
+ * defaults its target to `focusedSiteDefId` (the player's focused company's
+ * site) so clicking the card plays it where the player has selected, not on an
+ * arbitrary first company.
  */
-function findCardAction(
+export function findCardAction(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
   instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
+  focusedSiteDefId?: CardDefinitionId,
 ): GameAction | null {
+  // Site-targeting permanent events (e.g. Double-dealing, The White Tree)
+  // produce one play-permanent-event action per company whose current site
+  // matches — one target per company. Clicking the card must not silently bind
+  // it to whichever company happens to come first in the list; default the
+  // target to the player's currently focused company's site so the action
+  // matches what the player has selected on the board (bug 438d0869daf6313a).
+  if (instanceLookup) {
+    const siteEvents = legalActions.filter(
+      a => a.type === 'play-permanent-event'
+        && instanceLookup(a.cardInstanceId) === defId
+        && a.targetSiteDefinitionId !== undefined,
+    );
+    if (siteEvents.length > 0) {
+      if (focusedSiteDefId) {
+        const focused = siteEvents.find(
+          a => a.type === 'play-permanent-event' && a.targetSiteDefinitionId === focusedSiteDefId,
+        );
+        if (focused) return focused;
+      }
+      return siteEvents[0];
+    }
+  }
   for (const action of legalActions) {
     if (action.type === 'draft-pick' && instanceLookup
       && instanceLookup(action.characterInstanceId) === defId) return action;
@@ -782,6 +812,14 @@ export function renderHand(
     setCancelAttackRenderCache(null);
   }
 
+  // The currently focused company's site, used to default site-targeting
+  // permanent events (Double-dealing etc.) to the company the player has
+  // selected rather than the first company in the list.
+  const focusedCompanyId = getFocusedCompanyId();
+  const focusedSiteDefId = focusedCompanyId
+    ? view.self.companies.find(c => c.id === focusedCompanyId)?.currentSite?.definitionId
+    : undefined;
+
   for (let i = 0; i < total; i++) {
     const { defId: cardDefId, instanceId: cardInstanceId } = cards[i];
     const def = cardPool[cardDefId as string];
@@ -789,7 +827,7 @@ export function renderHand(
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
-    const action = findCardAction(cardDefId, viable, cachedInstanceLookup);
+    const action = findCardAction(cardDefId, viable, cachedInstanceLookup, focusedSiteDefId);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, cachedInstanceLookup);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
