@@ -33,6 +33,7 @@ export * from './state-combat.js';
 // Import types needed for GameState
 import type { PlayerState } from './state-player.js';
 import type { PhaseState } from './state-phases.js';
+import { Phase, SetupStep } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
 import type { PendingResolution, ActiveConstraint } from './pending.js';
 
@@ -227,6 +228,10 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       for (const hazard of ch.hazards) {
         if (hazard.instanceId === instanceId) return hazard.definitionId;
       }
+      // Creatures taken as trophies (MELE §8.37) live only here once taken.
+      for (const trophy of ch.trophies ?? []) {
+        if (trophy.instanceId === instanceId) return trophy.definitionId;
+      }
     }
 
     // General cards in play
@@ -258,6 +263,9 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       for (const hazard of agent.character.hazards) {
         if (hazard.instanceId === instanceId) return hazard.definitionId;
       }
+      for (const trophy of agent.character.trophies ?? []) {
+        if (trophy.instanceId === instanceId) return trophy.definitionId;
+      }
       for (const site of agent.siteStack) {
         if (site.instanceId === instanceId) return site.definitionId;
       }
@@ -282,6 +290,58 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
   if (state.chain) {
     for (const entry of state.chain.entries) {
       if (entry.card?.instanceId === instanceId) return entry.card.definitionId;
+    }
+  }
+
+  // Hazard hosts (prisoner-holding cards: Troll-purse dm-95, etc.). The host
+  // card and its rescue-site reference live only here while the host is active.
+  // (`prisoners` are instance-id references to characters held elsewhere.)
+  for (const host of state.hazardHosts) {
+    if (host.hostCard.instanceId === instanceId) return host.hostCard.definitionId;
+    if (host.rescueSiteCard.instanceId === instanceId) return host.rescueSiteCard.definitionId;
+  }
+
+  // Setup-phase draft zones: cards minted into draft pools / drafted lists /
+  // set-aside / site selection live in phaseState until the draft is finalized.
+  if (state.phaseState.phase === Phase.Setup) {
+    const step = state.phaseState.setupStep;
+    const find = (
+      cards: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+    ): CardDefinitionId | undefined => {
+      for (const c of cards) {
+        if (c.instanceId === instanceId) return c.definitionId;
+      }
+      return undefined;
+    };
+    if (step.step === SetupStep.CharacterDraft) {
+      for (const ds of step.draftState) {
+        const r = find(ds.pool) ?? find(ds.drafted) ?? find(ds.draftedStageResources)
+          ?? (ds.currentPick ? find([ds.currentPick]) : undefined);
+        if (r) return r;
+      }
+      for (const arr of step.setAside) {
+        const r = find(arr);
+        if (r) return r;
+      }
+    } else if (step.step === SetupStep.ItemDraft) {
+      for (const ids of step.itemDraftState) {
+        const r = find(ids.unassignedItems);
+        if (r) return r;
+      }
+      for (const pool of step.remainingPool) {
+        const r = find(pool);
+        if (r) return r;
+      }
+    } else if (step.step === SetupStep.CharacterDeckDraft) {
+      for (const dds of step.deckDraftState) {
+        const r = find(dds.remainingPool);
+        if (r) return r;
+      }
+    } else if (step.step === SetupStep.StartingSiteSelection) {
+      for (const ss of step.siteSelectionState) {
+        const r = find(ss.selectedSites);
+        if (r) return r;
+      }
     }
   }
 
