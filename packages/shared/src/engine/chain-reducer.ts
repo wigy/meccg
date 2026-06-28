@@ -1563,7 +1563,7 @@ export function applyStageResourceSiteConstraints(
   hhCard: CardInstance,
   siteDefId: CardDefinitionId,
 ): GameState {
-  const def = defById(state, hhCard.definitionId) as { readonly effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const def = defById(state, hhCard.definitionId);
   let next = state;
   for (const onEvent of getOnEventEffects(def, 'self-enters-play')) {
     if (onEvent.apply.type !== 'add-constraint') continue;

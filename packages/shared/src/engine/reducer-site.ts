@@ -2013,7 +2013,7 @@ function fireCharacterGainsItemChecks(
     const char = player.characters[charId as string];
     if (!char) continue;
     for (const hazard of char.hazards) {
-      const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      const hDef = defById(newState, hazard.definitionId);
       for (const effect of getOnEventEffects(hDef, 'character-gains-item')) {
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
@@ -2774,7 +2774,7 @@ function fireEndOfTurnFetchEffects(state: GameState): GameState {
   // Scan both players' cardsInPlay for matching permanent events.
   for (const player of newState.players) {
     for (const card of player.cardsInPlay) {
-      const def = newState.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      const def = defById(newState, card.definitionId);
       for (const effect of getOnEventEffects(def, 'end-of-turn')) {
         if (effect.actor !== 'both') continue;
         if (effect.apply.type !== 'move') continue;
@@ -2822,7 +2822,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
       const bearer = resourcePlayer.characters[charId as string];
       if (!bearer) continue;
       for (const hazard of bearer.hazards) {
-        const hDef = newState.cardPool[hazard.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const hDef = defById(newState, hazard.definitionId);
         for (const effect of getOnEventEffects(hDef, 'end-of-turn')) {
           if (effect.apply.type !== 'force-check' || !effect.apply.perOthersItem) continue;
           if (effect.apply.check !== 'corruption') continue;

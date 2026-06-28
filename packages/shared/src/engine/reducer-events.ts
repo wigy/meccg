@@ -28,6 +28,7 @@ import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../types/cards.js';
+import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1126,7 +1127,7 @@ function applyPlayOptionAddConstraint(
  */
 function applyShortEventOnEntersPlay(
   state: GameState,
-  def: { name: string; effects?: readonly import('../types/effects.js').CardEffect[] },
+  def: CardDefinition,
   handCard: CardInstance,
   action: GameAction,
   playerIndex: number,

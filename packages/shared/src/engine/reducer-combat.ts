@@ -2051,9 +2051,9 @@ function handleCancelAttackByInPlayItem(
 
   const { item, hostCharId } = found;
 
-  const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const itemDef = defById(state, item.definitionId);
   const itemName = itemDef?.name ?? (item.definitionId as string);
-  const cancelEffect = itemDef?.effects?.find(
+  const cancelEffect = getCardEffects(itemDef).find(
     (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
   );
 
@@ -3572,8 +3572,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const bearer = defPlayer.characters[bearerInstId as string];
         if (!bearer) continue;
         for (const hazard of bearer.hazards) {
-          const hazardDef = defById(stateAfterCombat, hazard.definitionId) as
-            { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          const hazardDef = defById(stateAfterCombat, hazard.definitionId);
           if (!hazardDef) continue;
           const companyMemberWoundedEvents = getOnEventEffects(hazardDef, 'company-member-wounded');
           for (const evt of companyMemberWoundedEvents) {
@@ -3610,9 +3609,9 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const alliesToDiscard: (typeof charData.allies)[number][] = [];
       for (const ally of charData.allies) {
         const allyDef = defById(stateAfterCombat, ally.definitionId);
-        const bearerWoundedEvents = getOnEventEffects(allyDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-wounded');
+        const bearerWoundedEvents = getOnEventEffects(allyDef, 'bearer-wounded');
         if (bearerWoundedEvents.some(e => e.apply?.type === 'discard-self')) {
-          const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+          const allyName = allyDef?.name ?? (ally.definitionId as string);
           logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
           alliesToDiscard.push(ally);
           anyDiscarded = true;
@@ -3748,7 +3747,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
       const remaining: import('../types/state-cards.js').CardInPlay[] = [];
       for (const card of player.cardsInPlay) {
-        const def = stateAfterCombat.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const def = defById(stateAfterCombat, card.definitionId);
         const defeatedEvents = getOnEventEffects(def, 'attack-defeated');
         let shouldDiscard = false;
         for (const ev of defeatedEvents) {
@@ -4429,7 +4428,7 @@ function recordHazardEncountered(
 function getAttackSourceCard(
   state: GameState,
   combat: CombatState,
-): { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined {
+): CardDefinition | undefined {
   if (combat.attackSource.type === 'automatic-attack') {
     const siteInstanceId = combat.attackSource.siteInstanceId;
     const siteDefId = resolveInstanceId(state, siteInstanceId);
@@ -4440,7 +4439,7 @@ function getAttackSourceCard(
   if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'played-auto-attack') {
     const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
     if (!creatureDefId) return undefined;
-    return state.cardPool[creatureDefId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+    return defById(state, creatureDefId);
   }
   return undefined;
 }
@@ -4516,7 +4515,7 @@ function handleCombatPlayHazard(
   // the attacker's strike prowess is equivalent to +1 to the defender),
   // so the data carries a negative `value` and the reducer flips sign.
   {
-    for (const eff of getOnEventEffects(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'self-enters-play-combat')) {
+    for (const eff of getOnEventEffects(def, 'self-enters-play-combat')) {
       if (eff.apply.type === 'modify-current-strike-prowess') {
         const strikeDelta = eff.apply.value ?? 0;
         const defenderProwessDelta = -strikeDelta;
