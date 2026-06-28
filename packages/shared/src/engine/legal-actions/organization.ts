@@ -27,7 +27,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
 import { requirePhaseState } from '../../state-utils.js';
-import { CardStatus } from '../../types/common.js';
+import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -1057,9 +1057,7 @@ export function buildGrantActionContext(
   company: import('../../index.js').Company | undefined,
   player?: import('../../index.js').PlayerState,
 ): Record<string, unknown> {
-  const statusStr = char.status === CardStatus.Untapped ? 'untapped'
-    : char.status === CardStatus.Tapped ? 'tapped'
-    : 'inverted';
+  const statusStr = cardStatusToName(char.status);
 
   const canUsePalantir = hasPlayFlag(charDef, 'can-use-palantir') ||
     char.items.some(item => {

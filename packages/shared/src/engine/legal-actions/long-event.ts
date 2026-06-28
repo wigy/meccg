@@ -20,7 +20,7 @@ import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstan
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
-import { CardStatus } from '../../types/common.js';
+import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -488,7 +488,7 @@ function buildAllyTargetContext(
     target: {
       ...baseTarget,
       skills: [...(allyDef.skills ?? [])],
-      status: status === CardStatus.Untapped ? 'untapped' : status === CardStatus.Tapped ? 'tapped' : 'inverted',
+      status: cardStatusToName(status),
       name: allyDef.name,
       mind: allyDef.mind,
       itemNames: [],

@@ -19,7 +19,7 @@ import type {
   ActiveConstraint,
   CardInstanceId,
 } from '../../index.js';
-import { CardStatus } from '../../types/common.js';
+import { cardStatusToName } from '../../types/common.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
@@ -73,9 +73,7 @@ export function emitGrantedActionConstraintActions(
 
       const charDef = defById(state, char.definitionId);
       const actorContext: Record<string, unknown> = {
-        status: char.status === CardStatus.Untapped ? 'untapped'
-          : char.status === CardStatus.Tapped ? 'tapped'
-            : 'inverted',
+        status: cardStatusToName(char.status),
         name: charDef && isCharacterCard(charDef) ? charDef.name : '',
         race: charDef && isCharacterCard(charDef) ? charDef.race : '',
         skills: charDef && isCharacterCard(charDef) ? charDef.skills : [],
