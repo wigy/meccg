@@ -20,6 +20,7 @@ import type {
   CharacterInPlay,
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
+import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, CardStatus, ZERO_EFFECTIVE_STATS, Skill, Phase, formatSignedNumber } from '../index.js';
@@ -41,6 +42,26 @@ import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect } from '../types/effects.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
+
+/**
+ * Shared tail of the roll-resolution handlers: mark every unresolved chain
+ * entry matching `matches` as resolved, then re-enter chain auto-resolution and
+ * merge its effects after `effects`. When no chain is active, returns `state`
+ * unchanged with `effects`. The handlers differ only in the entry-match
+ * predicate and the roll's own effects, so this folds their identical
+ * "resolve-entry → autoResolve → merge" boilerplate into one place.
+ */
+function resolveChainEntryAndContinue(
+  state: GameState,
+  matches: (entry: ChainEntry) => boolean,
+  effects: readonly GameEffect[],
+): ReducerResult {
+  if (!state.chain) return { state, effects: [...effects] };
+  const chain = state.chain;
+  const newEntries = chain.entries.map(e => !e.resolved && matches(e) ? { ...e, resolved: true } : e);
+  const continued = autoResolve({ ...state, chain: { ...chain, entries: newEntries } });
+  return { state: continued.state, effects: [...effects, ...(continued.effects ?? [])] };
+}
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -751,31 +772,13 @@ function applyFactionInfluenceRollResolution(
   // so the chain can complete normally (handles deferred passives, parent
   // chain restoration, etc.).
   const rollResult = resolveInfluenceAttemptRoll(state, entry);
-  let postRoll = dequeueResolution(rollResult.state, top.id);
+  const postRoll = dequeueResolution(rollResult.state, top.id);
 
-  if (postRoll.chain) {
-    const chain = postRoll.chain;
-    const targetId = top.kind.factionInstanceId;
-    const newEntries = chain.entries.map(e =>
-      e.payload.type === 'influence-attempt'
-        && !e.resolved
-        && e.card?.instanceId === targetId
-        ? { ...e, resolved: true }
-        : e,
-    );
-    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-
-    const continued = autoResolve(postRoll);
-    return {
-      state: continued.state,
-      effects: [...rollResult.effects, ...(continued.effects ?? [])],
-    };
-  }
-
-  return {
-    state: postRoll,
-    effects: rollResult.effects,
-  };
+  return resolveChainEntryAndContinue(
+    postRoll,
+    e => e.payload.type === 'influence-attempt' && e.card?.instanceId === entry.card.instanceId,
+    rollResult.effects,
+  );
 }
 
 /**
@@ -834,32 +837,15 @@ function applyMusterRollResolution(
     logDetail(`Muster holds: ${def.name} stays in play (${total} >= 11)`);
   }
 
-  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  const postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
 
-  // Re-enter chain auto-resolution if the chain is still active
-  if (postRoll.chain) {
-    const chain = postRoll.chain;
-    // Mark the muster short-event entry as resolved if it hasn't been already
-    const newEntries = chain.entries.map(e =>
-      e.payload.type === 'short-event'
-        && !e.resolved
-        && e.payload.targetFactionInstanceId === factionInstanceId
-        ? { ...e, resolved: true }
-        : e,
-    );
-    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-
-    const continued = autoResolve(postRoll);
-    return {
-      state: continued.state,
-      effects: [rollEffect, ...(continued.effects ?? [])],
-    };
-  }
-
-  return {
-    state: postRoll,
-    effects: [rollEffect],
-  };
+  // Re-enter chain auto-resolution if the chain is still active, marking the
+  // muster short-event entry resolved.
+  return resolveChainEntryAndContinue(
+    postRoll,
+    e => e.payload.type === 'short-event' && e.payload.targetFactionInstanceId === factionInstanceId,
+    [rollEffect],
+  );
 }
 
 /**
@@ -983,26 +969,12 @@ function applyCallOfHomeRollResolution(
     postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
   }
 
-  // Mark the chain entry as resolved and continue auto-resolution
-  if (postRoll.chain) {
-    const chain = postRoll.chain;
-    const newEntries = chain.entries.map(e =>
-      e.payload.type === 'short-event'
-        && !e.resolved
-        && e.payload.targetCharacterId === targetCharacterId
-        ? { ...e, resolved: true }
-        : e,
-    );
-    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-
-    const continued = autoResolve(postRoll);
-    return {
-      state: continued.state,
-      effects: [...effects, ...(continued.effects ?? [])],
-    };
-  }
-
-  return { state: postRoll, effects };
+  // Mark the chain entry as resolved and continue auto-resolution.
+  return resolveChainEntryAndContinue(
+    postRoll,
+    e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
+    effects,
+  );
 }
 
 /**
@@ -1278,21 +1250,12 @@ function applyBodyCheckCompanyResolution(
   const remainingBodyChecks = postRoll.pendingResolutions.filter(
     r => r.kind.type === 'body-check-company' && r.source === top.source,
   );
-  if (remainingBodyChecks.length === 0 && postRoll.chain) {
-    const chain = postRoll.chain;
-    const newEntries = chain.entries.map(e =>
-      e.payload.type === 'short-event'
-        && !e.resolved
-        && e.card?.instanceId === top.source
-        ? { ...e, resolved: true }
-        : e,
+  if (remainingBodyChecks.length === 0) {
+    return resolveChainEntryAndContinue(
+      postRoll,
+      e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
+      [rollEffect],
     );
-    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-    const continued = autoResolve(postRoll);
-    return {
-      state: continued.state,
-      effects: [rollEffect, ...(continued.effects ?? [])],
-    };
   }
 
   return { state: postRoll, effects: [rollEffect] };
@@ -1348,25 +1311,11 @@ function applySeizedByTerrorRollResolution(
     postRoll = splitCharacterToOrigin(postRoll, actorIndex, targetCharacterId, originSiteInstanceId);
   }
 
-  if (postRoll.chain) {
-    const chain = postRoll.chain;
-    const newEntries = chain.entries.map(e =>
-      e.payload.type === 'short-event'
-        && !e.resolved
-        && e.payload.targetCharacterId === targetCharacterId
-        ? { ...e, resolved: true }
-        : e,
-    );
-    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-
-    const continued = autoResolve(postRoll);
-    return {
-      state: continued.state,
-      effects: [...effects, ...(continued.effects ?? [])],
-    };
-  }
-
-  return { state: postRoll, effects };
+  return resolveChainEntryAndContinue(
+    postRoll,
+    e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
+    effects,
+  );
 }
 
 /**
@@ -2543,19 +2492,12 @@ function applyStayHerAppetiteRollResolution(
   );
 
   if (!conditionMet) {
-    let postRoll = dequeueResolution(stateAfterRoll1, top.id);
-    if (postRoll.chain) {
-      const chain = postRoll.chain;
-      const src = top.source;
-      const newEntries = chain.entries.map(e =>
-        e.payload.type === 'short-event' && !e.resolved && e.card?.instanceId === src
-          ? { ...e, resolved: true } : e,
-      );
-      postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
-      const continued = autoResolve(postRoll);
-      return { state: continued.state, effects: [roll1Effect, ...(continued.effects ?? [])] };
-    }
-    return { state: postRoll, effects: [roll1Effect] };
+    const postRoll = dequeueResolution(stateAfterRoll1, top.id);
+    return resolveChainEntryAndContinue(
+      postRoll,
+      e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
+      [roll1Effect],
+    );
   }
 
   // Prowess roll
