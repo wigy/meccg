@@ -1068,13 +1068,14 @@ export function buildFallenWizardOrgPhaseState(opts: {
   characters: CharacterEntry[];
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
+  playDeck?: CardDefinitionId[];
   siteStatus?: CardStatus;
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], siteDeck: [ISENGARD] },
+      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], playDeck: opts.playDeck, siteDeck: [ISENGARD] },
       { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
     ],
     phase: Phase.Organization,

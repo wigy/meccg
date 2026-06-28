@@ -811,6 +811,54 @@ export function findPlayerAvatar(
 }
 
 /**
+ * Returns the name of the Fallen-wizard a player counts "as" for the play of
+ * Stage resources (CoE 2.2.F2), or `undefined` if the player has no such
+ * identity. Used to evaluate the `player.avatar` predicate of "Playable if you
+ * are Alatar, Pallando, or Saruman"-style Stage cards (The Fortress of Isen
+ * wh-68, A Strident Spawn wh-61, etc.).
+ *
+ * Unlike {@link findPlayerAvatar}, this does **not** require the avatar
+ * character to currently be in play. A Fallen-wizard declares their specific
+ * avatar at the start of the game (CoE 1.8.F1, at least one copy must be in the
+ * deck) and counts "as" that wizard for non-specific Stage resources from then
+ * on. The identity is lost only when the avatar is *eliminated* (CoE 2.2.F2):
+ * an eliminated avatar goes to the player's removed-from-play pile and the
+ * player can never reveal another (CoE 2.2). Merely not having played the
+ * avatar yet — or having it leave play without elimination — does not revoke
+ * the identity.
+ *
+ * Resolution order:
+ * - If the avatar character is in play, its name is returned (covers every
+ *   alignment, preserving the in-play-avatar semantics for non-Fallen-wizards).
+ * - Otherwise, for a Fallen-wizard whose avatar has not been eliminated, the
+ *   declared avatar is read off the avatar card present elsewhere in the
+ *   player's card pool (hand, play deck, discard pile, or sideboard).
+ */
+export function findFallenWizardAvatarName(
+  state: GameState,
+  player: PlayerState,
+): string | undefined {
+  const inPlay = findPlayerAvatar(state, player);
+  if (inPlay) {
+    const def = resolveDef(state, inPlay.instanceId);
+    return def && 'name' in def ? (def as { name: string }).name : undefined;
+  }
+  if (player.alignment !== 'fallen-wizard') return undefined;
+  // An eliminated avatar sits in the removed-from-play pile (CoE 2.2); once
+  // eliminated the player no longer counts as that Fallen-wizard (CoE 2.2.F2).
+  for (const card of player.outOfPlayPile) {
+    if (isAvatarCharacter(defById(state, card.definitionId))) return undefined;
+  }
+  // The declared avatar persists in the player's deck/hand/discard/sideboard
+  // even before it is first played (CoE 1.8.F1 guarantees at least one copy).
+  for (const card of [...player.hand, ...player.playDeck, ...player.discardPile, ...player.sideboard]) {
+    const def = defById(state, card.definitionId);
+    if (isAvatarCharacter(def)) return def && 'name' in def ? (def as { name: string }).name : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Iterates a player's characters-in-play, yielding each `[instanceId, char]`
  * pair with the key correctly typed as a {@link CardInstanceId}.
  *
