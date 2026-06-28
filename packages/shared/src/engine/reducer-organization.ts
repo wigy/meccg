@@ -958,7 +958,7 @@ function placeFetchedItemOnCharacter(
     return state;
   }
   const recipientDef = resolveDef(state, recipientId);
-  logDetail(`place-item-on-character: placing ${defById(state, card.definitionId)?.name ?? card.definitionId as string} from ${sourceZone} onto ${recipientDef && 'name' in recipientDef ? (recipientDef as { name: string }).name : recipientId as string} (untapped)`);
+  logDetail(`place-item-on-character: placing ${defById(state, card.definitionId)?.name ?? card.definitionId as string} from ${sourceZone} onto ${recipientDef?.name ?? recipientId as string} (untapped)`);
   const itemInPlay = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
   const sZone = sourceZone;
   return updatePlayer(state, playerIndex, p => {
@@ -1031,7 +1031,7 @@ function runGrantApply(
     }
     const statusEnum = cardStatusFromName(apply.status);
     const targetDef = defById(state, targetChar.definitionId);
-    const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
+    const targetName = targetDef?.name ?? '?';
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
     newPlayers[ctx.playerIndex] = {
       ...bearerPlayer,
@@ -1063,7 +1063,7 @@ function runGrantApply(
       const targetChar = p.characters[targetCardId as string];
       if (!targetChar) continue;
       const targetDef = defById(state, targetChar.definitionId);
-      const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
+      const targetName = targetDef?.name ?? '?';
       logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} (player ${p.id as string}) → status ${apply.status}`);
       newPlayers[pi] = {
         ...p,

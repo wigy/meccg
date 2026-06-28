@@ -2350,7 +2350,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         if (allyInst.statOverride || (allyDef && isAllyCard(allyDef))) {
           const allyMindVal = allyEffectiveMind(current, allyInst);
           const allyProwessVal = allyEffectiveProwess(current, allyInst);
-          const allyDisplayName = (allyDef && 'name' in allyDef ? (allyDef as { name: string }).name : allyDefId) as string;
+          const allyDisplayName = (allyDef?.name ?? allyDefId) as string;
           const activeCompanyIdx = current.phaseState.phase === 'movement-hazard'
             ? (current.phaseState as { activeCompanyIndex: number }).activeCompanyIndex
             : 0;
@@ -2601,7 +2601,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const targetCharId = entry.payload.targetCharacterId;
     const optionId = entry.payload.optionId;
     const cardDef = defById(current, entry.card.definitionId);
-    const cardNm = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
+    const cardNm = cardDef?.name ?? '';
     const opt = getCardEffects(cardDef).find(
       (e): e is import('../types/effects.js').PlayOptionEffect =>
         e.type === 'play-option' && e.id === optionId,
@@ -2674,7 +2674,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           break;
         }
       }
-      const cardName = cardDef && 'name' in cardDef ? (cardDef as { name: string }).name : '';
+      const cardName = cardDef?.name ?? '';
       const failureMode = playTargetWithCostCorruption.cost?.failureMode;
       logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);
       current = enqueueCorruptionCheck(current, {

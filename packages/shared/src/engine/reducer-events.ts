@@ -453,7 +453,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const company = findCharacterCompany(p.companies, targetCharId);
       if (!company?.currentSite) continue;
       const siteDef = defById(workingState, company.currentSite.definitionId);
-      return siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
+      return siteDef?.name;
     }
     return undefined;
   })();
@@ -725,7 +725,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               const ctx = {
                 target: {
                   race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
-                  name: ('name' in charCardDef ? (charCardDef as { name?: string }).name : undefined) ?? '',
+                  name: (charCardDef?.name) ?? '',
                   skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
                 },
               };
@@ -1418,7 +1418,7 @@ function applyShortEventOnEntersPlay(
       } else {
         eligibleCategories = [];
       }
-      logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef && 'name' in (ringDef as object) ? (ringDef as { name: string }).name : goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
+      logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef?.name ?? goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
 
       // Discard the gold ring from the bearer.
       state = updatePlayer(state, playerIndex, () => ({

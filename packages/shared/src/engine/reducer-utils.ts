@@ -846,7 +846,7 @@ export function findFallenWizardAvatarName(
   const inPlay = findPlayerAvatar(state, player);
   if (inPlay) {
     const def = resolveDef(state, inPlay.instanceId);
-    return def && 'name' in def ? (def as { name: string }).name : undefined;
+    return def?.name;
   }
   if (player.alignment !== 'fallen-wizard') return undefined;
   // An eliminated avatar sits in the removed-from-play pile (CoE 2.2); once
@@ -858,7 +858,7 @@ export function findFallenWizardAvatarName(
   // even before it is first played (CoE 1.8.F1 guarantees at least one copy).
   for (const card of [...player.hand, ...player.playDeck, ...player.discardPile, ...player.sideboard]) {
     const def = defById(state, card.definitionId);
-    if (isAvatarCharacter(def)) return def && 'name' in def ? (def as { name: string }).name : undefined;
+    if (isAvatarCharacter(def)) return def?.name;
   }
   return undefined;
 }
