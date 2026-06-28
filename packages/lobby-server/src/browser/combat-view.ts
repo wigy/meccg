@@ -31,6 +31,7 @@ import type {
   EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
+import { combatButtonLabel } from './combat-button-label.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -1253,25 +1254,22 @@ function renderCombatActionButtons(
   const parent = passBtn?.parentElement;
   if (!parent) return;
 
+  // The engine only offers the "stay untapped" (-3) resolve-strike option for an
+  // untapped character (CoE 3.iv.3). When it is present, the character is
+  // untapped and the tap-to-fight option genuinely taps it; when it is absent
+  // the character is already tapped/wounded and cannot tap, so labels must
+  // reflect that. Compute this once from the full action set.
+  const hasStayUntappedOption = buttonActions.some(
+    a => a.type === 'resolve-strike' && !a.tapToFight,
+  );
+
   for (const action of buttonActions) {
     const btn = document.createElement('button');
     btn.className = 'enter-site-btn combat-visual-btn';
-    btn.textContent = combatButtonLabel(action);
+    btn.textContent = combatButtonLabel(action, hasStayUntappedOption);
     btn.addEventListener('click', () => onAction(action));
     parent.appendChild(btn);
   }
-}
-
-/** Short label for combat action buttons in the visual view. */
-function combatButtonLabel(action: GameAction): string {
-  if (action.type === 'resolve-strike') {
-    return action.tapToFight ? 'Tapping' : 'Not tapping';
-  }
-  if (action.type === 'agent-strike-roll') return 'Roll for Agent';
-  if (action.type === 'body-check-roll') return 'Body Check';
-  if (action.type === 'allocate-cvcc-excess') return 'Assign −1';
-  if (action.type === 'pass') return 'Pass';
-  return action.type;
 }
 
 // ---- Combat choice tooltip ----
