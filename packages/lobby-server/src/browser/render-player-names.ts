@@ -48,25 +48,31 @@ function buildMPTooltip(
 
 /**
  * Build the HTML for the General Influence tooltip table.
- * Shows each character under general influence with their mind value.
+ * Shows each character under general influence with their effective mind value
+ * (the cost actually counted against GI). When a stat-modifier changes a
+ * character's mind from its printed value, the effective mind is shown with the
+ * printed mind in parentheses — mirroring the MP breakdown's `adjusted (raw)`
+ * format — so the tooltip total matches the engine's GI calculation.
  */
 function buildGITooltip(
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const entries: { name: string; mind: number }[] = [];
+  const entries: { name: string; mind: number; raw: number }[] = [];
   for (const char of Object.values(characters)) {
-    if (char.controlledBy !== 'general') continue;
+    if (char.controlledBy !== 'general' || char.influenceUnsubtracted) continue;
     const def = cardPool[char.definitionId as string];
     if (!def || !('mind' in def) || def.mind === null) continue;
-    entries.push({ name: def.name, mind: def.mind });
+    const mind = char.effectiveStats.mind ?? def.mind;
+    entries.push({ name: def.name, mind, raw: def.mind });
   }
   entries.sort((a, b) => b.mind - a.mind);
 
   if (entries.length === 0) return '<div class="gi-tooltip-empty">No characters under GI</div>';
   let rows = '';
   for (const e of entries) {
-    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.mind}</td></tr>`;
+    const value = e.mind !== e.raw ? `${e.mind} (${e.raw})` : `${e.mind}`;
+    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${value}</td></tr>`;
   }
   const total = entries.reduce((sum, e) => sum + e.mind, 0);
   return `<table class="mp-tooltip-table">
