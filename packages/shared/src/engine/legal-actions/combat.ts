@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
 import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
@@ -790,6 +790,54 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
 }
 
 /**
+ * Scan `candidates` (a struck character's untapped items/allies, or a struck
+ * ally itself) for `cancel-strike` effects that tap themselves to protect their
+ * bearer (cost `tap: 'self'`, target absent or `'self'`), emitting one
+ * `cancel-strike` action per eligible match. `buildCtx` supplies the `when`
+ * evaluation context (with a `bearer` field for the bearer scan, without it for
+ * the ally-as-target scan); `targetName` is for log traceability. Shared by the
+ * three identical scans in {@link resolveStrikeActions}.
+ */
+function selfCancelStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  targetCharacterId: CardInstanceId,
+  targetName: string,
+  candidates: ReadonlyArray<{ readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status: CardStatus }>,
+  buildCtx: () => Record<string, unknown>,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const c of candidates) {
+    if (c.status !== CardStatus.Untapped) continue;
+    const def = defById(state, c.definitionId);
+    if (!def) continue;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'cancel-strike') continue;
+      if (eff.cost?.tap !== 'self') continue;
+      if (eff.target && eff.target !== 'self') continue;
+
+      const name = (def as { name?: string }).name ?? (c.definitionId as string);
+      if (eff.when && !matchesCondition(eff.when, buildCtx())) {
+        logDetail(`Cancel-strike ${name}: when condition not met (target ${targetName})`);
+        continue;
+      }
+
+      logDetail(`Cancel-strike available: ${name} can tap to cancel strike against ${targetName}`);
+      actions.push({
+        action: {
+          type: 'cancel-strike',
+          player: playerId,
+          cancellerInstanceId: c.instanceId,
+          targetCharacterId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Actions during the resolve-strike sub-phase.
  *
  * The defending player chooses to tap-to-fight (normal) or stay untapped
@@ -1062,66 +1110,12 @@ function resolveStrikeActions(
       return ctx;
     };
 
-    for (const item of charData.items) {
-      if (item.status !== CardStatus.Untapped) continue;
-      const itemDef = defById(state, item.definitionId);
-      if (!itemDef) continue;
-      for (const eff of getCardEffects(itemDef)) {
-        if (eff.type !== 'cancel-strike') continue;
-        const csEff = eff;
-        if (csEff.cost?.tap !== 'self') continue;
-        if (csEff.target && csEff.target !== 'self') continue;
-
-        const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
-
-        if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
-          logDetail(`Cancel-strike ${itemName}: when condition not met for bearer ${bearerName}`);
-          continue;
-        }
-
-        logDetail(`Cancel-strike available: ${itemName} can tap to cancel strike against ${charName}`);
-        actions.push({
-          action: {
-            type: 'cancel-strike',
-            player: playerId,
-            cancellerInstanceId: item.instanceId,
-            targetCharacterId: currentStrike.characterId,
-          },
-          viable: true,
-        });
-      }
-    }
-
-    // Also scan allies on the bearer for cancel-strike effects (e.g. Noble Steed).
-    for (const ally of charData.allies) {
-      if (ally.status !== CardStatus.Untapped) continue;
-      const allyDef = defById(state, ally.definitionId);
-      if (!allyDef) continue;
-      for (const eff of getCardEffects(allyDef)) {
-        if (eff.type !== 'cancel-strike') continue;
-        const csEff = eff;
-        if (csEff.cost?.tap !== 'self') continue;
-        if (csEff.target && csEff.target !== 'self') continue;
-
-        const allyName = (allyDef as { name?: string }).name ?? (ally.definitionId as string);
-
-        if (csEff.when && !matchesCondition(csEff.when, buildCancelCtx())) {
-          logDetail(`Cancel-strike ${allyName}: when condition not met for bearer ${bearerName}`);
-          continue;
-        }
-
-        logDetail(`Cancel-strike available: ${allyName} can tap to cancel strike against ${charName}`);
-        actions.push({
-          action: {
-            type: 'cancel-strike',
-            player: playerId,
-            cancellerInstanceId: ally.instanceId,
-            targetCharacterId: currentStrike.characterId,
-          },
-          viable: true,
-        });
-      }
-    }
+    // Scan the bearer's untapped items and allies together (e.g. Enruned
+    // Shield, Noble Steed) for self-tap cancel-strike effects.
+    actions.push(...selfCancelStrikeActions(
+      state, playerId, currentStrike.characterId, charName,
+      [...charData.items, ...charData.allies], buildCancelCtx,
+    ));
   }
 
   // Cancel-strike: when the strike target is an ally, scan the ally itself for
@@ -1129,42 +1123,16 @@ function resolveStrikeActions(
   // combat; e.g. Noble Steed can tap to cancel a strike against itself).
   if (allyMatch) {
     const { ally } = allyMatch;
-    if (ally.status === CardStatus.Untapped) {
-      const allyDef = defById(state, ally.definitionId);
-      if (allyDef) {
-        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : (ally.definitionId as string);
-        const cancelCtx = (): Record<string, unknown> => {
-          const ctx: Record<string, unknown> = {
-            attack: { source: combat.attackSource.type },
-          };
-          if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
-          return ctx;
-        };
-
-        for (const eff of getCardEffects(allyDef)) {
-          if (eff.type !== 'cancel-strike') continue;
-          const csEff = eff;
-          if (csEff.cost?.tap !== 'self') continue;
-          if (csEff.target && csEff.target !== 'self') continue;
-
-          if (csEff.when && !matchesCondition(csEff.when, cancelCtx())) {
-            logDetail(`Cancel-strike ${allyName}: when condition not met (ally is strike target)`);
-            continue;
-          }
-
-          logDetail(`Cancel-strike available: ${allyName} can tap to cancel strike against itself`);
-          actions.push({
-            action: {
-              type: 'cancel-strike',
-              player: playerId,
-              cancellerInstanceId: ally.instanceId,
-              targetCharacterId: currentStrike.characterId,
-            },
-            viable: true,
-          });
-        }
-      }
-    }
+    const cancelCtx = (): Record<string, unknown> => {
+      const ctx: Record<string, unknown> = {
+        attack: { source: combat.attackSource.type },
+      };
+      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      return ctx;
+    };
+    actions.push(...selfCancelStrikeActions(
+      state, playerId, currentStrike.characterId, charName, [ally], cancelCtx,
+    ));
   }
 
   // modify-attack with scope "current-strike": scan items on the current strike
