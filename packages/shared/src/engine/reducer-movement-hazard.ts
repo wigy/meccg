@@ -19,7 +19,7 @@ import { resolveAttackProwess, resolveAttackStrikes, getItemGrantedSkills } from
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
-import { initiateChain, pushChainEntry } from './chain-reducer.js';
+import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -1353,11 +1353,7 @@ function handlePlayHazardCard(
         ? { optionId: action.optionId }
         : {}),
     };
-    if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, handCard, shortEventPayload);
-    } else {
-      newState = pushChainEntry(newState, action.player, handCard, shortEventPayload);
-    }
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
 
     return { state: newState };
   }
@@ -1383,11 +1379,7 @@ function handlePlayHazardCard(
       type: 'permanent-event',
       targetCharacterId: targetCharId,
     };
-    if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, handCard, payload);
-    } else {
-      newState = pushChainEntry(newState, action.player, handCard, payload);
-    }
+    newState = initiateOrPushChain(newState, action.player, handCard, payload);
     return { state: newState };
   }
 
@@ -1430,11 +1422,7 @@ function handlePlayHazardCard(
         targetCompanyId: action.type === 'play-hazard' ? action.targetCompanyId : undefined,
       }
     : { type: 'long-event' };
-  if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, payload);
-  } else {
-    newState = pushChainEntry(newState, action.player, handCard, payload);
-  }
+  newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
   return { state: newState };
 }

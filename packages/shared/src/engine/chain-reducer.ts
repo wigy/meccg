@@ -137,6 +137,24 @@ export function pushChainEntry(
 }
 
 /**
+ * Start a new chain when none is active, otherwise push a response entry onto
+ * the current one. Folds the ubiquitous `state.chain === null ?
+ * initiateChain(...) : pushChainEntry(...)` dispatch that every card-play
+ * reducer repeats; both branches share the `(state, declaredBy, card, payload)`
+ * signature.
+ */
+export function initiateOrPushChain(
+  state: GameState,
+  declaredBy: PlayerId,
+  card: CardInstance | null,
+  payload: ChainEntryPayload,
+): GameState {
+  return state.chain === null
+    ? initiateChain(state, declaredBy, card, payload)
+    : pushChainEntry(state, declaredBy, card, payload);
+}
+
+/**
  * Handles chain-specific actions (`pass-chain-priority`, `order-passives`).
  *
  * Called by the main reducer when `state.chain` is non-null and the action
