@@ -10,7 +10,7 @@ import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, Pendin
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
-import { initiateChain, pushChainEntry } from './chain-reducer.js';
+import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
@@ -92,11 +92,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
     ...(action.targetCompanyId ? { targetCompanyId: action.targetCompanyId } : {}),
   };
-  if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, payload);
-  } else {
-    newState = pushChainEntry(newState, action.player, handCard, payload);
-  }
+  newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
   return { state: newState };
 }
@@ -131,11 +127,7 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
 
   // Initiate chain or push onto existing chain — target stored in payload
   const payload: ChainEntryPayload = { type: 'short-event', targetInstanceId: action.targetInstanceId };
-  if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, payload);
-  } else {
-    newState = pushChainEntry(newState, action.player, handCard, payload);
-  }
+  newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
   return { state: newState };
 }
@@ -300,9 +292,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }));
     logDetail(`${def.name} → chain of effects (draw resolves on chain resolution)`);
     const payload: ChainEntryPayload = { type: 'short-event' };
-    const chained = afterReveal.chain === null
-      ? initiateChain(afterReveal, action.player, handCard, payload)
-      : pushChainEntry(afterReveal, action.player, handCard, payload);
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
     return { state: chained };
   }
 
@@ -333,9 +323,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }));
     logDetail(`${def.name} → chain of effects (fetch resolves on chain resolution)`);
     const payload: ChainEntryPayload = { type: 'short-event' };
-    const chained = afterReveal.chain === null
-      ? initiateChain(afterReveal, action.player, handCard, payload)
-      : pushChainEntry(afterReveal, action.player, handCard, payload);
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
     return { state: chained };
   }
 
@@ -1510,11 +1498,7 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand }));
 
   // Initiate or push onto chain — card enters play upon resolution
-  if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, { type: 'long-event' });
-  } else {
-    newState = pushChainEntry(newState, action.player, handCard, { type: 'long-event' });
-  }
+  newState = initiateOrPushChain(newState, action.player, handCard, { type: 'long-event' });
 
   return { state: newState };
 }

@@ -24,7 +24,7 @@ import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackS
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
-import { initiateChain, pushChainEntry } from './chain-reducer.js';
+import { initiateOrPushChain } from './chain-reducer.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 
 /**
@@ -1433,11 +1433,7 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   if (strikeEffect.dodge) {
     // Dodge mode: initiate chain so opponent may respond; resolution applies the dodge effect.
     const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
-    if (resultState.chain === null) {
-      resultState = initiateChain(resultState, action.player, handCard, payload);
-    } else {
-      resultState = pushChainEntry(resultState, action.player, handCard, payload);
-    }
+    resultState = initiateOrPushChain(resultState, action.player, handCard, payload);
     return { state: resultState };
   }
 
@@ -2217,11 +2213,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const payload: import('../index.js').ChainEntryPayload = action.targetCharacterId
     ? { type: 'short-event', targetCharacterId: action.targetCharacterId }
     : { type: 'short-event' };
-  if (resultState.chain === null) {
-    resultState = initiateChain(resultState, action.player, handCard, payload);
-  } else {
-    resultState = pushChainEntry(resultState, action.player, handCard, payload);
-  }
+  resultState = initiateOrPushChain(resultState, action.player, handCard, payload);
 
   return { state: resultState };
 }
