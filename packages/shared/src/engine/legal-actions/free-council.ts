@@ -13,7 +13,8 @@
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
-import { CardStatus, formatSignedNumber } from '../../index.js';
+import { formatSignedNumber } from '../../format-helpers.js';
+import { CardStatus } from '../../types/common.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';

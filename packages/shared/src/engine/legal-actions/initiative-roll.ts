@@ -7,7 +7,8 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { SetupStep, setupStepContext } from '../../index.js';
+import { setupStepContext } from '../../state-utils.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 
 export function initiativeRollActions(state: GameState, playerId: PlayerId): GameAction[] {

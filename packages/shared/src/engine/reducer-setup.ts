@@ -6,10 +6,15 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
-import type { TwoDiceSix } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction, TwoDiceSix, SiteSelectionPlayerState } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
-import { Phase, SetupStep, Alignment, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
+import { getAlignmentRules } from '../alignment-rules.js';
+import { shuffle } from '../rng.js';
+import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isCharacterCard } from '../types/cards.js';
+import { Alignment, CardStatus } from '../types/common.js';
+import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -721,7 +726,6 @@ function handleCharacterDeckDraft(
 
 // ---- Starting site selection handler ----
 
-import type { SiteSelectionPlayerState } from '../index.js';
 
 /**
  * Handles the starting site selection step. Each player selects one or two

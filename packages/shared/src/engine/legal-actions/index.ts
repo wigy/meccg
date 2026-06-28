@@ -13,7 +13,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
-import { getPlayerIndex } from '../../index.js';
+import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';

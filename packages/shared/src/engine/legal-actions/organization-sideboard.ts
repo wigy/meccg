@@ -13,7 +13,7 @@ import type {
   PlayerState,
   OrganizationPhaseState,
 } from '../../index.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus } from '../../types/common.js';
 import { logDetail } from './log.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById } from '../reducer-utils.js';
 

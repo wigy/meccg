@@ -6,7 +6,8 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '../../index.js';
-import { SetupStep, setupStepContext } from '../../index.js';
+import { setupStepContext } from '../../state-utils.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { characterIds, defById } from '../reducer-utils.js';
 import { logDetail } from './log.js';
 

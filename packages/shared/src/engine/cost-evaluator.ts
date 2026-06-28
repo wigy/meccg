@@ -14,7 +14,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay } from '../index.js';
-import { CardStatus } from '../index.js';
+import { CardStatus } from '../types/common.js';
 import type { ActionCost } from '../types/effects.js';
 import type { CardDefinitionId, CompanyId } from '../types/common.js';
 import { logDetail } from './legal-actions/log.js';

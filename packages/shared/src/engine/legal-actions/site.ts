@@ -11,7 +11,12 @@
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition, CardDefinitionId } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, matchesContext, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { formatSignedNumber } from '../../format-helpers.js';
+import { getPlayerIndex } from '../../state-utils.js';
+import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
+import { CardStatus } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';

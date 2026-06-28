@@ -7,7 +7,11 @@
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import type { CardEffect } from '../../types/effects.js';
-import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, SetupStep, setupStepContext } from '../../index.js';
+import { ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from '../../rules/definitions/item-draft.js';
+import { evaluateAction } from '../../rules/evaluator.js';
+import { setupStepContext } from '../../state-utils.js';
+import { isItemCard } from '../../types/cards.js';
+import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 import { defById, countStartingMinorItems } from '../reducer-utils.js';

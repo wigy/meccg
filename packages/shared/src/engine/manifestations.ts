@@ -29,7 +29,7 @@ import type {
   PlayerState,
   SiteCard,
 } from '../index.js';
-import { hasPlayFlag } from '../index.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, toCardInstance } from './reducer-utils.js';

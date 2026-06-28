@@ -6,11 +6,16 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition } from '../index.js';
-import type { TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
-import { shuffle, nextInt, CardStatus, Phase, getPlayerIndex, isSiteCard, isAvatarCharacter, GENERAL_INFLUENCE, Race, Skill, isCharacterCard, isAllyCard, isHalfOrc, hasPlayFlag, isResourceEventCard, isItemCard } from '../index.js';
+import { GENERAL_INFLUENCE } from '../constants.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { shuffle, nextInt } from '../rng.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
+import { CardStatus, Race, Skill } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';

@@ -11,9 +11,12 @@
  */
 
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
-import { Phase, isCharacterCard, Race, getPlayerIndex, CardStatus, formatSignedNumber, Alignment } from '../index.js';
+import { formatSignedNumber } from '../format-helpers.js';
+import { getPlayerIndex, computeTournamentScore } from '../state-utils.js';
+import { isCharacterCard } from '../types/cards.js';
+import { Race, CardStatus, Alignment } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';

@@ -8,7 +8,12 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, CardDefinition, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard, isHalfOrc, shuffle, Alignment, Race, formatSignedNumber, getPlayerIndex } from '../index.js';
+import { formatSignedNumber } from '../format-helpers.js';
+import { shuffle } from '../rng.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
+import { CardStatus, Alignment, Race } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, TakePrisonerEffect, AbsorbWoundEffect, TriggerAttackOnPlayEffect, CombatTapCompanyBoostEffect } from '../types/effects.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';

@@ -24,7 +24,10 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, CardStatus, hasPlayFlag, formatSignedNumber } from '../../index.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
+import { formatSignedNumber } from '../../format-helpers.js';
+import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
+import { CardStatus } from '../../types/common.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';

@@ -27,7 +27,11 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard, Phase, CardStatus, matchesCondition, matchesContext, Skill, formatSignedNumber } from '../../index.js';
+import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
+import { formatSignedNumber } from '../../format-helpers.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
+import { CardStatus, Skill } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';

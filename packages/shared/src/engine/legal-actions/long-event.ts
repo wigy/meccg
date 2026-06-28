@@ -18,7 +18,9 @@
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
-import { matchesCondition, CardStatus, isResourceEventCard, isSiteCard, isAllyCard } from '../../index.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
+import { CardStatus } from '../../types/common.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';

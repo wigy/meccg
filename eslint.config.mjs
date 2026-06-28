@@ -32,6 +32,32 @@ export default tseslint.config(
     },
   },
   {
+    /**
+     * Engine modules must not value-import the @meccg/shared barrel
+     * (`../index.js`). The barrel re-exports the engine, so a value import back
+     * into it forms a package-wide import cycle. Import values from their leaf
+     * module instead (types/, effects/, state-utils.js, rng.js, constants.js,
+     * movement-map.js, rules/, …). Type-only imports from the barrel are fine
+     * (erased at compile time, no runtime cycle).
+     */
+    files: ["packages/shared/src/engine/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../index.js", "../../index.js"],
+              allowTypeImports: true,
+              message:
+                "Inside engine/, import values from their leaf module, not the @meccg/shared barrel (../index.js) — it re-exports the engine, forming an import cycle. Type-only imports from the barrel are allowed.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: ["**/dist/", "**/node_modules/", "**/public/bundle.js"],
   },
 );

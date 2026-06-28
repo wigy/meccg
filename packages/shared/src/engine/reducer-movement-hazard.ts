@@ -6,30 +6,32 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, SiteCard } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect } from '../types/effects.js';
-import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../types/actions-movement-hazard.js';
+import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, Alignment, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag, ZERO_EFFECTIVE_STATS, buildMovementMap, getReachableSites } from '../index.js';
-import type { SiteCard } from '../index.js';
-import { isMinionOrBalrog } from '../state-utils.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { buildMovementMap, getReachableSites } from '../movement-map.js';
+import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
+import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
+import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
+import { CardStatus, RegionType, Race, Skill, Alignment } from '../types/common.js';
+import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
+import { Phase } from '../types/state-phases.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes, getItemGrantedSkills } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
+import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import type { TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handlePlayPermanentEvent } from './reducer-events.js';
+import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
+import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply, handlePlayCharacter } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI } from './legal-actions/organization.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
@@ -37,7 +39,6 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
 import { isDetainmentAttack } from './detainment.js';
-import { matchesContext } from '../effects/condition-matcher.js';
 
 
 /**
