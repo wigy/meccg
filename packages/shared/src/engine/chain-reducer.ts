@@ -35,7 +35,7 @@ import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
-import { buildConstraintKind } from './constraint-kind.js';
+import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -573,28 +573,6 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
   // Target already gone (fizzle) — e.g. another effect already canceled it
   logDetail(`Environment cancel: target ${targetName} already gone — fizzle`);
   return state;
-}
-
-/**
- * Map a DSL constraint-scope name to a {@link ConstraintScope}, using
- * `companyId` for the company-bound scopes. Returns null for an unknown
- * scope, or a company-bound scope with no company to bind to.
- */
-function parseConstraintScope(
-  scopeName: string,
-  companyId: import('../types/common.js').CompanyId | null,
-): import('../types/pending.js').ConstraintScope | null {
-  switch (scopeName) {
-    case 'turn':
-      return { kind: 'turn' };
-    case 'until-cleared':
-      return { kind: 'until-cleared' };
-    case 'company-site-phase':
-    case 'company-mh-phase':
-      return companyId ? { kind: scopeName, companyId } : null;
-    default:
-      return null;
-  }
 }
 
 /**

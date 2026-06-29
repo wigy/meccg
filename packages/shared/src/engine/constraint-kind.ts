@@ -19,6 +19,29 @@ import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 
 /**
+ * Map a DSL constraint-scope name to a {@link ConstraintScope}, using
+ * `companyId` for the company-bound scopes. Returns null for an unknown scope
+ * or a company-bound scope with no company. Shared by every add-constraint
+ * applier (chain short-event arrival/self-enters-play, M/H arrival, play-option).
+ */
+export function parseConstraintScope(
+  scopeName: string,
+  companyId: import('../types/common.js').CompanyId | null,
+): import('../types/pending.js').ConstraintScope | null {
+  switch (scopeName) {
+    case 'turn':
+      return { kind: 'turn' };
+    case 'until-cleared':
+      return { kind: 'until-cleared' };
+    case 'company-site-phase':
+    case 'company-mh-phase':
+      return companyId ? { kind: scopeName, companyId } : null;
+    default:
+      return null;
+  }
+}
+
+/**
  * Site-bound constraint kinds that bind to the site the card is played on
  * (the explicit play-action site, else the active site-phase company's
  * current site). All share the same `{ type, siteDefinitionId }` shape and

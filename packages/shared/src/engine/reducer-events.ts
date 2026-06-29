@@ -7,6 +7,7 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
+import { parseConstraintScope } from './constraint-kind.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -967,22 +968,9 @@ function applyPlayOptionAddConstraint(
     companyId = company.id;
   }
 
-  let scope: import('../types/pending.js').ConstraintScope;
-  switch (scopeName) {
-    case 'turn':
-      scope = { kind: 'turn' };
-      break;
-    case 'until-cleared':
-      scope = { kind: 'until-cleared' };
-      break;
-    case 'company-mh-phase':
-      if (!companyId) {
-        return { error: `${def.name} option '${option.id}': company-mh-phase scope requires a company target` };
-      }
-      scope = { kind: 'company-mh-phase', companyId };
-      break;
-    default:
-      return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for add-constraint` };
+  const scope = parseConstraintScope(scopeName, companyId ?? null);
+  if (!scope) {
+    return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for add-constraint` };
   }
 
   type Kind = import('../types/pending.js').ActiveConstraint['kind'];
@@ -1275,24 +1263,10 @@ function applyShortEventOnEntersPlay(
         }
       }
 
-      // Map scope name to ConstraintScope
-      let scope: import('../types/pending.js').ConstraintScope;
-      switch (scopeName) {
-        case 'turn':
-          scope = { kind: 'turn' };
-          break;
-        case 'company-mh-phase':
-          scope = { kind: 'company-mh-phase', companyId: company.id };
-          break;
-        case 'company-site-phase':
-          scope = { kind: 'company-site-phase', companyId: company.id };
-          break;
-        case 'until-cleared':
-          scope = { kind: 'until-cleared' };
-          break;
-        default:
-          logDetail(`add-constraint(${constraintKind}): unknown scope "${scopeName}" — fizzle`);
-          continue;
+      const scope = parseConstraintScope(scopeName, company.id);
+      if (!scope) {
+        logDetail(`add-constraint(${constraintKind}): unknown scope "${scopeName}" — fizzle`);
+        continue;
       }
 
       // Map constraint name to kind
