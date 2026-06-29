@@ -352,7 +352,7 @@ describe('Lure of Expedience (le-122)', () => {
           characters: {
             ...withCard.players[0].characters,
             [aragornId as string]: {
-              ...withCard.players[0].characters[aragornId as string],
+              ...withCard.players[0].characters[aragornId],
               status: CardStatus.Tapped,
             },
           },

@@ -49,8 +49,8 @@ describe('MEWH §9 — hero item on an Orc/Troll bearer', () => {
 
     const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
     const asternakId = findCharInstanceId(state, RESOURCE_PLAYER, ASTERNAK);
-    const gorbag = state.players[RESOURCE_PLAYER].characters[gorbagId as string];
-    const asternak = state.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const gorbag = state.players[RESOURCE_PLAYER].characters[gorbagId];
+    const asternak = state.players[RESOURCE_PLAYER].characters[asternakId];
 
     // Orc: base prowess 6, hero-item +1 ignored → stays 6; corruption point still applies.
     expect(gorbag.effectiveStats.prowess).toBe(6);

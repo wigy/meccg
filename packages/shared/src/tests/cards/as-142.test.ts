@@ -204,8 +204,8 @@ describe('The Worthy Hills (as-142)', () => {
     expect(next.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
 
     // Both sage and scout are tapped
-    const elrondAfter = next.players[RESOURCE_PLAYER].characters[elrondId as string];
-    const aragornAfter = next.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const elrondAfter = next.players[RESOURCE_PLAYER].characters[elrondId];
+    const aragornAfter = next.players[RESOURCE_PLAYER].characters[aragornId];
     expect(elrondAfter.status).toBe(CardStatus.Tapped);
     expect(aragornAfter.status).toBe(CardStatus.Tapped);
   });

@@ -426,7 +426,7 @@ export function connect(name: string): void {
         // opponent's face-down discard), so the prev/next view lookups
         // alone would render "a card" in the toast.
         const actionLookup = (id: CardInstanceId): CardDefinitionId | undefined =>
-          msg.lastActionCardDefs?.[id as string] ?? prevInstanceLookup(id);
+          msg.lastActionCardDefs?.[id] ?? prevInstanceLookup(id);
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         // Log opponent actions so the text log captures what the other player did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id) {

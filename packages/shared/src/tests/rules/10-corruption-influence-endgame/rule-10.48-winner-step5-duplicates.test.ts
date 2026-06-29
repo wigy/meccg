@@ -61,9 +61,9 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
     const gameOver = afterP2.phaseState as GameOverPhaseState;
     expect(gameOver.phase).toBe(Phase.GameOver);
     // P1's Rangers in hand matches P2's Rangers in play → P2 gets -1
-    expect(gameOver.finalScores[PLAYER_2 as string]).toBe(-1);
+    expect(gameOver.finalScores[PLAYER_2]).toBe(-1);
     // P1 has no match in P2's hand → no reduction
-    expect(gameOver.finalScores[PLAYER_1 as string]).toBe(0);
+    expect(gameOver.finalScores[PLAYER_1]).toBe(0);
   });
 
   test('No matching hand cards: opponent final score unaffected', () => {
@@ -98,7 +98,7 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
     const gameOver = afterP2.phaseState as GameOverPhaseState;
     expect(gameOver.phase).toBe(Phase.GameOver);
     // No duplicate hand cards → no score penalty for either player
-    expect(gameOver.finalScores[PLAYER_2 as string]).toBe(0);
-    expect(gameOver.finalScores[PLAYER_1 as string]).toBe(0);
+    expect(gameOver.finalScores[PLAYER_2]).toBe(0);
+    expect(gameOver.finalScores[PLAYER_1]).toBe(0);
   });
 });

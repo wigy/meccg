@@ -223,7 +223,7 @@ describe('The Worthy Hills (le-415)', () => {
     });
 
     // Character taps as normal — only the site is shielded by the rule.
-    const afterChar = next.players[RESOURCE_PLAYER].characters[charId as string];
+    const afterChar = next.players[RESOURCE_PLAYER].characters[charId];
     expect(afterChar.status).toBe(CardStatus.Tapped);
 
     const afterSite = next.players[RESOURCE_PLAYER].companies[0].currentSite!;

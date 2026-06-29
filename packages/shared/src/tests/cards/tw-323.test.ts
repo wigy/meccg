@@ -138,7 +138,7 @@ describe('Scroll of Isildur (tw-323)', () => {
     // Scroll of Isildur should still be on Frodo
     const frodoItems = getCharacter(nextState, RESOURCE_PLAYER, FRODO).items;
     const scrollStillPresent = frodoItems.some(
-      item => state.cardPool[item.definitionId as string]?.name === 'Scroll of Isildur',
+      item => state.cardPool[item.definitionId]?.name === 'Scroll of Isildur',
     );
     expect(scrollStillPresent).toBe(true);
   });

@@ -45,7 +45,7 @@ describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
     const afterFail = executeAction(failState, PLAYER_1, 'resolve-strike', 5, true);
     expect(afterFail.combat?.phase).toBe('body-check');
     expect(afterFail.combat?.bodyCheckTarget).toBe('creature');
-    const charAfterFail = afterFail.players[RESOURCE_PLAYER].characters[characterId as string];
+    const charAfterFail = afterFail.players[RESOURCE_PLAYER].characters[characterId];
     expect(charAfterFail?.status).toBe(CardStatus.Tapped);
 
     // Case 2: roll < strikeProwess → character wounded, body check queued vs character
@@ -67,7 +67,7 @@ describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
     });
     const afterTie = executeAction(tieState, PLAYER_1, 'resolve-strike', 4, true);
     expect(afterTie.combat).toBeNull();
-    const charAfterTie = afterTie.players[RESOURCE_PLAYER].characters[tieCharId as string];
+    const charAfterTie = afterTie.players[RESOURCE_PLAYER].characters[tieCharId];
     expect(charAfterTie?.status).toBe(CardStatus.Tapped);
   });
 });

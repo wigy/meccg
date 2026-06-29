@@ -166,7 +166,7 @@ describe('Dodge (tw-209)', () => {
     const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
 
     // Opponent must be able to see which card was played (card plays are always public).
-    expect(s2.revealedInstances[dodgeInstanceId as string]).toBeDefined();
+    expect(s2.revealedInstances[dodgeInstanceId]).toBeDefined();
   });
 
   test('normal tap-to-fight still taps the character (control case)', () => {

@@ -41,6 +41,23 @@ export type ManifestId = CardDefinitionId;
 /** Unique identifier for a company (a group of characters traveling together). */
 export type CompanyId = string & { readonly __brand: 'CompanyId' };
 
+/**
+ * A readonly map keyed by a {@link CardInstanceId}.
+ *
+ * Prefer this over `Readonly<Record<string, V>>` for any record indexed by a
+ * card instance id: the branded key turns "indexing with the wrong id type"
+ * (e.g. a {@link CompanyId} or a bare `string`) into a compile error, and lets
+ * call sites drop the reflexive `id as string` casts that a plain
+ * `Record<string, V>` does not require but accumulated as noise.
+ */
+export type ById<V> = Readonly<Record<CardInstanceId, V>>;
+
+/** A readonly map keyed by a {@link CardDefinitionId} (e.g. the static card pool). */
+export type ByCardDefinitionId<V> = Readonly<Record<CardDefinitionId, V>>;
+
+/** A readonly map keyed by a {@link PlayerId}. */
+export type ByPlayerId<V> = Readonly<Record<PlayerId, V>>;
+
 /** A single die result (1-6) for a standard six-sided die. */
 export type DieRoll = 1 | 2 | 3 | 4 | 5 | 6;
 

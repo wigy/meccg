@@ -357,14 +357,14 @@ function handleCancelReturnToOrigin(
   let tapped = false;
   const updatedChars = { ...player.characters };
   for (const charId of company.characters) {
-    const charData = updatedChars[charId as string];
+    const charData = updatedChars[charId];
     if (!charData) continue;
     const allyIdx = charData.allies.findIndex(a => a.instanceId === action.allyInstanceId);
     if (allyIdx === -1) continue;
     const newAllies = [...charData.allies];
     newAllies[allyIdx] = { ...newAllies[allyIdx], status: CardStatus.Tapped };
-    updatedChars[charId as string] = { ...charData, allies: newAllies };
-    const allyName = (state.cardPool[newAllies[allyIdx].definitionId as string] as { name?: string })?.name
+    updatedChars[charId] = { ...charData, allies: newAllies };
+    const allyName = (state.cardPool[newAllies[allyIdx].definitionId] as { name?: string })?.name
       ?? (action.allyInstanceId as string);
     logDetail(`cancel-return-to-origin: tapping ${allyName}`);
     tapped = true;
@@ -378,7 +378,7 @@ function handleCancelReturnToOrigin(
   );
   if (entryIdx === -1) return { state, error: 'cancel-return-to-origin: target chain entry not found' };
 
-  const targetName = (state.cardPool[chain.entries[entryIdx].card!.definitionId as string] as { name?: string })?.name
+  const targetName = (state.cardPool[chain.entries[entryIdx].card!.definitionId] as { name?: string })?.name
     ?? (action.targetInstanceId as string);
   logDetail(`cancel-return-to-origin: negating chain entry "${targetName}"`);
 
@@ -1040,7 +1040,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     const slot = isResource ? 'items' : 'hazards';
     // Find which player owns the target character
     for (let pi = 0; pi < 2; pi++) {
-      const charInPlay = state.players[pi].characters[targetCharId as string];
+      const charInPlay = state.players[pi].characters[targetCharId];
       if (charInPlay) {
         // Ward check: a hazard permanent-event attaching to a character
         // with a matching ward (e.g. Adamant Helmet vs. dark enchantments)
@@ -1118,14 +1118,14 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
     const deferSubtraction = state.phaseState.phase !== Phase.Organization;
     for (let pi = 0; pi < 2; pi++) {
-      const char = newPlayers[pi].characters[targetCharId as string];
+      const char = newPlayers[pi].characters[targetCharId];
       if (char && char.controlledBy !== 'general') {
         logDetail(
           `"${def?.name ?? '?'}" forces ${targetCharId as string} from DI to GI`
           + (deferSubtraction ? ' (mind subtraction deferred to next organization phase — CoE 2.II.2.2.3)' : ''),
         );
         const oldControllerId = char.controlledBy;
-        const oldCtrl = newPlayers[pi].characters[oldControllerId as string];
+        const oldCtrl = newPlayers[pi].characters[oldControllerId];
         if (oldCtrl) {
           newPlayers[pi] = {
             ...newPlayers[pi],
@@ -1215,7 +1215,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // tap-character-on-play: tap the targeted character when the card enters play.
   if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-character-on-play')) {
     for (let pi = 0; pi < 2; pi++) {
-      const char = newState.players[pi].characters[targetCharId as string];
+      const char = newState.players[pi].characters[targetCharId];
       if (char) {
         logDetail(`"${def?.name ?? '?'}" tap-character-on-play: tapping character ${targetCharId as string}`);
         newState = updatePlayer(newState, pi, p => updateCharacter(p, targetCharId, () => ({
@@ -1298,7 +1298,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         // Set the target character's status from wounded (Inverted) to Tapped.
         if (targetCharId) {
           for (let pi = 0; pi < 2; pi++) {
-            const charInPlay = newState.players[pi].characters[targetCharId as string];
+            const charInPlay = newState.players[pi].characters[targetCharId];
             if (!charInPlay) continue;
             if (charInPlay.status === CardStatus.Inverted) {
               logDetail(`"${def?.name ?? '?'}" heal-target-character: healing ${targetCharId as string} (wounded → tapped)`);
@@ -1323,11 +1323,11 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         let corrCheckCharId: import('../types/common.js').CardInstanceId | undefined;
         if (applyTarget === 'company-shadow-magic-user' && targetCharId) {
           outer: for (let pi = 0; pi < 2; pi++) {
-            if (!newState.players[pi].characters[targetCharId as string]) continue;
+            if (!newState.players[pi].characters[targetCharId]) continue;
             const company = newState.players[pi].companies.find(co => co.characters.includes(targetCharId));
             if (!company) break;
             for (const memberId of company.characters) {
-              const memberChar = newState.players[pi].characters[memberId as string];
+              const memberChar = newState.players[pi].characters[memberId];
               if (!memberChar) continue;
               const memberDef = defById(newState, memberChar.definitionId);
               if (!memberDef) continue;
@@ -1762,7 +1762,7 @@ function resolveDefendingSiteEffects(
     siteDefinitionId = company.currentSite.definitionId;
   }
   if (!siteDefinitionId) return [];
-  const siteDef = state.cardPool[siteDefinitionId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const siteDef = state.cardPool[siteDefinitionId] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
   return siteDef?.effects ?? [];
 }
 
@@ -1788,7 +1788,7 @@ function collectHavenJumpOffers(
     const atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
     if (!atHaven) continue;
     for (const charId of company.characters) {
-      const charInPlay = defendingPlayer.characters[charId as string];
+      const charInPlay = defendingPlayer.characters[charId];
       if (!charInPlay) continue;
       const charDef = defById(state, charInPlay.definitionId);
       const effects = (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
@@ -1837,7 +1837,7 @@ function collectHavenJumpOffers(
  * player's marshalling point pile (all strikes defeated) or stays in discard.
  */
 function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState {
-  const creatureDef = state.cardPool[entry.card?.definitionId as string] as CreatureCard | undefined;
+  const creatureDef = state.cardPool[entry.card?.definitionId as CardDefinitionId] as CreatureCard | undefined;
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
     logDetail(`Creature resolution: definition not found or not a creature — fizzle`);
     return state;
@@ -2238,7 +2238,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     if (getCardEffects(def).some(e => e.type === 'set-character-status' && (e as { status?: string }).status === 'inverted' && (e as { target?: string }).target === 'target-character')) {
       const targetId = entry.payload.targetCharacterId;
       for (let pi = 0; pi < current.players.length; pi++) {
-        if (current.players[pi].characters[targetId as string]) {
+        if (current.players[pi].characters[targetId]) {
           logDetail(`set-character-status{inverted}: wounding ${targetId as string} (no body check)`);
           current = updatePlayer(current, pi, p =>
             updateCharacter(p, targetId, c => ({ ...c, status: CardStatus.Inverted })),
@@ -2624,7 +2624,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         const resourcePlayerId = current.activePlayer!;
         let possessions: CardInstanceId[] = [];
         for (const p of current.players) {
-          const charData = p.characters[targetCharId as string];
+          const charData = p.characters[targetCharId];
           if (charData) {
             possessions = [
               ...charData.items.map(i => i.instanceId),
@@ -2664,7 +2664,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const resourcePlayerId = current.activePlayer!;
       let possessions: CardInstanceId[] = [];
       for (const p of current.players) {
-        const charData = p.characters[targetCharId as string];
+        const charData = p.characters[targetCharId];
         if (charData) {
           possessions = [
             ...charData.items.map(i => i.instanceId),

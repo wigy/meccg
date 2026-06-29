@@ -145,7 +145,7 @@ describe('Swordmaster (tw-498)', () => {
     const after = resolveChain(dispatch(state, action));
 
     const galadrielId = findCharInstanceId(after, RESOURCE_PLAYER, GALADRIEL);
-    const galadriel = after.players[RESOURCE_PLAYER].characters[galadrielId as string];
+    const galadriel = after.players[RESOURCE_PLAYER].characters[galadrielId];
     expect(galadriel.status).toBe(CardStatus.Tapped);
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
     // Resource permanent-event attaches to the sage's items slot.
@@ -158,11 +158,11 @@ describe('Swordmaster (tw-498)', () => {
     // Galadriel is scout+sage; without Swordmaster she has no warrior skill.
     const base = buildSitePhaseState({ characters: [GALADRIEL], site: AMON_HEN });
     const galadrielId = findCharInstanceId(base, RESOURCE_PLAYER, GALADRIEL);
-    expect(getItemGrantedSkills(base, base.players[RESOURCE_PLAYER].characters[galadrielId as string]))
+    expect(getItemGrantedSkills(base, base.players[RESOURCE_PLAYER].characters[galadrielId]))
       .not.toContain('warrior');
 
     const withSword = attachItemToChar(base, RESOURCE_PLAYER, GALADRIEL, SWORDMASTER);
-    expect(getItemGrantedSkills(withSword, withSword.players[RESOURCE_PLAYER].characters[galadrielId as string]))
+    expect(getItemGrantedSkills(withSword, withSword.players[RESOURCE_PLAYER].characters[galadrielId]))
       .toContain('warrior');
   });
 
@@ -250,7 +250,7 @@ describe('Swordmaster (tw-498)', () => {
     });
     const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
     // Base prowess 4 + only the first weapon (+1) = 5.
-    expect(state.players[RESOURCE_PLAYER].characters[balinId as string].effectiveStats.prowess).toBe(5);
+    expect(state.players[RESOURCE_PLAYER].characters[balinId].effectiveStats.prowess).toBe(5);
   });
 
   test('with Swordmaster a natural-warrior sage uses both weapons (both modifiers count)', () => {
@@ -260,7 +260,7 @@ describe('Swordmaster (tw-498)', () => {
     });
     const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
     // Base prowess 4 + both weapons (+1 +1) = 6.
-    expect(state.players[RESOURCE_PLAYER].characters[balinId as string].effectiveStats.prowess).toBe(6);
+    expect(state.players[RESOURCE_PLAYER].characters[balinId].effectiveStats.prowess).toBe(6);
   });
 
   test('the two-weapon privilege needs a NATURAL warrior — a granted-warrior sage gets only one weapon', () => {
@@ -272,7 +272,7 @@ describe('Swordmaster (tw-498)', () => {
     });
     const galadrielId = findCharInstanceId(state, RESOURCE_PLAYER, GALADRIEL);
     // Base prowess 3 + only the first weapon (+1) = 4.
-    expect(state.players[RESOURCE_PLAYER].characters[galadrielId as string].effectiveStats.prowess).toBe(4);
+    expect(state.players[RESOURCE_PLAYER].characters[galadrielId].effectiveStats.prowess).toBe(4);
   });
 
   // ── Rule 8: if he uses two weapons, he can't use a shield ────────────────
@@ -283,7 +283,7 @@ describe('Swordmaster (tw-498)', () => {
       site: AMON_HEN,
     });
     const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
-    const balin = state.players[RESOURCE_PLAYER].characters[balinId as string];
+    const balin = state.players[RESOURCE_PLAYER].characters[balinId];
     // Two weapons in use → both prowess bonuses count (4 + 1 + 1 = 6)…
     expect(balin.effectiveStats.prowess).toBe(6);
     // …and the shield is excluded → body stays at the base 7 (no +1).
@@ -296,7 +296,7 @@ describe('Swordmaster (tw-498)', () => {
       site: AMON_HEN,
     });
     const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
-    const balin = state.players[RESOURCE_PLAYER].characters[balinId as string];
+    const balin = state.players[RESOURCE_PLAYER].characters[balinId];
     // One weapon (+1 prowess) → 5; the shield is not excluded → body 7 + 1 = 8.
     expect(balin.effectiveStats.prowess).toBe(5);
     expect(balin.effectiveStats.body).toBe(8);

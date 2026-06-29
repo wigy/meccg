@@ -739,7 +739,7 @@ function playResourcesActions(
 
   // Find untapped characters in this company for item attachment
   const untappedCharacters = company.characters
-    .map(cId => player.characters[cId as string])
+    .map(cId => player.characters[cId])
     .filter(ch => ch !== undefined && ch.status === CardStatus.Untapped);
 
   logDetail(`Untapped characters in company: ${untappedCharacters.length}`);
@@ -955,7 +955,7 @@ function playResourcesActions(
           const charDupLimit = findDuplicationLimitEffect(eventDef, 'character');
           const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
           for (const charId of company.characters) {
-            const ch = player.characters[charId as string];
+            const ch = player.characters[charId];
             if (!ch) continue;
             const charDef = defById(state, ch.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
@@ -1030,7 +1030,7 @@ function playResourcesActions(
           for (const source of sources) {
             if (source === 'character-items') {
               for (const charId of company.characters) {
-                const ch = player.characters[charId as string];
+                const ch = player.characters[charId];
                 if (!ch) continue;
                 for (const item of ch.items) {
                   const itemDef = defById(state, item.definitionId);
@@ -1681,7 +1681,7 @@ function sitePhaseGrantActions(
       if (!siteIsTapped) continue;
 
       const sages = company.characters.filter(cId => {
-        const char = player.characters[cId as string];
+        const char = player.characters[cId];
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = defById(state, char.definitionId);
         if (!isCharacterCard(def)) return false;
@@ -1689,7 +1689,7 @@ function sitePhaseGrantActions(
         return skills.includes('sage');
       });
       const scouts = company.characters.filter(cId => {
-        const char = player.characters[cId as string];
+        const char = player.characters[cId];
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = defById(state, char.definitionId);
         if (!isCharacterCard(def)) return false;
@@ -1730,7 +1730,7 @@ function sitePhaseGrantActions(
       // Collect all minor items across the company's characters
       const minorItems: { itemId: import('../../index.js').CardInstanceId; bearerId: import('../../index.js').CardInstanceId }[] = [];
       for (const charId of company.characters) {
-        const char = player.characters[charId as string];
+        const char = player.characters[charId];
         if (!char) continue;
         for (const item of char.items) {
           const itemDef = defById(state, item.definitionId);
@@ -1849,7 +1849,7 @@ function opponentInfluenceActions(
 
     // Check each opponent character at this site
     for (const oppCharId of oppCompany.characters) {
-      const oppChar = opponent.characters[oppCharId as string];
+      const oppChar = opponent.characters[oppCharId];
       if (!oppChar) continue;
       const oppCharDef = defById(state, oppChar.definitionId);
       if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
@@ -1863,7 +1863,7 @@ function opponentInfluenceActions(
       // Skip characters controlled by avatar (follower of avatar)
       // controlledBy is 'general' or a CardInstanceId of the controlling character
       if (oppChar.controlledBy !== 'general') {
-        const ctrlChar = opponent.characters[oppChar.controlledBy as string];
+        const ctrlChar = opponent.characters[oppChar.controlledBy];
         if (ctrlChar) {
           const ctrlDef = defById(state, ctrlChar.definitionId)!;
           if (isAvatarCharacter(ctrlDef)) {

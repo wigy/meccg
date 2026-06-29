@@ -59,10 +59,10 @@ describe('Black Mace (le-299)', () => {
 
     const gorbagId = charIdAt(base, RESOURCE_PLAYER);
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
-    expect(base.players[0].characters[gorbagId as string].effectiveStats.prowess).toBe(gorbagDef.prowess);
+    expect(base.players[0].characters[gorbagId].effectiveStats.prowess).toBe(gorbagDef.prowess);
 
     const withMace = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, BLACK_MACE));
-    expect(withMace.players[0].characters[gorbagId as string].effectiveStats.prowess)
+    expect(withMace.players[0].characters[gorbagId].effectiveStats.prowess)
       .toBe(gorbagDef.prowess + 3);
   });
 
@@ -83,7 +83,7 @@ describe('Black Mace (le-299)', () => {
 
     const withMace = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL, BLACK_MACE));
     // 8 + 3 = 11, capped at 10
-    expect(withMace.players[0].characters[lotId as string].effectiveStats.prowess).toBe(10);
+    expect(withMace.players[0].characters[lotId].effectiveStats.prowess).toBe(10);
   });
 
   // ── Effect 2: +4 prowess, max 10, vs Elves in combat (override) ────────
@@ -101,7 +101,7 @@ describe('Black Mace (le-299)', () => {
 
     const withMace = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, BLACK_MACE);
     const gorbagId = charIdAt(withMace, RESOURCE_PLAYER);
-    const gorbag = withMace.players[0].characters[gorbagId as string];
+    const gorbag = withMace.players[0].characters[gorbagId];
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
 
     const combatProwessVsElf = computeCombatProwess(withMace, gorbag, gorbagDef, 'elf');
@@ -122,7 +122,7 @@ describe('Black Mace (le-299)', () => {
 
     const withMace = attachItemToChar(base, RESOURCE_PLAYER, GORBAG, BLACK_MACE);
     const gorbagId = charIdAt(withMace, RESOURCE_PLAYER);
-    const gorbag = withMace.players[0].characters[gorbagId as string];
+    const gorbag = withMace.players[0].characters[gorbagId];
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
 
     const combatProwessVsOrc = computeCombatProwess(withMace, gorbag, gorbagDef, 'orc');
@@ -142,7 +142,7 @@ describe('Black Mace (le-299)', () => {
 
     const withMace = attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL, BLACK_MACE);
     const lotId = charIdAt(withMace, RESOURCE_PLAYER);
-    const lot = withMace.players[0].characters[lotId as string];
+    const lot = withMace.players[0].characters[lotId];
     const lotDef = pool[LIEUTENANT_OF_MORGUL as string] as CharacterCard;
 
     // 8 + 4 = 12, capped at 10
@@ -168,7 +168,7 @@ describe('Black Mace (le-299)', () => {
     const layosDef = pool[LAYOS as string] as CharacterCard;
 
     // Layos is sage/diplomat — no warrior skill → no bonus
-    expect(withMace.players[0].characters[layosId as string].effectiveStats.prowess)
+    expect(withMace.players[0].characters[layosId].effectiveStats.prowess)
       .toBe(layosDef.prowess);
   });
 
@@ -185,7 +185,7 @@ describe('Black Mace (le-299)', () => {
 
     const withMace = attachItemToChar(base, RESOURCE_PLAYER, LAYOS, BLACK_MACE);
     const layosId = charIdAt(withMace, RESOURCE_PLAYER);
-    const layos = withMace.players[0].characters[layosId as string];
+    const layos = withMace.players[0].characters[layosId];
     const layosDef = pool[LAYOS as string] as CharacterCard;
 
     const combatProwessVsElf = computeCombatProwess(withMace, layos, layosDef, 'elf');

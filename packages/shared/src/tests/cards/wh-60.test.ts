@@ -114,7 +114,7 @@ describe('A New Ringlord (wh-60)', () => {
     const after = dispatch({ ...state, cheatRollTotal: 7 }, { type: 'pass', player: PLAYER_1 });
 
     expect(after.phaseState.phase).not.toBe(Phase.GameOver);
-    expect(after.players[RESOURCE_PLAYER].characters[gandalfId as string]).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].characters[gandalfId]).toBeDefined();
   });
 
   test('no roll when the Fallen-wizard is not bearing The One Ring', () => {
@@ -149,7 +149,7 @@ describe('A New Ringlord (wh-60)', () => {
     // No elimination (the gate prevented the roll); turn proceeds normally.
     expect(after.phaseState.phase).not.toBe(Phase.GameOver);
     // Gandalf is still in play somewhere (the turn advanced, not eliminated).
-    const stillInPlay = after.players[RESOURCE_PLAYER].characters[gandalfId as string]
+    const stillInPlay = after.players[RESOURCE_PLAYER].characters[gandalfId]
       ?? after.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId);
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(false);
     expect(stillInPlay).toBeDefined();

@@ -250,7 +250,7 @@ describe('Well-preserved (as-108)', () => {
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardId, asternak);
 
     // Asternak must now be Tapped (healed), not Inverted
-    const aChar = after.players[RESOURCE_PLAYER].characters[asternak as string];
+    const aChar = after.players[RESOURCE_PLAYER].characters[asternak];
     expect(aChar.status).toBe(CardStatus.Tapped);
   });
 
@@ -281,7 +281,7 @@ describe('Well-preserved (as-108)', () => {
 
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardId, asternak);
 
-    const aChar = after.players[RESOURCE_PLAYER].characters[asternak as string];
+    const aChar = after.players[RESOURCE_PLAYER].characters[asternak];
     const attachedItem = aChar.items.find(i => i.definitionId === WELL_PRESERVED);
     expect(attachedItem).toBeDefined();
     // Card must be removed from hand
@@ -316,17 +316,17 @@ describe('Well-preserved (as-108)', () => {
     const asternak = findCharInstanceId(state, RESOURCE_PLAYER, ASTERNAK);
     const cardId = handCardId(state, RESOURCE_PLAYER);
 
-    const baseBody = state.players[RESOURCE_PLAYER].characters[asternak as string].effectiveStats?.body;
+    const baseBody = state.players[RESOURCE_PLAYER].characters[asternak].effectiveStats?.body;
 
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardId, asternak);
     // Recompute derived stats to see the -1 body modifier
-    const afterBody = after.players[RESOURCE_PLAYER].characters[asternak as string].effectiveStats?.body;
+    const afterBody = after.players[RESOURCE_PLAYER].characters[asternak].effectiveStats?.body;
 
     if (baseBody !== undefined && afterBody !== undefined) {
       expect(afterBody).toBe(baseBody - 1);
     } else {
       // Effective stats might not be computed; verify -1 body through the stat-modifier effect
-      const aChar = after.players[RESOURCE_PLAYER].characters[asternak as string];
+      const aChar = after.players[RESOURCE_PLAYER].characters[asternak];
       expect(aChar.items.some(i => i.definitionId === WELL_PRESERVED)).toBe(true);
     }
   });
@@ -376,7 +376,7 @@ describe('Well-preserved (as-108)', () => {
     const after = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
 
     // Well-preserved must be gone from Asternak's items
-    const aChar = after.players[RESOURCE_PLAYER].characters[asternak as string];
+    const aChar = after.players[RESOURCE_PLAYER].characters[asternak];
     expect(aChar.items.find(i => i.definitionId === WELL_PRESERVED)).toBeUndefined();
     // Card must be in the discard pile
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === WELL_PRESERVED)).toBe(true);
@@ -419,7 +419,7 @@ describe('Well-preserved (as-108)', () => {
     const inUntap = { ...withItem, phaseState: untapState };
     const after = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
 
-    const aChar = after.players[RESOURCE_PLAYER].characters[asternak as string];
+    const aChar = after.players[RESOURCE_PLAYER].characters[asternak];
     expect(aChar.items.find(i => i.definitionId === WELL_PRESERVED)).toBeDefined();
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === WELL_PRESERVED)).toBe(false);
   });

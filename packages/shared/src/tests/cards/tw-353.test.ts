@@ -24,6 +24,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../index.js';
 import {
   buildTestState, resetMint, Phase, CardStatus,
   attachAllyToChar,
@@ -54,7 +55,7 @@ describe('Treebeard (tw-353)', () => {
     const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
-      Object.keys(withTreebeard.players[0].characters)[0]
+      (Object.keys(withTreebeard.players[0].characters) as CardInstanceId[])[0]
     ].allies[0].instanceId;
 
     // Set destination to Minas Tirith (region Anórien — disallowed)
@@ -87,7 +88,7 @@ describe('Treebeard (tw-353)', () => {
     expect(inDiscard).toBe(true);
 
     // Treebeard should no longer be attached to Aragorn
-    const charId = Object.keys(afterHazardPass.players[0].characters)[0];
+    const charId = (Object.keys(afterHazardPass.players[0].characters) as CardInstanceId[])[0];
     const char = afterHazardPass.players[0].characters[charId];
     const allyStillAttached = char.allies.some(a => a.instanceId === treebeardInstId);
     expect(allyStillAttached).toBe(false);
@@ -108,7 +109,7 @@ describe('Treebeard (tw-353)', () => {
     const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
-      Object.keys(withTreebeard.players[0].characters)[0]
+      (Object.keys(withTreebeard.players[0].characters) as CardInstanceId[])[0]
     ].allies[0].instanceId;
 
     // Set destination to Edoras (region Rohan — allowed)
@@ -141,7 +142,7 @@ describe('Treebeard (tw-353)', () => {
     expect(inDiscard).toBe(false);
 
     // Treebeard should still be attached to Aragorn
-    const charId = Object.keys(afterHazardPass.players[0].characters)[0];
+    const charId = (Object.keys(afterHazardPass.players[0].characters) as CardInstanceId[])[0];
     const char = afterHazardPass.players[0].characters[charId];
     const allyStillAttached = char.allies.some(a => a.instanceId === treebeardInstId);
     expect(allyStillAttached).toBe(true);
@@ -162,7 +163,7 @@ describe('Treebeard (tw-353)', () => {
     const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
-      Object.keys(withTreebeard.players[0].characters)[0]
+      (Object.keys(withTreebeard.players[0].characters) as CardInstanceId[])[0]
     ].allies[0].instanceId;
 
     // Set destination to Moria (region Redhorn Gate — allowed)
@@ -193,7 +194,7 @@ describe('Treebeard (tw-353)', () => {
     );
     expect(inDiscard).toBe(false);
 
-    const charId = Object.keys(afterHazardPass.players[0].characters)[0];
+    const charId = (Object.keys(afterHazardPass.players[0].characters) as CardInstanceId[])[0];
     const char = afterHazardPass.players[0].characters[charId];
     expect(char.allies.some(a => a.instanceId === treebeardInstId)).toBe(true);
   });
@@ -212,7 +213,7 @@ describe('Treebeard (tw-353)', () => {
     const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
-      Object.keys(withTreebeard.players[0].characters)[0]
+      (Object.keys(withTreebeard.players[0].characters) as CardInstanceId[])[0]
     ].allies[0].instanceId;
 
     const mountDoomCard = withTreebeard.players[0].siteDeck[0];

@@ -128,7 +128,7 @@ describe("Sneakin' (le-231)", () => {
     const tapped = {
       ...base,
       players: [
-        { ...p0, characters: { ...p0.characters, [ostisenId as string]: { ...p0.characters[ostisenId as string], status: CardStatus.Tapped } } },
+        { ...p0, characters: { ...p0.characters, [ostisenId]: { ...p0.characters[ostisenId], status: CardStatus.Tapped } } },
         base.players[HAZARD_PLAYER],
       ] as const,
     };

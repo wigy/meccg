@@ -50,7 +50,7 @@ describe('dm-179: Noble Hound', () => {
     // Attach Noble Hound to Aragorn.
     const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
     const p1 = withHound.players[RESOURCE_PLAYER];
-    const houndId = p1.characters[aragornId as string]?.allies[0]?.instanceId;
+    const houndId = p1.characters[aragornId]?.allies[0]?.instanceId;
     expect(houndId).toBeDefined();
 
     // Build combat state in assign-strikes phase (defender's turn).
@@ -101,7 +101,7 @@ describe('dm-179: Noble Hound', () => {
     const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
 
     // Tap Noble Hound.
-    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(houndId).toBeDefined();
     const tappedHound = {
       ...withHound,
@@ -112,8 +112,8 @@ describe('dm-179: Noble Hound', () => {
           characters: {
             ...p.characters,
             [aragornId as string]: {
-              ...p.characters[aragornId as string],
-              allies: p.characters[aragornId as string].allies.map(a =>
+              ...p.characters[aragornId],
+              allies: p.characters[aragornId].allies.map(a =>
                 a.instanceId === houndId ? { ...a, status: CardStatus.Tapped } : a,
               ),
             },
@@ -165,7 +165,7 @@ describe('dm-179: Noble Hound', () => {
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
 
     const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
-    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
 
     // Wound Noble Hound.
     const woundedHound = {
@@ -177,8 +177,8 @@ describe('dm-179: Noble Hound', () => {
           characters: {
             ...p.characters,
             [aragornId as string]: {
-              ...p.characters[aragornId as string],
-              allies: p.characters[aragornId as string].allies.map(a =>
+              ...p.characters[aragornId],
+              allies: p.characters[aragornId].allies.map(a =>
                 a.instanceId === houndId ? { ...a, status: CardStatus.Inverted } : a,
               ),
             },
@@ -260,7 +260,7 @@ describe('dm-179: Noble Hound', () => {
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
 
     const withHound = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NOBLE_HOUND);
-    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId as string].allies[0].instanceId;
+    const houndId = withHound.players[RESOURCE_PLAYER].characters[aragornId].allies[0].instanceId;
 
     const combat = {
       attackSource: { type: 'creature' as const, instanceId: 'fake-orc' as CardInstanceId },

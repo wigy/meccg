@@ -60,12 +60,12 @@ describe('Lure of the Senses (tw-60)', () => {
     });
 
     const aragornId = charIdAt(base, RESOURCE_PLAYER);
-    expect(base.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(base.players[0].characters[aragornId].effectiveStats.corruptionPoints).toBe(0);
 
     // attachHazardToChar bypasses recomputeDerived, so re-derive stats
     // before checking the bearer's effective corruption points.
     const withLure = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES));
-    expect(withLure.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(2);
+    expect(withLure.players[0].characters[aragornId].effectiveStats.corruptionPoints).toBe(2);
   });
 
   test('untap → org transition at a haven enqueues a corruption-check pending resolution', () => {
@@ -177,7 +177,7 @@ describe('Lure of the Senses (tw-60)', () => {
 
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(0);
     // Lure is owned by P2 and goes back to P2's discard pile
     expectInDiscardPile(next, HAZARD_PLAYER, LURE_OF_THE_SENSES);
   });
@@ -203,8 +203,8 @@ describe('Lure of the Senses (tw-60)', () => {
 
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(LURE_OF_THE_SENSES);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(1);
+    expect(next.players[0].characters[aragornId].hazards[0].definitionId).toBe(LURE_OF_THE_SENSES);
   });
 
   test('no-tap variant action label does not say "taps" — character already tapped gets correct description', () => {

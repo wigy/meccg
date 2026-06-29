@@ -200,7 +200,7 @@ describe('Regiment of Black Crows (as-76)', () => {
     // Only ASTERNAK should be offerable; the ally has no-attack flag.
     const assignActions = viableActions(combatState, PLAYER_1, 'assign-strike');
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const allyAssigned = assignActions.some(a =>
       'characterId' in a.action && a.action.characterId === allyId,
@@ -229,7 +229,7 @@ describe('Regiment of Black Crows (as-76)', () => {
     };
     const assignActions = viableActions(combatState, PLAYER_2, 'assign-strike');
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const allyAssigned = assignActions.some(a =>
       'characterId' in a.action && a.action.characterId === allyId,
@@ -371,11 +371,11 @@ describe('Regiment of Black Crows (as-76)', () => {
     expect(s.combat).toBeNull();
 
     // Asternak should still be in play (wounded, not eliminated)
-    expect(s.players[RESOURCE_PLAYER].characters[asternakId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[asternakId]).toBeDefined();
     // Regiment should be discarded to resource player's discard pile
     expectInDiscardPile(s, RESOURCE_PLAYER, REGIMENT);
     // Ally must not still be attached to Asternak
-    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternakChar.allies).toHaveLength(0);
   });
 
@@ -400,7 +400,7 @@ describe('Regiment of Black Crows (as-76)', () => {
 
     expect(s.combat).toBeNull();
     // Ally should still be attached
-    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternakChar.allies).toHaveLength(1);
     expect(asternakChar.allies[0].definitionId).toBe(REGIMENT);
   });
@@ -425,7 +425,7 @@ describe('Regiment of Black Crows (as-76)', () => {
 
     const cancelAction = cancelActions[0].action as CancelAttackAction;
     const ally = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0];
     expect(cancelAction.cardInstanceId).toBe(ally.instanceId);
   });
@@ -464,7 +464,7 @@ describe('Regiment of Black Crows (as-76)', () => {
     // requires attack.source === 'creature', so no cancel for auto-attack.
     const allyCancelActions = cancelActions.filter(a => {
       const ally = withAlly.players[RESOURCE_PLAYER]
-        .characters[findCharInstanceId(withAlly, RESOURCE_PLAYER, ASTERNAK) as string]
+        .characters[findCharInstanceId(withAlly, RESOURCE_PLAYER, ASTERNAK)]
         .allies[0];
       return 'cardInstanceId' in a.action && (a.action as CancelAttackAction).cardInstanceId === ally.instanceId;
     });
@@ -493,7 +493,7 @@ describe('Regiment of Black Crows (as-76)', () => {
 
     // Regiment ally is now tapped
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
-    const ally = after.players[RESOURCE_PLAYER].characters[charId as string].allies[0];
+    const ally = after.players[RESOURCE_PLAYER].characters[charId].allies[0];
     expect(ally.status).toBe(CardStatus.Tapped);
 
     // Cave-drake creature is in the hazard player's discard pile
@@ -512,7 +512,7 @@ describe('Regiment of Black Crows (as-76)', () => {
     });
     let withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
     const charId = findCharInstanceId(withAlly, RESOURCE_PLAYER, ASTERNAK);
-    const char = withAlly.players[RESOURCE_PLAYER].characters[charId as string];
+    const char = withAlly.players[RESOURCE_PLAYER].characters[charId];
     const updatedChars = {
       ...withAlly.players[RESOURCE_PLAYER].characters,
       [charId as string]: {
@@ -530,7 +530,7 @@ describe('Regiment of Black Crows (as-76)', () => {
 
     const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack').filter(a => {
-      const ally = withAlly.players[RESOURCE_PLAYER].characters[charId as string].allies[0];
+      const ally = withAlly.players[RESOURCE_PLAYER].characters[charId].allies[0];
       return 'cardInstanceId' in a.action && (a.action as CancelAttackAction).cardInstanceId === ally.instanceId;
     });
     expect(cancelActions).toHaveLength(0);

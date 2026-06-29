@@ -136,7 +136,7 @@ describe('Magic Ring of Stealth (tw-274)', () => {
     expect(afterChain.combat).not.toBeNull();
 
     const frodoId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FRODO);
-    const ringInstanceId = afterChain.players[RESOURCE_PLAYER].characters[frodoId as string].items[0].instanceId;
+    const ringInstanceId = afterChain.players[RESOURCE_PLAYER].characters[frodoId].items[0].instanceId;
 
     const afterAssign = dispatch(afterChain, {
       type: 'assign-strike',
@@ -226,7 +226,7 @@ describe('Magic Ring of Stealth (tw-274)', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, MAGIC_RING_OF_STEALTH);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -251,7 +251,7 @@ describe('Magic Ring of Stealth (tw-274)', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, MAGIC_RING_OF_STEALTH);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -276,7 +276,7 @@ describe('Magic Ring of Stealth (tw-274)', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, MAGIC_RING_OF_STEALTH);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -290,7 +290,7 @@ describe('Magic Ring of Stealth (tw-274)', () => {
 
     expect(afterPlay.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === MAGIC_RING_OF_STEALTH)).toBeUndefined();
     expect(
-      afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string].items.find(i => i.definitionId === MAGIC_RING_OF_STEALTH),
+      afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === MAGIC_RING_OF_STEALTH),
     ).toBeDefined();
   });
 });

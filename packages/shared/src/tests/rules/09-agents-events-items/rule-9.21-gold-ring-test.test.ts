@@ -52,7 +52,7 @@ describe('Rule 9.21 — Gold Ring Test', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
 
     const withPending = enqueueGoldRingTest(withRing, PLAYER_1, ringId, aragornId);
 
@@ -71,7 +71,7 @@ describe('Rule 9.21 — Gold Ring Test', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     // Add both eligible ring types to hand
     let state = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
     state = addCardToHand(state, RESOURCE_PLAYER, MAGIC_RING_OF_STEALTH);
@@ -91,7 +91,7 @@ describe('Rule 9.21 — Gold Ring Test', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     let state = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
     state = addCardToHand(state, RESOURCE_PLAYER, MAGIC_RING_OF_STEALTH);
 
@@ -110,7 +110,7 @@ describe('Rule 9.21 — Gold Ring Test', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -121,14 +121,14 @@ describe('Rule 9.21 — Gold Ring Test', () => {
 
     // Lesser Ring is now in Aragorn's items, not in hand
     expect(afterPlay.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === LESSER_RING)).toBeUndefined();
-    expect(afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string].items.find(i => i.definitionId === LESSER_RING)).toBeDefined();
+    expect(afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === LESSER_RING)).toBeDefined();
   });
 
   test('player passes: gold ring discarded, hand unchanged', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -147,7 +147,7 @@ describe('Rule 9.21 — Gold Ring Test', () => {
     const base = baseState();
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
 
     // Roll 2 - modifier 5 = -3 total: still eligible because lesser-ring is any result

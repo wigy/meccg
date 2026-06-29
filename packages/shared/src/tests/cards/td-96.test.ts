@@ -196,7 +196,7 @@ describe('Adamant Helmet (td-96)', () => {
     const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DRAGONS_CURSE);
 
     const aragornIdBefore = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragornBefore = state.players[RESOURCE_PLAYER].characters[aragornIdBefore as string];
+    const aragornBefore = state.players[RESOURCE_PLAYER].characters[aragornIdBefore];
     expect(aragornBefore.hazards).toHaveLength(1);
     expect(aragornBefore.hazards[0].definitionId).toBe(DRAGONS_CURSE);
 
@@ -206,7 +206,7 @@ describe('Adamant Helmet (td-96)', () => {
 
     const after = dispatch(state, onAragorn!.action);
 
-    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornIdBefore as string];
+    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornIdBefore];
     expect(aragornAfter.hazards).toHaveLength(0);
     expect(aragornAfter.items.map(i => i.definitionId)).toContain(ADAMANT_HELMET);
 
@@ -229,7 +229,7 @@ describe('Adamant Helmet (td-96)', () => {
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource') as { action: PlayHeroResourceAction }[];
     const after = dispatch(state, plays[0].action);
 
-    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornId];
     // Foolish Words is a lore-based hazard, not a dark enchantment — it must survive.
     expect(aragornAfter.hazards.map(h => h.definitionId)).toContain(FOOLISH_WORDS);
   });
@@ -275,7 +275,7 @@ describe('Adamant Helmet (td-96)', () => {
 
     const next = dispatch(state, plays[0].action as import('../../index.js').GameAction);
     // Ward cancels attachment: curse never lands on Aragorn.
-    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId].hazards).toHaveLength(0);
     // Strike prowess bonus is untouched — the curse never entered play.
     expect(next.combat!.strikeAssignments[0].strikeProwessBonus ?? 0).toBe(0);
   });

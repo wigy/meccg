@@ -271,7 +271,7 @@ describe('Book of Mazarbul (tw-201)', () => {
     const withBook = attachItemToChar(base, RESOURCE_PLAYER, GANDALF, BOOK_OF_MAZARBUL);
 
     const gandalfId = charIdAt(withBook, RESOURCE_PLAYER, 0, 0);
-    const gandalfChar = withBook.players[RESOURCE_PLAYER].characters[gandalfId as string];
+    const gandalfChar = withBook.players[RESOURCE_PLAYER].characters[gandalfId];
     const bookInstId = gandalfChar.items[0].instanceId;
 
     const actions = viableActions(withBook, PLAYER_1, 'activate-granted-action');
@@ -283,7 +283,7 @@ describe('Book of Mazarbul (tw-201)', () => {
     const after = dispatch(withBook, bookAction.action);
 
     // Item is tapped; bearer (Gandalf) remains untapped
-    const gandalfAfter = after.players[RESOURCE_PLAYER].characters[gandalfId as string];
+    const gandalfAfter = after.players[RESOURCE_PLAYER].characters[gandalfId];
     const bookAfter = gandalfAfter.items.find(i => i.instanceId === bookInstId)!;
     expect(bookAfter.status).toBe(CardStatus.Tapped);
 

@@ -57,7 +57,7 @@ describe('Rule 9.15 — Item Usage (Helmet)', () => {
       ],
     });
     const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
-    const gimli = state.players[0].characters[gimliId as string];
+    const gimli = state.players[0].characters[gimliId];
     // Gimli base body 8, +1 from one Adamant Helmet = 9.
     expect(gimli.effectiveStats.body).toBe(9);
   });
@@ -89,7 +89,7 @@ describe('Rule 9.15 — Item Usage (Helmet)', () => {
       ],
     });
     const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
-    const gimli = state.players[0].characters[gimliId as string];
+    const gimli = state.players[0].characters[gimliId];
     // Without rule 9.15 enforcement both helmets would stack to body 10;
     // with enforcement only the first is "in use" and contributes +1.
     expect(gimli.effectiveStats.body).toBe(9);
@@ -122,7 +122,7 @@ describe('Rule 9.15 — Item Usage (Helmet)', () => {
       ],
     });
     const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
-    const gimli = state.players[0].characters[gimliId as string];
+    const gimli = state.players[0].characters[gimliId];
     // Each Adamant Helmet has 1 CP; both contribute since CP is an
     // attribute of the card, not an effect (rule 9.15 carve-out).
     expect(gimli.effectiveStats.corruptionPoints).toBe(2);

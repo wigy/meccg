@@ -210,7 +210,7 @@ describe('Blasting Fire (wh-51)', () => {
 
     // The item is discarded (no longer borne; in the owner's discard pile).
     const asternakId = findCharInstanceId(afterDiscard, RESOURCE_PLAYER, ASTERNAK);
-    const asternak = afterDiscard.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const asternak = afterDiscard.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternak.items.some(i => i.definitionId === BLASTING_FIRE)).toBe(false);
     expect(afterDiscard.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === BLASTING_FIRE)).toBe(true);
 

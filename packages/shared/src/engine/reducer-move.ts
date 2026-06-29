@@ -443,7 +443,7 @@ function collectFromZone(
       const targetId = ctx.targetCharacterId;
       if (!targetId) return out;
       for (let pi = 0; pi < state.players.length; pi++) {
-        const char = state.players[pi].characters[targetId as string];
+        const char = state.players[pi].characters[targetId];
         if (!char) continue;
         for (const item of char.items) {
           if (item.instanceId === ctx.sourceCardId) continue;
@@ -576,7 +576,7 @@ function removeFromCharacterItems(
   itemId: CardInstanceId,
 ): GameState {
   const player = state.players[pi];
-  const char = player.characters[charId as string];
+  const char = player.characters[charId];
   if (!char) return state;
   const filtered = char.items.filter(i => i.instanceId !== itemId);
   if (filtered.length === char.items.length) return state;
@@ -598,7 +598,7 @@ function removeFromCharacterHazards(
   hazId: CardInstanceId,
 ): GameState {
   const player = state.players[pi];
-  const char = player.characters[charId as string];
+  const char = player.characters[charId];
   if (!char) return state;
   const filtered = char.hazards.filter(h => h.instanceId !== hazId);
   if (filtered.length === char.hazards.length) return state;

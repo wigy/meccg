@@ -248,7 +248,7 @@ describe('Escape (tw-229)', () => {
     const actionForElrond = (actions.map(ea => ea.action as CancelAttackAction))
       .find(a => {
         const targetId = a.targetCharacterId;
-        return targetId && state.players[RESOURCE_PLAYER].characters[targetId as string]?.definitionId === ELROND;
+        return targetId && state.players[RESOURCE_PLAYER].characters[targetId]?.definitionId === ELROND;
       });
     expect(actionForElrond).toBeDefined();
 

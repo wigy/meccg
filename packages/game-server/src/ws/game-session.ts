@@ -817,8 +817,8 @@ export class GameSession {
       opponent: opponent.name,
       winner: goState.winner === null ? null
         : goState.winner === playerId ? playerName : opponent.name,
-      finalScore: goState.finalScores[playerId as string],
-      opponentScore: goState.finalScores[opponent.id as string],
+      finalScore: goState.finalScores[playerId],
+      opponentScore: goState.finalScores[opponent.id],
       raw: selfRaw,
       adjusted: selfAdj,
       // How the game was decided (CoE 10.39). Denormalised card/alignment for

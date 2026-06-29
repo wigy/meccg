@@ -54,7 +54,7 @@ describe('Rule 3.35 — Transferring Items', () => {
 
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
-    const daggerInstId = state.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const daggerInstId = state.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
 
     const transfers = viableFor(state, PLAYER_1)
       .filter(a => a.action.type === 'transfer-item') as { action: TransferItemAction }[];

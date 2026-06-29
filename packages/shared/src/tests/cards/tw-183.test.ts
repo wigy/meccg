@@ -60,7 +60,7 @@ describe('Thorin II (tw-183)', () => {
   test('+3 prowess in combat against Orcs', () => {
     const state = makeThorinState();
     const thorinId = findCharInstanceId(state, RESOURCE_PLAYER, THORIN_II);
-    const thorin = state.players[RESOURCE_PLAYER].characters[thorinId as string];
+    const thorin = state.players[RESOURCE_PLAYER].characters[thorinId];
     const thorinDef = pool[THORIN_II as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, thorin, thorinDef, 'orc');
@@ -71,7 +71,7 @@ describe('Thorin II (tw-183)', () => {
   test('no prowess bonus against non-Orc enemies', () => {
     const state = makeThorinState();
     const thorinId = findCharInstanceId(state, RESOURCE_PLAYER, THORIN_II);
-    const thorin = state.players[RESOURCE_PLAYER].characters[thorinId as string];
+    const thorin = state.players[RESOURCE_PLAYER].characters[thorinId];
     const thorinDef = pool[THORIN_II as string] as CharacterCard;
 
     expect(computeCombatProwess(state, thorin, thorinDef, 'troll')).toBe(thorinDef.prowess);

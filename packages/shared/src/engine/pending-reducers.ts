@@ -16,6 +16,7 @@ import type {
   GameAction,
   PendingResolution,
   CardInstance,
+  CardInstanceId,
   GameEffect,
   CharacterInPlay,
 } from '../index.js';
@@ -185,7 +186,7 @@ function applyCorruptionCheckResolution(
   // resolution.
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const char = player.characters[characterId as string];
+  const char = player.characters[characterId];
   if (!char) {
     // Character was eliminated since the resolution was queued — drop it.
     logDetail(`Corruption check (${reason}): character ${characterId as string} no longer in play — dequeuing`);
@@ -243,9 +244,9 @@ function applyCorruptionCheckResolution(
       // character stays as it is (you cannot tap it "further").
       const tappedPlayers = clonePlayers(postRollState);
       const tappedChars = { ...tappedPlayers[playerIndex].characters };
-      const tappedChar = tappedChars[characterId as string];
+      const tappedChar = tappedChars[characterId];
       if (tappedChar && tappedChar.status === CardStatus.Untapped) {
-        tappedChars[characterId as string] = { ...tappedChar, status: CardStatus.Tapped };
+        tappedChars[characterId] = { ...tappedChar, status: CardStatus.Tapped };
       }
       tappedPlayers[playerIndex] = { ...tappedPlayers[playerIndex], characters: tappedChars };
       successState = { ...postRollState, players: tappedPlayers };
@@ -279,9 +280,9 @@ function applyCorruptionCheckResolution(
       .filter((x): x is CardInstance => x !== null);
     const ringIds = new Set(ringInstances.map(r => r.instanceId));
     const newCharacters = { ...player.characters };
-    const currentChar = newCharacters[characterId as string];
+    const currentChar = newCharacters[characterId];
     if (currentChar && ringIds.size > 0) {
-      newCharacters[characterId as string] = {
+      newCharacters[characterId] = {
         ...currentChar,
         items: currentChar.items.filter(i => !ringIds.has(i.instanceId)),
       };
@@ -309,7 +310,7 @@ function applyCorruptionCheckResolution(
       if (cid === characterId as string) continue;
       const itemIdx = cData.items.findIndex(i => i.instanceId === transferredItemId);
       if (itemIdx >= 0) {
-        newCharacters[cid] = { ...cData, items: cData.items.filter(i => i.instanceId !== transferredItemId) };
+        newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== transferredItemId) };
         break;
       }
     }
@@ -319,7 +320,7 @@ function applyCorruptionCheckResolution(
     // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
     logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
 
-    delete newCharacters[characterId as string];
+    delete newCharacters[characterId];
 
     const newCompanies = player.companies.map(c => ({
       ...c,
@@ -328,9 +329,9 @@ function applyCorruptionCheckResolution(
 
     // Followers lose their controller — promote to general influence
     for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
+      const follower = newCharacters[followerId];
       if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+        newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       }
     }
 
@@ -377,7 +378,7 @@ function applyCorruptionCheckResolution(
     // failure — character eliminated, possessions discarded.
     logDetail(`Corruption check FAILED (outcome eliminate, ${total} vs CP ${cp}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
 
-    delete newCharacters[characterId as string];
+    delete newCharacters[characterId];
 
     const newCompanies = player.companies.map(c => ({
       ...c,
@@ -385,9 +386,9 @@ function applyCorruptionCheckResolution(
     }));
 
     for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
+      const follower = newCharacters[followerId];
       if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+        newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       }
     }
 
@@ -689,7 +690,7 @@ function applyCancelInfluence(
   // Resolve the paying character's race and skills to find the matching effect
   const charDef = resolveDef(state, action.characterId);
   const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
-  const charData = action.characterId ? player.characters[action.characterId as string] : undefined;
+  const charData = action.characterId ? player.characters[action.characterId] : undefined;
   const charSkills = charDef && isCharacterCard(charDef)
     ? [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])]
     : [];
@@ -879,7 +880,7 @@ function applyFlateryAttemptResolution(
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
 
-  const charInPlay = player.characters[characterInstanceId as string];
+  const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) {
     return { state, error: `Flattery-attempt: character ${characterInstanceId as string} not found` };
   }
@@ -948,7 +949,7 @@ function applyCallOfHomeRollResolution(
   const { targetCharacterId, threshold } = top.kind;
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
-  const charInPlay = player.characters[targetCharacterId as string];
+  const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
   }
@@ -1021,7 +1022,7 @@ function returnCharacterToHand(
   // Handle followers — fall to GI if room, otherwise discard
   const newCharacters = { ...player.characters };
   for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId as string];
+    const follower = newCharacters[followerId];
     if (!follower) continue;
     const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
@@ -1034,7 +1035,7 @@ function returnCharacterToHand(
       }, 0);
 
     if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
     } else {
       for (const item of follower.items) {
@@ -1053,13 +1054,13 @@ function returnCharacterToHand(
         }
       }
       newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId as string];
+      delete newCharacters[followerId];
       logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
     }
   }
 
   // Remove the target character from characters map
-  delete newCharacters[characterId as string];
+  delete newCharacters[characterId];
 
   // Remove from companies
   const newCompanies = player.companies.map(company => {
@@ -1114,7 +1115,7 @@ function discardCharacter(
 
   const newCharacters = { ...player.characters };
   for (const followerId of charInPlay.followers) {
-    const follower = newCharacters[followerId as string];
+    const follower = newCharacters[followerId];
     if (!follower) continue;
     const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
@@ -1125,13 +1126,13 @@ function discardCharacter(
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
     if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
       for (const ally of follower.allies) newDiscard.push(toCardInstance(ally));
       for (const hazard of follower.hazards) newOpponentDiscard.push(toCardInstance(hazard));
       newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId as string];
+      delete newCharacters[followerId];
     }
   }
 
@@ -1139,7 +1140,7 @@ function discardCharacter(
     .filter(c => c.characters.includes(characterId))
     .map(c => c.id);
 
-  delete newCharacters[characterId as string];
+  delete newCharacters[characterId];
   const newCompanies = player.companies.map(company => {
     if (!company.characters.includes(characterId)) return company;
     return { ...company, characters: company.characters.filter(id => id !== characterId) };
@@ -1198,7 +1199,7 @@ function applyBodyCheckCompanyResolution(
   const { characterId, modifier, sourceDefinitionId } = top.kind;
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
-  const charInPlay = player.characters[characterId as string];
+  const charInPlay = player.characters[characterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
   }
@@ -1291,7 +1292,7 @@ function applySeizedByTerrorRollResolution(
   const { targetCharacterId, threshold, originSiteInstanceId } = top.kind;
   const actorIndex = getPlayerIndex(state, action.player);
   const player = state.players[actorIndex];
-  const charInPlay = player.characters[targetCharacterId as string];
+  const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
   }
@@ -1452,7 +1453,7 @@ function applyGoldRingTestResolution(
     if (foundCharId === null) {
       return { state: dequeueResolution(state, top.id), error: 'Gold ring not found in out-of-play pile or character items' };
     }
-    const char = player.characters[foundCharId];
+    const char = player.characters[foundCharId as CardInstanceId];
     ringCard = char.items[foundItemIdx];
     const newItems = [...char.items];
     newItems.splice(foundItemIdx, 1);
@@ -1480,7 +1481,7 @@ function applyGoldRingTestResolution(
     if (company) {
       const checkContext = { reason: 'gold-ring-test' };
       for (const compCharId of company.characters) {
-        const compChar = afterRingPlayer.characters[compCharId as string];
+        const compChar = afterRingPlayer.characters[compCharId];
         if (!compChar) continue;
         const charEffects = collectCharacterEffects(stateAfterRing, compChar, checkContext);
         itemCheckModifier += resolveCheckModifier(charEffects, 'gold-ring-test');
@@ -1625,7 +1626,7 @@ function applyRingPlayOfferResolution(
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
 
   // Locate the target character
-  const char = stateAfterRemove.players[playerIndex].characters[characterInstanceId as string];
+  const char = stateAfterRemove.players[playerIndex].characters[characterInstanceId];
   if (!char) {
     return { state, error: `Character ${characterInstanceId as string} not found for ring placement` };
   }
@@ -1907,7 +1908,7 @@ function applySelectCardBearerResolution(
   );
   if (defIdx < 0) return { state, error: `Character ${characterId as string} not found` };
   const defPlayer = state.players[defIdx];
-  const ch = defPlayer.characters[characterId as string];
+  const ch = defPlayer.characters[characterId];
   if (!ch) return { state, error: `Character ${characterId as string} not found` };
   if (ch.status !== CardStatus.Untapped) {
     return { state, error: `Character ${characterId as string} must be untapped to be the bearer` };
@@ -2057,11 +2058,11 @@ function applyGlamourHazardRollResolution(
   if (discarded) {
     // Find the hazard instance attached to any character on either player
     let foundOwnerIdx = -1;
-    let foundCharId: string | null = null;
+    let foundCharId: CardInstanceId | null = null;
     let foundHazardIdx = -1;
     for (let oi = 0; oi < postRoll.players.length; oi++) {
       const chars = postRoll.players[oi].characters;
-      for (const charId of Object.keys(chars)) {
+      for (const charId of Object.keys(chars) as CardInstanceId[]) {
         const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === hazardInstanceId);
         if (hIdx !== -1) { foundOwnerIdx = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
       }
@@ -2124,7 +2125,7 @@ function applyDiscardOneCompanyItemResolution(
     if (idx >= 0) {
       const item = charData.items[idx];
       removedItem = toCardInstance(item);
-      newCharacters[charId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
+      newCharacters[charId as CardInstanceId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
       itemRemoved = true;
       break;
     }
@@ -2300,7 +2301,7 @@ function applyCvccAllyDiscardRollResolution(
   let postRoll = dequeueResolution(stateAfterRoll, top.id);
 
   if (doDiscard) {
-    const hostChar = postRoll.players[allyOwnerPlayerIndex].characters[hostCharId];
+    const hostChar = postRoll.players[allyOwnerPlayerIndex].characters[hostCharId as CardInstanceId];
     if (hostChar) {
       const allyCard = hostChar.allies.find(a => a.instanceId === allyInstanceId);
       if (allyCard) {
@@ -2358,7 +2359,7 @@ function applyTapOneCharacterResolution(
   if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
   const player = state.players[playerIdx];
 
-  const char = player.characters[characterInstanceId as string];
+  const char = player.characters[characterInstanceId];
   if (!char) return { state, error: `Character ${characterInstanceId as string} not found` };
   if (char.status !== CardStatus.Untapped) {
     return { state, error: `Character ${characterInstanceId as string} is not untapped` };
@@ -2420,7 +2421,7 @@ function applyHavenRestoreCharacterResolution(
     return { state, error: `Character ${characterInstanceId as string} not in company ${companyId as string}` };
   }
 
-  const char = player.characters[characterInstanceId as string];
+  const char = player.characters[characterInstanceId];
   if (!char) return { state, error: `Character ${characterInstanceId as string} not found` };
 
   let nextStatus: CardStatus;

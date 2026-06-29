@@ -238,7 +238,7 @@ describe('An Article Missing (dm-43)', () => {
       const after = playCombatThroughAgentWin(state);
 
       const aragornId = charIdAt(after, RESOURCE_PLAYER);
-      const aragornChar = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+      const aragornChar = after.players[RESOURCE_PLAYER].characters[aragornId];
       expect(aragornChar.status).not.toBe(CardStatus.Inverted);
     });
 
@@ -276,7 +276,7 @@ describe('An Article Missing (dm-43)', () => {
 
       // Aragorn no longer holds the item
       const aragornId = charIdAt(after, RESOURCE_PLAYER);
-      const aragornChar = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+      const aragornChar = after.players[RESOURCE_PLAYER].characters[aragornId];
       expect(aragornChar.items).toHaveLength(0);
     });
 
@@ -311,7 +311,7 @@ describe('An Article Missing (dm-43)', () => {
       expect(s.combat?.phase).not.toBe('discard-item-from-company');
 
       // Item is still on Aragorn
-      const aragornChar = s.players[RESOURCE_PLAYER].characters[aragornId as string];
+      const aragornChar = s.players[RESOURCE_PLAYER].characters[aragornId];
       expect(aragornChar.items).toHaveLength(1);
     });
   });

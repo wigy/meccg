@@ -142,7 +142,7 @@ describe('dm-58: Flies and Spiders', () => {
           characters: {
             ...p.characters,
             [aragornId as string]: {
-              ...p.characters[aragornId as string],
+              ...p.characters[aragornId],
               hazards: [{ instanceId: hostId, definitionId: FLIES_AND_SPIDERS, status: 'Untapped' as const }],
             },
           },
@@ -173,7 +173,7 @@ describe('dm-58: Flies and Spiders', () => {
     const result = dispatch(combatState, tapAction.action);
 
     // Character not wounded — taken prisoner instead.
-    expect(result.players[RESOURCE_PLAYER].characters[aragornId as string].status).not.toBe('Inverted');
+    expect(result.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe('Inverted');
     // Prisoner record created.
     expect(result.hazardHosts).toHaveLength(1);
     expect(result.hazardHosts[0].prisoners).toContain(aragornId);

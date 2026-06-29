@@ -282,7 +282,7 @@ describe('Orc-draughts (le-328)', () => {
     });
 
     const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
-    const gorbag = state.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = state.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbag.items.map(i => i.definitionId)).toContain(ORC_DRAUGHTS);
   });
 });

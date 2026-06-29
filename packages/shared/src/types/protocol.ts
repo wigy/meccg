@@ -20,7 +20,7 @@
  * All messages are discriminated by a `type` field for easy dispatching.
  */
 
-import type { PlayerId, CardDefinitionId, Alignment, DieRoll } from './common.js';
+import type { PlayerId, CardDefinitionId, Alignment, DieRoll, ById } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
 
@@ -199,7 +199,7 @@ export interface StateMessage {
    * name the played card in the opponent's toast and log without
    * widening the general projection.
    */
-  readonly lastActionCardDefs?: Readonly<Record<string, CardDefinitionId>>;
+  readonly lastActionCardDefs?: ById<CardDefinitionId>;
 }
 
 /**

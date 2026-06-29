@@ -77,7 +77,7 @@ export function getEffectiveSiteType(
   // Shadows, Quiet Lands, …) cannot change the type of an Under-deeps site.
   // Short-circuit before folding any override constraint so every consumer
   // (hazard keying, item playability, untap) sees the unchanged printed type.
-  const siteDef = state.cardPool[siteDefinitionId as string] as { keywords?: readonly string[] } | undefined;
+  const siteDef = state.cardPool[siteDefinitionId] as { keywords?: readonly string[] } | undefined;
   if (siteDef?.keywords?.includes('under-deeps')) {
     return printedType;
   }

@@ -139,7 +139,7 @@ describe('Palantír of Orthanc (le-334)', () => {
 
   test('grant-action NOT available when the item is tapped', () => {
     const state = buildOrgState({});
-    const charId = findCharInstanceId(state, RESOURCE_PLAYER, CALENDAL) as string;
+    const charId = findCharInstanceId(state, RESOURCE_PLAYER, CALENDAL);
     const char = state.players[0].characters[charId];
     const tappedItem = { ...char.items[0], status: CardStatus.Tapped };
     const tappedState: GameState = {

@@ -245,7 +245,7 @@ describe('Wûluag (as-6)', () => {
     });
 
     const wuluagId = findCharInstanceId(state, RESOURCE_PLAYER, WULUAG);
-    const wuluag = state.players[RESOURCE_PLAYER].characters[wuluagId as string];
+    const wuluag = state.players[RESOURCE_PLAYER].characters[wuluagId];
     const wuluagDef = pool[WULUAG as string] as CharacterCard;
 
     // +1 prowess vs dwarf
@@ -291,7 +291,7 @@ describe('Wûluag (as-6)', () => {
           ...base.players[RESOURCE_PLAYER],
           characters: {
             ...base.players[RESOURCE_PLAYER].characters,
-            [tumaId as string]: { ...base.players[RESOURCE_PLAYER].characters[tumaId as string], status: CardStatus.Tapped },
+            [tumaId]: { ...base.players[RESOURCE_PLAYER].characters[tumaId], status: CardStatus.Tapped },
           },
         },
         base.players[HAZARD_PLAYER],

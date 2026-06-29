@@ -58,7 +58,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.directInfluence).toBe(2);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.directInfluence).toBe(2);
   });
 
   test('direct-influence +2 applied to non-warrior bearer (Layos 2 → 4)', () => {
@@ -73,7 +73,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.directInfluence).toBe(4);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.directInfluence).toBe(4);
   });
 
   // ─── Body +1 max 9 (unconditional) ─────────────────────────────────
@@ -90,7 +90,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.body).toBe(9);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.body).toBe(9);
   });
 
   test('body +1 applied to non-warrior bearer (Layos 8 → 9)', () => {
@@ -105,7 +105,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.body).toBe(9);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.body).toBe(9);
   });
 
   test('body capped at 9 for bearer already at cap (Lieutenant of Morgul 9 → 9)', () => {
@@ -120,7 +120,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.body).toBe(9);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.body).toBe(9);
   });
 
   // ─── Prowess +1 max 8 (warrior only) ───────────────────────────────
@@ -137,7 +137,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.prowess).toBe(6);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.prowess).toBe(6);
   });
 
   test('prowess NOT applied to non-warrior bearer (Layos stays at 3)', () => {
@@ -152,7 +152,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.prowess).toBe(3);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.prowess).toBe(3);
   });
 
   test('prowess capped at 8 for warrior already at cap (Lieutenant of Morgul 8 → 8)', () => {
@@ -167,7 +167,7 @@ describe('High Helm (le-313)', () => {
     });
 
     const bearerId = charIdAt(state, RESOURCE_PLAYER);
-    expect(state.players[RESOURCE_PLAYER].characters[bearerId as string].effectiveStats.prowess).toBe(8);
+    expect(state.players[RESOURCE_PLAYER].characters[bearerId].effectiveStats.prowess).toBe(8);
   });
 
   // ─── Playability ───────────────────────────────────────────────────

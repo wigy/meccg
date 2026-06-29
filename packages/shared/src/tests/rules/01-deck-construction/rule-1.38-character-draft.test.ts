@@ -76,10 +76,10 @@ describe('Rule 1.38 — Character Draft', () => {
     const p2Company = colState.players[1].companies[0];
 
     const p1CharDefs = p1Company.characters.map(
-      id => colState.players[0].characters[id as string]?.instanceId,
+      id => colState.players[0].characters[id]?.instanceId,
     );
     const p2CharDefs = p2Company.characters.map(
-      id => colState.players[1].characters[id as string]?.instanceId,
+      id => colState.players[1].characters[id]?.instanceId,
     );
 
     expect(p1CharDefs.includes(p1AragornInst)).toBe(false);

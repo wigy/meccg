@@ -134,7 +134,7 @@ describe('Orc Brawler (le-30)', () => {
     };
     const s = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    expect(s.players[0].characters[brawlerId as string]).toBeUndefined();
+    expect(s.players[0].characters[brawlerId]).toBeUndefined();
     expect(s.players[0].discardPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(true);
     expect(s.players[0].outOfPlayPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(false);
   });
@@ -160,7 +160,7 @@ describe('Orc Brawler (le-30)', () => {
     };
     const s = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    expect(s.players[0].characters[brawlerId as string]).toBeUndefined();
+    expect(s.players[0].characters[brawlerId]).toBeUndefined();
     expect(s.players[0].discardPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(true);
     expect(s.players[0].outOfPlayPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(false);
   });
@@ -188,7 +188,7 @@ describe('Orc Brawler (le-30)', () => {
     };
     const s = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    expect(s.players[0].characters[brawlerId as string]).toBeUndefined();
+    expect(s.players[0].characters[brawlerId]).toBeUndefined();
     expect(s.players[0].outOfPlayPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(true);
     expect(s.players[0].discardPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(false);
   });
@@ -215,7 +215,7 @@ describe('Orc Brawler (le-30)', () => {
     };
     const s = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
-    expect(s.players[0].characters[brawlerId as string]).toBeDefined();
+    expect(s.players[0].characters[brawlerId]).toBeDefined();
     expect(s.players[0].discardPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(false);
     expect(s.players[0].outOfPlayPile.some(c => c.definitionId === ORC_BRAWLER)).toBe(false);
   });

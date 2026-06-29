@@ -312,8 +312,8 @@ describe('Gollum (tw-246)', () => {
     const aragornId = findCharInstanceId(withRing, RESOURCE_PLAYER, ARAGORN);
     const bilboId = findCharInstanceId(withRing, HAZARD_PLAYER, BILBO);
 
-    const gollumInstId = withRing.players[0].characters[aragornId as string].allies[0].instanceId;
-    const ringInstId = withRing.players[1].characters[bilboId as string].items[0].instanceId;
+    const gollumInstId = withRing.players[0].characters[aragornId].allies[0].instanceId;
+    const ringInstId = withRing.players[1].characters[bilboId].items[0].instanceId;
 
     const actions = viableActions(withRing, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'stinker-discard-with-ring');
@@ -321,10 +321,10 @@ describe('Gollum (tw-246)', () => {
 
     const next = dispatch(withRing, actions[0].action);
 
-    expect(next.players[0].characters[aragornId as string].allies).toHaveLength(0);
+    expect(next.players[0].characters[aragornId].allies).toHaveLength(0);
     expectInDiscardPile(next, RESOURCE_PLAYER, gollumInstId);
 
-    expect(next.players[1].characters[bilboId as string].items).toHaveLength(0);
+    expect(next.players[1].characters[bilboId].items).toHaveLength(0);
     expectInDiscardPile(next, HAZARD_PLAYER, ringInstId);
   });
 
@@ -354,8 +354,8 @@ describe('Gollum (tw-246)', () => {
     const withRing = attachItemToChar(withGollum, RESOURCE_PLAYER, ARAGORN, THE_ONE_RING);
 
     const aragornId = findCharInstanceId(withRing, RESOURCE_PLAYER, ARAGORN);
-    const gollumInstId = withRing.players[0].characters[aragornId as string].allies[0].instanceId;
-    const ringInstId = withRing.players[0].characters[aragornId as string].items
+    const gollumInstId = withRing.players[0].characters[aragornId].allies[0].instanceId;
+    const ringInstId = withRing.players[0].characters[aragornId].items
       .find(i => i.definitionId === THE_ONE_RING)!.instanceId;
 
     const actions = viableActions(withRing, PLAYER_1, 'activate-granted-action')
@@ -364,7 +364,7 @@ describe('Gollum (tw-246)', () => {
 
     const next = dispatch(withRing, actions[0].action);
 
-    const host = next.players[0].characters[aragornId as string];
+    const host = next.players[0].characters[aragornId];
     expect(host.allies).toHaveLength(0);
     expect(host.items.some(i => i.instanceId === ringInstId)).toBe(false);
     expectInDiscardPile(next, RESOURCE_PLAYER, gollumInstId);
@@ -390,7 +390,7 @@ describe('Gollum (tw-246)', () => {
     expect(cancelActions.length).toBe(1);
 
     const aragornId = findCharInstanceId(combatState, RESOURCE_PLAYER, ARAGORN);
-    const gollum = combatState.players[RESOURCE_PLAYER].characters[aragornId as string].allies[0];
+    const gollum = combatState.players[RESOURCE_PLAYER].characters[aragornId].allies[0];
     const cancel = cancelActions[0].action as CancelAttackAction;
     expect(cancel.cardInstanceId).toBe(gollum.instanceId);
   });
@@ -475,7 +475,7 @@ describe('Gollum (tw-246)', () => {
     });
     base = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
-    const host = base.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const host = base.players[RESOURCE_PLAYER].characters[aragornId];
     const updatedChars = {
       ...base.players[RESOURCE_PLAYER].characters,
       [aragornId as string]: {
@@ -516,7 +516,7 @@ describe('Gollum (tw-246)', () => {
     expect(after.combat).toBeNull();
 
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    const gollum = after.players[RESOURCE_PLAYER].characters[aragornId as string].allies[0];
+    const gollum = after.players[RESOURCE_PLAYER].characters[aragornId].allies[0];
     expect(gollum.status).toBe(CardStatus.Tapped);
 
     expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);

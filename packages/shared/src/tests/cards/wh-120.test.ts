@@ -325,7 +325,7 @@ describe("Saruman's Machinery (wh-120)", () => {
     expect((after.phaseState as { technologyItemPlayed?: boolean }).technologyItemPlayed).toBe(true);
     // Blasting Fire is now borne by Saruman.
     const saruman = after.players[RESOURCE_PLAYER].characters[
-      after.players[RESOURCE_PLAYER].companies[0].characters[0] as string
+      after.players[RESOURCE_PLAYER].companies[0].characters[0]
     ];
     expect(saruman.items.some(i => i.definitionId === BLASTING_FIRE)).toBe(true);
   });

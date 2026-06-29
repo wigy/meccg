@@ -49,7 +49,7 @@ describe('Incite Defenders (le-115)', () => {
       ],
     });
 
-    const def = state.cardPool[INCITE_DEFENDERS as string] as HazardEventCard;
+    const def = state.cardPool[INCITE_DEFENDERS] as HazardEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hazard-event');
     expect(def.eventType).toBe('short');

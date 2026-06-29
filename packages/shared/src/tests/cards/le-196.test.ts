@@ -176,7 +176,7 @@ describe("I'll Report You (le-196)", () => {
     const leaderId = findCharInstanceId(base, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR);
     const cardId = findHandCardId(base, RESOURCE_PLAYER, ILL_REPORT_YOU);
     const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, leaderId);
-    const baseDI = (base.cardPool[LIEUTENANT_DOL_GULDUR as string] as { directInfluence: number }).directInfluence;
+    const baseDI = (base.cardPool[LIEUTENANT_DOL_GULDUR] as { directInfluence: number }).directInfluence;
     expect(getCharacter(after, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR).effectiveStats.directInfluence)
       .toBe(baseDI - 2);
   });
@@ -194,7 +194,7 @@ describe("I'll Report You (le-196)", () => {
     const leaderId = findCharInstanceId(base, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR);
     const cardId = findHandCardId(base, RESOURCE_PLAYER, ILL_REPORT_YOU);
     const attached = playPermanentEventAndResolve(base, PLAYER_1, cardId, leaderId);
-    const baseDI = (base.cardPool[LIEUTENANT_DOL_GULDUR as string] as { directInfluence: number }).directInfluence;
+    const baseDI = (base.cardPool[LIEUTENANT_DOL_GULDUR] as { directInfluence: number }).directInfluence;
     expect(getCharacter(attached, RESOURCE_PLAYER, LIEUTENANT_DOL_GULDUR).effectiveStats.directInfluence)
       .toBe(baseDI - 2);
     // Return card to hand via grant-action

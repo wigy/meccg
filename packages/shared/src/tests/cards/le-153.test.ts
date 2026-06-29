@@ -214,7 +214,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
 
     const after = dispatch(withHazard, discardActions[0]);
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
-    const charAfter = after.players[RESOURCE_PLAYER].characters[charId as string];
+    const charAfter = after.players[RESOURCE_PLAYER].characters[charId];
     // Foolish Words is gone from the character and in P2's (owner's) discard pile.
     expect(charAfter?.hazards.some(h => h.definitionId === FOOLISH_WORDS)).toBe(false);
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(true);
@@ -237,7 +237,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const moving = movingCompanyState(MORIA_MINION);
     const after = dispatch(dispatch(moving, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
-    expect(after.players[RESOURCE_PLAYER].characters[charId as string]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].characters[charId]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === LAST_CHILD)).toBe(true);
   });
 
@@ -246,7 +246,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const moving = movingCompanyState(BARAD_DUR);
     const after = dispatch(dispatch(moving, { type: 'pass', player: PLAYER_1 }), { type: 'pass', player: PLAYER_2 });
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
-    expect(after.players[RESOURCE_PLAYER].characters[charId as string]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].characters[charId]?.allies.some(a => a.definitionId === LAST_CHILD)).toBe(true);
   });
 
   // ─── Rule 8: return to hand if Shelob is played (dormant) ─────────────────

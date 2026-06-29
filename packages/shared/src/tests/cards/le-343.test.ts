@@ -71,7 +71,7 @@ describe('Scroll of Isildur (le-343)', () => {
     });
 
     const grishnakhChar = state.players[RESOURCE_PLAYER].characters[
-      findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH) as string
+      findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH)
     ];
     const effects = collectCharacterEffects(state, grishnakhChar, { reason: 'gold-ring-test' });
     const mod = resolveCheckModifier(effects, 'gold-ring-test');
@@ -100,7 +100,7 @@ describe('Scroll of Isildur (le-343)', () => {
     });
 
     const grishnakhChar = state.players[RESOURCE_PLAYER].characters[
-      findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH) as string
+      findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH)
     ];
     const effects = collectCharacterEffects(state, grishnakhChar, { reason: 'gold-ring-test' });
     const mod = resolveCheckModifier(effects, 'gold-ring-test');
@@ -130,7 +130,7 @@ describe('Scroll of Isildur (le-343)', () => {
     });
 
     const luitprandChar = state.players[RESOURCE_PLAYER].characters[
-      findCharInstanceId(state, RESOURCE_PLAYER, LUITPRAND) as string
+      findCharInstanceId(state, RESOURCE_PLAYER, LUITPRAND)
     ];
     const effects = collectCharacterEffects(state, luitprandChar, { reason: 'gold-ring-test' });
     expect(resolveCheckModifier(effects, 'gold-ring-test')).toBe(1);
@@ -322,7 +322,7 @@ describe('Scroll of Isildur (le-343)', () => {
     )).toBe(true);
     // Scroll should no longer be on Grishnákh
     const grishnakhId = findCharInstanceId(afterStore, RESOURCE_PLAYER, GRISHNAKH);
-    const items = afterStore.players[RESOURCE_PLAYER].characters[grishnakhId as string].items;
+    const items = afterStore.players[RESOURCE_PLAYER].characters[grishnakhId].items;
     expect(items.some(i => i.definitionId === SCROLL_OF_ISILDUR_MINION)).toBe(false);
   });
 });

@@ -250,7 +250,7 @@ describe('Diversion (le-180)', () => {
     const actionForCiryaher = (actions.map(ea => ea.action as CancelAttackAction))
       .find(a => {
         const targetId = a.targetCharacterId;
-        return targetId && state.players[RESOURCE_PLAYER].characters[targetId as string]?.definitionId === CIRYAHER;
+        return targetId && state.players[RESOURCE_PLAYER].characters[targetId]?.definitionId === CIRYAHER;
       });
     expect(actionForCiryaher).toBeDefined();
 

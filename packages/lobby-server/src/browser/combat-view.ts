@@ -452,7 +452,7 @@ function renderAttackerRow(
             )
           : new Set<string>();
       for (const charId of attackingCompany.characters) {
-        const char = attackerCharMap[charId as string];
+        const char = attackerCharMap[charId];
         if (!char) continue;
         container.appendChild(renderCvCCAttackerCharacterColumn(
           char, cardPool, combat, attackerStrikeMap,
@@ -595,7 +595,7 @@ function renderDefenderRow(
   const companyInPlayIds = new Set<string>();
   for (const charId of company.characters) {
     companyInPlayIds.add(charId as string);
-    const char = charMap[charId as string];
+    const char = charMap[charId];
     if (char) {
       for (const ally of char.allies) {
         companyInPlayIds.add(ally.instanceId as string);
@@ -642,7 +642,7 @@ function renderDefenderRow(
   }
 
   for (const charId of company.characters) {
-    const char = charMap[charId as string];
+    const char = charMap[charId];
     if (!char) continue;
 
     const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, onAction);
@@ -1362,7 +1362,7 @@ function showSalvageRecipientTooltip(
   onAction: (action: GameAction) => void,
 ): void {
   const items = recipientActions.map((action): TooltipMenuItem => {
-    const char = view.self.characters[action.recipientCharacterId as string];
+    const char = view.self.characters[action.recipientCharacterId];
     const charDef = char ? cardPool[char.definitionId as string] : undefined;
     const name = charDef && 'name' in charDef ? (charDef as { name: string }).name : (action.recipientCharacterId as string);
     return { label: `Transfer to ${name}`, onClick: () => onAction(action) };

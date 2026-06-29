@@ -223,7 +223,7 @@ export function updateCharacter(
   charId: CardInstanceId | string,
   updater: (c: CharacterInPlay) => CharacterInPlay,
 ): PlayerState {
-  const key = charId as string;
+  const key = charId as CardInstanceId;
   const char = player.characters[key];
   if (!char) return player;
   return {
@@ -281,7 +281,7 @@ export function updateAttachment(
 ): AttachmentUpdate<ItemInPlay | AllyInPlay> | null {
   const found = findAttachment(player, kind as 'items', attachmentId);
   if (!found) return null;
-  const updated = [...player.characters[found.charId as string][kind]];
+  const updated = [...player.characters[found.charId][kind]];
   updated[found.index] = updater(found.attachment as never);
   return {
     player: updateCharacter(player, found.charId, c => ({ ...c, [kind]: updated })),
@@ -305,7 +305,7 @@ export function removeAttachment(
 ): AttachmentUpdate<ItemInPlay | AllyInPlay> | null {
   const found = findAttachment(player, kind as 'items', attachmentId);
   if (!found) return null;
-  const updated = player.characters[found.charId as string][kind].filter((_, i) => i !== found.index);
+  const updated = player.characters[found.charId][kind].filter((_, i) => i !== found.index);
   return {
     player: updateCharacter(player, found.charId, c => ({ ...c, [kind]: updated })),
     charId: found.charId,
@@ -350,7 +350,7 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
  * {@link resolveDef}, which resolves a definition from a {@link CardInstanceId}.
  */
 export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
-  return state.cardPool[definitionId as string];
+  return state.cardPool[definitionId];
 }
 
 /**
@@ -560,7 +560,7 @@ export function playerHasProtectedWizardhaven(state: GameState, playerId: Player
     if (c.kind.type !== 'site-protected') continue;
     if (c.target.kind !== 'player' || c.target.playerId !== playerId) continue;
     const siteDefId = c.kind.siteDefinitionId;
-    const siteDef = state.cardPool[siteDefId as string];
+    const siteDef = state.cardPool[siteDefId];
     if (!isSiteCard(siteDef)) continue;
     const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
     if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) return true;
@@ -950,7 +950,7 @@ export function filterSideboardByDef(
 ): { instanceId: CardInstanceId; name: string }[] {
   const result: { instanceId: CardInstanceId; name: string }[] = [];
   for (const card of sideboard) {
-    const def = state.cardPool[card.definitionId as string];
+    const def = state.cardPool[card.definitionId];
     if (def && predicate(def)) {
       result.push({ instanceId: card.instanceId, name: def.name });
     }
@@ -1023,7 +1023,7 @@ export function countAttachedInCompany(
   kind: 'items' | 'allies',
 ): number {
   return company.characters.reduce((count, charInstId) => {
-    const ch = player.characters[charInstId as string];
+    const ch = player.characters[charInstId];
     if (!ch) return count;
     return count + ch[kind].filter(att => defById(state, att.definitionId)?.name === name).length;
   }, 0);
@@ -1057,7 +1057,7 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
       const coSiteDefId = co.currentSite ? resolveInstanceId(state, co.currentSite.instanceId) : undefined;
       if (coSiteDefId !== (siteDefId as string)) continue;
       for (const cId of co.characters) {
-        const ch = p.characters[cId as string];
+        const ch = p.characters[cId];
         if (!ch) continue;
         count += ch.items.filter(item => defById(state, item.definitionId)?.name === name).length;
       }
@@ -1297,7 +1297,7 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
   for (const [siteInstanceId, indices] of groups) {
     if (indices.length < 2) continue;
     const firstIdx = indices[0];
-    const siteDef = state.cardPool[player.companies[firstIdx].currentSite!.definitionId as string];
+    const siteDef = state.cardPool[player.companies[firstIdx].currentSite!.definitionId];
     const isHaven = siteDef && isSiteCard(siteDef) && siteDef.siteType === 'haven';
     if (isHaven) continue;
     mergeMap.set(firstIdx, indices.slice(1));
@@ -1405,7 +1405,7 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
     for (const company of player.companies) {
       const companyCharCount = company.characters.length;
       for (const charId of company.characters) {
-        const char = player.characters[charId as string];
+        const char = player.characters[charId];
         if (!char) continue;
         const toDiscard: CardInstanceId[] = [];
         for (const hazard of char.hazards) {
@@ -1433,7 +1433,7 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
             ...newPlayers[pi],
             characters: {
               ...newPlayers[pi].characters,
-              [charId as string]: { ...newPlayers[pi].characters[charId as string], hazards: remaining },
+              [charId]: { ...newPlayers[pi].characters[charId], hazards: remaining },
             },
           };
           // Hazards are owned by the opponent (hazard player = 1 - pi)
@@ -1477,9 +1477,9 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
       // Pre-compute mind values for all characters in this company
       const companyMinds: number[] = [];
       for (const chId of company.characters) {
-        const ch = player.characters[chId as string];
+        const ch = player.characters[chId];
         if (!ch) continue;
-        const chDef = state.cardPool[ch.definitionId as string];
+        const chDef = state.cardPool[ch.definitionId];
         const mind = chDef && 'mind' in chDef && typeof (chDef as { mind: unknown }).mind === 'number'
           ? (chDef as { mind: number }).mind
           : null;
@@ -1487,11 +1487,11 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
       }
 
       for (const charId of company.characters) {
-        const char = player.characters[charId as string];
+        const char = player.characters[charId];
         if (!char) continue;
 
         // Determine bearer's mind for higher-mind comparison
-        const bearerDef = state.cardPool[char.definitionId as string];
+        const bearerDef = state.cardPool[char.definitionId];
         const bearerMind = bearerDef && 'mind' in bearerDef && typeof (bearerDef as { mind: unknown }).mind === 'number'
           ? (bearerDef as { mind: number }).mind
           : null;
@@ -1523,7 +1523,7 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
             ...newPlayers[pi],
             characters: {
               ...newPlayers[pi].characters,
-              [charId as string]: { ...newPlayers[pi].characters[charId as string], items: remaining },
+              [charId]: { ...newPlayers[pi].characters[charId], items: remaining },
             },
             discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
           };
@@ -1612,7 +1612,7 @@ export function sweepCompanyMembershipChangedEvents(
       );
     },
     card => {
-      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`company-membership-changes: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -1644,7 +1644,7 @@ export function sweepLeaderLeavesCompanyEvents(
       );
     },
     card => {
-      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -1661,9 +1661,9 @@ export function sweepLeaderLeavesCompanyEvents(
 export function discardOrphanedControlledFactions(state: GameState): GameState {
   return discardCardsInPlayWhere(
     state,
-    (card, player) => card.controlledBy !== undefined && !player.characters[card.controlledBy as string],
+    (card, player) => card.controlledBy !== undefined && !player.characters[card.controlledBy],
     card => {
-      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`leader-control: discarding "${def?.name ?? card.definitionId}" — controlling leader left play`);
     },
   ).state;
@@ -1735,7 +1735,7 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       && !occupied.has(card.attachedToSite as string)
       && !activeHosts.has(card.instanceId as string),
     card => {
-      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
     },
   );
@@ -1799,7 +1799,7 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
       return effects.some(e => e.type === 'convert-creature-to-ally');
     },
     card => {
-      const def = state.cardPool[card.definitionId as string] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`converted-ally event: discarding "${def?.name ?? card.definitionId}" — its converted-creature ally left play`);
     },
   ).state;
@@ -2046,7 +2046,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   }
 
   const fetchedCard = sourcePile[cardIdx];
-  const def = state.cardPool[fetchedCard.definitionId as string];
+  const def = state.cardPool[fetchedCard.definitionId];
 
   // Validate card matches filter condition
   if (!def || !matchesDefinition(def, current.effect.filter)) {
@@ -2150,7 +2150,7 @@ export function isCovertCompany(
   const overtRaces = new Set<Race>([Race.Orc, Race.Troll]);
 
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
 
     const charDef = defById(state, charData.definitionId);

@@ -41,7 +41,7 @@ function findCompanyAllies(
 ): Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> {
   const result: Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> = [];
   for (const charId of companyCharacters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const ally of charData.allies) {
       result.push({ ally, hostCharId: charId });
@@ -60,7 +60,7 @@ export function findAllyInCompany(
   allyInstanceId: CardInstanceId,
 ): { ally: AllyInPlay; hostCharId: CardInstanceId } | undefined {
   for (const charId of companyCharacters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const ally of charData.allies) {
       if (ally.instanceId === allyInstanceId) {
@@ -82,7 +82,7 @@ export function findItemInCompany(
   itemInstanceId: CardInstanceId,
 ): { item: import('../../types/state-cards.js').ItemInPlay; hostCharId: CardInstanceId } | undefined {
   for (const charId of companyCharacters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const item of charData.items) {
       if (item.instanceId === itemInstanceId) {
@@ -274,7 +274,7 @@ function havenJoinAttackActions(
   const actions: EvaluatedAction[] = [];
   for (const offer of offers) {
     if (offer.bearerPlayerId !== playerId) continue;
-    const charInPlay = playerById(state, playerId)?.characters[offer.characterId as string];
+    const charInPlay = playerById(state, playerId)?.characters[offer.characterId];
     if (!charInPlay) continue;
     logDetail(`Defender may accept haven-join for ${offer.characterId as string}`);
     actions.push({
@@ -351,7 +351,7 @@ function assignStrikeActions(
           logDetail(`CvCC defender phase: character ${charId as string} protected from assignment — skipping`);
           continue;
         }
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (!charData) continue;
         if (charData.status !== CardStatus.Untapped) {
           logDetail(`CvCC defender phase: character ${charId as string} is ${charData.status} — not available`);
@@ -402,7 +402,7 @@ function assignStrikeActions(
     // may not be assigned a strike while their ally is unassigned.
     const strikeShieldBlockedChars = new Set<string>();
     for (const charId of company.characters) {
-      const charData = player.characters[charId as string];
+      const charData = player.characters[charId];
       if (!charData) continue;
       for (const ally of charData.allies) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
@@ -427,7 +427,7 @@ function assignStrikeActions(
     for (const charId of company.characters) {
       if (assignedCharIds.has(charId as string)) continue;
       if (restrictToForced && !unassignedForced.includes(charId)) continue;
-      const charData = player.characters[charId as string];
+      const charData = player.characters[charId];
       if (!charData) continue;
       if (strikeShieldBlockedChars.has(charId as string)) {
         logDetail(`Character ${charId as string} shielded — must assign strike to ally first`);
@@ -465,7 +465,7 @@ function assignStrikeActions(
     if (!restrictToForced) {
       for (const { ally } of findCompanyAllies(player, company.characters)) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
-        if (hasPlayFlag(state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+        if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
           logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from defender strike assignment`);
           continue;
         }
@@ -536,18 +536,18 @@ function assignStrikeActions(
         continue;
       }
       if (combat.excludeAvatarStrikes) {
-        const charData = defPlayer.characters[charId as string];
+        const charData = defPlayer.characters[charId];
         const def = charData?.definitionId ? defById(state, charData.definitionId) : undefined;
         if (isAvatarCharacter(def)) {
           logDetail(`Character ${charId as string} is an avatar — excluded from attacker assignment pool`);
           continue;
         }
       }
-      const charData = defPlayer.characters[charId as string];
+      const charData = defPlayer.characters[charId];
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
     for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
-      if (hasPlayFlag(state.cardPool[ally.definitionId as string] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+      if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
         logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
         continue;
       }
@@ -623,7 +623,7 @@ function cvccAttackerAssignActions(
   const availableAttackers: CardInstanceId[] = [];
   for (const charId of atkCompany.characters) {
     if (usedAttackerIds.has(charId as string)) continue;
-    const charData = atkPlayer.characters[charId as string];
+    const charData = atkPlayer.characters[charId];
     if (charData?.status !== CardStatus.Untapped) {
       logDetail(`CvCC attacker ${charId as string} is ${charData?.status ?? 'unknown'} — not available`);
       continue;
@@ -767,7 +767,7 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
     const sa = combat.strikeAssignments[i];
     if (sa.resolved) continue;
     // Target may be a character or ally (CoE rule 2.V.2.2)
-    const charData = defPlayer.characters[sa.characterId as string];
+    const charData = defPlayer.characters[sa.characterId];
     const allyMatch = !charData && company
       ? findAllyInCompany(defPlayer, company.characters, sa.characterId)
       : undefined;
@@ -863,7 +863,7 @@ function resolveStrikeActions(
   // The -3 option is only available if the combatant is currently untapped
   const player0 = playerById(state, playerId);
   if (!player0) return [];
-  const charData = player0.characters[currentStrike.characterId as string];
+  const charData = player0.characters[currentStrike.characterId];
   const company0 = companyById(player0.companies, combat.companyId);
 
   // The strike target may be a character or an ally (CoE rule 2.V.2.2)
@@ -1010,7 +1010,7 @@ function resolveStrikeActions(
     for (const charId of company.characters) {
       // Untapped characters without a strike can support
       if (!assignedCharIds.has(charId as string)) {
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (charData && charData.status === CardStatus.Untapped) {
           logDetail(`Untapped character ${charId as string} can support (no strike assigned)`);
           actions.push({
@@ -1026,7 +1026,7 @@ function resolveStrikeActions(
       }
 
       // Untapped allies on any character in the company can support
-      const hostChar = player.characters[charId as string];
+      const hostChar = player.characters[charId];
       if (hostChar) {
         for (const ally of hostChar.allies) {
           if (ally.status !== CardStatus.Untapped) continue;
@@ -1051,7 +1051,7 @@ function resolveStrikeActions(
     const strikeTargetDef = charDef;
     for (const compCharId of company0.characters) {
       if (compCharId === currentStrike.characterId) continue;
-      const compCharData = player0.characters[compCharId as string];
+      const compCharData = player0.characters[compCharId];
       if (!compCharData || compCharData.status !== CardStatus.Untapped) continue;
       const compCharDef = defById(state, compCharData.definitionId);
       if (!compCharDef || !isCharacterCard(compCharDef)) continue;
@@ -1188,7 +1188,7 @@ function cvccResolveStrikeActions(
     const atkPlayer = playerById(state, combat.attackingPlayerId);
     if (!atkPlayer) return [];
     const atkCharData = currentStrike.attackingCharacterId
-      ? atkPlayer.characters[currentStrike.attackingCharacterId as string]
+      ? atkPlayer.characters[currentStrike.attackingCharacterId]
       : undefined;
     const atkCharDef = atkCharData?.definitionId ? defById(state, atkCharData.definitionId) : undefined;
     const atkCharName = (atkCharDef as { name?: string } | undefined)?.name
@@ -1254,7 +1254,7 @@ function shortEventsAffectingStrike(
   const defPlayer = playerById(state, combat.defendingPlayerId);
   if (!defPlayer) return [];
 
-  const strikeCharData = defPlayer.characters[currentStrike.characterId as string];
+  const strikeCharData = defPlayer.characters[currentStrike.characterId];
   if (!strikeCharData) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -1337,7 +1337,7 @@ function tapItemForStrikeActions(
 
   const defPlayer = playerById(state, playerId);
   if (!defPlayer) return [];
-  const charData = defPlayer.characters[currentStrike.characterId as string];
+  const charData = defPlayer.characters[currentStrike.characterId];
   if (!charData) return [];
 
   const charDef = defById(state, charData.definitionId);
@@ -1419,14 +1419,14 @@ function bodyCheckActions(
     // CvCC: roll for the attacking character's body
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const atkPlayer = playerById(state, combat.attackingPlayerId);
-    const charData = atkPlayer?.characters[strike?.attackingCharacterId as string];
+    const charData = atkPlayer?.characters[strike?.attackingCharacterId as CardInstanceId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
     targetLabel = charDef?.name ?? 'attacker';
   } else {
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayer = playerById(state, combat.defendingPlayerId);
-    const charData = defPlayer?.characters[strike?.characterId as string];
+    const charData = defPlayer?.characters[strike?.characterId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
     // Dodge body penalty
@@ -1478,9 +1478,9 @@ function shieldDiscardRollActions(
       const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
       if (!defPlayer) return undefined;
       const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-      const charData = strike ? defPlayer.characters[strike.characterId as string] : undefined;
-      return charData?.items.find(i => i.instanceId === combat.shieldAbsorbItemId)?.definitionId as string | undefined;
-    })() ?? ''
+      const charData = strike ? defPlayer.characters[strike.characterId] : undefined;
+      return charData?.items.find(i => i.instanceId === combat.shieldAbsorbItemId)?.definitionId;
+    })() ?? ('' as CardDefinitionId)
   ] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
 
   const absorbEffect = (itemDef?.effects ?? []).find(
@@ -1549,7 +1549,7 @@ function convertCreatureToAllyActions(
   // Candidate controlling characters: untapped characters in the company (they
   // must be able to tap to take control).
   const untappedChars = company.characters.filter(charId => {
-    const ch = player.characters[charId as string];
+    const ch = player.characters[charId];
     return ch && ch.status === CardStatus.Untapped;
   });
   if (untappedChars.length === 0) return [];
@@ -1689,7 +1689,7 @@ function cancelAttackActions(
   // In-play characters in the defending company with a cancel-attack effect
   // and a "tap self" cost (e.g. Adûnaphel the Ringwraith's Darkhaven tap).
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     const charDef = defById(state, charData.definitionId);
     if (!charDef) continue;
@@ -1754,7 +1754,7 @@ function cancelAttackActions(
   //                       must be untapped.
   //   "bearer"          — tap bearer only (e.g. Star-glass); bearer untapped.
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
@@ -1836,7 +1836,7 @@ function cancelAttackActions(
     );
     if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace && hasWound) {
       for (const charId of company.characters) {
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (!charData) continue;
         if (charData.status === CardStatus.Inverted) {
           logDetail(`Cancel-attack (wound) ${handCard.definitionId as string}: skip wounded character ${charId as string}`);
@@ -1887,7 +1887,7 @@ function cancelAttackActions(
 
     if (cancelEffect.cost) {
       for (const charId of company.characters) {
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (!charData) continue;
         if (!canPayCost(cancelEffect.cost, charData)) continue;
 
@@ -1924,7 +1924,7 @@ function cancelAttackActions(
       }
     } else {
       const hasMatch = company.characters.some(charId => {
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (!charData) return false;
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) return false;
@@ -2016,7 +2016,7 @@ function protectFromStrikeAssignmentActions(
     if (!protEff) continue;
 
     for (const charId of company.characters) {
-      const charData = player.characters[charId as string];
+      const charData = player.characters[charId];
       if (!charData) continue;
       const charDef = defById(state, charData.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
@@ -2126,7 +2126,7 @@ function modifyAttackActions(
     const company = companyById(player.companies, combat.companyId);
     if (company) {
       for (const charId of company.characters) {
-        const charData = player.characters[charId as string];
+        const charData = player.characters[charId];
         if (!charData) continue;
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
@@ -2319,7 +2319,7 @@ function companyCombatBoostActions(
     for (const effect of boostEffects) {
       if (!effect.filter) { hasMatch = true; break; }
       for (const charId of company.characters) {
-        const char = player.characters[charId as string];
+        const char = player.characters[charId];
         if (!char) continue;
         const charCardDef = defById(state, char.definitionId);
         if (!charCardDef || !('race' in charCardDef)) continue;
@@ -2403,7 +2403,7 @@ function tapAllyCombatBoostActions(
       for (const effect of boostEffects) {
         if (!effect.filter) { hasMatch = true; break; }
         for (const memberId of company.characters) {
-          const member = player.characters[memberId as string];
+          const member = player.characters[memberId];
           if (!member) continue;
           const memberDef = defById(state, member.definitionId);
           if (!memberDef || !('race' in memberDef)) continue;
@@ -2458,7 +2458,7 @@ function cancelByTapActions(
     // By default the target character cannot tap to cancel (Assassin: "not the defending character").
     // When allowTargetToCancel is set (Slayer: "any one character"), the target may also tap.
     if (!combat.cancelByTapAllowTarget && charId === targetCharId) continue;
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData || charData.status !== CardStatus.Untapped) continue;
 
     logDetail(`Cancel-by-tap available: tap ${charId as string} to cancel one attack`);
@@ -2500,7 +2500,7 @@ function itemSalvageActions(
   // For each available item × each eligible recipient = one action
   for (const item of salvageItems) {
     for (const recipientId of salvageRecipients) {
-      const charData = playerById(state, playerId)?.characters[recipientId as string];
+      const charData = playerById(state, playerId)?.characters[recipientId];
       const charDef = charData ? defById(state, charData.definitionId) : undefined;
       const charName = charDef?.name ?? (recipientId as string);
       const itemDef = defById(state, item.definitionId);
@@ -2586,7 +2586,7 @@ function combatHazardPermanentPlays(
   const defender = playerById(state, combat.defendingPlayerId);
   if (!defender) return [];
   const targetCharId = currentStrike.characterId;
-  const targetChar = defender.characters[targetCharId as string];
+  const targetChar = defender.characters[targetCharId];
   if (!targetChar) return [];
   const targetDef = defById(state, targetChar.definitionId);
   if (!targetDef || !isCharacterCard(targetDef)) return [];

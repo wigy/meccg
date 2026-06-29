@@ -58,7 +58,7 @@ describe('Óin (tw-172)', () => {
   test('+1 prowess in combat against Orcs', () => {
     const state = makeOinCombatState();
     const oinId = findCharInstanceId(state, RESOURCE_PLAYER, OIN);
-    const oin = state.players[RESOURCE_PLAYER].characters[oinId as string];
+    const oin = state.players[RESOURCE_PLAYER].characters[oinId];
     const oinDef = pool[OIN as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, oin, oinDef, 'orc');
@@ -69,7 +69,7 @@ describe('Óin (tw-172)', () => {
   test('no prowess bonus against non-Orc enemies', () => {
     const state = makeOinCombatState();
     const oinId = findCharInstanceId(state, RESOURCE_PLAYER, OIN);
-    const oin = state.players[RESOURCE_PLAYER].characters[oinId as string];
+    const oin = state.players[RESOURCE_PLAYER].characters[oinId];
     const oinDef = pool[OIN as string] as CharacterCard;
 
     expect(computeCombatProwess(state, oin, oinDef, 'troll')).toBe(oinDef.prowess);

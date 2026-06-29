@@ -306,7 +306,7 @@ describe('Burning Rick, Cot, and Tree (le-173)', () => {
     const afterBearerSelect = dispatch(afterBothAttacks, firstBearerAction);
 
     // Chosen character must be tapped
-    const chosenChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[chosenCharId as string];
+    const chosenChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[chosenCharId];
     expect(chosenChar.status).toBe(CardStatus.Tapped);
 
     // Card must stay in cardsInPlay (NOT attached to any character's items)
@@ -417,7 +417,7 @@ describe('Burning Rick, Cot, and Tree (le-173)', () => {
     // All offered bearer characters must be untapped
     for (const ea of bearerActions) {
       const bearerAction = ea.action as SelectCardBearerAction;
-      const ch = afterBothAttacks.players[RESOURCE_PLAYER].characters[bearerAction.characterId as string];
+      const ch = afterBothAttacks.players[RESOURCE_PLAYER].characters[bearerAction.characterId];
       expect(ch?.status).toBe(CardStatus.Untapped);
     }
   });
@@ -448,7 +448,7 @@ describe('Burning Rick, Cot, and Tree (le-173)', () => {
     expect(anyUntapped).toBe(true);
 
     // GORBAG was assigned and should be tapped
-    const gorbagChar = afterBothAttacks.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbagChar = afterBothAttacks.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbagChar?.status).toBe(CardStatus.Tapped);
   });
 });

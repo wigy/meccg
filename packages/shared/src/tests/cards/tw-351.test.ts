@@ -23,6 +23,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../index.js';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
@@ -74,7 +75,7 @@ describe('Torque of Hues (tw-351)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
     // Tap the item manually.
-    const aragornId = Object.keys(withItem.players[RESOURCE_PLAYER].characters).find(
+    const aragornId = (Object.keys(withItem.players[RESOURCE_PLAYER].characters) as CardInstanceId[]).find(
       id => withItem.players[RESOURCE_PLAYER].characters[id].definitionId === ARAGORN,
     )!;
     const tappedItem = {
@@ -167,13 +168,13 @@ describe('Torque of Hues (tw-351)', () => {
     // Create combat already in assign-strikes state WITH a strike already assigned.
     const combatState = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
     // Place a strike assignment to move past the cancel window.
-    const aragornId = Object.keys(combatState.players[RESOURCE_PLAYER].characters).find(
+    const aragornId = (Object.keys(combatState.players[RESOURCE_PLAYER].characters) as CardInstanceId[]).find(
       id => combatState.players[RESOURCE_PLAYER].characters[id].definitionId === ARAGORN,
     )!;
     const afterAssign = {
       ...combatState,
       combat: combatState.combat
-        ? { ...combatState.combat, strikeAssignments: [{ characterId: aragornId as CardDefinitionId, strikeIndex: 0 }] }
+        ? { ...combatState.combat, strikeAssignments: [{ characterId: aragornId, strikeIndex: 0 }] }
         : combatState.combat,
     } as typeof combatState;
 
@@ -224,7 +225,7 @@ describe('Torque of Hues (tw-351)', () => {
     expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     // Item (Torque of Hues) is also tapped.
-    const aragornId = Object.keys(after.players[RESOURCE_PLAYER].characters).find(
+    const aragornId = (Object.keys(after.players[RESOURCE_PLAYER].characters) as CardInstanceId[]).find(
       id => after.players[RESOURCE_PLAYER].characters[id].definitionId === ARAGORN,
     )!;
     const torque = after.players[RESOURCE_PLAYER].characters[aragornId].items.find(

@@ -242,7 +242,7 @@ describe('Secrets of Their Forging (le-226)', () => {
 
     // Tap the sage
     const hadorId = findCharInstanceId(withCard, RESOURCE_PLAYER, HADOR);
-    const hadorChar = withCard.players[RESOURCE_PLAYER].characters[hadorId as string];
+    const hadorChar = withCard.players[RESOURCE_PLAYER].characters[hadorId];
     const tappedP0 = {
       ...withCard.players[RESOURCE_PLAYER],
       characters: { ...withCard.players[RESOURCE_PLAYER].characters, [hadorId as string]: { ...hadorChar, status: CardStatus.Tapped } },
@@ -486,7 +486,7 @@ describe('Secrets of Their Forging (le-226)', () => {
     });
     const hadorId = charIdAt(base, RESOURCE_PLAYER);
     expect(hadorId).toBeTruthy();
-    expect(base.players[RESOURCE_PLAYER].characters[hadorId as string]).toBeDefined();
+    expect(base.players[RESOURCE_PLAYER].characters[hadorId]).toBeDefined();
   });
 
   // ── Regression: enter-or-skip play-condition checks ───────────────────────

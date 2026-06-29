@@ -12,6 +12,7 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
+import type { CardInstanceId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -380,7 +381,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
   }
 
   // Collect items to discard-self from untap-phase-end triggers (processed after scan).
-  const untapEndDiscards: Array<{ charId: string; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
+  const untapEndDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
 
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
@@ -414,7 +415,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
             char.items.some(i => i.instanceId === card.instanceId) ? 'items'
             : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
           logDetail(`Untap-phase-end: queuing discard-self for ${def?.name ?? '?'} on ${charId} (slot=${slot})`);
-          untapEndDiscards.push({ charId, slot, cardInstanceId: card.instanceId as string });
+          untapEndDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
         }
       }
     }
@@ -453,7 +454,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
     // Resolve this player's avatar definition ID for organization-phase-start conditions
     let playerAvatarId: string | null = null;
     for (const char of Object.values(p.characters)) {
-      const charDef = advanced.cardPool[char.definitionId as string];
+      const charDef = advanced.cardPool[char.definitionId];
       if (charDef && isCharacterCard(charDef) && isAvatarCharacter(charDef)) {
         playerAvatarId = char.definitionId as string;
         break;
@@ -463,7 +464,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
     for (const card of p.cardsInPlay) {
       const cid = card.companyId as string | undefined;
       if (!cid || !activePlayerCompanyIds.has(cid)) continue;
-      const eDef = advanced.cardPool[card.definitionId as string] as { readonly name?: string; readonly effects?: readonly CardEffect[] } | undefined;
+      const eDef = advanced.cardPool[card.definitionId] as { readonly name?: string; readonly effects?: readonly CardEffect[] } | undefined;
       if (!eDef?.effects) continue;
       for (const e of eDef.effects) {
         if (e.type !== 'on-event') continue;
@@ -506,7 +507,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
       for (const [cid, c] of pending) {
         logDetail(`Organization phase begins: ${cid} mind now counts against general influence (CoE 2.II.2.2.3)`);
         const { influenceUnsubtracted: _drop, ...rest } = c;
-        clearedChars[cid] = rest;
+        clearedChars[cid as CardInstanceId] = rest;
       }
       advanced = updatePlayer(advanced, activeIndex, p => ({ ...p, characters: clearedChars }));
     }

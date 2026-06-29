@@ -168,14 +168,14 @@ describe('The Under-gates (dm-38)', () => {
 
   test('dm-38 is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_GATES });
-    const def = state.cardPool[THE_UNDER_GATES as string];
+    const def = state.cardPool[THE_UNDER_GATES];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('The Under-gates');
   });
 
   test('tw-12 (Balrog of Moria) is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_GATES });
-    const def = state.cardPool[BALROG_OF_MORIA as string];
+    const def = state.cardPool[BALROG_OF_MORIA];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('Balrog of Moria');
   });

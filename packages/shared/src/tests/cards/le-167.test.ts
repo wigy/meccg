@@ -124,7 +124,7 @@ describe('Bade to Rule (le-167)', () => {
     const cardId = findHandCardId(base, RESOURCE_PLAYER, BADE_TO_RULE);
     const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, rwId);
     const rw = getCharacter(after, RESOURCE_PLAYER, ADUNAPHEL);
-    const pool = base.cardPool[ADUNAPHEL as string] as { directInfluence: number };
+    const pool = base.cardPool[ADUNAPHEL] as { directInfluence: number };
     expect(rw.effectiveStats.directInfluence).toBe(pool.directInfluence - 2);
   });
 
@@ -192,7 +192,7 @@ describe('Bade to Rule (le-167)', () => {
     // Movement is in a different phase; just verify bearer-company-moves sweeper
     // runs by checking the item list after triggering movement through the M/H phase.
     // We confirm the effect is wired by checking the attached item has the trigger:
-    const cardDef = attached.cardPool[BADE_TO_RULE as string] as { effects?: { type: string; event?: string; apply?: { type: string } }[] };
+    const cardDef = attached.cardPool[BADE_TO_RULE] as { effects?: { type: string; event?: string; apply?: { type: string } }[] };
     const hasTrigger = cardDef.effects?.some(e => e.type === 'on-event' && e.event === 'bearer-company-moves');
     expect(hasTrigger).toBe(true);
     // Suppress unused-variable warning

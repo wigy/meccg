@@ -148,7 +148,7 @@ describe('Star-glass (tw-330)', () => {
 
     // Item (Star-glass) is still untapped — only bearer taps.
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
     const starGlass = aragorn.items.find(i => i.definitionId === STAR_GLASS);
     expect(starGlass).toBeDefined();
     expect(starGlass!.status).toBe(CardStatus.Untapped);
@@ -307,7 +307,7 @@ describe('Star-glass (tw-330)', () => {
 
     // Item stays untapped.
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
     const starGlass = aragorn.items.find(i => i.definitionId === STAR_GLASS);
     expect(starGlass).toBeDefined();
     expect(starGlass!.status).toBe(CardStatus.Untapped);

@@ -98,7 +98,7 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     // Move Legolas from P2 to a second P1 company sharing the same Rivendell instance
     const p2 = base.players[HAZARD_PLAYER];
     const legolasId = p2.companies[0].characters[0];
-    const legolasChar = p2.characters[legolasId as string];
+    const legolasChar = p2.characters[legolasId];
 
     const secondCompany = {
       ...company1,

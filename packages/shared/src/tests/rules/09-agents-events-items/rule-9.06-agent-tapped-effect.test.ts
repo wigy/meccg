@@ -130,7 +130,7 @@ describe('Rule 9.06 — Agent Tapped for Effect', () => {
     expect(after.combat!.assignmentPhase).toBe('attacker');
 
     // The card is in the discard pile (short event)
-    const cardDef = state.cardPool[AN_ARTICLE_MISSING as string];
+    const cardDef = state.cardPool[AN_ARTICLE_MISSING];
     expect(after.players[1].discardPile.some(c => c.definitionId === AN_ARTICLE_MISSING)).toBe(true);
     void cardDef;
   });

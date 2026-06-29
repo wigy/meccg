@@ -34,11 +34,11 @@ export function collectBearerWardFilters(
   playerIndex: number,
   charInstanceId: CardInstanceId,
 ): readonly import('../../types/effects.js').Condition[] {
-  const char = state.players[playerIndex].characters[charInstanceId as string];
+  const char = state.players[playerIndex].characters[charInstanceId];
   if (!char) return [];
   const filters: import('../../types/effects.js').Condition[] = [];
   for (const item of char.items) {
-    const def = state.cardPool[item.definitionId as string];
+    const def = state.cardPool[item.definitionId];
     for (const eff of getCardEffects(def)) {
       if (eff.type === 'ward-bearer') filters.push(eff.filter);
     }
@@ -81,14 +81,14 @@ export function applyWardToBearer(
     .map(e => e.filter);
   if (filters.length === 0) return state;
 
-  const char = state.players[charOwnerIndex].characters[charInstanceId as string];
+  const char = state.players[charOwnerIndex].characters[charInstanceId];
   if (!char || char.hazards.length === 0) return state;
 
   const keptHazards: CardInPlay[] = [];
   const discarded: CardInPlay[] = [];
   for (const haz of char.hazards) {
     if (haz.instanceId === newItemInstanceId) { keptHazards.push(haz); continue; }
-    const hazDef = state.cardPool[haz.definitionId as string];
+    const hazDef = state.cardPool[haz.definitionId];
     const hazCtx = hazDef as unknown as Record<string, unknown>;
     if (hazDef && filters.some(f => matchesCondition(f, hazCtx))) {
       logDetail(`Ward "${wardCardDef.name}" cancels "${hazDef.name}" on bearer ${charInstanceId as string}`);

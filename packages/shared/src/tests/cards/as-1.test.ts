@@ -192,8 +192,8 @@ describe('Bûrat (as-1)', () => {
     });
 
     const buratId = findCharInstanceId(state, RESOURCE_PLAYER, BURAT);
-    const burat = state.players[RESOURCE_PLAYER].characters[buratId as string];
-    const buratDef = state.cardPool[burat.definitionId as string] as CharacterCard;
+    const burat = state.players[RESOURCE_PLAYER].characters[buratId];
+    const buratDef = state.cardPool[burat.definitionId] as CharacterCard;
 
     expect(computeCombatProwess(state, burat, buratDef, 'dwarf')).toBe(buratDef.prowess + 1);
   });
@@ -221,8 +221,8 @@ describe('Bûrat (as-1)', () => {
     });
 
     const buratId = findCharInstanceId(state, RESOURCE_PLAYER, BURAT);
-    const burat = state.players[RESOURCE_PLAYER].characters[buratId as string];
-    const buratDef = state.cardPool[burat.definitionId as string] as CharacterCard;
+    const burat = state.players[RESOURCE_PLAYER].characters[buratId];
+    const buratDef = state.cardPool[burat.definitionId] as CharacterCard;
 
     expect(computeCombatProwess(state, burat, buratDef, 'orc')).toBe(buratDef.prowess);
     expect(computeCombatProwess(state, burat, buratDef, 'elf')).toBe(buratDef.prowess);

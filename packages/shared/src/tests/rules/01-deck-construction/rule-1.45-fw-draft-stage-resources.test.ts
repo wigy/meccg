@@ -306,7 +306,7 @@ describe('Rule 1.45 — Fallen-Wizard Draft Stage Resources', () => {
     state = runActions(state, [
       { type: 'assign-starting-item', player: PLAYER_1, itemDefId: HORN_OF_ANOR, characterInstanceId: balin },
     ]);
-    const items = state.players[0].characters[balin as string].items.map(i => i.definitionId);
+    const items = state.players[0].characters[balin].items.map(i => i.definitionId);
     expect(items).toContain(THRALL_OF_THE_VOICE);
     expect(items).toContain(DAGGER_OF_WESTERNESSE);
     expect(items).toContain(HORN_OF_ANOR);

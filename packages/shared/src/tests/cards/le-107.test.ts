@@ -250,7 +250,7 @@ describe('Covetous Thoughts (le-107)', () => {
 
     // Covetous Thoughts should be gone from character's hazards
     const gorbagId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[gorbagId as string].hazards).toHaveLength(0);
+    expect(next.players[0].characters[gorbagId].hazards).toHaveLength(0);
 
     // Covetous Thoughts should be in hazard player's discard pile
     expectInDiscardPile(next, HAZARD_PLAYER, COVETOUS_THOUGHTS);
@@ -290,8 +290,8 @@ describe('Covetous Thoughts (le-107)', () => {
 
     // Covetous Thoughts should still be attached
     const gorbagId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[gorbagId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[gorbagId as string].hazards[0].definitionId).toBe(COVETOUS_THOUGHTS);
+    expect(next.players[0].characters[gorbagId].hazards).toHaveLength(1);
+    expect(next.players[0].characters[gorbagId].hazards[0].definitionId).toBe(COVETOUS_THOUGHTS);
 
     // Covetous Thoughts should NOT be in discard
     expect(next.players[1].discardPile.some(c => c.definitionId === COVETOUS_THOUGHTS)).toBe(false);

@@ -136,7 +136,7 @@ describe('Black Arrow (tw-494)', () => {
 
     // Item is tapped, still on Théoden.
     const theodenId = findCharInstanceId(after, RESOURCE_PLAYER, THEODEN);
-    const theoden = after.players[RESOURCE_PLAYER].characters[theodenId as string];
+    const theoden = after.players[RESOURCE_PLAYER].characters[theodenId];
     expect(theoden.items).toHaveLength(1);
     expect(theoden.items[0].definitionId).toBe(BLACK_ARROW);
     expect(theoden.items[0].status).toBe(CardStatus.Tapped);
@@ -190,7 +190,7 @@ describe('Black Arrow (tw-494)', () => {
 
     // Item removed from Aragorn, placed in discard pile (Dúnadan is a distinct race from Man).
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.items).toHaveLength(0);
     expect(after.players[RESOURCE_PLAYER].discardPile.find(c => c.definitionId === BLACK_ARROW)).toBeDefined();
   });
@@ -244,7 +244,7 @@ describe('Black Arrow (tw-494)', () => {
 
     // Item removed from Gimli, placed in discard pile.
     const gimliId = findCharInstanceId(after, RESOURCE_PLAYER, GIMLI);
-    const gimli = after.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimli = after.players[RESOURCE_PLAYER].characters[gimliId];
     expect(gimli.items).toHaveLength(0);
 
     const discard = after.players[RESOURCE_PLAYER].discardPile;
@@ -319,7 +319,7 @@ describe('Black Arrow (tw-494)', () => {
     // Tap the item up front.
     const theodenId = findCharInstanceId(base, RESOURCE_PLAYER, THEODEN);
     const tappedChar = {
-      ...base.players[RESOURCE_PLAYER].characters[theodenId as string],
+      ...base.players[RESOURCE_PLAYER].characters[theodenId],
     };
     tappedChar.items = tappedChar.items.map(it =>
       it.definitionId === BLACK_ARROW ? { ...it, status: CardStatus.Tapped } : it,

@@ -132,7 +132,7 @@ export function extractActionCardDefs(
   const revealed = state.revealedInstances;
   const visit = (value: unknown): void => {
     if (typeof value === 'string') {
-      const def = revealed[value];
+      const def = revealed[value as CardInstanceId];
       if (def !== undefined) defs[value] = def;
       return;
     }

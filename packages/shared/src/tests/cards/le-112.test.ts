@@ -213,7 +213,7 @@ describe('Foolish Words (le-112)', () => {
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(0);
 
     expectInDiscardPile(next, HAZARD_PLAYER, FOOLISH_WORDS_LE);
   });
@@ -239,8 +239,8 @@ describe('Foolish Words (le-112)', () => {
     expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS_LE);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(1);
+    expect(next.players[0].characters[aragornId].hazards[0].definitionId).toBe(FOOLISH_WORDS_LE);
 
     expect(next.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS_LE)).toBe(false);
   });

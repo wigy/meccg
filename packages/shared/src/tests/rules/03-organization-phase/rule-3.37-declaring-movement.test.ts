@@ -14,6 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../../index.js';
 import {
   buildTestState, resetMint, viableFor, Phase,
   PLAYER_1, PLAYER_2,
@@ -79,10 +80,10 @@ describe('Rule 3.37 — Declaring Movement', () => {
     const movements2 = viableFor(state2, PLAYER_1)
       .filter(a => a.action.type === 'plan-movement') as { action: PlanMovementAction }[];
     // Bree not in siteDeck → no plan-movement to Bree
-    const breeDef = state2.cardPool[BREE as string];
+    const breeDef = state2.cardPool[BREE];
     const hasBreePlan = movements2.some(a => {
       const destDef = state2.cardPool[
-        state2.players[0].siteDeck.find(s => s.instanceId === a.action.destinationSite)?.definitionId as string ?? ''
+        state2.players[0].siteDeck.find(s => s.instanceId === a.action.destinationSite)?.definitionId as CardDefinitionId ?? ('' as CardDefinitionId)
       ];
       return destDef && (destDef as { name?: string }).name === 'Bree';
     });

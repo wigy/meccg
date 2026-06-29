@@ -341,7 +341,7 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     });
     const withCard = recomputeDerived(state);
     expect(withCard.players[0].characters[
-      findCharInstanceId(withCard, RESOURCE_PLAYER, GRISHNAKH) as string
+      findCharInstanceId(withCard, RESOURCE_PLAYER, GRISHNAKH)
     ].effectiveStats.directInfluence).toBe(4);
   });
 
@@ -375,7 +375,7 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     });
     const withoutCard = recomputeDerived(state);
     expect(withoutCard.players[0].characters[
-      findCharInstanceId(withoutCard, RESOURCE_PLAYER, GRISHNAKH) as string
+      findCharInstanceId(withoutCard, RESOURCE_PLAYER, GRISHNAKH)
     ].effectiveStats.directInfluence).toBe(0);
   });
 
@@ -428,7 +428,7 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
     // With the card: discard suppressed, Grishnákh remains in play
-    expect(afterCheck.players[0].characters[grishnakhId as string]).toBeDefined();
+    expect(afterCheck.players[0].characters[grishnakhId]).toBeDefined();
     expect(afterCheck.players[0].discardPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
     expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
   });
@@ -475,7 +475,7 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
     // Without the card: Grishnákh is in the discard pile (not eliminated)
-    expect(afterCheck.players[0].characters[grishnakhId as string]).toBeUndefined();
+    expect(afterCheck.players[0].characters[grishnakhId]).toBeUndefined();
     expect(afterCheck.players[0].discardPile.some(c => c.definitionId === GRISHNAKH)).toBe(true);
     expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(false);
   });
@@ -522,7 +522,7 @@ describe('By the Ringwraith\'s Word (le-174)', () => {
     const afterCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 8, explanation: 'test' });
 
     // Card does not protect from elimination — Grishnákh is eliminated
-    expect(afterCheck.players[0].characters[grishnakhId as string]).toBeUndefined();
+    expect(afterCheck.players[0].characters[grishnakhId]).toBeUndefined();
     expect(afterCheck.players[0].outOfPlayPile.some(c => c.definitionId === GRISHNAKH)).toBe(true);
   });
 

@@ -217,7 +217,7 @@ describe('dm-164 The Windlord Found Me', () => {
     // Select Legolas as bearer
     const afterBearerSelect = dispatch(afterCombat, legolasAction!.action);
 
-    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId as string];
+    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId];
     expect(legolasChar.status).toBe(CardStatus.Tapped);
     expect(legolasChar.items.some(i => i.definitionId === WINDLORD)).toBe(true);
     const constraint = afterBearerSelect.activeConstraints.find(
@@ -387,7 +387,7 @@ describe('dm-164 The Windlord Found Me', () => {
     // Gandalf should now be in the company at Rivendell
     const gandalfId = findCharInstanceId(afterWizard, RESOURCE_PLAYER, GANDALF);
     expect(gandalfId).toBeDefined();
-    expect(afterWizard.players[RESOURCE_PLAYER].characters[gandalfId as string]).toBeDefined();
+    expect(afterWizard.players[RESOURCE_PLAYER].characters[gandalfId]).toBeDefined();
 
     // Gandalf should NOT be in the play deck anymore
     expect(afterWizard.players[RESOURCE_PLAYER].playDeck.some(c => c.definitionId === GANDALF)).toBe(false);

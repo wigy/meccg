@@ -108,7 +108,7 @@ describe('Gimli (tw-159)', () => {
   test('+2 prowess in combat against Orcs', () => {
     const state = makeGimliCombatState();
     const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
-    const gimli = state.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimli = state.players[RESOURCE_PLAYER].characters[gimliId];
     const gimliDef = pool[GIMLI as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, gimli, gimliDef, 'orc');
@@ -119,7 +119,7 @@ describe('Gimli (tw-159)', () => {
   test('no prowess bonus against non-Orc enemies', () => {
     const state = makeGimliCombatState();
     const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
-    const gimli = state.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimli = state.players[RESOURCE_PLAYER].characters[gimliId];
     const gimliDef = pool[GIMLI as string] as CharacterCard;
 
     expect(computeCombatProwess(state, gimli, gimliDef, 'troll')).toBe(gimliDef.prowess);

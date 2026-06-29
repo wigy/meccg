@@ -87,7 +87,7 @@ describe('Rule 10.39 — Winning with The One Ring', () => {
       phaseState: endOfTurnPhaseState,
       players: base.players.map((p, i) => {
         if (i !== RESOURCE_PLAYER) return p;
-        const char = p.characters[rwId as string];
+        const char = p.characters[rwId];
         return {
           ...p,
           characters: {

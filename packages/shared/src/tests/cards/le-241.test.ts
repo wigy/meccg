@@ -164,7 +164,7 @@ describe("That's Been Heard Before Tonight (le-241)", () => {
     const after = playPermanentEventAndResolve(state, PLAYER_1, cardInstId, charInstId);
 
     const defPlayer = after.players[RESOURCE_PLAYER];
-    const char = defPlayer.characters[charInstId as string];
+    const char = defPlayer.characters[charInstId];
     expect(char?.status).toBe(CardStatus.Tapped);
   });
 
@@ -202,7 +202,7 @@ describe("That's Been Heard Before Tonight (le-241)", () => {
 
     // Verify card is attached to character
     const defPlayer = afterPlay.players[RESOURCE_PLAYER];
-    const char = defPlayer.characters[charInstId as string];
+    const char = defPlayer.characters[charInstId];
     const attachedCard = char?.items.find(i => i.definitionId === THATS_BEEN_HEARD);
     expect(attachedCard).toBeDefined();
     expect(afterPlay.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);

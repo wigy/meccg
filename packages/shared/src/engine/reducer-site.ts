@@ -118,7 +118,7 @@ function enqueueSitePhaseRingAutoTests(
 
   let result = state;
   for (const charInstId of company.characters) {
-    const char = actorPlayer.characters[charInstId as string];
+    const char = actorPlayer.characters[charInstId];
     if (!char) continue;
     for (const item of char.items) {
       const itemDef = defById(state, item.definitionId);
@@ -160,7 +160,7 @@ function fireSitePhaseCompanyBeginsEvents(
 ): GameState {
   if (!company.currentSite) return state;
 
-  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  const siteDef = state.cardPool[company.currentSite.definitionId];
   if (!siteDef || !isSiteCard(siteDef)) return state;
 
   // Determine the region type of the company's current site.
@@ -189,7 +189,7 @@ function fireSitePhaseCompanyBeginsEvents(
     for (const card of p.cardsInPlay) {
       // Only global events (no companyId) fire this trigger.
       if (card.companyId) continue;
-      const def = result.cardPool[card.definitionId as string];
+      const def = result.cardPool[card.definitionId];
       for (const e of getCardEffects(def)) {
         if (e.type !== 'on-event') continue;
         if (e.event !== 'site-phase-company-begins') continue;
@@ -545,7 +545,7 @@ function handleSiteAutomaticAttacks(
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  const siteDef = state.cardPool[company.currentSite!.definitionId as string] as import('../types/cards.js').SiteCard;
+  const siteDef = state.cardPool[company.currentSite!.definitionId] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
   const autoAttacks = getActiveAutoAttacks(state, siteDef);
@@ -1827,7 +1827,7 @@ function handleSitePlayHeroResource(
   const siteInPlay = company.currentSite!;
 
   const targetCharId = action.attachToCharacterId!;
-  const charInPlay = player.characters[targetCharId as string];
+  const charInPlay = player.characters[targetCharId];
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? targetCharId;
   logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
@@ -2010,7 +2010,7 @@ function fireCharacterGainsItemChecks(
   let newState = state;
 
   for (const charId of company.characters) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
     for (const hazard of char.hazards) {
       const hDef = defById(newState, hazard.definitionId);
@@ -2060,7 +2060,7 @@ function handleInfluenceAttemptDeclare(
   const def = defById(state, handCard.definitionId)!;
 
   const charId = action.influencingCharacterId;
-  const charInPlay = player.characters[charId as string];
+  const charInPlay = player.characters[charId];
   if (!charInPlay) return { state, error: 'Influencing character not found' };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
@@ -2112,7 +2112,7 @@ export function resolveInfluenceAttemptRoll(
   if (!def || !isFactionCard(def)) return { state, effects: [] };
 
   const charId = entry.payload.influencingCharacterId;
-  const charInPlay = player.characters[charId as string];
+  const charInPlay = player.characters[charId];
   if (!charInPlay) return { state, effects: [] };
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -2284,7 +2284,7 @@ function handleOpponentInfluenceAttempt(
   const player = state.players[playerIndex];
 
   const charId = action.influencingCharacterId;
-  const charInPlay = player.characters[charId as string];
+  const charInPlay = player.characters[charId];
 
   const opponentIndex = 1 - playerIndex;
   const opponent = state.players[opponentIndex];
@@ -2293,7 +2293,7 @@ function handleOpponentInfluenceAttempt(
   let controllerDI = 0;
 
   if (action.targetKind === 'character') {
-    const targetChar = opponent.characters[action.targetInstanceId as string];
+    const targetChar = opponent.characters[action.targetInstanceId];
     if (!targetChar) return { state, error: 'Target character not found' };
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
@@ -2352,7 +2352,7 @@ function handleOpponentInfluenceAttempt(
     // Validate: must be same name as target
     let targetName: string | undefined;
     if (action.targetKind === 'character') {
-      const tDef = state.cardPool[opponent.characters[action.targetInstanceId as string]?.definitionId as string];
+      const tDef = state.cardPool[opponent.characters[action.targetInstanceId]?.definitionId];
       targetName = tDef?.name;
     } else if (action.targetKind === 'faction') {
       const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
@@ -2495,7 +2495,7 @@ export function resolveOpponentInfluenceDefend(
     // Check if the influenced target is a leader (for leader-leaves-company sweep)
     let influencedIsLeader = false;
     if (attempt.targetKind !== 'ally') {
-      const targetChar = opponent2.characters[attempt.targetInstanceId as string];
+      const targetChar = opponent2.characters[attempt.targetInstanceId];
       if (targetChar) {
         const targetDef = defById(state, targetChar.definitionId);
         influencedIsLeader = !!(targetDef && isCharacterCard(targetDef) && (targetDef.keywords ?? []).includes('Leader'));
@@ -2594,7 +2594,7 @@ function discardInfluencedCard(
   }
 
   // Character target — discard character + items + allies + hazards, handle followers
-  const targetChar = opponent.characters[pending.targetInstanceId as string];
+  const targetChar = opponent.characters[pending.targetInstanceId];
   if (!targetChar) return;
 
   const newDiscard = [...opponent.discardPile];
@@ -2643,7 +2643,7 @@ function discardInfluencedCard(
   // Handle followers — try to place under GI, otherwise discard
   const newCharacters = { ...opponent.characters };
   for (const followerId of targetChar.followers) {
-    const follower = newCharacters[followerId as string];
+    const follower = newCharacters[followerId];
     if (!follower) continue;
     const followerDef = defById(state, follower.definitionId);
     const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
@@ -2658,7 +2658,7 @@ function discardInfluencedCard(
 
     if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, opponent.id)) {
       // Move to GI
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
     } else {
       // Discard follower and their items/allies/hazards
@@ -2677,13 +2677,13 @@ function discardInfluencedCard(
         logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
       }
       newDiscard.push(toCardInstance(follower));
-      delete newCharacters[followerId as string];
+      delete newCharacters[followerId];
       logDetail(`Follower ${followerId} discarded (no GI room)`);
     }
   }
 
   // Remove the target character
-  delete newCharacters[pending.targetInstanceId as string];
+  delete newCharacters[pending.targetInstanceId];
 
   // Remove from companies
   const newCompanies = opponent.companies.map(company => {
@@ -2819,7 +2819,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
   let newState = state;
   for (const company of resourcePlayer.companies) {
     for (const charId of company.characters) {
-      const bearer = resourcePlayer.characters[charId as string];
+      const bearer = resourcePlayer.characters[charId];
       if (!bearer) continue;
       for (const hazard of bearer.hazards) {
         const hDef = defById(newState, hazard.definitionId);
@@ -2829,7 +2829,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
 
           const otherItems = company.characters
             .filter(oid => oid !== charId)
-            .flatMap(oid => resourcePlayer.characters[oid as string]?.items ?? []);
+            .flatMap(oid => resourcePlayer.characters[oid]?.items ?? []);
 
           if (otherItems.length === 0) {
             logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — no other-company items, skipping`);
@@ -2898,7 +2898,7 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
     }
 
     for (const charId of company.characters) {
-      const bearer = resourcePlayer.characters[charId as string];
+      const bearer = resourcePlayer.characters[charId];
       if (!bearer) continue;
       for (const item of bearer.items) {
         const itemDef = defById(newState, item.definitionId) as { subtype?: string; name?: string } | undefined;
@@ -3086,7 +3086,7 @@ function fireCvccPreStrikeEffects(
   // Collect non-unique minion allies in the defending company
   const defMinionAllies: Array<{ allyInstanceId: CardInstanceId; allyMind: number }> = [];
   for (const charInstId of defendingCompany.characters) {
-    const char = defendingPlayer.characters[charInstId as string];
+    const char = defendingPlayer.characters[charInstId];
     if (!char) continue;
     for (const ally of char.allies) {
       const allyDef = defById(state, ally.definitionId);
@@ -3106,7 +3106,7 @@ function fireCvccPreStrikeEffects(
 
   // Scan attacking characters' items for cvc-combat-pre-strike on-event effects
   for (const charInstId of attackingCompany.characters) {
-    const char = attackingPlayer.characters[charInstId as string];
+    const char = attackingPlayer.characters[charInstId];
     if (!char) continue;
     const charDef = defById(newState, char.definitionId);
 

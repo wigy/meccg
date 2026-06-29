@@ -100,7 +100,7 @@ describe('Rule 8.29 — Ringwraith Body Check Special', () => {
     const after = dispatch(state, bodyCheckAction.action);
 
     // Ringwraith must be in hand (not in characters, not in outOfPlayPile)
-    expect(after.players[RESOURCE_PLAYER].characters[rwId as string]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].characters[rwId]).toBeUndefined();
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === rwId)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === rwId)).toBe(true);
 
@@ -124,7 +124,7 @@ describe('Rule 8.29 — Ringwraith Body Check Special', () => {
     const { state, rwId } = makeRingwraithBodyCheckState(ADUNAPHEL, 9);
     const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
     const after = dispatch(state, bodyCheckAction.action);
-    expect(after.players[RESOURCE_PLAYER].characters[rwId as string]).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].characters[rwId]).toBeDefined();
     expect(after.players[RESOURCE_PLAYER].ringwraithReturnedToHand).toBeUndefined();
   });
 

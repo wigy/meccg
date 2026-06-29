@@ -104,7 +104,7 @@ describe('Rule 10.52 — Alignment Item MP Values', () => {
     });
 
     // Black Mace (le-299): check what MP it has
-    const blackMaceDef = base.cardPool['le-299' as string] as { marshallingPoints: number } | undefined;
+    const blackMaceDef = base.cardPool['le-299' as CardDefinitionId] as { marshallingPoints: number } | undefined;
     if (!blackMaceDef || blackMaceDef.marshallingPoints === 0) {
       // If Black Mace has 0 MP, the halving doesn't matter; just verify it doesn't crash
       return;

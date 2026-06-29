@@ -244,7 +244,7 @@ describe('Noble Steed (wh-33)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(steedInstId).toBeDefined();
 
     // Assign the single strike to Aragorn — with 1 strike and 1 character the engine
@@ -267,7 +267,7 @@ describe('Noble Steed (wh-33)', () => {
     const r3 = dispatch(r2, cancelAction!.action);
 
     // Noble Steed should now be tapped
-    expect(r3.players[RESOURCE_PLAYER].characters[aragornId as string].allies[0].status).toBe(CardStatus.Tapped);
+    expect(r3.players[RESOURCE_PLAYER].characters[aragornId].allies[0].status).toBe(CardStatus.Tapped);
     // Combat is over (single strike was canceled)
     expect(r3.combat).toBeNull();
   });
@@ -288,7 +288,7 @@ describe('Noble Steed (wh-33)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(steedInstId).toBeDefined();
 
     // Defending player assigns the single strike directly to Noble Steed (ally as target)
@@ -328,7 +328,7 @@ describe('Noble Steed (wh-33)', () => {
 
     // Assign the single strike to Aragorn — auto-advances to resolve-strike
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const steedInstId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     const r2 = dispatch(withCombat, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId, tapped: false });
     expect(r2.combat!.phase).toBe('resolve-strike');
 

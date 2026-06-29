@@ -258,8 +258,8 @@ describe('Rebel-talk (le-132)', () => {
     // Verify Faramir is under DI of Aragorn
     const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
     const aragornId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
-    expect(mhState.players[0].characters[faramirId as string].controlledBy).toBe(aragornId);
-    expect(mhState.players[0].characters[aragornId as string].followers).toContain(faramirId);
+    expect(mhState.players[0].characters[faramirId].controlledBy).toBe(aragornId);
+    expect(mhState.players[0].characters[aragornId].followers).toContain(faramirId);
 
     // Play Rebel-talk on Faramir
     const playActions = viableActions(mhState, PLAYER_2, 'play-hazard');
@@ -279,9 +279,9 @@ describe('Rebel-talk (le-132)', () => {
     }
 
     // After Rebel-talk resolves, Faramir should be under GI
-    expect(current.players[0].characters[faramirId as string].controlledBy).toBe('general');
+    expect(current.players[0].characters[faramirId].controlledBy).toBe('general');
     // Aragorn should no longer list Faramir as a follower
-    expect(current.players[0].characters[aragornId as string].followers).not.toContain(faramirId);
+    expect(current.players[0].characters[aragornId].followers).not.toContain(faramirId);
   });
 
   // ── Regression: GI subtraction deferred to next org phase (CoE 2.II.2.2.3) ──
@@ -338,8 +338,8 @@ describe('Rebel-talk (le-132)', () => {
     }
 
     // Faramir is now under general influence but flagged as not-yet-subtracted.
-    expect(current.players[0].characters[faramirId as string].controlledBy).toBe('general');
-    expect(current.players[0].characters[faramirId as string].influenceUnsubtracted).toBe(true);
+    expect(current.players[0].characters[faramirId].controlledBy).toBe('general');
+    expect(current.players[0].characters[faramirId].influenceUnsubtracted).toBe(true);
     // General influence used must NOT have increased by Faramir's mind.
     expect(current.players[0].generalInfluenceUsed).toBe(giBefore);
   });
@@ -388,7 +388,7 @@ describe('Rebel-talk (le-132)', () => {
         characters: {
           ...p.characters,
           [faramirId as string]: {
-            ...p.characters[faramirId as string],
+            ...p.characters[faramirId],
             controlledBy: 'general' as const,
             influenceUnsubtracted: true,
           },
@@ -404,7 +404,7 @@ describe('Rebel-talk (le-132)', () => {
     // Advancing to the organization phase clears the flag → mind now counts again.
     const inOrg = dispatch(recomputedFlagged, { type: 'untap', player: PLAYER_1 });
     expect(inOrg.phaseState.phase).toBe(Phase.Organization);
-    expect(inOrg.players[0].characters[faramirId as string].influenceUnsubtracted).toBeUndefined();
+    expect(inOrg.players[0].characters[faramirId].influenceUnsubtracted).toBeUndefined();
     expect(inOrg.players[0].generalInfluenceUsed).toBe(giWithFaramir);
   });
 
@@ -472,7 +472,7 @@ describe('Rebel-talk (le-132)', () => {
 
     // Rebel-talk should be removed from character's hazards
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[legolasId as string].hazards).toHaveLength(0);
+    expect(next.players[0].characters[legolasId].hazards).toHaveLength(0);
 
     // Rebel-talk should be in opponent's discard pile
     expectInDiscardPile(next, HAZARD_PLAYER, REBEL_TALK);
@@ -501,8 +501,8 @@ describe('Rebel-talk (le-132)', () => {
 
     // Rebel-talk should still be attached
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[legolasId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[legolasId as string].hazards[0].definitionId).toBe(REBEL_TALK);
+    expect(next.players[0].characters[legolasId].hazards).toHaveLength(1);
+    expect(next.players[0].characters[legolasId].hazards[0].definitionId).toBe(REBEL_TALK);
 
     // Opponent's discard pile should not have Rebel-talk
     expect(next.players[1].discardPile.some(c => c.definitionId === REBEL_TALK)).toBe(false);

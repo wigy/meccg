@@ -19,6 +19,8 @@ import {
   PlayerId,
   CardInstanceId,
   CardDefinitionId,
+  ById,
+  ByCardDefinitionId,
 } from './common.js';
 import { CardDefinition } from './cards.js';
 import type { GameAction } from './actions.js';
@@ -114,7 +116,7 @@ export interface GameState {
    */
   readonly chain: ChainState | null;
   /** The static card definition pool, keyed by CardDefinitionId. Loaded once at game start. */
-  readonly cardPool: Readonly<Record<string, CardDefinition>>;
+  readonly cardPool: ByCardDefinitionId<CardDefinition>;
   /** Current turn number (1-based), incremented each time the active player changes. */
   readonly turnNumber: number;
   /** The player who won the initiative roll and took the first turn. Null during setup before the roll. */
@@ -191,7 +193,7 @@ export interface GameState {
    * Maintained as a single choke-point in the reducer's post-pass — no
    * per-reducer-path instrumentation is required.
    */
-  readonly revealedInstances: Readonly<Record<string, CardDefinitionId>>;
+  readonly revealedInstances: ById<CardDefinitionId>;
 }
 
 // ---- Instance resolution helpers ----
@@ -214,7 +216,7 @@ const PILE_NAMES = [
 export function resolveInstanceId(state: GameState, instanceId: CardInstanceId): CardDefinitionId | undefined {
   for (const player of state.players) {
     // Characters (Record keyed by instanceId — O(1))
-    const char = player.characters[instanceId as string];
+    const char = player.characters[instanceId];
     if (char) return char.definitionId;
 
     // Items, allies, hazards on characters

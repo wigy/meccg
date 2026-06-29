@@ -15,6 +15,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, SAM_GAMGEE, HALDIR,
@@ -94,7 +95,7 @@ describe('Sam Gamgee (tw-180)', () => {
     // Sam should be playable at Bag End (from site deck)
     const samActions = actions.filter(a => {
       const siteDef = state.cardPool[
-        state.players[0].siteDeck.find(c => c.instanceId === a.atSite)?.definitionId as string
+        state.players[0].siteDeck.find(c => c.instanceId === a.atSite)?.definitionId as CardDefinitionId
       ];
       return siteDef && 'name' in siteDef && siteDef.name === 'Bag End';
     });

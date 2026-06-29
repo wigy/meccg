@@ -464,7 +464,7 @@ function revealAgentActions(
  * Agents cannot move to haven sites (rule 9.07).
  */
 function isHavenSite(state: GameState, defId: string): boolean {
-  const def = state.cardPool[defId];
+  const def = state.cardPool[defId as CardDefinitionId];
   return !!(def && isSiteCard(def) && def.siteType === 'haven');
 }
 
@@ -752,7 +752,7 @@ function agentInfluenceActions(
       // Use the active company directly — for moving companies currentSite is the origin,
       // but we already verified the agent is at the destination via isAgentAtCompanySite.
       for (const oppCharId of company.characters) {
-        const oppChar = resourcePlayer.characters[oppCharId as string];
+        const oppChar = resourcePlayer.characters[oppCharId];
         if (!oppChar) continue;
         const oppCharDef = defById(state, oppChar.definitionId);
         if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
@@ -1318,7 +1318,7 @@ function tapDiscardAttachedHazardActions(
     if (isHazardPermEvent(hz.definitionId)) targets.push(hz.instanceId);
   }
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const hz of charData.hazards) {
       if (isHazardPermEvent(hz.definitionId)) targets.push(hz.instanceId);
@@ -1327,7 +1327,7 @@ function tapDiscardAttachedHazardActions(
   if (targets.length === 0) return actions;
 
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const ally of charData.allies) {
       if (ally.status !== CardStatus.Untapped) continue;
@@ -1547,7 +1547,7 @@ function playHazardsActions(
             continue;
           }
           for (const target of envTargets) {
-            const targetDef = state.cardPool[target.definitionId];
+            const targetDef = state.cardPool[target.definitionId as CardDefinitionId];
             logDetail(`Hazard short-event "${def.name}": can cancel environment ${targetDef?.name ?? target.definitionId}`);
             actions.push({
               action: {
@@ -1719,7 +1719,7 @@ function playHazardsActions(
           const isShortCorruption = 'keywords' in def
             && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true;
           for (const charId of targetCompany.characters) {
-            const charData = resourcePlayer.characters[charId as string];
+            const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
             if (shortPlayTarget.filter && charData && charDef && isCharacterCard(charDef)) {
               const possessionNames = defNamesOf(state, charData.items);
@@ -1748,7 +1748,7 @@ function playHazardsActions(
             // CoE 7.2.1: block a second corruption card on a character that
             // already had one this turn (covers "this use cannot be duplicated
             // on a given character" for le-149).
-            if (isShortCorruption && mhState.corruptionCardsPlayedPerChar[charId as string]) {
+            if (isShortCorruption && mhState.corruptionCardsPlayedPerChar[charId]) {
               const charName = cardName(state, charData?.definitionId, charId as string);
               logDetail(`Hazard short-event "${def.name}" blocked on ${charName}: corruption card already played this turn (CoE 7.2.1)`);
               actions.push({
@@ -1789,7 +1789,7 @@ function playHazardsActions(
         if (shortPlayTarget?.target === 'ally') {
           let hasAllyTarget = false;
           for (const charId of targetCompany.characters) {
-            const charData = resourcePlayer.characters[charId as string];
+            const charData = resourcePlayer.characters[charId];
             if (!charData) continue;
             for (const ally of charData.allies) {
               const allyDef = defById(state, ally.definitionId);
@@ -2053,7 +2053,7 @@ function playHazardsActions(
         for (const charId of targetCompany.characters) {
           // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
           if (playTarget.filter) {
-            const charData = resourcePlayer.characters[charId as string];
+            const charData = resourcePlayer.characters[charId];
             if (charData) {
               const charDef = defById(state, charData.definitionId);
               if (charDef && isCharacterCard(charDef)) {
@@ -2086,7 +2086,7 @@ function playHazardsActions(
           }
           // Check character-scoped duplication limit
           if (charDupLimit) {
-            const charData = resourcePlayer.characters[charId as string];
+            const charData = resourcePlayer.characters[charId];
             if (charData) {
               const copiesOnChar = charData.hazards.filter(h => {
                 const hDef = defById(state, h.definitionId);
@@ -2109,8 +2109,8 @@ function playHazardsActions(
           const isCorruptionCard = isCorruption || (
             'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true
           );
-          if (isCorruptionCard && mhState.corruptionCardsPlayedPerChar[charId as string]) {
-            const charName = cardName(state, resourcePlayer.characters[charId as string]?.definitionId, charId as string);
+          if (isCorruptionCard && mhState.corruptionCardsPlayedPerChar[charId]) {
+            const charName = cardName(state, resourcePlayer.characters[charId]?.definitionId, charId as string);
             logDetail(`Hazard "${def.name}" blocked on ${charName}: corruption card already played this turn (CoE 7.2.1)`);
             actions.push({
               action: { ...action, targetCharacterId: charId },
@@ -2125,7 +2125,7 @@ function playHazardsActions(
           // would cancel it on resolution, so the legal-action computer
           // doesn't offer the character as a target at all.
           if (isWardedAgainst(state, activeIndex, charId, def)) {
-            const charName = cardName(state, resourcePlayer.characters[charId as string]?.definitionId, charId as string);
+            const charName = cardName(state, resourcePlayer.characters[charId]?.definitionId, charId as string);
             logDetail(`Hazard "${def.name}" cancelled by ward on ${charName}`);
             actions.push({
               action: { ...action, targetCharacterId: charId },
@@ -2204,7 +2204,7 @@ function playHazardsActions(
           }
         }
         const allyCount = targetCompany.characters.reduce((sum, cId) => {
-          const ch = resourcePlayer.characters[cId as string];
+          const ch = resourcePlayer.characters[cId];
           return sum + (ch ? ch.allies.length : 0);
         }, 0);
         const memberCount = targetCompany.characters.length + allyCount;
@@ -2363,7 +2363,7 @@ function playHazardsActions(
  */
 function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId; definitionId: string }[] {
   const isEnv = (defId: string): boolean => {
-    const d = state.cardPool[defId];
+    const d = state.cardPool[defId as CardDefinitionId];
     return !!d && 'keywords' in d
       && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
   };

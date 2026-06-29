@@ -139,7 +139,7 @@ function buildBearerState(opts?: { bilboTapped?: boolean }) {
           ...state.players[RESOURCE_PLAYER],
           characters: {
             ...state.players[RESOURCE_PLAYER].characters,
-            [bilboId as string]: { ...state.players[RESOURCE_PLAYER].characters[bilboId as string], status: CardStatus.Tapped },
+            [bilboId]: { ...state.players[RESOURCE_PLAYER].characters[bilboId], status: CardStatus.Tapped },
           },
         },
         state.players[1],
@@ -195,7 +195,7 @@ describe('When I Know Anything (td-166)', () => {
           ...state.players[RESOURCE_PLAYER],
           characters: {
             ...state.players[RESOURCE_PLAYER].characters,
-            [bilboId as string]: { ...state.players[RESOURCE_PLAYER].characters[bilboId as string], status: CardStatus.Tapped },
+            [bilboId]: { ...state.players[RESOURCE_PLAYER].characters[bilboId], status: CardStatus.Tapped },
           },
         },
         state.players[1],
@@ -219,9 +219,9 @@ describe('When I Know Anything (td-166)', () => {
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
     const after = resolveChain(dispatch(state, viableActions(state, PLAYER_1, 'play-permanent-event')[0].action));
 
-    expect(after.players[RESOURCE_PLAYER].characters[bilboId as string].status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].characters[bilboId].status).toBe(CardStatus.Tapped);
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
-    expect(after.players[RESOURCE_PLAYER].characters[bilboId as string].items
+    expect(after.players[RESOURCE_PLAYER].characters[bilboId].items
       .some(i => i.definitionId === WHEN_I_KNOW_ANYTHING)).toBe(true);
   });
 
@@ -270,7 +270,7 @@ describe('When I Know Anything (td-166)', () => {
     const after = dispatch(state, grant);
 
     // Sage tapped (the cost)
-    expect(after.players[RESOURCE_PLAYER].characters[bilboId as string].status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].characters[bilboId].status).toBe(CardStatus.Tapped);
     // +3 corruption check-modifier constraint now targets Aragorn
     expect(after.activeConstraints.some(c =>
       c.kind.type === 'check-modifier'
@@ -371,7 +371,7 @@ describe('When I Know Anything (td-166)', () => {
       const aragornId = findCharInstanceId(s, RESOURCE_PLAYER, ARAGORN);
       const withFc = { ...s, phaseState: makeFcState(aragornId), cheatRollTotal: 6 };
       const after = dispatch(withFc, { type: 'pass', player: PLAYER_1 });
-      expect(after.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeUndefined();
+      expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeUndefined();
     }
 
     // With +3 constraint targeting Aragorn — roll 6 + 3 = 9 > 8 → survives, constraint consumed.
@@ -387,7 +387,7 @@ describe('When I Know Anything (td-166)', () => {
         kind: { type: 'check-modifier', check: 'corruption', value: 3 },
       });
       const after = dispatch(withFc, { type: 'pass', player: PLAYER_1 });
-      expect(after.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeDefined();
+      expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
       expect(after.activeConstraints.some(c =>
         c.kind.type === 'check-modifier' && c.target.kind === 'character' && c.target.characterId === aragornId)).toBe(false);
     }

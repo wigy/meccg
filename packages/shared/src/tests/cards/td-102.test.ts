@@ -131,7 +131,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     // Item is tapped, still on Théoden.
     const theodenId = findCharInstanceId(after, RESOURCE_PLAYER, THEODEN);
-    const theoden = after.players[RESOURCE_PLAYER].characters[theodenId as string];
+    const theoden = after.players[RESOURCE_PLAYER].characters[theodenId];
     expect(theoden.items).toHaveLength(1);
     expect(theoden.items[0].definitionId).toBe(BOW_OF_DRAGON_HORN);
     expect(theoden.items[0].status).toBe(CardStatus.Tapped);
@@ -360,7 +360,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const theodenId = findCharInstanceId(base, RESOURCE_PLAYER, THEODEN);
     const tappedChar = {
-      ...base.players[RESOURCE_PLAYER].characters[theodenId as string],
+      ...base.players[RESOURCE_PLAYER].characters[theodenId],
     };
     tappedChar.items = tappedChar.items.map(it =>
       it.definitionId === BOW_OF_DRAGON_HORN ? { ...it, status: CardStatus.Tapped } : it,

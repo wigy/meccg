@@ -216,7 +216,7 @@ describe('Focus Palantír (le-184)', () => {
 
     const after = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, charId);
 
-    const char = after.players[RESOURCE_PLAYER].characters[charId as string];
+    const char = after.players[RESOURCE_PLAYER].characters[charId];
     expect(char.items.some(i => i.definitionId === FOCUS_PALANTIR)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === FOCUS_PALANTIR)).toBe(false);
   });
@@ -319,7 +319,7 @@ describe('Focus Palantír (le-184)', () => {
     const afterResourcePass = dispatch(stateAtMH, { type: 'pass', player: PLAYER_1 });
     const afterHazardPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
-    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[layosId as string];
+    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[layosId];
     expect(charAfter.items.some(i => i.definitionId === FOCUS_PALANTIR)).toBe(false);
     expect(afterHazardPass.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === FOCUS_PALANTIR)).toBe(true);
     // The Palantír itself stays on the bearer.
@@ -353,7 +353,7 @@ describe('Focus Palantír (le-184)', () => {
     const afterHazardPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
     const layosId = findCharInstanceId(stateAtMH, RESOURCE_PLAYER, LAYOS);
-    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[layosId as string];
+    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[layosId];
     expect(charAfter.items.some(i => i.definitionId === FOCUS_PALANTIR)).toBe(true);
   });
 });

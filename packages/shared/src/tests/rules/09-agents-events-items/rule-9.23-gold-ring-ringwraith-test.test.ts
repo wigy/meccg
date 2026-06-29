@@ -69,7 +69,7 @@ describe('Rule 9.23 — Gold Ring Auto-Test in Ringwraith/Balrog Company', () =>
 
       const charId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
       const withRing = attachItemToChar(base, RESOURCE_PLAYER, ORC_CAPTAIN, LEAST_OF_GOLD_RINGS);
-      const ringInstId = withRing.players[RESOURCE_PLAYER].characters[charId as string].items[0].instanceId;
+      const ringInstId = withRing.players[RESOURCE_PLAYER].characters[charId].items[0].instanceId;
 
       const stateInSite = { ...withRing, phaseState: makeSitePhase({ step: 'play-resources', activeCompanyIndex: 0 }) };
       const afterPass = dispatch(stateInSite, { type: 'pass', player: PLAYER_1 });
@@ -115,7 +115,7 @@ describe('Rule 9.23 — Gold Ring Auto-Test in Ringwraith/Balrog Company', () =>
 
       const charId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
       const withRing = attachItemToChar(base, RESOURCE_PLAYER, ORC_CAPTAIN, LEAST_OF_GOLD_RINGS);
-      const ringInstId = withRing.players[RESOURCE_PLAYER].characters[charId as string].items[0].instanceId;
+      const ringInstId = withRing.players[RESOURCE_PLAYER].characters[charId].items[0].instanceId;
 
       const stateInSite = { ...withRing, phaseState: makeSitePhase({ step: 'play-resources', activeCompanyIndex: 0 }) };
       const afterPass = dispatch(stateInSite, { type: 'pass', player: PLAYER_1 });

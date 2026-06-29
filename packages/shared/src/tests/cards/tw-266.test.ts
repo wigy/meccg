@@ -51,10 +51,10 @@ describe('Lesser Ring (tw-266)', () => {
     });
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
-    const baseDI = base.players[RESOURCE_PLAYER].characters[aragornId as string].effectiveStats.directInfluence;
+    const baseDI = base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.directInfluence;
 
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, LESSER_RING));
-    const ringDI = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].effectiveStats.directInfluence;
+    const ringDI = withRing.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.directInfluence;
 
     expect(ringDI).toBe(baseDI + 2);
   });
@@ -71,7 +71,7 @@ describe('Lesser Ring (tw-266)', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
 
     // Test with a high roll that would exclude magic-ring (1-5) and dwarven-ring (8+) ranges:
@@ -100,7 +100,7 @@ describe('Lesser Ring (tw-266)', () => {
 
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
-    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+    const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
     const withHand = addCardToHand(withRing, RESOURCE_PLAYER, LESSER_RING);
 
     const withPending = enqueueGoldRingTest(withHand, PLAYER_1, ringId, aragornId);
@@ -114,7 +114,7 @@ describe('Lesser Ring (tw-266)', () => {
 
     expect(afterPlay.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === LESSER_RING)).toBeUndefined();
     expect(
-      afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string].items.find(i => i.definitionId === LESSER_RING),
+      afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === LESSER_RING),
     ).toBeDefined();
   });
 

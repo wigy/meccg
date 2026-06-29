@@ -116,7 +116,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
-    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+    const daggerId = state.players[0].characters[bilboId].items[0].instanceId;
 
     const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
@@ -140,7 +140,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     expect(afterSalvage.combat).toBeNull();
 
     // Aragorn should now have the Dagger
-    const aragornData = afterSalvage.players[0].characters[aragornId as string];
+    const aragornData = afterSalvage.players[0].characters[aragornId];
     expect(aragornData.items.some(i => i.instanceId === daggerId)).toBe(true);
   });
 
@@ -173,7 +173,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
-    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+    const daggerId = state.players[0].characters[bilboId].items[0].instanceId;
 
     const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
@@ -328,7 +328,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
-    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+    const daggerId = state.players[0].characters[bilboId].items[0].instanceId;
 
     // Eliminate Bilbo — no unwounded companions → skip salvage
     const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);

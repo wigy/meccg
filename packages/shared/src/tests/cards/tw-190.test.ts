@@ -125,7 +125,7 @@ describe('Align Palantír (tw-190)', () => {
     const after = playPermanentEventAndResolve(state, PLAYER_1, action.cardInstanceId, charId);
 
     // Card should be in character's items
-    const char = after.players[0].characters[charId as string];
+    const char = after.players[0].characters[charId];
     expect(char).toBeDefined();
     const alignItem = char.items.find(i => i.definitionId === ALIGN_PALANTIR);
     expect(alignItem).toBeDefined();
@@ -275,7 +275,7 @@ describe('Align Palantír (tw-190)', () => {
     const afterHazardPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
     // Align Palantír should be discarded from character's items
-    const charAfter = afterHazardPass.players[0].characters[sarumanId as string];
+    const charAfter = afterHazardPass.players[0].characters[sarumanId];
     expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(false);
 
     // Align Palantír should be in discard pile
@@ -317,7 +317,7 @@ describe('Align Palantír (tw-190)', () => {
 
     // Align Palantír should still be on the character
     const sarumanId = findCharInstanceId(stateAtMH, RESOURCE_PLAYER, SARUMAN);
-    const charAfter = afterHazardPass.players[0].characters[sarumanId as string];
+    const charAfter = afterHazardPass.players[0].characters[sarumanId];
     expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(true);
   });
 });

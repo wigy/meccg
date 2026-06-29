@@ -99,7 +99,7 @@ describe('Quickbeam (tw-307)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(quickbeamInstanceId).toBeDefined();
 
     const assignActions = computeLegalActions(withCombat, PLAYER_1)
@@ -125,7 +125,7 @@ describe('Quickbeam (tw-307)', () => {
     });
 
     const aragornId = findCharInstanceId(withDefenderCombat, RESOURCE_PLAYER, ARAGORN);
-    const quickbeamInstanceId = withDefenderCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const quickbeamInstanceId = withDefenderCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(quickbeamInstanceId).toBeDefined();
 
     const combat: CombatState = {
@@ -163,7 +163,7 @@ describe('Quickbeam (tw-307)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(quickbeamInstanceId).toBeDefined();
 
     const assignActions = computeLegalActions(withCombat, PLAYER_1)
@@ -190,7 +190,7 @@ describe('Quickbeam (tw-307)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(quickbeamInstanceId).toBeDefined();
 
     const assignActions = computeLegalActions(withCombat, PLAYER_1)
@@ -217,7 +217,7 @@ describe('Quickbeam (tw-307)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const quickbeamInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(quickbeamInstanceId).toBeDefined();
 
     const assignActions = computeLegalActions(withCombat, PLAYER_1)

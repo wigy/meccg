@@ -1525,7 +1525,7 @@ export function attachHazardToChar(
     instanceId = mint();
   }
   const hazardCard: CardInstance = { instanceId, definitionId: hazardDefId };
-  const char = state.players[playerIdx].characters[charId as string];
+  const char = state.players[playerIdx].characters[charId];
   const updatedChar = { ...char, hazards: [...char.hazards, hazardCard] };
   const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
   const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
@@ -1543,7 +1543,7 @@ export function attachAllyToChar(
 ): GameState {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
   const allyInPlay = { instanceId: mint(), definitionId: allyDefId, status: CardStatus.Untapped };
-  const char = state.players[playerIdx].characters[charId as string];
+  const char = state.players[playerIdx].characters[charId];
   const updatedChar = { ...char, allies: [...char.allies, allyInPlay] };
   const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
   const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
@@ -1778,7 +1778,7 @@ export function findAllyInstanceId(
   allyDefId: CardDefinitionId,
 ): CardInstanceId | undefined {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
-  return state.players[playerIdx].characters[charId as string]?.allies
+  return state.players[playerIdx].characters[charId]?.allies
     .find(a => a.definitionId === allyDefId)?.instanceId;
 }
 
@@ -1791,7 +1791,7 @@ export function attachItemToChar(
 ): GameState {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
   const itemInPlay = { instanceId: mint(), definitionId: itemDefId, status: CardStatus.Untapped };
-  const char = state.players[playerIdx].characters[charId as string];
+  const char = state.players[playerIdx].characters[charId];
   const updatedChar = { ...char, items: [...char.items, itemInPlay] };
   const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
   const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
@@ -2103,7 +2103,7 @@ export function attemptInfluence(state: GameState, targetDefId?: string) {
   expect(actions.length).toBeGreaterThan(0);
   const attempt = targetDefId
     ? actions.find(a => {
-      const tChar = state.players[1].characters[a.action.targetInstanceId as string];
+      const tChar = state.players[1].characters[a.action.targetInstanceId];
       return tChar && tChar.definitionId === targetDefId && !a.action.revealedCardInstanceId;
     })
     : actions.find(a => !a.action.revealedCardInstanceId);
@@ -2790,7 +2790,7 @@ export function getCharacter(
   defId: CardDefinitionId,
 ): CharacterInPlay {
   const id = findCharInstanceId(state, playerIdx, defId);
-  return state.players[playerIdx].characters[id as string];
+  return state.players[playerIdx].characters[id];
 }
 
 /**
@@ -2957,7 +2957,7 @@ export function setCharStatus(
   status: CardStatus,
 ): GameState {
   const charId = findCharInstanceId(state, playerIdx, defId);
-  const char = state.players[playerIdx].characters[charId as string];
+  const char = state.players[playerIdx].characters[charId];
   const updatedChars = {
     ...state.players[playerIdx].characters,
     [charId as string]: { ...char, status },
@@ -3048,7 +3048,7 @@ export function expectCharInPlay(
   playerIdx: number,
   charId: CardInstanceId,
 ): void {
-  expect(state.players[playerIdx].characters[charId as string]).toBeDefined();
+  expect(state.players[playerIdx].characters[charId]).toBeDefined();
 }
 
 /** Assert a character (by instance ID) has been removed from the player's characters map. */
@@ -3057,7 +3057,7 @@ export function expectCharNotInPlay(
   playerIdx: number,
   charId: CardInstanceId,
 ): void {
-  expect(state.players[playerIdx].characters[charId as string]).toBeUndefined();
+  expect(state.players[playerIdx].characters[charId]).toBeUndefined();
 }
 
 /** Append a pre-built CardInPlay to a player's cardsInPlay (e.g. a fixture permanent). */

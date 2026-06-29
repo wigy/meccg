@@ -354,7 +354,7 @@ describe('Rescue Prisoners (tw-315)', () => {
     const afterBearerSelect = dispatch(afterCombat, legolasAction!.action);
 
     // Legolas must be tapped with an active bearer-cannot-untap constraint
-    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId as string];
+    const legolasChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[legolasId];
     expect(legolasChar.status).toBe(CardStatus.Tapped);
     expect(legolasChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(true);
     const constraint = afterBearerSelect.activeConstraints.find(
@@ -378,7 +378,7 @@ describe('Rescue Prisoners (tw-315)', () => {
       } as typeof afterBearerSelect.phaseState,
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
-    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Tapped);
   });
 
   test('wounded bearer heals to tapped at a haven even when bearer-cannot-untap is active', () => {
@@ -437,7 +437,7 @@ describe('Rescue Prisoners (tw-315)', () => {
       } as typeof stateWounded.phaseState,
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
-    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Tapped);
   });
 
   test('bearer-cannot-untap constraint added when triggered Spider attack is cancelled', () => {
@@ -482,7 +482,7 @@ describe('Rescue Prisoners (tw-315)', () => {
     const afterBearerSelect = dispatch(afterChain, gimliAction!.action);
 
     // Gimli must be tapped and have bearer-cannot-untap constraint
-    const gimliChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimliChar = afterBearerSelect.players[RESOURCE_PLAYER].characters[gimliId];
     expect(gimliChar.status).toBe(CardStatus.Tapped);
     expect(gimliChar.items.some(i => i.definitionId === RESCUE_PRISONERS)).toBe(true);
     const constraint = afterBearerSelect.activeConstraints.find(
@@ -506,6 +506,6 @@ describe('Rescue Prisoners (tw-315)', () => {
       } as typeof afterBearerSelect.phaseState,
     };
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
-    expect(afterUntap.players[RESOURCE_PLAYER].characters[gimliId as string].status).toBe(CardStatus.Tapped);
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[gimliId].status).toBe(CardStatus.Tapped);
   });
 });

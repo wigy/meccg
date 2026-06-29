@@ -131,7 +131,7 @@ describe('The Dwarves Are upon You! (dm-124)', () => {
 
     // Recomputed stats should reflect the boost
     const gimliId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, GIMLI);
-    const gimli = afterPlay.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimli = afterPlay.players[RESOURCE_PLAYER].characters[gimliId];
 
     // Gimli base: prowess 5, body 8
     expect(gimli.effectiveStats.prowess).toBe(7);  // 5 + 2
@@ -182,13 +182,13 @@ describe('The Dwarves Are upon You! (dm-124)', () => {
 
     // Aragorn base: prowess 6, body 9 — must remain unchanged
     const aragornId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = afterPlay.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.effectiveStats.prowess).toBe(6);
     expect(aragorn.effectiveStats.body).toBe(9);
 
     // Gimli must still be boosted
     const gimliId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, GIMLI);
-    const gimli = afterPlay.players[RESOURCE_PLAYER].characters[gimliId as string];
+    const gimli = afterPlay.players[RESOURCE_PLAYER].characters[gimliId];
     expect(gimli.effectiveStats.prowess).toBe(7);
     expect(gimli.effectiveStats.body).toBe(7);
   });

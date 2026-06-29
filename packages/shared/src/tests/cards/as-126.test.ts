@@ -53,7 +53,7 @@ const MINAS_TIRITH = 'tw-407' as CardDefinitionId;
 /** Find the in-play instance of the Helm on a given character. */
 function helmOnChar(state: GameState, playerIdx: number, charDefId: CardDefinitionId) {
   const charId = findCharInstanceId(state, playerIdx, charDefId);
-  return state.players[playerIdx].characters[charId as string].items.find(
+  return state.players[playerIdx].characters[charId].items.find(
     i => i.definitionId === HELM_OF_FEAR,
   );
 }
@@ -205,7 +205,7 @@ describe('Helm of Fear (as-126)', () => {
     // Item is tapped; the Ringwraith bearer stays untapped (cost is "self").
     expect(helmOnChar(after, RESOURCE_PLAYER, REN_RW)!.status).toBe(CardStatus.Tapped);
     const renId = findCharInstanceId(after, RESOURCE_PLAYER, REN_RW);
-    expect(after.players[RESOURCE_PLAYER].characters[renId as string].status).toBe(CardStatus.Untapped);
+    expect(after.players[RESOURCE_PLAYER].characters[renId].status).toBe(CardStatus.Untapped);
   });
 
   test('cancel-attack is NOT offered when the Helm is already tapped', () => {
@@ -219,8 +219,8 @@ describe('Helm of Fear (as-126)', () => {
         characters: {
           ...p.characters,
           [renId as string]: {
-            ...p.characters[renId as string],
-            items: p.characters[renId as string].items.map(it =>
+            ...p.characters[renId],
+            items: p.characters[renId].items.map(it =>
               it.definitionId === HELM_OF_FEAR ? { ...it, status: CardStatus.Tapped } : it),
           },
         },

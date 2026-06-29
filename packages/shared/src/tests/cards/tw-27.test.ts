@@ -141,7 +141,7 @@ describe('Despair of the Heart (tw-27)', () => {
     });
     const withCard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DESPAIR_OF_THE_HEART));
     const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = withCard.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = withCard.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.effectiveStats.corruptionPoints).toBe(2);
   });
 

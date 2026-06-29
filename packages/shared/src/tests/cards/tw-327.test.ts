@@ -214,8 +214,8 @@ describe('Shield of Iron-bound Ash (tw-327)', () => {
           characters: {
             ...s1.players[RESOURCE_PLAYER].characters,
             [aragornId as string]: {
-              ...s1.players[RESOURCE_PLAYER].characters[aragornId as string],
-              items: s1.players[RESOURCE_PLAYER].characters[aragornId as string].items.map(it =>
+              ...s1.players[RESOURCE_PLAYER].characters[aragornId],
+              items: s1.players[RESOURCE_PLAYER].characters[aragornId].items.map(it =>
                 it.instanceId === shieldInstance.instanceId
                   ? { ...it, status: CardStatus.Tapped }
                   : it,

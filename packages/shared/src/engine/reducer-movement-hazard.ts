@@ -449,8 +449,8 @@ function handleRevealAgent(state: GameState, action: GameAction): ReducerResult 
   // Revealing at home site with empty prior stack is not movement (rule 9.04).
   let movementLegal = true;
   for (let i = 0; i < fullStack.length - 1; i++) {
-    const fromDef = state.cardPool[fullStack[i].definitionId as string];
-    const toDef = state.cardPool[fullStack[i + 1].definitionId as string];
+    const fromDef = state.cardPool[fullStack[i].definitionId];
+    const toDef = state.cardPool[fullStack[i + 1].definitionId];
     if (!fromDef || !toDef || !isSiteCard(fromDef) || !isSiteCard(toDef)) {
       logDetail(`Agent reveal: site definition missing at stack index ${i} — treating as illegal`);
       movementLegal = false;
@@ -647,7 +647,7 @@ function handleAgentMoveBack(state: GameState, action: GameAction, mhState: Move
   if (agent.siteStack.length <= 1) return { state, error: 'Cannot move back: no prior site in stack' };
 
   const topSite = agent.siteStack[agent.siteStack.length - 1];
-  const backDef = state.cardPool[agent.siteStack[agent.siteStack.length - 2].definitionId as string];
+  const backDef = state.cardPool[agent.siteStack[agent.siteStack.length - 2].definitionId];
   const backName = backDef && isSiteCard(backDef) ? backDef.name : 'previous site';
   logDetail(`Agent ${action.agentId as string}: moving back to "${backName}", returning ${topSite.instanceId as string} to deck`);
 
@@ -913,7 +913,7 @@ function handleAgentInfluenceAttempt(
   let rollBonus = 0;
 
   if (action.targetKind === 'character') {
-    const targetChar = resourcePlayer.characters[action.targetInstanceId as string];
+    const targetChar = resourcePlayer.characters[action.targetInstanceId];
     if (!targetChar) return { state, error: 'Target character not found' };
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
@@ -1668,7 +1668,7 @@ function fireEndOfCompanyMHCorruptionChecks(
 
   let newState = state;
   for (const charId of company.characters) {
-    const char = resourcePlayer.characters[charId as string];
+    const char = resourcePlayer.characters[charId];
     if (!char) continue;
     for (const hazard of char.hazards) {
       const hDef = defById(newState, hazard.definitionId);
@@ -1742,7 +1742,7 @@ function handleTapAllyDiscardHazard(
   let newState = updatePlayer(state, activeIndex, p => {
     const characters = { ...p.characters };
     for (const charId of company.characters) {
-      const ch = characters[charId as string];
+      const ch = characters[charId];
       if (!ch) continue;
       const idx = ch.allies.findIndex(a => a.instanceId === action.allyInstanceId);
       if (idx === -1) continue;
@@ -1750,7 +1750,7 @@ function handleTapAllyDiscardHazard(
       if (ally.status !== CardStatus.Untapped) return p;
       const newAllies = [...ch.allies];
       newAllies[idx] = { ...ally, status: CardStatus.Tapped };
-      characters[charId as string] = { ...ch, allies: newAllies };
+      characters[charId] = { ...ch, allies: newAllies };
       allyTapped = true;
       break;
     }
@@ -1772,12 +1772,12 @@ function handleTapAllyDiscardHazard(
     }
     const characters = { ...p.characters };
     for (const charId of co.characters) {
-      const ch = characters[charId as string];
+      const ch = characters[charId];
       if (!ch) continue;
       const hIdx = ch.hazards.findIndex(h => h.instanceId === action.targetInstanceId);
       if (hIdx !== -1) {
         removed = ch.hazards[hIdx];
-        characters[charId as string] = { ...ch, hazards: ch.hazards.filter(h => h.instanceId !== action.targetInstanceId) };
+        characters[charId] = { ...ch, hazards: ch.hazards.filter(h => h.instanceId !== action.targetInstanceId) };
         return { ...p, characters };
       }
     }
@@ -1838,7 +1838,7 @@ function findForcingEnvironment(
   };
 
   const companyHasRanger = company.characters.some(charId => {
-    const charData = movingPlayer.characters[charId as string];
+    const charData = movingPlayer.characters[charId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     if (!charDef || !isCharacterCard(charDef)) return false;
     const skills = [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])];
@@ -2011,7 +2011,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
-      const charData = newPlayers[activeIndex].characters[charId as string];
+      const charData = newPlayers[activeIndex].characters[charId];
       if (!charData) continue;
       const itemsToKeep: import('../index.js').ItemInPlay[] = [];
       const itemsToDiscard: import('../index.js').CardInstance[] = [];
@@ -2058,7 +2058,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     if (factionsToDiscard.length > 0) {
       const discardSet = new Set(factionsToDiscard.map(c => c.instanceId as string));
       for (const f of factionsToDiscard) {
-        const fDef = state.cardPool[f.definitionId as string] as { name?: string } | undefined;
+        const fDef = state.cardPool[f.definitionId] as { name?: string } | undefined;
         logDetail(`leader-control: discarding "${fDef?.name ?? f.definitionId}" — controlling leader moved`);
       }
       newPlayers[activeIndex] = {
@@ -2156,7 +2156,7 @@ function fireHavenRestoreTriggers(
   if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== 'haven') return state;
 
   const hasRestorable = company.characters.some(charId => {
-    const ch = player.characters[charId as string];
+    const ch = player.characters[charId];
     return ch && (ch.status === CardStatus.Tapped || ch.status === CardStatus.Inverted);
   });
 
@@ -2303,7 +2303,8 @@ function fireAllyArrivalEffects(
   arrivingCompanyId: import('../index.js').CompanyId,
   siteInstanceId: import('../index.js').CardInstanceId,
 ): GameState {
-  const siteDef = state.cardPool[resolveInstanceId(state, siteInstanceId) as string];
+  const siteDefId = resolveInstanceId(state, siteInstanceId);
+  const siteDef = siteDefId ? state.cardPool[siteDefId] : undefined;
   const siteRegion = siteDef && isSiteCard(siteDef) ? siteDef.region : '';
 
   let newState = state;
@@ -2313,7 +2314,7 @@ function fireAllyArrivalEffects(
     if (!company) continue;
 
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
 
       for (const ally of char.allies) {
@@ -3257,7 +3258,7 @@ function buildCompanyHazardContext(
   let hasWizard = false;
   let maxNonRangerMind = 0;
   for (const charId of company.characters) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
     const def = defById(state, char.definitionId);
     if (!def || !isCharacterCard(def)) continue;
@@ -3575,7 +3576,7 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
   }
   const drawContext: ResolverContext = { reason: 'draw-modifier', sitePath: sitePathCounts };
   const allDrawEffects = company.characters.flatMap(charInstId => {
-    const char = player.characters[charInstId as string];
+    const char = player.characters[charInstId];
     if (!char) return [];
     return collectCharacterEffects(state, char, drawContext);
   });

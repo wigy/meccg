@@ -38,7 +38,7 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
   // Only offer sites if we haven't hit the max yet
   if (siteSelection.selectedSites.length < maxStartingSites) {
     for (const siteCard of player.siteDeck) {
-      const defIdStr = siteCard.definitionId as string;
+      const defIdStr = siteCard.definitionId;
       const siteDef = state.cardPool[defIdStr];
       const context = {
         card: {

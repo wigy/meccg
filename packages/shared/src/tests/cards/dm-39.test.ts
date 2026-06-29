@@ -171,7 +171,7 @@ describe('The Under-grottos (dm-39)', () => {
 
   test('dm-39 is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_GROTTOS });
-    const def = state.cardPool[THE_UNDER_GROTTOS as string];
+    const def = state.cardPool[THE_UNDER_GROTTOS];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('The Under-grottos');
   });

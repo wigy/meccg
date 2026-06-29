@@ -103,7 +103,7 @@ describe('Sable Shield (le-341)', () => {
     const afterStrike = dispatch(stateWithCheat, resolveAction.action);
 
     // Gorbag is tapped (strike succeeded) but NOT wounded.
-    const gorbag = afterStrike.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = afterStrike.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbag.status).toBe(CardStatus.Tapped);
     expect(gorbag.status).not.toBe(CardStatus.Inverted);
 
@@ -156,7 +156,7 @@ describe('Sable Shield (le-341)', () => {
     const rollAction = viableActions(afterStrike, PLAYER_2, 'shield-discard-roll')[0];
     const afterRoll = dispatch({ ...afterStrike, cheatRollTotal: 7 }, rollAction.action);
 
-    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId];
     const shieldInItems = gorbag.items.some(i => i.definitionId === SABLE_SHIELD);
     expect(shieldInItems).toBe(false);
 
@@ -183,7 +183,7 @@ describe('Sable Shield (le-341)', () => {
     const rollAction = viableActions(afterStrike, PLAYER_2, 'shield-discard-roll')[0];
     const afterRoll = dispatch({ ...afterStrike, cheatRollTotal: 6 }, rollAction.action);
 
-    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId];
     const shieldInItems = gorbag.items.some(i => i.definitionId === SABLE_SHIELD);
     expect(shieldInItems).toBe(true);
 
@@ -202,7 +202,7 @@ describe('Sable Shield (le-341)', () => {
     const rollAction = viableActions(afterStrike, PLAYER_2, 'shield-discard-roll')[0];
     const afterRoll = dispatch({ ...afterStrike, cheatRollTotal: 6 }, rollAction.action);
 
-    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = afterRoll.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbag.items.some(i => i.definitionId === SABLE_SHIELD)).toBe(true);
   });
 });

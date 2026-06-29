@@ -170,7 +170,7 @@ describe('To Satisfy the Questioner (le-246)', () => {
           characters: {
             ...state.players[RESOURCE_PLAYER].characters,
             [gorbagId as string]: {
-              ...state.players[RESOURCE_PLAYER].characters[gorbagId as string],
+              ...state.players[RESOURCE_PLAYER].characters[gorbagId],
               status: CardStatus.Tapped,
             },
           },
@@ -218,7 +218,7 @@ describe('To Satisfy the Questioner (le-246)', () => {
     const afterResolve = resolveChain(afterPlay);
 
     // Character must be tapped
-    const gorbagChar = afterResolve.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbagChar = afterResolve.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(gorbagChar.status).toBe(CardStatus.Tapped);
 
     // Site must be tapped
@@ -277,7 +277,7 @@ describe('To Satisfy the Questioner (le-246)', () => {
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
 
     // Gorbag must remain tapped (constraint blocks untap)
-    expect(afterUntap.players[RESOURCE_PLAYER].characters[gorbagId as string].status).toBe(CardStatus.Tapped);
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[gorbagId].status).toBe(CardStatus.Tapped);
   });
 
   // ── Effect 5: storable at a Darkhaven (haven) during organization ────────────
@@ -417,7 +417,7 @@ describe('To Satisfy the Questioner (le-246)', () => {
     const gorbagId = findCharInstanceId(base, RESOURCE_PLAYER, GORBAG);
 
     // Find instance ID of To Satisfy the Questioner on Gorbag
-    const gorbag = base.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const gorbag = base.players[RESOURCE_PLAYER].characters[gorbagId];
     const toSatisfyInst = gorbag.items.find(i => i.definitionId === TO_SATISFY);
     expect(toSatisfyInst).toBeDefined();
 

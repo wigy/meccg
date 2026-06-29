@@ -216,7 +216,7 @@ export function renderFreeCouncilInfo(
 
   /** Format a character instance ID as a colored, hoverable card name. */
   function charName(id: string): string {
-    const char = view.self.characters[id] ?? view.opponent.characters[id];
+    const char = view.self.characters[id as CardInstanceId] ?? view.opponent.characters[id as CardInstanceId];
     if (!char) return id;
     const def = cardPool[char.definitionId as string];
     return def ? formatCardName(def) : id;

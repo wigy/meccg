@@ -120,7 +120,7 @@ function attachOwnedAlly(
   const allyInstanceId = mint();
   const players = [state.players[0], state.players[1]] as [typeof state.players[0], typeof state.players[1]];
   const player = players[playerIdx];
-  const char = player.characters[characterId as string];
+  const char = player.characters[characterId];
   const updatedChar = {
     ...char,
     allies: [
@@ -160,7 +160,7 @@ function combatWithHavenJumpOffer(
   const attacked = p1.companies[0];
   const havenComp = p1.companies[1];
   const alatarId = havenComp.characters.find(id => {
-    const def = p1.characters[id as string]?.definitionId;
+    const def = p1.characters[id]?.definitionId;
     return def === ALATAR;
   })!;
 
@@ -271,7 +271,7 @@ describe('Alatar (tw-117)', () => {
     expect(actions).toHaveLength(1);
     const havenComp = state.players[RESOURCE_PLAYER].companies[1];
     const alatarId = havenComp.characters.find(id => {
-      const def = state.players[RESOURCE_PLAYER].characters[id as string]?.definitionId;
+      const def = state.players[RESOURCE_PLAYER].characters[id]?.definitionId;
       return def === ALATAR;
     })!;
     expect((actions[0].action as HavenJoinAttackAction).characterId).toBe(alatarId);
@@ -322,7 +322,7 @@ describe('Alatar (tw-117)', () => {
       player: PLAYER_1,
       characterId: alatarId,
     });
-    const alatar = after.players[RESOURCE_PLAYER].characters[alatarId as string];
+    const alatar = after.players[RESOURCE_PLAYER].characters[alatarId];
     expect(alatar.allies).toHaveLength(0);
     const discardIds = after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId);
     expect(discardIds).toContain(allyInstanceId);
@@ -386,7 +386,7 @@ describe('Alatar (tw-117)', () => {
     expect(s.combat).toBeNull();
 
     // Alatar tapped
-    const alatarAfter = s.players[RESOURCE_PLAYER].characters[alatarId as string];
+    const alatarAfter = s.players[RESOURCE_PLAYER].characters[alatarId];
     expect(alatarAfter.status).toBe(CardStatus.Tapped);
 
     // Corruption check enqueued against Alatar

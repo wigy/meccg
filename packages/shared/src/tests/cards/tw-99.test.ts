@@ -231,10 +231,10 @@ describe("The Ring's Betrayal (tw-99)", () => {
     const afterCheck = reduce(cheated, ccActions[0]).state;
 
     // Aragorn still in play with the ring
-    const aragornChar = afterCheck.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornChar = afterCheck.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragornChar).toBeDefined();
     expect(aragornChar.items.some(i => {
-      const def = afterCheck.cardPool[i.definitionId as string];
+      const def = afterCheck.cardPool[i.definitionId];
       return def?.name === 'Precious Gold Ring';
     })).toBe(true);
   });
@@ -280,18 +280,18 @@ describe("The Ring's Betrayal (tw-99)", () => {
     const afterCheck = reduce(cheated, ccActions[0]).state;
 
     // Aragorn still in play (character NOT discarded)
-    const aragornChar = afterCheck.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornChar = afterCheck.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragornChar).toBeDefined();
 
     // Ring should be in the resource player's discard pile
     expect(afterCheck.players[RESOURCE_PLAYER].discardPile.some(c => {
-      const def = afterCheck.cardPool[c.definitionId as string];
+      const def = afterCheck.cardPool[c.definitionId];
       return def?.name === 'Precious Gold Ring';
     })).toBe(true);
 
     // Ring should no longer be attached to Aragorn
     expect(aragornChar.items.some(i => {
-      const def = afterCheck.cardPool[i.definitionId as string];
+      const def = afterCheck.cardPool[i.definitionId];
       return def?.name === 'Precious Gold Ring';
     })).toBe(false);
   });

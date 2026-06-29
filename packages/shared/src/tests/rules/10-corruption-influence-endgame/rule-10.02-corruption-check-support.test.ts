@@ -77,7 +77,7 @@ describe('Rule 10.02 — Corruption Check Support', () => {
           characters: {
             ...state.players[RESOURCE_PLAYER].characters,
             [aragornInstId as string]: {
-              ...state.players[RESOURCE_PLAYER].characters[aragornInstId as string],
+              ...state.players[RESOURCE_PLAYER].characters[aragornInstId],
               status: CardStatus.Tapped,
             },
           },
