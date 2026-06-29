@@ -216,7 +216,8 @@ describe('Blasting Fire (wh-51)', () => {
 
     // skip-automatic-attacks constraint for Goblin-gate exists.
     const skipAA = afterDiscard.activeConstraints.find(
-      c => c.kind.type === 'skip-automatic-attacks'
+      c => c.kind.type === 'site-flag'
+        && c.kind.flag === 'skip-automatic-attacks'
         && c.kind.siteDefinitionId === GOBLIN_GATE,
     );
     expect(skipAA).toBeDefined();

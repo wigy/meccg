@@ -76,7 +76,7 @@ function protectedConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
     sourceDefinitionId: A_STRIDENT_SPAWN,
     scope: { kind: 'until-cleared' as const },
     target: { kind: 'player' as const, playerId: owner },
-    kind: { type: 'site-protected' as const, siteDefinitionId: siteDefId },
+    kind: { type: 'site-flag' as const, flag: 'site-protected' as const, siteDefinitionId: siteDefId },
   };
 }
 

@@ -176,7 +176,8 @@ describe('Hidden Haven (wh-75)', () => {
     expect(inPlay!.attachedToSite).toBe(BANDIT_LAIR);
 
     const sourced = after.activeConstraints.filter(c => c.source === inPlay!.instanceId);
-    const kinds = sourced.map(c => c.kind.type);
+    // The site-flag markers are identified by their `flag`; other kinds by `type`.
+    const kinds = sourced.map(c => (c.kind.type === 'site-flag' ? c.kind.flag : c.kind.type));
     expect(kinds).toContain('attribute-modifier');            // site.type → haven
     expect(kinds).toContain('wizardhaven-conversion');
     expect(kinds).toContain('skip-automatic-attacks');

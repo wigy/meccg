@@ -543,6 +543,31 @@ export type ConstraintScope =
   | { readonly kind: 'until-cleared' };
 
 /**
+ * The behaviour a {@link ActiveConstraint} `site-flag` kind toggles on the
+ * site whose definition id it carries (matched across "all versions" of the
+ * site). Each value was formerly its own single-purpose constraint kind; they
+ * share the identical `{ siteDefinitionId }` shape and resolution, so they are
+ * collapsed into one parameterized primitive. Player-gated flags additionally
+ * constrain via the constraint's player `target` (read with
+ * `hasSiteFlagForPlayer`); site-only flags ignore the target (`hasSiteFlag`).
+ */
+export type SiteFlag =
+  /** Rebuild the Town: the bound site's automatic-attacks are skipped. */
+  | 'skip-automatic-attacks'
+  /** Hidden Haven (wh-75): the bound Ruins & Lairs counts as the controller's Wizardhaven. */
+  | 'wizardhaven-conversion'
+  /** Hidden Haven (wh-75): nothing on the bound site is playable as written. */
+  | 'site-nothing-playable-as-written'
+  /** Hidden Haven (wh-75): all attacks against a company at the bound site are canceled. */
+  | 'cancel-attacks-at-site'
+  /** Double-dealing (wh-66): cross-alignment resources are playable at the bound site. */
+  | 'cross-alignment-resources-unlocked'
+  /** Guarded Haven family (wh-74 / wh-68 / wh-69 …): opponents may not play MP cards at the bound site. */
+  | 'site-protected'
+  /** Saruman's Machinery (wh-120): one Technology item is playable at the bound site. */
+  | 'technology-item-unlocked';
+
+/**
  * A scoped restriction on the legal actions available to some target.
  * Filters the legal-action menu; never blocks resolution.
  *
@@ -820,57 +845,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * Rebuild the Town: the company's current site has its automatic
-         * attacks removed. When a company enters this site, automatic
-         * attacks are skipped entirely. Scoped `until-cleared` — persists
-         * as long as the permanent event remains in play.
+         * Site-bound boolean marker: toggles one site-scoped behaviour for the
+         * site whose definition id matches {@link siteDefinitionId} (across all
+         * versions of the site). Collapses the formerly separate single-purpose
+         * site constraint kinds — see {@link SiteFlag} for the per-flag rules
+         * each value used to document. Consumers test
+         * `kind.type === 'site-flag' && kind.flag === '<name>'`, or (preferably)
+         * the `hasSiteFlag` / `hasSiteFlagForPlayer` helpers in
+         * `engine/constraint-kind.ts`. Player-gated flags also constrain via the
+         * constraint's player `target`.
          */
-        readonly type: 'skip-automatic-attacks';
-        /** The definition ID of the site whose automatic attacks are skipped. */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
-      }
-    | {
-        /**
-         * Hidden Haven (wh-75): the bound Ruins & Lairs "becomes one of your
-         * Wizardhavens". The accompanying `site.type` override already makes the
-         * site read as a haven for every effective-type consumer; this
-         * player-targeted marker is what {@link isHavenForPlayer} consults so the
-         * *converting* Fallen-wizard player gains the player-gated haven benefits
-         * (bringing characters into play, untapping, item storage, no site-tap on
-         * departure) at a site whose printed alignment is not `fallen-wizard`.
-         * Matched by `siteDefinitionId` against the player's company site. Scoped
-         * `until-cleared`; discarded with the card when the site leaves play.
-         */
-        readonly type: 'wizardhaven-conversion';
-        /** The definition ID of the site converted into a Wizardhaven. */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
-      }
-    | {
-        /**
-         * Hidden Haven (wh-75): "Nothing is considered playable as written on the
-         * site card." Suppresses every play that relies on the site's *printed*
-         * playable-resources / on-site listings — items, factions, allies, and
-         * resource short-events keyed to the site's own card. Consulted in
-         * `legal-actions/site.ts` for the company occupying the bound site.
-         * Matched by `siteDefinitionId`; scoped `until-cleared`.
-         */
-        readonly type: 'site-nothing-playable-as-written';
-        /** The definition ID of the site on which nothing is playable as written. */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
-      }
-    | {
-        /**
-         * Hidden Haven (wh-75): "If one of your companies is at this site, all
-         * attacks against it are canceled." Every attack that would be initiated
-         * against a company occupying the bound site — the site's own
-         * automatic-attacks (already removed here by `skip-automatic-attacks`),
-         * revealed on-guard creature attacks, and declared agent attacks — is
-         * canceled. Consulted at each attack-initiation point in
-         * `reducer-site.ts`. Matched by `siteDefinitionId`; scoped
-         * `until-cleared`.
-         */
-        readonly type: 'cancel-attacks-at-site';
-        /** The definition ID of the site at which attacks are canceled. */
+        readonly type: 'site-flag';
+        /** Which site behaviour this marker toggles. */
+        readonly flag: SiteFlag;
+        /** The definition id of the bound site (matches all versions). */
         readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       }
     | {
@@ -1014,64 +1002,6 @@ export interface ActiveConstraint {
         readonly siteType: string;
         /** Resource category unlocked (e.g. `"information"`). */
         readonly subtype: string;
-      }
-    | {
-        /**
-         * Double-dealing (wh-66): a stage permanent-event played on a site that
-         * relaxes the MEWH §10 cross-alignment site-tap restriction at that one
-         * site. "If the site is a minion site, you may play appropriate hero
-         * resources there. If the site is a hero site, you may play appropriate
-         * minion resources there." While this constraint is active for the
-         * controlling player, a hero resource that taps a minion site (or a
-         * minion resource that taps a hero site) at the bound site is no longer
-         * barred by `siteTapCrossAlignmentBlocked` in `legal-actions/site.ts`.
-         * Matched by `siteDefinitionId` against the playing company's current
-         * site and by the controlling `player` target; scoped `until-cleared`
-         * and cleared when the card is discarded (the bound site leaving play).
-         */
-        readonly type: 'cross-alignment-resources-unlocked';
-        /** The definition ID of the site on which cross-alignment play is allowed. */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
-      }
-    | {
-        /**
-         * Guarded Haven (wh-74) and the MEWH "protected Wizardhaven" family
-         * (The Fortress of Isen wh-68, Fortress of the Towers wh-69, …): a stage
-         * permanent-event played on one of the controller's Wizardhavens makes
-         * that site **protected**. "Cards that give marshalling points may not be
-         * played at any version of the site by your opponent in all cases." While
-         * this constraint is active, any opponent (a player other than the
-         * constraint's `player` target) is barred — in `legal-actions/site.ts`
-         * `siteIsProtectedAgainstPlayer` — from playing a marshalling-point card
-         * (item/ally/faction worth ≥1 MP) at a site whose definition id matches
-         * {@link siteDefinitionId}. "Any version of the site" is matched by
-         * definition id, so the opponent's own copy of the same site in their
-         * location deck is covered too. Scoped `until-cleared` and cleared when
-         * the card is discarded (the bound site leaving play, via
-         * `discardOrphanedSiteAttachedEvents`).
-         */
-        readonly type: 'site-protected';
-        /** The definition ID of the protected site (all versions). */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
-      }
-    | {
-        /**
-         * Saruman's Machinery (wh-120): a stage permanent-event played on the
-         * controller's protected Isengard / The White Towers makes "One
-         * Technology item … playable at the site during your site phase whether
-         * the site is tapped or untapped." While this constraint is active for
-         * the controlling `player` target, one item bearing the `Technology`
-         * keyword may be played at the bound site (matched by
-         * {@link siteDefinitionId}) during the site phase, bypassing both the
-         * site-tap precondition and the item's own `item-play-site` restriction
-         * (which would otherwise reject a Wizardhaven). The one-per-site-phase
-         * limit is tracked by `SitePhaseState.technologyItemPlayed`. Scoped
-         * `until-cleared` and cleared when the card is discarded (the bound site
-         * leaving play, via `discardOrphanedSiteAttachedEvents`).
-         */
-        readonly type: 'technology-item-unlocked';
-        /** The definition ID of the site at which a Technology item may be played. */
-        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       }
     | {
         /**

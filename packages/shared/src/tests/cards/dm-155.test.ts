@@ -104,7 +104,7 @@ describe('Rebuild the Town (dm-155)', () => {
 
     // skip-automatic-attacks constraint should exist
     const skipAA = resolved.activeConstraints.find(
-      c => c.kind.type === 'skip-automatic-attacks',
+      c => c.kind.type === 'site-flag' && c.kind.flag === 'skip-automatic-attacks',
     );
     expect(skipAA).toBeDefined();
   });
@@ -154,7 +154,8 @@ describe('Rebuild the Town (dm-155)', () => {
         scope: { kind: 'until-cleared' },
         target: { kind: 'company', companyId: cid },
         kind: {
-          type: 'skip-automatic-attacks',
+          type: 'site-flag',
+          flag: 'skip-automatic-attacks',
           siteDefinitionId: BANDIT_LAIR,
         },
       },

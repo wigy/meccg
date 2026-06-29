@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -85,13 +85,7 @@ function siteIsProtectedAgainstPlayer(
   siteDefId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  if (!siteDefId) return false;
-  return state.activeConstraints.some(
-    c => c.kind.type === 'site-protected'
-      && c.kind.siteDefinitionId === siteDefId
-      && c.target.kind === 'player'
-      && c.target.playerId !== playerId,
-  );
+  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId, 'opponent');
 }
 
 /**
@@ -107,13 +101,7 @@ function siteIsProtectedByPlayer(
   siteDefId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  if (!siteDefId) return false;
-  return state.activeConstraints.some(
-    c => c.kind.type === 'site-protected'
-      && c.kind.siteDefinitionId === siteDefId
-      && c.target.kind === 'player'
-      && c.target.playerId === playerId,
-  );
+  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
 }
 
 /**
@@ -716,9 +704,7 @@ function playResourcesActions(
   // canonical Hidden Haven combo — neutralise a Ruins & Lairs' automatic-attacks
   // (e.g. Ettenmoors' Trolls/Wolves) and then safely influence the faction that
   // names it (Misty Mountain Wargs, le-272).
-  const nothingPlayableAsWritten = !!siteDefId && state.activeConstraints.some(
-    c => c.kind.type === 'site-nothing-playable-as-written' && c.kind.siteDefinitionId === siteDefId,
-  );
+  const nothingPlayableAsWritten = hasSiteFlag(state.activeConstraints, 'site-nothing-playable-as-written', siteDefId);
   const playableTypes = nothingPlayableAsWritten
     ? new Set<string>()
     : siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
@@ -759,11 +745,8 @@ function playResourcesActions(
     // a `cross-alignment-resources-unlocked` constraint for this player + site
     // makes the opposite alignment's resources playable there.
     if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(def, siteDef)) {
-      const crossUnlocked = !!siteDefId && state.activeConstraints.some(
-        c => c.kind.type === 'cross-alignment-resources-unlocked'
-          && c.kind.siteDefinitionId === siteDefId
-          && c.target.kind === 'player'
-          && c.target.playerId === playerId,
+      const crossUnlocked = hasSiteFlagForPlayer(
+        state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
       );
       if (!crossUnlocked) {
         logDetail(`Site ${siteName}: ${def.name} barred — cross-alignment site-tap (MEWH §10)`);
@@ -902,12 +885,7 @@ function playResourcesActions(
         // protected Isengard or your protected The White Towers."
         const siteProtectedCond = findPlayConditionEffect(eventDef, 'site-protected');
         if (siteProtectedCond) {
-          const protectedForPlayer = siteDefId !== undefined && state.activeConstraints.some(
-            c => c.kind.type === 'site-protected'
-              && c.kind.siteDefinitionId === siteDefId
-              && c.target.kind === 'player'
-              && c.target.playerId === playerId,
-          );
+          const protectedForPlayer = hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
           if (!protectedForPlayer) {
             logDetail(`Permanent event ${eventDef.name}: site ${siteName} is not a protected site for ${playerId as string}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: ${siteName} is not protected`));

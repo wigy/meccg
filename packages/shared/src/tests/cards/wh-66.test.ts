@@ -104,7 +104,8 @@ describe('Double-dealing (wh-66)', () => {
     expect(inPlay!.attachedToSite).toBe(CAVES_OF_ULUND_MINION);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'cross-alignment-resources-unlocked'
+      c => c.kind.type === 'site-flag'
+        && c.kind.flag === 'cross-alignment-resources-unlocked'
         && c.kind.siteDefinitionId === CAVES_OF_ULUND_MINION,
     );
     expect(constraint).toBeDefined();
@@ -184,11 +185,11 @@ describe('Double-dealing (wh-66)', () => {
       { targetSiteDefinitionId: CAVES_OF_ULUND_MINION },
     );
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'cross-alignment-resources-unlocked',
+      c => c.kind.type === 'site-flag' && c.kind.flag === 'cross-alignment-resources-unlocked',
     );
-    expect(constraint!.kind.type === 'cross-alignment-resources-unlocked'
+    expect(constraint!.kind.type === 'site-flag'
       && constraint!.kind.siteDefinitionId).toBe(CAVES_OF_ULUND_MINION);
-    expect(constraint!.kind.type === 'cross-alignment-resources-unlocked'
+    expect(constraint!.kind.type === 'site-flag'
       && constraint!.kind.siteDefinitionId === HIMRING_HERO).toBe(false);
   });
 

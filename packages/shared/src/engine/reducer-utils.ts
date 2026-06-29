@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
-import type { ResolutionScope } from '../types/pending.js';
+import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
@@ -532,18 +532,56 @@ export function stagePointsOfCard(def: CardDefinition | null | undefined): numbe
  * so an opponent's company sharing the same site does not gain haven benefits —
  * the card grants "one of *your* Wizardhavens".
  */
+/**
+ * True when a site-only {@link SiteFlag} marker is active for the given site
+ * (matched by definition id across all versions of the site). Returns false
+ * when no site is supplied. Use for flags whose effect ignores the
+ * constraint's player `target` (e.g. `skip-automatic-attacks`,
+ * `cancel-attacks-at-site`, `site-nothing-playable-as-written`).
+ */
+export function hasSiteFlag(
+  constraints: readonly ActiveConstraint[],
+  flag: SiteFlag,
+  siteDefinitionId: CardDefinitionId | undefined,
+): boolean {
+  if (!siteDefinitionId) return false;
+  return constraints.some(
+    c => c.kind.type === 'site-flag' && c.kind.flag === flag && c.kind.siteDefinitionId === siteDefinitionId,
+  );
+}
+
+/**
+ * True when a player-gated {@link SiteFlag} marker is active for the given site.
+ * `match` selects whether the constraint's player `target` must be `playerId`
+ * (`'self'`, the controller-gated flags — `wizardhaven-conversion`,
+ * `cross-alignment-resources-unlocked`, `technology-item-unlocked`) or anyone
+ * *other* than `playerId` (`'opponent'`, the `site-protected` protection flag).
+ * Returns false when no site is supplied.
+ */
+export function hasSiteFlagForPlayer(
+  constraints: readonly ActiveConstraint[],
+  flag: SiteFlag,
+  siteDefinitionId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+  match: 'self' | 'opponent' = 'self',
+): boolean {
+  if (!siteDefinitionId) return false;
+  return constraints.some(
+    c =>
+      c.kind.type === 'site-flag'
+      && c.kind.flag === flag
+      && c.kind.siteDefinitionId === siteDefinitionId
+      && c.target.kind === 'player'
+      && (match === 'self' ? c.target.playerId === playerId : c.target.playerId !== playerId),
+  );
+}
+
 export function isWizardhavenConversionFor(
   state: GameState,
   siteDefinitionId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  if (!siteDefinitionId) return false;
-  return state.activeConstraints.some(c =>
-    c.kind.type === 'wizardhaven-conversion'
-    && c.kind.siteDefinitionId === siteDefinitionId
-    && c.target.kind === 'player'
-    && c.target.playerId === playerId,
-  );
+  return hasSiteFlagForPlayer(state.activeConstraints, 'wizardhaven-conversion', siteDefinitionId, playerId);
 }
 
 /**
@@ -557,7 +595,7 @@ export function isWizardhavenConversionFor(
  */
 export function playerHasProtectedWizardhaven(state: GameState, playerId: PlayerId): boolean {
   for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'site-protected') continue;
+    if (!(c.kind.type === 'site-flag' && c.kind.flag === 'site-protected')) continue;
     if (c.target.kind !== 'player' || c.target.playerId !== playerId) continue;
     const siteDefId = c.kind.siteDefinitionId;
     const siteDef = state.cardPool[siteDefId];
@@ -1763,13 +1801,7 @@ export function siteHasTechnologyItemUnlock(
   siteDefId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  if (!siteDefId) return false;
-  return state.activeConstraints.some(
-    c => c.kind.type === 'technology-item-unlocked'
-      && c.kind.siteDefinitionId === siteDefId
-      && c.target.kind === 'player'
-      && c.target.playerId === playerId,
-  );
+  return hasSiteFlagForPlayer(state.activeConstraints, 'technology-item-unlocked', siteDefId, playerId);
 }
 
 /**
