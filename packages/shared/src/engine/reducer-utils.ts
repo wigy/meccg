@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -1840,6 +1840,25 @@ export function selectCompanyActions(
 
   logDetail(`${actions.length} unhandled company(ies) available for selection`);
   return actions;
+}
+
+/**
+ * Build a fresh {@link CombatState} for a newly-initiated attack, filling the
+ * four fields every fresh combat starts with: empty strike assignments, strike
+ * index 0, the `assign-strikes` phase, and no body-check target. Callers pass
+ * the attack-specific fields (source, players, prowess, body, assignmentPhase,
+ * detainment, and any optional flags).
+ */
+export function makeCombatState(
+  fields: Omit<CombatState, 'strikeAssignments' | 'currentStrikeIndex' | 'phase' | 'bodyCheckTarget'>,
+): CombatState {
+  return {
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    bodyCheckTarget: null,
+    ...fields,
+  };
 }
 
 /**

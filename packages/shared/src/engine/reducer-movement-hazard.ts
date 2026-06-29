@@ -29,7 +29,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
+import { makeCombatState, autoMergeNonHavenCompanies, cardName, companyEffectiveSize, characterEntries, cleanupEmptyCompanies, clonePlayers, companyById, completeDeckExhaust, defById, findById, getCardEffects, getOnEventEffects, handleExchangeSideboard, hazardPlayer, playerById, removeById, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply, handlePlayCharacter } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -1133,7 +1133,7 @@ function handleAgentTapAttack(
   const newState = revealed;
 
   // Build CombatState
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1141,14 +1141,10 @@ function handleAgentTapAttack(
     strikesTotal: 1,
     strikeProwess: prowess,
     creatureBody: body,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: tapAttackEff.attackerAssigns ? 'attacker' : 'defender',
-    bodyCheckTarget: null,
     detainment: false,
     ...(tapAttackEff.attackerAssigns ? { forceSingleTarget: true } : {}),
-  };
+  });
 
   return {
     state: {
@@ -1486,7 +1482,7 @@ function handleTapAgentAtSite(
     : mhState.hazardsPlayedThisCompany + 1;
 
   // --- Build CombatState ---
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1494,15 +1490,11 @@ function handleTapAgentAtSite(
     strikesTotal: 1,
     strikeProwess: prowess,
     creatureBody: body,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
-    bodyCheckTarget: null,
     detainment: false,
     ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
     ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
-  };
+  });
 
   return {
     state: {
@@ -3367,7 +3359,7 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
     logDetail(`Ahunt attack has attacker-chooses-defenders`);
   }
 
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -3376,16 +3368,12 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
     strikeProwess: effectiveProwess,
     creatureBody: effect.body,
     creatureRace: effect.race,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
-    bodyCheckTarget: null,
     detainment: isDetainmentAttack({
       attackRace: effect.race as Race,
       defendingAlignment: state.players[activePlayerIndex].alignment,
     }),
-  };
+  });
 
   logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
 

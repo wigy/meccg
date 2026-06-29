@@ -23,7 +23,7 @@ import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js'
 import { allyEffectiveProwess, allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeAttachment, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, matchesDefinition, playerById, removeAttachment, removeById, roll2d6, sweepLeaderLeavesCompanyEvents, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveEnemyBody, isWardedAgainst, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
@@ -2416,7 +2416,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         `Card-auto-attack cancelled: "${cardLabel}" triggering next attack — ${next.creatureType} ` +
         `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)`,
       );
-      const nextCombat: CombatState = {
+      const nextCombat: CombatState = makeCombatState({
         attackSource: {
           type: 'card-triggered-attack',
           cardInstanceId,
@@ -2429,13 +2429,9 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         strikeProwess: effectiveProwess,
         creatureBody: null,
         creatureRace,
-        strikeAssignments: [],
-        currentStrikeIndex: 0,
-        phase: 'assign-strikes',
         assignmentPhase: 'defender',
-        bodyCheckTarget: null,
         detainment: false,
-      };
+      });
       stateWithCancelledPlayers = { ...stateWithCancelledPlayers, combat: nextCombat };
     } else {
       const defPlayer = stateWithCancelledPlayers.players[defIdx];
@@ -3870,7 +3866,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)` +
         (rest.length > 0 ? `; ${rest.length} more after this` : ''),
       );
-      const nextCombat: CombatState = {
+      const nextCombat: CombatState = makeCombatState({
         attackSource: {
           type: 'card-triggered-attack',
           cardInstanceId,
@@ -3883,13 +3879,9 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         strikeProwess: effectiveProwess,
         creatureBody: null,
         creatureRace,
-        strikeAssignments: [],
-        currentStrikeIndex: 0,
-        phase: 'assign-strikes',
         assignmentPhase: 'defender',
-        bodyCheckTarget: null,
         detainment: false,
-      };
+      });
       stateAfterCombat = { ...stateAfterCombat, combat: nextCombat };
     } else {
       // Final (or only) attack — check for untapped characters
@@ -4024,7 +4016,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const body2 = resolveAttackBody(stateAfterCombat, aa.body ?? null, inPlayNames2, race, tidingsBoostCtx);
       const aaAttackerChooses2 = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
       logDetail(`Tidings of Bold Spies: initiating attack ${attackIndex + 1}/${attacks.length}: ${aa.creatureType} (${strikes2} strikes, ${prowess2} prowess)`);
-      const nextCombat: CombatState = {
+      const nextCombat: CombatState = makeCombatState({
         attackSource: { type: 'tidings-attack', eventInstanceId: tidingsConstraint.source, attackIndex },
         companyId: combat.companyId,
         defendingPlayerId: combat.defendingPlayerId,
@@ -4033,11 +4025,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         strikeProwess: prowess2,
         creatureBody: body2,
         creatureRace: race,
-        strikeAssignments: [],
-        currentStrikeIndex: 0,
-        phase: 'assign-strikes',
         assignmentPhase: aaAttackerChooses2 ? 'cancel-window' : 'defender',
-        bodyCheckTarget: null,
         detainment: isDetainmentAttack({
           attackEffects: siteDef2?.effects,
           attackRace: race as import('../index.js').Race | null,
@@ -4045,7 +4033,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
           defendingSiteEffects: siteDef2?.effects,
         }),
         ...(aaAttackerChooses2 ? { attackerChoosesDefenders: true } : {}),
-      };
+      });
       // Update the queue constraint to point to the next attack.
       stateAfterCombat = removeConstraint(stateAfterCombat, tidingsConstraint.id);
       if (attackIndex + 1 < attacks.length) {

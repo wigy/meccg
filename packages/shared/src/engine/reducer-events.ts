@@ -19,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, defById, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, defById, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -827,7 +827,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const company = findCharacterCompany(defPlayer.companies, scoutId);
     if (!company) return { state: stateWithDiscard, error: `${def.name}: scout not in any company` };
 
-    const combat: import('../types/state-combat.js').CombatState = {
+    const combat: import('../types/state-combat.js').CombatState = makeCombatState({
       attackSource: {
         type: 'lucky-search-attack',
         scoutInstanceId: scoutId,
@@ -840,14 +840,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       strikesTotal: deckSearchEffect.strikes,
       strikeProwess: prowess,
       creatureBody: null,
-      strikeAssignments: [],
-      currentStrikeIndex: 0,
-      phase: 'assign-strikes',
       assignmentPhase: 'defender',
-      bodyCheckTarget: null,
       detainment: false,
       uncancelable: deckSearchEffect.uncancelable,
-    };
+    });
     return { state: { ...stateWithDiscard, combat } };
   }
 
