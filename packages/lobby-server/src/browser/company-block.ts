@@ -889,6 +889,31 @@ export function renderDummyCompanyBlock(
  * Shows permanent resources, factions, and other general cards on the table.
  * Positioned at the top of the board above the company overview.
  */
+/**
+ * Find a viable hazard-limit-swap activation (Power Built by Waiting as-34)
+ * for the given card-in-play instance.
+ *
+ * The hazard player may `tap-hazard-card-for-limit` (tap the card for
+ * +hazard limit) or, once it is tapped, `pay-hazard-limit-to-untap-card`
+ * (spend hazard limit to untap it). Both actions reference the card by
+ * `cardInstanceId`; this returns whichever is currently viable, or `null`.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render.
+ */
+export function findCardsInPlayTapAction(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): GameAction | null {
+  return (
+    actions.find(
+      a =>
+        (a.type === 'tap-hazard-card-for-limit' || a.type === 'pay-hazard-limit-to-untap-card')
+        && a.cardInstanceId === cardInstanceId,
+    ) ?? null
+  );
+}
+
 export function renderCardsInPlayRow(
   container: HTMLElement,
   view: PlayerView,
@@ -941,6 +966,20 @@ export function renderCardsInPlayRow(
             e.stopPropagation();
             clearShortEventSelection();
             onAction(seAction);
+          });
+        }
+      }
+      // Power Built by Waiting (as-34) and similar hazard-limit-swap permanents:
+      // clicking the card-in-play taps it for +hazard limit, or (when tapped)
+      // spends hazard limit to untap it. Without this the only way to activate
+      // the card was the debug action panel — it was invisible on the board.
+      else if (onAction) {
+        const tapAction = findCardsInPlayTapAction(viableActions(view.legalActions), card.instanceId);
+        if (tapAction) {
+          img.classList.add('company-card--movable');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(tapAction);
           });
         }
       }
