@@ -109,7 +109,7 @@ describe('A Strident Spawn (wh-61)', () => {
       sourceDefinitionId: 'wh-68' as CardDefinitionId,
       scope: { kind: 'until-cleared' },
       target: { kind: 'player', playerId: PLAYER_1 },
-      kind: { type: 'site-protected', siteDefinitionId: ISENGARD_FW },
+      kind: { type: 'site-flag', flag: 'site-protected', siteDefinitionId: ISENGARD_FW },
     });
     state = recomputeDerived(state);
     expect(state.players[RESOURCE_PLAYER].stagePoints).toBe(8);

@@ -98,7 +98,7 @@ function siteProtectedConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
     sourceDefinitionId: FORTRESS_OF_TOWERS,
     scope: { kind: 'until-cleared' as const },
     target: { kind: 'player' as const, playerId: owner },
-    kind: { type: 'site-protected' as const, siteDefinitionId: siteDefId },
+    kind: { type: 'site-flag' as const, flag: 'site-protected' as const, siteDefinitionId: siteDefId },
   };
 }
 
@@ -146,7 +146,7 @@ describe('Fortress of the Towers (wh-69)', () => {
     expect(card!.attachedToSite).toBe(WHITE_TOWERS_WH);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'site-protected' && c.kind.siteDefinitionId === WHITE_TOWERS_WH,
+      c => c.kind.type === 'site-flag' && c.kind.flag === 'site-protected' && c.kind.siteDefinitionId === WHITE_TOWERS_WH,
     );
     expect(constraint).toBeDefined();
     expect(constraint!.scope.kind).toBe('until-cleared');

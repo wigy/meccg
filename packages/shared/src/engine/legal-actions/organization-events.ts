@@ -26,7 +26,7 @@ import { getItemGrantedSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
+import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
@@ -183,12 +183,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
         }
         if (siteProtectedCond) {
-          const protectedForPlayer = state.activeConstraints.some(
-            c => c.kind.type === 'site-protected'
-              && c.kind.siteDefinitionId === siteDefId
-              && c.target.kind === 'player'
-              && c.target.playerId === playerId,
-          );
+          const protectedForPlayer = hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
           if (!protectedForPlayer) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not protected for ${playerId as string}`);
             continue;

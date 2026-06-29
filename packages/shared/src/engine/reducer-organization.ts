@@ -1140,7 +1140,7 @@ function runGrantApply(
         return { error: `add-constraint: ${constraintKind} requires the bearer's company to be at a site (${ctx.sourceName})` };
       }
       if (constraintKind === 'skip-automatic-attacks') {
-        kind = { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
+        kind = { type: 'site-flag', flag: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
       } else {
         const value = typeof apply.value === 'number' ? apply.value : 0;
         kind = { type: 'influence-at-site-modifier', siteDefinitionId: siteDefId, value };

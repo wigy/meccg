@@ -1095,7 +1095,12 @@ function applyOneConstraint(
       return base;
     case 'cancel-character-discard':
       return base;
-    case 'skip-automatic-attacks':
+    case 'site-flag':
+      // Every site-flag marker is consulted directly by the code path that
+      // owns its behaviour (skip/cancel/replace automatic-attacks in
+      // `reducer-site.ts`; nothing-playable / cross-alignment / technology /
+      // site-protected in `legal-actions/site.ts`; wizardhaven-conversion in
+      // `isHavenForPlayer`) — no broad legal-action filtering needed here.
       return base;
     case 'replace-automatic-attacks':
       // Consumed directly by `manifestations.ts` `getActiveAutoAttacks` —
@@ -1142,23 +1147,6 @@ function applyOneConstraint(
       // `legal-actions/organization.ts` (Records Unread: Information at any
       // Shadow-hold) — no broad legal-action filtering needed here.
       return base;
-    case 'cross-alignment-resources-unlocked':
-      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
-      // (Double-dealing wh-66: lifts the MEWH §10 cross-alignment site-tap block
-      // at the bound site) — no broad legal-action filtering needed here.
-      return base;
-    case 'site-protected':
-      // Consulted directly by `siteIsProtectedAgainstPlayer` in
-      // `legal-actions/site.ts` (Guarded Haven wh-74: bars the opponent from
-      // playing marshalling-point cards at the bound site) — no broad
-      // legal-action filtering needed here.
-      return base;
-    case 'technology-item-unlocked':
-      // Consulted directly by `playResourcesActions` in `legal-actions/site.ts`
-      // (Saruman's Machinery wh-120: lets one Technology item be played at the
-      // bound site whether tapped or untapped) — no broad legal-action
-      // filtering needed here.
-      return base;
     case 'hazard-draw-multiplier':
       // Applied in `transitionToDrawCards` when computing hazardDrawMax —
       // no broad legal-action filtering needed here.
@@ -1176,20 +1164,6 @@ function applyOneConstraint(
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
       // filtering needed here.
-      return base;
-    case 'wizardhaven-conversion':
-      // Consulted directly by `isHavenForPlayer` (haven-benefit gates) and the
-      // effective-type readers — no broad legal-action filtering needed here.
-      return base;
-    case 'site-nothing-playable-as-written':
-      // Consulted directly by the resource/faction/ally/item emitters in
-      // `legal-actions/site.ts` for the company at the bound site — no broad
-      // legal-action filtering needed here.
-      return base;
-    case 'cancel-attacks-at-site':
-      // Consumed directly at each attack-initiation point in `reducer-site.ts`
-      // (auto-attacks, on-guard creatures, agent attacks) — no broad
-      // legal-action filtering needed here.
       return base;
   }
 }

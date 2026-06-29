@@ -98,7 +98,7 @@ function siteProtectedConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
     sourceDefinitionId: GUARDED_HAVEN,
     scope: { kind: 'until-cleared' as const },
     target: { kind: 'player' as const, playerId: owner },
-    kind: { type: 'site-protected' as const, siteDefinitionId: siteDefId },
+    kind: { type: 'site-flag' as const, flag: 'site-protected' as const, siteDefinitionId: siteDefId },
   };
 }
 
@@ -209,7 +209,7 @@ describe('Guarded Haven (wh-74)', () => {
     expect(inPlay!.attachedToSite).toBe(WIZARDHAVEN);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'site-protected' && c.kind.siteDefinitionId === WIZARDHAVEN,
+      c => c.kind.type === 'site-flag' && c.kind.flag === 'site-protected' && c.kind.siteDefinitionId === WIZARDHAVEN,
     );
     expect(constraint).toBeDefined();
     expect(constraint!.scope.kind).toBe('until-cleared');

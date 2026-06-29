@@ -16,6 +16,7 @@ import type { GameState } from '../index.js';
 import type { ActiveConstraint, AttributePath, ConstraintId } from '../types/pending.js';
 import type { CardDefinitionId, SiteType } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
+import { hasSiteFlag } from './reducer-utils.js';
 
 type ConstraintTarget = ActiveConstraint['target'];
 
@@ -126,12 +127,7 @@ export function siteAttacksCanceled(
   state: GameState,
   siteDefinitionId: CardDefinitionId,
 ): boolean {
-  for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'cancel-attacks-at-site') continue;
-    if (c.kind.siteDefinitionId !== (siteDefinitionId as string)) continue;
-    return true;
-  }
-  return false;
+  return hasSiteFlag(state.activeConstraints, 'cancel-attacks-at-site', siteDefinitionId);
 }
 
 function matchesEntity(a: ConstraintTarget, b: ConstraintTarget): boolean {

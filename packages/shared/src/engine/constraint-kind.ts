@@ -14,6 +14,7 @@
  */
 
 import type { GameState } from '../index.js';
+import type { SiteFlag } from '../types/pending.js';
 import { Phase } from '../types/state-phases.js';
 import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -42,22 +43,22 @@ export function parseConstraintScope(
 }
 
 /**
- * Site-bound constraint kinds that bind to the site the card is played on
+ * Site-bound constraint flags that bind to the site the card is played on
  * (the explicit play-action site, else the active site-phase company's
- * current site). All share the same `{ type, siteDefinitionId }` shape and
- * resolution and differ only in the kind type — e.g. Double-dealing (wh-66),
- * Guarded Haven (wh-74) / Fortress of Isen (wh-68), Saruman's Machinery (wh-120).
+ * current site). All produce one {@link SiteFlag} `site-flag` constraint with
+ * the same `{ siteDefinitionId }` shape and resolution, differing only in the
+ * flag — e.g. Rebuild the Town, Double-dealing (wh-66), Guarded Haven (wh-74) /
+ * Fortress of Isen (wh-68), Saruman's Machinery (wh-120). The map key is the
+ * DSL constraint name; the value is the {@link SiteFlag} it produces.
  */
-const SITE_BOUND_CONSTRAINTS: Record<
-  string,
-  (siteDefinitionId: import('../types/common.js').CardDefinitionId) => import('../types/pending.js').ActiveConstraint['kind']
-> = {
-  'wizardhaven-conversion': siteDefinitionId => ({ type: 'wizardhaven-conversion', siteDefinitionId }),
-  'site-nothing-playable': siteDefinitionId => ({ type: 'site-nothing-playable-as-written', siteDefinitionId }),
-  'cancel-attacks-at-site': siteDefinitionId => ({ type: 'cancel-attacks-at-site', siteDefinitionId }),
-  'cross-alignment-resources-unlocked': siteDefinitionId => ({ type: 'cross-alignment-resources-unlocked', siteDefinitionId }),
-  'site-protected': siteDefinitionId => ({ type: 'site-protected', siteDefinitionId }),
-  'technology-item-unlocked': siteDefinitionId => ({ type: 'technology-item-unlocked', siteDefinitionId }),
+const SITE_BOUND_FLAGS: Record<string, SiteFlag> = {
+  'skip-automatic-attacks': 'skip-automatic-attacks',
+  'wizardhaven-conversion': 'wizardhaven-conversion',
+  'site-nothing-playable': 'site-nothing-playable-as-written',
+  'cancel-attacks-at-site': 'cancel-attacks-at-site',
+  'cross-alignment-resources-unlocked': 'cross-alignment-resources-unlocked',
+  'site-protected': 'site-protected',
+  'technology-item-unlocked': 'technology-item-unlocked',
 };
 
 /**
@@ -72,12 +73,12 @@ export function buildConstraintKind(
   constraintKind: string,
   explicitSiteDefId?: import('../types/common.js').CardDefinitionId,
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
-  // Site-bound kinds all resolve the played-at site and differ only in type.
-  const siteBoundFactory = SITE_BOUND_CONSTRAINTS[constraintKind];
-  if (siteBoundFactory) {
+  // Site-bound flags all resolve the played-at site and differ only in flag.
+  const siteFlag = SITE_BOUND_FLAGS[constraintKind];
+  if (siteFlag) {
     const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
     if (!siteDefId) return null;
-    return siteBoundFactory(siteDefId);
+    return { type: 'site-flag', flag: siteFlag, siteDefinitionId: siteDefId };
   }
   switch (constraintKind) {
     case 'site-phase-do-nothing':
@@ -200,19 +201,6 @@ export function buildConstraintKind(
         when: payload.when,
         apply: payload.apply,
       };
-    }
-    case 'skip-automatic-attacks': {
-      const ps = state.phaseState;
-      let siteDefId: import('../types/common.js').CardDefinitionId | null = explicitSiteDefId ?? null;
-      if (siteDefId === null && ps.phase === Phase.Site) {
-        const activePlayer = activePlayerState(state);
-        const company = activePlayer?.companies[ps.activeCompanyIndex];
-        if (company?.currentSite) {
-          siteDefId = company.currentSite.definitionId;
-        }
-      }
-      if (!siteDefId) return null;
-      return { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
     }
     default:
       return null;

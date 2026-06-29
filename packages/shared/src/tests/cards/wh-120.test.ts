@@ -109,7 +109,7 @@ function siteProtectedConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
     sourceDefinitionId: 'wh-68' as CardDefinitionId,
     scope: { kind: 'until-cleared' as const },
     target: { kind: 'player' as const, playerId: owner },
-    kind: { type: 'site-protected' as const, siteDefinitionId: siteDefId },
+    kind: { type: 'site-flag' as const, flag: 'site-protected' as const, siteDefinitionId: siteDefId },
   };
 }
 
@@ -121,7 +121,7 @@ function techUnlockConstraint(owner: PlayerId, siteDefId: CardDefinitionId) {
     sourceDefinitionId: SARUMANS_MACHINERY,
     scope: { kind: 'until-cleared' as const },
     target: { kind: 'player' as const, playerId: owner },
-    kind: { type: 'technology-item-unlocked' as const, siteDefinitionId: siteDefId },
+    kind: { type: 'site-flag' as const, flag: 'technology-item-unlocked' as const, siteDefinitionId: siteDefId },
   };
 }
 
@@ -261,7 +261,7 @@ describe("Saruman's Machinery (wh-120)", () => {
     expect(card!.attachedToSite).toBe(ISENGARD_WH);
 
     const constraint = after.activeConstraints.find(
-      c => c.kind.type === 'technology-item-unlocked' && c.kind.siteDefinitionId === ISENGARD_WH,
+      c => c.kind.type === 'site-flag' && c.kind.flag === 'technology-item-unlocked' && c.kind.siteDefinitionId === ISENGARD_WH,
     );
     expect(constraint).toBeDefined();
     expect(constraint!.scope.kind).toBe('until-cleared');
