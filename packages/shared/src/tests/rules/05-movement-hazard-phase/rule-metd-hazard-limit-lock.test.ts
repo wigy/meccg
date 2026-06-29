@@ -15,7 +15,7 @@ import { describe, expect, test } from 'vitest';
 import type { MovementHazardPhaseState } from '../../../index.js';
 import { Phase } from '../../../index.js';
 import { addConstraint } from '../../../engine/pending.js';
-import { currentHazardLimit } from '../../../engine/reducer-movement-hazard.js';
+import { currentHazardLimit } from '../../../engine/hazard-limit.js';
 import { P1_COMPANY, PLAYER_2, makeMHState, buildSimpleTwoPlayerState } from '../../test-helpers.js';
 
 describe('METD §5 — Hazard limit lock at reveal', () => {

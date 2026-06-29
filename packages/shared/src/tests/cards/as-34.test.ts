@@ -32,7 +32,7 @@ import {
   addCardInPlay,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { currentHazardLimit } from '../../engine/reducer-movement-hazard.js';
+import { currentHazardLimit } from '../../engine/hazard-limit.js';
 import {
   Phase, Alignment, CardStatus,
   computeLegalActions,
