@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, makeMHState, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS,
+  ARAGORN, GIMLI, LEGOLAS,
   LORIEN, HENNETH_ANNUN, MINAS_TIRITH,
   DAGGER_OF_WESTERNESSE, ORC_PATROL, CAVE_DRAKE,
 } from '../../test-helpers.js';
@@ -228,5 +228,84 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     const arrivedCompany = afterBothPass.players[0].companies[0];
     expect(arrivedCompany.currentSite?.definitionId).toBe(HENNETH_ANNUN);
     expect(arrivedCompany.siteCardOwned).toBe(true);
+  });
+
+  test('site card ownership transfers to a sibling left behind when the card holder moves away', () => {
+    // Two P1 companies share one Minas Tirith site card; only the first holds
+    // the physical card. When that company moves away, the sibling staying
+    // behind becomes the sole occupant and must take ownership of the real
+    // card (CoE 2.3 / 2.II.7.2) instead of keeping a borrowed copy.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+            { site: MINAS_TIRITH, characters: [GIMLI] },
+          ],
+          hand: [],
+          siteDeck: [HENNETH_ANNUN],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const hennethSite = built.players[0].siteDeck.find(
+      c => c.definitionId === HENNETH_ANNUN,
+    )!;
+    // Both companies share a single physical site instance.
+    const sharedSite = built.players[0].companies[0].currentSite!;
+    const company0 = built.players[0].companies[0];
+    const company1 = built.players[0].companies[1];
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [
+            {
+              ...company0,
+              currentSite: sharedSite,
+              siteCardOwned: true,
+              destinationSite: { instanceId: hennethSite.instanceId, definitionId: hennethSite.definitionId, status: CardStatus.Untapped },
+              siteOfOrigin: sharedSite.instanceId,
+            },
+            {
+              ...company1,
+              currentSite: sharedSite,
+              siteCardOwned: false,
+            },
+          ],
+          siteDeck: built.players[0].siteDeck,
+        },
+        built.players[1],
+      ] as unknown as typeof built.players,
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const movedCompany = afterBothPass.players[0].companies[0];
+    const stayedCompany = afterBothPass.players[0].companies[1];
+
+    // The mover arrives at its new site holding that site's card.
+    expect(movedCompany.currentSite?.definitionId).toBe(HENNETH_ANNUN);
+    expect(movedCompany.siteCardOwned).toBe(true);
+
+    // The company left behind is now the sole occupant of Minas Tirith and
+    // owns the real site card — not a borrowed copy.
+    expect(stayedCompany.currentSite?.instanceId).toBe(sharedSite.instanceId);
+    expect(stayedCompany.siteCardOwned).toBe(true);
+
+    // The site card was not returned to the location deck.
+    expect(afterBothPass.players[0].siteDeck.some(c => c.instanceId === sharedSite.instanceId)).toBe(false);
   });
 });

@@ -1847,12 +1847,30 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
     let newOutOfPlayPile = [...resourcePlayer.outOfPlayPile];
     if (originSite) {
-      const siblingStillAtOrigin = resourcePlayer.companies.some(
+      const siblingAtOriginIndex = resourcePlayer.companies.findIndex(
         (c, idx) => idx !== mhState.activeCompanyIndex
           && c.currentSite?.instanceId === originSite.instanceId,
       );
-      if (siblingStillAtOrigin) {
-        logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
+      if (siblingAtOriginIndex !== -1) {
+        // A sibling company stays at the site of origin, so the single physical
+        // site card remains in play (CoE 2.3 / 2.II.7.2). If the departing
+        // company held that card, ownership must transfer to the remaining
+        // sibling — otherwise the sole company at the site would keep showing a
+        // borrowed copy (`siteCardOwned=false`) instead of the real card.
+        const remainingOwnsCard = updatedCompanies.some(
+          (c, idx) => idx !== mhState.activeCompanyIndex
+            && c.currentSite?.instanceId === originSite.instanceId
+            && c.siteCardOwned,
+        );
+        if (company.siteCardOwned && !remainingOwnsCard) {
+          updatedCompanies[siblingAtOriginIndex] = {
+            ...updatedCompanies[siblingAtOriginIndex],
+            siteCardOwned: true,
+          };
+          logDetail(`Step 8: site of origin remains in play — transferring site card ownership to sibling company ${updatedCompanies[siblingAtOriginIndex].id as string}`);
+        } else {
+          logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
+        }
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
