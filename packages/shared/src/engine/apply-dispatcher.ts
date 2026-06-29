@@ -6,12 +6,15 @@
  * with a single loop driven by each card's declared effects — see
  * `specs/2026-04-23-chain-effect-dispatch-plan.md`.
  *
- * Phase A (initial landing) defines the types and a minimal dispatcher
- * that handles `move` effects (delegating to {@link applyMove}) and
- * ignores everything else. Later phases port the chain's bespoke
- * branches (`cancel-attack`, environment cancel, fetch-to-deck enqueue,
- * muster-roll / call-of-home, permanent/long-event resolve) onto this
- * dispatcher.
+ * Phases A–B have landed: {@link applyEffect} handles `move` (delegating
+ * to {@link applyMove}), `cancel-attack`, and `strike-modifier`, and
+ * returns the state unchanged for every other effect type. The chain
+ * resolver's single dispatch loop is gated by
+ * {@link shouldFireOnChainResolution}, which names exactly the effect
+ * types that fire on chain resolution today; later phases broaden both
+ * the dispatcher and the predicate one apply type at a time, porting the
+ * chain's remaining bespoke branches (environment cancel, fetch-to-deck
+ * enqueue, muster-roll / call-of-home, permanent/long-event resolve).
  *
  * Invariant: `applyEffect` never mutates its input state. It either
  * returns a new state, or `{ state, needsInput: true }` when the effect
@@ -125,26 +128,27 @@ export function buildChainApplyContext(
 }
 
 /**
- * Whether `effect` should fire on chain resolution for the given
- * resolving entry's payload type.
+ * Whether `effect` should fire through the chain resolver's shared
+ * dispatch loop for the given resolving entry.
  *
- * Top-level effects (not wrapped in `on-event`) fire for any resolving
- * entry. `on-event` effects fire only when their `event` matches a
- * chain-resolution trigger for the payload type (e.g.
- * `company-arrives-at-site` fires for short events in M/H phase;
- * `self-enters-play` fires for permanent events).
+ * This is the single gating seam for chain-resolution effect dispatch:
+ * the loop in `chain-reducer.ts`'s `resolveEntry` runs `applyEffect` for
+ * exactly the effect types this predicate approves. It currently names
+ * the two effect types already migrated onto the shared dispatcher —
+ * `cancel-attack` (Concealment, Vanishment, Dark Quarrels, Many Turns and
+ * Doublings) and `strike-modifier` (Dodge, Lucky Strike, Risky Blow).
  *
- * Phase A implements a conservative default: only top-level `move`
- * effects fire. Later phases broaden the predicate as they migrate
- * more on-event subtypes onto the shared dispatcher.
+ * Each later migration phase broadens this predicate in lock-step with
+ * `applyEffect`: e.g. `on-event` effects will fire only when their
+ * `event` matches a chain-resolution trigger for the payload type
+ * (`company-arrives-at-site` for moving short events, `self-enters-play`
+ * for permanent/long events). `move` is intentionally NOT approved yet —
+ * move effects are not dispatched through this loop today — and is added
+ * when the move-dependent phases land.
  */
 export function shouldFireOnChainResolution(
   effect: CardEffect,
   _entry: { readonly payload: { readonly type: string } },
 ): boolean {
-  if (effect.type === 'move') {
-    logDetail(`shouldFireOnChainResolution: move effect approved`);
-    return true;
-  }
-  return false;
+  return effect.type === 'cancel-attack' || effect.type === 'strike-modifier';
 }

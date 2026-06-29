@@ -34,7 +34,7 @@ import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pend
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { activePlayerState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
-import { applyEffect, buildChainApplyContext } from './apply-dispatcher.js';
+import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
@@ -2209,10 +2209,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of getCardEffects(def)) {
-        if (
-          effect.type !== 'cancel-attack' &&
-          effect.type !== 'strike-modifier'
-        ) continue;
+        if (!shouldFireOnChainResolution(effect, entry)) continue;
         logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);
         if ('error' in r) {
