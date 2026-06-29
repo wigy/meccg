@@ -26,7 +26,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { buildConstraintKind } from './constraint-kind.js';
+import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
@@ -2146,21 +2146,8 @@ function fireCompanyArrivesAtSite(
         const scopeName = effect.apply.scope;
         if (!constraintKind || !scopeName) continue;
 
-        // Map scope name to ConstraintScope
-        let scope: import('../types/pending.js').ConstraintScope;
-        switch (scopeName) {
-          case 'company-site-phase':
-            scope = { kind: 'company-site-phase', companyId: arrivingCompanyId };
-            break;
-          case 'turn':
-            scope = { kind: 'turn' };
-            break;
-          case 'until-cleared':
-            scope = { kind: 'until-cleared' };
-            break;
-          default:
-            continue;
-        }
+        const scope = parseConstraintScope(scopeName, arrivingCompanyId);
+        if (!scope) continue;
         const kind = buildConstraintKind(state, effect, constraintKind);
         if (!kind) continue;
         logDetail(`company-arrives-at-site: "${def?.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
