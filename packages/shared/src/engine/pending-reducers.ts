@@ -35,7 +35,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -2432,7 +2432,7 @@ export function applyStayHerAppetiteRollResolution(
   // Dequeue resolution then set up combat
   const stateDequeued = dequeueResolution(stateAfterRoll2, top.id);
 
-  const combat: import('../types/state-combat.js').CombatState = {
+  const combat: import('../types/state-combat.js').CombatState = makeCombatState({
     attackSource: {
       type: 'stay-her-appetite-attack',
       eventDefinitionId: sourceDefinitionId,
@@ -2446,14 +2446,10 @@ export function applyStayHerAppetiteRollResolution(
     strikesTotal: 1,
     strikeProwess: attackProwess,
     creatureBody: null,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: 'defender',
-    bodyCheckTarget: null,
     detainment: true,
     forceSingleTarget: true,
-  };
+  });
 
   logDetail(`${sourceName}: initiating detainment attack (${attackProwess} prowess) against character ${hostCharacterInstanceId as string}`);
 

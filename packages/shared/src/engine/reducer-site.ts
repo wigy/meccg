@@ -23,7 +23,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply, goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -622,7 +622,7 @@ function handleSiteAutomaticAttacks(
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
         });
-        const dupCombatR: CombatState = {
+        const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
           companyId: company.id,
           defendingPlayerId: state.activePlayer!,
@@ -631,14 +631,10 @@ function handleSiteAutomaticAttacks(
           strikeProwess: dupProwessR,
           creatureBody: dupBodyR,
           creatureRace: dupRace,
-          strikeAssignments: [],
-          currentStrikeIndex: 0,
-          phase: 'assign-strikes',
           assignmentPhase: 'defender',
-          bodyCheckTarget: null,
           detainment: dupDetainmentR,
           ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
-        };
+        });
         return {
           state: {
             ...state,
@@ -674,7 +670,7 @@ function handleSiteAutomaticAttacks(
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
       });
-      const dupCombat: CombatState = {
+      const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
@@ -683,14 +679,10 @@ function handleSiteAutomaticAttacks(
         strikeProwess: dupProwess,
         creatureBody: dupBody,
         creatureRace: creatureRace2,
-        strikeAssignments: [],
-        currentStrikeIndex: 0,
-        phase: 'assign-strikes',
         assignmentPhase: 'defender',
-        bodyCheckTarget: null,
         detainment: dupDetainment,
         ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
-      };
+      });
       return {
         state: {
           ...dupState,
@@ -1263,7 +1255,7 @@ function handleDeclareAgentAttack(
   }
 
   // Build CombatState with pre-computed modifiers
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: action.agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1271,14 +1263,10 @@ function handleDeclareAgentAttack(
     strikesTotal: 1,
     strikeProwess: prowess,
     creatureBody: body,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
-    bodyCheckTarget: null,
     detainment,
     ...(attackerAssigns ? { forceSingleTarget: true } : {}),
-  };
+  });
 
   return {
     state: {
@@ -1357,7 +1345,7 @@ function handleSitePlaySiteAutoAttack(
 
   logDetail(`Site: hazard plays "${creatureDef.name}" as dynamic auto-attack (${effectiveStrikes} strikes, ${effectiveProwess} prowess) vs company ${company.id as string}`);
 
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource: {
       type: 'played-auto-attack',
       instanceId: creatureCard.instanceId,
@@ -1370,11 +1358,7 @@ function handleSitePlaySiteAutoAttack(
     strikeProwess: effectiveProwess,
     creatureBody: effectiveSiteDynBody,
     creatureRace,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: 'defender',
-    bodyCheckTarget: null,
     detainment: (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false) || isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace as Race | null,
@@ -1383,7 +1367,7 @@ function handleSitePlaySiteAutoAttack(
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
     }),
-  };
+  });
 
   return {
     state: {
@@ -3036,7 +3020,7 @@ function handleDeclareCompanyAttack(
 
   logDetail(`Site: CvCC attack declared — ${company.id} (${player.alignment}) attacks ${targetCompany.id} (${hazardPlayerState.alignment}), ${attackerCount} strike(s)`);
 
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     isCvCC: true,
     attackSource: { type: 'company-attack', attackingCompanyId: action.attackingCompanyId },
     companyId: action.targetCompanyId,
@@ -3045,13 +3029,9 @@ function handleDeclareCompanyAttack(
     strikesTotal: attackerCount,
     strikeProwess: 0,
     creatureBody: null,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: 'defender',
-    bodyCheckTarget: null,
     detainment: false,
-  };
+  });
 
   const updatedSiteState: SitePhaseState = {
     ...siteState,

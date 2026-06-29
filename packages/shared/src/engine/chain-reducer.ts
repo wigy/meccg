@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
@@ -1273,7 +1273,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           `bearer selected post-attack` +
           (remaining.length > 0 ? `; ${remaining.length} more attack(s) queued` : ''),
         );
-        const combat: CombatState = {
+        const combat: CombatState = makeCombatState({
           attackSource: {
             type: 'card-triggered-attack',
             cardInstanceId: card.instanceId,
@@ -1286,13 +1286,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           strikeProwess: effectiveProwess,
           creatureBody: null,
           creatureRace,
-          strikeAssignments: [],
-          currentStrikeIndex: 0,
-          phase: 'assign-strikes',
           assignmentPhase: 'defender',
-          bodyCheckTarget: null,
           detainment: false,
-        };
+        });
         newState = { ...newState, combat };
       }
     }
@@ -1814,7 +1810,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // the defender has an explicit opt-in before strike assignment begins.
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
 
-  const combat: CombatState = {
+  const combat: CombatState = makeCombatState({
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1825,11 +1821,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     creatureRace,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
-    strikeAssignments: [],
-    currentStrikeIndex: 0,
-    phase: 'assign-strikes',
     assignmentPhase: (attackerChooses || havenJumpOffers.length > 0) ? 'cancel-window' : 'defender',
-    bodyCheckTarget: null,
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
     attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
@@ -1849,7 +1841,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
-  };
+  });
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes${effectiveStrikes !== creatureDef.strikes ? ` → ${effectiveStrikes}` : ''}, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== creatureDef.strikes || effectiveProwess !== creatureDef.prowess ? ' after global effects' : ''}) vs company ${company.id as string}`);
 
@@ -2234,7 +2226,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const body0 = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
           const aaAttackerChooses0 = aa0.combatRules?.includes('attacker-chooses-defenders') ?? false;
           logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
-          const combat0: import('../types/state-combat.js').CombatState = {
+          const combat0: import('../types/state-combat.js').CombatState = makeCombatState({
             attackSource: { type: 'tidings-attack', eventInstanceId: entry.card.instanceId, attackIndex: 0 },
             companyId: company.id,
             defendingPlayerId: activePlayerId,
@@ -2243,11 +2235,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             strikeProwess: prowess0,
             creatureBody: body0,
             creatureRace: race0,
-            strikeAssignments: [],
-            currentStrikeIndex: 0,
-            phase: 'assign-strikes',
             assignmentPhase: aaAttackerChooses0 ? 'cancel-window' : 'defender',
-            bodyCheckTarget: null,
             detainment: isDetainmentAttack({
               attackEffects: destSiteDef.effects,
               attackRace: race0 as import('../index.js').Race | null,
@@ -2255,7 +2243,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               defendingSiteEffects: destSiteDef.effects,
             }),
             ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
-          };
+          });
           current = { ...current, combat: combat0 };
           // If more attacks follow, queue them in a constraint on the company.
           if (autoAttacks.length > 1) {
@@ -2345,7 +2333,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           `${csEffect.uncancelable ? ', uncancelable' : ''}` +
           `${csEffect.bodyCheckModifier ? `, body check ${formatSignedNumber(csEffect.bodyCheckModifier)}` : ''}`,
         );
-        const combat: import('../types/state-combat.js').CombatState = {
+        const combat: import('../types/state-combat.js').CombatState = makeCombatState({
           attackSource: { type: 'company-strike-event', eventInstanceId: entry.card.instanceId },
           companyId: company.id,
           defendingPlayerId: activePlayerId,
@@ -2354,15 +2342,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           strikeProwess: csEffect.prowess,
           creatureBody: null,
           creatureRace: undefined,
-          strikeAssignments: [],
-          currentStrikeIndex: 0,
-          phase: 'assign-strikes',
           assignmentPhase: 'defender',
-          bodyCheckTarget: null,
           detainment: false,
           ...(csEffect.uncancelable ? { uncancelable: true } : {}),
           ...(csEffect.bodyCheckModifier ? { bodyCheckModifier: csEffect.bodyCheckModifier } : {}),
-        };
+        });
         // Set combat and fall through so the chain entry is marked resolved (the
         // event card is discarded with the chain). The combat then surfaces from
         // `state.combat` — mirrors Tidings of Bold Spies. Returning needsInput
