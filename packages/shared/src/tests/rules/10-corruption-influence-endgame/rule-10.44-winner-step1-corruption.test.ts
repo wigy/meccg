@@ -15,13 +15,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
-import type { FreeCouncilPhaseState } from '../../../index.js';
+import type { FreeCouncilPhaseState, CardDefinitionId } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableFor,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  ARAGORN, LEGOLAS,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  ARAGORN, LEGOLAS, GANDALF,
   RIVENDELL, LORIEN, MINAS_TIRITH,
-  findCharInstanceId,
+  findCharInstanceId, attachHazardToChar,
 } from '../../test-helpers.js';
 
 describe('Rule 10.44 — Step 1: Corruption Checks', () => {
@@ -96,5 +96,47 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
     // PLAYER_1 no longer gets corruption-check actions
     const p1Checks = viableFor(afterPass, PLAYER_1).filter(a => a.action.type === 'corruption-check');
     expect(p1Checks).toHaveLength(0);
+  });
+
+  test('A failed check discards the character\'s attached hazards exactly once (no duplication)', () => {
+    // Regression: resolveCorruptionCheck discarded `char.hazards` unconditionally
+    // AND again inside each failure branch, so a defeated character's attached
+    // hazards landed in the owner's discard pile twice — the same CardInstance
+    // duplicated, violating the no-duplicate invariant.
+    const ORC_GUARD = 'tw-072' as CardDefinitionId; // a hazard-creature
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Attach an opponent-owned hazard to Gandalf so it routes to PLAYER_2's discard.
+    const withHazard = attachHazardToChar(base, RESOURCE_PLAYER, GANDALF, ORC_GUARD, HAZARD_PLAYER);
+    const gandalfId = findCharInstanceId(withHazard, RESOURCE_PLAYER, GANDALF);
+    const hazardId = withHazard.players[RESOURCE_PLAYER].characters[gandalfId].hazards[0].instanceId;
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+
+    // Gandalf (wizard, CP 5) rolls 5 == CP → fails → eliminated; his hazards discard.
+    const after = dispatch(
+      { ...withHazard, cheatRollTotal: 5, phaseState: fcState },
+      {
+        type: 'corruption-check', player: PLAYER_1, characterId: gandalfId,
+        corruptionPoints: 5, corruptionModifier: 0, possessions: [], need: 6, explanation: 'regression',
+      },
+    );
+
+    const copies = after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
+    expect(copies).toHaveLength(1);
   });
 });

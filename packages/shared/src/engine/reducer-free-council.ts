@@ -333,13 +333,7 @@ function resolveCorruptionCheck(
       companies: newCompanies,
       discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
     };
-    for (const hazard of char.hazards) {
-      logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from discarded character`);
-      const hazOwner = ownerOf(hazard.instanceId);
-      let hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
-      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
-      newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
-    }
+    // (Attached hazards were already discarded to their owners above.)
   } else {
     // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
     // failure — character eliminated, possessions discarded.
@@ -351,13 +345,7 @@ function resolveCorruptionCheck(
       outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
       discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
-    for (const hazard of char.hazards) {
-      logDetail(`Free Council: discarding hazard ${hazard.instanceId as string} from eliminated character`);
-      const hazOwner = ownerOf(hazard.instanceId);
-      let hazOwnerIdx = newPlayers.findIndex(p => p.id === hazOwner);
-      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
-      newPlayers[hazOwnerIdx] = { ...newPlayers[hazOwnerIdx], discardPile: [...newPlayers[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
-    }
+    // (Attached hazards were already discarded to their owners above.)
   }
 
   return {
