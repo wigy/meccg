@@ -30,6 +30,7 @@ import type {
   SupportCorruptionCheckAction,
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
+  InfluenceAttemptAction,
   PlayShortEventAction,
   SelectCardBearerAction,
   DeclareAgentAttackAction,
@@ -54,6 +55,41 @@ import { renderCharacterColumn } from './company-character.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip } from './company-modals.js';
 import { showTooltipMenu } from './tooltip-menu.js';
 import { switchToAllCompanies } from './company-view.js';
+
+/**
+ * All viable influence-attempt actions for a given (faction, character) pair.
+ *
+ * A faction carrying a `leader-control` effect (LE "Orcs of Udûn"-style
+ * factions such as Stone Trolls le-288) yields two influence-attempt variants
+ * for an eligible Orc/Troll leader: a plain influence (taps the site) and one
+ * with {@link InfluenceAttemptAction.placeUnderLeaderControl} (placing the
+ * faction under the leader's control, leaving the site untapped). Both variants
+ * share the same faction and influencing character, so the UI must present them
+ * as a choice rather than silently firing the first one. Returns all matching
+ * variants (usually one, occasionally two).
+ */
+export function findInfluenceVariants(
+  viable: readonly GameAction[],
+  factionInstanceId: CardInstanceId,
+  charInstanceId: CardInstanceId,
+): InfluenceAttemptAction[] {
+  return viable.filter(
+    (a): a is InfluenceAttemptAction =>
+      a.type === 'influence-attempt'
+      && a.factionInstanceId === factionInstanceId
+      && a.influencingCharacterId === charInstanceId,
+  );
+}
+
+/**
+ * Human-readable label for an influence-attempt variant, used when the UI must
+ * disambiguate the plain attempt from the leader-control variant.
+ */
+export function influenceVariantLabel(action: InfluenceAttemptAction): string {
+  return action.placeUnderLeaderControl
+    ? "Place under leader's control (site not tapped)"
+    : 'Influence (tap site)';
+}
 
 /**
  * Get the display name for a company based on its title character and current site.
@@ -534,18 +570,34 @@ export function renderCompanyBlock(
     // Faction influence targeting takes priority when active
     const selectedFaction = getSelectedFactionForInfluence();
     if (selectedFaction) {
-      const influenceAction = viableActions(view.legalActions).find(
-        a => a.type === 'influence-attempt'
-          && a.factionInstanceId === selectedFaction
-          && a.influencingCharacterId === charInstId,
+      const influenceVariants = findInfluenceVariants(
+        viableActions(view.legalActions), selectedFaction, charInstId,
       );
-      if (influenceAction) {
+      if (influenceVariants.length > 0) {
         return {
           cls: 'company-card--influence-target',
           handler: (e) => {
             e.stopPropagation();
-            clearFactionInfluenceSelection();
-            options?.onAction?.(influenceAction);
+            // A single variant fires immediately. Two variants (plain vs.
+            // leader-control, e.g. Stone Trolls le-288) require a choice — show
+            // a tooltip menu so the player can place the faction under the
+            // Orc/Troll leader's control instead of always tapping the site.
+            if (influenceVariants.length === 1) {
+              clearFactionInfluenceSelection();
+              options?.onAction?.(influenceVariants[0]);
+              return;
+            }
+            showTooltipMenu(
+              e.target as HTMLElement,
+              influenceVariants.map(variant => ({
+                label: influenceVariantLabel(variant),
+                onClick: () => {
+                  clearFactionInfluenceSelection();
+                  options?.onAction?.(variant);
+                },
+              })),
+              { placement: 'auto' },
+            );
           },
         };
       }
