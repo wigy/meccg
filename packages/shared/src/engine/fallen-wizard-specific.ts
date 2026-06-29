@@ -82,7 +82,7 @@ export function sweepFallenWizardSpecific(state: GameState): GameState {
       && isFallenWizardSpecific(defById(state, card.definitionId)),
     card => {
       const def = defById(state, card.definitionId);
-      logDetail(`MEWH §12: Fallen-wizard avatar has left play — discarding wizard-specific stage card ${def && 'name' in def ? (def as { name: string }).name : (card.definitionId as string)}`);
+      logDetail(`MEWH §12: Fallen-wizard avatar has left play — discarding wizard-specific stage card ${def?.name ?? (card.definitionId as string)}`);
     },
   ).state;
 }

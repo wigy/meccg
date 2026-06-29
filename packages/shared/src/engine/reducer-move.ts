@@ -158,7 +158,7 @@ export function resolveMoveSource(
       const candidates = collectFromZone(state, zone, ctx, undefined);
       for (const c of candidates) {
         const def = defById(state, c.instance.definitionId);
-        const name = def && 'name' in def ? (def as { name: string }).name : undefined;
+        const name = def?.name;
         if (name === move.cardName) return { instances: [c] };
       }
     }

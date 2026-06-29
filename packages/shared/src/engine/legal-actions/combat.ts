@@ -878,7 +878,7 @@ function resolveStrikeActions(
   // Must match the reducer's prowess calculation: base effective prowess,
   // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
   const charDef = defById(state, targetDefId);
-  const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
+  const charName = charDef?.name ?? (currentStrike.characterId as string);
   // Recompute prowess with combat context when creature race is known,
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
   let baseProwess: number;
@@ -1365,7 +1365,7 @@ function tapItemForStrikeActions(
       };
       if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
       if (!matchesCondition(effect.when, ctx)) {
-        const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+        const itemName = itemDef?.name ?? (item.definitionId as string);
         logDetail(`Tap-item-for-strike ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
         continue;
       }
@@ -1374,7 +1374,7 @@ function tapItemForStrikeActions(
     const bonus = effect.prowessModifier ?? 0;
     const modifiedProwess = tapProwess + bonus;
     const modifiedNeed = Math.max(2, strikeProwess - modifiedProwess + 1);
-    const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+    const itemName = itemDef?.name ?? (item.definitionId as string);
     const explanation = `${itemName}: need ${modifiedNeed}+ (prowess ${modifiedProwess} vs ${strikeProwess}, ${formatSignedNumber(bonus)})`;
     logDetail(`Tap-item-for-strike available: tap ${itemName} on ${charDef.name ?? ''} — ${explanation}`);
     actions.push({
@@ -1422,7 +1422,7 @@ function bodyCheckActions(
     const charData = atkPlayer?.characters[strike?.attackingCharacterId as string];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
-    targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'attacker';
+    targetLabel = charDef?.name ?? 'attacker';
   } else {
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayer = playerById(state, combat.defendingPlayerId);
@@ -1437,7 +1437,7 @@ function bodyCheckActions(
     if (strike?.strikeBodyPenalty) {
       body = body + strike.strikeBodyPenalty;
     }
-    targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'character';
+    targetLabel = charDef?.name ?? 'character';
   }
   // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
   const isWounded = combat.bodyCheckTarget === 'character' &&
@@ -2157,13 +2157,13 @@ function modifyAttackActions(
             attackCtx['siteKeyed'] = isSiteKeyedCreature;
             ctx['attack'] = attackCtx;
             if (!matchesCondition(effect.when, ctx)) {
-              const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+              const itemName = itemDef?.name ?? item.definitionId as string;
               logDetail(`Modify-attack ${itemName}: when condition not met (bearer ${charDef.name ?? ''})`);
               continue;
             }
           }
 
-          const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+          const itemName = itemDef?.name ?? item.definitionId as string;
           logDetail(`Modify-attack available: tap ${itemName} on ${charDef.name ?? ''} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
           actions.push({
             action: { type: 'modify-attack', player: playerId, cardInstanceId: item.instanceId, characterInstanceId: charId },
@@ -2183,7 +2183,7 @@ function modifyAttackActions(
         );
         if (!effect) continue;
         if (effect.cost?.tap !== 'self') continue;
-        const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : ally.definitionId as string;
+        const allyName = allyDef?.name ?? ally.definitionId as string;
         if (ally.status !== CardStatus.Untapped) {
           logDetail(`Modify-attack ${allyName}: ally tapped, cannot activate`);
           continue;
@@ -2502,9 +2502,9 @@ function itemSalvageActions(
     for (const recipientId of salvageRecipients) {
       const charData = playerById(state, playerId)?.characters[recipientId as string];
       const charDef = charData ? defById(state, charData.definitionId) : undefined;
-      const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (recipientId as string);
+      const charName = charDef?.name ?? (recipientId as string);
       const itemDef = defById(state, item.definitionId);
-      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      const itemName = itemDef?.name ?? (item.instanceId as string);
       logDetail(`Salvage available: ${itemName} → ${charName}`);
       actions.push({
         action: {
@@ -2547,7 +2547,7 @@ function discardItemFromCompanyActions(
 
   return discardItemOptions.map(item => {
     const itemDef = defById(state, item.definitionId);
-    const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+    const itemName = itemDef?.name ?? (item.instanceId as string);
     logDetail(`Discard-item available: ${itemName}`);
     return {
       action: {

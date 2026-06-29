@@ -925,9 +925,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const siteDef = company.currentSite
             ? defById(state, company.currentSite.definitionId)
             : undefined;
-          const siteName = siteDef && 'name' in siteDef
-            ? (siteDef as { name: string }).name
-            : '';
+          const siteName = siteDef?.name ?? '';
           if (!siteName) {
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer has no current site`);
             continue;
@@ -938,9 +936,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
               const coSiteDef = co.currentSite
                 ? defById(state, co.currentSite.definitionId)
                 : undefined;
-              const coSiteName = coSiteDef && 'name' in coSiteDef
-                ? (coSiteDef as { name: string }).name
-                : '';
+              const coSiteName = coSiteDef?.name ?? '';
               if (coSiteName !== siteName) continue;
               for (const coCharId of co.characters) {
                 const coChar = p.characters[coCharId as string];
@@ -1099,7 +1095,7 @@ export function buildGrantActionContext(
   const playerCtx = player ? {
     playDeckSize: player.playDeck.length,
   } : null;
-  const siteName = siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : '';
+  const siteName = siteDef?.name ?? '';
   const siteIsTapped = company?.currentSite?.status === CardStatus.Tapped;
   const hasDragonAutoAttack = siteDef && 'automaticAttacks' in siteDef
     ? ((siteDef as { automaticAttacks?: readonly { creatureType: string }[] }).automaticAttacks ?? [])
@@ -1133,7 +1129,7 @@ function siteHasItemWithKeyword(
       const compSite = company.currentSite
         ? defById(state, company.currentSite.definitionId)
         : undefined;
-      const compSiteName = compSite && 'name' in compSite ? (compSite as { name: string }).name : '';
+      const compSiteName = compSite?.name ?? '';
       if (compSiteName !== siteName) continue;
       for (const charInstId of company.characters) {
         const char = p.characters[charInstId as string];
@@ -1287,7 +1283,7 @@ export function modifyCorruptionCheckGrantActions(
           e.type === 'grant-action' && e.corruptionCheckWindow === true && !!e.apply,
       );
       if (!grant) continue;
-      logDetail(`Corruption-check modifier available: ${def && 'name' in def ? (def as { name: string }).name : '?'} (bearer ${charId as string}) → boost check by ${resolvingCharacterId as string}`);
+      logDetail(`Corruption-check modifier available: ${def?.name ?? '?'} (bearer ${charId as string}) → boost check by ${resolvingCharacterId as string}`);
       actions.push({
         action: {
           type: 'activate-granted-action',
@@ -1665,7 +1661,7 @@ function buildActiveCompanyContext(
   company: import('../../types/state-cards.js').Company,
 ): Record<string, unknown> {
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const siteName = siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
+  const siteName = siteDef?.name;
   const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
 
   const characterNames: string[] = [];

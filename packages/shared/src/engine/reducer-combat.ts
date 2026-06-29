@@ -2864,7 +2864,7 @@ function handleTapAllyCombatBoost(state: GameState, action: GameAction, combat: 
         const ctx = {
           target: {
             race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
-            name: ('name' in charCardDef ? (charCardDef as { name?: string }).name : undefined) ?? '',
+            name: (charCardDef?.name) ?? '',
             skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
           },
         };
@@ -2989,7 +2989,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
       return { state, error: 'Attack has no attacker-chooses-defenders rule to remove' };
     }
 
-    const allyName = 'name' in allyDef ? (allyDef as { name: string }).name : ally.definitionId as string;
+    const allyName = allyDef?.name ?? ally.definitionId as string;
     const updatedAllyChar = {
       ...charData,
       allies: charData.allies.map((a, i) => i === allyIndex ? { ...a, status: CardStatus.Tapped } : a),
