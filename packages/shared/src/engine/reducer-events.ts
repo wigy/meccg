@@ -27,7 +27,7 @@ import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 import { isCharacterCard } from '../types/cards.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
