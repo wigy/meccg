@@ -106,6 +106,25 @@ export function defenderAlignmentLabel(a: Alignment): string {
   return a === Alignment.Wizard ? 'hero' : a;
 }
 
+/**
+ * Translates a defending player's {@link Alignment} to the
+ * rules-terminology string used by `combat-detainment` `when` clauses
+ * *when determining whether an attack is detainment*.
+ *
+ * This differs from {@link defenderAlignmentLabel} for Fallen-wizard
+ * players: rule 2.IV.vii.F1 states that "when determining whether an
+ * attack is detainment, a Fallen-wizard player's companies are
+ * considered hero companies" — and the 2026-02-07 clarification to that
+ * rule confirms the company's covert/overt status is irrelevant for
+ * detainment determination. So both Wizard and Fallen-wizard defenders
+ * label as `'hero'` here, ensuring cards such as *Ent in Search of the
+ * Entwives* ("detainment against covert and hero companies") fire their
+ * `defender.alignment: hero` branch against a Fallen-wizard company.
+ */
+function detainmentAlignmentLabel(a: Alignment): string {
+  return a === Alignment.Wizard || a === Alignment.FallenWizard ? 'hero' : a;
+}
+
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   const siteOverride = (ctx.defendingSiteEffects ?? []).find(
     e => e.type === 'site-rule' && e.rule === 'attacks-not-detainment',
@@ -128,7 +147,7 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
 
   const conditionContext = {
     defender: {
-      alignment: defenderAlignmentLabel(ctx.defendingAlignment),
+      alignment: detainmentAlignmentLabel(ctx.defendingAlignment),
       covert: ctx.defendingCovert ?? false,
     },
   };
